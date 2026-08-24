@@ -1,0 +1,165 @@
+erDiagram
+    ROLES ||--o{ USUARIOS : "asigna perfil"
+    USUARIOS ||--o{ SESIONES_ACTIVAS : "tiene_sesion_activa"
+    USUARIOS ||--o{ TURNOS_CAJA : "abre/cierra"
+    USUARIOS ||--o{ VENTAS : "registra"
+    USUARIOS ||--o{ COMPRAS : "ingresa"
+
+    TURNOS_CAJA ||--o{ MOVIMIENTOS_CAJA : "contiene"
+    TURNOS_CAJA ||--o{ VENTAS : "agrupa"
+
+    PROVEEDORES ||--o{ CATALOGOS_PROVEEDORES : "suministra"
+    CATALOGOS_PROVEEDORES ||--o{ ARTICULOS : "enlace_opcional"
+    PROVEEDORES ||--o{ COMPRAS : "factura"
+
+    VENTAS ||--|{ DETALLE_VENTAS : "posee"
+    VENTAS ||--o{ PAGOS_VENTA : "se_cancela_con"
+    VENTAS ||--o| COMPROBANTES_FISCALES : "genera"
+    ARTICULOS ||--o{ DETALLE_VENTAS : "es_vendido"
+
+    COMPRAS ||--|{ DETALLE_COMPRAS : "posee"
+    ARTICULOS ||--o{ DETALLE_COMPRAS : "es_adquirido"
+
+    USUARIOS {
+        int id_usuario PK
+        string nombre_usuario UK
+        string password_hash
+        string nombre_completo
+        int id_rol FK
+        datetime deleted_at
+        datetime created_at
+    }
+
+    ROLES {
+        int id_rol PK
+        string nombre_rol
+        string descripcion
+        datetime deleted_at
+    }
+
+    SESIONES_ACTIVAS {
+        int id_usuario PK, FK
+        string nombre_terminal
+        string token_hash
+        datetime fecha_inicio
+    }
+
+    TURNOS_CAJA {
+        int id_turno PK
+        int id_usuario FK
+        string nombre_terminal
+        datetime fecha_apertura
+        decimal saldo_inicial
+        datetime fecha_cierre
+        decimal saldo_final_declarado
+        decimal saldo_final_teorico
+        decimal diferencia
+        decimal monto_en_caja
+        string estado
+    }
+
+    MOVIMIENTOS_CAJA {
+        int id_movimiento PK
+        int id_turno FK
+        string tipo_movimiento
+        decimal monto
+        string concepto
+        datetime fecha_hora
+    }
+
+    ARTICULOS {
+        int id_articulo PK
+        string codigo_barras UK
+        string descripcion
+        int id_catalogo_proveedor FK
+        decimal costo_reposicion
+        decimal porcentaje_ganancia
+        decimal precio_venta
+        int stock_actual
+        int stock_minimo
+        bool es_servicio
+        datetime deleted_at
+    }
+
+    PROVEEDORES {
+        int id_proveedor PK
+        string razon_social
+        string cuit UK
+        string telefono
+        string email
+        datetime deleted_at
+    }
+
+    CATALOGOS_PROVEEDORES {
+        int id_catalogo PK
+        int id_proveedor FK
+        string codigo_proveedor
+        string descripcion_proveedor
+        decimal precio_costo
+        datetime fecha_actualizacion
+        datetime deleted_at
+    }
+
+    VENTAS {
+        int id_venta PK
+        int id_turno FK
+        int id_usuario FK
+        datetime fecha_hora
+        decimal subtotal
+        decimal descuento
+        decimal total
+        string tipo_operacion
+        string estado_fiscal
+        datetime deleted_at
+    }
+
+    DETALLE_VENTAS {
+        int id_detalle PK
+        int id_venta FK
+        int id_articulo FK
+        int cantidad
+        decimal precio_unitario
+        decimal subtotal_item
+    }
+
+    PAGOS_VENTA {
+        int id_pago PK
+        int id_venta FK
+        string medio_pago
+        decimal monto
+        string referencia_pago
+    }
+
+    COMPROBANTES_FISCALES {
+        int id_comprobante PK
+        int id_venta FK
+        string tipo_comprobante
+        int punto_venta
+        int numero_comprobante
+        string cae
+        date fecha_vto_cae
+        string resultado_arca
+        datetime fecha_emision
+    }
+
+    COMPRAS {
+        int id_compra PK
+        int id_proveedor FK
+        int id_usuario FK
+        string tipo_comprobante
+        string numero_comprobante
+        datetime fecha_emision
+        decimal subtotal
+        decimal total
+        string estado
+        datetime deleted_at
+    }
+
+    DETALLE_COMPRAS {
+        int id_detalle_compra PK
+        int id_compra FK
+        int id_articulo FK
+        int cantidad
+        decimal costo_unitario
+        decimal subtotal_item
+    }
