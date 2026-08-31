@@ -83,3 +83,4 @@ Cada directorio del proyecto cuenta con su propia documentación técnica exhaus
 - [Especificación de Requisitos de Software (ERS v2.0)](file:///c:/Users/lucas/Proyectos/retail/ERS%20-%20Libreria%20POS.md)
 - [Propuesta de Arquitectura y Estructura Global](file:///c:/Users/lucas/Proyectos/retail/Arquitectura%20y%20Estructura%20del%20Proyecto.md)
 - [Diagrama Entidad-Relación (DER)](file:///c:/Users/lucas/Proyectos/retail/DER.mmd)
+- [Guía de Presentación y Defensa Técnica](file:///c:/Users/lucas/Proyectos/retail/docs/Presentacion%20-%20Defensa%20de%20Dise%C3%B1o%20Tecnico.md)
