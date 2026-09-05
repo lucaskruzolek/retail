@@ -1,13 +1,21 @@
 erDiagram
     ROLES ||--o{ USUARIOS : "asigna perfil"
-    USUARIOS ||--o{ SESIONES_ACTIVAS : "tiene_sesion_activa"
     USUARIOS ||--o{ TURNOS_CAJA : "abre/cierra"
     USUARIOS ||--o{ VENTAS : "registra"
+    USUARIOS ||--o{ PRESUPUESTOS : "confecciona"
     USUARIOS ||--o{ COMPRAS : "ingresa"
+    USUARIOS ||--o{ COBRANZAS_CLIENTES : "registra"
+
+    CLIENTES ||--o{ VENTAS : "se_factura_a"
+    CLIENTES ||--o{ PRESUPUESTOS : "se_cotiza_a"
+    CLIENTES ||--o{ COBRANZAS_CLIENTES : "abona_deuda"
 
     TURNOS_CAJA ||--o{ MOVIMIENTOS_CAJA : "contiene"
-    TURNOS_CAJA ||--o{ VENTAS : "agrupa"
+    TURNOS_CAJA ||--o{ VENTAS : "recauda"
+    TURNOS_CAJA ||--o{ COBRANZAS_CLIENTES : "ingresa_fondos"
 
+    CATEGORIAS ||--o{ ARTICULOS : "clasifica"
+    MARCAS ||--o{ ARTICULOS : "agrupa"
     PROVEEDORES ||--o{ CATALOGOS_PROVEEDORES : "suministra"
     CATALOGOS_PROVEEDORES ||--o{ ARTICULOS : "enlace_opcional"
     PROVEEDORES ||--o{ COMPRAS : "factura"
@@ -16,6 +24,10 @@ erDiagram
     VENTAS ||--o{ PAGOS_VENTA : "se_cancela_con"
     VENTAS ||--o| COMPROBANTES_FISCALES : "genera"
     ARTICULOS ||--o{ DETALLE_VENTAS : "es_vendido"
+
+    PRESUPUESTOS ||--|{ DETALLE_PRESUPUESTOS : "contiene"
+    ARTICULOS ||--o{ DETALLE_PRESUPUESTOS : "se_cotiza"
+    PRESUPUESTOS ||--o| VENTAS : "origina"
 
     COMPRAS ||--|{ DETALLE_COMPRAS : "posee"
     ARTICULOS ||--o{ DETALLE_COMPRAS : "es_adquirido"
@@ -37,24 +49,47 @@ erDiagram
         datetime deleted_at
     }
 
-    SESIONES_ACTIVAS {
-        int id_usuario PK, FK
-        string nombre_terminal
-        string token_hash
-        datetime fecha_inicio
+    CLIENTES {
+        int id_cliente PK
+        string razon_social_o_nombre
+        string tipo_documento
+        string numero_documento UK
+        string condicion_iva
+        string domicilio_fiscal
+        string telefono
+        string email
+        bool tiene_cuenta_corriente
+        decimal limite_credito
+        decimal saldo_cuenta_corriente
+        datetime deleted_at
+        datetime created_at
+    }
+
+    COBRANZAS_CLIENTES {
+        int id_cobranza PK
+        int id_cliente FK
+        int id_turno FK
+        int id_usuario FK
+        datetime fecha_hora
+        string medio_pago
+        decimal monto
+        string referencia
     }
 
     TURNOS_CAJA {
         int id_turno PK
         int id_usuario FK
-        string nombre_terminal
         datetime fecha_apertura
         decimal saldo_inicial
         datetime fecha_cierre
-        decimal saldo_final_declarado
-        decimal saldo_final_teorico
-        decimal diferencia
-        decimal monto_en_caja
+        decimal total_ventas_efectivo
+        decimal total_ingresos_efectivo
+        decimal total_egresos_efectivo
+        decimal saldo_teorico_efectivo
+        decimal saldo_declarado_efectivo
+        decimal diferencia_efectivo
+        decimal total_ventas_electronicas
+        decimal monto_retenido_en_caja
         string estado
     }
 
@@ -67,10 +102,24 @@ erDiagram
         datetime fecha_hora
     }
 
+    CATEGORIAS {
+        int id_categoria PK
+        string nombre_categoria
+        datetime deleted_at
+    }
+
+    MARCAS {
+        int id_marca PK
+        string nombre_marca
+        datetime deleted_at
+    }
+
     ARTICULOS {
         int id_articulo PK
-        string codigo_barras UK
+        string codigo_barras "UK nullable (filtered)"
         string descripcion
+        int id_categoria FK
+        int id_marca FK
         int id_catalogo_proveedor FK
         decimal costo_reposicion
         decimal porcentaje_ganancia
@@ -104,11 +153,12 @@ erDiagram
         int id_venta PK
         int id_turno FK
         int id_usuario FK
+        int id_cliente FK
+        int id_presupuesto_origen FK
         datetime fecha_hora
         decimal subtotal
         decimal descuento
         decimal total
-        string tipo_operacion
         string estado_fiscal
         datetime deleted_at
     }
@@ -130,6 +180,28 @@ erDiagram
         string referencia_pago
     }
 
+    PRESUPUESTOS {
+        int id_presupuesto PK
+        int id_usuario FK
+        int id_cliente FK
+        datetime fecha_emision
+        datetime fecha_vencimiento
+        decimal subtotal
+        decimal descuento
+        decimal total
+        string estado
+        datetime deleted_at
+    }
+
+    DETALLE_PRESUPUESTOS {
+        int id_detalle_presupuesto PK
+        int id_presupuesto FK
+        int id_articulo FK
+        int cantidad
+        decimal precio_unitario_pactado
+        decimal subtotal_item
+    }
+
     COMPROBANTES_FISCALES {
         int id_comprobante PK
         int id_venta FK
@@ -139,6 +211,7 @@ erDiagram
         string cae
         date fecha_vto_cae
         string resultado_arca
+        string motivo_error
         datetime fecha_emision
     }
 

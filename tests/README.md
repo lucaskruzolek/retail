@@ -1,19 +1,6 @@
 # Suites de Pruebas Automatizadas (Tests)
 
-El directorio `tests/` agrupa todos los proyectos de pruebas unitarias, de integración y de interfaz de usuario del sistema **Retail**, estructurados para garantizar la máxima cobertura, prevenir regresiones y validar el estricto cumplimiento de los requisitos funcionales (`RF-*`) y no funcionales (`RNF-*`).
-
----
-
-## 🎯 Objetivos de la Estrategia de Pruebas
-
-1. **Pruebas Unitarias de Dominio Puras (Sin I/O ni dependencias externas):**
-   Verificar las reglas de negocio, fórmulas matemáticas (Markup %, arqueo ciego) e invariantes en microsegundos.
-2. **Pruebas Unitarias de Aplicación (Aisladas con Mocks/Stubs):**
-   Verificar la orquestación de casos de uso y la lógica de validación de `FluentValidation` simulando repositorios y servicios externos con `NSubstitute` o `Moq`.
-3. **Pruebas de Integración de API (End-to-End en Backend):**
-   Probar el pipeline completo de ASP.NET Core mediante `WebApplicationFactory`, verificando autenticación JWT, middlewares de sesión única, transacciones ACID en base de datos y códigos de estado HTTP.
-4. **Pruebas Unitarias de ViewModels de Cliente (WPF):**
-   Verificar comandos, cambios de propiedades observables, lógica de cobro y manejo de errores en el cliente de escritorio.
+El directorio `tests/` agrupa todos los proyectos de pruebas unitarias, de integración y de presentación del sistema **Retail**, estructurados para validar el estricto cumplimiento de las reglas de negocio, prevenir regresiones y asegurar la calidad de la arquitectura monolítica limpia.
 
 ---
 
@@ -21,119 +8,72 @@ El directorio `tests/` agrupa todos los proyectos de pruebas unitarias, de integ
 
 ```text
 tests/
-├── Retail.Domain.UnitTests/             # Pruebas de Entidades, Fórmulas e Invariantes
-│   ├── ArticuloTests.cs                 # Descuento de stock, markup y servicios
-│   ├── TurnoCajaTests.cs                # Arqueo ciego, faltante/sobrante y estados
-│   ├── VentaTests.cs                    # Cobro multimedio, validación de total
-│   ├── PresupuestoTests.cs              # Caducidad de 15 días sin reserva de stock
-│   └── SesionActivaTests.cs             # Reemplazo de sesión y token hash
-├── Retail.Application.UnitTests/        # Pruebas de Servicios de Aplicación y Validadores
-│   ├── VentaServiceTests.cs             # Orquestación de venta y descuento atómico
-│   ├── AuthServiceTests.cs              # Flujo de login, kick-out y verificación de roles
-│   ├── CajaServiceTests.cs              # Cálculo de balance teórico vs. declarado
-│   ├── FiscalServiceTests.cs            # Encolado en Channel FIFO y manejo de contingencia
-│   └── Validators/                      # Pruebas de reglas de FluentValidation
+├── Retail.Domain.UnitTests/                 # Pruebas de Entidades, Fórmulas e Invariantes
+│   ├── ArticuloTests.cs                     # Descuento de stock, markup, código nulable y recálculo automático
+│   ├── TurnoCajaTests.cs                    # Arqueo de efectivo, balance teórico y diferencias
+│   ├── VentaTests.cs                        # Cobro multimedio, Factura A vs B
+│   ├── PresupuestoTests.cs                  # Congelamiento de precios y caducidad a 15 días
+│   ├── ClienteTests.cs                      # Límite de crédito y condición IVA
+│   └── CobranzaClienteTests.cs              # Imputación de pagos multimedio a saldos
+├── Retail.Application.UnitTests/            # Pruebas de Casos de Uso y Validadores
+│   ├── VentaServiceTests.cs                 # Orquestación de venta, descuento atómico y cliente
+│   ├── PresupuestoServiceTests.cs           # Conversión con validación de stock y precios
+│   ├── ClienteServiceTests.cs               # RegistrarCobranzaAsync y actualización de cuenta
+│   ├── CompraServiceTests.cs                # Actualización de stock y recálculo de precio por markup
+│   ├── AuthServiceTests.cs                  # Flujo de login y verificación de roles
+│   ├── CajaServiceTests.cs                  # Conciliación de efectivo físico
+│   ├── FiscalServiceTests.cs                # Despacho asíncrono y contingencia
+│   └── Validators/                          # Pruebas de reglas FluentValidation
 │       ├── CrearVentaValidatorTests.cs
-│       └── AperturaTurnoValidatorTests.cs
-├── Retail.Server.Api.IntegrationTests/  # Pruebas de Integración con WebApplicationFactory
-│   ├── AuthEndpointsTests.cs            # /api/auth (Login, Token JWT, Kick-out 401)
-│   ├── VentasEndpointsTests.cs          # /api/ventas (Transacciones ACID, concurrencia)
-│   ├── CajaEndpointsTests.cs            # /api/caja (Apertura y Arqueo Ciego)
-│   └── Middlewares/
-│       └── SessionValidationMiddlewareTests.cs
-└── Retail.Client.Wpf.UnitTests/         # Pruebas de ViewModels y Servicios de Cliente
-    ├── PosViewModelTests.cs             # Agregado de ítems, lector de barras y total
-    ├── LoginViewModelTests.cs           # Manejo de credenciales y diálogo de desalojo
-    ├── PollyPoliciesTests.cs            # Verificación de reintentos ante fallos de red
-    └── SessionManagerTests.cs           # Almacenamiento seguro de token en memoria
+│       ├── CrearPresupuestoValidatorTests.cs
+│       ├── CrearClienteValidatorTests.cs
+│       └── RegistrarCobranzaValidatorTests.cs
+├── Retail.Infrastructure.IntegrationTests/  # Pruebas de Persistencia con SQL Server Local
+│   ├── RetailDbContextTests.cs              # Filtered Index en CodigoBarras (múltiples NULLs)
+│   ├── UnitOfWorkTests.cs                   # Transacciones atómicas y rollback
+│   └── ArcaClientTests.cs                   # Manejo de timeouts y captura de motivo_error
+└── Retail.App.UnitTests/                    # Pruebas de ViewModels de Escritorio
+    ├── PosViewModelTests.cs                 # Carga de presupuesto, alerta de precios y totales
+    ├── ClientesViewModelTests.cs            # Búsqueda y alta de clientes
+    ├── CobranzaModalViewModelTests.cs       # Validación de montos y medios de pago
+    ├── LoginViewModelTests.cs               # Credenciales y navegación
+    └── CobroModalViewModelTests.cs          # Pagos combinados, vuelto y cuenta corriente
 ```
 
 ---
 
-## 🧩 Ejemplos de Pruebas Representativas
+## 🧩 Pruebas Representativas de Nuevas Reglas
 
-### 1. Prueba Unitaria de Dominio (`Retail.Domain.UnitTests/ArticuloTests.cs`)
+### 1. Recálculo Automático por Compras (`Retail.Domain.UnitTests/ArticuloTests.cs`)
 ```csharp
 [Fact]
-public void DescontarStock_CuandoStockEsSuficiente_DebeDisminuirStockActual()
+public void ActualizarCostoYRecalcularPrecio_ConMarkupConfigurado_DebeRecalcularPrecioVenta()
 {
-    // Arrange
-    var articulo = new Articulo("779123456", "Cuaderno Rivadavia 100h", 1, 1, null, 1500m, 30m, 1950m, 10, 2, false);
+    // Arrange: Costo original $1.000, markup 50%, precio original $1.500
+    var articulo = new Articulo(null, "Cuaderno Artesanal", 1, 1, null, 1000m, 50m, 1500m, 10, 2, false);
 
-    // Act
-    articulo.DescontarStock(3);
+    // Act: Ingresa compra con nuevo costo de $1.200
+    articulo.ActualizarCostoYRecalcularPrecio(1200m);
 
-    // Assert
-    articulo.StockActual.Should().Be(7);
-}
-
-[Fact]
-public void DescontarStock_CuandoStockEsInsuficiente_DebeLanzarStockInsuficienteException()
-{
-    // Arrange
-    var articulo = new Articulo("779123456", "Cuaderno Rivadavia 100h", 1, 1, null, 1500m, 30m, 1950m, 2, 1, false);
-
-    // Act & Assert
-    var act = () => articulo.DescontarStock(5);
-    act.Should().Throw<StockInsuficienteException>();
+    // Assert: Nuevo precio de venta = $1.200 * 1.50 = $1.800
+    articulo.CostoReposicion.Should().Be(1200m);
+    articulo.PrecioVenta.Should().Be(1800m);
 }
 ```
 
-### 2. Prueba Unitaria de Aplicación (`Retail.Application.UnitTests/VentaServiceTests.cs`)
+### 2. Soporte de Múltiples Códigos de Barras Nulos (`Retail.Infrastructure.IntegrationTests/RetailDbContextTests.cs`)
 ```csharp
 [Fact]
-public async Task RegistrarVenta_SinTurnoCajaAbierto_DebeLanzarCajaCerradaException()
+public async Task GuardarArticulos_ConMultiplesCodigosNulos_NoDebeLanzarExcepcionDeUnicidad()
 {
-    // Arrange
-    var cajaRepo = Substitute.For<ICajaRepository>();
-    cajaRepo.GetTurnoActivoPorUsuarioAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-        .Returns((TurnoCaja?)null);
+    // Arrange: Dos artículos artesanales sin código de barras (null)
+    var art1 = new Articulo(null, "Atril de Madera Artesanal", 1, 1, null, 5000m, 40m, 7000m, 5, 1, false);
+    var art2 = new Articulo(null, "Señalador de Cuero Pintado", 1, 1, null, 800m, 50m, 1200m, 20, 5, false);
 
-    var service = new VentaService(cajaRepo, ...);
-    var dto = new CrearVentaDto { /* ... */ };
+    _context.Articulos.AddRange(art1, art2);
 
-    // Act & Assert
-    await Assert.ThrowsAsync<CajaCerradaException>(() => 
-        service.RegistrarVentaAsync(dto, 1, CancellationToken.None));
+    // Act & Assert: Gracias al índice filtrado en SQL Server, ambos se persisten sin error
+    var action = async () => await _context.SaveChangesAsync();
+    await action.Should().NotThrowAsync();
 }
 ```
-
-### 3. Prueba de Integración (`Retail.Server.Api.IntegrationTests/AuthEndpointsTests.cs`)
-```csharp
-public class AuthEndpointsTests : IClassFixture<WebApplicationFactory<Program>>
-{
-    private readonly HttpClient _client;
-
-    public AuthEndpointsTests(WebApplicationFactory<Program> factory)
-    {
-        _client = factory.CreateClient();
-    }
-
-    [Fact]
-    public async Task Login_ConCredencialesValidas_DebeRetornar200YTokenJwt()
-    {
-        // Arrange
-        var request = new LoginRequestDto { NombreUsuario = "cajero1", Password = "Password123!" };
-
-        // Act
-        var response = await _client.PostAsJsonAsync("/api/auth/login", request);
-
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var result = await response.Content.ReadFromJsonAsync<LoginResponseDto>();
-        result.Should().NotBeNull();
-        result!.TokenJwt.Should().NotBeNullOrWhiteSpace();
-    }
-}
-```
-
----
-
-## 🛠️ Herramientas y Librerías de Testing
-
-| Herramienta | Rol | Justificación |
-| :--- | :--- | :--- |
-| **xUnit** | Framework de Testing | Estándar de la industria en .NET con paralelización nativa. |
-| **FluentAssertions** | Aserciones Expresivas | Sintaxis clara y legible (`result.Should().Be(...)`). |
-| **NSubstitute** | Mocking | Creación rápida de dobles de prueba con sintaxis concisa y tipada. |
-| **Microsoft.AspNetCore.Mvc.Testing** | Integración de API | Host en memoria de ASP.NET Core (`WebApplicationFactory`) para pruebas reales del pipeline HTTP. |

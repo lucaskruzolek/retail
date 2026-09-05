@@ -1,86 +1,90 @@
 # Retail - Sistema ERP & Punto de Venta para Librería
 
-Sistema integral de gestión comercial, Punto de Venta (POS) y facturación electrónica para librerías y comercios minoristas, desarrollado bajo **.NET 8 LTS** siguiendo los principios de **Clean Architecture** y **Arquitectura en 3 Capas (3-Tier)** sobre Red de Área Local (LAN).
+Sistema integral de gestión comercial, Punto de Venta (POS), inventario, facturación electrónica y padrón de clientes para librerías y comercios minoristas, desarrollado bajo **.NET 8 LTS** y **C# 12** estructurado como un **Monolito Limpio de Escritorio (Clean Desktop Monolith)** en Windows.
 
 ---
 
 ## 🏛️ Arquitectura Global del Sistema
 
-El sistema segrega formalmente la interfaz de usuario en puestos de trabajo LAN, la lógica de negocio centralizada en un servidor local y el motor de base de datos aislado:
+El sistema consolida en un único proceso de escritorio ejecutable la interfaz visual en WPF (.NET 8), los casos de uso del negocio y el acceso a datos sobre un motor relacional local (**Microsoft SQL Server Express / LocalDB**), comunicándose de forma asíncrona con el microservicio local de facturación electrónica:
 
 ```mermaid
 graph TD
-    subgraph "Capa 1: Presentación (Puestos LAN)"
-        T1["Terminal 1: Mostrador POS\n(WPF .NET 8 / MVVM)"]
-        T2["Terminal 2: Mostrador POS\n(WPF .NET 8 / MVVM)"]
-        T3["Terminal 3: Oficina Encargado\n(WPF .NET 8 / MVVM)"]
+    subgraph "Proceso de Escritorio: Retail.App (WPF .NET 8)"
+        subgraph "Capa de Presentación (UI & MVVM)"
+            VIEWS["Vistas XAML y Diálogos\n(PosView, CajaView, ArticulosView, ClientesView, ComprasView)"]
+            VMS["ViewModels\n(CommunityToolkit.Mvvm / Source Generators)"]
+            VIEWS <-->|"Data Binding & Commands"| VMS
+        end
+
+        subgraph "Capa de Aplicación (Casos de Uso)"
+            APP_SRV["Servicios de Aplicación\n(VentaService, PresupuestoService, ClienteService, CajaService, CompraService)"]
+            VALID["Validadores de Entrada\n(FluentValidation)"]
+            VMS -->|"Invocación Directa C#\n(Inyección de Dependencias)"| APP_SRV
+            APP_SRV --> VALID
+        end
+
+        subgraph "Capa de Dominio (Reglas Puras)"
+            DOM["Entidades, Enums, Reglas e Invariantes\n(Articulo, Venta, Presupuesto, Cliente, CobranzaCliente, TurnoCaja, Compra)"]
+            APP_SRV --> DOM
+        end
+
+        subgraph "Capa de Infraestructura (Persistencia & I/O)"
+            EF["Entity Framework Core 8\n(RetailDbContext / Transacciones ACID)"]
+            EXCEL["Importador Excel / CSV\n(MiniExcel en Task.Run)"]
+            ARCA_CLI["Cliente Fiscal HTTP\n(HttpClient hacia arcasdk local)"]
+            APP_SRV --> EF
+            APP_SRV --> EXCEL
+            APP_SRV --> ARCA_CLI
+        end
     end
 
-    subgraph "Capa 2: Aplicación y Dominio (Servidor Local)"
-        API["Backend Central\n(ASP.NET Core Web API)"]
-        AUTH["Seguridad & Sesiones\n(JWT & Heartbeat & Kick-out)"]
-        FIFO["Cola Secuencial FIFO\n(Facturación Fiscal)"]
-        BULK["Procesador Masivo\n(Importador Excel / CSV)"]
-        SDK["Microservicio Fiscal\n(arcasdk / Localhost)"]
-        
-        API --- AUTH
-        API --- FIFO
-        API --- BULK
-        FIFO <-->|"HTTP JSON"| SDK
+    subgraph "Persistencia y Servicios Locales (Localhost)"
+        DB[("Microsoft SQL Server Express / LocalDB\n(Instancia Local en 127.0.0.1 / LocalDB)")]
+        SDK["Microservicio Fiscal Local\n(arcasdk en localhost:8080)"]
     end
 
-    subgraph "Capa 3: Datos (Servidor Local)"
-        DB[("Microsoft SQL Server\n(Aislado en 127.0.0.1:1433)")]
-    end
-
-    subgraph "Servicios Externos"
+    subgraph "Servicios Externos en la Nube"
         ARCA_SRV["Servidores Fiscales ARCA\n(Web Services Fiscales AFIP)"]
     end
 
-    T1 -->|"HTTP REST / JSON\n(Bearer Token JWT)"| API
-    T2 -->|"HTTP REST / JSON\n(Bearer Token JWT)"| API
-    T3 -->|"HTTP REST / JSON\n(Bearer Token JWT)"| API
-
-    API -->|"Entity Framework Core 8\n(Transacciones ACID)"| DB
+    EF -->|"Conexión Local TDS"| DB
+    ARCA_CLI <-->|"HTTP / JSON (Localhost)"| SDK
     SDK <-->|"HTTPS / SOAP"| ARCA_SRV
 ```
 
 ---
 
-## 📁 Estructura del Repositorio y Documentación por Capa
+## 📁 Estructura del Repositorio y Proyectos de la Solución
 
-Cada directorio del proyecto cuenta con su propia documentación técnica exhaustiva que detalla sus objetivos, estructura interna, responsabilidades y funcionamiento:
-
-| Directorio | Capa / Módulo | Descripción y Documentación Detallada |
+| Directorio | Capa / Proyecto | Responsabilidad y Contenido |
 | :--- | :--- | :--- |
-| [`src/Shared/Retail.Shared/`](file:///c:/Users/lucas/Proyectos/retail/src/Shared/Retail.Shared/README.md) | **Shared Kernel** | DTOs de transporte, enumeraciones del sistema, contratos de API y constantes de seguridad. |
-| [`src/Backend/Retail.Domain/`](file:///c:/Users/lucas/Proyectos/retail/src/Backend/Retail.Domain/README.md) | **Domain Layer** | Entidades de negocio puras, reglas e invariantes del DER, excepciones de dominio y tipos base. |
-| [`src/Backend/Retail.Application/`](file:///c:/Users/lucas/Proyectos/retail/src/Backend/Retail.Application/README.md) | **Application Layer** | Orquestación de casos de uso, servicios de negocio, validadores FluentValidation e interfaces. |
-| [`src/Backend/Retail.Infrastructure/`](file:///c:/Users/lucas/Proyectos/retail/src/Backend/Retail.Infrastructure/README.md) | **Infrastructure Layer** | Persistencia EF Core 8, cliente HTTP `arcasdk`, Background Workers FIFO y procesamiento Excel. |
-| [`src/Backend/Retail.Server.Api/`](file:///c:/Users/lucas/Proyectos/retail/src/Backend/Retail.Server.Api/README.md) | **Presentation (Server API)** | ASP.NET Core Web API, controladores REST, middlewares de seguridad/excepciones y Swagger. |
-| [`src/Frontend/Retail.Client.Wpf/`](file:///c:/Users/lucas/Proyectos/retail/src/Frontend/Retail.Client.Wpf/README.md) | **Presentation (Desktop Client)** | Cliente de mostrador WPF (.NET 8) con MVVM CommunityToolkit, Polly para resiliencia LAN e impresión térmica ESC/POS. |
-| [`tests/`](file:///c:/Users/lucas/Proyectos/retail/tests/README.md) | **Test Suites** | Pruebas unitarias de dominio y aplicación, pruebas de integración de API y pruebas de UI. |
+| [`src/Retail.Domain/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/README.md) | **Domain Layer** | Entidades (`Articulo`, `Venta`, `Presupuesto`, `Cliente`, `CobranzaCliente`, `TurnoCaja`), reglas puras, invariantes (recálculo automático de precios por compras, índice filtrado de código de barras para artesanías). |
+| [`src/Retail.Application/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/README.md) | **Application Layer** | Casos de uso (`VentaService`, `PresupuestoService`, `ClienteService`, `CajaService`, `CompraService`), DTOs de transporte, validadores FluentValidation e interfaces de persistencia. |
+| [`src/Retail.Infrastructure/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/README.md) | **Infrastructure Layer** | Persistencia con Entity Framework Core 8 (`RetailDbContext`), índices filtrados en SQL Server, cliente HTTP `arcasdk`, lector masivo Excel (`MiniExcel`) y hashing de contraseñas. |
+| [`src/Retail.App/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/README.md) | **Presentation (Desktop App)** | Aplicación de escritorio WPF (.NET 8) con MVVM (`CommunityToolkit.Mvvm`), Host de Inyección de Dependencias, modales de cobro y cobranza multimedio, e impresión térmica ESC/POS. |
+| [`tests/`](file:///c:/Users/lucas/Proyectos/retail/tests/README.md) | **Test Suites** | Pruebas unitarias de dominio y aplicación, y pruebas de integración de infraestructura con base de datos local. |
 
 ---
 
 ## 🛠️ Stack Tecnológico
 
-- **Lenguaje & Framework:** C# 12 / .NET 8 LTS
+- **Lenguaje & Plataforma:** C# 12 / .NET 8 LTS
 - **Frontend de Escritorio:** WPF (Windows Presentation Foundation) con `CommunityToolkit.Mvvm`
-- **Resiliencia en Red LAN:** `Polly` (Políticas de Retry con Exponential Backoff)
-- **Backend API:** ASP.NET Core Web API (.NET 8)
-- **Acceso a Datos:** Entity Framework Core 8 con SQL Server
+- **Inyección de Dependencias:** `Microsoft.Extensions.DependencyInjection`
+- **Acceso a Datos & ORM:** Entity Framework Core 8 con SQL Server Express / LocalDB
 - **Validaciones:** `FluentValidation`
-- **Facturación Electrónica:** Microservicio `arcasdk` + `System.Threading.Channels` (Cola FIFO Asíncrona)
-- **Procesamiento Masivo:** `ClosedXML` / `MiniExcel`
-- **Seguridad:** JWT Bearer Auth + Hashing con PBKDF2 / BCrypt
-- **Pruebas:** xUnit, FluentAssertions, NSubstitute / Moq, Microsoft.AspNetCore.Mvc.Testing
+- **Facturación Electrónica:** Microservicio local `arcasdk` (Factura A automática para Responsables Inscriptos, Factura B y Contingencia Resiliente)
+- **Procesamiento de Planillas:** `MiniExcel` (Streaming de bajo consumo de RAM)
+- **Criptografía de Contraseñas:** `BCrypt.Net-Next` o `PBKDF2`
+- **Pruebas Automatizadas:** xUnit, FluentAssertions, NSubstitute
 
 ---
 
 ## 📄 Documentos de Especificación y Diseño
 
-- [Especificación de Requisitos de Software (ERS v2.0)](file:///c:/Users/lucas/Proyectos/retail/ERS%20-%20Libreria%20POS.md)
-- [Propuesta de Arquitectura y Estructura Global](file:///c:/Users/lucas/Proyectos/retail/Arquitectura%20y%20Estructura%20del%20Proyecto.md)
-- [Diagrama Entidad-Relación (DER)](file:///c:/Users/lucas/Proyectos/retail/DER.mmd)
+- [Especificación de Requisitos de Software (ERS v3.2)](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md)
+- [Propuesta de Arquitectura y Estructura Global](file:///c:/Users/lucas/Proyectos/retail/docs/Arquitectura%20y%20Estructura%20del%20Proyecto.md)
+- [Diagrama Entidad-Relación (DER)](file:///c:/Users/lucas/Proyectos/retail/docs/DER.mmd)
+- [Roadmap de Implementación y Acciones Inmediatas](file:///c:/Users/lucas/Proyectos/retail/docs/Roadmap%20de%20Implementacion.md)
 - [Guía de Presentación y Defensa Técnica](file:///c:/Users/lucas/Proyectos/retail/docs/Presentacion%20-%20Defensa%20de%20Dise%C3%B1o%20Tecnico.md)
