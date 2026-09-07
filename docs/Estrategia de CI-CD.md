@@ -46,7 +46,7 @@ graph TD
 
 ### Secuencia de Pasos y Comandos
 1. **Checkout:** `actions/checkout@v4`.
-2. **Setup SDK .NET 8:** `actions/setup-dotnet@v4` con `dotnet-version: '8.0.x'` y `cache: true` (habilita la caché de paquetes NuGet en el runner para acelerar restauraciones).
+2. **Setup SDK .NET 8:** `actions/setup-dotnet@v4` con `dotnet-version: '8.0.x'`. (La restauración de dependencias se gestiona directamente en el siguiente paso mediante `dotnet restore` sin requerir archivos lock `packages.lock.json`).
 3. **Restauración:**
    ```powershell
    dotnet restore Retail.sln
