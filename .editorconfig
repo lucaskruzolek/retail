@@ -1,0 +1,81 @@
+# Archivo de configuración EditorConfig para el proyecto Retail
+# Reglas unificadas para el equipo de desarrollo (Pablo & Lucas)
+
+root = true
+
+# Ajustes generales para todos los archivos
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Archivos de configuración y datos estructurados
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+# Archivos de código C#
+[*.cs]
+# Organización de directivas using
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Preferencias de lenguaje C#
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = true:suggestion
+csharp_style_expression_bodied_methods = false:suggestion
+csharp_style_expression_bodied_constructors = false:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_expression_bodied_accessors = true:suggestion
+
+# Espaciado y llaves (Estilo Allman: llaves en nueva línea)
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_indent_braces = false
+csharp_indent_switch_labels = true
+csharp_indent_case_contents = true
+
+# Convenciones de Nomenclatura C#
+dotnet_naming_rule.interfaces_should_start_with_i.severity = warning
+dotnet_naming_rule.interfaces_should_start_with_i.symbols = interface_symbols
+dotnet_naming_rule.interfaces_should_start_with_i.style = interface_style
+
+dotnet_naming_symbols.interface_symbols.applicable_kinds = interface
+dotnet_naming_symbols.interface_symbols.applicable_accessibilities = *
+dotnet_naming_style.interface_style.required_prefix = I
+dotnet_naming_style.interface_style.capitalization = pascal_case
+
+dotnet_naming_rule.types_should_be_pascal_case.severity = warning
+dotnet_naming_rule.types_should_be_pascal_case.symbols = type_symbols
+dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case_style
+
+dotnet_naming_symbols.type_symbols.applicable_kinds = class, struct, enum, delegate
+dotnet_naming_symbols.type_symbols.applicable_accessibilities = *
+dotnet_naming_style.pascal_case_style.capitalization = pascal_case
+
+dotnet_naming_rule.private_fields_should_start_with_underscore.severity = suggestion
+dotnet_naming_rule.private_fields_should_start_with_underscore.symbols = private_field_symbols
+dotnet_naming_rule.private_fields_should_start_with_underscore.style = camel_case_with_underscore
+
+dotnet_naming_symbols.private_field_symbols.applicable_kinds = field
+dotnet_naming_symbols.private_field_symbols.applicable_accessibilities = private
+dotnet_naming_style.camel_case_with_underscore.required_prefix = _
+dotnet_naming_style.camel_case_with_underscore.capitalization = camel_case
+
+# Archivos de interfaz XAML
+[*.xaml]
+indent_style = space
+indent_size = 4
+
+# Proyectos de Pruebas Automatizadas (Permitir nombres de métodos con guiones bajos para BDD/TDD)
+[tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none
+

@@ -1,0 +1,60 @@
+name: CD - Entrega Continua y Publicacion de Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-release:
+    name: Empaquetado y Publicacion del Ejecutable
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar repositorio (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Configurar SDK de .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+          cache: true
+
+      - name: Validar integridad mediante pruebas automatizadas
+        run: dotnet test Retail.sln --configuration Release
+
+      - name: Publicar ejecutable auto-contenido (Retail.App win-x64)
+        run: >
+          dotnet publish src/Retail.App/Retail.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output ./publish/Retail-POS
+
+      - name: Comprimir paquete distribuible en formato ZIP
+        run: Compress-Archive -Path ./publish/Retail-POS/* -DestinationPath ./Retail-POS-win-x64.zip
+
+      - name: Crear Release en GitHub y adjuntar instalador
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ./Retail-POS-win-x64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Guardar artefacto de compilacion (Para workflow_dispatch manual)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: actions/upload-artifact@v4
+        with:
+          name: Retail-POS-win-x64
+          path: ./Retail-POS-win-x64.zip
+          retention-days: 7

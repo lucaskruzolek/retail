@@ -1,0 +1,35 @@
+name: CI - Integracion Continua
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Compilacion, Pruebas y Linter
+    runs-on: windows-latest
+
+    steps:
+      - name: Descargar repositorio (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Configurar SDK de .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+          cache: true
+
+      - name: Restaurar dependencias NuGet
+        run: dotnet restore Retail.sln
+
+      - name: Compilar solucion en Release (Cero advertencias)
+        run: dotnet build Retail.sln --configuration Release --no-restore
+
+      - name: Ejecutar suite completa de pruebas automatizadas
+        run: dotnet test Retail.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test_results.trx"
+
+      - name: Verificar formato y estilo de codigo (.editorconfig)
+        run: dotnet format Retail.sln --verify-no-changes

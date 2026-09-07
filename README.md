@@ -87,4 +87,7 @@ graph TD
 - [Propuesta de Arquitectura y Estructura Global](file:///c:/Users/lucas/Proyectos/retail/docs/Arquitectura%20y%20Estructura%20del%20Proyecto.md)
 - [Diagrama Entidad-Relación (DER)](file:///c:/Users/lucas/Proyectos/retail/docs/DER.mmd)
 - [Roadmap de Implementación y Acciones Inmediatas](file:///c:/Users/lucas/Proyectos/retail/docs/Roadmap%20de%20Implementacion.md)
+- [Estrategia y Directrices de CI/CD (GitHub Actions)](file:///c:/Users/lucas/Proyectos/retail/docs/Estrategia%20de%20CI-CD.md)
+- [Mapa Semántico del Proyecto (Índice para Humanos y Agentes)](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md)
+- [Directivas y Barandillas para Agentes de Código (AGENTS.md)](file:///c:/Users/lucas/Proyectos/retail/AGENTS.md)
 - [Guía de Presentación y Defensa Técnica](file:///c:/Users/lucas/Proyectos/retail/docs/Presentacion%20-%20Defensa%20de%20Dise%C3%B1o%20Tecnico.md)

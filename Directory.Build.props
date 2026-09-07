@@ -1,0 +1,26 @@
+<Project>
+  <PropertyGroup>
+    <!-- Configuración del compilador C# 12 y .NET 8 -->
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Calidad y rigor académico: Cero tolerancia a advertencias -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- Metadatos de Autoría y Proyecto -->
+    <Authors>Pablo Fernandez, Lucas Kruzolek</Authors>
+    <Company>Retail Librería</Company>
+    <Product>Retail - Sistema ERP &amp; Punto de Venta</Product>
+    <Version>1.0.0-preview</Version>
+    <NeutralLanguage>es-AR</NeutralLanguage>
+  </PropertyGroup>
+
+  <!-- Reglas específicas para proyectos de pruebas automatizadas -->
+  <PropertyGroup Condition="'$(IsTestProject)' == 'true'">
+    <!-- Permite la convención estándar de pruebas Metodo_Condicion_ResultadoEsperado (BDD) -->
+    <NoWarn>$(NoWarn);CA1707</NoWarn>
+  </PropertyGroup>
+</Project>

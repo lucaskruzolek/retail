@@ -152,6 +152,31 @@ src/Retail.Domain/
     └── IAggregateRoot.cs
 ```
 
+#### 3.1.1. Patrones Tácticos DDD y Fronteras de Agregados
+
+La capa de dominio implementa formalmente los patrones tácticos de **Domain-Driven Design (DDD)** para garantizar cohesión y consistencia transaccional:
+
+1. **Jerarquía Base y Borrado Lógico (`BaseEntity.cs`):**
+   * Todas las entidades de negocio derivan de `BaseEntity`.
+   * En sistemas comerciales y tributarios, el **borrado físico (`DELETE`) está prohibido** para evitar la corrupción de balances pasados y violaciones de integridad referencial.
+   * `BaseEntity` encapsula `CreatedAt` (auditoría temporal UTC), `DeletedAt`, `IsDeleted`, `MarkAsDeleted()` y `Restore()`. En Entity Framework Core se aplica un *Global Query Filter* (`HasQueryFilter(e => !e.IsDeleted)`).
+
+2. **Raíces de Agregado e Interfaz Marcadora (`IAggregateRoot.cs`):**
+   * Un Agregado es un clúster de entidades tratadas como una unidad de consistencia atómica.
+   * `IAggregateRoot` es una *Marker Interface* que clasifica en tiempo de compilación a la única entidad autorizada como puerta de entrada al agregado.
+   * **Restricción de Repositorios:** La persistencia solo expone repositorios para raíces de agregado (`IRepository<T> where T : BaseEntity, IAggregateRoot`). Las entidades subordinadas (como `DetalleVenta` o `PagoVenta`) no tienen repositorio propio y solo se manipulan a través de su raíz.
+
+| Agregado | Raíz de Agregado (`IAggregateRoot`) | Entidades Internas Subordinadas | Invariante Principal Custodiada por la Raíz |
+| :--- | :--- | :--- | :--- |
+| **Venta** | `Venta.cs` | `DetalleVenta.cs`, `PagoVenta.cs`, `ComprobanteFiscal.cs` | Total atómico: $\text{Total} = \sum \text{Subtotales} = \sum \text{Pagos}$. Ningún ítem o pago se altera fuera de la raíz `Venta`. |
+| **Presupuesto** | `Presupuesto.cs` | `DetallePresupuesto.cs` | Congela precios unitarios por 15 días sin alterar stock. |
+| **Compra** | `Compra.cs` | `DetalleCompra.cs` | Incrementa stock y recalcula de inmediato el precio de venta en base al markup. |
+| **Turno Caja** | `TurnoCaja.cs` | `MovimientoCaja.cs` | Balance teórico de dinero físico: $\text{SaldoTeorico} = \text{Inicial} + \text{VentasEfectivo} + \text{CobranzasEfectivo} + \text{Ingresos} - \text{Egresos}$. |
+| **Clientes** | `Cliente.cs` | — | Límite de crédito y saldo de cuenta corriente. Cobranzas auditadas vía `CobranzaCliente`. |
+| **Artículos** | `Articulo.cs` | — | Control de markup, stock mínimo y código de barras nullable (índice filtrado). |
+| **Usuarios** | `Usuario.cs` | — | Hashing de contraseña (BCrypt) y roles RBAC. |
+| **Proveedores** | `Proveedor.cs` | `CatalogoProveedor.cs` | Padrón de distribuidores y listas de costos para actualización masiva. |
+
 ---
 
 ### 3.2. `Retail.Application` (Biblioteca de Clases .NET 8)
