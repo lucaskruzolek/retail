@@ -9,6 +9,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- CA1711: Permite sufijo 'Enum' especificado en la arquitectura (ej. RolUsuarioEnum, MedioPagoEnum) -->
+    <NoWarn>$(NoWarn);CA1711</NoWarn>
 
     <!-- Metadatos de Autoría y Proyecto -->
     <Authors>Pablo Fernandez, Lucas Kruzolek</Authors>

@@ -57,7 +57,7 @@ Antes de buscar archivos o escribir código, todo agente debe:
 
 ## 🔄 Bucle de Verificación Obligatorio (*Inner Loop* del Agente)
 
-Antes de dar por concluida cualquier modificación o nueva funcionalidad, el agente **debe ejecutar y validar localmente la siguiente secuencia de comandos**:
+Antes de dar por concluida cualquier modificación o nueva funcionalidad, el agente **debe ejecutar y validar localmente la siguiente secuencia de pasos**:
 
 ```powershell
 # 1. Compilación en Release con cero advertencias
@@ -70,8 +70,11 @@ dotnet test Retail.sln --configuration Release --no-build
 dotnet format Retail.sln --verify-no-changes
 ```
 
+4. **Sincronización Obligatoria del Mapa Semántico:**  
+   Si la tarea agregó, renombró o eliminó archivos estructurales (entidades, enumeraciones, excepciones de dominio, contratos de interfaz, DTOs, vistas XAML o flujos de CI/CD), el agente **debe actualizar [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md)** indexando las nuevas responsabilidades y enlaces de archivo antes de responder al usuario.
+
 > [!CAUTION]
-> Si cualquiera de estos tres comandos devuelve código de salida distinto de `0`, la tarea **no está terminada**. El agente debe corregir los errores antes de responder al usuario.
+> Si cualquiera de los comandos de compilación/test/formato devuelve un código de salida distinto de `0`, o si se omitió la actualización de [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md) ante cambios estructurales, la tarea **no está terminada**. El agente debe corregir los errores y sincronizar el mapa antes de notificar al usuario.
 
 ---
 

@@ -38,12 +38,23 @@ src/Retail.Domain/
 │   ├── CondicionIvaEnum.cs              # RESPONSABLE_INSCRIPTO, MONOTRIBUTO, CONSUMIDOR_FINAL, EXENTO
 │   ├── TipoDocumentoEnum.cs             # DNI, CUIT, CUIL, PASAPORTE
 │   └── MedioPagoEnum.cs                 # EFECTIVO, TARJETA_DEBITO, TARJETA_CREDITO, TRANSFERENCIA_QR, CUENTA_CORRIENTE
-├── Exceptions/                          # Excepciones que representan violaciones de reglas
-│   ├── DomainException.cs               # Clase base abstracta de errores de dominio
-│   ├── StockInsuficienteException.cs    # Intento de venta de stock negativo
-│   ├── CajaCerradaException.cs          # Operación de cobro sin turno abierto
+├── Exceptions/                          # Excepciones que representan violaciones de reglas e invariantes
+│   ├── DomainException.cs               # Clase base de errores de dominio
+│   ├── StockInsuficienteException.cs    # Venta o reserva de stock superior al disponible
+│   ├── CajaCerradaException.cs          # Operación en mostrador sin turno de caja activo
+│   ├── TurnoYaAbiertoException.cs       # Intento de apertura de caja cuando ya existe turno activo
+│   ├── SaldoCajaInsuficienteException.cs# Retiro de mostrador superior al efectivo disponible
+│   ├── TurnoYaCerradoException.cs       # Operación o cierre sobre turno ya cerrado
 │   ├── PresupuestoVencidoException.cs   # Intento de cobrar presupuesto caducado (> 15 días)
-│   └── LimiteCreditoExcedidoException.cs# Compra a cuenta corriente superior al límite
+│   ├── PresupuestoYaConvertidoException.cs # Intento de reutilizar cotización ya cobrada
+│   ├── LimiteCreditoExcedidoException.cs# Compra a cuenta corriente superior al límite
+│   ├── CuentaCorrienteNoHabilitadaException.cs # Operación cta cte de cliente inhabilitado
+│   ├── CobranzaExcedeDeudaException.cs  # Cobro superior al saldo adeudado del cliente
+│   ├── MontoPagoInsuficienteException.cs# Suma de pagos menor al total de la venta
+│   ├── VentaVaciaException.cs           # Registro de venta sin artículos
+│   ├── UltimoGerenteException.cs        # Invariante que impide dar de baja al último Gerente
+│   ├── CredencialesInvalidasException.cs# Error de autenticación por usuario o clave errónea
+│   └── UsuarioInactivoException.cs      # Operación o login de usuario con baja lógica
 └── Common/                              # Abstracciones y tipos base de dominio
     ├── BaseEntity.cs                    # id, created_at, deleted_at (Soft Delete)
     └── IAggregateRoot.cs                # Marcador de raíz de agregado (DDD)
