@@ -1,7 +1,7 @@
 namespace Retail.Domain.Exceptions;
 
 /// <summary>
-/// Excepción lanzada cuando se intenta convertir a venta un presupuesto comercial cuya vigencia de 15 días ha expirado.
+/// Excepción lanzada cuando se intenta convertir a venta un presupuesto comercial cuya vigencia ha expirado sin conciliar precios actualizados.
 /// </summary>
 public class PresupuestoVencidoException : DomainException
 {

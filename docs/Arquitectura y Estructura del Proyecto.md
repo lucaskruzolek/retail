@@ -68,8 +68,8 @@ graph TD
    * Si el cliente abona en `EFECTIVO`, suma al saldo teórico de efectivo de la caja activa (`TURNOS_CAJA.total_ingresos_efectivo`).
    * Si abona mediante `TRANSFERENCIA_QR` o `TARJETA`, suma a las operaciones electrónicas del turno para cotejo con el reporte bancario/POS.
    * En ambos casos, reduce en la misma transacción el `CLIENTES.saldo_cuenta_corriente` e imprime un recibo no fiscal.
-3. **Conversión de Presupuestos con Control de Stock (`RF-12`):**
-   * Dado que los presupuestos no descuentan stock físico al crearse (`RF-11`), al intentar convertirlos a venta se audita disponibilidad física ($\text{StockActual} \ge \text{CantidadPresupuestada}$) y se concilian discrepancias de precio frente al catálogo vigente.
+3. **Conversión de Presupuestos con Control de Stock y Conciliación Adaptativa (`RF-12`):**
+   * Dado que los presupuestos no descuentan stock físico al crearse (`RF-11`), al convertirlos a venta se audita disponibilidad física ($\text{StockActual} \ge \text{CantidadPresupuestada}$). Si el presupuesto venció, el sistema no aborta destructivamente la venta sino que concilia y advierte discrepancias frente al catálogo vigente vía modal interactivo.
 4. **Soporte de Múltiples Códigos de Barra `NULL` para Artesanías (`RF-04`):**
    * Mediante un índice filtrado en SQL Server (`[codigo_barras] IS NOT NULL`), se permite que múltiples productos artesanales y servicios coexistan con código nulo sin violar la unicidad de los productos con código comercial asignado.
 
@@ -169,7 +169,7 @@ La capa de dominio implementa formalmente los patrones tácticos de **Domain-Dri
 | Agregado | Raíz de Agregado (`IAggregateRoot`) | Entidades Internas Subordinadas | Invariante Principal Custodiada por la Raíz |
 | :--- | :--- | :--- | :--- |
 | **Venta** | `Venta.cs` | `DetalleVenta.cs`, `PagoVenta.cs`, `ComprobanteFiscal.cs` | Total atómico: $\text{Total} = \sum \text{Subtotales} = \sum \text{Pagos}$. Ningún ítem o pago se altera fuera de la raíz `Venta`. |
-| **Presupuesto** | `Presupuesto.cs` | `DetallePresupuesto.cs` | Congela precios unitarios por 15 días sin alterar stock. |
+| **Presupuesto** | `Presupuesto.cs` | `DetallePresupuesto.cs` | Congela precios pactados durante su vigencia (15 días por defecto) sin alterar stock. Al expirar, concilia variaciones de catálogo sin bloqueo destructivo. |
 | **Compra** | `Compra.cs` | `DetalleCompra.cs` | Incrementa stock y recalcula de inmediato el precio de venta en base al markup. |
 | **Turno Caja** | `TurnoCaja.cs` | `MovimientoCaja.cs` | Balance teórico de dinero físico: $\text{SaldoTeorico} = \text{Inicial} + \text{VentasEfectivo} + \text{CobranzasEfectivo} + \text{Ingresos} - \text{Egresos}$. |
 | **Clientes** | `Cliente.cs` | — | Límite de crédito y saldo de cuenta corriente. Cobranzas auditadas vía `CobranzaCliente`. |

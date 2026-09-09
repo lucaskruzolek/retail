@@ -7,12 +7,32 @@
 
 ---
 
-## 🎯 Protocolo Inicial de Lectura (Paso Cero Obligatorio)
+## 🎯 Protocolo Inicial de Lectura y Carga Jerárquica de Contexto (Paso Cero Inteligente)
 
-Antes de buscar archivos o escribir código, todo agente debe:
-1. **Consultar el Mapa Semántico:** Leer [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md) para ubicar en qué capa, archivo y clase reside la responsabilidad deseada. **No realices búsquedas a ciegas con grep si el archivo está indexado en el mapa.**
-2. **Consultar el Roadmap:** Leer [`docs/Roadmap de Implementacion.md`](file:///c:/Users/lucas/Proyectos/retail/docs/Roadmap%20de%20Implementacion.md) para identificar la etapa actual y los entregables esperados. No implementes código de etapas futuras si los contratos base no están listos.
-3. **Consultar el Sistema de Diseño (Al trabajar en UI):** Si la tarea involucra vistas o controles en `Retail.App`, leer obligatoriamente [`docs/SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) y [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml) antes de escribir código XAML.
+Para optimizar el consumo de contexto, evitar sobrecarga de tokens y prevenir el fenómeno de *Lost-in-the-Middle*, todo agente debe seguir una estrategia de **carga progresiva bajo demanda (*Just-in-Time*)** estructurada en 4 niveles:
+
+### Nivel 0: Sistema Operativo y Barandillas (Siempre Activo en Prompt)
+* Las reglas, convenciones, directivas de parada, estilo Allman y las 9 Leyes de Arquitectura de este archivo (`AGENTS.md`) rigen toda acción sin requerir lectura adicional.
+
+### Nivel 1: Brújula Semántica y Enrutador (Paso Cero Obligatorio)
+1. **Consultar el Mapa Semántico:** Leer [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md) para identificar con exactitud en qué capa, archivo, DTO o contrato reside la responsabilidad solicitada. **Queda prohibido realizar búsquedas a ciegas con grep si el archivo está indexado en el mapa.**
+
+### Nivel 2: Contexto Operativo de Etapa y Requisitos (Focalizado / Bajo Demanda)
+2. **Consultar la Etapa Modular del Roadmap:** Si la tarea se enmarca en una etapa o módulo específico, leer **únicamente el archivo modular de dicha etapa** dentro de `docs/roadmap/`:
+   * Etapa 0: [`docs/roadmap/etapa-0-cimientos.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-0-cimientos.md)
+   * Etapa 1: [`docs/roadmap/etapa-1-auth-usuarios.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-1-auth-usuarios.md)
+   * Etapa 2: [`docs/roadmap/etapa-2-catalogo-stock.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-2-catalogo-stock.md)
+   * Etapa 3: [`docs/roadmap/etapa-3-caja-clientes.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-3-caja-clientes.md)
+   * Etapa 4: [`docs/roadmap/etapa-4-pos-compras.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-4-pos-compras.md)
+   * Etapa 5: [`docs/roadmap/etapa-5-presupuestos-arca.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-5-presupuestos-arca.md)
+   * Etapa 6: [`docs/roadmap/etapa-6-estabilizacion-release.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-estabilizacion-release.md)
+   * *Regla de Aislamiento:* No cargues el Roadmap maestro ni la ERS completa para tareas acotadas a una etapa. Si requieres verificar un requerimiento funcional específico (ej. `RF-04`), consulta la sección pertinente en [`docs/ERS - Libreria POS.md`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md) referenciada en el mapa.
+
+### Nivel 3: Manuales Técnicos Normativos (Condicional según la Capa Afectada)
+3. **Capa UI y Presentación (WPF / MVVM / XAML):** Si la tarea involucra vistas, estilos, keycaps F1-F12 o controles en `Retail.App`, leer obligatoriamente [`docs/SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) y [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml).
+4. **Capa Dominio y Persistencia (EF Core / SQL Server):** Si la tarea involucra entidades, repositorios, configuraciones Fluent API o transacciones ACID, leer obligatoriamente [`docs/SISTEMA_DE_PERSISTENCIA.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_PERSISTENCIA.md). Consultar [`docs/DER.mmd`](file:///c:/Users/lucas/Proyectos/retail/docs/DER.mmd) únicamente si se agregan o modifican tablas y claves foráneas.
+5. **Capa Diagnóstico y Manejo de Errores (Serilog / Excepciones):** Si la tarea involucra trazas, instrumentación de logs rotativos o captura de excepciones no controladas, consultar [`docs/SISTEMA_DE_LOGGING.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_LOGGING.md).
+6. **Capa Automatización y Despliegue (CI/CD / GitHub Actions):** Si la tarea involucra workflows en `.github/workflows`, directivas de compilación Release, empaquetado auto-contenido o publicación de versiones, consultar obligatoriamente [`docs/SISTEMA_DE_CI_CD.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_CI_CD.md).
 
 ---
 
