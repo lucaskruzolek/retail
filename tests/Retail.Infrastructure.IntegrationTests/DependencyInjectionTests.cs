@@ -84,4 +84,33 @@ public class DependencyInjectionTests
         arcaClient.Should().NotBeNull();
         arcaClient.Should().BeOfType<ArcaClient>();
     }
+
+    [Fact]
+    public void AddInfrastructureServices_RegistraPersistenciaYSeguridadCorrectamente()
+    {
+        // Arrange
+        var inMemorySettings = new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=RetailDb_DiTest;Trusted_Connection=True;MultipleActiveResultSets=true",
+            ["ArcaSettings:UseMockArca"] = "true"
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(inMemorySettings)
+            .Build();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        // Act
+        services.AddInfrastructureServices(configuration);
+        var provider = services.BuildServiceProvider();
+
+        // Assert
+        provider.GetService<Retail.Application.Interfaces.Infrastructure.IPasswordHasher>().Should().NotBeNull();
+        provider.GetService<Retail.Infrastructure.Persistence.Context.RetailDbContext>().Should().NotBeNull();
+        provider.GetService<Retail.Application.Interfaces.Persistence.IRetailDbContext>().Should().NotBeNull();
+        provider.GetService<Retail.Application.Interfaces.Persistence.IUnitOfWork>().Should().NotBeNull();
+        provider.GetService<Retail.Application.Interfaces.Persistence.IRepository<Retail.Domain.Entities.Articulo>>().Should().NotBeNull();
+    }
 }

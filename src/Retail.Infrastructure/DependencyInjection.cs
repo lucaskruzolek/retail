@@ -1,9 +1,14 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Retail.Application.Interfaces.Infrastructure;
+using Retail.Application.Interfaces.Persistence;
 using Retail.Infrastructure.ExternalServices.ArcaSdk;
 using Retail.Infrastructure.Hardware;
+using Retail.Infrastructure.Persistence.Context;
+using Retail.Infrastructure.Persistence.Repositories;
+using Retail.Infrastructure.Security;
 
 namespace Retail.Infrastructure;
 
@@ -37,7 +42,22 @@ public static class DependencyInjection
             });
         }
 
-        // En Etapa 0.7 se registrará el DbContext y repositorios
+        // 3. Seguridad y Criptografía (BCrypt)
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
+
+        // 4. Persistencia en Entity Framework Core 8 (SQL Server / LocalDB)
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? "Server=(localdb)\\mssqllocaldb;Database=RetailDb;Trusted_Connection=True;MultipleActiveResultSets=true";
+
+        services.AddDbContext<RetailDbContext>(options =>
+        {
+            options.UseSqlServer(connectionString);
+        });
+
+        services.AddScoped<IRetailDbContext>(sp => sp.GetRequiredService<RetailDbContext>());
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
         return services;
     }
 }

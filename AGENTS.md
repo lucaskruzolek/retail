@@ -12,10 +12,11 @@
 Antes de buscar archivos o escribir código, todo agente debe:
 1. **Consultar el Mapa Semántico:** Leer [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md) para ubicar en qué capa, archivo y clase reside la responsabilidad deseada. **No realices búsquedas a ciegas con grep si el archivo está indexado en el mapa.**
 2. **Consultar el Roadmap:** Leer [`docs/Roadmap de Implementacion.md`](file:///c:/Users/lucas/Proyectos/retail/docs/Roadmap%20de%20Implementacion.md) para identificar la etapa actual y los entregables esperados. No implementes código de etapas futuras si los contratos base no están listos.
+3. **Consultar el Sistema de Diseño (Al trabajar en UI):** Si la tarea involucra vistas o controles en `Retail.App`, leer obligatoriamente [`docs/SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) y [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml) antes de escribir código XAML.
 
 ---
 
-## ⚖️ Las 8 Leyes Inviolables de la Arquitectura
+## ⚖️ Las 9 Leyes Inviolables de la Arquitectura
 
 ### 1. Regla de Dependencia Estricta (Clean Architecture)
 * La jerarquía de dependencias es unidireccional y está forzada por el compilador:
@@ -58,6 +59,10 @@ Antes de buscar archivos o escribir código, todo agente debe:
 * **Proyecciones y No-Tracking:** Para consultas de solo lectura en grillas y catálogos, utilizar siempre `.AsNoTracking()` y proyectar directamente a DTOs (`.Select(x => new ...)`), evitando el overhead del Change Tracker de EF Core y manteniendo la RAM $\le 300\text{ MB}$ (`RNF-03`).
 * **Traducción Nativa de Funciones:** Utilizar funciones traducibles de EF Core (`EF.Functions.Like`, cotejos de intercalación *collation* insensibles a tildes/mayúsculas) y agregaciones nativas (`SumAsync`, `CountAsync`) antes que implementar comparaciones de texto o cálculos de balance en C#.
 * **Frontera Inviolable con el Dominio (CQRS / DDD):** Esta optimización aplica exclusivamente a la capa de persistencia y consultas (lado Lectura). La lógica mutacional de negocio, recálculo de precios por markup, descuento de stock e invariantes de estado pertenecen con exclusividad a las Raíces de Agregado en `Retail.Domain`. Queda prohibido trasladar reglas de negocio a *Stored Procedures*, *Triggers* o funciones escalares de base de datos.
+
+### 9. Fidelidad Estética y Sistema de Diseño (Windows 11 Fluent + Retail)
+* Antes de crear, modificar o maquetar cualquier vista, ventana o diálogo XAML en `Retail.App`, el agente debe consultar obligatoriamente [`docs/SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) y [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml) como living styleguide de referencia.
+* Queda terminantemente prohibido implementar interfaces sin respetar los contratos visuales, tokens semánticos, tipografía dual (`Cascadia Code` para importes y `Segoe UI Variable` para interfaz general) y componentes de mostrador allí especificados.
 
 ---
 

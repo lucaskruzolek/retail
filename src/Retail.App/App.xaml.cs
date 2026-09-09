@@ -1,9 +1,13 @@
 using System.Windows;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Retail.Application;
+using Retail.Application.Interfaces.Infrastructure;
 using Retail.Infrastructure;
+using Retail.Infrastructure.Persistence.Context;
+using Retail.Infrastructure.Persistence.Initialization;
 
 namespace Retail.App;
 
@@ -40,6 +44,16 @@ public partial class App : System.Windows.Application
             Wpf.Ui.Appearance.ApplicationTheme.Light);
 
         await _host.StartAsync();
+
+        // Inicialización y semillero de Base de Datos (Etapa 0.7)
+        using (var scope = _host.Services.CreateScope())
+        {
+            var dbContext = scope.ServiceProvider.GetRequiredService<RetailDbContext>();
+            await dbContext.Database.MigrateAsync();
+
+            var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+            await DbInitializer.InitializeAsync(dbContext, passwordHasher);
+        }
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         mainWindow.Show();

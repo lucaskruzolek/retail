@@ -7,7 +7,6 @@ namespace Retail.Domain.UnitTests.Common;
 // Clase concreta de prueba para instanciar BaseEntity abstracta
 internal sealed class DummyEntity : BaseEntity
 {
-    public int Id { get; set; }
 }
 
 public class BaseEntityTests
@@ -16,9 +15,13 @@ public class BaseEntityTests
     public void NuevaEntidad_DebeInicializarseNoEliminada_YConFechaCreacionUtc()
     {
         // Act
-        var entidad = new DummyEntity();
+        var entidad = new DummyEntity
+        {
+            Id = 42
+        };
 
         // Assert
+        entidad.Id.Should().Be(42);
         entidad.IsDeleted.Should().BeFalse();
         entidad.DeletedAt.Should().BeNull();
         entidad.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
