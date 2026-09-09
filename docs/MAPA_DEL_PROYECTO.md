@@ -107,8 +107,8 @@ graph TD
 | **Páginas de Trabajo** | `Views/Pages/` | `PosView.xaml`, `CajaView.xaml`, `ArticulosView.xaml`, `ClientesView.xaml`, `PresupuestosView.xaml`, `ComprasView.xaml`, `ConsolaFiscalView.xaml`, `UsuariosView.xaml`. |
 | **Diálogos Modales** | `Views/Dialogs/` | `CobroModalDialog.xaml`, `CobranzaModalDialog.xaml`, `ArqueoCiegoDialog.xaml`, `AlertaPreciosPresupuestoDialog.xaml`. |
 | **ViewModels (MVVM)** | `ViewModels/` | Lógica de presentación y comandos con `CommunityToolkit.Mvvm` (`PosViewModel.cs`, etc.). |
-| **Servicios de UI** | `Services/` | `CurrentUserSession.cs`, `NavigationService.cs`, `DialogService.cs`, `TicketPrinterService.cs`. |
-| **Estilos y Recursos** | `Styles/` | Diccionarios de recursos XAML (`Colors.xaml`, `Controls.xaml`, `Typography.xaml`, `Icons.xaml`). |
+| **Estilos y Recursos** | [`Styles/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/) | Diccionarios XAML integrados con WPF-UI: [`Colors.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Colors.xaml) (Carmín/Borravino #9D0F33), [`Typography.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Typography.xaml) (Cascadia Code / Segoe UI Variable), [`Icons.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Icons.xaml) (Fluent System Icons) y [`Controls.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Controls.xaml) (Keycaps F1-F12, Badges, DataGrid). |
+| **Galería de Estilos** | [`Views/Dev/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/) | [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml): Galería interactiva para validación visual y living styleguide de la Etapa 0.6. |
 
 ---
 

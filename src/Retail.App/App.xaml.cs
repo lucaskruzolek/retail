@@ -33,6 +33,12 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Aplicar paleta Carmín / Borravino (#9D0F33) a todos los controles nativos de WPF-UI
+        Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(
+            System.Windows.Media.Color.FromRgb(0x9D, 0x0F, 0x33),
+            Wpf.Ui.Appearance.ApplicationTheme.Light);
+
         await _host.StartAsync();
 
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();

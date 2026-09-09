@@ -15,7 +15,7 @@ Antes de buscar archivos o escribir código, todo agente debe:
 
 ---
 
-## ⚖️ Las 7 Leyes Inviolables de la Arquitectura
+## ⚖️ Las 8 Leyes Inviolables de la Arquitectura
 
 ### 1. Regla de Dependencia Estricta (Clean Architecture)
 * La jerarquía de dependencias es unidireccional y está forzada por el compilador:
@@ -53,11 +53,56 @@ Antes de buscar archivos o escribir código, todo agente debe:
 * Indentación de **4 espacios** en C# y XAML; **2 espacios** en JSON y YAML.
 * Nomenclatura BDD para pruebas unitarias: `Metodo_Condicion_ResultadoEsperado` (permitido mediante exención en `Directory.Build.props`).
 
+### 8. Optimización de Persistencia y Delegación al Motor Relacional (Push-down to SQL)
+* **Evaluación en Servidor:** Las consultas de búsqueda, filtrado, ordenamiento y agregación deben componerse sobre `IQueryable` para ejecutarse en SQL Server / LocalDB. Queda estrictamente prohibido materializar tablas en memoria con `.ToList()` prematuro para luego filtrar con LINQ to Objects en el cliente.
+* **Proyecciones y No-Tracking:** Para consultas de solo lectura en grillas y catálogos, utilizar siempre `.AsNoTracking()` y proyectar directamente a DTOs (`.Select(x => new ...)`), evitando el overhead del Change Tracker de EF Core y manteniendo la RAM $\le 300\text{ MB}$ (`RNF-03`).
+* **Traducción Nativa de Funciones:** Utilizar funciones traducibles de EF Core (`EF.Functions.Like`, cotejos de intercalación *collation* insensibles a tildes/mayúsculas) y agregaciones nativas (`SumAsync`, `CountAsync`) antes que implementar comparaciones de texto o cálculos de balance en C#.
+* **Frontera Inviolable con el Dominio (CQRS / DDD):** Esta optimización aplica exclusivamente a la capa de persistencia y consultas (lado Lectura). La lógica mutacional de negocio, recálculo de precios por markup, descuento de stock e invariantes de estado pertenecen con exclusividad a las Raíces de Agregado en `Retail.Domain`. Queda prohibido trasladar reglas de negocio a *Stored Procedures*, *Triggers* o funciones escalares de base de datos.
+
 ---
 
-## 🔄 Bucle de Verificación Obligatorio (*Inner Loop* del Agente)
+## 🧘 Principio de Simplicidad Pragmática y Código Esencial (Adaptación Ponytail)
 
-Antes de dar por concluida cualquier modificación o nueva funcionalidad, el agente **debe ejecutar y validar localmente la siguiente secuencia de pasos**:
+Para evitar la sobreingeniería, el código muerto y las alucinaciones de boilerplate, todo agente debe regirse por la siguiente disciplina de desarrollo:
+
+### 1. La Escalera de Decisión (Detente en el primer peldaño que resuelva el problema)
+1. **¿Es necesario construirlo? (YAGNI):** No implementes requerimientos futuros ni features no solicitadas en la ERS o el Roadmap actual.
+2. **¿Ya existe en este codebase?:** Reutiliza helpers, diccionarios XAML, contratos, validadores y excepciones existentes. No dupliques lógica.
+3. **¿La biblioteca estándar de .NET 8 / C# 12 ya lo resuelve?:** Usa capacidades nativas del lenguaje y runtime (records, pattern matching, collection expressions, LINQ optimizado) antes de inventar utilidades custom.
+4. **¿Una dependencia ya instalada lo cubre?:** Aprovecha al máximo `CommunityToolkit.Mvvm` (source generators), `FluentValidation`, `MiniExcel` y `BCrypt.Net-Next`. Prohibido escribir boilerplate que estas librerías resuelven automáticamente.
+5. **Solo entonces:** Escribe el mínimo código limpio, robusto y fuertemente tipado que resuelva la tarea.
+
+### 2. Corrección en la Causa Raíz (*Root Cause, Not Symptom*)
+* Un reporte de bug describe un síntoma. Rastrea todos los llamadores de la función o método afectado y corrige la causa compartida en la raíz (en la entidad de dominio o en el servicio de aplicación).
+* Colocar un parche superficial en un único ViewModel o manejador de evento deja a los demás llamadores con el bug latente e introduce inconsistencias en el sistema.
+
+### 3. Reglas Antiproliferación de Código
+* **Cero abstracciones no solicitadas:** No crees interfaces, fábricas o capas intermedias no requeridas explícitamente por la arquitectura.
+* **Cero dependencias nuevas:** Prohibido agregar paquetes NuGet sin justificación y aprobación previa.
+* **Cero boilerplate innecesario:** Prefiere soluciones directas y predecibles (*Boring over clever*).
+* **Menor diff funcional posible:** La solución más concisa y correcta que resuelva el problema de raíz. Un cambio apresurado en el lugar incorrecto es un segundo bug.
+
+### 4. Lo No Negociable (Rigor de Cátedra Universitaria)
+* **Entendimiento previo:** Lee la tarea y recorre el flujo completo de punta a punta antes de escribir código.
+* **Validación en fronteras:** Validación estricta en la capa de aplicación con `FluentValidation`.
+* **Cero atajos técnicos:** Queda prohibido recortar esquinas con soluciones precarias (como bloqueos globales, escaneos $O(n^2)$ o heurísticas frágiles).
+* **Integridad de Capas y Archivos:** "Menor diff" jamás significa colapsar las capas de Clean Architecture o amontonar clases en un solo archivo. Cada responsabilidad se ubica en su propio archivo conforme a [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md).
+* **Testing Formal con xUnit:** Todo código no trivial debe estar respaldado por pruebas unitarias o de integración en xUnit (`Retail.*.UnitTests`), con FluentAssertions y nomenclatura BDD (`Metodo_Condicion_ResultadoEsperado`). No se admiten scripts ad-hoc ni asserts informales.
+* **Claridad Pedagógica:** Código legible, auto-documentado y respetando el estilo Allman de `.editorconfig`. No sacrifiques legibilidad por compactar código en líneas únicas (*one-liners*) incomprensibles.
+
+---
+
+## 🔄 Bucle de Verificación Inteligente (*Inner Loop* del Agente)
+
+El bucle de verificación técnica no debe ejecutarse a ciegas. Su aplicación queda sujeta al siguiente criterio de **discreción inteligente**:
+
+### 1. Condiciones de Disparo y Excepciones
+* **Aplica Exclusivamente a Código Compilable:** Se ejecuta únicamente cuando la tarea involucre modificaciones en archivos de código fuente C# (`.cs`), interfaces XAML (`.xaml`), configuraciones de proyecto (`.csproj`) o directivas de compilación (`Directory.Build.props`, `.editorconfig`).
+* **Exención Estricta (No ejecutar bucle):** Quedan **estrictamente exceptuados** cambios que solo involucren archivos de documentación (`.md`), diagramas Mermaid (`.mmd`), control de versiones (`.gitignore`) o tareas meramente analíticas, explicativas y de planificación. En estos casos, **está prohibido disparar compilaciones y suites de tests innecesarias**.
+
+### 2. Discreción de Alcance (Ciclo Focalizado vs. Verificación Completa)
+* **Durante el desarrollo iterativo (Ciclo Rápido):** Si se modifica un componente aislado (por ejemplo, una entidad en `Retail.Domain` o un servicio en `Retail.Application`), el agente tiene discreción para ejecutar únicamente la suite de tests correspondiente (ej. `dotnet test tests/Retail.Domain.UnitTests/`) para obtener feedback inmediato sin demoras.
+* **Cierre de Etapa o Hito Completo (Verificación Release):** Al dar por concluida una etapa del Roadmap (ej. Etapa 0.6, Etapa 1.1), implementar un módulo completo o previo a un PR, el agente debe ejecutar la validación integral:
 
 ```powershell
 # 1. Compilación en Release con cero advertencias
@@ -70,11 +115,11 @@ dotnet test Retail.sln --configuration Release --no-build
 dotnet format Retail.sln --verify-no-changes
 ```
 
-4. **Sincronización Obligatoria del Mapa Semántico:**  
-   Si la tarea agregó, renombró o eliminó archivos estructurales (entidades, enumeraciones, excepciones de dominio, contratos de interfaz, DTOs, vistas XAML o flujos de CI/CD), el agente **debe actualizar [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md)** indexando las nuevas responsabilidades y enlaces de archivo antes de responder al usuario.
+### 3. Sincronización Obligatoria del Mapa Semántico
+Si la tarea agregó, renombró o eliminó archivos estructurales (entidades, enumeraciones, excepciones de dominio, contratos de interfaz, DTOs, vistas XAML o flujos de CI/CD), el agente **debe actualizar [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md)** indexando las nuevas responsabilidades y enlaces de archivo antes de responder al usuario.
 
 > [!CAUTION]
-> Si cualquiera de los comandos de compilación/test/formato devuelve un código de salida distinto de `0`, o si se omitió la actualización de [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md) ante cambios estructurales, la tarea **no está terminada**. El agente debe corregir los errores y sincronizar el mapa antes de notificar al usuario.
+> En verificaciones de código compilable, si cualquiera de los comandos devuelve un código de salida distinto de `0`, o si se omitió la actualización de [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md) ante cambios estructurales, la tarea **no está terminada**. El agente debe corregir los errores antes de notificar al usuario.
 
 ---
 
