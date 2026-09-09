@@ -29,8 +29,8 @@ src/Retail.Application/
 ├── DTOs/                                # Contratos de entrada y salida de datos
 │   ├── Ventas/                          # CrearVentaDto, DetalleVentaDto, PagoVentaDto, VentaResponseDto
 │   ├── Presupuestos/                    # CrearPresupuestoDto, PresupuestoDto, DetallePresupuestoDto
-│   ├── Clientes/                        # ClienteDto, CrearClienteDto, RegistrarCobranzaDto, CobranzaResponseDto
-│   ├── Articulos/                       # ArticuloDto, CrearArticuloDto, ActualizarArticuloDto
+│   ├── Clientes/                        # ClienteDto, CrearClienteDto, RegistrarCobranzaDto, CobranzaResultadoDto, CobranzaHistorialDto
+│   ├── Articulos/                       # ArticuloDto, CrearArticuloDto, ActualizarArticuloDto, CategoriaDto, MarcaDto
 │   ├── Proveedores/                     # ProveedorDto, MapeoColumnasCatalogoDto
 │   ├── Compras/                         # CrearCompraDto, DetalleCompraDto
 │   ├── Caja/                            # AperturaTurnoDto, MovimientoCajaDto, ArqueoCiegoEfectivoDto, CierreTurnoDto

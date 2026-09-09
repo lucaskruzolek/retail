@@ -86,11 +86,12 @@ graph TD
 
 | Componente | Ubicación Relativa | Responsabilidad y Contenido |
 | :--- | :--- | :--- |
-| **Registro IoC** | [`DependencyInjection.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/DependencyInjection.cs) | Método de extensión `AddInfrastructureServices()` conectando EF Core y servicios. |
+| **Registro IoC** | [`DependencyInjection.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/DependencyInjection.cs) | Método de extensión `AddInfrastructureServices()` conectando EF Core, hardware de prueba y servicios fiscales. |
 | **Contexto EF Core** | `Persistence/Context/RetailDbContext.cs` | DbSets, transacciones y configuración de Global Query Filters (`!IsDeleted`). |
 | **Mapeo Fluent API** | `Persistence/Configurations/` | Mapeo detallado de tablas, relaciones y el **Filtered Index** para artesanías: `[codigo_barras] IS NOT NULL`. |
 | **Repositorio y UoW** | `Persistence/Repositories/` | `Repository<T>` y `UnitOfWork` que coordina `SaveChangesAsync()`. |
-| **Cliente Fiscal ARCA** | `ExternalServices/ArcaSdk/` | Cliente HTTP hacia `http://localhost:8080/` con resiliencia y `MockArcaClient`. |
+| **Cliente Fiscal ARCA** | [`ExternalServices/ArcaSdk/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/ExternalServices/ArcaSdk/) | Cliente HTTP [`ArcaClient.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/ExternalServices/ArcaSdk/ArcaClient.cs), doble de prueba [`MockArcaClient.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/ExternalServices/ArcaSdk/MockArcaClient.cs) y opciones [`ArcaOptions.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/ExternalServices/ArcaSdk/ArcaOptions.cs). |
+| **Hardware & Mocks** | [`Hardware/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Hardware/) | Emulador de impresora térmica [`FileDebugTicketPrinterService.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Hardware/FileDebugTicketPrinterService.cs) y opciones [`TicketPrinterOptions.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Hardware/TicketPrinterOptions.cs). |
 | **Lector Masivo Excel** | `ExternalServices/Excel/` | Procesamiento en segundo plano de listas de proveedores usando **MiniExcel**. |
 | **Criptografía** | `Security/PasswordHasher.cs` | Hashing seguro de contraseñas de usuarios con `BCrypt.Net-Next`. |
 

@@ -20,4 +20,6 @@ public interface IClienteService
     Task<CobranzaResultadoDto> RegistrarCobranzaAsync(RegistrarCobranzaDto dto, CancellationToken cancellationToken = default);
 
     Task DebitarCuentaCorrienteAsync(int idCliente, decimal monto, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CobranzaHistorialDto>> ListarHistorialCobranzasAsync(int idCliente, CancellationToken cancellationToken = default);
 }

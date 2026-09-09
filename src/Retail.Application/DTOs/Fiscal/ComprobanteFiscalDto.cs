@@ -18,4 +18,6 @@ public record class ComprobanteFiscalDto
     public string? MotivoError { get; init; }
     public required DateTime FechaEmision { get; init; }
     public required EstadoFiscalEnum EstadoFiscal { get; init; }
+    public decimal? TotalVenta { get; init; }
+    public string? RazonSocialCliente { get; init; }
 }
