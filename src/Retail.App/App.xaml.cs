@@ -1,13 +1,18 @@
+using System.Globalization;
+using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Retail.App.Views.Dialogs;
 using Retail.Application;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Infrastructure;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Initialization;
+using Serilog;
 
 namespace Retail.App;
 
@@ -17,7 +22,32 @@ public partial class App : System.Windows.Application
 
     public App()
     {
+        // 1. Inicialización temprana de Serilog (Bootstrap Logger)
+        var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        var logFilePath = Path.Combine(logDirectory, "retail-.log");
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .Enrich.FromLogContext()
+            .WriteTo.Console(formatProvider: CultureInfo.InvariantCulture)
+            .WriteTo.File(
+                path: logFilePath,
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 31,
+                formatProvider: CultureInfo.InvariantCulture,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .CreateLogger();
+
+        Log.Information("Iniciando Retail POS (.NET 8 LTS | Clean Monolith)");
+
+        // 2. Conectar manejadores globales de excepciones no controladas (Etapa 0.8)
+        DispatcherUnhandledException += App_DispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
+        TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+
+        // 3. Construcción del Generic Host integrado con Serilog
         _host = Host.CreateDefaultBuilder()
+            .UseSerilog()
             .ConfigureAppConfiguration((context, config) =>
             {
                 config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
@@ -61,11 +91,83 @@ public partial class App : System.Windows.Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        using (_host)
+        try
         {
-            await _host.StopAsync();
+            using (_host)
+            {
+                await _host.StopAsync();
+            }
+        }
+        finally
+        {
+            Log.Information("Cierre ordenado de Retail POS. Purgando buffers de registro.");
+            Log.CloseAndFlush();
         }
 
         base.OnExit(e);
+    }
+
+    private void App_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        Log.Fatal(e.Exception, "Excepción no controlada capturada en el Dispatcher de UI");
+
+        ShowExceptionDialog(e.Exception, isFatal: false);
+
+        // Marcar como manejada para evitar que WPF aborte el proceso en mostrador
+        e.Handled = true;
+    }
+
+    private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception ex)
+        {
+            Log.Fatal(ex, "Excepción no controlada capturada en AppDomain. IsTerminating: {IsTerminating}", e.IsTerminating);
+
+            if (!Dispatcher.HasShutdownStarted && !Dispatcher.HasShutdownFinished)
+            {
+                Dispatcher.Invoke(() => ShowExceptionDialog(ex, isFatal: e.IsTerminating));
+            }
+        }
+        else
+        {
+            Log.Fatal("Excepción no controlada capturada en AppDomain: {ExceptionObject}. IsTerminating: {IsTerminating}", e.ExceptionObject, e.IsTerminating);
+        }
+
+        // Forzar vaciado de buffers antes de que el runtime de .NET pueda abortar el proceso
+        Log.CloseAndFlush();
+    }
+
+    private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        Log.Error(e.Exception, "Excepción asíncrona no observada capturada en TaskScheduler");
+
+        // Marcar como observada para evitar escalamiento a crash de proceso en el CLR
+        e.SetObserved();
+    }
+
+    private void ShowExceptionDialog(Exception ex, bool isFatal)
+    {
+        try
+        {
+            var logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", $"retail-{DateTime.Now:yyyyMMdd}.log");
+            var dialog = new UnhandledExceptionDialog(ex, isFatal, logFile);
+
+            if (MainWindow is { IsVisible: true })
+            {
+                dialog.Owner = MainWindow;
+            }
+
+            dialog.ShowDialog();
+        }
+        catch (Exception dialogEx)
+        {
+            Log.Fatal(dialogEx, "Error secundario al intentar desplegar UnhandledExceptionDialog");
+
+            System.Windows.MessageBox.Show(
+                $"Ocurrió un error inesperado:\n\n{ex.Message}\n\nConsulte el archivo de registro en logs/retail-.log",
+                "Error en Retail POS",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+        }
     }
 }

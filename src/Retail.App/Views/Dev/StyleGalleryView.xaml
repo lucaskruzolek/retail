@@ -382,6 +382,86 @@
                 </DataGrid>
             </Border>
 
+            <!-- ========================================================= -->
+            <!-- SECCIÓN 8: RESILIENCIA Y MANEJO DE EXCEPCIONES (ETAPA 0.8)-->
+            <!-- ========================================================= -->
+            <TextBlock Text="8. Pruebas de Resiliencia y Manejo Global de Excepciones (Etapa 0.8)"
+                       Style="{StaticResource TextBlockHeader2}"
+                       Margin="0,0,0,12" />
+
+            <Border Style="{StaticResource CardBorderStyle}" Padding="20" Margin="0,0,0,24">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <TextBlock Text="Verificación en Vivo del Criterio de Aceptación (Etapa 0.8):"
+                                   FontWeight="Bold"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <Border HorizontalAlignment="Right"
+                                Style="{StaticResource BadgeDangerStyle}">
+                            <TextBlock Text="Manejo Global Activo"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource DangerForegroundBrush}" />
+                        </Border>
+                    </DockPanel>
+
+                    <TextBlock Text="Los siguientes botones provocan deliberadamente excepciones no controladas para comprobar que el sistema no aborta el proceso, asienta el diagnóstico en logs/retail-.log y presenta el diálogo amigable de mostrador al operador."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,16" />
+
+                    <WrapPanel Orientation="Horizontal">
+                        <!-- Botón 1: Dispatcher Exception -->
+                        <Button x:Name="BtnTestDispatcherException"
+                                Click="BtnTestDispatcherException_Click"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                Margin="0,0,12,12"
+                                Padding="12,8">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Warning24"
+                                               Foreground="{DynamicResource DangerForegroundBrush}"
+                                               Margin="0,0,8,0" />
+                                <TextBlock Text="Provocar Excepción en UI Dispatcher"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Botón 2: TaskScheduler Unobserved Exception -->
+                        <Button x:Name="BtnTestTaskException"
+                                Click="BtnTestTaskException_Click"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                Margin="0,0,12,12"
+                                Padding="12,8">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ArrowSync24"
+                                               Foreground="{DynamicResource WarningForegroundBrush}"
+                                               Margin="0,0,8,0" />
+                                <TextBlock Text="Provocar Excepción en Task Asíncrona"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Botón 3: AppDomain Background Thread Exception -->
+                        <Button x:Name="BtnTestAppDomainException"
+                                Click="BtnTestAppDomainException_Click"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                Margin="0,0,12,12"
+                                Padding="12,8">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Flash24"
+                                               Foreground="{DynamicResource PrimaryBrush}"
+                                               Margin="0,0,8,0" />
+                                <TextBlock Text="Provocar Excepción en Hilo de Fondo"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

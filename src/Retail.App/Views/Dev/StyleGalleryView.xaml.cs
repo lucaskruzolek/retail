@@ -33,4 +33,36 @@ public partial class StyleGalleryView : UserControl
         InitializeComponent();
         DataContext = this;
     }
+
+    private void BtnTestDispatcherException_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        throw new InvalidOperationException("Excepción deliberada en el Dispatcher de UI (Prueba de Resiliencia - Etapa 0.8).");
+    }
+
+    private void BtnTestTaskException_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        // Provoca una tarea que falla sin ser esperada (Unobserved Task Exception)
+        _ = System.Threading.Tasks.Task.Run(() =>
+        {
+            throw new InvalidOperationException("Excepción asíncrona no observada (Prueba de Resiliencia - Etapa 0.8).");
+        });
+
+        // Forzar recolección de basura para que el finalizador detecte la tarea no observada
+        System.GC.Collect();
+        System.GC.WaitForPendingFinalizers();
+        System.GC.Collect();
+    }
+
+    private void BtnTestAppDomainException_Click(object sender, System.Windows.RoutedEventArgs e)
+    {
+        // Provoca una excepción en un hilo de fondo del AppDomain
+        var thread = new System.Threading.Thread(() =>
+        {
+            throw new InvalidOperationException("Excepción deliberada en Hilo de Fondo / AppDomain (Prueba de Resiliencia - Etapa 0.8).");
+        })
+        {
+            IsBackground = true
+        };
+        thread.Start();
+    }
 }
