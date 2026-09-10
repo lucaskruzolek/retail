@@ -508,6 +508,45 @@
                 </StackPanel>
             </Border>
 
+            <Border Style="{StaticResource CardBorderStyle}" Padding="20" Margin="0,0,0,32">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Módulo 2.1: Catálogo Propio de Artículos y Alertas de Stock"
+                                       FontWeight="Bold"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Responsable: Lucas Kruzolek • Visualización desacoplada del catálogo y cálculo dinámico de markup"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                        <Border HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BadgeSuccessStyle}">
+                            <TextBlock Text="Etapa 2.1 Activa"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource SuccessForegroundBrush}" />
+                        </Border>
+                    </DockPanel>
+
+                    <TextBlock Text="Permite verificar la grilla reactiva de artículos con los 20 ítems del semillero, cálculo instantáneo de markup sobre costo, filtro de stock crítico (RF-08), alta de artesanías sin código de barras y soft delete."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,16" />
+
+                    <Button x:Name="BtnAbrirArticulosDev"
+                            Click="BtnAbrirArticulosDev_Click"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Tag24" Margin="0,0,8,0" />
+                            <TextBlock Text="Abrir Catálogo de Artículos (Ventana Sandbox)" FontWeight="Bold" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

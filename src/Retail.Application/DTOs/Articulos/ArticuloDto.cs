@@ -8,9 +8,9 @@ public record class ArticuloDto
     public required int IdArticulo { get; init; }
     public string? CodigoBarras { get; init; }
     public required string Descripcion { get; init; }
-    public required int IdCategoria { get; init; }
+    public int? IdCategoria { get; init; }
     public string? CategoriaNombre { get; init; }
-    public required int IdMarca { get; init; }
+    public int? IdMarca { get; init; }
     public string? MarcaNombre { get; init; }
     public int? IdCatalogoProveedor { get; init; }
     public required decimal CostoReposicion { get; init; }

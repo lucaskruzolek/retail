@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Retail.Infrastructure.Persistence.Context;
 
@@ -11,9 +12,11 @@ using Retail.Infrastructure.Persistence.Context;
 namespace Retail.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(RetailDbContext))]
-    partial class RetailDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260910210348_AddFilteredIndexToArticulosCodigoBarrasSoftDelete")]
+    partial class AddFilteredIndexToArticulosCodigoBarrasSoftDelete
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -63,11 +66,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_catalogo_proveedor");
 
-                    b.Property<int?>("IdCategoria")
+                    b.Property<int>("IdCategoria")
                         .HasColumnType("int")
                         .HasColumnName("id_categoria");
 
-                    b.Property<int?>("IdMarca")
+                    b.Property<int>("IdMarca")
                         .HasColumnType("int")
                         .HasColumnName("id_marca");
 
@@ -1078,12 +1081,14 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.HasOne("Retail.Domain.Entities.Categoria", "Categoria")
                         .WithMany("Articulos")
                         .HasForeignKey("IdCategoria")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Retail.Domain.Entities.Marca", "Marca")
                         .WithMany("Articulos")
                         .HasForeignKey("IdMarca")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("CatalogoProveedor");
 

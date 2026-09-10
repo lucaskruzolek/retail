@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
+using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Usuarios;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
@@ -332,32 +333,10 @@ public class UsuariosViewModelTests
     public void UsuariosView_InstanciacionEnHiloSTA_NoDebeLanzarExcepcion()
     {
         Exception? threadEx = null;
-        var staThread = new System.Threading.Thread(() =>
+        WpfTestHelper.Run(() =>
         {
             try
             {
-                var app = System.Windows.Application.Current;
-                if (app == null)
-                {
-                    try
-                    {
-                        app = new System.Windows.Application();
-                    }
-                    catch (InvalidOperationException)
-                    {
-                        app = System.Windows.Application.Current;
-                    }
-                }
-                if (app != null && app.Resources.MergedDictionaries.Count == 0)
-                {
-                    app.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ThemesDictionary { Theme = Wpf.Ui.Appearance.ApplicationTheme.Light });
-                    app.Resources.MergedDictionaries.Add(new Wpf.Ui.Markup.ControlsDictionary());
-                    app.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Colors.xaml") });
-                    app.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Typography.xaml") });
-                    app.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Icons.xaml") });
-                    app.Resources.MergedDictionaries.Add(new System.Windows.ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Controls.xaml") });
-                }
-
                 var view = new Retail.App.Views.Pages.UsuariosView(_sut);
                 view.Should().NotBeNull();
                 view.DataContext.Should().Be(_sut);
@@ -367,10 +346,6 @@ public class UsuariosViewModelTests
                 threadEx = ex;
             }
         });
-
-        staThread.SetApartmentState(System.Threading.ApartmentState.STA);
-        staThread.Start();
-        staThread.Join();
 
         threadEx.Should().BeNull();
     }

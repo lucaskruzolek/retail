@@ -1,5 +1,11 @@
 using FluentAssertions;
+using NSubstitute;
+using Retail.App.Services;
+using Retail.App.UnitTests.Helpers;
+using Retail.App.ViewModels.Articulos;
 using Retail.App.Views.Dev;
+using Retail.App.Views.Pages;
+using Retail.Application.Interfaces.Services;
 using Xunit;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
@@ -76,7 +82,7 @@ public class AppSmokeTests
         titleBarType.Should().NotBeNull();
 
         // Verificar propiedades en STA thread
-        var staThread = new System.Threading.Thread(() =>
+        WpfTestHelper.Run(() =>
         {
             var titleBar = new Wpf.Ui.Controls.TitleBar
             {
@@ -98,8 +104,82 @@ public class AppSmokeTests
             };
             window.ExtendsContentIntoTitleBar.Should().BeTrue();
         });
-        staThread.SetApartmentState(System.Threading.ApartmentState.STA);
-        staThread.Start();
-        staThread.Join();
+    }
+
+    [Fact]
+    public void ArticulosView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ArticulosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var inventarioServiceMock = Substitute.For<IInventarioService>();
+            var dialogServiceMock = Substitute.For<IArticuloDialogService>();
+            var viewModel = new ArticulosViewModel(inventarioServiceMock, dialogServiceMock);
+
+            try
+            {
+                view = new ArticulosView(viewModel);
+                viewModel.Articulos.Add(new Retail.Application.DTOs.Articulos.ArticuloDto
+                {
+                    IdArticulo = 1,
+                    Descripcion = "Artículo de Prueba",
+                    IdCategoria = 1,
+                    IdMarca = 1,
+                    CostoReposicion = 50m,
+                    PorcentajeGanancia = 100m,
+                    PrecioVenta = 100m,
+                    StockActual = 5,
+                    StockMinimo = 10,
+                    EsServicio = false
+                });
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ArticulosView debe compilarse y resolverse sin errores de tipo o estilos (KeycapToggleButtonStyle)");
+        view.Should().NotBeNull();
+        view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ArticulosView_InputBindings_DebenEstarAsociadosAComandosCorrespondientes()
+    {
+        // Arrange & Act
+        WpfTestHelper.Run(() =>
+        {
+            var inventarioServiceMock = Substitute.For<IInventarioService>();
+            var dialogServiceMock = Substitute.For<IArticuloDialogService>();
+            var viewModel = new ArticulosViewModel(inventarioServiceMock, dialogServiceMock);
+
+            var view = new ArticulosView(viewModel);
+
+            // Assert
+            view.InputBindings.Count.Should().Be(3);
+
+            var keyBindings = view.InputBindings.OfType<System.Windows.Input.KeyBinding>().ToList();
+            keyBindings.Should().HaveCount(3);
+
+            var bindingF2 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F2);
+            bindingF2.Should().NotBeNull();
+            bindingF2!.Command.Should().Be(viewModel.NuevoArticuloCommand);
+
+            var bindingF3 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F3);
+            bindingF3.Should().NotBeNull();
+            bindingF3!.Command.Should().Be(viewModel.AlternarSoloStockCriticoCommand);
+
+            var bindingF5 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F5);
+            bindingF5.Should().NotBeNull();
+            bindingF5!.Command.Should().Be(viewModel.CargarArticulosCommand);
+        });
     }
 }

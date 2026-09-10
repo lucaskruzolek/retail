@@ -51,16 +51,17 @@ public class VentaConfiguration : IEntityTypeConfiguration<Venta>
 }
 ```
 
-### 2.2 La Innovación del Índice Filtrado (*Filtered Index*) para Artesanías
-En [`ArticuloConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/ArticuloConfiguration.cs), resolvemos el requerimiento de negocio `RF-04`: los artículos de catálogo estándar tienen código de barras único obligatorio, pero los productos artesanales carecen de código de fábrica (`NULL`):
+### 2.2 La Innovación del Índice Filtrado (*Filtered Index*) para Artesanías y Soft Delete
+En [`ArticuloConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/ArticuloConfiguration.cs), resolvemos dos restricciones críticas simultáneamente: los artículos de catálogo estándar tienen código de barras único obligatorio, pero los productos artesanales carecen de código de fábrica (`NULL`, `RF-04`), y los artículos borrados lógicamente (`deleted_at IS NOT NULL`) no deben bloquear el reingreso futuro del mismo código (`RF-06`):
 
 ```csharp
-// Unicidad estricta para productos industriales, permitiendo infinitos NULL para artesanías
+// Unicidad estricta para productos industriales activos, permitiendo infinitos NULL
+// para artesanías y reutilización de códigos si el artículo anterior fue borrado lógicamente
 builder.HasIndex(a => a.CodigoBarras)
     .IsUnique()
-    .HasFilter("[codigo_barras] IS NOT NULL");
+    .HasFilter("[codigo_barras] IS NOT NULL AND [deleted_at] IS NULL");
 ```
-En SQL Server, este índice ocupa un espacio ínfimo porque solo indexa filas con código real, acelerando la búsqueda del lector láser a sub-milisegundos.
+En SQL Server, este índice ocupa un espacio ínfimo porque solo indexa filas activas con código real, acelerando la búsqueda del lector láser a sub-milisegundos y previniendo falsas colisiones de unicidad.
 
 ### 2.3 Proyecciones de Lectura y Cero Sobrecarga con `.AsNoTracking()`
 Para grillas y listados de solo lectura, la persistencia elude el Change Tracker de EF Core y proyecta directamente a DTOs:

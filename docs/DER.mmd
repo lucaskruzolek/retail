@@ -118,9 +118,9 @@ erDiagram
         int id_articulo PK
         string codigo_barras "UK nullable (filtered)"
         string descripcion
-        int id_categoria FK
-        int id_marca FK
-        int id_catalogo_proveedor FK
+        int id_categoria "FK nullable"
+        int id_marca "FK nullable"
+        int id_catalogo_proveedor "FK nullable"
         decimal costo_reposicion
         decimal porcentaje_ganancia
         decimal precio_venta

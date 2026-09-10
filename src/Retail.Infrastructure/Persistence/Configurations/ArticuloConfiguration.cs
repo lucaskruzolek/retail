@@ -20,10 +20,10 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
             .HasMaxLength(50)
             .IsRequired(false);
 
-        // Filtered Unique Index: permite múltiples valores NULL para productos artesanales y servicios (RF-04)
+        // Filtered Unique Index: permite múltiples valores NULL para productos artesanales (RF-04) y reutilización ante soft-delete (RF-06)
         builder.HasIndex(a => a.CodigoBarras)
             .IsUnique()
-            .HasFilter("[codigo_barras] IS NOT NULL");
+            .HasFilter("[codigo_barras] IS NOT NULL AND [deleted_at] IS NULL");
 
         builder.Property(a => a.Descripcion)
             .HasColumnName("descripcion")
@@ -32,11 +32,11 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
 
         builder.Property(a => a.IdCategoria)
             .HasColumnName("id_categoria")
-            .IsRequired();
+            .IsRequired(false);
 
         builder.Property(a => a.IdMarca)
             .HasColumnName("id_marca")
-            .IsRequired();
+            .IsRequired(false);
 
         builder.Property(a => a.IdCatalogoProveedor)
             .HasColumnName("id_catalogo_proveedor");
@@ -80,11 +80,13 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
         builder.HasOne(a => a.Categoria)
             .WithMany(c => c.Articulos)
             .HasForeignKey(a => a.IdCategoria)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(a => a.Marca)
             .WithMany(m => m.Articulos)
             .HasForeignKey(a => a.IdMarca)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(a => a.CatalogoProveedor)

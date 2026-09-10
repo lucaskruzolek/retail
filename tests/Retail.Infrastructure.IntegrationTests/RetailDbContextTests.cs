@@ -333,4 +333,106 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         // Assert
         await act.Should().ThrowAsync<DbUpdateException>();
     }
+
+    [Fact]
+    public async Task Articulo_CodigoBarrasSoftDeleted_PermiteNuevoArticuloConMismoCodigo()
+    {
+        // Arrange
+        var categoria = new Categoria { NombreCategoria = "Librería General" };
+        var marca = new Marca { NombreMarca = "Faber" };
+        await _context.Categorias.AddAsync(categoria);
+        await _context.Marcas.AddAsync(marca);
+        await _context.SaveChangesAsync();
+
+        const string codigoCompartido = "7791234567890";
+
+        var articulo1 = new Articulo
+        {
+            CodigoBarras = codigoCompartido,
+            Descripcion = "Resaltador Amarillo Original",
+            IdCategoria = categoria.Id,
+            IdMarca = marca.Id,
+            CostoReposicion = 300m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 450m,
+            StockActual = 10,
+            StockMinimo = 2,
+            EsServicio = false
+        };
+
+        await _context.Articulos.AddAsync(articulo1);
+        await _context.SaveChangesAsync();
+
+        // Soft delete del primer artículo
+        _context.Articulos.Remove(articulo1);
+        await _context.SaveChangesAsync();
+
+        // Act: Insertar un nuevo artículo activo con el mismo código de barras
+        var articulo2 = new Articulo
+        {
+            CodigoBarras = codigoCompartido,
+            Descripcion = "Resaltador Amarillo Nuevo Lote",
+            IdCategoria = categoria.Id,
+            IdMarca = marca.Id,
+            CostoReposicion = 350m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 525m,
+            StockActual = 25,
+            StockMinimo = 5,
+            EsServicio = false
+        };
+
+        await _context.Articulos.AddAsync(articulo2);
+        var act = async () => await _context.SaveChangesAsync();
+
+        // Assert
+        await act.Should().NotThrowAsync();
+        articulo1.Id.Should().BeGreaterThan(0);
+        articulo2.Id.Should().BeGreaterThan(articulo1.Id);
+
+        // Con IgnoreQueryFilters() ambos registros coexisten en la base de datos
+        var articulosEnDb = await _context.Articulos
+            .IgnoreQueryFilters()
+            .Where(a => a.CodigoBarras == codigoCompartido)
+            .ToListAsync();
+
+        articulosEnDb.Should().HaveCount(2);
+        articulosEnDb.Should().ContainSingle(a => a.Id == articulo1.Id && a.DeletedAt != null);
+        articulosEnDb.Should().ContainSingle(a => a.Id == articulo2.Id && a.DeletedAt == null);
+    }
+
+    [Fact]
+    public async Task Articulo_CategoriaYMarcaNulas_PermiteInsercionYPersistenciaCorrecta()
+    {
+        // Arrange
+        var articuloSinRubroNiMarca = new Articulo
+        {
+            CodigoBarras = "7790000000001",
+            Descripcion = "Producto Sin Categoría Ni Marca",
+            IdCategoria = null,
+            IdMarca = null,
+            CostoReposicion = 250m,
+            PorcentajeGanancia = 40m,
+            PrecioVenta = 350m,
+            StockActual = 10,
+            StockMinimo = 2,
+            EsServicio = false
+        };
+
+        // Act
+        await _context.Articulos.AddAsync(articuloSinRubroNiMarca);
+        await _context.SaveChangesAsync();
+
+        // Assert
+        var recuperado = await _context.Articulos
+            .Include(a => a.Categoria)
+            .Include(a => a.Marca)
+            .FirstOrDefaultAsync(a => a.Id == articuloSinRubroNiMarca.Id);
+
+        recuperado.Should().NotBeNull();
+        recuperado!.IdCategoria.Should().BeNull();
+        recuperado.Categoria.Should().BeNull();
+        recuperado.IdMarca.Should().BeNull();
+        recuperado.Marca.Should().BeNull();
+    }
 }

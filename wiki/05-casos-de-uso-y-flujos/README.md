@@ -9,6 +9,7 @@ Este módulo documenta el recorrido transversal de las operaciones comerciales d
 | Flujo de Negocio | Requisitos ERS | Desafío y Responsabilidad Técnica | Enlace al Artículo |
 | :--- | :--- | :--- | :--- |
 | **Venta en Mostrador y Descuento de Stock** | `RF-09`, `RF-10` | Transacción ACID atómica, cobro multimedio (*Split Payments*), cálculo estricto de vuelto y emisión de ticket térmico en 40 columnas. | [Ver Artículo](flujo-venta-y-descuento-stock.md) |
+| **Catálogo Propio y Alertas de Stock** | `RF-04`, `RF-06`, `RF-08` | Markup reactivo en dominio, soporte de artesanías sin código con Filtered Index, búsqueda multicriterio con push-down a SQL y badges de criticidad. | [Ver Artículo](flujo-catalogo-y-alertas-stock.md) |
 | **Presupuestos y Conciliación Adaptativa** | `RF-11`, `RF-12` | Congelamiento de precios por 15 días, no reserva de stock en góndola, detección de variaciones de costo y conversión a venta. | [Ver Artículo](flujo-conciliacion-presupuesto.md) |
 | **Apertura de Caja y Arqueo Ciego** | `RF-13`, `RF-14`, `RF-15` | Custodia de gaveta de efectivo, retiros y gastos justificados, balance teórico y arqueo ciego anti-fraude sin sesgos. | [Ver Artículo](flujo-caja-y-arqueo-ciego.md) |
 | **Importación Masiva de Listas de Precios** | `RF-05`, `RF-07` | Procesamiento en segundo plano (`Task.Run`) de planillas XLSX de distribuidores con MiniExcel en streaming ($\le 25\text{ MB}$ RAM) y recálculo por markup. | [Ver Artículo](flujo-importador-excel.md) |

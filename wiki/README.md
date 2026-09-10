@@ -93,6 +93,7 @@ graph TD
 
 ### [05. 🔄 Casos de Uso y Flujos de Punta a Punta](05-casos-de-uso-y-flujos/flujo-venta-y-descuento-stock.md)
 * [**Venta en Mostrador y Descuento Atómico de Stock:**](05-casos-de-uso-y-flujos/flujo-venta-y-descuento-stock.md) Del escaneo de código de barras al cobro multimedio, persistencia ACID e impresión de ticket.
+* [**Catálogo Propio de Artículos y Alertas de Stock:**](05-casos-de-uso-y-flujos/flujo-catalogo-y-alertas-stock.md) Padrón de productos, markup reactivo, soporte de artesanías sin código con Filtered Index y advertencias visuales de stock crítico.
 * [**Presupuestos y Conciliación Adaptativa:**](05-casos-de-uso-y-flujos/flujo-conciliacion-presupuesto.md) Congelamiento de precios por 15 días, conversión a venta y detección de variaciones de costo.
 * [**Apertura de Caja y Arqueo Ciego:**](05-casos-de-uso-y-flujos/flujo-caja-y-arqueo-ciego.md) Custodia del efectivo en mostrador, retiros extraordinarios y conciliación ciega contra saldo teórico.
 * [**Importación Masiva de Listas de Precios:**](05-casos-de-uso-y-flujos/flujo-importador-excel.md) Streaming de bajo consumo de memoria ($\le 300\text{ MB}$) con MiniExcel delegado a `Task.Run`.

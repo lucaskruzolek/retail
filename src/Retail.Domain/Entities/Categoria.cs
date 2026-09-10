@@ -5,7 +5,7 @@ namespace Retail.Domain.Entities;
 /// <summary>
 /// Clasificación de rubro o familia de artículos en el catálogo.
 /// </summary>
-public class Categoria : BaseEntity
+public class Categoria : BaseEntity, IAggregateRoot
 {
     public string NombreCategoria { get; set; } = string.Empty;
 

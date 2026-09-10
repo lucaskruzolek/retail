@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using FluentAssertions;
+using Retail.App.UnitTests.Helpers;
 using Retail.App.Views.Dialogs;
 using Serilog;
 using Xunit;
@@ -64,23 +65,11 @@ public class GlobalExceptionHandlingTests
     public void UnhandledExceptionDialog_InstanciacionEnHiloSTA_DebeCargarDatosCorrectamente()
     {
         // Arrange
-        var staThread = new System.Threading.Thread(() =>
+        const string logFileSimulado = @"C:\Retail\logs\retail-20260909.log";
+        var dummyException = new InvalidOperationException("Falla simulada para verificación de diálogo");
+
+        WpfTestHelper.Run(() =>
         {
-            if (System.Windows.Application.Current == null)
-            {
-                try
-                {
-                    _ = new System.Windows.Application();
-                }
-                catch (InvalidOperationException)
-                {
-                    // Ignorar si ya fue instanciada en el AppDomain
-                }
-            }
-
-            var dummyException = new InvalidOperationException("Falla simulada para verificación de diálogo");
-            const string logFileSimulado = @"C:\Retail\logs\retail-20260909.log";
-
             // Act
             var dialog = new UnhandledExceptionDialog(dummyException, isFatal: false, logFileSimulado);
 
@@ -96,32 +85,16 @@ public class GlobalExceptionHandlingTests
             dialog.MaxHeight.Should().Be(SystemParameters.WorkArea.Height);
             dialog.MaxWidth.Should().Be(SystemParameters.WorkArea.Width);
         });
-
-        staThread.SetApartmentState(System.Threading.ApartmentState.STA);
-        staThread.Start();
-        staThread.Join();
     }
 
     [Fact]
     public void UnhandledExceptionDialog_ModoFatal_DebeExhibirAlertaCriticaYBotonCierre()
     {
         // Arrange
-        var staThread = new System.Threading.Thread(() =>
+        var dummyException = new InvalidOperationException("Error catastrófico irrecuperable");
+
+        WpfTestHelper.Run(() =>
         {
-            if (System.Windows.Application.Current == null)
-            {
-                try
-                {
-                    _ = new System.Windows.Application();
-                }
-                catch (InvalidOperationException)
-                {
-                    // Ignorar si ya fue instanciada en el AppDomain
-                }
-            }
-
-            var dummyException = new InvalidOperationException("Error catastrófico irrecuperable");
-
             // Act
             var dialog = new UnhandledExceptionDialog(dummyException, isFatal: true);
 
@@ -130,33 +103,17 @@ public class GlobalExceptionHandlingTests
             dialog.BotonCerrarAppVisibility.Should().Be(Visibility.Visible);
             dialog.MensajeOperador.Should().Contain("crítica");
         });
-
-        staThread.SetApartmentState(System.Threading.ApartmentState.STA);
-        staThread.Start();
-        staThread.Join();
     }
 
     [Fact]
     public void UnhandledExceptionDialog_ObtenerReporteDiagnostico_DebeFormatearReporteCorrectamente()
     {
         // Arrange
-        var staThread = new System.Threading.Thread(() =>
+        var dummyException = new InvalidOperationException("Falla en mostrador");
+        const string logFile = @"C:\logs\retail-20260909.log";
+
+        WpfTestHelper.Run(() =>
         {
-            if (System.Windows.Application.Current == null)
-            {
-                try
-                {
-                    _ = new System.Windows.Application();
-                }
-                catch (InvalidOperationException)
-                {
-                    // Ignorar si ya fue instanciada en el AppDomain
-                }
-            }
-
-            var dummyException = new InvalidOperationException("Falla en mostrador");
-            const string logFile = @"C:\logs\retail-20260909.log";
-
             // Act
             var dialog = new UnhandledExceptionDialog(dummyException, isFatal: false, logFile);
             var reporte = dialog.ObtenerReporteDiagnostico();
@@ -168,9 +125,5 @@ public class GlobalExceptionHandlingTests
             reporte.Should().Contain(logFile);
             reporte.Should().Contain("DETALLE DE LA PILA DE LLAMADAS");
         });
-
-        staThread.SetApartmentState(System.Threading.ApartmentState.STA);
-        staThread.Start();
-        staThread.Join();
     }
 }

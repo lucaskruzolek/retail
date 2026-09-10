@@ -59,7 +59,7 @@
 * **💡 Respuesta Modelo del Estudiante:**  
   > "En un sistema comercial y ERP, el borrado físico (`DELETE FROM`) es una mala práctica inaceptable. Destruye la trazabilidad histórica de comprobantes exigida por la AFIP y viola la integridad referencial: no se puede borrar físicamente un artículo que ya fue vendido hace tres meses sin romper la clave foránea en `detalle_ventas` o ejecutar un destructivo borrado en cascada.  
   > Toda entidad hereda de [`BaseEntity.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Common/BaseEntity.cs) con las propiedades `IsDeleted` y `DeletedAt`. Mediante **Global Query Filters** en `RetailDbContext`, EF Core inyecta automáticamente `WHERE [IsDeleted] = 0` en todas las consultas del sistema.  
-  > Respecto al impacto en los índices únicos, un borrado lógico estándar genera conflictos si se intenta reinsertar un artículo con el mismo código. En Retail lo solucionamos aplicando **Índices Filtrados (*Filtered Indexes*)** en SQL Server: `builder.HasIndex(a => a.CodigoBarras).IsUnique().HasFilter("[codigo_barras] IS NOT NULL AND [is_deleted] = 0")`, garantizando que la restricción de unicidad solo aplique a registros activos."
+  > Respecto al impacto en los índices únicos, un borrado lógico estándar genera conflictos si se intenta reinsertar un artículo con el mismo código. En Retail lo solucionamos aplicando **Índices Filtrados (*Filtered Indexes*)** en SQL Server: `builder.HasIndex(a => a.CodigoBarras).IsUnique().HasFilter("[codigo_barras] IS NOT NULL AND [deleted_at] IS NULL")`, garantizando que la restricción de unicidad solo aplique a registros activos."
 
 ---
 

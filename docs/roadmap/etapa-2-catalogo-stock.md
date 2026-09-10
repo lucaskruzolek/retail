@@ -10,23 +10,23 @@
 
 ## Módulos e Interfaces Asignados
 
-### Módulo 2.1: Catálogo Propio de Artículos y Alertas de Stock
+### Módulo 2.1: Catálogo Propio de Artículos y Alertas de Stock (Estado: ✅ 100% Completado)
 **Responsable:** Lucas Kruzolek
 
-* **Interfaz Visual:** `ArticulosView.xaml` (grilla de productos con búsqueda en tiempo real, badges de alerta de stock mínimo `RF-08`, modal reactivo de alta/edición de artículo con cálculo dinámico de precio de venta al ingresar costo y porcentaje de ganancia).
-* **ViewModels:** `ArticulosViewModel.cs` y `ArticuloDetalleViewModel.cs`.
-* **Lógica y Casos de Uso:** `IInventarioService` (CRUD de artículos, borrado lógico `MarkAsDeleted`, búsqueda por código o texto, categorización). `CrearArticuloValidator`.
-* **Dominio:** Agregado `Articulo` (`IAggregateRoot`), `Categoria`, `Marca`. Fórmula de markup:
+* **Interfaz Visual:** [`ArticulosView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Pages/ArticulosView.xaml) (grilla de productos con búsqueda en tiempo real, badges de alerta de stock crítico `RF-08`, filtros por categoría y toggle de stock bajo), [`ArticuloFormDialog.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dialogs/ArticuloFormDialog.xaml) (diálogo modal de alta/edición de artículo con cálculo dinámico en tiempo real de precio de venta por markup).
+* **ViewModels y Servicios UI:** [`ArticulosViewModel.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/ViewModels/Articulos/ArticulosViewModel.cs), [`ArticuloFormViewModel.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/ViewModels/Articulos/ArticuloFormViewModel.cs), [`IArticuloDialogService.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Services/IArticuloDialogService.cs) y [`ArticuloDialogService.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Services/ArticuloDialogService.cs).
+* **Lógica y Casos de Uso:** [`IInventarioService.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Interfaces/Services/IInventarioService.cs), [`InventarioService.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Services/InventarioService.cs) (CRUD de artículos, borrado lógico `MarkAsDeleted`, búsqueda multicriterio con push-down a SQL Server `RF-06`, categorización y alertas `RF-08`). Validadores FluentValidation: [`CrearArticuloValidator.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Validators/Articulos/CrearArticuloValidator.cs) y [`ActualizarArticuloValidator.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Validators/Articulos/ActualizarArticuloValidator.cs).
+* **Dominio:** Agregado [`Articulo.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/Articulo.cs) (`IAggregateRoot`), [`Categoria.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/Categoria.cs) (`IAggregateRoot`), [`Marca.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/Marca.cs) (`IAggregateRoot`). Fórmula de markup reactivo:
   $$\text{PrecioVenta} = \text{CostoReposicion} \times \left(1 + \frac{\text{PorcentajeGanancia}}{100}\right)$$
-  Soporte de código de barras opcional/nulo para artesanías y servicios.
-* **Persistencia:** `ArticuloConfiguration.cs` con Filtered Unique Index en SQL Server:
+  Soporte de código de barras opcional/nulo para artesanías y servicios (`RF-04`).
+* **Persistencia:** [`ArticuloConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/ArticuloConfiguration.cs) con Filtered Unique Index en SQL Server:
   ```csharp
-  builder.HasIndex(a => a.CodigoBarras)
-         .IsUnique()
-         .HasFilter("[codigo_barras] IS NOT NULL");
+   builder.HasIndex(a => a.CodigoBarras)
+          .IsUnique()
+          .HasFilter("[codigo_barras] IS NOT NULL AND [deleted_at] IS NULL");
   ```
-  `CategoriaConfiguration.cs` y `MarcaConfiguration.cs`.
-* **Testing:** Prueba de integración en LocalDB validando que múltiples artesanías con código `NULL` coexistan sin infringir unicidad; pruebas unitarias de markup y de ViewModel.
+  [`CategoriaConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/CategoriaConfiguration.cs) y [`MarcaConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/MarcaConfiguration.cs).
+* **Testing:** Pruebas unitarias de invariantes y markup en [`ArticuloTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Domain.UnitTests/Entities/ArticuloTests.cs) (14 tests); pruebas de orquestación y validación en [`InventarioServiceTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Application.UnitTests/Services/InventarioServiceTests.cs) (11 tests) y [`ArticuloValidatorTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Application.UnitTests/Validators/ArticuloValidatorTests.cs) (6 tests); pruebas de UI y reactividad en [`ArticulosViewModelTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/ViewModels/ArticulosViewModelTests.cs) (9 tests) y [`ArticuloFormViewModelTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/ViewModels/ArticuloFormViewModelTests.cs) (8 tests); e integración en LocalDB validando unicidad filtrada en [`RetailDbContextTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Infrastructure.IntegrationTests/RetailDbContextTests.cs).
 
 ---
 

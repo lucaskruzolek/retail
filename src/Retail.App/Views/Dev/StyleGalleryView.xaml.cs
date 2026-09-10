@@ -85,4 +85,20 @@ public partial class StyleGalleryView : UserControl
         };
         devWindow.Show();
     }
+
+    private void BtnAbrirArticulosDev_Click(object sender, RoutedEventArgs e)
+    {
+        var articulosView = App.Services.GetRequiredService<ArticulosView>();
+        var devWindow = new FluentWindow
+        {
+            Title = "Retail POS - Sandbox: Catálogo de Artículos y Stock (Etapa 2.1)",
+            Width = 1180,
+            Height = 720,
+            MinWidth = 950,
+            MinHeight = 580,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Content = articulosView
+        };
+        devWindow.Show();
+    }
 }

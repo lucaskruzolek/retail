@@ -115,6 +115,18 @@ var catalogoHistoricoCompleto = await _context.Articulos
     .ToListAsync();
 ```
 
+### 2.5 Convivencia con Índices Únicos: *Filtered Indexes*
+Un problema común de Soft Delete surge al intentar reinsertar un registro con un valor único (por ejemplo, el código de barras de un artículo o el nombre de usuario) que ya existe en una fila dada de baja (`deleted_at IS NOT NULL`). En SQL Server, un índice `UNIQUE` tradicional fallaría porque la fila borrada lógicamente aún existe físicamente.
+
+En [`ArticuloConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/ArticuloConfiguration.cs) resolvemos esta limitación aplicando un **Índice Filtrado**:
+
+```csharp
+builder.HasIndex(a => a.CodigoBarras)
+    .IsUnique()
+    .HasFilter("[codigo_barras] IS NOT NULL AND [deleted_at] IS NULL");
+```
+*Para ver el caso de uso completo y su justificación comercial, consultar [Flujo de Catálogo Propio y Alertas de Stock](../05-casos-de-uso-y-flujos/flujo-catalogo-y-alertas-stock.md).*
+
 ---
 
 ## 3. 📊 Diagrama Explicativo: Ciclo de Vida y Traducción SQL

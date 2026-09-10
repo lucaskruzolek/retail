@@ -8,8 +8,8 @@ public record class CrearArticuloDto
 {
     public string? CodigoBarras { get; init; }
     public required string Descripcion { get; init; }
-    public required int IdCategoria { get; init; }
-    public required int IdMarca { get; init; }
+    public int? IdCategoria { get; init; }
+    public int? IdMarca { get; init; }
     public int? IdCatalogoProveedor { get; init; }
     public required decimal CostoReposicion { get; init; }
     public required decimal PorcentajeGanancia { get; init; }
