@@ -21,7 +21,8 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
             .IsRequired();
 
         builder.HasIndex(u => u.NombreUsuario)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("[deleted_at] IS NULL");
 
         builder.Property(u => u.PasswordHash)
             .HasColumnName("password_hash")

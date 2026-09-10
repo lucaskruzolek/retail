@@ -68,7 +68,14 @@ public class GlobalExceptionHandlingTests
         {
             if (System.Windows.Application.Current == null)
             {
-                _ = new System.Windows.Application();
+                try
+                {
+                    _ = new System.Windows.Application();
+                }
+                catch (InvalidOperationException)
+                {
+                    // Ignorar si ya fue instanciada en el AppDomain
+                }
             }
 
             var dummyException = new InvalidOperationException("Falla simulada para verificación de diálogo");
@@ -103,7 +110,14 @@ public class GlobalExceptionHandlingTests
         {
             if (System.Windows.Application.Current == null)
             {
-                _ = new System.Windows.Application();
+                try
+                {
+                    _ = new System.Windows.Application();
+                }
+                catch (InvalidOperationException)
+                {
+                    // Ignorar si ya fue instanciada en el AppDomain
+                }
             }
 
             var dummyException = new InvalidOperationException("Error catastrófico irrecuperable");
@@ -130,7 +144,14 @@ public class GlobalExceptionHandlingTests
         {
             if (System.Windows.Application.Current == null)
             {
-                _ = new System.Windows.Application();
+                try
+                {
+                    _ = new System.Windows.Application();
+                }
+                catch (InvalidOperationException)
+                {
+                    // Ignorar si ya fue instanciada en el AppDomain
+                }
             }
 
             var dummyException = new InvalidOperationException("Falla en mostrador");

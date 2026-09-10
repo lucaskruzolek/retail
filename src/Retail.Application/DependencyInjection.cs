@@ -1,4 +1,7 @@
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Retail.Application.Interfaces.Services;
+using Retail.Application.Services;
 
 namespace Retail.Application;
 
@@ -6,7 +9,10 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
-        // En Etapa 0.4 se registrarán los validadores de FluentValidation y servicios de caso de uso
+        services.AddValidatorsFromAssemblyContaining<UsuarioService>();
+        services.AddScoped<IUsuarioService, UsuarioService>();
+
         return services;
     }
 }
+

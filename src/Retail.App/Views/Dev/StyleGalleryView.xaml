@@ -462,6 +462,52 @@
                 </StackPanel>
             </Border>
 
+            <!-- ========================================================= -->
+            <!-- SECCIÓN 8: MÓDULOS DE NEGOCIO EN DESARROLLO (SANDBOX)     -->
+            <!-- ========================================================= -->
+            <TextBlock Text="8. Módulos de Negocio en Desarrollo (Sandbox &amp; Vista Previa)"
+                       Style="{StaticResource TextBlockHeader2}"
+                       Margin="0,0,0,12" />
+
+            <Border Style="{StaticResource CardBorderStyle}" Padding="20" Margin="0,0,0,32">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Módulo 1.2: Administración de Usuarios y Roles RBAC"
+                                       FontWeight="Bold"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Responsable: Lucas Kruzolek • Visualización desacoplada sin depender del Shell de Mostrador"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                        <Border HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BadgeSuccessStyle}">
+                            <TextBlock Text="Etapa 1.2 Lista"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource SuccessForegroundBrush}" />
+                        </Border>
+                    </DockPanel>
+
+                    <TextBlock Text="Permite probar de forma interactiva la grilla de usuarios, filtros de activos/inactivos, alta y edición modal de operadores y blanqueo de contraseña, resolviendo dependencias desde DI sin invadir MainWindow."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,16" />
+
+                    <Button x:Name="BtnAbrirUsuariosDev"
+                            Click="BtnAbrirUsuariosDev_Click"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="People24" Margin="0,0,8,0" />
+                            <TextBlock Text="Abrir Vista de Usuarios (Ventana Sandbox)" FontWeight="Bold" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

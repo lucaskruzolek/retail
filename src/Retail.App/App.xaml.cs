@@ -20,6 +20,11 @@ public partial class App : System.Windows.Application
 {
     private readonly IHost _host;
 
+    /// <summary>
+    /// Acceso al proveedor de servicios de inyección de dependencias para resolución desacoplada en arneses de desarrollo.
+    /// </summary>
+    public static IServiceProvider Services => ((App)Current)._host.Services;
+
     public App()
     {
         // 1. Inicialización temprana de Serilog (Bootstrap Logger)
@@ -60,7 +65,11 @@ public partial class App : System.Windows.Application
 
                 // Ventanas y Servicios de Presentación
                 services.AddSingleton<MainWindow>();
+                services.AddSingleton<Retail.App.Services.IUsuarioDialogService, Retail.App.Services.UsuarioDialogService>();
+                services.AddTransient<Retail.App.ViewModels.Usuarios.UsuariosViewModel>();
+                services.AddTransient<Retail.App.Views.Pages.UsuariosView>();
             })
+
             .Build();
     }
 

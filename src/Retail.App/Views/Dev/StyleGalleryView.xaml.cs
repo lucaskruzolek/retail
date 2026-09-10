@@ -1,5 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Extensions.DependencyInjection;
+using Retail.App.Views.Pages;
+using Wpf.Ui.Controls;
 
 namespace Retail.App.Views.Dev;
 
@@ -64,5 +68,21 @@ public partial class StyleGalleryView : UserControl
             IsBackground = true
         };
         thread.Start();
+    }
+
+    private void BtnAbrirUsuariosDev_Click(object sender, RoutedEventArgs e)
+    {
+        var usuariosView = App.Services.GetRequiredService<UsuariosView>();
+        var devWindow = new FluentWindow
+        {
+            Title = "Retail POS - Sandbox: Administración de Usuarios (Etapa 1.2)",
+            Width = 1100,
+            Height = 700,
+            MinWidth = 900,
+            MinHeight = 550,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Content = usuariosView
+        };
+        devWindow.Show();
     }
 }

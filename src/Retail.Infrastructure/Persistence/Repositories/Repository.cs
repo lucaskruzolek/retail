@@ -21,20 +21,54 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, IAggregateRoot
         _dbSet = _context.Set<T>();
     }
 
-    public virtual async Task<T?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
+    public virtual Task<T?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        return await _dbSet.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        return GetByIdAsync(id, includeDeleted: false, cancellationToken);
     }
 
-    public virtual async Task<IReadOnlyList<T>> ListAllAsync(CancellationToken cancellationToken = default)
+    public virtual async Task<T?> GetByIdAsync(int id, bool includeDeleted, CancellationToken cancellationToken = default)
     {
-        return await _dbSet.ToListAsync(cancellationToken);
+        IQueryable<T> query = _dbSet;
+        if (includeDeleted)
+        {
+            query = query.IgnoreQueryFilters();
+        }
+
+        return await query.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
 
-    public virtual async Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+    public virtual Task<IReadOnlyList<T>> ListAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _dbSet.Where(predicate).ToListAsync(cancellationToken);
+        return ListAllAsync(includeDeleted: false, cancellationToken);
     }
+
+    public virtual async Task<IReadOnlyList<T>> ListAllAsync(bool includeDeleted, CancellationToken cancellationToken = default)
+    {
+        IQueryable<T> query = _dbSet;
+        if (includeDeleted)
+        {
+            query = query.IgnoreQueryFilters();
+        }
+
+        return await query.ToListAsync(cancellationToken);
+    }
+
+    public virtual Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default)
+    {
+        return FindAsync(predicate, includeDeleted: false, cancellationToken);
+    }
+
+    public virtual async Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, bool includeDeleted, CancellationToken cancellationToken = default)
+    {
+        IQueryable<T> query = _dbSet;
+        if (includeDeleted)
+        {
+            query = query.IgnoreQueryFilters();
+        }
+
+        return await query.Where(predicate).ToListAsync(cancellationToken);
+    }
+
 
     public virtual async Task<T> AddAsync(T entity, CancellationToken cancellationToken = default)
     {

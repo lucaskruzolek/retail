@@ -61,13 +61,23 @@
         <Setter Property="TextAlignment" Value="Right" />
     </Style>
 
-    <!-- Celda de Precios y Subtotales en Grillas (14px, SemiBold, Monospace) -->
+    <!-- Celda de Precios y Subtotales en Grillas (14px, SemiBold, Monospace, alineado verticalmente al centro) -->
     <Style x:Key="TextBlockCurrencyCell" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="TextAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Celda de Texto Estándar en Grillas (14px, Regular, Segoe UI Variable, centrado vertical) -->
+    <Style x:Key="TextBlockTextCell" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <!-- Etiqueta de Tecla Rápida [F1] a [F12] (11px, Bold, Monospace) -->

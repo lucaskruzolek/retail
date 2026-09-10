@@ -56,6 +56,7 @@
                                    VerticalAlignment="Center" />
                     </Border>
                 </StackPanel>
+
             </ui:TitleBar.Header>
         </ui:TitleBar>
 
@@ -124,6 +125,7 @@
                 <dev:StyleGalleryView />
             </Grid>
         </Grid>
+
 
         <!-- ============================================================= -->
         <!-- BARRA DE ESTADO INFERIOR                                      -->

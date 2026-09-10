@@ -164,7 +164,15 @@ Todos los glifos son recursos `StreamGeometry` vectoriales, inmunes a pixelado e
                     Width="140" />
 ```
 
-### 4. Badge Semáforo de Stock Bajo
+### 4. Columna de Texto Estándar en `DataGrid` (Centrado Vertical)
+```xml
+<DataGridTextColumn Header="Usuario"
+                    Binding="{Binding NombreUsuario}"
+                    ElementStyle="{StaticResource TextBlockTextCell}"
+                    Width="140" />
+```
+
+### 5. Badge Semáforo de Stock Bajo
 ```xml
 <Border Style="{StaticResource BadgeWarningStyle}"
         Visibility="{Binding StockBajo, Converter={StaticResource BoolToVisibilityConverter}}">

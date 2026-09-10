@@ -209,4 +209,128 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         var trasBorrado = await repo.GetByIdAsync(nuevoArticulo.Id);
         trasBorrado.Should().BeNull();
     }
+
+    [Fact]
+    public async Task UsuarioRepository_BusquedaInsensibleAMayusculas_DebeTraducirseASqlCorrectamente()
+    {
+        // Arrange
+        var rol = await _context.Roles.FirstOrDefaultAsync(r => r.NombreRol == "Cajero");
+        if (rol == null)
+        {
+            rol = new Rol { NombreRol = "Cajero" };
+            await _context.Roles.AddAsync(rol);
+            await _context.SaveChangesAsync();
+        }
+
+        var repo = new Repository<Usuario>(_context);
+        var uow = new UnitOfWork(_context);
+
+        var usuario = new Usuario
+        {
+            NombreUsuario = "operador.test",
+            NombreCompleto = "Operador de Prueba",
+            PasswordHash = "hash123",
+            IdRol = rol.Id
+        };
+
+        await repo.AddAsync(usuario);
+        await uow.SaveChangesAsync();
+
+        // Act: Búsqueda con expresión LINQ traducible a SQL
+        var username = "OPERADOR.TEST";
+        var encontrados = await repo.FindAsync(
+            u => u.NombreUsuario == username,
+            includeDeleted: true);
+
+        // Assert
+        encontrados.Should().NotBeEmpty();
+        encontrados.Should().ContainSingle(u => u.NombreUsuario == "operador.test");
+    }
+
+    [Fact]
+    public async Task Usuario_NombreUsuarioSoftDeleted_PermiteNuevoUsuarioConMismoLoginEIdentidadDistinta()
+    {
+        // Arrange
+        var rol = await _context.Roles.FirstOrDefaultAsync(r => r.NombreRol == "Cajero");
+        if (rol == null)
+        {
+            rol = new Rol { NombreRol = "Cajero" };
+            await _context.Roles.AddAsync(rol);
+            await _context.SaveChangesAsync();
+        }
+
+        var usuario1 = new Usuario
+        {
+            NombreUsuario = "lucas.softdelete",
+            NombreCompleto = "Lucas Anterior",
+            PasswordHash = "hash1",
+            IdRol = rol.Id
+        };
+        await _context.Usuarios.AddAsync(usuario1);
+        await _context.SaveChangesAsync();
+
+        // Soft delete del primer usuario
+        _context.Usuarios.Remove(usuario1);
+        await _context.SaveChangesAsync();
+
+        // Act: Insertar un segundo usuario independiente con el mismo nombre de usuario
+        var usuario2 = new Usuario
+        {
+            NombreUsuario = "lucas.softdelete",
+            NombreCompleto = "Lucas Nuevo",
+            PasswordHash = "hash2",
+            IdRol = rol.Id
+        };
+        await _context.Usuarios.AddAsync(usuario2);
+        await _context.SaveChangesAsync();
+
+        // Assert
+        usuario1.Id.Should().BeGreaterThan(0);
+        usuario2.Id.Should().BeGreaterThan(usuario1.Id);
+        usuario2.NombreCompleto.Should().Be("Lucas Nuevo");
+
+        // Verificación con IgnoreQueryFilters: ambos registros existen en SQL con claves primarias independientes
+        var todos = await _context.Usuarios.IgnoreQueryFilters().Where(u => u.NombreUsuario == "lucas.softdelete").ToListAsync();
+        todos.Should().HaveCount(2);
+        todos.Should().ContainSingle(u => u.Id == usuario1.Id && u.DeletedAt != null);
+        todos.Should().ContainSingle(u => u.Id == usuario2.Id && u.DeletedAt == null);
+    }
+
+    [Fact]
+    public async Task Usuario_DosUsuariosActivosConMismoNombre_DebeLanzarExcepcionPorIndiceFiltrado()
+    {
+        // Arrange
+        var rol = await _context.Roles.FirstOrDefaultAsync(r => r.NombreRol == "Cajero");
+        if (rol == null)
+        {
+            rol = new Rol { NombreRol = "Cajero" };
+            await _context.Roles.AddAsync(rol);
+            await _context.SaveChangesAsync();
+        }
+
+        var usuario1 = new Usuario
+        {
+            NombreUsuario = "operador.duplicado",
+            NombreCompleto = "Operador Uno",
+            PasswordHash = "hash1",
+            IdRol = rol.Id
+        };
+        await _context.Usuarios.AddAsync(usuario1);
+        await _context.SaveChangesAsync();
+
+        var usuario2 = new Usuario
+        {
+            NombreUsuario = "operador.duplicado",
+            NombreCompleto = "Operador Dos",
+            PasswordHash = "hash2",
+            IdRol = rol.Id
+        };
+        await _context.Usuarios.AddAsync(usuario2);
+
+        // Act
+        var act = async () => await _context.SaveChangesAsync();
+
+        // Assert
+        await act.Should().ThrowAsync<DbUpdateException>();
+    }
 }

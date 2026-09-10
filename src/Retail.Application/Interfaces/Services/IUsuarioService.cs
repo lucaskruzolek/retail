@@ -7,7 +7,7 @@ namespace Retail.Application.Interfaces.Services;
 /// </summary>
 public interface IUsuarioService
 {
-    Task<IReadOnlyList<UsuarioDto>> ListarUsuariosAsync(bool incluirInactivos = false, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<UsuarioDto>> ListarUsuariosAsync(CancellationToken cancellationToken = default);
 
     Task<UsuarioDto> ObtenerPorIdAsync(int idUsuario, CancellationToken cancellationToken = default);
 

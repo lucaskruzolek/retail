@@ -12,9 +12,15 @@ public interface IRepository<T> where T : BaseEntity, IAggregateRoot
 {
     Task<T?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
 
+    Task<T?> GetByIdAsync(int id, bool includeDeleted, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<T>> ListAllAsync(CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<T>> ListAllAsync(bool includeDeleted, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<T>> FindAsync(Expression<Func<T, bool>> predicate, bool includeDeleted, CancellationToken cancellationToken = default);
 
     Task<T> AddAsync(T entity, CancellationToken cancellationToken = default);
 
@@ -22,3 +28,4 @@ public interface IRepository<T> where T : BaseEntity, IAggregateRoot
 
     Task DeleteAsync(T entity, CancellationToken cancellationToken = default);
 }
+

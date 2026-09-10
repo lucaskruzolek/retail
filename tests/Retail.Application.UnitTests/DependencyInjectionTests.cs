@@ -18,5 +18,8 @@ public class DependencyInjectionTests
 
         // Assert
         result.Should().BeSameAs(services);
+        services.Should().Contain(d => d.ServiceType == typeof(Retail.Application.Interfaces.Services.IUsuarioService));
+        services.Should().Contain(d => d.ServiceType == typeof(FluentValidation.IValidator<Retail.Application.DTOs.Usuarios.CrearUsuarioDto>));
     }
 }
+

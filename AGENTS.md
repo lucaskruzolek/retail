@@ -12,7 +12,7 @@
 Para optimizar el consumo de contexto, evitar sobrecarga de tokens y prevenir el fenómeno de *Lost-in-the-Middle*, todo agente debe seguir una estrategia de **carga progresiva bajo demanda (*Just-in-Time*)** estructurada en 4 niveles:
 
 ### Nivel 0: Sistema Operativo y Barandillas (Siempre Activo en Prompt)
-* Las reglas, convenciones, directivas de parada, estilo Allman y las 9 Leyes de Arquitectura de este archivo (`AGENTS.md`) rigen toda acción sin requerir lectura adicional.
+* Las reglas, convenciones, directivas de parada, estilo Allman y las 10 Leyes de Arquitectura de este archivo (`AGENTS.md`) rigen toda acción sin requerir lectura adicional.
 
 ### Nivel 1: Brújula Semántica y Enrutador (Paso Cero Obligatorio)
 1. **Consultar el Mapa Semántico:** Leer [`docs/MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md) para identificar con exactitud en qué capa, archivo, DTO o contrato reside la responsabilidad solicitada. **Queda prohibido realizar búsquedas a ciegas con grep si el archivo está indexado en el mapa.**
@@ -36,7 +36,7 @@ Para optimizar el consumo de contexto, evitar sobrecarga de tokens y prevenir el
 
 ---
 
-## ⚖️ Las 9 Leyes Inviolables de la Arquitectura
+## ⚖️ Las 10 Leyes Inviolables de la Arquitectura
 
 ### 1. Regla de Dependencia Estricta (Clean Architecture)
 * La jerarquía de dependencias es unidireccional y está forzada por el compilador:
@@ -83,6 +83,12 @@ Para optimizar el consumo de contexto, evitar sobrecarga de tokens y prevenir el
 ### 9. Fidelidad Estética y Sistema de Diseño (Windows 11 Fluent + Retail)
 * Antes de crear, modificar o maquetar cualquier vista, ventana o diálogo XAML en `Retail.App`, el agente debe consultar obligatoriamente [`docs/SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) y [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml) como living styleguide de referencia.
 * Queda terminantemente prohibido implementar interfaces sin respetar los contratos visuales, tokens semánticos, tipografía dual (`Cascadia Code` para importes y `Segoe UI Variable` para interfaz general) y componentes de mostrador allí especificados.
+
+### 10. Inviolabilidad del Shell, Ciclos de Vida DI y Aislamiento de Épicas (Zero Boundary Erosion)
+* **Ciclos de Vida del Shell y Componentes Raíz:** La ventana principal ([`MainWindow`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/MainWindow.xaml.cs)) y los orquestadores globales de la aplicación deben ser registrados estrictamente como `Singleton`. Queda terminantemente prohibido alterar su tiempo de vida a `Transient` o `Scoped` para resolver dependencias secundarias o eludir validaciones de inyección.
+* **Prohibición de Acoplamiento Cruzado en el Shell:** Ningún agente asignado a un submódulo o página secundaria (ej. `UsuariosView`, `ArticulosView`, `CajaView`) puede modificar los constructores de `MainWindow` ni agregar inyecciones directas en él para "probar" o "conectar" su trabajo de forma prematura.
+* **Aislamiento Visual de Desarrollo (Sandbox):** Las vistas de desarrollo o pruebas intermedias antes de la integración del sistema de navegación oficial (`INavigationService`, asignado a Pablo en Etapa 1.1) deben alojarse exclusivamente en el arnés de desarrollo ([`src/Retail.App/Views/Dev/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/) o [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml)) o verificarse de forma desacoplada mediante pruebas unitarias de ViewModel (`CommunityToolkit.Mvvm`).
+* **Protección de Archivos Comunes de Infraestructura:** Archivos troncales como [`App.xaml.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/App.xaml.cs), [`MainWindow.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/MainWindow.xaml) y configuraciones de DI son zonas de integración compartidas. Cualquier modificación debe preservar la compatibilidad con las demás ramas y respetar los contratos definidos en el Roadmap modular.
 
 ---
 

@@ -2,6 +2,8 @@ using FluentAssertions;
 using Retail.App.Views.Dev;
 using Xunit;
 
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
+
 namespace Retail.App.UnitTests;
 
 public class AppSmokeTests

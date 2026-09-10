@@ -10,7 +10,8 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <!-- CA1711: Permite sufijo 'Enum' especificado en la arquitectura (ej. RolUsuarioEnum, MedioPagoEnum) -->
-    <NoWarn>$(NoWarn);CA1711</NoWarn>
+    <!-- CA1848: Permite llamadas estándar ILogger.Log* según SISTEMA_DE_LOGGING.md sin forzar delegados LoggerMessage -->
+    <NoWarn>$(NoWarn);CA1711;CA1848</NoWarn>
 
     <!-- Metadatos de Autoría y Proyecto -->
     <Authors>Pablo Fernandez, Lucas Kruzolek</Authors>

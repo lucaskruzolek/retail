@@ -163,6 +163,29 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Badge Primario / Gerencial (Carmín) -->
+    <Style x:Key="BadgePrimaryStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Badge Neutro / Cajero / Inactivo -->
+    <Style x:Key="BadgeNeutralStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+
     <!-- ================================================================= -->
     <!-- ESTILO PARA TABLAS / GRILLAS (DataGridRetailStyle)                -->
     <!-- ================================================================= -->

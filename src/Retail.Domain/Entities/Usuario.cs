@@ -1,4 +1,5 @@
 using Retail.Domain.Common;
+using Retail.Domain.Enums;
 
 namespace Retail.Domain.Entities;
 
@@ -26,4 +27,25 @@ public class Usuario : BaseEntity, IAggregateRoot
     public ICollection<Compra> Compras { get; set; } = new List<Compra>();
 
     public ICollection<CobranzaCliente> CobranzasClientes { get; set; } = new List<CobranzaCliente>();
+
+    public void ActualizarDatos(string nombreCompleto, int idRol)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nombreCompleto);
+        if (idRol <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idRol), "El identificador de rol debe ser mayor a cero.");
+        }
+
+        NombreCompleto = nombreCompleto.Trim();
+        IdRol = idRol;
+    }
+
+    public void ActualizarPassword(string nuevoPasswordHash)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(nuevoPasswordHash);
+        PasswordHash = nuevoPasswordHash;
+    }
+
+    public bool EsGerente() => IdRol == (int)RolUsuarioEnum.Gerente;
 }
+
