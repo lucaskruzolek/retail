@@ -217,6 +217,8 @@ public partial class UsuariosViewModel : ObservableObject
     [RelayCommand]
     public async Task RestablecerPasswordAsync(UsuarioDto? usuario = null)
     {
+        await Task.CompletedTask;
+
         var target = usuario ?? UsuarioSeleccionado;
         if (target == null)
         {

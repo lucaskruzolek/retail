@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "22a59ab979174ef3",
+        "id": "8dc251711d31dc20",
         "type": "tabs",
         "children": [
           {
-            "id": "d07aca23ff1fc41e",
+            "id": "be2936e38cb8ada2",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -99,7 +99,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "03-patrones-de-diseno/adapter-y-facade.md",
+                "file": "02-capas-de-arquitectura/01-dominio-ddd.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -118,7 +118,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "03-patrones-de-diseno/adapter-y-facade.md",
+                "file": "02-capas-de-arquitectura/01-dominio-ddd.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -161,7 +161,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "03-patrones-de-diseno/adapter-y-facade.md",
+                "file": "02-capas-de-arquitectura/01-dominio-ddd.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -188,32 +188,33 @@
       "bases:Crear nueva base": false
     }
   },
-  "active": "d07aca23ff1fc41e",
+  "active": "be2936e38cb8ada2",
   "lastOpenFiles": [
     "03-patrones-de-diseno/mvvm-con-source-generators.md",
-    "01-fundamentos-y-onboarding/entorno-desarrollo-local.md",
+    "03-patrones-de-diseno/adapter-y-facade.md",
+    "04-sistemas-transversales/sistema-de-diseno-ui.md",
+    "05-casos-de-uso-y-flujos/flujo-caja-y-arqueo-ciego.md",
+    "04-sistemas-transversales/sistema-de-ci-cd.md",
+    "04-sistemas-transversales/README.md",
+    "02-capas-de-arquitectura/04-presentacion-wpf-mvvm.md",
     "02-capas-de-arquitectura/03-infraestructura-persistencia.md",
+    "05-casos-de-uso-y-flujos/flujo-catalogo-y-alertas-stock.md",
     "02-capas-de-arquitectura/02-aplicacion-casos-de-uso.md",
     "02-capas-de-arquitectura/01-dominio-ddd.md",
-    "README.md",
-    "01-fundamentos-y-onboarding/clean-desktop-monolith.md",
     "01-fundamentos-y-onboarding/README.md",
+    "01-fundamentos-y-onboarding/entorno-desarrollo-local.md",
     "01-fundamentos-y-onboarding/convenciones-y-calidad.md",
+    "01-fundamentos-y-onboarding/clean-desktop-monolith.md",
     "03-patrones-de-diseno/README.md",
     "02-capas-de-arquitectura/README.md",
-    "04-sistemas-transversales/sistema-de-ci-cd.md",
     "06-vademecum-defensa-tecnica/matriz-tradeoffs-arquitectura.md",
     "06-vademecum-defensa-tecnica/preguntas-trampa-de-profesores.md",
     "05-casos-de-uso-y-flujos/flujo-importador-excel.md",
-    "05-casos-de-uso-y-flujos/flujo-caja-y-arqueo-ciego.md",
     "05-casos-de-uso-y-flujos/flujo-conciliacion-presupuesto.md",
     "05-casos-de-uso-y-flujos/flujo-venta-y-descuento-stock.md",
     "04-sistemas-transversales/sistema-de-logging-y-errores.md",
-    "04-sistemas-transversales/sistema-de-diseno-ui.md",
     "04-sistemas-transversales/sistema-de-persistencia.md",
-    "03-patrones-de-diseno/strategy-y-contingencia.md",
-    "03-patrones-de-diseno/soft-delete-y-global-filters.md",
-    "03-patrones-de-diseno/adapter-y-facade.md",
-    "03-patrones-de-diseno/repository-and-unit-of-work.md"
+    "README.md",
+    "03-patrones-de-diseno/strategy-y-contingencia.md"
   ]
 }
