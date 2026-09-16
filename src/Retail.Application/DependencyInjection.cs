@@ -12,6 +12,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssemblyContaining<UsuarioService>();
         services.AddScoped<IUsuarioService, UsuarioService>();
         services.AddScoped<IInventarioService, InventarioService>();
+        services.AddScoped<IClienteService, ClienteService>();
 
         return services;
     }

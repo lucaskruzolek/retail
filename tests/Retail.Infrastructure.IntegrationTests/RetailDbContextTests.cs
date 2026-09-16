@@ -435,4 +435,128 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         recuperado.IdMarca.Should().BeNull();
         recuperado.Marca.Should().BeNull();
     }
+
+    [Fact]
+    public async Task Cliente_ConMismoNumeroDocumento_SiEstaEliminado_PermiteReingresoPorIndiceFiltrado()
+    {
+        // Arrange
+        var cliente1 = new Cliente
+        {
+            RazonSocialONombre = "Cliente Inicial",
+            TipoDocumento = Domain.Enums.TipoDocumentoEnum.Dni,
+            NumeroDocumento = "40123456",
+            CondicionIva = Domain.Enums.CondicionIvaEnum.ConsumidorFinal,
+            TieneCuentaCorriente = false,
+            LimiteCredito = 0m,
+            SaldoCuentaCorriente = 0m
+        };
+
+        await _context.Clientes.AddAsync(cliente1);
+        await _context.SaveChangesAsync();
+
+        // Borrado lógico del cliente inicial
+        cliente1.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+
+        var cliente2 = new Cliente
+        {
+            RazonSocialONombre = "Cliente Nuevo Mismo Documento",
+            TipoDocumento = Domain.Enums.TipoDocumentoEnum.Dni,
+            NumeroDocumento = "40123456",
+            CondicionIva = Domain.Enums.CondicionIvaEnum.ConsumidorFinal,
+            TieneCuentaCorriente = true,
+            LimiteCredito = 20000m,
+            SaldoCuentaCorriente = 0m
+        };
+
+        // Act
+        await _context.Clientes.AddAsync(cliente2);
+        var act = async () => await _context.SaveChangesAsync();
+
+        // Assert
+        await act.Should().NotThrowAsync();
+
+        // Verificar con IgnoreQueryFilters que ambos persisten en la tabla
+        var clientesEnDb = await _context.Clientes
+            .IgnoreQueryFilters()
+            .Where(c => c.NumeroDocumento == "40123456")
+            .ToListAsync();
+
+        clientesEnDb.Should().HaveCount(2);
+        clientesEnDb.Should().ContainSingle(c => c.Id == cliente1.Id && c.DeletedAt != null);
+        clientesEnDb.Should().ContainSingle(c => c.Id == cliente2.Id && c.DeletedAt == null);
+    }
+
+    [Fact]
+    public async Task Cliente_AlRegistrarCobranza_PersisteEnTablaCobranzasClientesYActualizaSaldoDeudor()
+    {
+        // Arrange
+        var rol = await _context.Roles.FirstOrDefaultAsync(r => r.NombreRol == "Cajero");
+        if (rol == null)
+        {
+            rol = new Rol { NombreRol = "Cajero" };
+            await _context.Roles.AddAsync(rol);
+            await _context.SaveChangesAsync();
+        }
+
+        var usuario = new Usuario
+        {
+            NombreUsuario = $"cajero.cobranza.{Guid.NewGuid():N}"[..20],
+            NombreCompleto = "Cajero Cobranza Test",
+            PasswordHash = "hash123",
+            IdRol = rol.Id
+        };
+        await _context.Usuarios.AddAsync(usuario);
+        await _context.SaveChangesAsync();
+
+        var turno = new TurnoCaja
+        {
+            IdUsuario = usuario.Id,
+            FechaApertura = DateTime.UtcNow,
+            SaldoInicial = 1000m,
+            Estado = Domain.Enums.EstadoTurnoEnum.Abierto
+        };
+        await _context.TurnosCaja.AddAsync(turno);
+        await _context.SaveChangesAsync();
+
+        var cliente = new Cliente
+        {
+            RazonSocialONombre = "Cliente Con Cobranza Test",
+            TipoDocumento = Domain.Enums.TipoDocumentoEnum.Dni,
+            NumeroDocumento = $"99{Random.Shared.Next(100000, 999999)}",
+            CondicionIva = Domain.Enums.CondicionIvaEnum.ConsumidorFinal,
+            TieneCuentaCorriente = true,
+            LimiteCredito = 50000m,
+            SaldoCuentaCorriente = 10000m
+        };
+        await _context.Clientes.AddAsync(cliente);
+        await _context.SaveChangesAsync();
+
+        // Act: Registrar cobranza a través del agregado DDD
+        var cobranza = cliente.RegistrarCobranza(
+            turno.Id,
+            usuario.Id,
+            3500m,
+            Domain.Enums.MedioPagoEnum.Efectivo,
+            "Recibo Test #555");
+
+        await _context.SaveChangesAsync();
+
+        // Assert: Consultar en base de datos
+        var clienteRecargado = await _context.Clientes
+            .Include(c => c.Cobranzas)
+            .FirstOrDefaultAsync(c => c.Id == cliente.Id);
+
+        clienteRecargado.Should().NotBeNull();
+        clienteRecargado!.SaldoCuentaCorriente.Should().Be(6500m);
+        clienteRecargado.Cobranzas.Should().ContainSingle();
+
+        var cobranzaEnDb = await _context.CobranzasClientes
+            .FirstOrDefaultAsync(cc => cc.IdCliente == cliente.Id);
+
+        cobranzaEnDb.Should().NotBeNull();
+        cobranzaEnDb!.Monto.Should().Be(3500m);
+        cobranzaEnDb.MedioPago.Should().Be(Domain.Enums.MedioPagoEnum.Efectivo);
+        cobranzaEnDb.Referencia.Should().Be("Recibo Test #555");
+    }
 }

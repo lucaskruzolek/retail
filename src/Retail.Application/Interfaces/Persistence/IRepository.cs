@@ -14,6 +14,8 @@ public interface IRepository<T> where T : BaseEntity, IAggregateRoot
 
     Task<T?> GetByIdAsync(int id, bool includeDeleted, CancellationToken cancellationToken = default);
 
+    Task<T?> GetByIdWithIncludesAsync(int id, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes);
+
     Task<IReadOnlyList<T>> ListAllAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<T>> ListAllAsync(bool includeDeleted, CancellationToken cancellationToken = default);

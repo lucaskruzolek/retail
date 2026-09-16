@@ -32,7 +32,8 @@ public class ClienteConfiguration : IEntityTypeConfiguration<Cliente>
             .IsRequired();
 
         builder.HasIndex(c => c.NumeroDocumento)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("[deleted_at] IS NULL");
 
         builder.Property(c => c.CondicionIva)
             .HasColumnName("condicion_iva")

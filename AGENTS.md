@@ -83,6 +83,8 @@ Para optimizar el consumo de contexto, evitar sobrecarga de tokens y prevenir el
 ### 9. Fidelidad Estética y Sistema de Diseño (Windows 11 Fluent + Retail)
 * Antes de crear, modificar o maquetar cualquier vista, ventana o diálogo XAML en `Retail.App`, el agente debe consultar obligatoriamente [`docs/SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) y [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml) como living styleguide de referencia.
 * Queda terminantemente prohibido implementar interfaces sin respetar los contratos visuales, tokens semánticos, tipografía dual (`Cascadia Code` para importes y `Segoe UI Variable` para interfaz general) y componentes de mostrador allí especificados.
+* **Aduana de Recursos XAML Obligatoria:** Ante cualquier creación o modificación de archivos `.xaml`, el agente debe ejecutar `powershell -ExecutionPolicy Bypass -File scripts/audit-xaml.ps1`. Queda terminantemente prohibido entregar vistas con claves `{StaticResource}` o `{DynamicResource}` inexistentes en [`src/Retail.App/Styles/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/).
+* **Pruebas de Humo STA para Vistas y Modales:** Todo nuevo `UserControl` o `FluentWindow` debe contar obligatoriamente con una prueba de instanciación en hilo STA dentro de [`tests/Retail.App.UnitTests/AppSmokeTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/AppSmokeTests.cs) que invoque `Measure()`, `Arrange()` y `UpdateLayout()` para garantizar que el motor BAML de WPF resuelva el 100% de los recursos visuales antes del tiempo de ejecución.
 
 ### 10. Inviolabilidad del Shell, Ciclos de Vida DI y Aislamiento de Épicas (Zero Boundary Erosion)
 * **Ciclos de Vida del Shell y Componentes Raíz:** La ventana principal ([`MainWindow`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/MainWindow.xaml.cs)) y los orquestadores globales de la aplicación deben ser registrados estrictamente como `Singleton`. Queda terminantemente prohibido alterar su tiempo de vida a `Transient` o `Scoped` para resolver dependencias secundarias o eludir validaciones de inyección.
@@ -136,10 +138,13 @@ El bucle de verificación técnica no debe ejecutarse a ciegas. Su aplicación q
 * **Cierre de Etapa o Hito Completo (Verificación Release):** Al dar por concluida una etapa del Roadmap (ej. Etapa 0.6, Etapa 1.1), implementar un módulo completo o previo a un PR, el agente debe ejecutar la validación integral:
 
 ```powershell
+# 0. Auditoría estática de recursos XAML (si se crearon o modificaron vistas/modales/estilos)
+powershell -ExecutionPolicy Bypass -File scripts/audit-xaml.ps1
+
 # 1. Compilación en Release con cero advertencias
 dotnet build Retail.sln --configuration Release
 
-# 2. Ejecución de la suite completa de pruebas unitarias e integración
+# 2. Ejecución de la suite completa de pruebas unitarias e integración (incluye tests de humo STA)
 dotnet test Retail.sln --configuration Release --no-build
 
 # 3. Verificación estricta de formato y estilo de código

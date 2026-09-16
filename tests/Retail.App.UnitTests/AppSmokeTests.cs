@@ -3,9 +3,16 @@ using NSubstitute;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
+using Retail.App.ViewModels.Clientes;
+using Retail.App.ViewModels.Usuarios;
 using Retail.App.Views.Dev;
+using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
+using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Enums;
 using Xunit;
 
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
@@ -181,5 +188,261 @@ public class AppSmokeTests
             bindingF5.Should().NotBeNull();
             bindingF5!.Command.Should().Be(viewModel.CargarArticulosCommand);
         });
+    }
+
+    [Fact]
+    public void ClientesView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ClientesView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var clienteServiceMock = Substitute.For<IClienteService>();
+            var dialogServiceMock = Substitute.For<IClienteDialogService>();
+            var viewModel = new Retail.App.ViewModels.Clientes.ClientesViewModel(clienteServiceMock, dialogServiceMock);
+
+            try
+            {
+                view = new ClientesView(viewModel);
+                viewModel.Clientes.Add(new Retail.Application.DTOs.Clientes.ClienteDto
+                {
+                    IdCliente = 1,
+                    RazonSocialONombre = "Librería Central",
+                    TipoDocumento = Retail.Domain.Enums.TipoDocumentoEnum.Cuit,
+                    NumeroDocumento = "30712345678",
+                    CondicionIva = Retail.Domain.Enums.CondicionIvaEnum.ResponsableInscripto,
+                    TieneCuentaCorriente = true,
+                    LimiteCredito = 100000m,
+                    SaldoCuentaCorriente = 25000m
+                });
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ClientesView debe compilarse y resolverse sin errores de recursos estáticos (TextBlockBodyMuted, etc.)");
+        view.Should().NotBeNull();
+        view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void CobranzaModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        Retail.App.Views.Dialogs.CobranzaModalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var clienteServiceMock = Substitute.For<IClienteService>();
+            var cajaServiceMock = Substitute.For<ICajaService>();
+            var clienteEjemplo = new Retail.Application.DTOs.Clientes.ClienteDto
+            {
+                IdCliente = 10,
+                RazonSocialONombre = "Estudiante Universitario",
+                TipoDocumento = Retail.Domain.Enums.TipoDocumentoEnum.Dni,
+                NumeroDocumento = "40123456",
+                CondicionIva = Retail.Domain.Enums.CondicionIvaEnum.ConsumidorFinal,
+                TieneCuentaCorriente = true,
+                LimiteCredito = 50000m,
+                SaldoCuentaCorriente = 12000m
+            };
+
+            var viewModel = new Retail.App.ViewModels.Clientes.CobranzaModalViewModel(clienteServiceMock, cajaServiceMock, clienteEjemplo);
+
+            try
+            {
+                dialog = new Retail.App.Views.Dialogs.CobranzaModalDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(560, 680));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 560, 680));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de CobranzaModalDialog debe compilarse y resolverse sin errores de recursos estáticos o dinámicos");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void UsuariosView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        UsuariosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var usuarioServiceMock = Substitute.For<IUsuarioService>();
+            var dialogServiceMock = Substitute.For<IUsuarioDialogService>();
+            var viewModel = new UsuariosViewModel(usuarioServiceMock, dialogServiceMock);
+
+            try
+            {
+                view = new UsuariosView(viewModel);
+                viewModel.Usuarios.Add(new UsuarioDto
+                {
+                    IdUsuario = 1,
+                    NombreUsuario = "admin",
+                    NombreCompleto = "Administrador General",
+                    Rol = RolUsuarioEnum.Gerente,
+                    Activo = true,
+                    CreatedAt = DateTime.UtcNow
+                });
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de UsuariosView debe resolverse sin errores de recursos");
+        view.Should().NotBeNull();
+        view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void UsuarioFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        UsuarioFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new UsuarioFormViewModel();
+            viewModel.ConfigurarAlta();
+
+            try
+            {
+                dialog = new UsuarioFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(520, 600));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 520, 600));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de UsuarioFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ClienteFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ClienteFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ClienteFormViewModel();
+            viewModel.ConfigurarAlta();
+
+            try
+            {
+                dialog = new ClienteFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(600, 700));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 600, 700));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ClienteFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ArticuloFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ArticuloFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ArticuloFormViewModel();
+            viewModel.ConfigurarAlta(Array.Empty<CategoriaDto>(), Array.Empty<MarcaDto>());
+
+            try
+            {
+                dialog = new ArticuloFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(640, 750));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 640, 750));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ArticuloFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void CambiarPasswordDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        CambiarPasswordDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var usuarioEjemplo = new UsuarioDto
+            {
+                IdUsuario = 2,
+                NombreUsuario = "cajero1",
+                NombreCompleto = "Juan Pérez",
+                Rol = RolUsuarioEnum.Cajero,
+                Activo = true,
+                CreatedAt = DateTime.UtcNow
+            };
+            var viewModel = new CambiarPasswordViewModel();
+            viewModel.Configurar(usuarioEjemplo);
+
+            try
+            {
+                dialog = new CambiarPasswordDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(480, 420));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 480, 420));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de CambiarPasswordDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
     }
 }

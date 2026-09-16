@@ -547,6 +547,45 @@
                 </StackPanel>
             </Border>
 
+            <Border Style="{StaticResource CardBorderStyle}" Padding="20" Margin="0,0,0,32">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,12">
+                        <StackPanel>
+                            <TextBlock Text="Módulo 3.2: Padrón de Clientes y Cuentas Corrientes (Fase 1)"
+                                       FontWeight="Bold"
+                                       FontSize="14"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Responsable: Lucas Kruzolek • Gestión de clientes comerciales, condiciones IVA y saldos deudores (RF-20)"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                        <Border HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BadgeSuccessStyle}">
+                            <TextBlock Text="Etapa 3.2 Activa"
+                                       FontSize="11"
+                                       FontWeight="Bold"
+                                       Foreground="{DynamicResource SuccessForegroundBrush}" />
+                        </Border>
+                    </DockPanel>
+
+                    <TextBlock Text="Permite verificar el padrón general de clientes, búsqueda multicriterio con push-down a SQL, altas y modificaciones con modal reactivo, habilitación de cuenta corriente comercial y verificación de saldo deudor."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,16" />
+
+                    <Button x:Name="BtnAbrirClientesDev"
+                            Click="BtnAbrirClientesDev_Click"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="People24" Margin="0,0,8,0" />
+                            <TextBlock Text="Abrir Padrón de Clientes (Ventana Sandbox)" FontWeight="Bold" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>

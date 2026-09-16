@@ -37,6 +37,20 @@ public class Repository<T> : IRepository<T> where T : BaseEntity, IAggregateRoot
         return await query.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
     }
 
+    public virtual async Task<T?> GetByIdWithIncludesAsync(int id, CancellationToken cancellationToken = default, params Expression<Func<T, object>>[] includes)
+    {
+        IQueryable<T> query = _dbSet;
+        if (includes != null)
+        {
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+        }
+
+        return await query.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+    }
+
     public virtual Task<IReadOnlyList<T>> ListAllAsync(CancellationToken cancellationToken = default)
     {
         return ListAllAsync(includeDeleted: false, cancellationToken);

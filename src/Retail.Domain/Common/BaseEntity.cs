@@ -13,7 +13,7 @@ public abstract class BaseEntity
 
     public bool IsDeleted => DeletedAt.HasValue;
 
-    public void MarkAsDeleted()
+    public virtual void MarkAsDeleted()
     {
         DeletedAt = DateTime.UtcNow;
     }

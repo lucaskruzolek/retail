@@ -1,0 +1,279 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.CobranzaModalDialog"
+                   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                   Title="Cobranza de Cuenta Corriente"
+                   Width="520"
+                   Height="620"
+                   MinWidth="480"
+                   MinHeight="580"
+                   WindowStartupLocation="CenterOwner"
+                   ExtendsContentIntoTitleBar="True"
+                   WindowBackdropType="Mica"
+                   Background="{DynamicResource SurfaceBackgroundBrush}"
+                   ResizeMode="NoResize">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Colors.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Icons.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Barra de Título Fluent -->
+        <ui:TitleBar Grid.Row="0"
+                     Title="Cobranza de Cuenta Corriente"
+                     Padding="8,0,0,0">
+            <ui:TitleBar.Icon>
+                <ui:SymbolIcon Symbol="Payment24" Foreground="{DynamicResource PrimaryBrush}" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <!-- Contenido Central con Scroll -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,12">
+            <StackPanel>
+                <!-- Alerta de Validación o Error -->
+                <Border Background="{DynamicResource DangerBackgroundBrush}"
+                        BorderBrush="{DynamicResource DangerBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="12,8"
+                        Margin="0,0,0,14"
+                        Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{Binding MensajeError}"
+                               Foreground="{DynamicResource DangerForegroundBrush}"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <!-- Tarjeta 1: Información del Cliente y Saldo Deudor -->
+                <Border Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding Cliente.RazonSocialONombre}"
+                                           FontWeight="Bold"
+                                           FontSize="15"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Style="{StaticResource TextBlockCaptionSecondary}">
+                                    <Run Text="{Binding Cliente.TipoDocumento}" />: <Run Text="{Binding Cliente.NumeroDocumento}" />
+                                    | <Run Text="{Binding Cliente.CondicionIva}" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <Border Grid.Column="1"
+                                    Background="{DynamicResource WarningBackgroundBrush}"
+                                    BorderBrush="{DynamicResource WarningBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="8,4"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="DEUDA ACTIVA"
+                                           Foreground="{DynamicResource WarningForegroundBrush}"
+                                           FontSize="10"
+                                           FontWeight="Bold" />
+                            </Border>
+                        </Grid>
+
+                        <Separator Background="{DynamicResource SurfaceBorderBrush}" Margin="0,6,0,10" />
+
+                        <!-- Deuda Actual en Cascadia Code -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="Saldo Deudor Pendiente:"
+                                           Style="{StaticResource TextBlockBodySecondary}" />
+                                <TextBlock Style="{StaticResource TextBlockCaptionSecondary}">
+                                    Límite asignado: <Run Text="{Binding Cliente.LimiteCredito, StringFormat='{}{0:C}', ConverterCulture='es-AR'}" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding SaldoActual, StringFormat='{}{0:C}', ConverterCulture='es-AR'}"
+                                       Style="{StaticResource TextBlockCurrencyLarge}"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Tarjeta 2: Detalle del Cobro -->
+                <Border Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Liquidación del Pago"
+                                   FontWeight="SemiBold"
+                                   FontSize="14"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   Margin="0,0,0,12" />
+
+                        <!-- Medio de Pago -->
+                        <TextBlock Text="Medio de Pago *"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,0,0,4" />
+                        <ComboBox ItemsSource="{Binding MediosPagoDisponibles}"
+                                  SelectedItem="{Binding MedioPago, Mode=TwoWay}"
+                                  HorizontalAlignment="Stretch"
+                                  Margin="0,0,0,12" />
+
+                        <!-- Monto a Cobrar con Botón "Pagar Totalidad" -->
+                        <TextBlock Text="Monto a Cobrar *"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,0,0,4" />
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <ui:TextBox Grid.Column="0"
+                                        Text="{Binding MontoCobro, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:N2}', ConverterCulture='es-AR'}"
+                                        FontFamily="{StaticResource CascadiaCodeFontFamily}"
+                                        FontSize="14"
+                                        FontWeight="SemiBold"
+                                        PlaceholderText="0,00" />
+
+                            <ui:Button Grid.Column="2"
+                                       Content="Pagar Todo"
+                                       Command="{Binding PagarTotalidadCommand}"
+                                       Appearance="Secondary"
+                                       ToolTip="Copia la totalidad del saldo deudor a cobrar" />
+                        </Grid>
+
+                        <!-- Desglose de Efectivo y Vuelto (visible solo si Efectivo) -->
+                        <Border Background="{DynamicResource SurfaceBackgroundBrush}"
+                                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12"
+                                Margin="0,0,0,12"
+                                Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisConverter}}">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0">
+                                    <TextBlock Text="Efectivo Recibido:"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               Margin="0,0,0,4" />
+                                    <ui:TextBox Text="{Binding EfectivoRecibido, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:N2}', ConverterCulture='es-AR'}"
+                                                FontFamily="{StaticResource CascadiaCodeFontFamily}"
+                                                FontSize="13"
+                                                PlaceholderText="0,00" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="0" Grid.Column="2">
+                                    <TextBlock Text="Vuelto a Entregar:"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               Margin="0,0,0,4" />
+                                    <Border Background="#EBF9F1"
+                                            BorderBrush="#B7E1CD"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="8,5">
+                                        <TextBlock Text="{Binding Vuelto, StringFormat='{}{0:C}', ConverterCulture='es-AR'}"
+                                                   FontFamily="{StaticResource CascadiaCodeFontFamily}"
+                                                   FontSize="14"
+                                                   FontWeight="Bold"
+                                                   Foreground="#107C41"
+                                                   HorizontalAlignment="Right" />
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Referencia / Observación -->
+                        <TextBlock Text="Nº Comprobante / Referencia (Opcional)"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,0,0,4" />
+                        <ui:TextBox Text="{Binding Referencia, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="ej. Transf. Nro 994812 o Recibo X-001"
+                                    Margin="0,0,0,12" />
+
+                        <!-- Checkbox Imprimir Recibo -->
+                        <CheckBox IsChecked="{Binding ImprimirRecibo, Mode=TwoWay}"
+                                  Content="Imprimir recibo oficial duplicado en impresora térmica"
+                                  Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Barra Inferior de Acciones con Keycaps -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SurfaceBackgroundBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="24,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Cancelar -->
+                <ui:Button Grid.Column="1"
+                           Command="{Binding CancelarCommand}"
+                           Appearance="Secondary"
+                           IsCancel="True"
+                           Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Cancelar" Margin="0,0,6,0" />
+                        <Border Style="{StaticResource KeycapBorderSmall}">
+                            <TextBlock Text="Esc" Style="{StaticResource KeycapTextSmall}" />
+                        </Border>
+                    </StackPanel>
+                </ui:Button>
+
+                <!-- Confirmar Cobro -->
+                <ui:Button Grid.Column="3"
+                           Command="{Binding CobrarCommand}"
+                           Appearance="Primary"
+                           IsDefault="True"
+                           Padding="20,8">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Checkmark24" Margin="0,0,8,0" />
+                        <TextBlock Text="Registrar Cobranza" FontWeight="SemiBold" Margin="0,0,6,0" />
+                        <Border Style="{StaticResource KeycapBorderSmall}">
+                            <TextBlock Text="↵" Style="{StaticResource KeycapTextSmall}" />
+                        </Border>
+                    </StackPanel>
+                </ui:Button>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

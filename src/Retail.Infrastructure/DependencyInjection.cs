@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
@@ -57,6 +58,9 @@ public static class DependencyInjection
         services.AddScoped<IRetailDbContext>(sp => sp.GetRequiredService<RetailDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+
+        // 5. Doble de prueba para Turnos de Caja (desacople de Etapa 3.1)
+        services.TryAddScoped<Retail.Application.Interfaces.Services.ICajaService, Retail.Infrastructure.ExternalServices.Mocks.FakeCajaService>();
 
         return services;
     }

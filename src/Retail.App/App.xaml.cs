@@ -72,6 +72,11 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<Retail.App.Services.IArticuloDialogService, Retail.App.Services.ArticuloDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.ArticulosView>();
+
+                services.AddSingleton<Retail.App.Services.IClienteDialogService, Retail.App.Services.ClienteDialogService>();
+                services.AddTransient<Retail.App.ViewModels.Clientes.ClientesViewModel>();
+                services.AddTransient<Retail.App.ViewModels.Clientes.ClienteFormViewModel>();
+                services.AddTransient<Retail.App.Views.Pages.ClientesView>();
             })
 
             .Build();

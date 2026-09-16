@@ -101,4 +101,20 @@ public partial class StyleGalleryView : UserControl
         };
         devWindow.Show();
     }
+
+    private void BtnAbrirClientesDev_Click(object sender, RoutedEventArgs e)
+    {
+        var clientesView = App.Services.GetRequiredService<Retail.App.Views.Pages.ClientesView>();
+        var devWindow = new FluentWindow
+        {
+            Title = "Retail POS - Sandbox: Padrón de Clientes y Cuentas Corrientes (Etapa 3.2 - Fase 1)",
+            Width = 1180,
+            Height = 720,
+            MinWidth = 950,
+            MinHeight = 580,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+            Content = clientesView
+        };
+        devWindow.Show();
+    }
 }

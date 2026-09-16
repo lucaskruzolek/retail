@@ -219,6 +219,17 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Pastilla Compacta de Tecla Rápida (Ej: Esc o Enter en modales) -->
+    <Style x:Key="KeycapBorderSmall" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource KeycapBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource KeycapBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="Padding" Value="4,1" />
+        <Setter Property="Margin" Value="4,0,0,0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!-- ================================================================= -->
     <!-- BADGES Y ETIQUETAS DE ESTADO SEMÁFORO                             -->
     <!-- ================================================================= -->

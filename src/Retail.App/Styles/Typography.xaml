@@ -7,6 +7,7 @@
     <FontFamily x:Key="FontFamilyText">Segoe UI Variable Text, Segoe UI, Helvetica Neue, sans-serif</FontFamily>
     <FontFamily x:Key="FontFamilyDisplay">Segoe UI Variable Display, Segoe UI, sans-serif</FontFamily>
     <FontFamily x:Key="FontFamilyMonospace">Cascadia Code, Consolas, Courier New</FontFamily>
+    <FontFamily x:Key="CascadiaCodeFontFamily">Cascadia Code, Consolas, Courier New</FontFamily>
 
     <!-- ================================================================= -->
     <!-- ESCALA TIPOGRÁFICA DE TEXTBLOCK                                   -->
@@ -52,6 +53,22 @@
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
     </Style>
 
+    <!-- Texto de Ayuda Secundario o Metadatos (11px, Regular) -->
+    <Style x:Key="TextBlockCaptionSecondary" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+
+    <!-- Cuerpo de Texto Apagado / Muted (13px, Regular) -->
+    <Style x:Key="TextBlockBodyMuted" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+    </Style>
+
     <!-- Total Gigante para Mostrador POS (32px, Bold, Monospace, alineado a la derecha) -->
     <Style x:Key="TextBlockDisplayCurrency" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
@@ -59,6 +76,14 @@
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+
+    <!-- Importe Destacado / Saldo Deudor para Diálogos y Modales (24px, Bold, Monospace) -->
+    <Style x:Key="TextBlockCurrencyLarge" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
     </Style>
 
     <!-- Celda de Precios y Subtotales en Grillas (14px, SemiBold, Monospace, alineado verticalmente al centro) -->
@@ -84,6 +109,15 @@
     <Style x:Key="TextBlockKeycap" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
         <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{DynamicResource KeycapForegroundBrush}" />
+        <Setter Property="TextAlignment" Value="Center" />
+    </Style>
+
+    <!-- Texto de Tecla Rápida Compacta (10px, Bold, Monospace) -->
+    <Style x:Key="KeycapTextSmall" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
+        <Setter Property="FontSize" Value="10" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource KeycapForegroundBrush}" />
         <Setter Property="TextAlignment" Value="Center" />
