@@ -1,48 +1,87 @@
 <ui:FluentWindow x:Class="Retail.App.MainWindow"
-                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 xmlns:dev="clr-namespace:Retail.App.Views.Dev"
-                 Title="Retail - Sistema ERP &amp; Punto de Venta"
-                 Width="1180"
-                 Height="680"
-                 MinWidth="960"
-                 MinHeight="560"
-                 WindowStartupLocation="CenterScreen"
-                 ExtendsContentIntoTitleBar="True"
-                 WindowBackdropType="Mica"
-                 Background="{DynamicResource SurfaceBackgroundBrush}">
+                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                  Title="Retail - Sistema ERP &amp; Punto de Venta"
+                  Width="1180"
+                  Height="680"
+                  MinWidth="960"
+                  MinHeight="560"
+                  WindowStartupLocation="CenterScreen"
+                  ExtendsContentIntoTitleBar="True"
+                  WindowBackdropType="Mica"
+                  Background="{DynamicResource SurfaceBackgroundBrush}">
+
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+    </ui:FluentWindow.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- BARRA SUPERIOR UNIFICADA CON BOTONES DE VENTANA FLUENT        -->
+        <!-- 1. BARRA SUPERIOR UNIFICADA CON OPERADOR ACTIVO Y VENTANA FLUENT -->
         <!-- ============================================================= -->
         <ui:TitleBar Grid.Row="0"
-                     Title="Retail POS - Sistema ERP &amp; Punto de Venta para Librería"
+                     Title="Retail POS - Librería &amp; Punto de Venta"
                      Padding="8,0,0,0">
             <ui:TitleBar.Icon>
                 <ui:SymbolIcon Symbol="BarcodeScanner24" Foreground="{DynamicResource PrimaryBrush}" />
             </ui:TitleBar.Icon>
+
             <ui:TitleBar.Header>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="BtnToggleVista"
-                            Click="BtnToggleVista_Click"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Padding="10,4"
-                            Margin="16,0,12,0"
+                    <!-- Pastilla del Operador Activo (RF-01, RNF-06) -->
+                    <Border Background="{DynamicResource PrimaryLightBrush}"
+                            BorderBrush="{DynamicResource PrimaryBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="8,3"
+                            Margin="16,0,8,0"
                             VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock x:Name="TxtToggleIcon" Text="🎨" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock x:Name="TxtToggleText" Text="Ver Galería de Controles (Etapa 0.6)" VerticalAlignment="Center" FontWeight="SemiBold" />
+                            <ui:SymbolIcon Symbol="Person20"
+                                           Foreground="{DynamicResource PrimaryBrush}"
+                                           Margin="0,0,6,0"
+                                           VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding OperadorNombre}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                            <Border Background="{DynamicResource PrimaryBrush}"
+                                    CornerRadius="3"
+                                    Padding="4,1"
+                                    Margin="6,0,0,0"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="{Binding OperadorRol}"
+                                           Foreground="White"
+                                           FontSize="10"
+                                           FontWeight="Bold"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Botón de Cambio Rápido de Sesión (RF-02) -->
+                    <Button Command="{Binding CambiarUsuarioCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            ToolTip="Cambiar de operador sin reiniciar la aplicación"
+                            Padding="8,3"
+                            Margin="0,0,12,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔁" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" />
+                            <TextBlock Text="Cambiar Operador" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
+                    <!-- Badge de Versión -->
                     <Border Background="{DynamicResource KeycapBackgroundBrush}"
                             BorderBrush="{DynamicResource KeycapBorderBrush}"
                             BorderThickness="1"
@@ -56,91 +95,113 @@
                                    VerticalAlignment="Center" />
                     </Border>
                 </StackPanel>
-
             </ui:TitleBar.Header>
         </ui:TitleBar>
 
         <!-- ============================================================= -->
-        <!-- CONTENIDO PRINCIPAL CONMUTABLE                                -->
+        <!-- 2. BARRA DE NAVEGACIÓN Y ACCESOS RÁPIDOS DE MOSTRADOR          -->
         <!-- ============================================================= -->
-        <Grid Grid.Row="1">
-            <!-- Panel 1: Pantalla de Bienvenida y Estado del Proyecto -->
-            <Grid x:Name="PanelBienvenida" Visibility="Visible">
-                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
-                    <TextBlock Text="Cimientos Técnicos y Sistema de Diseño Inicializados"
-                               FontSize="22"
-                               FontWeight="SemiBold"
+        <Border Grid.Row="1"
+                Background="{DynamicResource SurfaceCardBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="16,8">
+            <DockPanel LastChildFill="False">
+                <!-- Título del Módulo Activo -->
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding TituloModuloActual}"
+                               Style="{StaticResource TextBlockHeader2}"
                                Foreground="{DynamicResource TextPrimaryBrush}"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,8" />
-                    <TextBlock Text="Clean Desktop Monolith (.NET 8 / WPF-UI / C# 12 / MVVM)"
-                               FontSize="14"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               HorizontalAlignment="Center"
-                               Margin="0,0,0,24" />
+                               FontWeight="Bold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
 
-                    <Border Style="{StaticResource CardBorderStyle}"
-                            MaxWidth="560"
-                            Padding="24">
-                        <StackPanel>
-                            <DockPanel Margin="0,0,0,12">
-                                <TextBlock Text="Etapa 0.6: Sistema de Diseño XAML"
-                                           FontWeight="Bold"
-                                           FontSize="15"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <Border HorizontalAlignment="Right"
-                                        Style="{StaticResource BadgeSuccessStyle}">
-                                    <TextBlock Text="Completada"
-                                               FontSize="11"
-                                               FontWeight="Bold"
-                                               Foreground="{DynamicResource SuccessForegroundBrush}" />
-                                </Border>
-                            </DockPanel>
-
-                            <TextBlock Text="Responsable: Lucas Kruzolek (UI Designer / Frontend)"
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       FontSize="13"
-                                       Margin="0,0,0,6" />
-                            <TextBlock Text="Componentes listos: Paleta Carmín / Borravino (#9D0F33), Fluent System Icons, Cascadia Code para importes, botones con teclas F1-F12 y DataGrid estilizado."
-                                       Foreground="{DynamicResource TextSecondaryBrush}"
-                                       TextWrapping="Wrap"
-                                       FontSize="13"
-                                       Margin="0,0,0,16" />
-
-                            <Button Style="{StaticResource PrimaryActionButtonStyle}"
-                                    Click="BtnToggleVista_Click"
-                                    HorizontalAlignment="Left">
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Abrir Galería de Controles Interactiva" FontWeight="Bold" />
-                                    <TextBlock Text=" →" FontWeight="Bold" />
-                                </StackPanel>
-                            </Button>
+                <!-- Botones de Conmutación de Módulos con Teclas de Función -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <!-- F2: Catálogo de Artículos -->
+                    <Button Command="{Binding NavegarArticulosCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource GeometryBox}"
+                                  Fill="{DynamicResource PrimaryBrush}"
+                                  Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" />
+                            <TextBlock Text="Artículos" VerticalAlignment="Center" />
+                            <Border Style="{StaticResource KeycapBadgeStyle}" Margin="6,0,0,0">
+                                <TextBlock Text="F2" Style="{StaticResource TextBlockKeycap}" />
+                            </Border>
                         </StackPanel>
+                    </Button>
+
+                    <!-- F10: Operadores y Roles (Solo Gerentes - RNF-06) -->
+                    <Button Command="{Binding NavegarUsuariosCommand}"
+                            Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="0,0,8,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource GeometryUser}"
+                                  Fill="{DynamicResource PrimaryBrush}"
+                                  Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" />
+                            <TextBlock Text="Operadores" VerticalAlignment="Center" />
+                            <Border Style="{StaticResource KeycapBadgeStyle}" Margin="6,0,0,0">
+                                <TextBlock Text="F10" Style="{StaticResource TextBlockKeycap}" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Galería de Estilos / Dev -->
+                    <Button Command="{Binding NavegarGaleriaDevCommand}"
+                            Style="{StaticResource KeycapButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🎨" Margin="0,0,4,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Galería UI" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ============================================================= -->
+        <!-- 3. CONTENEDOR CENTRAL DINÁMICO DE PÁGINAS (Frame)              -->
+        <!-- ============================================================= -->
+        <Frame x:Name="RootFrame"
+               Grid.Row="2"
+               NavigationUIVisibility="Hidden"
+               Background="{DynamicResource SurfaceBackgroundBrush}" />
+
+        <!-- ============================================================= -->
+        <!-- 4. BARRA DE ESTADO INFERIOR                                   -->
+        <!-- ============================================================= -->
+        <Border Grid.Row="3"
+                Background="{DynamicResource SurfaceCardBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,6">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="{DynamicResource SuccessBackgroundBrush}"
+                            BorderBrush="{DynamicResource SuccessBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6,1"
+                            Margin="0,0,10,0">
+                        <TextBlock Text="● LocalDB En Línea"
+                                   Foreground="{DynamicResource SuccessForegroundBrush}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold" />
                     </Border>
+                    <TextBlock Text="Atajos: [F2] Artículos  |  [F10] Operadores (Gerente)"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11"
+                               VerticalAlignment="Center" />
                 </StackPanel>
-            </Grid>
 
-            <!-- Panel 2: Galería de Controles (Living Styleguide) -->
-            <Grid x:Name="PanelGaleria" Visibility="Collapsed">
-                <dev:StyleGalleryView />
-            </Grid>
-        </Grid>
-
-
-        <!-- ============================================================= -->
-        <!-- BARRA DE ESTADO INFERIOR                                      -->
-        <!-- ============================================================= -->
-        <Border Grid.Row="2" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0" Padding="16,8">
-            <DockPanel>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Width="8" Height="8" CornerRadius="4" Background="{DynamicResource SuccessBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
-                    <TextBlock Text="Sistema Retail listo para mostrador" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Retail POS © 2026 - Cátedra Taller de Programación"
+                               Foreground="{DynamicResource TextMutedBrush}"
+                               FontSize="11"
+                               VerticalAlignment="Center" />
                 </StackPanel>
-                <TextBlock Text="LocalDB / In-Memory Mock • Latencia &lt; 15 ms"
-                           HorizontalAlignment="Right"
-                           FontSize="12"
-                           FontFamily="{StaticResource FontFamilyMonospace}"
-                           Foreground="{DynamicResource TextMutedBrush}" />
             </DockPanel>
         </Border>
     </Grid>

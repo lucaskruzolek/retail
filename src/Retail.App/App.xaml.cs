@@ -63,12 +63,23 @@ public partial class App : System.Windows.Application
                 services.AddApplicationServices();
                 services.AddInfrastructureServices(context.Configuration);
 
-                // Ventanas y Servicios de Presentación
+                // Sesión de Usuario y Navegación Desacoplada (Módulo 1.1)
+                services.AddSingleton<Retail.App.Services.ICurrentUserSession, Retail.App.Services.CurrentUserSession>();
+                services.AddSingleton<Retail.App.Services.INavigationService, Retail.App.Services.NavigationService>();
+                services.AddTransient<Retail.App.ViewModels.Auth.LoginViewModel>();
+                services.AddTransient<Retail.App.Views.Auth.LoginWindow>();
+                services.AddSingleton<Retail.App.ViewModels.MainViewModel>();
                 services.AddSingleton<MainWindow>();
+
+                // Vistas de Desarrollo
+                services.AddTransient<Retail.App.Views.Dev.StyleGalleryView>();
+
+                // Operadores y Usuarios (Módulo 1.2)
                 services.AddSingleton<Retail.App.Services.IUsuarioDialogService, Retail.App.Services.UsuarioDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Usuarios.UsuariosViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.UsuariosView>();
 
+                // Artículos y Catálogo (Módulo 2.1)
                 services.AddSingleton<Retail.App.Services.IArticuloDialogService, Retail.App.Services.ArticuloDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.ArticulosView>();
@@ -85,6 +96,9 @@ public partial class App : System.Windows.Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // Control explícito de apagado durante la secuencia de autenticación
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
         // Aplicar paleta Carmín / Borravino (#9D0F33) a todos los controles nativos de WPF-UI
         Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(
@@ -103,7 +117,21 @@ public partial class App : System.Windows.Application
             await DbInitializer.InitializeAsync(dbContext, passwordHasher);
         }
 
+        // Flujo de autenticación obligatorio de inicio (RF-01)
+        var session = _host.Services.GetRequiredService<Retail.App.Services.ICurrentUserSession>();
+        var loginWindow = _host.Services.GetRequiredService<Retail.App.Views.Auth.LoginWindow>();
+
+        var loginExitoso = loginWindow.ShowDialog();
+        if (loginExitoso != true || !session.EstaAutenticado)
+        {
+            Log.Information("Inicio de sesión cancelado o ventana cerrada. Finalizando ejecución.");
+            Shutdown();
+            return;
+        }
+
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
+        MainWindow = mainWindow;
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
         mainWindow.Show();
     }
 
