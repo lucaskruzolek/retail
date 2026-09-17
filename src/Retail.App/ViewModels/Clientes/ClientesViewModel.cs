@@ -58,9 +58,31 @@ public partial class ClientesViewModel : ObservableObject
     [ObservableProperty]
     private decimal _totalDeudaCartera;
 
+    [ObservableProperty]
+    private int _paginaActual = 1;
+
+    [ObservableProperty]
+    private int _tamanoPagina = 10;
+
+    [ObservableProperty]
+    private int _totalPaginas = 1;
+
+    [ObservableProperty]
+    private int _totalRegistrosFiltrados;
+
     public bool HayClienteSeleccionado => ClienteSeleccionado != null;
 
     public bool PuedeCobrar => ClienteSeleccionado is { SaldoCuentaCorriente: > 0m };
+
+    public bool PuedeRetrocederPagina => PaginaActual > 1;
+
+    public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
+
+    public string InformacionPaginacion => TotalRegistrosFiltrados == 0
+        ? "Sin clientes registrados"
+        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistrosFiltrados)} de {TotalRegistrosFiltrados} clientes";
+
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
 
     public ClientesViewModel(
         IClienteService clienteService,
@@ -79,21 +101,31 @@ public partial class ClientesViewModel : ObservableObject
 
     partial void OnTextoBusquedaChanged(string value)
     {
+        PaginaActual = 1;
         AplicarFiltrosLocales();
     }
 
     partial void OnCondicionIvaFiltroChanged(CondicionIvaEnum? value)
     {
+        PaginaActual = 1;
         AplicarFiltrosLocales();
     }
 
     partial void OnSoloConDeudaChanged(bool value)
     {
+        PaginaActual = 1;
         AplicarFiltrosLocales();
     }
 
     partial void OnSoloConCuentaCorrienteChanged(bool value)
     {
+        PaginaActual = 1;
+        AplicarFiltrosLocales();
+    }
+
+    partial void OnTamanoPaginaChanged(int value)
+    {
+        PaginaActual = 1;
         AplicarFiltrosLocales();
     }
 
@@ -113,9 +145,10 @@ public partial class ClientesViewModel : ObservableObject
             TotalClientesConDeuda = _cacheClientes.Count(c => c.SaldoCuentaCorriente > 0m);
             TotalDeudaCartera = _cacheClientes.Sum(c => c.SaldoCuentaCorriente);
 
+            PaginaActual = 1;
             AplicarFiltrosLocales();
 
-            MensajeEstado = $"Se cargaron {Clientes.Count} clientes (Deuda total: {TotalDeudaCartera:C}).";
+            MensajeEstado = $"Se cargaron {TotalClientes} clientes (Deuda total: {TotalDeudaCartera:C}).";
         }
         catch (Exception ex)
         {
@@ -292,6 +325,48 @@ public partial class ClientesViewModel : ObservableObject
         SoloConDeuda = !SoloConDeuda;
     }
 
+    [RelayCommand]
+    public void PaginaSiguiente()
+    {
+        if (PuedeAvanzarPagina)
+        {
+            PaginaActual++;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void PaginaAnterior()
+    {
+        if (PuedeRetrocederPagina)
+        {
+            PaginaActual--;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void PrimeraPagina()
+    {
+        if (PaginaActual != 1)
+        {
+            PaginaActual = 1;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void UltimaPagina()
+    {
+        if (PaginaActual != TotalPaginas)
+        {
+            PaginaActual = TotalPaginas;
+            ActualizarPaginaActual();
+        }
+    }
+
+    private List<ClienteDto> _cacheFiltrados = new();
+
     private void AplicarFiltrosLocales()
     {
         var filtrados = _cacheClientes.AsEnumerable();
@@ -320,11 +395,39 @@ public partial class ClientesViewModel : ObservableObject
             filtrados = filtrados.Where(c => c.TieneCuentaCorriente);
         }
 
+        _cacheFiltrados = filtrados.OrderBy(c => c.RazonSocialONombre).ToList();
+        TotalRegistrosFiltrados = _cacheFiltrados.Count;
+
+        TotalPaginas = Math.Max(1, (int)Math.Ceiling((double)TotalRegistrosFiltrados / Math.Max(1, TamanoPagina)));
+
+        if (PaginaActual > TotalPaginas)
+        {
+            PaginaActual = TotalPaginas;
+        }
+        else if (PaginaActual < 1)
+        {
+            PaginaActual = 1;
+        }
+
+        ActualizarPaginaActual();
+    }
+
+    private void ActualizarPaginaActual()
+    {
+        var paginaItems = _cacheFiltrados
+            .Skip((PaginaActual - 1) * TamanoPagina)
+            .Take(TamanoPagina)
+            .ToList();
+
         Clientes.Clear();
-        foreach (var c in filtrados.OrderBy(c => c.RazonSocialONombre))
+        foreach (var c in paginaItems)
         {
             Clientes.Add(c);
         }
+
+        OnPropertyChanged(nameof(PuedeRetrocederPagina));
+        OnPropertyChanged(nameof(PuedeAvanzarPagina));
+        OnPropertyChanged(nameof(InformacionPaginacion));
     }
 
     private void ActualizarMetricas()

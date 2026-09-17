@@ -45,29 +45,29 @@ public class AuthService : IAuthService
             includeDeleted: true,
             cancellationToken);
 
-        var usuario = usuarios.Count > 0 ? usuarios[0] : null;
-        if (usuario == null)
+        var usuarioActivo = usuarios.FirstOrDefault(u => !u.IsDeleted);
+        if (usuarioActivo != null)
         {
-            throw new CredencialesInvalidasException();
+            var passwordValido = _passwordHasher.VerifyPassword(request.Password, usuarioActivo.PasswordHash);
+            if (!passwordValido)
+            {
+                throw new CredencialesInvalidasException();
+            }
+
+            return new LoginResultDto
+            {
+                IdUsuario = usuarioActivo.Id,
+                NombreUsuario = usuarioActivo.NombreUsuario,
+                NombreCompleto = usuarioActivo.NombreCompleto,
+                Rol = (RolUsuarioEnum)usuarioActivo.IdRol
+            };
         }
 
-        if (usuario.IsDeleted)
+        if (usuarios.Any(u => u.IsDeleted))
         {
-            throw new UsuarioInactivoException(usuario.NombreUsuario);
+            throw new UsuarioInactivoException(username);
         }
 
-        var passwordValido = _passwordHasher.VerifyPassword(request.Password, usuario.PasswordHash);
-        if (!passwordValido)
-        {
-            throw new CredencialesInvalidasException();
-        }
-
-        return new LoginResultDto
-        {
-            IdUsuario = usuario.Id,
-            NombreUsuario = usuario.NombreUsuario,
-            NombreCompleto = usuario.NombreCompleto,
-            Rol = (RolUsuarioEnum)usuario.IdRol
-        };
+        throw new CredencialesInvalidasException();
     }
 }

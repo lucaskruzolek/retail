@@ -12,6 +12,7 @@ namespace Retail.App;
 /// <summary>
 /// Shell principal de mostrador y contenedor de navegación de Retail POS (RF-01, RF-02).
 /// Inyectado estrictamente como Singleton conforme a la Ley 10 de Arquitectura.
+/// Incorpora Sidebar colapsable para operadores y acceso con teclas rápidas a módulos.
 /// </summary>
 public partial class MainWindow : FluentWindow
 {
@@ -33,10 +34,6 @@ public partial class MainWindow : FluentWindow
 
         DataContext = ViewModel;
 
-        // Salvaguarda: limitar dimensiones al área de trabajo útil de la pantalla
-        MaxHeight = SystemParameters.WorkArea.Height;
-        MaxWidth = SystemParameters.WorkArea.Width;
-
         _navigationService.Initialize(RootFrame);
         ViewModel.SolicitarCambioUsuario += RealizarCambioUsuarioAsync;
 
@@ -52,15 +49,51 @@ public partial class MainWindow : FluentWindow
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.F2)
+        // Atajo Ctrl+B para alternar el colapso del sidebar
+        if (e.Key == Key.B && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
         {
-            ViewModel.NavegarArticulos();
+            ViewModel.ToggleSidebar();
             e.Handled = true;
+            return;
         }
-        else if (e.Key == Key.F10 && ViewModel.EsGerente)
+
+        // Atajos de conmutación global de módulos con teclas de función (F1 a F10)
+        switch (e.Key)
         {
-            ViewModel.NavegarUsuarios();
-            e.Handled = true;
+            case Key.F1:
+                ViewModel.NavegarPos();
+                e.Handled = true;
+                break;
+
+            case Key.F2:
+                ViewModel.NavegarArticulos();
+                e.Handled = true;
+                break;
+
+            case Key.F4:
+                ViewModel.NavegarClientes();
+                e.Handled = true;
+                break;
+
+            case Key.F5:
+                ViewModel.NavegarCaja();
+                e.Handled = true;
+                break;
+
+            case Key.F6:
+                ViewModel.NavegarPresupuestos();
+                e.Handled = true;
+                break;
+
+            case Key.F9 when ViewModel.EsGerente:
+                ViewModel.NavegarConsolaFiscal();
+                e.Handled = true;
+                break;
+
+            case Key.F10 when ViewModel.EsGerente:
+                ViewModel.NavegarUsuarios();
+                e.Handled = true;
+                break;
         }
     }
 

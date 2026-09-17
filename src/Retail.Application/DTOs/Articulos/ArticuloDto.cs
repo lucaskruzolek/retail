@@ -1,9 +1,11 @@
+using Retail.Application.DTOs.Common;
+
 namespace Retail.Application.DTOs.Articulos;
 
 /// <summary>
 /// Representación de un artículo para consulta y administración de inventario.
 /// </summary>
-public record class ArticuloDto
+public record class ArticuloDto : BaseDto
 {
     public required int IdArticulo { get; init; }
     public string? CodigoBarras { get; init; }

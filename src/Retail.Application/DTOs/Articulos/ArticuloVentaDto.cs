@@ -1,9 +1,11 @@
+using Retail.Application.DTOs.Common;
+
 namespace Retail.Application.DTOs.Articulos;
 
 /// <summary>
 /// Proyección ultrarrápida optimizada para mostrador (POS), búsqueda incremental y scanner.
 /// </summary>
-public record class ArticuloVentaDto
+public record class ArticuloVentaDto : BaseDto
 {
     public required int IdArticulo { get; init; }
     public string? CodigoBarras { get; init; }

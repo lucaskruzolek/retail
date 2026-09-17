@@ -43,7 +43,7 @@ public partial class App : System.Windows.Application
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
             .CreateLogger();
 
-        Log.Information("Iniciando Retail POS (.NET 8 LTS | Clean Monolith)");
+        Log.Information("Iniciando Retail POS");
 
         // 2. Conectar manejadores globales de excepciones no controladas (Etapa 0.8)
         DispatcherUnhandledException += App_DispatcherUnhandledException;
@@ -88,6 +88,9 @@ public partial class App : System.Windows.Application
                 services.AddTransient<Retail.App.ViewModels.Clientes.ClientesViewModel>();
                 services.AddTransient<Retail.App.ViewModels.Clientes.ClienteFormViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.ClientesView>();
+
+                // Módulos en Construcción (Cortesía informativa de Roadmap)
+                services.AddTransient<Retail.App.Views.Pages.ModuloEnConstruccionView>();
             })
 
             .Build();
@@ -191,10 +194,20 @@ public partial class App : System.Windows.Application
         e.SetObserved();
     }
 
+    private bool _isShowingExceptionDialog;
+
     private void ShowExceptionDialog(Exception ex, bool isFatal)
     {
+        if (_isShowingExceptionDialog)
+        {
+            // Evitar reentrancia o cascada recursiva si la infraestructura de ventanas está en fallo
+            return;
+        }
+
         try
         {
+            _isShowingExceptionDialog = true;
+
             var logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", $"retail-{DateTime.Now:yyyyMMdd}.log");
             var dialog = new UnhandledExceptionDialog(ex, isFatal, logFile);
 
@@ -209,11 +222,22 @@ public partial class App : System.Windows.Application
         {
             Log.Fatal(dialogEx, "Error secundario al intentar desplegar UnhandledExceptionDialog");
 
-            System.Windows.MessageBox.Show(
-                $"Ocurrió un error inesperado:\n\n{ex.Message}\n\nConsulte el archivo de registro en logs/retail-.log",
-                "Error en Retail POS",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            try
+            {
+                System.Windows.MessageBox.Show(
+                    $"Ocurrió un error inesperado:\n\n{ex.Message}\n\nConsulte el archivo de registro en logs/retail-.log",
+                    "Error en Retail POS",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+            catch
+            {
+                // Silenciar fallo de MessageBox para no propagar excepciones anidadas en el Dispatcher
+            }
+        }
+        finally
+        {
+            _isShowingExceptionDialog = false;
         }
     }
 }

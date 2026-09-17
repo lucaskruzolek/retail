@@ -37,6 +37,28 @@ public partial class UsuariosViewModel : ObservableObject
     [ObservableProperty]
     private string? _mensajeError;
 
+    [ObservableProperty]
+    private int _paginaActual = 1;
+
+    [ObservableProperty]
+    private int _tamanoPagina = 10;
+
+    [ObservableProperty]
+    private int _totalPaginas = 1;
+
+    [ObservableProperty]
+    private int _totalRegistrosFiltrados;
+
+    public bool PuedeRetrocederPagina => PaginaActual > 1;
+
+    public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
+
+    public string InformacionPaginacion => TotalRegistrosFiltrados == 0
+        ? "Sin operadores registrados"
+        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistrosFiltrados)} de {TotalRegistrosFiltrados} operadores";
+
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
+
     public UsuariosViewModel(
         IUsuarioService usuarioService,
         IUsuarioDialogService dialogService,
@@ -49,6 +71,13 @@ public partial class UsuariosViewModel : ObservableObject
 
     partial void OnFiltroBusquedaChanged(string value)
     {
+        PaginaActual = 1;
+        AplicarFiltroLocal();
+    }
+
+    partial void OnTamanoPaginaChanged(int value)
+    {
+        PaginaActual = 1;
         AplicarFiltroLocal();
     }
 
@@ -64,9 +93,10 @@ public partial class UsuariosViewModel : ObservableObject
             var lista = await _usuarioService.ListarUsuariosAsync();
             _cacheUsuarios = lista.ToList();
 
+            PaginaActual = 1;
             AplicarFiltroLocal();
 
-            MensajeEstado = $"Se cargaron {Usuarios.Count} operadores.";
+            MensajeEstado = $"Se cargaron {_cacheUsuarios.Count} operadores.";
         }
         catch (Exception ex)
         {
@@ -252,10 +282,50 @@ public partial class UsuariosViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    public void PaginaSiguiente()
+    {
+        if (PuedeAvanzarPagina)
+        {
+            PaginaActual++;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void PaginaAnterior()
+    {
+        if (PuedeRetrocederPagina)
+        {
+            PaginaActual--;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void PrimeraPagina()
+    {
+        if (PaginaActual != 1)
+        {
+            PaginaActual = 1;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void UltimaPagina()
+    {
+        if (PaginaActual != TotalPaginas)
+        {
+            PaginaActual = TotalPaginas;
+            ActualizarPaginaActual();
+        }
+    }
+
+    private List<UsuarioDto> _cacheFiltrados = new();
+
     private void AplicarFiltroLocal()
     {
-        Usuarios.Clear();
-
         var query = _cacheUsuarios.AsEnumerable();
 
         if (!string.IsNullOrWhiteSpace(FiltroBusqueda))
@@ -266,9 +336,38 @@ public partial class UsuariosViewModel : ObservableObject
                 u.NombreCompleto.Contains(texto, StringComparison.OrdinalIgnoreCase));
         }
 
-        foreach (var u in query)
+        _cacheFiltrados = query.OrderBy(u => u.NombreUsuario).ToList();
+        TotalRegistrosFiltrados = _cacheFiltrados.Count;
+
+        TotalPaginas = Math.Max(1, (int)Math.Ceiling((double)TotalRegistrosFiltrados / Math.Max(1, TamanoPagina)));
+
+        if (PaginaActual > TotalPaginas)
+        {
+            PaginaActual = TotalPaginas;
+        }
+        else if (PaginaActual < 1)
+        {
+            PaginaActual = 1;
+        }
+
+        ActualizarPaginaActual();
+    }
+
+    private void ActualizarPaginaActual()
+    {
+        var paginaItems = _cacheFiltrados
+            .Skip((PaginaActual - 1) * TamanoPagina)
+            .Take(TamanoPagina)
+            .ToList();
+
+        Usuarios.Clear();
+        foreach (var u in paginaItems)
         {
             Usuarios.Add(u);
         }
+
+        OnPropertyChanged(nameof(PuedeRetrocederPagina));
+        OnPropertyChanged(nameof(PuedeAvanzarPagina));
+        OnPropertyChanged(nameof(InformacionPaginacion));
     }
 }

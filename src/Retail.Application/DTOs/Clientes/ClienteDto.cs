@@ -1,3 +1,4 @@
+using Retail.Application.DTOs.Common;
 using Retail.Domain.Enums;
 
 namespace Retail.Application.DTOs.Clientes;
@@ -5,7 +6,7 @@ namespace Retail.Application.DTOs.Clientes;
 /// <summary>
 /// Información completa de un cliente del comercio y su estado de cuenta corriente.
 /// </summary>
-public record class ClienteDto
+public record class ClienteDto : BaseDto
 {
     public required int IdCliente { get; init; }
     public required string RazonSocialONombre { get; init; }
@@ -19,4 +20,5 @@ public record class ClienteDto
     public required decimal LimiteCredito { get; init; }
     public required decimal SaldoCuentaCorriente { get; init; }
     public decimal CreditoDisponible => TieneCuentaCorriente ? Math.Max(0, LimiteCredito - SaldoCuentaCorriente) : 0;
+    public bool TieneDeuda => SaldoCuentaCorriente > 0m;
 }

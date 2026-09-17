@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Input;
 using Retail.App.ViewModels.Auth;
 
 namespace Retail.App.Views.Auth;
@@ -30,14 +29,11 @@ public partial class LoginWindow : Wpf.Ui.Controls.FluentWindow
 
     private async void BtnIngresar_Click(object sender, RoutedEventArgs e)
     {
-        await ViewModel.IniciarSesionAsync(TxtPassword.Password);
-    }
-
-    private async void TxtPassword_KeyDown(object sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
+        if (ViewModel.EstaCargando)
         {
-            await ViewModel.IniciarSesionAsync(TxtPassword.Password);
+            return;
         }
+
+        await ViewModel.IniciarSesionAsync(TxtPassword.Password);
     }
 }

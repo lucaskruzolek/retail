@@ -54,7 +54,29 @@ public partial class ArticulosViewModel : ObservableObject
     [ObservableProperty]
     private int _totalAlertasStock;
 
+    [ObservableProperty]
+    private int _paginaActual = 1;
+
+    [ObservableProperty]
+    private int _tamanoPagina = 10;
+
+    [ObservableProperty]
+    private int _totalPaginas = 1;
+
+    [ObservableProperty]
+    private int _totalRegistrosFiltrados;
+
     public bool HayArticuloSeleccionado => ArticuloSeleccionado != null;
+
+    public bool PuedeRetrocederPagina => PaginaActual > 1;
+
+    public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
+
+    public string InformacionPaginacion => TotalRegistrosFiltrados == 0
+        ? "Sin artículos registrados"
+        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistrosFiltrados)} de {TotalRegistrosFiltrados} artículos";
+
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
 
     public ArticulosViewModel(
         IInventarioService inventarioService,
@@ -73,16 +95,25 @@ public partial class ArticulosViewModel : ObservableObject
 
     partial void OnTextoBusquedaChanged(string value)
     {
+        PaginaActual = 1;
         AplicarFiltrosLocales();
     }
 
     partial void OnIdCategoriaFiltroChanged(int value)
     {
+        PaginaActual = 1;
         AplicarFiltrosLocales();
     }
 
     partial void OnSoloStockCriticoChanged(bool value)
     {
+        PaginaActual = 1;
+        AplicarFiltrosLocales();
+    }
+
+    partial void OnTamanoPaginaChanged(int value)
+    {
+        PaginaActual = 1;
         AplicarFiltrosLocales();
     }
 
@@ -114,9 +145,10 @@ public partial class ArticulosViewModel : ObservableObject
             TotalArticulos = _cacheArticulos.Count;
             TotalAlertasStock = _cacheArticulos.Count(a => a.StockBajo);
 
+            PaginaActual = 1;
             AplicarFiltrosLocales();
 
-            MensajeEstado = $"Se cargaron {Articulos.Count} artículos ({TotalAlertasStock} con alerta de stock).";
+            MensajeEstado = $"Se cargaron {TotalArticulos} artículos ({TotalAlertasStock} con alerta de stock).";
         }
         catch (Exception ex)
         {
@@ -255,6 +287,48 @@ public partial class ArticulosViewModel : ObservableObject
         SoloStockCritico = !SoloStockCritico;
     }
 
+    [RelayCommand]
+    public void PaginaSiguiente()
+    {
+        if (PuedeAvanzarPagina)
+        {
+            PaginaActual++;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void PaginaAnterior()
+    {
+        if (PuedeRetrocederPagina)
+        {
+            PaginaActual--;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void PrimeraPagina()
+    {
+        if (PaginaActual != 1)
+        {
+            PaginaActual = 1;
+            ActualizarPaginaActual();
+        }
+    }
+
+    [RelayCommand]
+    public void UltimaPagina()
+    {
+        if (PaginaActual != TotalPaginas)
+        {
+            PaginaActual = TotalPaginas;
+            ActualizarPaginaActual();
+        }
+    }
+
+    private List<ArticuloDto> _cacheFiltrados = new();
+
     private void AplicarFiltrosLocales()
     {
         var query = _cacheArticulos.AsEnumerable();
@@ -278,11 +352,39 @@ public partial class ArticulosViewModel : ObservableObject
             query = query.Where(a => a.StockBajo);
         }
 
+        _cacheFiltrados = query.OrderBy(a => a.Descripcion).ToList();
+        TotalRegistrosFiltrados = _cacheFiltrados.Count;
+
+        TotalPaginas = Math.Max(1, (int)Math.Ceiling((double)TotalRegistrosFiltrados / Math.Max(1, TamanoPagina)));
+
+        if (PaginaActual > TotalPaginas)
+        {
+            PaginaActual = TotalPaginas;
+        }
+        else if (PaginaActual < 1)
+        {
+            PaginaActual = 1;
+        }
+
+        ActualizarPaginaActual();
+    }
+
+    private void ActualizarPaginaActual()
+    {
+        var paginaItems = _cacheFiltrados
+            .Skip((PaginaActual - 1) * TamanoPagina)
+            .Take(TamanoPagina)
+            .ToList();
+
         Articulos.Clear();
-        foreach (var item in query.OrderBy(a => a.Descripcion))
+        foreach (var item in paginaItems)
         {
             Articulos.Add(item);
         }
+
+        OnPropertyChanged(nameof(PuedeRetrocederPagina));
+        OnPropertyChanged(nameof(PuedeAvanzarPagina));
+        OnPropertyChanged(nameof(InformacionPaginacion));
 
         MensajeEstado = $"Mostrando {Articulos.Count} de {TotalArticulos} artículos.";
     }

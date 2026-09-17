@@ -13,6 +13,8 @@ public interface INavigationService
 
     void NavigateTo<TView>() where TView : FrameworkElement;
 
+    void NavigateTo<TView>(Action<TView> configure) where TView : FrameworkElement;
+
     void NavigateTo(Type viewType);
 
     bool CanGoBack { get; }

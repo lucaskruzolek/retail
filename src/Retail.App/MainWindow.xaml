@@ -1,208 +1,678 @@
 <ui:FluentWindow x:Class="Retail.App.MainWindow"
-                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                  Title="Retail - Sistema ERP &amp; Punto de Venta"
-                  Width="1180"
-                  Height="680"
-                  MinWidth="960"
-                  MinHeight="560"
-                  WindowStartupLocation="CenterScreen"
-                  ExtendsContentIntoTitleBar="True"
-                  WindowBackdropType="Mica"
-                  Background="{DynamicResource SurfaceBackgroundBrush}">
+                   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                   Title="Retail - Sistema ERP &amp; Punto de Venta"
+                   Width="1180"
+                   Height="680"
+                   MinWidth="960"
+                   MinHeight="560"
+                   WindowStartupLocation="CenterScreen"
+                   ExtendsContentIntoTitleBar="True"
+                   WindowBackdropType="Mica"
+                   Background="{DynamicResource SurfaceBackgroundBrush}"
+                   BorderThickness="0"
+                   BorderBrush="Transparent"
+                   Padding="0">
 
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+
+        <!-- Estilo dinámico de ancho para el Sidebar colapsable con transición fluida Fluent -->
+        <Style x:Key="CollapsibleSidebarBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,0" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
+            <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
+            <Setter Property="Width" Value="68" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                    <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                    <DataTrigger.EnterActions>
+                        <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                 To="240"
+                                                 Duration="0:0:0.22">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseOut" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.EnterActions>
+                    <DataTrigger.ExitActions>
+                        <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                 To="68"
+                                                 Duration="0:0:0.22">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseOut" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </DataTrigger.ExitActions>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </ui:FluentWindow.Resources>
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <!-- Columna 0: Sidebar a altura completa -->
+            <ColumnDefinition Width="Auto" />
+            <!-- Columna 1: Barra de título y contenedor de vistas -->
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. BARRA SUPERIOR UNIFICADA CON OPERADOR ACTIVO Y VENTANA FLUENT -->
+        <!-- 1. SIDEBAR LATERAL (ALTURA COMPLETA FLUENT)                   -->
         <!-- ============================================================= -->
-        <ui:TitleBar Grid.Row="0"
-                     Title="Retail POS - Librería &amp; Punto de Venta"
-                     Padding="8,0,0,0">
-            <ui:TitleBar.Icon>
-                <ui:SymbolIcon Symbol="BarcodeScanner24" Foreground="{DynamicResource PrimaryBrush}" />
-            </ui:TitleBar.Icon>
+        <Border Grid.Column="0"
+                Style="{StaticResource CollapsibleSidebarBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <!-- Cabecera: solo botón de Toggle / Hamburguesa -->
+                        <RowDefinition Height="Auto" />
+                        <!-- Lista de Módulos (Scrollable) -->
+                        <RowDefinition Height="*" />
+                        <!-- Pie del Sidebar: Operador, Rol y Cambio de Usuario -->
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
 
-            <ui:TitleBar.Header>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <!-- Pastilla del Operador Activo (RF-01, RNF-06) -->
-                    <Border Background="{DynamicResource PrimaryLightBrush}"
-                            BorderBrush="{DynamicResource PrimaryBrush}"
-                            BorderThickness="1"
-                            CornerRadius="6"
-                            Padding="8,3"
-                            Margin="16,0,8,0"
-                            VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="Person20"
-                                           Foreground="{DynamicResource PrimaryBrush}"
-                                           Margin="0,0,6,0"
-                                           VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding OperadorNombre}"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource PrimaryBrush}"
-                                       FontSize="12"
-                                       VerticalAlignment="Center" />
-                            <Border Background="{DynamicResource PrimaryBrush}"
-                                    CornerRadius="3"
-                                    Padding="4,1"
-                                    Margin="6,0,0,0"
-                                    VerticalAlignment="Center">
-                                <TextBlock Text="{Binding OperadorRol}"
-                                           Foreground="White"
-                                           FontSize="10"
-                                           FontWeight="Bold"
-                                           VerticalAlignment="Center" />
-                            </Border>
-                        </StackPanel>
+                    <!-- CABECERA: Botón Toggle Colapso -->
+                    <Border Grid.Row="0"
+                            Height="48"
+                            BorderThickness="0"
+                            Padding="8,8">
+                        <Button Command="{Binding ToggleSidebarCommand}"
+                                Style="{StaticResource SidebarHamburgerButtonStyle}"
+                                VerticalAlignment="Center">
+                            <Button.ToolTip>
+                                <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="Alternar Menú Lateral" FontWeight="SemiBold" Margin="0,0,6,0" />
+                                        <Border Style="{StaticResource KeycapBadgeStyle}">
+                                            <TextBlock Text="Ctrl+B" Style="{StaticResource TextBlockKeycap}" />
+                                        </Border>
+                                    </StackPanel>
+                                </ToolTip>
+                            </Button.ToolTip>
+                            <iconPacks:PackIconBoxIcons Kind="RegularMenu"
+                                                        Width="20"
+                                                        Height="20"
+                                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" />
+                        </Button>
                     </Border>
 
-                    <!-- Botón de Cambio Rápido de Sesión (RF-02) -->
-                    <Button Command="{Binding CambiarUsuarioCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            ToolTip="Cambiar de operador sin reiniciar la aplicación"
-                            Padding="8,3"
-                            Margin="0,0,12,0"
-                            VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🔁" Margin="0,0,4,0" FontSize="11" VerticalAlignment="Center" />
-                            <TextBlock Text="Cambiar Operador" FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    <!-- CUERPO DEL SIDEBAR: BOTONERA DE MÓDULOS -->
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="6,8">
+                        <StackPanel>
+                            <!-- SECCIÓN: OPERACIONES DE MOSTRADOR -->
+                            <TextBlock Text="OPERACIONES DE MOSTRADOR"
+                                       Style="{StaticResource TextBlockCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       FontWeight="Bold"
+                                       Margin="12,14,12,6"
+                                       FontSize="10"
+                                       Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+
+                            <!-- 1. Punto de Venta (POS) [F1] -->
+                            <Button Command="{Binding NavegarPosCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Pos">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Punto de Venta (POS)" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="F1" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidReceipt"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Punto de Venta"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 2. Catálogo de Artículos [F2] -->
+                            <Button Command="{Binding NavegarArticulosCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Articulos">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Catálogo de Artículos" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="F2" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidBook"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Artículos"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 3. Clientes y Cuentas Corrientes [F4] -->
+                            <Button Command="{Binding NavegarClientesCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Clientes">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Clientes" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="F4" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidUser"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Clientes"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 4. Turnos de Caja [F5] -->
+                            <Button Command="{Binding NavegarCajaCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Caja">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Caja y Turnos" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="F5" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidDollarCircle"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Caja y Turnos"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 5. Presupuestos [F6] -->
+                            <Button Command="{Binding NavegarPresupuestosCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Presupuestos">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Presupuestos" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="F6" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidFile"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Presupuestos"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- Divisor de Grupo: Mostrador a Gestión & Stock -->
+                            <Border Height="1"
+                                    Background="{DynamicResource SurfaceBorderBrush}"
+                                    Margin="10,10,10,8"
+                                    SnapsToDevicePixels="True" />
+
+                            <!-- SECCIÓN: GESTIÓN & STOCK -->
+                            <TextBlock Text="GESTIÓN &amp; STOCK"
+                                       Style="{StaticResource TextBlockCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       FontWeight="Bold"
+                                       Margin="12,14,12,6"
+                                       FontSize="10"
+                                       Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+
+                            <!-- 6. Compras a Distribuidores -->
+                            <Button Command="{Binding NavegarComprasCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Compras">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <TextBlock Text="Compras" FontWeight="SemiBold" />
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidCart"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Compras"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 7. Proveedores e Importador -->
+                            <Button Command="{Binding NavegarProveedoresCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Proveedores">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <TextBlock Text="Proveedores e Importador" FontWeight="SemiBold" />
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidTruck"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Proveedores"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- Divisor de Grupo: Gestión a Administración (Solo Gerente) -->
+                            <Border Height="1"
+                                    Background="{DynamicResource SurfaceBorderBrush}"
+                                    Margin="10,10,10,8"
+                                    SnapsToDevicePixels="True"
+                                    Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}" />
+
+                            <!-- SECCIÓN: ADMINISTRACIÓN (Solo visible si es Gerente y está expandido) -->
+                            <TextBlock Text="ADMINISTRACIÓN"
+                                       Style="{StaticResource TextBlockCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       FontWeight="Bold"
+                                       Margin="12,14,12,6"
+                                       FontSize="10"
+                                       Visibility="{Binding MostrarCabeceraAdmin, Converter={StaticResource BoolToVisConverter}}" />
+
+                            <!-- 8. Consola Fiscal ARCA [F9] (Solo Gerente) -->
+                            <Button Command="{Binding NavegarConsolaFiscalCommand}"
+                                    Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Fiscal">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Consola Fiscal" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="F9" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidBadgeCheck"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Consola Fiscal"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 9. Operadores y Roles [F10] (Solo Gerente) -->
+                            <Button Command="{Binding NavegarUsuariosCommand}"
+                                    Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Usuarios">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Usuarios y Roles" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="F10" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidUserIdCard"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Operadores"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
                         </StackPanel>
-                    </Button>
+                    </ScrollViewer>
 
-                    <!-- Badge de Versión -->
-                    <Border Background="{DynamicResource KeycapBackgroundBrush}"
-                            BorderBrush="{DynamicResource KeycapBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="4"
-                            Padding="8,3"
-                            VerticalAlignment="Center">
-                        <TextBlock Text="v1.0.0-preview (.NET 8 LTS | WPF-UI)"
-                                   Foreground="{DynamicResource TextMutedBrush}"
-                                   FontSize="11"
-                                   FontFamily="{StaticResource FontFamilyMonospace}"
-                                   VerticalAlignment="Center" />
-                    </Border>
-                </StackPanel>
-            </ui:TitleBar.Header>
-        </ui:TitleBar>
+                    <!-- PIE DEL SIDEBAR: Operador Activo, Rol y Único Botón de Cambio de Sesión -->
+                    <Border Grid.Row="2"
+                            BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                            BorderThickness="0,1,0,0"
+                            Padding="8,10">
+                        <StackPanel>
+                            <!-- Ficha de Operador Expandida -->
+                            <Border Background="{DynamicResource PrimaryLightBrush}"
+                                    BorderBrush="{DynamicResource PrimaryBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="8,6"
+                                    Margin="0,0,0,8"
+                                    Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
 
-        <!-- ============================================================= -->
-        <!-- 2. BARRA DE NAVEGACIÓN Y ACCESOS RÁPIDOS DE MOSTRADOR          -->
-        <!-- ============================================================= -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="0,0,0,1"
-                Padding="16,8">
-            <DockPanel LastChildFill="False">
-                <!-- Título del Módulo Activo -->
-                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding TituloModuloActual}"
-                               Style="{StaticResource TextBlockHeader2}"
-                               Foreground="{DynamicResource TextPrimaryBrush}"
-                               FontWeight="Bold"
-                               VerticalAlignment="Center" />
-                </StackPanel>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                   Kind="SolidUser"
+                                                                   Width="18"
+                                                                   Height="18"
+                                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                                   Margin="0,0,8,0"
+                                                                   VerticalAlignment="Center" />
 
-                <!-- Botones de Conmutación de Módulos con Teclas de Función -->
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                    <!-- F2: Catálogo de Artículos -->
-                    <Button Command="{Binding NavegarArticulosCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Margin="0,0,8,0">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource GeometryBox}"
-                                  Fill="{DynamicResource PrimaryBrush}"
-                                  Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" />
-                            <TextBlock Text="Artículos" VerticalAlignment="Center" />
-                            <Border Style="{StaticResource KeycapBadgeStyle}" Margin="6,0,0,0">
-                                <TextBlock Text="F2" Style="{StaticResource TextBlockKeycap}" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding OperadorNombre}"
+                                                   FontWeight="SemiBold"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <Border Background="{DynamicResource PrimaryBrush}"
+                                                CornerRadius="3"
+                                                Padding="4,1"
+                                                Margin="0,3,0,0"
+                                                HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding OperadorRol}"
+                                                       Foreground="White"
+                                                       FontSize="10"
+                                                       FontWeight="Bold" />
+                                        </Border>
+                                    </StackPanel>
+                                </Grid>
                             </Border>
+
+                            
+                            <!-- ÚNICO BOTÓN DE CAMBIO DE OPERADOR (RF-02) -->
+                            <Button Command="{Binding CambiarUsuarioCommand}"
+                                    Style="{StaticResource KeycapButtonStyle}"
+                                    HorizontalContentAlignment="Center"
+                                    Padding="6,6">
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Cambiar Operador" FontWeight="SemiBold" Margin="0,0,6,0" />
+                                            
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="Cambiar Operador"
+                                               FontWeight="SemiBold"
+                                               FontSize="11"
+                                               Margin="6,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
-                    </Button>
-
-                    <!-- F10: Operadores y Roles (Solo Gerentes - RNF-06) -->
-                    <Button Command="{Binding NavegarUsuariosCommand}"
-                            Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Margin="0,0,8,0">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource GeometryUser}"
-                                  Fill="{DynamicResource PrimaryBrush}"
-                                  Width="14" Height="14" Stretch="Uniform" Margin="0,0,6,0" />
-                            <TextBlock Text="Operadores" VerticalAlignment="Center" />
-                            <Border Style="{StaticResource KeycapBadgeStyle}" Margin="6,0,0,0">
-                                <TextBlock Text="F10" Style="{StaticResource TextBlockKeycap}" />
-                            </Border>
-                        </StackPanel>
-                    </Button>
-
-                    <!-- Galería de Estilos / Dev -->
-                    <Button Command="{Binding NavegarGaleriaDevCommand}"
-                            Style="{StaticResource KeycapButtonStyle}">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🎨" Margin="0,0,4,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Galería UI" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <!-- ============================================================= -->
-        <!-- 3. CONTENEDOR CENTRAL DINÁMICO DE PÁGINAS (Frame)              -->
-        <!-- ============================================================= -->
-        <Frame x:Name="RootFrame"
-               Grid.Row="2"
-               NavigationUIVisibility="Hidden"
-               Background="{DynamicResource SurfaceBackgroundBrush}" />
-
-        <!-- ============================================================= -->
-        <!-- 4. BARRA DE ESTADO INFERIOR                                   -->
-        <!-- ============================================================= -->
-        <Border Grid.Row="3"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="0,1,0,0"
-                Padding="16,6">
-            <DockPanel LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Border Background="{DynamicResource SuccessBackgroundBrush}"
-                            BorderBrush="{DynamicResource SuccessBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="3"
-                            Padding="6,1"
-                            Margin="0,0,10,0">
-                        <TextBlock Text="● LocalDB En Línea"
-                                   Foreground="{DynamicResource SuccessForegroundBrush}"
-                                   FontSize="11"
-                                   FontWeight="SemiBold" />
                     </Border>
-                    <TextBlock Text="Atajos: [F2] Artículos  |  [F10] Operadores (Gerente)"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               FontSize="11"
-                               VerticalAlignment="Center" />
-                </StackPanel>
+                </Grid>
+            </Border>
 
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Retail POS © 2026 - Cátedra Taller de Programación"
-                               Foreground="{DynamicResource TextMutedBrush}"
-                               FontSize="11"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-            </DockPanel>
-        </Border>
+        <!-- ============================================================= -->
+        <!-- 2. ÁREA DERECHA: BARRA DE TÍTULO + CONTENIDO PRINCIPAL        -->
+        <!-- ============================================================= -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 2.1 BARRA DE TÍTULO FLUENT NATIVA (BORDERLESS & COMPACTA) -->
+            <ui:TitleBar Grid.Row="0"
+                         Title="Retail POS - Librería &amp; Punto de Venta"
+                         Height="32"
+                         MinHeight="32"
+                         Padding="8,0"
+                         BorderThickness="0"
+                         BorderBrush="Transparent" />
+
+            <!-- 2.2 ÁREA DE CONTENIDO PRINCIPAL (Frame) -->
+            <Frame x:Name="RootFrame"
+                   Grid.Row="1"
+                   NavigationUIVisibility="Hidden"
+                   Background="{DynamicResource SurfaceBackgroundBrush}" />
+        </Grid>
     </Grid>
 </ui:FluentWindow>

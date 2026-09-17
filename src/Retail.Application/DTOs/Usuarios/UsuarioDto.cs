@@ -1,3 +1,4 @@
+using Retail.Application.DTOs.Common;
 using Retail.Domain.Enums;
 
 namespace Retail.Application.DTOs.Usuarios;
@@ -5,7 +6,7 @@ namespace Retail.Application.DTOs.Usuarios;
 /// <summary>
 /// Información pública de un usuario del sistema.
 /// </summary>
-public record class UsuarioDto
+public record class UsuarioDto : BaseDto
 {
     public required int IdUsuario { get; init; }
     public required string NombreUsuario { get; init; }

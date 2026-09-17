@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<ArrayOfDiagnosticItemData>
+  <DiagnosticItemData>
+    <Area>Binding</Area>
+    <Level>Warning</Level>
+    <Name>Binding leak</Name>
+    <Description>Property 'NombreCategoria' from type 'Retail.Application.DTOs.Articulos.CategoriaDto' is bound 7 times causing binding leaks.</Description>
+  </DiagnosticItemData>
+  <DiagnosticItemData>
+    <Area>Maintainability</Area>
+    <Level>Info</Level>
+    <Name>Local brush</Name>
+    <Description>Property 'Foreground' contains the local brush '#FFFFFFFF'. Prevent local brushes to keep the design maintainable.</Description>
+    <SourceObject>System.Windows.Controls.TextBlock</SourceObject>
+    <TreeItemPath>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (App)</DisplayName>
+        <TypeName>App</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (MainWindow)</DisplayName>
+        <TypeName>MainWindow</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (AdornerDecorator)</DisplayName>
+        <TypeName>AdornerDecorator</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (ClientAreaBorder)</DisplayName>
+        <TypeName>ClientAreaBorder</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName>ContentPresenter (ContentPresenter)</DisplayName>
+        <TypeName>ContentPresenter</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (Grid)</DisplayName>
+        <TypeName>Grid</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (Border)</DisplayName>
+        <TypeName>Border</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (Grid)</DisplayName>
+        <TypeName>Grid</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (Border)</DisplayName>
+        <TypeName>Border</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (StackPanel)</DisplayName>
+        <TypeName>StackPanel</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (Border)</DisplayName>
+        <TypeName>Border</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (Grid)</DisplayName>
+        <TypeName>Grid</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (StackPanel)</DisplayName>
+        <TypeName>StackPanel</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (Border)</DisplayName>
+        <TypeName>Border</TypeName>
+      </TreeItemDiagnosticPathData>
+      <TreeItemDiagnosticPathData>
+        <DisplayName> (TextBlock)</DisplayName>
+        <TypeName>TextBlock</TypeName>
+      </TreeItemDiagnosticPathData>
+    </TreeItemPath>
+  </DiagnosticItemData>
+</ArrayOfDiagnosticItemData>

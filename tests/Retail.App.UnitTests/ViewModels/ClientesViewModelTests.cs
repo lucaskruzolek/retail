@@ -371,4 +371,66 @@ public class ClientesViewModelTests
         _dialogService.Received(1).MostrarInformacion("Sin Saldo Deudor", Arg.Any<string>());
         await _dialogService.DidNotReceive().MostrarCobranzaModalAsync(Arg.Any<ClienteDto>());
     }
+
+    [Fact]
+    public async Task Paginacion_ConTamanoInferior_DivideEnPaginasYNavega()
+    {
+        // Arrange
+        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
+            .Returns(_clientesEjemplo);
+        await _sut.CargarClientesCommand.ExecuteAsync(null);
+
+        // Act - Ajustar tamaño a 2 (con 3 clientes => 2 páginas)
+        _sut.TamanoPagina = 2;
+
+        // Assert página 1
+        _sut.TotalPaginas.Should().Be(2);
+        _sut.PaginaActual.Should().Be(1);
+        _sut.Clientes.Should().HaveCount(2);
+        _sut.PuedeAvanzarPagina.Should().BeTrue();
+        _sut.PuedeRetrocederPagina.Should().BeFalse();
+
+        // Act - Avanzar
+        _sut.PaginaSiguienteCommand.Execute(null);
+
+        // Assert página 2
+        _sut.PaginaActual.Should().Be(2);
+        _sut.Clientes.Should().HaveCount(1);
+        _sut.PuedeAvanzarPagina.Should().BeFalse();
+        _sut.PuedeRetrocederPagina.Should().BeTrue();
+
+        // Act - Retroceder
+        _sut.PaginaAnteriorCommand.Execute(null);
+        _sut.PaginaActual.Should().Be(1);
+        _sut.Clientes.Should().HaveCount(2);
+
+        // Act - Última página
+        _sut.UltimaPaginaCommand.Execute(null);
+        _sut.PaginaActual.Should().Be(2);
+
+        // Act - Primera página
+        _sut.PrimeraPaginaCommand.Execute(null);
+        _sut.PaginaActual.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Paginacion_CambioDeFiltro_ReiniciaAPaginaUno()
+    {
+        // Arrange
+        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
+            .Returns(_clientesEjemplo);
+        await _sut.CargarClientesCommand.ExecuteAsync(null);
+
+        _sut.TamanoPagina = 1;
+        _sut.PaginaSiguienteCommand.Execute(null);
+        _sut.PaginaActual.Should().Be(2);
+
+        // Act - Cambiar filtro de búsqueda
+        _sut.TextoBusqueda = "Escuela";
+
+        // Assert
+        _sut.PaginaActual.Should().Be(1);
+        _sut.TotalRegistrosFiltrados.Should().Be(1);
+        _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Escuela Nro 5");
+    }
 }

@@ -2,11 +2,12 @@
                   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   Title="{Binding TituloVentana}"
-                  Width="560"
-                  Height="640"
-                  MinWidth="500"
-                  MinHeight="580"
+                  Width="580"
+                  Height="660"
+                  MinWidth="520"
+                  MinHeight="600"
                   WindowStartupLocation="CenterOwner"
                   ExtendsContentIntoTitleBar="True"
                   WindowBackdropType="Mica"
@@ -34,12 +35,15 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de Título Fluent -->
+        <!-- Barra de Título Fluent Estandarizada -->
         <ui:TitleBar Grid.Row="0"
                      Title="{Binding TituloVentana}"
-                     Padding="8,0,0,0">
+                     Height="32"
+                     Padding="8,0"
+                     ShowMaximize="False"
+                     CanMaximize="False">
             <ui:TitleBar.Icon>
-                <ui:SymbolIcon Symbol="Tag24" Foreground="{DynamicResource PrimaryBrush}" />
+                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=SolidTag, Brush={StaticResource PrimaryBrush}}" />
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 
@@ -78,11 +82,11 @@
                                     Margin="0,0,0,12" />
 
                         <!-- Código de Barras -->
-                        <TextBlock Text="Código de Barras (Opcional si es producto artesanal o servicio)"
+                        <TextBlock Text="Código de Barras (Opcional)"
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    Margin="0,0,0,4" />
                         <ui:TextBox Text="{Binding CodigoBarras, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="ej. 7791234567890 (Dejar vacío para artesanías)"
+                                    PlaceholderText="ej. 7791234567890"
                                     FontFamily="{StaticResource FontFamilyMonospace}"
                                     Margin="0,0,0,12" />
 
@@ -95,11 +99,11 @@
 
                             <!-- Categoría -->
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Categoría / Rubro (Opcional)"
+                                <TextBlock Text="Categoría (Opcional)"
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ComboBox ItemsSource="{Binding Categorias}"
-                                          SelectedValue="{Binding IdCategoria}"
+                                          SelectedValue="{Binding IdCategoria, Mode=TwoWay}"
                                           SelectedValuePath="IdCategoria"
                                           DisplayMemberPath="NombreCategoria"
                                           Height="35"
@@ -108,11 +112,11 @@
 
                             <!-- Marca -->
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Marca / Fabricante (Opcional)"
+                                <TextBlock Text="Marca (Opcional)"
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ComboBox ItemsSource="{Binding Marcas}"
-                                          SelectedValue="{Binding IdMarca}"
+                                          SelectedValue="{Binding IdMarca, Mode=TwoWay}"
                                           SelectedValuePath="IdMarca"
                                           DisplayMemberPath="NombreMarca"
                                           Height="35"
@@ -121,7 +125,7 @@
                         </Grid>
 
                         <!-- Es Servicio -->
-                        <CheckBox Content="Es un servicio (no descuenta stock físico ni genera alertas)"
+                        <CheckBox Content="Es un servicio (no posee stock)"
                                   IsChecked="{Binding EsServicio}"
                                   Margin="0,6,0,0" />
                     </StackPanel>
@@ -130,7 +134,7 @@
                 <!-- Grupo 2: Precios y Markup -->
                 <Border Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
                     <StackPanel>
-                        <TextBlock Text="Cálculo de Precios y Margen de Ganancia (Markup)"
+                        <TextBlock Text="Cálculo de Precios"
                                    FontWeight="SemiBold"
                                    FontSize="14"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
@@ -145,7 +149,7 @@
 
                             <!-- Costo de Reposición -->
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Costo Reposición ($) *"
+                                <TextBlock Text="Costo Reposición ($)"
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding CostoReposicion, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
@@ -155,7 +159,7 @@
 
                             <!-- Porcentaje de Ganancia -->
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Margen Ganancia (%) *"
+                                <TextBlock Text="Margen Ganancia (%)"
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
@@ -172,13 +176,10 @@
                                 Padding="16,10">
                             <DockPanel LastChildFill="False">
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="PRECIO DE VENTA SUGERIDO"
+                                    <TextBlock Text="PRECIO DE VENTA"
                                                Foreground="{DynamicResource PrimaryPressedBrush}"
                                                FontSize="11"
                                                FontWeight="Bold" />
-                                    <TextBlock Text="Calculado reactivamente según fórmula de markup"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"
-                                               FontSize="11" />
                                 </StackPanel>
 
                                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
@@ -204,7 +205,7 @@
                 <!-- Grupo 3: Control de Stock -->
                 <Border Style="{StaticResource CardBorderStyle}" Padding="16">
                     <StackPanel>
-                        <TextBlock Text="Control de Existencias (Stock Físico)"
+                        <TextBlock Text="Control de Stock"
                                    FontWeight="SemiBold"
                                    FontSize="14"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
@@ -230,7 +231,7 @@
 
                             <!-- Stock Mínimo -->
                             <StackPanel Grid.Column="2">
-                                <TextBlock Text="Stock Mínimo (Alerta Crítica)"
+                                <TextBlock Text="Stock Mínimo"
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding StockMinimo, UpdateSourceTrigger=PropertyChanged}"

@@ -188,4 +188,98 @@ public class AuthServiceTests
         // Assert
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
+
+    [Fact]
+    public async Task LoginAsync_UsuarioRecreadoConMismoUsername_PriorizaUsuarioActivoYAutenticaExitosamente()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            NombreUsuario = "lucas",
+            Password = "PasswordNueva123!"
+        };
+
+        var usuarioInactivo = new Usuario
+        {
+            Id = 1,
+            NombreUsuario = "lucas",
+            NombreCompleto = "Lucas Anterior",
+            PasswordHash = "hashViejo",
+            IdRol = (int)RolUsuarioEnum.Cajero
+        };
+        usuarioInactivo.MarkAsDeleted();
+
+        var usuarioActivo = new Usuario
+        {
+            Id = 2,
+            NombreUsuario = "lucas",
+            NombreCompleto = "Lucas Nuevo",
+            PasswordHash = "hashNuevo",
+            IdRol = (int)RolUsuarioEnum.Gerente
+        };
+
+        // Simula la consulta en BD donde coexisten el registro inactivo (Id=1) y el activo (Id=2)
+        _usuarioRepository.FindAsync(
+            Arg.Any<Expression<Func<Usuario, bool>>>(),
+            includeDeleted: true,
+            Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { usuarioInactivo, usuarioActivo });
+
+        _passwordHasher.VerifyPassword(request.Password, usuarioActivo.PasswordHash).Returns(true);
+
+        // Act
+        var result = await _sut.LoginAsync(request);
+
+        // Assert
+        result.Should().NotBeNull();
+        result.IdUsuario.Should().Be(2);
+        result.NombreUsuario.Should().Be("lucas");
+        result.NombreCompleto.Should().Be("Lucas Nuevo");
+        result.Rol.Should().Be(RolUsuarioEnum.Gerente);
+    }
+
+    [Fact]
+    public async Task LoginAsync_UsuarioRecreadoConPasswordErroneo_LanzaCredencialesInvalidasException()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            NombreUsuario = "lucas",
+            Password = "PasswordIncorrecta!"
+        };
+
+        var usuarioInactivo = new Usuario
+        {
+            Id = 1,
+            NombreUsuario = "lucas",
+            NombreCompleto = "Lucas Anterior",
+            PasswordHash = "hashViejo",
+            IdRol = (int)RolUsuarioEnum.Cajero
+        };
+        usuarioInactivo.MarkAsDeleted();
+
+        var usuarioActivo = new Usuario
+        {
+            Id = 2,
+            NombreUsuario = "lucas",
+            NombreCompleto = "Lucas Nuevo",
+            PasswordHash = "hashNuevo",
+            IdRol = (int)RolUsuarioEnum.Gerente
+        };
+
+        _usuarioRepository.FindAsync(
+            Arg.Any<Expression<Func<Usuario, bool>>>(),
+            includeDeleted: true,
+            Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { usuarioInactivo, usuarioActivo });
+
+        _passwordHasher.VerifyPassword(request.Password, usuarioActivo.PasswordHash).Returns(false);
+
+        // Act
+        var act = () => _sut.LoginAsync(request);
+
+        // Assert
+        await act.Should().ThrowAsync<CredencialesInvalidasException>();
+    }
 }
+

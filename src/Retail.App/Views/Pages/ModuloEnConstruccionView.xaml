@@ -1,0 +1,90 @@
+<UserControl x:Class="Retail.App.Views.Pages.ModuloEnConstruccionView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             Background="{DynamicResource SurfaceBackgroundBrush}">
+
+    <Grid Margin="24">
+        <Border Style="{StaticResource CardBorderStyle}"
+                MaxWidth="680"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Padding="32">
+            <StackPanel HorizontalAlignment="Center">
+                <!-- Icono de Trabajo en Progreso -->
+                <Border Background="{DynamicResource PrimaryLightBrush}"
+                        BorderBrush="{DynamicResource PrimaryBrush}"
+                        BorderThickness="1"
+                        CornerRadius="40"
+                        Width="80"
+                        Height="80"
+                        HorizontalAlignment="Center"
+                        Margin="0,0,0,16">
+                    <iconPacks:PackIconBoxIcons Kind="RegularCode"
+                                                Width="36"
+                                                Height="36"
+                                                Foreground="{DynamicResource PrimaryBrush}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center" />
+                </Border>
+
+                <!-- Título del Módulo -->
+                <TextBlock x:Name="TxtTituloModulo"
+                           Text="Módulo en Desarrollo"
+                           Style="{StaticResource TextBlockHeader1}"
+                           HorizontalAlignment="Center"
+                           Margin="0,0,0,8" />
+
+                <!-- Badge de Estado en Roadmap -->
+                <Border Style="{StaticResource BadgeWarningStyle}"
+                        HorizontalAlignment="Center"
+                        Margin="0,0,0,16">
+                    <TextBlock x:Name="TxtEtapaBadge"
+                               Text="Próximamente según Roadmap"
+                               FontSize="12"
+                               FontWeight="Bold"
+                               Foreground="{DynamicResource WarningForegroundBrush}" />
+                </Border>
+
+                <!-- Descripción Informativa -->
+                <TextBlock x:Name="TxtDescripcion"
+                           Text="Esta funcionalidad se encuentra planificada en el cronograma oficial de la cátedra."
+                           Style="{StaticResource TextBlockBody}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           MaxWidth="520"
+                           Margin="0,0,0,12" />
+
+                <TextBlock x:Name="TxtDetalles"
+                           Text="Responsable y Especificación Técnica según ERS v3.2."
+                           FontSize="12"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           MaxWidth="520"
+                           Margin="0,0,0,24" />
+
+                <!-- Separador -->
+                <Border Height="1"
+                        Background="{DynamicResource SurfaceBorderBrush}"
+                        Margin="0,0,0,20" />
+
+                <!-- Botón para regresar a Catálogo -->
+                <Button x:Name="BtnVolverCatalogo"
+                        Click="BtnVolverCatalogo_Click"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        HorizontalAlignment="Center"
+                        Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource GeometryBox}"
+                              Fill="{DynamicResource PrimaryBrush}"
+                              Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" />
+                        <TextBlock Text="Ir al Catálogo de Artículos" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

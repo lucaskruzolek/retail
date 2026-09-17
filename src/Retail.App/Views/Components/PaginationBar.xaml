@@ -1,0 +1,80 @@
+<UserControl x:Class="Retail.App.Views.Components.PaginationBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+    <DockPanel LastChildFill="False" Margin="16,10">
+        <!-- Resumen de registros a la izquierda -->
+        <TextBlock DockPanel.Dock="Left"
+                   Text="{Binding InformacionPaginacion}"
+                   Style="{StaticResource TextBlockBodySecondary}"
+                   FontSize="12"
+                   VerticalAlignment="Center" />
+
+        <!-- Controles de navegación a la derecha -->
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <!-- Selector de Filas por Página -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                <TextBlock Text="Filas:" Style="{StaticResource TextBlockBodySecondary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox ItemsSource="{Binding TamanosPaginaDisponibles}"
+                          SelectedItem="{Binding TamanoPagina, Mode=TwoWay}"
+                          Width="70"
+                          Height="32"
+                          VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Botón Primera Página -->
+            <Button Command="{Binding PrimeraPaginaCommand}"
+                    IsEnabled="{Binding PuedeRetrocederPagina}"
+                    Style="{StaticResource KeycapButtonStyle}"
+                    Padding="8,4"
+                    Margin="0,0,4,0"
+                    ToolTip="Primera página">
+                <iconPacks:PackIconBoxIcons Kind="RegularChevronsLeft" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </Button>
+
+            <!-- Botón Página Anterior -->
+            <Button Command="{Binding PaginaAnteriorCommand}"
+                    IsEnabled="{Binding PuedeRetrocederPagina}"
+                    Style="{StaticResource KeycapButtonStyle}"
+                    Padding="8,4"
+                    Margin="0,0,6,0"
+                    ToolTip="Página anterior">
+                <iconPacks:PackIconBoxIcons Kind="RegularChevronLeft" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </Button>
+
+            <!-- Indicador de Página Actual -->
+            <Border Style="{StaticResource KeycapBadgeStyle}" Margin="0,0,6,0" VerticalAlignment="Center" Padding="10,4">
+                <TextBlock Style="{StaticResource TextBlockKeycap}">
+                    <TextBlock.Text>
+                        <MultiBinding StringFormat="Pág. {0} de {1}">
+                            <Binding Path="PaginaActual" />
+                            <Binding Path="TotalPaginas" />
+                        </MultiBinding>
+                    </TextBlock.Text>
+                </TextBlock>
+            </Border>
+
+            <!-- Botón Página Siguiente -->
+            <Button Command="{Binding PaginaSiguienteCommand}"
+                    IsEnabled="{Binding PuedeAvanzarPagina}"
+                    Style="{StaticResource KeycapButtonStyle}"
+                    Padding="8,4"
+                    Margin="0,0,4,0"
+                    ToolTip="Página siguiente">
+                <iconPacks:PackIconBoxIcons Kind="RegularChevronRight" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </Button>
+
+            <!-- Botón Última Página -->
+            <Button Command="{Binding UltimaPaginaCommand}"
+                    IsEnabled="{Binding PuedeAvanzarPagina}"
+                    Style="{StaticResource KeycapButtonStyle}"
+                    Padding="8,4"
+                    ToolTip="Última página">
+                <iconPacks:PackIconBoxIcons Kind="RegularChevronsRight" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+            </Button>
+        </StackPanel>
+    </DockPanel>
+</UserControl>

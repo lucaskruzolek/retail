@@ -18,7 +18,9 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 ### 2. Contenedor Obligatorio (`ui:FluentWindow` + `ui:TitleBar`)
 * Toda ventana principal o secundaria (incluyendo ventanas modales independientes) debe heredar de `ui:FluentWindow` en lugar de la clase base clásica `System.Windows.Window`.
 * Debe incluir la directiva de extensión en la barra de título: `ExtendsContentIntoTitleBar="True"` y `WindowBackdropType="Mica"`.
-* Debe incrustar en su primera fila (`Grid.Row="0"`) el control **`<ui:TitleBar>`** para proveer los botones de Minimizar, Maximizar (con soporte para **Snap Layouts** de Windows 11) y Cerrar.
+* Debe incrustar en su primera fila (`Grid.Row="0"`) el control **`<ui:TitleBar>`**:
+  * **Ventana Principal (Shell):** `Height="32"`, `MinHeight="32"`, provee botones de Minimizar, Maximizar (con soporte para **Snap Layouts** de Windows 11) y Cerrar.
+  * **Ventanas Modales y Diálogos:** Deben configurar su `<ui:TitleBar>` con `Height="32"`, `Padding="8,0"`, `ShowMaximize="False"` y `CanMaximize="False"`, conservando el botón de cierre nativo y el template visual del framework.
 * **Salvaguarda de Pantalla:** Para evitar que la barra de título quede oculta fuera de los límites de monitores de 768p o pantallas con escalado DPI al 125%/150%, las dimensiones deben ser seguras ($Width \le 1180$, $Height \le 680$, $MinHeight \le 560$) y se debe fijar en el constructor:
   ```csharp
   MaxHeight = SystemParameters.WorkArea.Height;
@@ -42,6 +44,17 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
   * Botón principal de cobro / confirmación: `Style="{StaticResource PrimaryActionButtonStyle}"` conteniendo la pastilla carmín `<Border Style="{StaticResource KeycapPrimaryBadgeStyle}">`.
 * Las tablas deben implementar obligatoriamente `Style="{StaticResource DataGridRetailStyle}"`, sus filas `DataGridRowRetailStyle` y sus celdas `DataGridCellRetailStyle`, garantizando selección suave horizontal sin bordes verticales divisorios.
 * Los estados de negocio (stock bajo, éxito fiscal, errores) deben representarse con los badges semáforo: `BadgeWarningStyle`, `BadgeDangerStyle` y `BadgeSuccessStyle`.
+
+### 5. Diálogos Modales y Formularios
+* **Barra de Título Estandarizada:** Todo diálogo modal debe configurar en su `<ui:TitleBar>`: `Height="32"`, `Padding="8,0"`, `ShowMaximize="False"` y `CanMaximize="False"`, asegurando presencia del botón de cierre y preservación del `ControlTemplate`.
+* **Dimensiones Normalizadas de Diálogos Modales:**
+  * **Modal Compacto (Auth / Cambios de Clave):** `Width="460"`, `Height="390"`.
+  * **Modal Estándar (ABM Clientes / Usuarios / Cobranzas):** `Width="520-540"`, `Height="620-640"`.
+  * **Modal Amplio (Catálogo Artículos / Fórmulas):** `Width="580"`, `Height="660"`.
+* **Estilos Globales de Formularios:**
+  * **Selectores (`ComboBox` / `ComboBoxItem`):** Estilos implícitos globales con hover suave (`SurfaceHoverBrush`), selección activa en `PrimaryLightBrush` con texto en `PrimaryPressedBrush` (`#6B0720`) y tipografía semi-negrita.
+  * **Casillas de Verificación (`CheckBox`):** Tipografía de interfaz (`FontFamilyText`), `FontSize="14"`, cursor de mano y texto `TextPrimaryBrush`.
+  * **Entradas de Texto (`TextBox` / `PasswordBox`):** Sin alterar márgenes, paddings ni dimensiones. Se define el color de marca Carmín (`#9D0F33`) exclusivamente en la línea inferior activa al recibir foco (`TextControlFocusedBorderBrush`), cursor (`CaretBrush`) y resaltado de selección (`SelectionBrush`).
 
 ---
 
@@ -109,12 +122,36 @@ Definidos en [`src/Retail.App/Styles/Typography.xaml`](file:///c:/Users/lucas/Pr
 
 ---
 
-## 📐 Iconografía Vectorial Fluent System Icons
+## 📐 Iconografía Oficial (MahApps.Metro.IconPacks.BoxIcons)
 
-Definidos en [`src/Retail.App/Styles/Icons.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Icons.xaml):
+La aplicación estandariza su iconografía mediante el paquete modular **`MahApps.Metro.IconPacks.BoxIcons`**, complementado con geometrías nativas `StreamGeometry` en [`src/Retail.App/Styles/Icons.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Icons.xaml).
 
-Todos los glifos son recursos `StreamGeometry` vectoriales, inmunes a pixelado en pantallas de alta densidad (DPI):
+### 1. Espacio de Nombres en Vistas XAML
+```xml
+xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+```
 
+### 2. Convención Semántica de Glifos (Regular vs Solid)
+* **`Solid...` (Relleno):** Utilizado para el ítem activo de navegación en Sidebar, botón principal de cobro, cabeceras de diálogo y badges semáforo.
+  * Punto de Venta (POS): `Kind="SolidReceipt"`
+  * Catálogo de Artículos: `Kind="SolidBook"`
+  * Clientes y Ctas. Ctes.: `Kind="SolidUser"`
+  * Caja y Cobros: `Kind="SolidDollarCircle"`
+  * Compras a Distribuidores: `Kind="SolidCart"`
+  * Proveedores: `Kind="SolidTruck"`
+  * Operadores y Roles: `Kind="SolidUserIdCard"`
+  * Consola Fiscal ARCA: `Kind="SolidBadgeCheck"`
+  * Alertas de Incidencia / Stock: `Kind="SolidAlertTriangle"`
+* **`Regular...` (Línea):** Utilizado para acciones secundarias, botones de grillas de datos y búsquedas.
+  * Búsqueda en inputs (`ui:TextBox`): `<ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}" Width="16" Height="16" />`
+  * Refrescar datos: `Kind="RegularRefreshCw"`
+  * Modificar / Editar fila: `Kind="RegularEdit"`
+  * Restablecer Clave: `Kind="RegularKey"`
+  * Baja Lógica (Soft Delete): `Kind="RegularTrash"`
+  * Confirmación / Guardado: `Kind="RegularCheck"`
+
+### 3. Geometrías Nativas `StreamGeometry` (Acciones Críticas de Mostrador)
+Definidos en [`src/Retail.App/Styles/Icons.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Icons.xaml) para consumo por hardware directo en atajos de teclado de mostrador:
 * `GeometryBarcode`: Escáner de código de barras.
 * `GeometrySearch`: Lupa para búsqueda predictiva en catálogo.
 * `GeometryReceipt`: Facturas y comprobantes fiscales ARCA.

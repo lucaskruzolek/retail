@@ -120,4 +120,34 @@ public class LoginViewModelTests
         _sut.MensajeError.Should().Be("Ocurrió un error inesperado al intentar iniciar sesión.");
         _sut.EstaCargando.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task IniciarSesionCommand_CuandoEstaCargando_IgnoraInvocacionesConcurrentes()
+    {
+        // Arrange
+        _sut.NombreUsuario = "admin";
+        var tcs = new TaskCompletionSource<LoginResultDto>();
+        _authService.LoginAsync(Arg.Any<LoginRequestDto>()).Returns(tcs.Task);
+
+        // Act: Primera invocación (inicia operación asíncrona)
+        var primeraInvocacion = _sut.IniciarSesionCommand.ExecuteAsync("password123");
+        _sut.EstaCargando.Should().BeTrue();
+
+        // Segunda invocación mientras sigue cargando
+        var segundaInvocacion = _sut.IniciarSesionCommand.ExecuteAsync("password123");
+
+        // Completar la operación en curso
+        tcs.SetResult(new LoginResultDto
+        {
+            IdUsuario = 1,
+            NombreUsuario = "admin",
+            NombreCompleto = "Administrador",
+            Rol = RolUsuarioEnum.Gerente
+        });
+
+        await Task.WhenAll(primeraInvocacion, segundaInvocacion);
+
+        // Assert: El servicio de autenticación solo debe haberse invocado exactamente 1 vez
+        await _authService.Received(1).LoginAsync(Arg.Any<LoginRequestDto>());
+    }
 }

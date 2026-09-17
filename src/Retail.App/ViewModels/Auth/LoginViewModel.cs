@@ -50,6 +50,11 @@ public partial class LoginViewModel : ObservableObject
     [RelayCommand]
     public async Task IniciarSesionAsync(object? parameter)
     {
+        if (EstaCargando)
+        {
+            return;
+        }
+
         var password = string.Empty;
 
         if (parameter is PasswordBox passwordBox)

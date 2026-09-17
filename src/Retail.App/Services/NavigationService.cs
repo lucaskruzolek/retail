@@ -30,6 +30,21 @@ public class NavigationService : INavigationService
         NavigateTo(typeof(TView));
     }
 
+    public void NavigateTo<TView>(Action<TView> configure) where TView : FrameworkElement
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+
+        if (_frame == null)
+        {
+            throw new InvalidOperationException("El servicio de navegación no ha sido inicializado con un Frame contenedor.");
+        }
+
+        var view = _serviceProvider.GetRequiredService<TView>();
+        configure(view);
+        _frame.Navigate(view);
+        Navigated?.Invoke(typeof(TView));
+    }
+
     public void NavigateTo(Type viewType)
     {
         ArgumentNullException.ThrowIfNull(viewType);
