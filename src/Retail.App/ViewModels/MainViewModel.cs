@@ -73,7 +73,12 @@ public partial class MainViewModel : ObservableObject
 
     private void OnNavigated(Type viewType)
     {
-        if (viewType == typeof(ArticulosView))
+        if (viewType == typeof(PosView))
+        {
+            ModuloActivo = "Pos";
+            TituloModuloActual = "Punto de Venta (POS) y Cobro Multimedio";
+        }
+        else if (viewType == typeof(ArticulosView))
         {
             ModuloActivo = "Articulos";
             TituloModuloActual = "Catálogo de Artículos y Control de Stock";
@@ -115,15 +120,7 @@ public partial class MainViewModel : ObservableObject
     {
         ModuloActivo = "Pos";
         TituloModuloActual = "Punto de Venta (POS) y Cobro Multimedio";
-        _navigationService.NavigateTo<ModuloEnConstruccionView>(view =>
-        {
-            view.Configurar(
-                titulo: "Punto de Venta (POS) y Checkout Multimedio",
-                etapa: "Etapa 4: Épica 4 - Módulo 4.1",
-                responsable: "Lucas Kruzolek",
-                requisitos: "RF-09, RF-10, RNF-01",
-                descripcion: "Terminal de mostrador de alta velocidad para escaneo continuo de código de barras en buffer, cobro multimedio y descuento atómico de stock en transacción ACID.");
-        });
+        _navigationService.NavigateTo<PosView>();
     }
 
     [RelayCommand]

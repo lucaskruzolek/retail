@@ -3,6 +3,7 @@
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                  xmlns:helpers="clr-namespace:Retail.App.Helpers"
                   Title="Retail POS - Inicio de Sesión"
                   Width="440"
                   Height="540"
@@ -34,18 +35,25 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de Título Fluent Estandarizada -->
-        <ui:TitleBar Grid.Row="0"
-                     Title="Retail POS"
-                     Height="32"
-                     MinHeight="32"
-                     Padding="8,0"
-                     ShowMaximize="False"
-                     CanMaximize="False">
-            <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularScanBarcode, Brush={StaticResource PrimaryBrush}}" />
-            </ui:TitleBar.Icon>
-        </ui:TitleBar>
+        <!-- Barra de Título Fluent Estandarizada (Título Centrado y Estilizado) -->
+        <Grid Grid.Row="0">
+            <ui:TitleBar Height="32"
+                         MinHeight="32"
+                         Padding="8,0"
+                         Background="{DynamicResource SurfaceBackgroundBrush}"
+                         ShowMaximize="False"
+                         CanMaximize="False" />
+            <TextBlock Text="Retail POS"
+                       FontFamily="{StaticResource FontFamilyText}"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="48,0"
+                       TextTrimming="CharacterEllipsis"
+                       IsHitTestVisible="False" />
+        </Grid>
 
         <!-- Contenedor Central -->
         <Grid Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="360" Margin="0,0,0,24">
@@ -133,6 +141,8 @@
                         <Button x:Name="BtnIngresar"
                                 Click="BtnIngresar_Click"
                                 Style="{StaticResource PrimaryActionButtonStyle}"
+                                helpers:ButtonHelper.IsLoading="{Binding EstaCargando}"
+                                helpers:ButtonHelper.LoadingText="Iniciando sesión..."
                                 IsDefault="True"
                                 HorizontalAlignment="Stretch"
                                 Margin="0,0,0,8">

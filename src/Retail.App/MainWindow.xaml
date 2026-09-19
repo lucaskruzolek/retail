@@ -625,6 +625,9 @@
                             <!-- ÚNICO BOTÓN DE CAMBIO DE OPERADOR (RF-02) -->
                             <Button Command="{Binding CambiarUsuarioCommand}"
                                     Style="{StaticResource KeycapButtonStyle}"
+                                    ToolTipService.Placement="Right"
+                                    ToolTipService.HorizontalOffset="8"
+                                    ToolTipService.VerticalOffset="4"
                                     HorizontalContentAlignment="Center"
                                     Padding="6,6">
                                 <Button.ToolTip>
@@ -666,7 +669,12 @@
                          MinHeight="32"
                          Padding="8,0"
                          BorderThickness="0"
-                         BorderBrush="Transparent" />
+                         BorderBrush="Transparent"
+                         Background="{DynamicResource SurfaceBackgroundBrush}"
+                         FontFamily="{StaticResource FontFamilyText}"
+                         FontSize="12"
+                         FontWeight="SemiBold"
+                         Foreground="{DynamicResource TextSecondaryBrush}" />
 
             <!-- 2.2 ÁREA DE CONTENIDO PRINCIPAL (Frame) -->
             <Frame x:Name="RootFrame"

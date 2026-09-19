@@ -5,6 +5,7 @@
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
              mc:Ignorable="d"
              d:DesignHeight="1800" d:DesignWidth="1050"
              Background="{DynamicResource SurfaceBackgroundBrush}">
@@ -262,6 +263,26 @@
                         <ui:Button Content="WPF-UI Secondary" Appearance="Secondary" Margin="0,0,12,8" />
                         <ui:Button Content="WPF-UI Danger" Appearance="Danger" Margin="0,0,12,8" />
                     </WrapPanel>
+
+                    <!-- Botones con Spinner / Estado de Carga (ButtonHelper) -->
+                    <TextBlock Text="Botones con Spinner (ButtonHelper.IsLoading):" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,8,0,8" />
+                    <WrapPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource PrimaryActionButtonStyle}"
+                                helpers:ButtonHelper.IsLoading="True"
+                                helpers:ButtonHelper.LoadingText="Iniciando sesión..."
+                                Margin="0,0,12,8" />
+                        <Button Style="{StaticResource PrimaryActionButtonStyle}"
+                                helpers:ButtonHelper.IsLoading="True"
+                                Margin="0,0,12,8" />
+                        <Button Style="{StaticResource DangerActionButtonStyle}"
+                                helpers:ButtonHelper.IsLoading="True"
+                                helpers:ButtonHelper.LoadingText="Anulando venta..."
+                                Margin="0,0,12,8" />
+                        <Button Style="{StaticResource KeycapButtonStyle}"
+                                helpers:ButtonHelper.IsLoading="True"
+                                helpers:ButtonHelper.LoadingText="Consultando..."
+                                Margin="0,0,12,8" />
+                    </WrapPanel>
                 </StackPanel>
             </Border>
 
@@ -332,15 +353,23 @@
                                     BorderBrush="{DynamicResource SurfaceBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="6">
-                                <ui:TitleBar Title="Título de Diálogo Modal - Retail POS"
-                                             Height="32"
-                                             Padding="8,0"
-                                             ShowMaximize="False"
-                                             CanMaximize="False">
-                                    <ui:TitleBar.Icon>
-                                        <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=SolidTag, Brush={StaticResource PrimaryBrush}}" />
-                                    </ui:TitleBar.Icon>
-                                </ui:TitleBar>
+                                <Grid>
+                                    <ui:TitleBar Height="32"
+                                                 Padding="8,0"
+                                                 Background="{DynamicResource SurfaceBackgroundBrush}"
+                                                 ShowMaximize="False"
+                                                 CanMaximize="False" />
+                                    <TextBlock Text="Título de Diálogo Modal - Retail POS"
+                                               FontFamily="{StaticResource FontFamilyText}"
+                                               FontSize="12"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Margin="48,0"
+                                               TextTrimming="CharacterEllipsis"
+                                               IsHitTestVisible="False" />
+                                </Grid>
                             </Border>
                         </StackPanel>
                     </Border>

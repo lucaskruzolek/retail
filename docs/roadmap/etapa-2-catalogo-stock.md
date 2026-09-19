@@ -33,15 +33,50 @@
 ### Módulo 2.2: Proveedores e Importador Masivo Streaming con MiniExcel
 **Responsable:** Pablo Fernandez
 
-* **Interfaz Visual:** `ProveedoresView.xaml` (ABM de distribuidores) e `ImportadorView.xaml` (asistente de selección de planillas `.xlsx`/`.csv` locales, vista previa interactiva para mapeo de columnas y barra de progreso asíncrona no bloqueante).
-* **ViewModels:** `ProveedoresViewModel.cs` e `ImportadorCatalogosViewModel.cs`.
-* **Lógica y Casos de Uso:** `IProveedorService` e `ImportarPlanillaProveedorAsync`: implementación de `ExcelCatalogParser` con MiniExcel en segundo plano (`Task.Run`) para no saturar la memoria (`RNF-02`, `RNF-03`), actualización masiva de costos de catálogo.
-* **Dominio:** Agregado `Proveedor` (`IAggregateRoot`), `CatalogoProveedor`, reglas de vinculación de artículos a códigos de proveedor (`RF-05`).
+#### 1. Arquitectura y Ciclo Operativo de Dos Fases
+Para reflejar con precisión la dinámica real de comercios minoristas (donde una planilla de distribuidor contiene miles de ítems pero la tienda sólo comercializa una fracción), el importador se estructura en dos fases:
+
+* **Fase 1: Ingesta Streaming a Catálogo de Referencia y Recálculo Recurrente:**
+  * **Aislamiento de Catálogo (No Contaminación):** La ingesta masiva con `MiniExcel` en `Task.Run` (`RNF-02`, `RNF-03`) puebla exclusivamente la tabla de referencia [`CATALOGOS_PROVEEDORES`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/CatalogoProveedor.cs). **Queda prohibido volcar masivamente filas a la tabla `ARTICULOS`**, previniendo la degradación de búsquedas en el POS, falsas alertas de stock crítico (`RF-08`) y distorsión del inventario físico.
+  * **Actualización Recurrente Automática (`RF-05`, `RF-19`):** Al procesar la lista de costos, el sistema detecta atómicamente todos los artículos propios que ya se encontraban vinculados (`Articulo.IdCatalogoProveedor == item.IdCatalogo`), actualiza su `CostoReposicion` y recalcula automáticamente su `PrecioVenta` aplicando su `PorcentajeGanancia` registrado.
+  * **Reporte de Ingesta:** Emite resumen con total de filas leídas, nuevos registros en catálogo de proveedor, precios de venta actualizados en la tienda propia y filas descartadas por error.
+
+* **Fase 2: Explorador y Curaduría de Catálogo (Incorporación y Vinculación):**
+  * Consola interactiva para explorar los ítems del proveedor seleccionado con paginación y búsqueda en servidor (`Push-down to SQL`).
+  * **Filtros por Estado de Vinculación:**
+    * `[Todos]`: Lista completa provista por el distribuidor.
+    * `[Sin incorporar]`: Ítems del proveedor que no forman parte del catálogo propio (candidatos a incorporarse).
+    * `[Ya en tienda]`: Ítems vinculados a un artículo propio, mostrando el nombre comercial interno, precio de venta vigente y stock actual.
+  * **Acciones de Curaduría para Ítems No Vinculados:**
+    * **Incorporación Rápida a la Tienda (Individual o en Lote - Batch):** Permite seleccionar uno o varios ítems de proveedor (mediante checkboxes) e incorporarlos a la tabla `ARTICULOS` asignándoles una categoría y un porcentaje de markup sugerido (ej. 40%), creando los registros locales con su `IdCatalogoProveedor` enlazado.
+    * **Vinculación a Artículo Existente:** Permite asociar un ítem del proveedor a un artículo propio preexistente (evitando duplicar productos creados a mano).
+    * **Detección y Sugerencia Inteligente:** Si la planilla del proveedor incluye código de barras EAN que coincide con un artículo propio no vinculado, la interfaz destaca la coincidencia y ofrece un botón de vinculación en un clic (`[Vincular a existente]`).
+
+#### 2. Componentes e Interfaces Asignados a Pablo
+* **Interfaz Visual:**
+  * `ProveedoresView.xaml`: ABM y padrón de distribuidores/proveedores mayoristas.
+  * `ImportadorView.xaml`: Asistente de selección de planillas `.xlsx`/`.csv` con vista previa de mapeo de columnas, barra de progreso asíncrona, reporte de ingesta y **Explorador de Catálogo** con filtros por estado (`Sin incorporar` / `Ya en tienda`).
+  * `IncorporarArticulosModalDialog.xaml`: Diálogo modal ágil para definir categoría y markup antes de confirmar la promoción individual o masiva a `ARTICULOS`.
+* **ViewModels:** `ProveedoresViewModel.cs`, `ImportadorCatalogosViewModel.cs` e `IncorporarArticulosModalViewModel.cs`.
+* **Lógica y Casos de Uso (`IProveedorService`):**
+  * `ImportarPlanillaProveedorAsync(Stream archivoStream, MapeoColumnasDto mapeo, IProgress<int>? progreso, CancellationToken ct)`: Ingesta streaming y recálculo automático de artículos vinculados.
+  * `ListarItemsCatalogoAsync(ConsultaCatalogoProveedorDto consulta, CancellationToken ct)`: Consulta paginada con filtros por texto, código y estado de vinculación.
+  * `IncorporarArticulosATiendaAsync(IncorporarCatalogoArticulosDto dto, CancellationToken ct)`: Transacción que promueve ítems de proveedor a `ARTICULOS` con su `IdCatalogoProveedor`.
+  * `VincularArticuloACatalogoAsync(int idArticulo, int idCatalogoProveedor, CancellationToken ct)`: Asocia un artículo propio preexistente a un ítem de catálogo mayorista.
+* **Dominio:** Entidades [`Proveedor.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/Proveedor.cs) (`IAggregateRoot`) y [`CatalogoProveedor.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/CatalogoProveedor.cs).
 * **Persistencia:** `ProveedorConfiguration.cs` y `CatalogoProveedorConfiguration.cs`.
-* **Testing:** Pruebas unitarias de parsing con archivo Excel sintético de 5.000 filas ($< 3\text{ s}$ de lectura, $\le 300\text{ MB}$ de RAM); pruebas de integración de base de datos.
+* **Testing:**
+  * Pruebas de parsing streaming con MiniExcel sobre archivo sintético de 5.000 filas ($< 3\text{ s}$, RAM $\le 300\text{ MB}$).
+  * Pruebas unitarias y de integración del recálculo automático de precios en artículos propios vinculados tras la re-importación.
+  * Pruebas de incorporación individual y en lote verificando integridad referencial con `Articulo`.
 
 ---
 
 ## Prevención de Sobreescritura y Criterio de Aceptación
 * **Prevención de Sobreescritura:** Lucas es el propietario de `ArticulosView`, `Articulo` y su configuración de base de datos. Pablo es el propietario de `ProveedoresView`, `ImportadorView`, `Proveedor`, `CatalogoProveedor` y el parser de MiniExcel. Ambas interfaces son páginas independientes conectadas al frame de navegación.
-* **Criterio de Aceptación Integrado:** Se pueden crear productos artesanales sin código de barras sin colisiones de índice; se importa una lista de distribuidor de 5.000 filas en segundo plano sin congelar la UI, actualizando costos y enlazando con artículos existentes; los artículos con stock bajo exhiben alertas visuales.
+* **Criterio de Aceptación Integrado:** 
+  1. Se pueden crear productos artesanales sin código de barras sin colisiones de índice (`RF-04`).
+  2. Se importa una lista de distribuidor de 5.000 filas en segundo plano sin congelar la UI, poblando `CATALOGOS_PROVEEDORES` sin generar sobrepoblación en `ARTICULOS`.
+  3. Los artículos previamente vinculados actualizan de forma automática su costo de reposición y precio de venta en catálogo propio (`RF-05`).
+  4. El explorador de catálogo permite filtrar ítems no vinculados y promoverlos a `ARTICULOS` (individualmente o en lote) o enlazarlos con artículos existentes con sugerencia automática por código de barras.
+  5. Los artículos con stock bajo exhiben alertas visuales (`RF-08`).

@@ -96,6 +96,15 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Celda Monoespaciada Estándar en Grillas (Códigos de barra, Documentos, IDs - 13px, Cascadia Code) -->
+    <Style x:Key="TextBlockMonospaceCell" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
     <!-- Celda de Texto Estándar en Grillas (14px, Regular, Segoe UI Variable, centrado vertical) -->
     <Style x:Key="TextBlockTextCell" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />

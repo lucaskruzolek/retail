@@ -35,17 +35,24 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de Título Fluent Estandarizada -->
-        <ui:TitleBar Grid.Row="0"
-                     Title="{Binding TituloVentana}"
-                     Height="32"
-                     Padding="8,0"
-                     ShowMaximize="False"
-                     CanMaximize="False">
-            <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=SolidTag, Brush={StaticResource PrimaryBrush}}" />
-            </ui:TitleBar.Icon>
-        </ui:TitleBar>
+        <!-- Barra de Título Fluent Estandarizada (Título Centrado y Estilizado) -->
+        <Grid Grid.Row="0">
+            <ui:TitleBar Height="32"
+                         Padding="8,0"
+                         Background="{DynamicResource SurfaceBackgroundBrush}"
+                         ShowMaximize="False"
+                         CanMaximize="False" />
+            <TextBlock Text="{Binding TituloVentana}"
+                       FontFamily="{StaticResource FontFamilyText}"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="48,0"
+                       TextTrimming="CharacterEllipsis"
+                       IsHitTestVisible="False" />
+        </Grid>
 
         <!-- Formulario con Scroll -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,12">

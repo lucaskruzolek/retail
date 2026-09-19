@@ -11,14 +11,21 @@
 ## Módulos e Interfaces Asignados
 
 ### Módulo 4.1: Punto de Venta (POS) y Checkout Multimedio Completo
-**Responsable:** Lucas Kruzolek
+**Responsable:** Lucas Kruzolek  
+**Estado:** 🟡 En Curso (Fase UI & MVVM Mostrador: ✅ 100% | Fase Persistencia Transaccional ACID: ⏳ Siguiente sesión)
 
-* **Interfaz Visual:** `PosView.xaml` (terminal de mostrador de alta velocidad, captura en buffer continuo de scanner de barras, atajos F1 a F12, foco permanente, grilla de líneas con cantidades y selección rápida de cliente) y `CobroModalDialog.xaml` (modal de pago multimedio: efectivo con cálculo dinámico de vuelto, tarjetas, QR y cuenta corriente con verificación de límite de crédito; confirmación e impresión).
-* **ViewModels:** `PosViewModel.cs` y `CobroModalViewModel.cs`.
-* **Lógica y Casos de Uso:** `IVentaService` (`BuscarArticuloParaVentaAsync` con lecturas ultrarrápidas $< 15\text{ ms}$ sin tracking, y `RegistrarVentaAsync` con transacción ACID que guarda venta, ítems, pagos y descuenta stock atómicamente).
-* **Dominio:** Agregado `Venta` (`IAggregateRoot`), `DetalleVenta`, `PagoVenta`, invariantes de total y método de descuento `articulo.DescontarStock(cantidad)`.
-* **Persistencia:** `VentaConfiguration.cs`, `DetalleVentaConfiguration.cs` y `PagoVentaConfiguration.cs` en EF Core. Despacho a `ITicketPrinterService`.
-* **Testing:** Pruebas unitarias de cálculo de vuelto; pruebas de concurrencia y rollback por falta de stock; pruebas de interfaz de `PosViewModel`.
+* **Interfaz Visual:**
+  - [`PosView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Pages/PosView.xaml): Terminal de mostrador ágil (Enfoque B Full-Width con grilla ticket 70% y panel resumen 30%), searchbar unificada (letras: búsqueda texto, números: escaneo código de barras), popup predictivo de artículos con precio y stock, visor de totales en `Cascadia Code` a 32px y atajos globales F1 a F12.
+  - [`CobroModalDialog.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dialogs/CobroModalDialog.xaml): Modal de pago multimedio (`[F12] Cobrar`) con selector de medios (Efectivo, Tarjeta Débito/Crédito, QR, Cuenta Corriente), botones rápidos de billetes (+$1.000, +$2.000, +$5.000, +$10.000, +$20.000), cálculo reactivo de vuelto, verificación de límite de crédito para cuenta corriente e impresión de ticket.
+  - [`SeleccionarClienteModalDialog.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dialogs/SeleccionarClienteModalDialog.xaml): Modal de selección rápida de cliente (`[F4]`) con búsqueda instantánea en servidor y confirmación al ticket.
+* **ViewModels:** [`PosViewModel.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/ViewModels/Ventas/PosViewModel.cs), [`ItemVentaPosViewModel.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/ViewModels/Ventas/ItemVentaPosViewModel.cs), [`CobroModalViewModel.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/ViewModels/Ventas/CobroModalViewModel.cs) y [`SeleccionarClienteModalViewModel.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/ViewModels/Ventas/SeleccionarClienteModalViewModel.cs).
+* **Lógica y Casos de Uso:** [`IVentaService`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Interfaces/Services/IVentaService.cs) y [`VentaService`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Services/VentaService.cs) (`BuscarPorCodigoBarrasAsync` y `BuscarPorTextoAsync` con delegación al motor SQL mediante `.AsNoTracking()`, push-down de búsqueda y simulación de ticket a `ITicketPrinterService`).
+* **Testing:**
+  - Pruebas unitarias de mostrador en [`PosViewModelTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/ViewModels/PosViewModelTests.cs) (cobertura completa de atajos F1-F12, búsqueda reactiva, commit Enter y totales).
+  - Pruebas unitarias de cobro en [`CobroModalViewModelTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/ViewModels/CobroModalViewModelTests.cs) (cálculo dinámico de vuelto, billetes rápidos, límite de crédito).
+  - Pruebas de navegación en [`MainViewModelTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/ViewModels/MainViewModelTests.cs).
+  - Pruebas de humo en hilo STA con validación de árbol visual BAML en [`AppSmokeTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/AppSmokeTests.cs) (`PosView`, `CobroModalDialog`, `SeleccionarClienteModalDialog`).
+* **Siguiente Fase (Persistencia Transaccional):** Mapeo EF Core de agregados `Venta`, `DetalleVenta`, `PagoVenta`, `ComprobanteFiscal` y método transaccional ACID `RegistrarVentaAsync` con descuento atómico de stock.
 
 ---
 

@@ -89,6 +89,11 @@ public partial class App : System.Windows.Application
                 services.AddTransient<Retail.App.ViewModels.Clientes.ClienteFormViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.ClientesView>();
 
+                // Punto de Venta y Mostrador (Módulo 4.1)
+                services.AddSingleton<Retail.App.Services.IVentaDialogService, Retail.App.Services.VentaDialogService>();
+                services.AddTransient<Retail.App.ViewModels.Ventas.PosViewModel>();
+                services.AddTransient<Retail.App.Views.Pages.PosView>();
+
                 // Módulos en Construcción (Cortesía informativa de Roadmap)
                 services.AddTransient<Retail.App.Views.Pages.ModuloEnConstruccionView>();
             })

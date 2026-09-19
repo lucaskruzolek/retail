@@ -19,8 +19,8 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 * Toda ventana principal o secundaria (incluyendo ventanas modales independientes) debe heredar de `ui:FluentWindow` en lugar de la clase base clásica `System.Windows.Window`.
 * Debe incluir la directiva de extensión en la barra de título: `ExtendsContentIntoTitleBar="True"` y `WindowBackdropType="Mica"`.
 * Debe incrustar en su primera fila (`Grid.Row="0"`) el control **`<ui:TitleBar>`**:
-  * **Ventana Principal (Shell):** `Height="32"`, `MinHeight="32"`, provee botones de Minimizar, Maximizar (con soporte para **Snap Layouts** de Windows 11) y Cerrar.
-  * **Ventanas Modales y Diálogos:** Deben configurar su `<ui:TitleBar>` con `Height="32"`, `Padding="8,0"`, `ShowMaximize="False"` y `CanMaximize="False"`, conservando el botón de cierre nativo y el template visual del framework.
+  * **Ventana Principal (Shell):** `Height="32"`, `MinHeight="32"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, título alineado a la izquierda estilizado con `FontFamily="{StaticResource FontFamilyText}"`, `FontSize="12"`, `FontWeight="SemiBold"` y `Foreground="{DynamicResource TextSecondaryBrush}"`. Provee botones de Minimizar, Maximizar (con soporte para **Snap Layouts** de Windows 11) y Cerrar.
+  * **Ventanas Modales y Diálogos:** Deben configurar su `<ui:TitleBar>` con `Height="32"`, `Padding="8,0"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, `ShowMaximize="False"` y `CanMaximize="False"`, sin ícono, y con el título centrado mediante `<ui:TitleBar.CenterContent>` (`FontFamily="{StaticResource FontFamilyText}"`, `FontSize="12"`, `FontWeight="SemiBold"`), conservando el botón de cierre nativo y el template visual del framework.
 * **Salvaguarda de Pantalla:** Para evitar que la barra de título quede oculta fuera de los límites de monitores de 768p o pantallas con escalado DPI al 125%/150%, las dimensiones deben ser seguras ($Width \le 1180$, $Height \le 680$, $MinHeight \le 560$) y se debe fijar en el constructor:
   ```csharp
   MaxHeight = SystemParameters.WorkArea.Height;
@@ -46,7 +46,7 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 * Los estados de negocio (stock bajo, éxito fiscal, errores) deben representarse con los badges semáforo: `BadgeWarningStyle`, `BadgeDangerStyle` y `BadgeSuccessStyle`.
 
 ### 5. Diálogos Modales y Formularios
-* **Barra de Título Estandarizada:** Todo diálogo modal debe configurar en su `<ui:TitleBar>`: `Height="32"`, `Padding="8,0"`, `ShowMaximize="False"` y `CanMaximize="False"`, asegurando presencia del botón de cierre y preservación del `ControlTemplate`.
+* **Barra de Título Estandarizada:** Todo diálogo modal debe configurar en su `<ui:TitleBar>`: `Height="32"`, `Padding="8,0"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, `ShowMaximize="False"` y `CanMaximize="False"`, sin ícono, y con el título centrado mediante `<ui:TitleBar.CenterContent>` asegurando presencia del botón de cierre y preservación del `ControlTemplate`.
 * **Dimensiones Normalizadas de Diálogos Modales:**
   * **Modal Compacto (Auth / Cambios de Clave):** `Width="460"`, `Height="390"`.
   * **Modal Estándar (ABM Clientes / Usuarios / Cobranzas):** `Width="520-540"`, `Height="620-640"`.

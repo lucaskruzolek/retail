@@ -152,14 +152,24 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public void NavegarModulosEnConstruccion_PosCajaPresupuestosComprasProveedores_DebeInvocarModuloEnConstruccion()
+    public void NavegarPosCommand_Ejecucion_DebeNavegarHaciaPosView()
     {
         // Arrange
         var vm = new MainViewModel(_sessionMock, _navigationMock);
 
-        // Act POS
+        // Act
         vm.NavegarPosCommand.Execute(null);
+
+        // Assert
+        _navigationMock.Received(1).NavigateTo<PosView>();
         vm.ModuloActivo.Should().Be("Pos");
+    }
+
+    [Fact]
+    public void NavegarModulosEnConstruccion_CajaPresupuestosComprasProveedores_DebeInvocarModuloEnConstruccion()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
 
         // Act Caja
         vm.NavegarCajaCommand.Execute(null);
@@ -177,8 +187,8 @@ public class MainViewModelTests
         vm.NavegarProveedoresCommand.Execute(null);
         vm.ModuloActivo.Should().Be("Proveedores");
 
-        // Assert: 5 llamadas a NavigateTo<ModuloEnConstruccionView> con configuración
-        _navigationMock.Received(5).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
+        // Assert: 4 llamadas a NavigateTo<ModuloEnConstruccionView> con configuración
+        _navigationMock.Received(4).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
     }
 
     [Fact]

@@ -1,10 +1,16 @@
+using System.Windows.Controls;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
+using Retail.App.ViewModels.Auth;
 using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Usuarios;
+using Retail.App.ViewModels.Ventas;
+using Retail.App.Views.Auth;
 using Retail.App.Views.Dev;
 using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
@@ -444,5 +450,190 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de CambiarPasswordDialog debe resolverse sin errores");
         dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PosView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var ventaServiceMock = Substitute.For<IVentaService>();
+            var cajaServiceMock = Substitute.For<ICajaService>();
+            var sessionMock = Substitute.For<ICurrentUserSession>();
+            var dialogServiceMock = Substitute.For<IVentaDialogService>();
+
+            sessionMock.NombreCompleto.Returns("Administrador General");
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, sessionMock, dialogServiceMock);
+
+            try
+            {
+                view = new PosView(viewModel);
+                view.Measure(new System.Windows.Size(1280, 800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1280, 800));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PosView debe resolverse sin errores");
+        view.Should().NotBeNull();
+        view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void CobroModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        CobroModalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var clienteEjemplo = new ClienteDto
+            {
+                IdCliente = 1,
+                RazonSocialONombre = "Estudiante Universitario",
+                TipoDocumento = TipoDocumentoEnum.Dni,
+                NumeroDocumento = "40123456",
+                CondicionIva = CondicionIvaEnum.ConsumidorFinal,
+                TieneCuentaCorriente = true,
+                LimiteCredito = 50000m,
+                SaldoCuentaCorriente = 12000m
+            };
+
+            var viewModel = new CobroModalViewModel(8500m, clienteEjemplo);
+
+            try
+            {
+                dialog = new CobroModalDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(560, 680));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 560, 680));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de CobroModalDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void SeleccionarClienteModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        SeleccionarClienteModalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var clienteServiceMock = Substitute.For<IClienteService>();
+            var viewModel = new SeleccionarClienteModalViewModel(clienteServiceMock);
+
+            try
+            {
+                dialog = new SeleccionarClienteModalDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(520, 580));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 520, 580));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de SeleccionarClienteModalDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ButtonHelper_PropiedadesAdjuntas_DebenAsignarseYLeerseCorrectamente()
+    {
+        WpfTestHelper.Run(() =>
+        {
+            // Arrange
+            var button = new Button();
+
+            // Act
+            ButtonHelper.SetIsLoading(button, true);
+            ButtonHelper.SetLoadingText(button, "Cargando datos...");
+
+            // Assert
+            ButtonHelper.GetIsLoading(button).Should().BeTrue();
+            ButtonHelper.GetLoadingText(button).Should().Be("Cargando datos...");
+        });
+    }
+
+    [Fact]
+    public void LoginWindow_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        LoginWindow? window = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var authServiceMock = Substitute.For<IAuthService>();
+            var sessionMock = Substitute.For<ICurrentUserSession>();
+            var loggerMock = Substitute.For<ILogger<LoginViewModel>>();
+            var viewModel = new LoginViewModel(authServiceMock, sessionMock, loggerMock);
+
+            try
+            {
+                window = new LoginWindow(viewModel);
+                window.Measure(new System.Windows.Size(440, 540));
+                window.Arrange(new System.Windows.Rect(0, 0, 440, 540));
+                window.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de LoginWindow debe resolverse sin errores de recursos o plantillas");
+        window.Should().NotBeNull();
+        window!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void StyleGalleryView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        StyleGalleryView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                view = new StyleGalleryView();
+                view.Measure(new System.Windows.Size(1024, 1800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 1800));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de StyleGalleryView debe resolverse sin errores");
+        view.Should().NotBeNull();
     }
 }
