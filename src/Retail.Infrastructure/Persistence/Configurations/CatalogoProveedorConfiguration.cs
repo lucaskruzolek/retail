@@ -29,7 +29,7 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
             .HasMaxLength(200)
             .IsRequired();
 
-        builder.Property(cp => cp.PrecioCosto)
+        builder.Property(cp => cp.CostoReposicion)
             .HasColumnName("precio_costo")
             .HasPrecision(18, 2)
             .IsRequired();

@@ -190,6 +190,9 @@
   },
   "active": "d07aca23ff1fc41e",
   "lastOpenFiles": [
+    "Sin título 1.md",
+    "03-patrones-de-diseno/adapter-y-facade.md",
+    "Sin título.md",
     "03-patrones-de-diseno/mvvm-con-source-generators.md",
     "01-fundamentos-y-onboarding/entorno-desarrollo-local.md",
     "02-capas-de-arquitectura/03-infraestructura-persistencia.md",
@@ -212,8 +215,6 @@
     "04-sistemas-transversales/sistema-de-diseno-ui.md",
     "04-sistemas-transversales/sistema-de-persistencia.md",
     "03-patrones-de-diseno/strategy-y-contingencia.md",
-    "03-patrones-de-diseno/soft-delete-y-global-filters.md",
-    "03-patrones-de-diseno/adapter-y-facade.md",
-    "03-patrones-de-diseno/repository-and-unit-of-work.md"
+    "03-patrones-de-diseno/soft-delete-y-global-filters.md"
   ]
 }

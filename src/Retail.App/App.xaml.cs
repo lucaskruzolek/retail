@@ -89,12 +89,21 @@ public partial class App : System.Windows.Application
                 services.AddTransient<Retail.App.ViewModels.Clientes.ClienteFormViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.ClientesView>();
 
+// Proveedores y Catálogos de Proveedores (Módulo 2.2)
+                services.AddSingleton<Retail.App.Services.IProveedorDialogService, Retail.App.Services.ProveedorDialogService>();
+                services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedoresViewModel>();
+                services.AddTransient<Retail.App.ViewModels.Proveedores.ImportadorCatalogosViewModel>();
+                services.AddTransient<Retail.App.Views.Pages.ProveedoresView>();
+                services.AddTransient<Retail.App.Views.Pages.ImportadorCatalogosView>();
+                services.AddTransient<Retail.App.Views.Dialogs.IncorporarArticulosModalDialog>();
+                services.AddTransient<Retail.App.ViewModels.Proveedores.IncorporarArticulosModalViewModel>();
                 // Punto de Venta y Mostrador (Módulo 4.1)
                 services.AddSingleton<Retail.App.Services.IVentaDialogService, Retail.App.Services.VentaDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Ventas.PosViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.PosView>();
 
                 // Módulos en Construcción (Cortesía informativa de Roadmap)
+
                 services.AddTransient<Retail.App.Views.Pages.ModuloEnConstruccionView>();
             })
 

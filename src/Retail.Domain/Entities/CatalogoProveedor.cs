@@ -5,7 +5,7 @@ namespace Retail.Domain.Entities;
 /// <summary>
 /// Catálogo de precios y códigos de distribución importados desde planillas de proveedores.
 /// </summary>
-public class CatalogoProveedor : BaseEntity
+public class CatalogoProveedor : BaseEntity, IAggregateRoot
 {
     public int IdProveedor { get; set; }
 
@@ -15,7 +15,7 @@ public class CatalogoProveedor : BaseEntity
 
     public string DescripcionProveedor { get; set; } = string.Empty;
 
-    public decimal PrecioCosto { get; set; }
+    public decimal CostoReposicion { get; set; }
 
     public DateTime FechaActualizacion { get; set; } = DateTime.UtcNow;
 

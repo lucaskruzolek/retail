@@ -22,4 +22,10 @@ public interface IProveedorService
         MapeoColumnasDto mapeo,
         IProgress<int>? progreso = null,
         CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CatalogoProveedorDto>> ListarItemsCatalogoAsync(ConsultaCatalogoProveedorDto consulta, CancellationToken cancellationToken = default);
+
+    Task IncorporarArticulosATiendaAsync(IncorporarCatalogoArticulosDto dto, CancellationToken cancellationToken = default);
+
+    Task VincularArticuloACatalogoAsync(int idArticulo, int idCatalogoProveedor, CancellationToken cancellationToken = default);
 }

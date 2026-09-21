@@ -1,0 +1,68 @@
+<Window x:Class="Retail.App.Views.Dialogs.IncorporarArticulosModalDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Incorporar Artículos a Tienda" 
+        Height="310" Width="420"
+        WindowStartupLocation="CenterOwner" 
+        ResizeMode="NoResize"
+        Background="{DynamicResource SurfaceBackgroundBrush}">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Título -->
+        <TextBlock Grid.Row="0" Text="Parámetros de Incorporación" 
+                   Style="{StaticResource TextBlockHeader2}" 
+                   Margin="0,0,0,16"/>
+
+        <!-- Porcentaje de Ganancia -->
+        <StackPanel Grid.Row="1" Margin="0,0,0,12">
+            <TextBlock Text="% Ganancia Sugerido" 
+                       Style="{StaticResource TextBlockCaption}" 
+                       Foreground="{DynamicResource TextSecondaryBrush}" 
+                       Margin="0,0,0,4"/>
+            <TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}" 
+                     Height="35" 
+                     VerticalContentAlignment="Center"
+                     FontFamily="{StaticResource FontFamilyMonospace}"/>
+        </StackPanel>
+
+        <!-- Categoría Destino -->
+        <StackPanel Grid.Row="2" Margin="0,0,0,16">
+            <TextBlock Text="ID Categoría Destino" 
+                       Style="{StaticResource TextBlockCaption}" 
+                       Foreground="{DynamicResource TextSecondaryBrush}" 
+                       Margin="0,0,0,4"/>
+            <TextBox Text="{Binding IdCategoriaDestino, UpdateSourceTrigger=PropertyChanged}" 
+                     Height="35" 
+                     VerticalContentAlignment="Center"
+                     FontFamily="{StaticResource FontFamilyMonospace}"/>
+        </StackPanel>
+
+        <!-- Botones de Acción -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancelar" 
+                    Command="{Binding CancelarCommand}" 
+                    CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+                    Style="{StaticResource KeycapButtonStyle}"
+                    Width="95" Height="36" 
+                    Margin="0,0,10,0"/>
+            <Button Content="Aceptar" 
+                    Command="{Binding AceptarCommand}" 
+                    CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+                    Style="{StaticResource PrimaryActionButtonStyle}"
+                    Width="95" Height="36"/>
+        </StackPanel>
+    </Grid>
+</Window>
