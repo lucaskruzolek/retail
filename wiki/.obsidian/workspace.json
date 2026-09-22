@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "03-patrones-de-diseno/adapter-y-facade.md",
+                "file": "05-casos-de-uso-y-flujos/flujo-catalogo-y-alertas-stock.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "adapter-y-facade"
+              "title": "flujo-catalogo-y-alertas-stock"
             }
           }
         ]
@@ -190,8 +190,14 @@
   },
   "active": "d07aca23ff1fc41e",
   "lastOpenFiles": [
-    "Sin título 1.md",
+    "05-casos-de-uso-y-flujos/flujo-caja-y-arqueo-ciego.md",
+    "04-sistemas-transversales/sistema-de-persistencia.md",
+    "04-sistemas-transversales/sistema-de-logging-y-errores.md",
+    "04-sistemas-transversales/sistema-de-diseno-ui.md",
+    "04-sistemas-transversales/sistema-de-ci-cd.md",
+    "03-patrones-de-diseno/strategy-y-contingencia.md",
     "03-patrones-de-diseno/adapter-y-facade.md",
+    "Sin título 1.md",
     "Sin título.md",
     "03-patrones-de-diseno/mvvm-con-source-generators.md",
     "01-fundamentos-y-onboarding/entorno-desarrollo-local.md",
@@ -204,17 +210,11 @@
     "01-fundamentos-y-onboarding/convenciones-y-calidad.md",
     "03-patrones-de-diseno/README.md",
     "02-capas-de-arquitectura/README.md",
-    "04-sistemas-transversales/sistema-de-ci-cd.md",
     "06-vademecum-defensa-tecnica/matriz-tradeoffs-arquitectura.md",
     "06-vademecum-defensa-tecnica/preguntas-trampa-de-profesores.md",
     "05-casos-de-uso-y-flujos/flujo-importador-excel.md",
-    "05-casos-de-uso-y-flujos/flujo-caja-y-arqueo-ciego.md",
     "05-casos-de-uso-y-flujos/flujo-conciliacion-presupuesto.md",
     "05-casos-de-uso-y-flujos/flujo-venta-y-descuento-stock.md",
-    "04-sistemas-transversales/sistema-de-logging-y-errores.md",
-    "04-sistemas-transversales/sistema-de-diseno-ui.md",
-    "04-sistemas-transversales/sistema-de-persistencia.md",
-    "03-patrones-de-diseno/strategy-y-contingencia.md",
     "03-patrones-de-diseno/soft-delete-y-global-filters.md"
   ]
 }

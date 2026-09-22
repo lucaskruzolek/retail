@@ -7,13 +7,13 @@ namespace Retail.Application.DTOs.Proveedores;
 /// </summary>
 public record class ConsultaCatalogoProveedorDto
 {
-    public required int IdProveedor { get; init; }
-    
+    public int? IdProveedor { get; init; }
+
     public string? TerminoBusqueda { get; init; }
-    
+
     public EstadoVinculacionCatalogoEnum EstadoVinculacion { get; init; } = EstadoVinculacionCatalogoEnum.Todos;
-    
+
     public int Pagina { get; init; } = 1;
-    
+
     public int TamañoPagina { get; init; } = 50;
 }

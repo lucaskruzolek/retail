@@ -264,9 +264,7 @@
                            Padding="16,8">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Cancelar" Margin="0,0,6,0" />
-                        <Border Style="{StaticResource KeycapBorderSmall}">
-                            <TextBlock Text="Esc" Style="{StaticResource KeycapTextSmall}" />
-                        </Border>
+                       
                     </StackPanel>
                 </ui:Button>
 
@@ -279,9 +277,7 @@
                     <StackPanel Orientation="Horizontal">
                         <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                         <TextBlock Text="Registrar Cobranza" FontWeight="SemiBold" Margin="0,0,6,0" />
-                        <Border Style="{StaticResource KeycapBorderSmall}">
-                            <TextBlock Text="↵" Style="{StaticResource KeycapTextSmall}" />
-                        </Border>
+                        
                     </StackPanel>
                 </ui:Button>
             </Grid>

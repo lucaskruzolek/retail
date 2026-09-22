@@ -26,7 +26,8 @@ public class ProveedorConfiguration : IEntityTypeConfiguration<Proveedor>
             .IsRequired();
 
         builder.HasIndex(p => p.Cuit)
-            .IsUnique();
+            .IsUnique()
+            .HasFilter("[deleted_at] IS NULL");
 
         builder.Property(p => p.Telefono)
             .HasColumnName("telefono")

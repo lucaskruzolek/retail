@@ -6,6 +6,7 @@ namespace Retail.Application.DTOs.Proveedores;
 public record class ItemCatalogoImportadoDto
 {
     public required string CodigoProveedor { get; init; }
+    public string? CodigoBarras { get; init; }
     public required string Descripcion { get; init; }
     public required decimal PrecioCosto { get; init; }
 }

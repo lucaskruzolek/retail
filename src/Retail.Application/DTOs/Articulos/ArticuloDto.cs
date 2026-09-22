@@ -15,6 +15,11 @@ public record class ArticuloDto : BaseDto
     public int? IdMarca { get; init; }
     public string? MarcaNombre { get; init; }
     public int? IdCatalogoProveedor { get; init; }
+    public string? ProveedorNombre { get; init; }
+    public string? CodigoProveedor { get; init; }
+    public string? DescripcionProveedor { get; init; }
+    public decimal? CostoCatalogoProveedor { get; init; }
+    public bool EstaVinculadoAProveedor => IdCatalogoProveedor.HasValue && IdCatalogoProveedor.Value > 0;
     public required decimal CostoReposicion { get; init; }
     public required decimal PorcentajeGanancia { get; init; }
     public required decimal PrecioVenta { get; init; }

@@ -82,14 +82,16 @@ public partial class App : System.Windows.Application
                 // Artículos y Catálogo (Módulo 2.1)
                 services.AddSingleton<Retail.App.Services.IArticuloDialogService, Retail.App.Services.ArticuloDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();
+                services.AddTransient<Retail.App.ViewModels.Articulos.SeleccionarCatalogoProveedorModalViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.ArticulosView>();
+                services.AddTransient<Retail.App.Views.Dialogs.SeleccionarCatalogoProveedorModalDialog>();
 
                 services.AddSingleton<Retail.App.Services.IClienteDialogService, Retail.App.Services.ClienteDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Clientes.ClientesViewModel>();
                 services.AddTransient<Retail.App.ViewModels.Clientes.ClienteFormViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.ClientesView>();
 
-// Proveedores y Catálogos de Proveedores (Módulo 2.2)
+                // Proveedores y Catálogos de Proveedores (Módulo 2.2)
                 services.AddSingleton<Retail.App.Services.IProveedorDialogService, Retail.App.Services.ProveedorDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedoresViewModel>();
                 services.AddTransient<Retail.App.ViewModels.Proveedores.ImportadorCatalogosViewModel>();
@@ -97,6 +99,12 @@ public partial class App : System.Windows.Application
                 services.AddTransient<Retail.App.Views.Pages.ImportadorCatalogosView>();
                 services.AddTransient<Retail.App.Views.Dialogs.IncorporarArticulosModalDialog>();
                 services.AddTransient<Retail.App.ViewModels.Proveedores.IncorporarArticulosModalViewModel>();
+                services.AddTransient<Retail.App.Views.Dialogs.ImportarPlanillaDialog>();
+                services.AddTransient<Retail.App.ViewModels.Proveedores.ImportarPlanillaViewModel>();
+                services.AddTransient<Retail.App.Views.Dialogs.ProveedorFormDialog>();
+                services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedorFormViewModel>();
+                services.AddTransient<Retail.App.Views.Dialogs.VincularArticuloModalDialog>();
+                services.AddTransient<Retail.App.ViewModels.Proveedores.VincularArticuloModalViewModel>();
                 // Punto de Venta y Mostrador (Módulo 4.1)
                 services.AddSingleton<Retail.App.Services.IVentaDialogService, Retail.App.Services.VentaDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Ventas.PosViewModel>();

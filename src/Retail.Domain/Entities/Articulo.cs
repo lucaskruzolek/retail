@@ -100,4 +100,22 @@ public class Articulo : BaseEntity, IAggregateRoot
         StockMinimo = esServicio ? 0 : Math.Max(0, stockMinimo);
         IdCatalogoProveedor = idCatalogoProveedor;
     }
+
+    public void VincularCatalogoProveedor(int idCatalogoProveedor, decimal nuevoCosto)
+    {
+        if (idCatalogoProveedor <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idCatalogoProveedor), "El identificador de catálogo de proveedor debe ser mayor a cero.");
+        }
+
+        IdCatalogoProveedor = idCatalogoProveedor;
+        ActualizarCostoYRecalcularPrecio(nuevoCosto);
+    }
+
+    public void DesvincularCatalogoProveedor()
+    {
+        IdCatalogoProveedor = null;
+        CatalogoProveedor = null;
+    }
 }
+

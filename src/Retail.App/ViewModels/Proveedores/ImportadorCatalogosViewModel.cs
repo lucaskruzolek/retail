@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
-using Microsoft.Win32;
+using Retail.App.Services;
+using Retail.App.Views.Dialogs;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -11,57 +13,69 @@ using Retail.Domain.Exceptions;
 namespace Retail.App.ViewModels.Proveedores;
 
 /// <summary>
-/// ViewModel para el importador de planillas Excel/CSV de proveedores y curación del catálogo de artículos (Etapa 2.2 - Fase 2).
-/// Orquesta el flujo de importación en streaming con MiniExcel, la vista previa del catálogo y la incorporación controlada a tienda.
+/// ViewModel para la consulta y curaduría del catálogo de distribuidores e incorporación asistida a tienda (Etapa 2.2).
+/// Orquesta la vista previa del catálogo con push-down a SQL, filtros reactivos y la incorporación controlada a tienda.
 /// </summary>
 public partial class ImportadorCatalogosViewModel : ObservableObject
 {
     private readonly IProveedorService _proveedorService;
+    private readonly IProveedorDialogService _dialogService;
+    private readonly IInventarioService _inventarioService;
+    private readonly INavigationService _navigationService;
     private readonly ILogger<ImportadorCatalogosViewModel> _logger;
 
     // ------------------------------------------------------------------ //
-    // Proveedor activo                                                    //
+    // Proveedor activo y selección                                       //
     // ------------------------------------------------------------------ //
 
+    public ObservableCollection<ProveedorDto> ProveedoresDisponibles { get; } = new();
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneProveedorActivo))]
+    [NotifyPropertyChangedFor(nameof(PuedeImportar))]
     private ProveedorDto? _proveedorActivo;
 
+    public bool TieneProveedorActivo => ProveedorActivo != null;
+
     // ------------------------------------------------------------------ //
-    // Estado del importador                                               //
+    // Estado del importador y progreso                                   //
     // ------------------------------------------------------------------ //
 
     [ObservableProperty]
-    private string? _rutaArchivo;
-
-    [ObservableProperty]
-    private string _columnaCodigo = "CODIGO";
-
-    [ObservableProperty]
-    private string _columnaDescripcion = "DESCRIPCION";
-
-    [ObservableProperty]
-    private string _columnaPrecio = "PRECIO";
-
-    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PuedeImportar))]
     private bool _isBusy;
 
     [ObservableProperty]
-    private int _progresoImportacion;
-
-    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneMensajeEstado))]
     private string? _mensajeEstado;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneMensajeError))]
     private string? _mensajeError;
+
+    public bool TieneMensajeEstado => !string.IsNullOrWhiteSpace(MensajeEstado);
+    public bool TieneMensajeError => !string.IsNullOrWhiteSpace(MensajeError);
 
     [ObservableProperty]
     private ResultadoImportacionDto? _ultimoResultado;
 
+    [ObservableProperty]
+    private bool _tieneItemsSeleccionados;
+
+    [ObservableProperty]
+    private bool? _seleccionarTodos = false;
+
+    private bool _isUpdatingSeleccionarTodos;
+
+    public bool PuedeImportar => TieneProveedorActivo && !IsBusy;
+
     // ------------------------------------------------------------------ //
-    // Catálogo importado y filtros                                        //
+    // Catálogo importado, filtros y paginación                            //
     // ------------------------------------------------------------------ //
 
     public ObservableCollection<CatalogoProveedorDto> ItemsCatalogo { get; } = new();
+
+    public IReadOnlyList<EstadoVinculacionCatalogoEnum> OpcionesEstado { get; } = Enum.GetValues<EstadoVinculacionCatalogoEnum>();
 
     [ObservableProperty]
     private string _textoBusquedaCatalogo = string.Empty;
@@ -70,155 +84,172 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
     private EstadoVinculacionCatalogoEnum _filtroEstado = EstadoVinculacionCatalogoEnum.Todos;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PuedeRetrocederPagina))]
+    [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
+    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _paginaActual = 1;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _totalItemsCatalogo;
 
-    // ------------------------------------------------------------------ //
-    // Incorporación a tienda                                              //
-    // ------------------------------------------------------------------ //
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
+    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
+    private int _totalPaginas = 1;
 
     [ObservableProperty]
-    private decimal _porcentajeGananciaSugerido = 40m;
+    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
+    private int _tamanoPagina = 50;
 
-    [ObservableProperty]
-    private int? _idCategoriaDestino;
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = new[] { 20, 50, 100 };
 
-    [ObservableProperty]
-    private int? _idMarcaDestino;
+    public bool PuedeRetrocederPagina => PaginaActual > 1;
 
-    public bool HayArchivoSeleccionado => !string.IsNullOrWhiteSpace(RutaArchivo);
+    public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
-    public bool PuedeImportar =>
-        HayArchivoSeleccionado &&
-        ProveedorActivo != null &&
-        !string.IsNullOrWhiteSpace(ColumnaCodigo) &&
-        !string.IsNullOrWhiteSpace(ColumnaDescripcion) &&
-        !string.IsNullOrWhiteSpace(ColumnaPrecio) &&
-        !IsBusy;
-
-    public IReadOnlyList<EstadoVinculacionCatalogoEnum> OpcionesEstado { get; } =
-    [
-        EstadoVinculacionCatalogoEnum.Todos,
-        EstadoVinculacionCatalogoEnum.SinIncorporar,
-        EstadoVinculacionCatalogoEnum.YaEnTienda,
-    ];
-
-    // ------------------------------------------------------------------ //
-    // Constructor                                                         //
-    // ------------------------------------------------------------------ //
+    public string InformacionPaginacion => TotalItemsCatalogo == 0
+        ? "Sin artículos"
+        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalItemsCatalogo)} de {TotalItemsCatalogo} artículos";
 
     public ImportadorCatalogosViewModel(
         IProveedorService proveedorService,
+        IProveedorDialogService dialogService,
+        IInventarioService inventarioService,
+        INavigationService navigationService,
         ILogger<ImportadorCatalogosViewModel> logger)
     {
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
+        _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    // ------------------------------------------------------------------ //
-    // Propiedades encadenadas                                             //
-    // ------------------------------------------------------------------ //
-
-    partial void OnRutaArchivoChanged(string? value)
+    public async Task CargarProveedoresDisponiblesAsync(int? idProveedorSeleccionar = null)
     {
-        OnPropertyChanged(nameof(HayArchivoSeleccionado));
-        OnPropertyChanged(nameof(PuedeImportar));
-        ImportarPlanillaCommand.NotifyCanExecuteChanged();
+        try
+        {
+            var proveedores = await Task.Run(() => _proveedorService.ListarProveedoresAsync());
+            ProveedoresDisponibles.Clear();
+            foreach (var p in proveedores)
+            {
+                ProveedoresDisponibles.Add(p);
+            }
+
+            if (idProveedorSeleccionar.HasValue)
+            {
+                ProveedorActivo = ProveedoresDisponibles.FirstOrDefault(p => p.IdProveedor == idProveedorSeleccionar.Value);
+            }
+            else if (ProveedorActivo == null && ProveedoresDisponibles.Count > 0)
+            {
+                ProveedorActivo = ProveedoresDisponibles[0];
+            }
+            else if (ProveedorActivo != null)
+            {
+                ProveedorActivo = ProveedoresDisponibles.FirstOrDefault(p => p.IdProveedor == ProveedorActivo.IdProveedor);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cargar la lista de proveedores disponibles");
+            MensajeError = "No se pudo cargar la lista de proveedores.";
+        }
     }
 
-    partial void OnIsBusyChanged(bool value)
+    public async Task InicializarAsync(ProveedorDto? proveedor = null)
     {
-        OnPropertyChanged(nameof(PuedeImportar));
-        ImportarPlanillaCommand.NotifyCanExecuteChanged();
+        await CargarProveedoresDisponiblesAsync(proveedor?.IdProveedor);
+        if (proveedor != null)
+        {
+            if (!ProveedoresDisponibles.Any(p => p.IdProveedor == proveedor.IdProveedor))
+            {
+                ProveedoresDisponibles.Add(proveedor);
+            }
+            ProveedorActivo = proveedor;
+        }
+
+        PaginaActual = 1;
+        if (ProveedorActivo != null)
+        {
+            await CargarCatalogoAsync();
+        }
+    }
+
+    public void Inicializar(ProveedorDto? proveedor = null)
+    {
+        _ = InicializarAsync(proveedor);
+    }
+
+    partial void OnProveedorActivoChanged(ProveedorDto? value)
+    {
+        PaginaActual = 1;
+        LimpiarItemsCatalogo();
+        TotalItemsCatalogo = 0;
+        TotalPaginas = 1;
+        MensajeError = null;
+        MensajeEstado = null;
+        UltimoResultado = null;
+        TieneItemsSeleccionados = false;
+        SeleccionarTodos = false;
+
+        if (value != null)
+        {
+            _ = CargarCatalogoAsync();
+        }
+    }
+
+    partial void OnTamanoPaginaChanged(int value)
+    {
+        PaginaActual = 1;
+        _ = CargarCatalogoAsync();
     }
 
     partial void OnFiltroEstadoChanged(EstadoVinculacionCatalogoEnum value)
     {
+        PaginaActual = 1;
         _ = CargarCatalogoAsync();
     }
 
     partial void OnTextoBusquedaCatalogoChanged(string value)
     {
+        PaginaActual = 1;
         _ = CargarCatalogoAsync();
     }
 
     // ------------------------------------------------------------------ //
-    // Comandos                                                            //
+    // Comandos de Importación                                            //
     // ------------------------------------------------------------------ //
 
     [RelayCommand]
-    private void ExaminarArchivo()
+    private async Task ImportarPlanillaAsync()
     {
-        var dialog = new OpenFileDialog
+        if (ProveedorActivo is null)
         {
-            Title = "Seleccionar planilla de proveedor",
-            Filter = "Planillas Excel y CSV|*.xlsx;*.xls;*.csv|Excel (*.xlsx;*.xls)|*.xlsx;*.xls|CSV (*.csv)|*.csv",
-            CheckFileExists = true
-        };
-
-        if (dialog.ShowDialog() == true)
-        {
-            RutaArchivo = dialog.FileName;
-            MensajeEstado = $"Archivo seleccionado: {System.IO.Path.GetFileName(RutaArchivo)}";
+            return;
         }
-    }
 
-    [RelayCommand(CanExecute = nameof(PuedeImportar))]
-    private async Task ImportarPlanillaAsync(CancellationToken cancellationToken = default)
-    {
-        if (ProveedorActivo is null || string.IsNullOrWhiteSpace(RutaArchivo)) return;
-
-        IsBusy = true;
-        ProgresoImportacion = 0;
-        MensajeError = null;
-        UltimoResultado = null;
-
-        try
+        var resultado = await _dialogService.AbrirImportarPlanillaAsync(ProveedorActivo);
+        if (resultado != null)
         {
-            var mapeo = new MapeoColumnasDto
-            {
-                IdProveedor = ProveedorActivo.IdProveedor,
-                ColumnaCodigo = ColumnaCodigo.Trim(),
-                ColumnaDescripcion = ColumnaDescripcion.Trim(),
-                ColumnaPrecioCosto = ColumnaPrecio.Trim()
-            };
-
-            var progreso = new Progress<int>(pct =>
-            {
-                ProgresoImportacion = pct;
-            });
-
-            await using var stream = System.IO.File.OpenRead(RutaArchivo);
-            var resultado = await Task.Run(
-                () => _proveedorService.ImportarPlanillaProveedorAsync(stream, mapeo, progreso, cancellationToken),
-                cancellationToken);
-
             UltimoResultado = resultado;
-            MensajeEstado = $"Importación completada: {resultado.NuevosRegistros} nuevos, {resultado.PreciosActualizados} actualizados, {resultado.FilasConError} errores.";
-            await CargarCatalogoAsync(cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            MensajeEstado = "Importación cancelada.";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error durante importación de planilla del proveedor {IdProveedor}", ProveedorActivo?.IdProveedor);
-            MensajeError = $"Error al importar: {ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-            ProgresoImportacion = 100;
+            MensajeEstado = $"Importación completada: {resultado.NuevosRegistros} nuevos, {resultado.PreciosActualizados} precios actualizados, {resultado.FilasConError} errores.";
+            PaginaActual = 1;
+            await CargarCatalogoAsync();
         }
     }
+
+    // ------------------------------------------------------------------ //
+    // Explorador de Catálogo y Paginación en Servidor                    //
+    // ------------------------------------------------------------------ //
 
     [RelayCommand]
     public async Task CargarCatalogoAsync(CancellationToken cancellationToken = default)
     {
-        if (ProveedorActivo is null) return;
+        if (ProveedorActivo is null)
+        {
+            return;
+        }
 
         IsBusy = true;
         MensajeError = null;
@@ -231,22 +262,45 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
                 TerminoBusqueda = TextoBusquedaCatalogo,
                 EstadoVinculacion = FiltroEstado,
                 Pagina = PaginaActual,
-                TamañoPagina = 50
+                TamañoPagina = TamanoPagina
             };
 
-            var items = await Task.Run(
+            var resultado = await Task.Run(
                 () => _proveedorService.ListarItemsCatalogoAsync(consulta, cancellationToken),
                 cancellationToken);
 
-            ItemsCatalogo.Clear();
-            foreach (var item in items)
+            LimpiarItemsCatalogo();
+            foreach (var item in resultado.Items)
             {
+                item.PropertyChanged += Item_PropertyChanged;
                 ItemsCatalogo.Add(item);
             }
 
-            TotalItemsCatalogo = ItemsCatalogo.Count;
+            TotalItemsCatalogo = resultado.TotalRegistros;
+            TotalPaginas = Math.Max(1, resultado.TotalPaginas);
+
+            _isUpdatingSeleccionarTodos = true;
+            try
+            {
+                SeleccionarTodos = false;
+                TieneItemsSeleccionados = false;
+            }
+            finally
+            {
+                _isUpdatingSeleccionarTodos = false;
+            }
+
+            OnPropertyChanged(nameof(PuedeRetrocederPagina));
+            OnPropertyChanged(nameof(PuedeAvanzarPagina));
+            OnPropertyChanged(nameof(InformacionPaginacion));
         }
         catch (OperationCanceledException) { }
+        catch (Exception ex) when (cancellationToken.IsCancellationRequested ||
+                                   ex.InnerException is OperationCanceledException ||
+                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("Carga de catálogo cancelada por nueva acción del usuario.");
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al cargar catálogo del proveedor");
@@ -258,36 +312,108 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
         }
     }
 
-[RelayCommand]
-    private async Task IncorporarSeleccionadosAsync(IList<CatalogoProveedorDto>? itemsSeleccionados)
+    [RelayCommand]
+    public async Task PrimeraPaginaAsync()
     {
+        if (PaginaActual != 1)
+        {
+            PaginaActual = 1;
+            await CargarCatalogoAsync();
+        }
+    }
+
+    [RelayCommand]
+    public async Task PaginaAnteriorAsync()
+    {
+        if (PuedeRetrocederPagina)
+        {
+            PaginaActual--;
+            await CargarCatalogoAsync();
+        }
+    }
+
+    [RelayCommand]
+    public async Task PaginaSiguienteAsync()
+    {
+        if (PuedeAvanzarPagina)
+        {
+            PaginaActual++;
+            await CargarCatalogoAsync();
+        }
+    }
+
+    [RelayCommand]
+    public async Task UltimaPaginaAsync()
+    {
+        if (PaginaActual != TotalPaginas)
+        {
+            PaginaActual = TotalPaginas;
+            await CargarCatalogoAsync();
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Curaduría y Vinculación Asistida (RF-05)                           //
+    // ------------------------------------------------------------------ //
+
+    [RelayCommand]
+    private async Task VincularArticuloAsync(CatalogoProveedorDto? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        var vinculado = await _dialogService.AbrirSelectorVinculacionArticuloAsync(item);
+        if (vinculado)
+        {
+            MensajeEstado = $"Artículo vinculado con éxito al código {item.CodigoProveedor}.";
+            await CargarCatalogoAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task IncorporarSeleccionadosAsync(IList<CatalogoProveedorDto>? itemsSeleccionadosParam)
+    {
+        var itemsSeleccionados = (itemsSeleccionadosParam != null && itemsSeleccionadosParam.Count > 0)
+            ? itemsSeleccionadosParam
+            : ItemsCatalogo.Where(i => i.EstaSeleccionado).ToList();
+
         if (itemsSeleccionados is null || itemsSeleccionados.Count == 0 || ProveedorActivo is null)
         {
             MensajeError = "Seleccione al menos un artículo del catálogo para incorporar.";
             return;
         }
 
-        if (!IdCategoriaDestino.HasValue)
-        {
-            MensajeError = "Debe seleccionar una categoría de destino.";
-            return;
-        }
-
-        IsBusy = true;
-        MensajeError = null;
-
         try
         {
-            var dto = new IncorporarCatalogoArticulosDto
+            var categorias = await _inventarioService.ListarCategoriasAsync();
+            var marcas = await _inventarioService.ListarMarcasAsync();
+
+            var modalVm = new IncorporarArticulosModalViewModel();
+            modalVm.Inicializar(categorias, marcas, itemsSeleccionados);
+
+            var dialog = new IncorporarArticulosModalDialog
             {
-                IdsCatalogo = itemsSeleccionados.Select(i => i.Id).ToList(),
-                IdCategoria = IdCategoriaDestino ?? 0, // <-- Solución: extraemos el int seguro de su contenedor nullable
-                IdMarca = IdMarcaDestino ?? 0,
-                PorcentajeGananciaSugerido = PorcentajeGananciaSugerido
+                DataContext = modalVm,
+                Owner = System.Windows.Application.Current.MainWindow
             };
+
+            var dialogRes = dialog.ShowDialog();
+            if (dialogRes != true || !modalVm.DialogResult)
+            {
+                return;
+            }
+
+            IsBusy = true;
+            MensajeError = null;
+
+            var dto = modalVm.ObtenerDto();
 
             await Task.Run(() => _proveedorService.IncorporarArticulosATiendaAsync(dto));
             MensajeEstado = $"{itemsSeleccionados.Count} artículo(s) incorporados a la tienda correctamente.";
+            TieneItemsSeleccionados = false;
+            SeleccionarTodos = false;
             await CargarCatalogoAsync();
         }
         catch (DomainException ex)
@@ -302,6 +428,66 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    partial void OnSeleccionarTodosChanged(bool? value)
+    {
+        if (_isUpdatingSeleccionarTodos || value is null)
+        {
+            return;
+        }
+
+        _isUpdatingSeleccionarTodos = true;
+        try
+        {
+            bool seleccionar = value.Value;
+            foreach (var item in ItemsCatalogo)
+            {
+                item.EstaSeleccionado = seleccionar;
+            }
+            TieneItemsSeleccionados = ItemsCatalogo.Any(i => i.EstaSeleccionado);
+        }
+        finally
+        {
+            _isUpdatingSeleccionarTodos = false;
+        }
+    }
+
+    private void LimpiarItemsCatalogo()
+    {
+        foreach (var item in ItemsCatalogo)
+        {
+            item.PropertyChanged -= Item_PropertyChanged;
+        }
+        ItemsCatalogo.Clear();
+    }
+
+    private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(CatalogoProveedorDto.EstaSeleccionado))
+        {
+            ActualizarEstadoSeleccion();
+        }
+    }
+
+    private void ActualizarEstadoSeleccion()
+    {
+        var total = ItemsCatalogo.Count;
+        var seleccionados = ItemsCatalogo.Count(i => i.EstaSeleccionado);
+        TieneItemsSeleccionados = seleccionados > 0;
+
+        if (!_isUpdatingSeleccionarTodos)
+        {
+            _isUpdatingSeleccionarTodos = true;
+            try
+            {
+                SeleccionarTodos = total == 0 ? false : (seleccionados == total ? true : (seleccionados == 0 ? false : null));
+            }
+            finally
+            {
+                _isUpdatingSeleccionarTodos = false;
+            }
         }
     }
 }

@@ -58,17 +58,6 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- Botón Refrescar (F5) -->
-                    <Button Command="{Binding CargarArticulosCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Padding="12,8"
-                            Margin="0,0,10,0">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Refrescar" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-
                     <!-- Botón Nuevo Artículo (F2) -->
                     <Button Command="{Binding NuevoArticuloCommand}"
                             Style="{StaticResource PrimaryActionButtonStyle}"
@@ -163,7 +152,8 @@
                           SelectedItem="{Binding ArticuloSeleccionado, Mode=TwoWay}"
                           Style="{StaticResource DataGridRetailStyle}"
                           AutoGenerateColumns="False"
-                          BorderThickness="0,1,0,1">
+                          BorderThickness="1"
+                          Margin="16,0,16,8">
                 <DataGrid.Columns>
                     <!-- Código de Barras -->
                     <DataGridTemplateColumn Header="Código de Barras" Width="150">
@@ -225,6 +215,62 @@
                                         Binding="{Binding MarcaNombre}"
                                         Width="110"
                                         ElementStyle="{StaticResource TextBlockTextCell}" />
+
+                    <!-- Distribuidor / Enlace (RF-05) -->
+                    <DataGridTemplateColumn Header="Distribuidor" Width="140">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Grid VerticalAlignment="Center">
+                                    <!-- Caso 1: Vinculado a Distribuidor -->
+                                    <Border x:Name="BadgeVinculado"
+                                            Background="{DynamicResource PrimaryLightBrush}"
+                                            BorderBrush="{DynamicResource PrimaryBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="6,2"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                        <Border.ToolTip>
+                                            <ToolTip>
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding ProveedorNombre}" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding CodigoProveedor, StringFormat={}Cód: {0}}" />
+                                                    <TextBlock Text="{Binding DescripcionProveedor}" FontStyle="Italic" />
+                                                </StackPanel>
+                                            </ToolTip>
+                                        </Border.ToolTip>
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="11" Height="11" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding ProveedorNombre}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource PrimaryPressedBrush}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="105"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Caso 2: Manual / No Vinculado -->
+                                    <TextBlock x:Name="TextoManual"
+                                               Text="(Manual)"
+                                               FontStyle="Italic"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Visibility="Visible" />
+                                </Grid>
+
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding EstaVinculadoAProveedor}" Value="True">
+                                        <Setter TargetName="BadgeVinculado" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
 
                     <!-- Costo de Reposición -->
                     <DataGridTextColumn Header="Costo ($)"

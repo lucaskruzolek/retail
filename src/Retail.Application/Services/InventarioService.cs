@@ -19,6 +19,8 @@ public class InventarioService : IInventarioService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<CrearArticuloDto> _crearArticuloValidator;
     private readonly IValidator<ActualizarArticuloDto> _actualizarArticuloValidator;
+    private readonly ICatalogoProveedorQueryService? _catalogoQueryService;
+    private readonly IArticuloQueryService? _articuloQueryService;
 
     public InventarioService(
         IRepository<Articulo> articuloRepository,
@@ -26,7 +28,9 @@ public class InventarioService : IInventarioService
         IRepository<Marca> marcaRepository,
         IUnitOfWork unitOfWork,
         IValidator<CrearArticuloDto> crearArticuloValidator,
-        IValidator<ActualizarArticuloDto> actualizarArticuloValidator)
+        IValidator<ActualizarArticuloDto> actualizarArticuloValidator,
+        ICatalogoProveedorQueryService? catalogoQueryService = null,
+        IArticuloQueryService? articuloQueryService = null)
     {
         _articuloRepository = articuloRepository ?? throw new ArgumentNullException(nameof(articuloRepository));
         _categoriaRepository = categoriaRepository ?? throw new ArgumentNullException(nameof(categoriaRepository));
@@ -34,6 +38,55 @@ public class InventarioService : IInventarioService
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _crearArticuloValidator = crearArticuloValidator ?? throw new ArgumentNullException(nameof(crearArticuloValidator));
         _actualizarArticuloValidator = actualizarArticuloValidator ?? throw new ArgumentNullException(nameof(actualizarArticuloValidator));
+        _catalogoQueryService = catalogoQueryService;
+        _articuloQueryService = articuloQueryService;
+    }
+
+    public async Task<ArticulosPaginadosDto> ListarArticulosPaginadosAsync(ConsultaArticulosDto consulta, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(consulta);
+
+        if (_articuloQueryService != null)
+        {
+            return await _articuloQueryService.ObtenerArticulosPaginadosAsync(consulta, cancellationToken);
+        }
+
+        var todos = await ListarArticulosAsync(cancellationToken);
+        var query = todos.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
+        {
+            var term = consulta.TerminoBusqueda.Trim();
+            query = query.Where(a =>
+                (!string.IsNullOrEmpty(a.CodigoBarras) && a.CodigoBarras.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                a.Descripcion.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (a.MarcaNombre != null && a.MarcaNombre.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0)
+        {
+            query = query.Where(a => a.IdCategoria == consulta.IdCategoria.Value);
+        }
+
+        if (consulta.SoloStockCritico)
+        {
+            query = query.Where(a => a.StockBajo);
+        }
+
+        var filtrados = query.OrderBy(a => a.Descripcion).ToList();
+        int tamano = Math.Max(1, consulta.TamanoPagina);
+        int pagina = Math.Max(1, consulta.Pagina);
+        var items = filtrados.Skip((pagina - 1) * tamano).Take(tamano).ToList();
+
+        return new ArticulosPaginadosDto
+        {
+            Items = items,
+            TotalRegistros = filtrados.Count,
+            TotalArticulos = todos.Count,
+            TotalAlertasStock = todos.Count(a => a.StockBajo),
+            PaginaActual = pagina,
+            TamanoPagina = tamano
+        };
     }
 
     public async Task<IReadOnlyList<ArticuloDto>> ListarArticulosAsync(CancellationToken cancellationToken = default)
@@ -44,12 +97,23 @@ public class InventarioService : IInventarioService
         var marcas = (await _marcaRepository.ListAllAsync(includeDeleted: false, cancellationToken))
             .ToDictionary(m => m.Id, m => m.NombreMarca);
 
+        var catalogosIds = articulos
+            .Where(a => a.IdCatalogoProveedor.HasValue)
+            .Select(a => a.IdCatalogoProveedor!.Value)
+            .Distinct()
+            .ToList();
+
+        var catalogos = (catalogosIds.Count > 0 && _catalogoQueryService != null)
+            ? (await _catalogoQueryService.ObtenerPorIdsAsync(catalogosIds, cancellationToken)).ToDictionary(c => c.Id, c => c)
+            : new Dictionary<int, CatalogoProveedor>();
+
         return articulos
             .OrderBy(a => a.Descripcion)
             .Select(a => MapToDto(
                 a,
                 a.IdCategoria.HasValue ? categorias.GetValueOrDefault(a.IdCategoria.Value) : null,
-                a.IdMarca.HasValue ? marcas.GetValueOrDefault(a.IdMarca.Value) : null))
+                a.IdMarca.HasValue ? marcas.GetValueOrDefault(a.IdMarca.Value) : null,
+                a.IdCatalogoProveedor.HasValue ? catalogos.GetValueOrDefault(a.IdCatalogoProveedor.Value) : null))
             .ToList();
     }
 
@@ -97,8 +161,11 @@ public class InventarioService : IInventarioService
         var marca = articulo.IdMarca.HasValue
             ? await _marcaRepository.GetByIdAsync(articulo.IdMarca.Value, cancellationToken)
             : null;
+        var catalogo = (articulo.IdCatalogoProveedor.HasValue && _catalogoQueryService != null)
+            ? await _catalogoQueryService.ObtenerPorIdAsync(articulo.IdCatalogoProveedor.Value, cancellationToken)
+            : null;
 
-        return MapToDto(articulo, categoria?.NombreCategoria, marca?.NombreMarca);
+        return MapToDto(articulo, categoria?.NombreCategoria, marca?.NombreMarca, catalogo);
     }
 
     public async Task<ArticuloDto?> ObtenerPorCodigoBarrasAsync(string codigoBarras, CancellationToken cancellationToken = default)
@@ -172,8 +239,11 @@ public class InventarioService : IInventarioService
         var marca = articulo.IdMarca.HasValue
             ? await _marcaRepository.GetByIdAsync(articulo.IdMarca.Value, cancellationToken)
             : null;
+        var catalogo = (articulo.IdCatalogoProveedor.HasValue && _catalogoQueryService != null)
+            ? await _catalogoQueryService.ObtenerPorIdAsync(articulo.IdCatalogoProveedor.Value, cancellationToken)
+            : null;
 
-        return MapToDto(articulo, categoria?.NombreCategoria, marca?.NombreMarca);
+        return MapToDto(articulo, categoria?.NombreCategoria, marca?.NombreMarca, catalogo);
     }
 
     public async Task<ArticuloDto> ActualizarArticuloAsync(ActualizarArticuloDto dto, CancellationToken cancellationToken = default)
@@ -223,8 +293,11 @@ public class InventarioService : IInventarioService
         var marca = articulo.IdMarca.HasValue
             ? await _marcaRepository.GetByIdAsync(articulo.IdMarca.Value, cancellationToken)
             : null;
+        var catalogo = (articulo.IdCatalogoProveedor.HasValue && _catalogoQueryService != null)
+            ? await _catalogoQueryService.ObtenerPorIdAsync(articulo.IdCatalogoProveedor.Value, cancellationToken)
+            : null;
 
-        return MapToDto(articulo, categoria?.NombreCategoria, marca?.NombreMarca);
+        return MapToDto(articulo, categoria?.NombreCategoria, marca?.NombreMarca, catalogo);
     }
 
     public async Task BajaArticuloAsync(int idArticulo, CancellationToken cancellationToken = default)
@@ -312,7 +385,11 @@ public class InventarioService : IInventarioService
             .ToList();
     }
 
-    private static ArticuloDto MapToDto(Articulo articulo, string? categoriaNombre, string? marcaNombre)
+    private static ArticuloDto MapToDto(
+        Articulo articulo,
+        string? categoriaNombre,
+        string? marcaNombre,
+        CatalogoProveedor? catalogo = null)
     {
         return new ArticuloDto
         {
@@ -324,6 +401,10 @@ public class InventarioService : IInventarioService
             IdMarca = articulo.IdMarca,
             MarcaNombre = marcaNombre ?? "Sin marca",
             IdCatalogoProveedor = articulo.IdCatalogoProveedor,
+            ProveedorNombre = catalogo?.Proveedor?.RazonSocial,
+            CodigoProveedor = catalogo?.CodigoProveedor,
+            DescripcionProveedor = catalogo?.DescripcionProveedor,
+            CostoCatalogoProveedor = catalogo?.CostoReposicion,
             CostoReposicion = articulo.CostoReposicion,
             PorcentajeGanancia = articulo.PorcentajeGanancia,
             PrecioVenta = articulo.PrecioVenta,

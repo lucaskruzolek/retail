@@ -8,6 +8,7 @@ using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Auth;
 using Retail.App.ViewModels.Clientes;
+using Retail.App.ViewModels.Proveedores;
 using Retail.App.ViewModels.Usuarios;
 using Retail.App.ViewModels.Ventas;
 using Retail.App.Views.Auth;
@@ -635,5 +636,216 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de StyleGalleryView debe resolverse sin errores");
         view.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ProveedoresView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ProveedoresView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var proveedorServiceMock = Substitute.For<IProveedorService>();
+            var dialogServiceMock = Substitute.For<IProveedorDialogService>();
+            var loggerMock = Substitute.For<ILogger<ProveedoresViewModel>>();
+            var viewModel = new ProveedoresViewModel(
+                proveedorServiceMock,
+                dialogServiceMock,
+                loggerMock);
+
+            try
+            {
+                view = new ProveedoresView(viewModel);
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ProveedoresView debe resolverse sin errores");
+        view.Should().NotBeNull();
+        view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ImportadorCatalogosView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ImportadorCatalogosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var proveedorServiceMock = Substitute.For<IProveedorService>();
+            var dialogServiceMock = Substitute.For<IProveedorDialogService>();
+            var inventarioServiceMock = Substitute.For<IInventarioService>();
+            var navigationServiceMock = Substitute.For<INavigationService>();
+            var loggerMock = Substitute.For<ILogger<ImportadorCatalogosViewModel>>();
+            var viewModel = new ImportadorCatalogosViewModel(
+                proveedorServiceMock,
+                dialogServiceMock,
+                inventarioServiceMock,
+                navigationServiceMock,
+                loggerMock);
+
+            try
+            {
+                view = new ImportadorCatalogosView(viewModel);
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ImportadorCatalogosView debe resolverse sin errores");
+        view.Should().NotBeNull();
+        view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void IncorporarArticulosModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        IncorporarArticulosModalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                dialog = new IncorporarArticulosModalDialog();
+                dialog.Measure(new System.Windows.Size(500, 450));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 500, 450));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de IncorporarArticulosModalDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ImportarPlanillaDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ImportarPlanillaDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                dialog = new ImportarPlanillaDialog();
+                dialog.Measure(new System.Windows.Size(540, 520));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 540, 520));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ImportarPlanillaDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ProveedorFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ProveedorFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                dialog = new ProveedorFormDialog();
+                dialog.Measure(new System.Windows.Size(520, 480));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 520, 480));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ProveedorFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void VincularArticuloModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        VincularArticuloModalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                dialog = new VincularArticuloModalDialog();
+                dialog.Measure(new System.Windows.Size(700, 550));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 700, 550));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de VincularArticuloModalDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void SeleccionarCatalogoProveedorModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        SeleccionarCatalogoProveedorModalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                dialog = new SeleccionarCatalogoProveedorModalDialog();
+                dialog.Measure(new System.Windows.Size(750, 520));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 750, 520));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de SeleccionarCatalogoProveedorModalDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
     }
 }

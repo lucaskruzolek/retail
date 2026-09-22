@@ -11,7 +11,7 @@ using Retail.Domain.Enums;
 namespace Retail.App.ViewModels.Clientes;
 
 /// <summary>
-/// ViewModel principal para la administración del padrón de clientes y consulta de saldos de cuentas corrientes (RF-20).
+/// ViewModel principal para la administración del padrón de clientes y gestión de cuentas corrientes con push-down a SQL Server (RF-20, Ley 8).
 /// </summary>
 public partial class ClientesViewModel : ObservableObject
 {
@@ -19,13 +19,20 @@ public partial class ClientesViewModel : ObservableObject
     private readonly IClienteDialogService _dialogService;
     private readonly ILogger<ClientesViewModel> _logger;
 
-    private List<ClienteDto> _cacheClientes = new();
+    private CancellationTokenSource? _searchCts;
 
     public ObservableCollection<ClienteDto> Clientes { get; } = new();
 
+    public IReadOnlyList<CondicionIvaEnum?> CondicionesIvaDisponibles { get; } =
+    [
+        null,
+        CondicionIvaEnum.ResponsableInscripto,
+        CondicionIvaEnum.Monotributo,
+        CondicionIvaEnum.Exento,
+        CondicionIvaEnum.ConsumidorFinal
+    ];
+
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HayClienteSeleccionado))]
-    [NotifyPropertyChangedFor(nameof(PuedeCobrar))]
     private ClienteDto? _clienteSeleccionado;
 
     [ObservableProperty]
@@ -97,40 +104,58 @@ public partial class ClientesViewModel : ObservableObject
     partial void OnClienteSeleccionadoChanged(ClienteDto? value)
     {
         OnPropertyChanged(nameof(HayClienteSeleccionado));
+        OnPropertyChanged(nameof(PuedeCobrar));
     }
 
     partial void OnTextoBusquedaChanged(string value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        _ = DebounceBusquedaAsync(token);
+    }
+
+    private async Task DebounceBusquedaAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(250, token);
+            await CargarClientesAsync(token);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (token.IsCancellationRequested ||
+                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
+        { }
     }
 
     partial void OnCondicionIvaFiltroChanged(CondicionIvaEnum? value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _ = CargarClientesAsync();
     }
 
     partial void OnSoloConDeudaChanged(bool value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _ = CargarClientesAsync();
     }
 
     partial void OnSoloConCuentaCorrienteChanged(bool value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _ = CargarClientesAsync();
     }
 
     partial void OnTamanoPaginaChanged(int value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _ = CargarClientesAsync();
     }
 
     [RelayCommand]
-    public async Task CargarClientesAsync()
+    public async Task CargarClientesAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -138,17 +163,47 @@ public partial class ClientesViewModel : ObservableObject
             MensajeError = null;
             MensajeEstado = "Cargando padrón de clientes...";
 
-            var clientes = await _clienteService.BuscarClientesAsync(string.Empty);
-            _cacheClientes = clientes.ToList();
+            var consulta = new ConsultaClientesDto
+            {
+                TerminoBusqueda = TextoBusqueda,
+                CondicionIva = CondicionIvaFiltro,
+                SoloConDeuda = SoloConDeuda,
+                SoloConCuentaCorriente = SoloConCuentaCorriente,
+                Pagina = PaginaActual,
+                TamanoPagina = TamanoPagina
+            };
 
-            TotalClientes = _cacheClientes.Count;
-            TotalClientesConDeuda = _cacheClientes.Count(c => c.SaldoCuentaCorriente > 0m);
-            TotalDeudaCartera = _cacheClientes.Sum(c => c.SaldoCuentaCorriente);
+            var resultado = await Task.Run(
+                () => _clienteService.ListarClientesPaginadosAsync(consulta, cancellationToken),
+                cancellationToken);
 
-            PaginaActual = 1;
-            AplicarFiltrosLocales();
+            EjecutarEnDispatcher(() =>
+            {
+                Clientes.Clear();
+                foreach (var c in resultado.Items)
+                {
+                    Clientes.Add(c);
+                }
+            });
 
-            MensajeEstado = $"Se cargaron {TotalClientes} clientes (Deuda total: {TotalDeudaCartera:C}).";
+            TotalClientes = resultado.TotalClientes;
+            TotalClientesConDeuda = resultado.TotalClientesConDeuda;
+            TotalDeudaCartera = resultado.TotalDeudaCartera;
+            TotalRegistrosFiltrados = resultado.TotalRegistros;
+            TotalPaginas = resultado.TotalPaginas;
+
+            OnPropertyChanged(nameof(PuedeRetrocederPagina));
+            OnPropertyChanged(nameof(PuedeAvanzarPagina));
+            OnPropertyChanged(nameof(InformacionPaginacion));
+
+            MensajeEstado = $"Mostrando {Clientes.Count} de {TotalClientes} clientes (Deuda total: {TotalDeudaCartera:C}).";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (cancellationToken.IsCancellationRequested ||
+                                   ex.InnerException is OperationCanceledException ||
+                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("Consulta de clientes cancelada por nueva acción del usuario.");
         }
         catch (Exception ex)
         {
@@ -170,12 +225,7 @@ public partial class ClientesViewModel : ObservableObject
             _dialogService.MostrarDialogoCrear(async dto =>
             {
                 var nuevo = await _clienteService.CrearClienteAsync(dto);
-                _cacheClientes.Add(nuevo);
-                _cacheClientes = _cacheClientes.OrderBy(c => c.RazonSocialONombre).ToList();
-
-                ActualizarMetricas();
-                AplicarFiltrosLocales();
-
+                await CargarClientesAsync();
                 ClienteSeleccionado = Clientes.FirstOrDefault(c => c.IdCliente == nuevo.IdCliente);
                 MensajeEstado = $"Cliente '{nuevo.RazonSocialONombre}' registrado correctamente.";
             });
@@ -201,21 +251,7 @@ public partial class ClientesViewModel : ObservableObject
             _dialogService.MostrarDialogoModificar(seleccionado, async dto =>
             {
                 await _clienteService.ActualizarClienteAsync(dto);
-
-                int idx = _cacheClientes.FindIndex(c => c.IdCliente == dto.IdCliente);
-                if (idx >= 0)
-                {
-                    var actualizado = await _clienteService.ObtenerClientePorIdAsync(dto.IdCliente);
-                    if (actualizado != null)
-                    {
-                        _cacheClientes[idx] = actualizado;
-                    }
-                }
-
-                _cacheClientes = _cacheClientes.OrderBy(c => c.RazonSocialONombre).ToList();
-                ActualizarMetricas();
-                AplicarFiltrosLocales();
-
+                await CargarClientesAsync();
                 ClienteSeleccionado = Clientes.FirstOrDefault(c => c.IdCliente == dto.IdCliente);
                 MensajeEstado = $"Cliente '{dto.RazonSocialONombre}' actualizado correctamente.";
             });
@@ -258,11 +294,7 @@ public partial class ClientesViewModel : ObservableObject
         {
             IsBusy = true;
             await _clienteService.BajaClienteAsync(cliente.IdCliente);
-
-            _cacheClientes.RemoveAll(c => c.IdCliente == cliente.IdCliente);
-            ActualizarMetricas();
-            AplicarFiltrosLocales();
-
+            await CargarClientesAsync();
             ClienteSeleccionado = null;
             MensajeEstado = $"Cliente '{cliente.RazonSocialONombre}' dado de baja correctamente.";
         }
@@ -298,20 +330,8 @@ public partial class ClientesViewModel : ObservableObject
         var resultado = await _dialogService.MostrarCobranzaModalAsync(cliente);
         if (resultado != null)
         {
-            var index = _cacheClientes.FindIndex(c => c.IdCliente == cliente.IdCliente);
-            if (index >= 0)
-            {
-                var actualizado = _cacheClientes[index] with
-                {
-                    SaldoCuentaCorriente = resultado.NuevoSaldo
-                };
-                _cacheClientes[index] = actualizado;
-
-                ActualizarMetricas();
-                AplicarFiltrosLocales();
-                ClienteSeleccionado = Clientes.FirstOrDefault(c => c.IdCliente == cliente.IdCliente);
-            }
-
+            await CargarClientesAsync();
+            ClienteSeleccionado = Clientes.FirstOrDefault(c => c.IdCliente == cliente.IdCliente);
             MensajeEstado = $"Cobranza #{resultado.IdCobranza:D6} registrada con éxito. Monto: {resultado.MontoAbonado:C}. Nuevo saldo: {resultado.NuevoSaldo:C}.";
             _dialogService.MostrarInformacion(
                 "Cobranza Registrada",
@@ -326,114 +346,54 @@ public partial class ClientesViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void PaginaSiguiente()
+    public async Task PaginaSiguienteAsync()
     {
         if (PuedeAvanzarPagina)
         {
             PaginaActual++;
-            ActualizarPaginaActual();
+            await CargarClientesAsync();
         }
     }
 
     [RelayCommand]
-    public void PaginaAnterior()
+    public async Task PaginaAnteriorAsync()
     {
         if (PuedeRetrocederPagina)
         {
             PaginaActual--;
-            ActualizarPaginaActual();
+            await CargarClientesAsync();
         }
     }
 
     [RelayCommand]
-    public void PrimeraPagina()
+    public async Task PrimeraPaginaAsync()
     {
         if (PaginaActual != 1)
         {
             PaginaActual = 1;
-            ActualizarPaginaActual();
+            await CargarClientesAsync();
         }
     }
 
     [RelayCommand]
-    public void UltimaPagina()
+    public async Task UltimaPaginaAsync()
     {
         if (PaginaActual != TotalPaginas)
         {
             PaginaActual = TotalPaginas;
-            ActualizarPaginaActual();
+            await CargarClientesAsync();
         }
     }
 
-    private List<ClienteDto> _cacheFiltrados = new();
-
-    private void AplicarFiltrosLocales()
+    private static void EjecutarEnDispatcher(Action action)
     {
-        var filtrados = _cacheClientes.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(TextoBusqueda))
+        if (System.Windows.Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
         {
-            string termino = TextoBusqueda.Trim();
-            filtrados = filtrados.Where(c =>
-                c.RazonSocialONombre.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
-                c.NumeroDocumento.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
-                (c.Email != null && c.Email.Contains(termino, StringComparison.OrdinalIgnoreCase)));
+            dispatcher.Invoke(action);
         }
-
-        if (CondicionIvaFiltro.HasValue)
+        else
         {
-            filtrados = filtrados.Where(c => c.CondicionIva == CondicionIvaFiltro.Value);
+            action();
         }
-
-        if (SoloConDeuda)
-        {
-            filtrados = filtrados.Where(c => c.SaldoCuentaCorriente > 0m);
-        }
-
-        if (SoloConCuentaCorriente)
-        {
-            filtrados = filtrados.Where(c => c.TieneCuentaCorriente);
-        }
-
-        _cacheFiltrados = filtrados.OrderBy(c => c.RazonSocialONombre).ToList();
-        TotalRegistrosFiltrados = _cacheFiltrados.Count;
-
-        TotalPaginas = Math.Max(1, (int)Math.Ceiling((double)TotalRegistrosFiltrados / Math.Max(1, TamanoPagina)));
-
-        if (PaginaActual > TotalPaginas)
-        {
-            PaginaActual = TotalPaginas;
-        }
-        else if (PaginaActual < 1)
-        {
-            PaginaActual = 1;
-        }
-
-        ActualizarPaginaActual();
-    }
-
-    private void ActualizarPaginaActual()
-    {
-        var paginaItems = _cacheFiltrados
-            .Skip((PaginaActual - 1) * TamanoPagina)
-            .Take(TamanoPagina)
-            .ToList();
-
-        Clientes.Clear();
-        foreach (var c in paginaItems)
-        {
-            Clientes.Add(c);
-        }
-
-        OnPropertyChanged(nameof(PuedeRetrocederPagina));
-        OnPropertyChanged(nameof(PuedeAvanzarPagina));
-        OnPropertyChanged(nameof(InformacionPaginacion));
-    }
-
-    private void ActualizarMetricas()
-    {
-        TotalClientes = _cacheClientes.Count;
-        TotalClientesConDeuda = _cacheClientes.Count(c => c.SaldoCuentaCorriente > 0m);
-        TotalDeudaCartera = _cacheClientes.Sum(c => c.SaldoCuentaCorriente);
     }
 }

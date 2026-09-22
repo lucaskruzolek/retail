@@ -101,7 +101,12 @@ public partial class MainViewModel : ObservableObject
         else if (viewType == typeof(ProveedoresView))
         {
             ModuloActivo = "Proveedores";
-            TituloModuloActual = "Padrón de Proveedores e Importador de Catálogos";
+            TituloModuloActual = "Padrón de Proveedores";
+        }
+        else if (viewType == typeof(ImportadorCatalogosView))
+        {
+            ModuloActivo = "Catalogos";
+            TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
         }
         else if (viewType == typeof(ModuloEnConstruccionView))
         {
@@ -194,8 +199,16 @@ public partial class MainViewModel : ObservableObject
     public void NavegarProveedores()
     {
         ModuloActivo = "Proveedores";
-        TituloModuloActual = "Padrón de Proveedores e Importador de Catálogos";
+        TituloModuloActual = "Padrón de Proveedores";
         _navigationService.NavigateTo<ProveedoresView>();
+    }
+
+    [RelayCommand]
+    public void NavegarCatalogos()
+    {
+        ModuloActivo = "Catalogos";
+        TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
+        _navigationService.NavigateTo<ImportadorCatalogosView>();
     }
 
     [RelayCommand]

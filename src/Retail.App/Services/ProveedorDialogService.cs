@@ -1,7 +1,10 @@
+using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Retail.App.ViewModels.Proveedores;
+using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Proveedores;
-using System.Windows;
+using Retail.Application.Interfaces.Services;
 
 namespace Retail.App.Services;
 
@@ -18,16 +21,57 @@ public class ProveedorDialogService : IProveedorDialogService
 
     public async Task<bool> AbrirFormularioNuevoProveedorAsync()
     {
-        // Omitido por ahora de forma segura ya que el alta se puede gestionar o implementar después.
-        MessageBox.Show("Formulario de nuevo proveedor en construcción.", "Aviso", MessageBoxButton.OK, MessageBoxImage.Information);
-        await Task.CompletedTask;
-        return false;
+        var vm = _serviceProvider.GetRequiredService<ProveedorFormViewModel>();
+        vm.ConfigurarAlta();
+
+        var dialog = new ProveedorFormDialog
+        {
+            DataContext = vm,
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        var resultado = dialog.ShowDialog();
+        return await Task.FromResult(resultado == true && vm.DialogResult);
     }
 
     public async Task<bool> AbrirFormularioEditarProveedorAsync(ProveedorDto proveedor)
     {
-        MessageBox.Show($"Editar proveedor: {proveedor.RazonSocial}", "Aviso", MessageBoxButton.OK, MessageBoxImage.Information);
-        await Task.CompletedTask;
+        ArgumentNullException.ThrowIfNull(proveedor);
+
+        var vm = _serviceProvider.GetRequiredService<ProveedorFormViewModel>();
+        vm.ConfigurarEdicion(proveedor);
+
+        var dialog = new ProveedorFormDialog
+        {
+            DataContext = vm,
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        var resultado = dialog.ShowDialog();
+        return await Task.FromResult(resultado == true && vm.DialogResult);
+    }
+
+    public async Task<bool> AbrirSelectorVinculacionArticuloAsync(CatalogoProveedorDto itemCatalogo)
+    {
+        ArgumentNullException.ThrowIfNull(itemCatalogo);
+
+        var vm = _serviceProvider.GetRequiredService<VincularArticuloModalViewModel>();
+        await vm.InicializarAsync(itemCatalogo);
+
+        var dialog = new VincularArticuloModalDialog
+        {
+            DataContext = vm,
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        var resultado = dialog.ShowDialog();
+        if (resultado == true && vm.DialogResult && vm.IdArticuloSeleccionado.HasValue)
+        {
+            var proveedorService = _serviceProvider.GetRequiredService<IProveedorService>();
+            await proveedorService.VincularArticuloACatalogoAsync(vm.IdArticuloSeleccionado.Value, itemCatalogo.Id);
+            return true;
+        }
+
         return false;
     }
 
@@ -42,17 +86,37 @@ public class ProveedorDialogService : IProveedorDialogService
         return await Task.FromResult(resultado == MessageBoxResult.Yes);
     }
 
-    public async Task AbrirImportadorCatalogosAsync(ProveedorDto proveedor)
+    public async Task AbrirImportadorCatalogosAsync(ProveedorDto? proveedor = null)
     {
-        // Navega a la vista del importador pasando el proveedor activo al ViewModel mediante la configuración del frame
         _navigationService.NavigateTo<ImportadorCatalogosView>(view =>
         {
-            if (view.DataContext is ViewModels.Proveedores.ImportadorCatalogosViewModel vm)
+            if (view.DataContext is ImportadorCatalogosViewModel vm)
             {
-                vm.ProveedorActivo = proveedor;
-                _ = vm.CargarCatalogoAsync();
+                _ = vm.InicializarAsync(proveedor);
             }
         });
         await Task.CompletedTask;
+    }
+
+    public async Task<ResultadoImportacionDto?> AbrirImportarPlanillaAsync(ProveedorDto proveedor)
+    {
+        ArgumentNullException.ThrowIfNull(proveedor);
+
+        var vm = _serviceProvider.GetRequiredService<ImportarPlanillaViewModel>();
+        vm.Inicializar(proveedor);
+
+        var dialog = new ImportarPlanillaDialog
+        {
+            DataContext = vm,
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        var resultado = dialog.ShowDialog();
+        if (resultado == true && vm.DialogResult && vm.UltimoResultado != null)
+        {
+            return await Task.FromResult(vm.UltimoResultado);
+        }
+
+        return await Task.FromResult<ResultadoImportacionDto?>(null);
     }
 }

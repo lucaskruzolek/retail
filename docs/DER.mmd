@@ -133,7 +133,7 @@ erDiagram
     PROVEEDORES {
         int id_proveedor PK
         string razon_social
-        string cuit UK
+        string cuit "UK (filtered)"
         string telefono
         string email
         datetime deleted_at
@@ -142,7 +142,8 @@ erDiagram
     CATALOGOS_PROVEEDORES {
         int id_catalogo PK
         int id_proveedor FK
-        string codigo_proveedor
+        string codigo_proveedor "UK composite (filtered)"
+        string codigo_barras "nullable"
         string descripcion_proveedor
         decimal precio_costo
         datetime fecha_actualizacion

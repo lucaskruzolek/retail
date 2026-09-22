@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Proveedores;
 using Retail.Domain.Entities;
 
 namespace Retail.App.ViewModels.Articulos;
@@ -27,7 +29,30 @@ public partial class ArticuloFormViewModel : ObservableObject
     private int? _idMarca;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EstaVinculadoAProveedor))]
+    [NotifyPropertyChangedFor(nameof(NoEstaVinculadoAProveedor))]
+    [NotifyPropertyChangedFor(nameof(TextoBotonVinculacion))]
     private int? _idCatalogoProveedor;
+
+    [ObservableProperty]
+    private string? _proveedorRazonSocial;
+
+    [ObservableProperty]
+    private string? _codigoProveedor;
+
+    [ObservableProperty]
+    private string? _descripcionProveedor;
+
+    [ObservableProperty]
+    private decimal? _costoProveedor;
+
+    public bool EstaVinculadoAProveedor => IdCatalogoProveedor.HasValue && IdCatalogoProveedor.Value > 0;
+
+    public bool NoEstaVinculadoAProveedor => !EstaVinculadoAProveedor;
+
+    public string TextoBotonVinculacion => EstaVinculadoAProveedor ? "Cambiar..." : "Vincular con Distribuidor...";
+
+    public Func<string?, int?, Task<CatalogoProveedorDto?>>? OnAbrirSelectorProveedorAsync { get; set; }
 
     [ObservableProperty]
     private decimal _costoReposicion;
@@ -124,6 +149,10 @@ public partial class ArticuloFormViewModel : ObservableObject
         StockMinimo = 5;
         EsServicio = false;
         IdCatalogoProveedor = null;
+        ProveedorRazonSocial = null;
+        CodigoProveedor = null;
+        DescripcionProveedor = null;
+        CostoProveedor = null;
         MensajeError = null;
         IsBusy = false;
         OnGuardarAsync = null;
@@ -143,6 +172,10 @@ public partial class ArticuloFormViewModel : ObservableObject
         IdCategoria = articulo.IdCategoria ?? 0;
         IdMarca = articulo.IdMarca ?? 0;
         IdCatalogoProveedor = articulo.IdCatalogoProveedor;
+        ProveedorRazonSocial = articulo.ProveedorNombre;
+        CodigoProveedor = articulo.CodigoProveedor;
+        DescripcionProveedor = articulo.DescripcionProveedor;
+        CostoProveedor = articulo.CostoCatalogoProveedor;
         CostoReposicion = articulo.CostoReposicion;
         PorcentajeGanancia = articulo.PorcentajeGanancia;
         StockActual = articulo.StockActual;
@@ -226,6 +259,52 @@ public partial class ArticuloFormViewModel : ObservableObject
         }
 
         return true;
+    }
+
+    [RelayCommand]
+    public async Task VincularCatalogoAsync()
+    {
+        if (OnAbrirSelectorProveedorAsync == null)
+        {
+            return;
+        }
+
+        var termino = !string.IsNullOrWhiteSpace(CodigoBarras)
+            ? CodigoBarras
+            : Descripcion;
+
+        var item = await OnAbrirSelectorProveedorAsync(termino, null);
+        if (item != null)
+        {
+            IdCatalogoProveedor = item.Id;
+            ProveedorRazonSocial = item.ProveedorRazonSocial;
+            CodigoProveedor = item.CodigoProveedor;
+            DescripcionProveedor = item.DescripcionProveedor;
+            CostoProveedor = item.CostoReposicion;
+
+            CostoReposicion = item.CostoReposicion;
+            RecalcularPrecioVenta();
+
+            if (string.IsNullOrWhiteSpace(Descripcion))
+            {
+                Descripcion = item.DescripcionProveedor;
+            }
+
+            if (string.IsNullOrWhiteSpace(CodigoBarras) && !string.IsNullOrWhiteSpace(item.CodigoBarras))
+            {
+                CodigoBarras = item.CodigoBarras;
+            }
+        }
+    }
+
+    [RelayCommand]
+    public void DesvincularCatalogo()
+    {
+        IdCatalogoProveedor = null;
+        ProveedorRazonSocial = null;
+        CodigoProveedor = null;
+        DescripcionProveedor = null;
+        CostoProveedor = null;
     }
 
     public CrearArticuloDto ObtenerCrearDto() => new()

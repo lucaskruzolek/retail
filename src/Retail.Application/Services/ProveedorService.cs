@@ -1,41 +1,55 @@
+using System.Diagnostics;
 using FluentValidation;
-using MiniExcelLibs;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
-using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.Application.Services;
 
 /// <summary>
-/// Implementación de los casos de uso para gestión de proveedores e importación masiva.
+/// Implementación de los casos de uso para gestión de proveedores e importación masiva de catálogos (RF-05, RF-07, RNF-02, RNF-03).
 /// </summary>
 public class ProveedorService : IProveedorService
 {
     private readonly IRepository<Proveedor> _proveedorRepository;
-    private readonly IRepository<CatalogoProveedor> _catalogoRepository;
+    private readonly ICatalogoProveedorQueryService _catalogoQueryService;
     private readonly IRepository<Articulo> _articuloRepository;
     private readonly IUnitOfWork _unitOfWork;
-    // Validators for DTOs could be injected here
-    
+    private readonly IExcelCatalogParser _excelCatalogParser;
+    private readonly IValidator<CrearProveedorDto> _crearProveedorValidator;
+    private readonly IValidator<ProveedorDto> _actualizarProveedorValidator;
+    private readonly IValidator<MapeoColumnasDto> _mapeoColumnasValidator;
+    private readonly IValidator<IncorporarCatalogoArticulosDto> _incorporarArticulosValidator;
+
     public ProveedorService(
         IRepository<Proveedor> proveedorRepository,
-        IRepository<CatalogoProveedor> catalogoRepository,
+        ICatalogoProveedorQueryService catalogoQueryService,
         IRepository<Articulo> articuloRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IExcelCatalogParser excelCatalogParser,
+        IValidator<CrearProveedorDto> crearProveedorValidator,
+        IValidator<ProveedorDto> actualizarProveedorValidator,
+        IValidator<MapeoColumnasDto> mapeoColumnasValidator,
+        IValidator<IncorporarCatalogoArticulosDto> incorporarArticulosValidator)
     {
-        _proveedorRepository = proveedorRepository;
-        _catalogoRepository = catalogoRepository;
-        _articuloRepository = articuloRepository;
-        _unitOfWork = unitOfWork;
+        _proveedorRepository = proveedorRepository ?? throw new ArgumentNullException(nameof(proveedorRepository));
+        _catalogoQueryService = catalogoQueryService ?? throw new ArgumentNullException(nameof(catalogoQueryService));
+        _articuloRepository = articuloRepository ?? throw new ArgumentNullException(nameof(articuloRepository));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+        _excelCatalogParser = excelCatalogParser ?? throw new ArgumentNullException(nameof(excelCatalogParser));
+        _crearProveedorValidator = crearProveedorValidator ?? throw new ArgumentNullException(nameof(crearProveedorValidator));
+        _actualizarProveedorValidator = actualizarProveedorValidator ?? throw new ArgumentNullException(nameof(actualizarProveedorValidator));
+        _mapeoColumnasValidator = mapeoColumnasValidator ?? throw new ArgumentNullException(nameof(mapeoColumnasValidator));
+        _incorporarArticulosValidator = incorporarArticulosValidator ?? throw new ArgumentNullException(nameof(incorporarArticulosValidator));
     }
 
     public async Task<IReadOnlyList<ProveedorDto>> ListarProveedoresAsync(CancellationToken cancellationToken = default)
     {
         var proveedores = await _proveedorRepository.ListAllAsync(includeDeleted: false, cancellationToken);
-        
+
         return proveedores
             .OrderBy(p => p.RazonSocial)
             .Select(p => new ProveedorDto
@@ -66,14 +80,21 @@ public class ProveedorService : IProveedorService
 
     public async Task<ProveedorDto> CrearProveedorAsync(CrearProveedorDto dto, CancellationToken cancellationToken = default)
     {
-        // Add basic logic here. For real apps, validation should be done with FluentValidation
-        var proveedor = new Proveedor
+        await _crearProveedorValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        string cuitLimpio = dto.Cuit.Replace("-", "").Trim();
+        var existentes = await _proveedorRepository.FindAsync(
+            p => p.Cuit == cuitLimpio || p.Cuit == dto.Cuit.Trim(),
+            includeDeleted: false,
+            cancellationToken);
+
+        if (existentes.Count > 0)
         {
-            RazonSocial = dto.RazonSocial,
-            Cuit = dto.Cuit,
-            Telefono = dto.Telefono,
-            Email = dto.Email
-        };
+            throw new DomainException($"Ya existe un proveedor activo registrado con el CUIT {dto.Cuit}.");
+        }
+
+        var proveedor = new Proveedor();
+        proveedor.ActualizarDatos(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
 
         await _proveedorRepository.AddAsync(proveedor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -90,14 +111,26 @@ public class ProveedorService : IProveedorService
 
     public async Task ActualizarProveedorAsync(ProveedorDto dto, CancellationToken cancellationToken = default)
     {
+        await _actualizarProveedorValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
         var proveedor = await _proveedorRepository.GetByIdAsync(dto.IdProveedor, includeDeleted: false, cancellationToken);
         if (proveedor == null)
-            throw new DomainException($"No se encontró el proveedor con ID {dto.IdProveedor}");
+        {
+            throw new DomainException($"No se encontró el proveedor con ID {dto.IdProveedor}.");
+        }
 
-        proveedor.RazonSocial = dto.RazonSocial;
-        proveedor.Cuit = dto.Cuit;
-        proveedor.Telefono = dto.Telefono;
-        proveedor.Email = dto.Email;
+        string cuitLimpio = dto.Cuit.Replace("-", "").Trim();
+        var existentes = await _proveedorRepository.FindAsync(
+            p => (p.Cuit == cuitLimpio || p.Cuit == dto.Cuit.Trim()) && p.Id != dto.IdProveedor,
+            includeDeleted: false,
+            cancellationToken);
+
+        if (existentes.Count > 0)
+        {
+            throw new DomainException($"Ya existe otro proveedor activo registrado con el CUIT {dto.Cuit}.");
+        }
+
+        proveedor.ActualizarDatos(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
 
         await _proveedorRepository.UpdateAsync(proveedor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -107,9 +140,12 @@ public class ProveedorService : IProveedorService
     {
         var proveedor = await _proveedorRepository.GetByIdAsync(idProveedor, includeDeleted: false, cancellationToken);
         if (proveedor == null)
-            throw new DomainException($"No se encontró el proveedor con ID {idProveedor}");
+        {
+            throw new DomainException($"No se encontró el proveedor con ID {idProveedor}.");
+        }
 
-        await _proveedorRepository.DeleteAsync(proveedor, cancellationToken);
+        proveedor.MarkAsDeleted();
+        await _proveedorRepository.UpdateAsync(proveedor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
@@ -119,55 +155,43 @@ public class ProveedorService : IProveedorService
         IProgress<int>? progreso = null,
         CancellationToken cancellationToken = default)
     {
-        var filasProcesadas = 0;
-        var nuevosRegistros = 0;
-        var actualizados = 0;
-        var errores = 0;
+        await _mapeoColumnasValidator.ValidateAndThrowAsync(mapeo, cancellationToken);
 
-        var columnas = new[]
+        var proveedor = await _proveedorRepository.GetByIdAsync(mapeo.IdProveedor, includeDeleted: false, cancellationToken);
+        if (proveedor == null)
         {
-            mapeo.ColumnaCodigo,
-            mapeo.ColumnaDescripcion,
-            mapeo.ColumnaPrecioCosto
-        };
+            throw new DomainException($"No se encontró el proveedor con ID {mapeo.IdProveedor}.");
+        }
+
+        var cronometro = Stopwatch.StartNew();
+
+        var filasImportadas = await _excelCatalogParser.ParsearCatalogoAsync(archivoStream, mapeo, progreso, cancellationToken);
 
         var articulosLocales = await _articuloRepository.FindAsync(a => a.IdCatalogoProveedor != null, includeDeleted: false, cancellationToken);
         var mapArticulos = articulosLocales.ToDictionary(a => a.IdCatalogoProveedor!.Value, a => a);
-        var catalogosLocales = await _catalogoRepository.FindAsync(c => c.IdProveedor == mapeo.IdProveedor, includeDeleted: false, cancellationToken);
-        var mapCatalogos = catalogosLocales.ToDictionary(c => c.CodigoProveedor, c => c);
 
-        var rows = MiniExcel.Query(archivoStream, useHeaderRow: true).ToList();
-        var count = rows.Count;
+        var codigos = filasImportadas.Select(f => f.CodigoProveedor);
+        var mapCatalogos = await _catalogoQueryService.ObtenerMapaPorCodigosProveedorAsync(mapeo.IdProveedor, codigos, cancellationToken);
 
-        foreach (var row in rows)
+        int filasProcesadas = 0;
+        int nuevosRegistros = 0;
+        int actualizados = 0;
+        int errores = 0;
+
+        foreach (var item in filasImportadas)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            
+
             try
             {
-                var dict = (IDictionary<string, object>)row;
-                var codigo = dict[mapeo.ColumnaCodigo]?.ToString();
-                var descripcion = dict[mapeo.ColumnaDescripcion]?.ToString();
-                var precioStr = dict[mapeo.ColumnaPrecioCosto]?.ToString();
-
-                if (string.IsNullOrWhiteSpace(codigo) || string.IsNullOrWhiteSpace(descripcion) || !decimal.TryParse(precioStr, out var precioCosto))
+                if (mapCatalogos.TryGetValue(item.CodigoProveedor, out var catalogoExistente))
                 {
-                    errores++;
-                    continue;
-                }
+                    catalogoExistente.ActualizarPrecio(item.PrecioCosto, item.Descripcion, item.CodigoBarras);
+                    await _catalogoQueryService.ActualizarAsync(catalogoExistente, cancellationToken);
 
-                if (mapCatalogos.TryGetValue(codigo, out var catalogoExistente))
-                {
-                    catalogoExistente.CostoReposicion = precioCosto;
-                    catalogoExistente.DescripcionProveedor = descripcion;
-                    catalogoExistente.FechaActualizacion = DateTime.UtcNow;
-                    await _catalogoRepository.UpdateAsync(catalogoExistente, cancellationToken);
-                    
                     if (mapArticulos.TryGetValue(catalogoExistente.Id, out var articuloAsociado))
                     {
-                        articuloAsociado.CostoReposicion = precioCosto;
-                        // Automatic recalculation of PrecioVenta based on PorcentajeGanancia (RF-05)
-                        articuloAsociado.PrecioVenta = precioCosto * (1 + articuloAsociado.PorcentajeGanancia / 100m);
+                        articuloAsociado.ActualizarCostoYRecalcularPrecio(item.PrecioCosto);
                         await _articuloRepository.UpdateAsync(articuloAsociado, cancellationToken);
                         actualizados++;
                     }
@@ -177,17 +201,17 @@ public class ProveedorService : IProveedorService
                     var nuevoCatalogo = new CatalogoProveedor
                     {
                         IdProveedor = mapeo.IdProveedor,
-                        CodigoProveedor = codigo,
-                        DescripcionProveedor = descripcion,
-                        CostoReposicion = precioCosto,
+                        CodigoProveedor = item.CodigoProveedor,
+                        CodigoBarras = item.CodigoBarras,
+                        DescripcionProveedor = item.Descripcion,
+                        CostoReposicion = item.PrecioCosto,
                         FechaActualizacion = DateTime.UtcNow
                     };
-                    await _catalogoRepository.AddAsync(nuevoCatalogo, cancellationToken);
+                    await _catalogoQueryService.AgregarAsync(nuevoCatalogo, cancellationToken);
                     nuevosRegistros++;
                 }
 
                 filasProcesadas++;
-                progreso?.Report((int)((double)filasProcesadas / count * 100));
             }
             catch
             {
@@ -196,6 +220,7 @@ public class ProveedorService : IProveedorService
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+        cronometro.Stop();
 
         return new ResultadoImportacionDto
         {
@@ -203,79 +228,46 @@ public class ProveedorService : IProveedorService
             NuevosRegistros = nuevosRegistros,
             PreciosActualizados = actualizados,
             FilasConError = errores,
-            TiempoTranscurrido = TimeSpan.Zero // Needs timing logic but keeping it simple to satisfy the DTO
+            TiempoTranscurrido = cronometro.Elapsed
         };
     }
 
-    public async Task<IReadOnlyList<CatalogoProveedorDto>> ListarItemsCatalogoAsync(ConsultaCatalogoProveedorDto consulta, CancellationToken cancellationToken = default)
+    public async Task<CatalogoPaginadoDto> ListarItemsCatalogoAsync(ConsultaCatalogoProveedorDto consulta, CancellationToken cancellationToken = default)
     {
-        var catalogos = await _catalogoRepository.FindAsync(c => c.IdProveedor == consulta.IdProveedor, includeDeleted: false, cancellationToken);
-        var articulos = await _articuloRepository.FindAsync(a => a.IdCatalogoProveedor != null, includeDeleted: false, cancellationToken);
-        
-        var query = catalogos.Select(c => {
-            var articulo = articulos.FirstOrDefault(a => a.IdCatalogoProveedor == c.Id);
-            return new CatalogoProveedorDto
-            {
-                Id = c.Id,
-                IdProveedor = c.IdProveedor,
-                CodigoProveedor = c.CodigoProveedor,
-                DescripcionProveedor = c.DescripcionProveedor,
-                CostoReposicion = c.CostoReposicion,
-                FechaActualizacion = c.FechaActualizacion,
-                EstaVinculado = articulo != null,
-                IdArticuloVinculado = articulo?.Id,
-                NombreArticuloTienda = articulo?.Descripcion,
-                PrecioVentaTienda = articulo?.PrecioVenta,
-                StockActualTienda = articulo?.StockActual
-            };
-        });
-
-        if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
-        {
-            var term = consulta.TerminoBusqueda;
-            query = query.Where(q =>
-                q.CodigoProveedor.Contains(term, StringComparison.OrdinalIgnoreCase) ||
-                q.DescripcionProveedor.Contains(term, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (consulta.EstadoVinculacion == EstadoVinculacionCatalogoEnum.SinIncorporar)
-        {
-            query = query.Where(q => !q.EstaVinculado);
-        }
-        else if (consulta.EstadoVinculacion == EstadoVinculacionCatalogoEnum.YaEnTienda)
-        {
-            query = query.Where(q => q.EstaVinculado);
-        }
-
-        return query
-            .OrderBy(q => q.DescripcionProveedor)
-            .Skip((consulta.Pagina - 1) * consulta.TamañoPagina)
-            .Take(consulta.TamañoPagina)
-            .ToList();
+        return await _catalogoQueryService.ObtenerCatalogoPaginadoAsync(consulta, cancellationToken);
     }
 
     public async Task IncorporarArticulosATiendaAsync(IncorporarCatalogoArticulosDto dto, CancellationToken cancellationToken = default)
     {
-        foreach (var idCatalogo in dto.IdsCatalogo)
+        await _incorporarArticulosValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        var ids = dto.Items.Count > 0
+            ? dto.Items.Select(i => i.IdCatalogo).ToList()
+            : dto.IdsCatalogo ?? Array.Empty<int>();
+
+        var catalogos = await _catalogoQueryService.ObtenerPorIdsAsync(ids, cancellationToken);
+        var itemDict = dto.Items.ToDictionary(i => i.IdCatalogo);
+
+        foreach (var catalogo in catalogos)
         {
-            var catalogo = await _catalogoRepository.GetByIdAsync(idCatalogo, includeDeleted: false, cancellationToken);
-            if (catalogo == null) continue;
-            
-            var articulosAsociados = await _articuloRepository.FindAsync(a => a.IdCatalogoProveedor == idCatalogo, includeDeleted: false, cancellationToken);
-            var articuloExistente = articulosAsociados.Count > 0 ? articulosAsociados[0] : null;
-            if (articuloExistente != null) continue; // Ya incorporado
-            
+            var porcentajeGanancia = itemDict.TryGetValue(catalogo.Id, out var itemDto)
+                ? itemDto.PorcentajeGanancia
+                : dto.PorcentajeGananciaSugerido;
+
+            var precioVenta = Articulo.CalcularPrecioVenta(catalogo.CostoReposicion, porcentajeGanancia);
+
             var nuevoArticulo = new Articulo
             {
                 Descripcion = catalogo.DescripcionProveedor,
+                CodigoBarras = catalogo.CodigoBarras,
                 IdCategoria = dto.IdCategoria,
                 IdMarca = dto.IdMarca,
                 IdCatalogoProveedor = catalogo.Id,
                 CostoReposicion = catalogo.CostoReposicion,
-                PorcentajeGanancia = dto.PorcentajeGananciaSugerido,
-                PrecioVenta = catalogo.CostoReposicion * (1 + dto.PorcentajeGananciaSugerido / 100m),
-                StockActual = 0, // Al incorporar, el stock es 0, requiere luego cargar movimiento
-                StockMinimo = 5 // Arbitrario por defecto, se puede editar luego
+                PorcentajeGanancia = porcentajeGanancia,
+                PrecioVenta = precioVenta,
+                StockActual = 0,
+                StockMinimo = 5
             };
 
             await _articuloRepository.AddAsync(nuevoArticulo, cancellationToken);
@@ -288,17 +280,34 @@ public class ProveedorService : IProveedorService
     {
         var articulo = await _articuloRepository.GetByIdAsync(idArticulo, includeDeleted: false, cancellationToken);
         if (articulo == null)
-            throw new DomainException($"No se encontró el artículo con ID {idArticulo}");
+        {
+            throw new DomainException($"No se encontró el artículo con ID {idArticulo}.");
+        }
 
-        var catalogo = await _catalogoRepository.GetByIdAsync(idCatalogoProveedor, includeDeleted: false, cancellationToken);
+        var catalogo = await _catalogoQueryService.ObtenerPorIdAsync(idCatalogoProveedor, cancellationToken);
         if (catalogo == null)
-            throw new DomainException($"No se encontró el ítem de catálogo con ID {idCatalogoProveedor}");
+        {
+            throw new DomainException($"No se encontró el ítem de catálogo con ID {idCatalogoProveedor}.");
+        }
 
-        articulo.IdCatalogoProveedor = catalogo.Id;
-        articulo.CostoReposicion = catalogo.CostoReposicion;
-        articulo.PrecioVenta = catalogo.CostoReposicion * (1 + articulo.PorcentajeGanancia / 100m);
+        articulo.VincularCatalogoProveedor(catalogo.Id, catalogo.CostoReposicion);
+
+        await _articuloRepository.UpdateAsync(articulo, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task DesvincularArticuloDeCatalogoAsync(int idArticulo, CancellationToken cancellationToken = default)
+    {
+        var articulo = await _articuloRepository.GetByIdAsync(idArticulo, includeDeleted: false, cancellationToken);
+        if (articulo == null)
+        {
+            throw new DomainException($"No se encontró el artículo con ID {idArticulo}.");
+        }
+
+        articulo.DesvincularCatalogoProveedor();
 
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }
+

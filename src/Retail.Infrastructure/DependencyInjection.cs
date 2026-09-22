@@ -58,8 +58,14 @@ public static class DependencyInjection
         services.AddScoped<IRetailDbContext>(sp => sp.GetRequiredService<RetailDbContext>());
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+        services.AddScoped<ICatalogoProveedorQueryService, Retail.Infrastructure.Persistence.Services.CatalogoProveedorQueryService>();
+        services.AddScoped<IArticuloQueryService, Retail.Infrastructure.Persistence.Services.ArticuloQueryService>();
+        services.AddScoped<IClienteQueryService, Retail.Infrastructure.Persistence.Services.ClienteQueryService>();
 
-        // 5. Doble de prueba para Turnos de Caja (desacople de Etapa 3.1)
+        // 5. Procesamiento Streaming de Planillas Excel (MiniExcel)
+        services.AddSingleton<IExcelCatalogParser, Retail.Infrastructure.ExternalServices.Excel.ExcelCatalogParser>();
+
+        // 6. Doble de prueba para Turnos de Caja (desacople de Etapa 3.1)
         services.TryAddScoped<Retail.Application.Interfaces.Services.ICajaService, Retail.Infrastructure.ExternalServices.Mocks.FakeCajaService>();
 
         return services;
