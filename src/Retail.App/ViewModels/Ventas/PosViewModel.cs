@@ -191,6 +191,12 @@ public partial class PosViewModel : ObservableObject
             {
                 // Tarea cancelada normalmente por nueva tecla
             }
+            catch (Exception ex) when (token.IsCancellationRequested ||
+                                       ex.InnerException is OperationCanceledException ||
+                                       ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
+            {
+                // Comando cancelado normalmente por nueva tecla (TDS Attention)
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error en la búsqueda predictiva de artículos para mostrador.");

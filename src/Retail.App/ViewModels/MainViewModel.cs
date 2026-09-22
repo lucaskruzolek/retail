@@ -98,6 +98,16 @@ public partial class MainViewModel : ObservableObject
             ModuloActivo = "Galeria";
             TituloModuloActual = "Galería de Estilos y Controles (Dev)";
         }
+        else if (viewType == typeof(ProveedoresView))
+        {
+            ModuloActivo = "Proveedores";
+            TituloModuloActual = "Padrón de Proveedores";
+        }
+        else if (viewType == typeof(ImportadorCatalogosView))
+        {
+            ModuloActivo = "Catalogos";
+            TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
+        }
         else if (viewType == typeof(ModuloEnConstruccionView))
         {
             // El título es establecido por el comando de navegación que invoca la vista
@@ -189,16 +199,16 @@ public partial class MainViewModel : ObservableObject
     public void NavegarProveedores()
     {
         ModuloActivo = "Proveedores";
-        TituloModuloActual = "Proveedores e Importador Masivo";
-        _navigationService.NavigateTo<ModuloEnConstruccionView>(view =>
-        {
-            view.Configurar(
-                titulo: "Proveedores e Importador de Catálogos",
-                etapa: "Etapa 2: Épica 2 - Módulo 2.2",
-                responsable: "Pablo Fernandez",
-                requisitos: "RF-05, RF-07",
-                descripcion: "Mantenimiento de distribuidores y procesamiento en segundo plano de listas de precios en Excel con MiniExcel.");
-        });
+        TituloModuloActual = "Padrón de Proveedores";
+        _navigationService.NavigateTo<ProveedoresView>();
+    }
+
+    [RelayCommand]
+    public void NavegarCatalogos()
+    {
+        ModuloActivo = "Catalogos";
+        TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
+        _navigationService.NavigateTo<ImportadorCatalogosView>();
     }
 
     [RelayCommand]

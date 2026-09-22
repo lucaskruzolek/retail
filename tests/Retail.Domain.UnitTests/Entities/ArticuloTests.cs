@@ -211,4 +211,75 @@ public class ArticuloTests
         articulo.IdCategoria.Should().BeNull();
         articulo.IdMarca.Should().BeNull();
     }
+
+    [Fact]
+    public void VincularCatalogoProveedor_IdInvalido_LanzaArgumentOutOfRangeException()
+    {
+        // Arrange
+        var articulo = new Articulo { Descripcion = "Lapicera Azul", CostoReposicion = 100m, PorcentajeGanancia = 50m };
+
+        // Act
+        var act = () => articulo.VincularCatalogoProveedor(0, 120m);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>()
+            .WithMessage("*identificador de catálogo*");
+    }
+
+    [Fact]
+    public void VincularCatalogoProveedor_CostoNegativo_LanzaArgumentOutOfRangeException()
+    {
+        // Arrange
+        var articulo = new Articulo { Descripcion = "Lapicera Azul", CostoReposicion = 100m, PorcentajeGanancia = 50m };
+
+        // Act
+        var act = () => articulo.VincularCatalogoProveedor(10, -5m);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>()
+            .WithMessage("*costo*");
+    }
+
+    [Fact]
+    public void VincularCatalogoProveedor_DatosValidos_ActualizaIdCostoYPrecioVenta()
+    {
+        // Arrange
+        var articulo = new Articulo
+        {
+            Descripcion = "Cuaderno Rivadavia",
+            CostoReposicion = 1000m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 1500m
+        };
+
+        // Act
+        articulo.VincularCatalogoProveedor(42, 1200m);
+
+        // Assert
+        articulo.IdCatalogoProveedor.Should().Be(42);
+        articulo.CostoReposicion.Should().Be(1200m);
+        articulo.PrecioVenta.Should().Be(1800m); // 1200 + 50%
+    }
+
+    [Fact]
+    public void DesvincularCatalogoProveedor_ArticuloPreviamenteVinculado_RemueveEnlaceYPasaAManual()
+    {
+        // Arrange
+        var articulo = new Articulo
+        {
+            Descripcion = "Resma A4",
+            IdCatalogoProveedor = 15,
+            CostoReposicion = 5000m,
+            PorcentajeGanancia = 30m,
+            PrecioVenta = 6500m
+        };
+
+        // Act
+        articulo.DesvincularCatalogoProveedor();
+
+        // Assert
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        articulo.CostoReposicion.Should().Be(5000m); // Preserva el último costo
+        articulo.PrecioVenta.Should().Be(6500m);
+    }
 }

@@ -101,7 +101,14 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdMarca");
 
-                    b.ToTable("ARTICULOS", (string)null);
+                    b.ToTable("ARTICULOS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ARTICULOS_Precios", "[precio_venta] >= 0 AND [costo_reposicion] >= 0 AND [porcentaje_ganancia] >= 0");
+
+                            t.HasCheckConstraint("CK_ARTICULOS_StockActual", "([stock_actual] >= 0) OR ([es_servicio] = 1)");
+
+                            t.HasCheckConstraint("CK_ARTICULOS_StockMinimo", "[stock_minimo] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.CatalogoProveedor", b =>
@@ -113,11 +120,21 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CodigoBarras")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("codigo_barras");
+
                     b.Property<string>("CodigoProveedor")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)")
                         .HasColumnName("codigo_proveedor");
+
+                    b.Property<decimal>("CostoReposicion")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("precio_costo");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2")
@@ -141,16 +158,16 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_proveedor");
 
-                    b.Property<decimal>("PrecioCosto")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("precio_costo");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("IdProveedor");
+                    b.HasIndex("IdProveedor", "CodigoProveedor")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
 
-                    b.ToTable("CATALOGOS_PROVEEDORES", (string)null);
+                    b.ToTable("CATALOGOS_PROVEEDORES", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CATALOGOS_PROVEEDORES_PrecioCosto", "[precio_costo] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Categoria", b =>
@@ -257,7 +274,12 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[deleted_at] IS NULL");
 
-                    b.ToTable("CLIENTES", (string)null);
+                    b.ToTable("CLIENTES", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CLIENTES_LimiteCredito", "[limite_credito] >= 0");
+
+                            t.HasCheckConstraint("CK_CLIENTES_SaldoCuentaCorriente", "[saldo_cuenta_corriente] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.CobranzaCliente", b =>
@@ -317,7 +339,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdUsuario");
 
-                    b.ToTable("COBRANZAS_CLIENTES", (string)null);
+                    b.ToTable("COBRANZAS_CLIENTES", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_COBRANZAS_CLIENTES_Monto", "[monto] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Compra", b =>
@@ -383,7 +408,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdUsuario");
 
-                    b.ToTable("COMPRAS", (string)null);
+                    b.ToTable("COMPRAS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_COMPRAS_Totales", "[subtotal] >= 0 AND [total] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.ComprobanteFiscal", b =>
@@ -449,7 +477,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.HasIndex("IdVenta")
                         .IsUnique();
 
-                    b.ToTable("COMPROBANTES_FISCALES", (string)null);
+                    b.ToTable("COMPROBANTES_FISCALES", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_COMPROBANTES_FISCALES_Numeracion", "[punto_venta] > 0 AND [numero_comprobante] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.DetalleCompra", b =>
@@ -497,7 +528,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdCompra");
 
-                    b.ToTable("DETALLE_COMPRAS", (string)null);
+                    b.ToTable("DETALLE_COMPRAS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DETALLE_COMPRAS_Valores", "[cantidad] > 0 AND [costo_unitario] >= 0 AND [subtotal_item] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.DetallePresupuesto", b =>
@@ -545,7 +579,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdPresupuesto");
 
-                    b.ToTable("DETALLE_PRESUPUESTOS", (string)null);
+                    b.ToTable("DETALLE_PRESUPUESTOS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DETALLE_PRESUPUESTOS_Valores", "[cantidad] > 0 AND [precio_unitario_pactado] >= 0 AND [subtotal_item] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.DetalleVenta", b =>
@@ -593,7 +630,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdVenta");
 
-                    b.ToTable("DETALLE_VENTAS", (string)null);
+                    b.ToTable("DETALLE_VENTAS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DETALLE_VENTAS_Valores", "[cantidad] > 0 AND [precio_unitario] >= 0 AND [subtotal_item] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Marca", b =>
@@ -670,7 +710,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdTurno");
 
-                    b.ToTable("MOVIMIENTOS_CAJA", (string)null);
+                    b.ToTable("MOVIMIENTOS_CAJA", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MOVIMIENTOS_CAJA_Monto", "[monto] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.PagoVenta", b =>
@@ -714,7 +757,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdVenta");
 
-                    b.ToTable("PAGOS_VENTA", (string)null);
+                    b.ToTable("PAGOS_VENTA", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PAGOS_VENTA_Monto", "[monto] > 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Presupuesto", b =>
@@ -777,7 +823,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdUsuario");
 
-                    b.ToTable("PRESUPUESTOS", (string)null);
+                    b.ToTable("PRESUPUESTOS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PRESUPUESTOS_Totales", "[subtotal] >= 0 AND [descuento] >= 0 AND [total] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Proveedor", b =>
@@ -822,7 +871,8 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Cuit")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("PROVEEDORES", (string)null);
                 });
@@ -945,7 +995,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdUsuario");
 
-                    b.ToTable("TURNOS_CAJA", (string)null);
+                    b.ToTable("TURNOS_CAJA", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_TURNOS_CAJA_Saldos", "[saldo_inicial] >= 0 AND [total_ventas_efectivo] >= 0 AND [total_ingresos_efectivo] >= 0 AND [total_egresos_efectivo] >= 0 AND [total_ventas_electronicas] >= 0 AND [monto_retenido_en_caja] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Usuario", b =>
@@ -1066,7 +1119,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdUsuario");
 
-                    b.ToTable("VENTAS", (string)null);
+                    b.ToTable("VENTAS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_VENTAS_Totales", "[subtotal] >= 0 AND [descuento] >= 0 AND [total] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Articulo", b =>

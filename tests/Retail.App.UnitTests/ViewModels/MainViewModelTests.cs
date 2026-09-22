@@ -166,7 +166,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public void NavegarModulosEnConstruccion_CajaPresupuestosComprasProveedores_DebeInvocarModuloEnConstruccion()
+    public void NavegarModulosEnConstruccion_CajaPresupuestosCompras_DebeInvocarModuloEnConstruccion()
     {
         // Arrange
         var vm = new MainViewModel(_sessionMock, _navigationMock);
@@ -183,12 +183,51 @@ public class MainViewModelTests
         vm.NavegarComprasCommand.Execute(null);
         vm.ModuloActivo.Should().Be("Compras");
 
-        // Act Proveedores
-        vm.NavegarProveedoresCommand.Execute(null);
-        vm.ModuloActivo.Should().Be("Proveedores");
+        // Assert: 3 llamadas a NavigateTo<ModuloEnConstruccionView> con configuración
+        _navigationMock.Received(3).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
+    }
 
-        // Assert: 4 llamadas a NavigateTo<ModuloEnConstruccionView> con configuración
-        _navigationMock.Received(4).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
+    [Fact]
+    public void NavegarProveedoresCommand_DebeNavegarHaciaProveedoresView()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+
+        // Act
+        vm.NavegarProveedoresCommand.Execute(null);
+
+        // Assert
+        vm.ModuloActivo.Should().Be("Proveedores");
+        _navigationMock.Received(1).NavigateTo<ProveedoresView>();
+    }
+
+    [Fact]
+    public void NavegarCatalogosCommand_DebeNavegarHaciaImportadorCatalogosView()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+
+        // Act
+        vm.NavegarCatalogosCommand.Execute(null);
+
+        // Assert
+        vm.ModuloActivo.Should().Be("Catalogos");
+        vm.TituloModuloActual.Should().Be("Catálogos de Proveedores e Importación Masiva");
+        _navigationMock.Received(1).NavigateTo<ImportadorCatalogosView>();
+    }
+
+    [Fact]
+    public void OnNavigated_ConImportadorCatalogosView_DebeActualizarModuloActivoYTitulo()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+
+        // Act
+        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(ImportadorCatalogosView));
+
+        // Assert
+        vm.ModuloActivo.Should().Be("Catalogos");
+        vm.TituloModuloActual.Should().Be("Catálogos de Proveedores e Importación Masiva");
     }
 
     [Fact]

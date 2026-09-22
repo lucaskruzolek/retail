@@ -15,6 +15,8 @@ public class ClientesViewModelTests
     private readonly IClienteDialogService _dialogService;
     private readonly ClientesViewModel _sut;
 
+    private readonly List<ClienteDto> _clientesLista;
+
     private readonly List<ClienteDto> _clientesEjemplo =
     [
         new()
@@ -54,8 +56,103 @@ public class ClientesViewModelTests
 
     public ClientesViewModelTests()
     {
+        _clientesLista = new List<ClienteDto>(_clientesEjemplo);
         _clienteService = Substitute.For<IClienteService>();
         _dialogService = Substitute.For<IClienteDialogService>();
+
+        _clienteService.ListarClientesPaginadosAsync(Arg.Any<ConsultaClientesDto>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var consulta = callInfo.Arg<ConsultaClientesDto>();
+                var query = _clientesLista.AsEnumerable();
+                if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
+                {
+                    query = query.Where(c =>
+                        c.RazonSocialONombre.Contains(consulta.TerminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                        c.NumeroDocumento.Contains(consulta.TerminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                        (c.Email != null && c.Email.Contains(consulta.TerminoBusqueda, StringComparison.OrdinalIgnoreCase)));
+                }
+                if (consulta.CondicionIva.HasValue)
+                {
+                    query = query.Where(c => c.CondicionIva == consulta.CondicionIva.Value);
+                }
+                if (consulta.SoloConDeuda)
+                {
+                    query = query.Where(c => c.SaldoCuentaCorriente > 0m);
+                }
+                if (consulta.SoloConCuentaCorriente)
+                {
+                    query = query.Where(c => c.TieneCuentaCorriente);
+                }
+                var filtrados = query.ToList();
+                int tamano = Math.Max(1, consulta.TamanoPagina);
+                int pagina = Math.Max(1, consulta.Pagina);
+                var items = filtrados.Skip((pagina - 1) * tamano).Take(tamano).ToList();
+
+                return new ClientesPaginadosDto
+                {
+                    Items = items,
+                    TotalRegistros = filtrados.Count,
+                    TotalClientes = _clientesLista.Count,
+                    TotalClientesConDeuda = _clientesLista.Count(c => c.SaldoCuentaCorriente > 0m),
+                    TotalDeudaCartera = _clientesLista.Sum(c => c.SaldoCuentaCorriente),
+                    PaginaActual = pagina,
+                    TamanoPagina = tamano
+                };
+            });
+
+        _clienteService.CrearClienteAsync(Arg.Any<CrearClienteDto>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var dto = callInfo.Arg<CrearClienteDto>();
+                var nuevo = new ClienteDto
+                {
+                    IdCliente = _clientesLista.Count > 0 ? _clientesLista.Max(c => c.IdCliente) + 1 : 1,
+                    RazonSocialONombre = dto.RazonSocialONombre,
+                    TipoDocumento = dto.TipoDocumento,
+                    NumeroDocumento = dto.NumeroDocumento,
+                    CondicionIva = dto.CondicionIva,
+                    TieneCuentaCorriente = dto.TieneCuentaCorriente,
+                    LimiteCredito = dto.LimiteCredito,
+                    SaldoCuentaCorriente = 0m
+                };
+                _clientesLista.Add(nuevo);
+                return nuevo;
+            });
+
+        _clienteService.ActualizarClienteAsync(Arg.Any<ActualizarClienteDto>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var dto = callInfo.Arg<ActualizarClienteDto>();
+                int idx = _clientesLista.FindIndex(c => c.IdCliente == dto.IdCliente);
+                if (idx >= 0)
+                {
+                    var actual = _clientesLista[idx];
+                    _clientesLista[idx] = new ClienteDto
+                    {
+                        IdCliente = actual.IdCliente,
+                        RazonSocialONombre = dto.RazonSocialONombre,
+                        TipoDocumento = dto.TipoDocumento,
+                        NumeroDocumento = dto.NumeroDocumento,
+                        CondicionIva = dto.CondicionIva,
+                        TieneCuentaCorriente = dto.TieneCuentaCorriente,
+                        LimiteCredito = dto.LimiteCredito,
+                        SaldoCuentaCorriente = actual.SaldoCuentaCorriente,
+                        Telefono = dto.Telefono,
+                        Email = dto.Email,
+                        DomicilioFiscal = dto.DomicilioFiscal
+                    };
+                }
+                return Task.CompletedTask;
+            });
+
+        _clienteService.BajaClienteAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                int id = callInfo.Arg<int>();
+                _clientesLista.RemoveAll(c => c.IdCliente == id);
+                return Task.CompletedTask;
+            });
 
         _sut = new ClientesViewModel(
             _clienteService,
@@ -65,10 +162,6 @@ public class ClientesViewModelTests
     [Fact]
     public async Task CargarClientesAsync_DebeCargarClientesYCalcularMetricas()
     {
-        // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(_clientesEjemplo);
-
         // Act
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
@@ -84,18 +177,18 @@ public class ClientesViewModelTests
     public async Task TextoBusqueda_FiltraPorNombreYDocumento()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(_clientesEjemplo);
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Act - Buscar por documento
         _sut.TextoBusqueda = "22222222";
+        await Task.Delay(350);
 
         // Assert
         _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Juan Pérez");
 
         // Act - Buscar por nombre
         _sut.TextoBusqueda = "Escuela";
+        await Task.Delay(350);
 
         // Assert
         _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Escuela Nro 5");
@@ -105,12 +198,11 @@ public class ClientesViewModelTests
     public async Task SoloConDeuda_FiltraSoloClientesConSaldoDeudor()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(_clientesEjemplo);
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Act
         _sut.SoloConDeuda = true;
+        await Task.Delay(100);
 
         // Assert
         _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Librería San Martín");
@@ -120,12 +212,11 @@ public class ClientesViewModelTests
     public async Task SoloConCuentaCorriente_FiltraSoloClientesConCuentaCorriente()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(_clientesEjemplo);
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Act
         _sut.SoloConCuentaCorriente = true;
+        await Task.Delay(100);
 
         // Assert
         _sut.Clientes.Should().HaveCount(2);
@@ -136,8 +227,6 @@ public class ClientesViewModelTests
     public async Task NuevoCliente_AbreDialogoYAgregaALaLista()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(new List<ClienteDto>(_clientesEjemplo));
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         var nuevoClienteDto = new ClienteDto
@@ -152,25 +241,23 @@ public class ClientesViewModelTests
             SaldoCuentaCorriente = 0m
         };
 
-        _clienteService.CrearClienteAsync(Arg.Any<CrearClienteDto>(), Arg.Any<CancellationToken>())
-            .Returns(nuevoClienteDto);
-
-        _dialogService.MostrarDialogoCrear(Arg.Do<Func<CrearClienteDto, Task>>(async callback =>
-        {
-            var dto = new CrearClienteDto
-            {
-                RazonSocialONombre = "Biblioteca Popular",
-                TipoDocumento = TipoDocumentoEnum.Cuit,
-                NumeroDocumento = "30-44444444-4",
-                CondicionIva = CondicionIvaEnum.Exento,
-                TieneCuentaCorriente = true,
-                LimiteCredito = 30000m
-            };
-            await callback(dto);
-        }));
+        Func<CrearClienteDto, Task>? callback = null;
+        _dialogService.MostrarDialogoCrear(Arg.Do<Func<CrearClienteDto, Task>>(cb => callback = cb));
 
         // Act
         _sut.NuevoClienteCommand.Execute(null);
+
+        callback.Should().NotBeNull();
+        var dto = new CrearClienteDto
+        {
+            RazonSocialONombre = "Biblioteca Popular",
+            TipoDocumento = TipoDocumentoEnum.Cuit,
+            NumeroDocumento = "30-44444444-4",
+            CondicionIva = CondicionIvaEnum.Exento,
+            TieneCuentaCorriente = true,
+            LimiteCredito = 30000m
+        };
+        await callback!(dto);
 
         // Assert
         _sut.Clientes.Should().Contain(c => c.RazonSocialONombre == "Biblioteca Popular");
@@ -194,13 +281,17 @@ public class ClientesViewModelTests
     public async Task EditarCliente_ConSeleccion_AbreDialogoYActualizaCliente()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(new List<ClienteDto>(_clientesEjemplo));
         await _sut.CargarClientesCommand.ExecuteAsync(null);
-
         _sut.ClienteSeleccionado = _sut.Clientes.First(c => c.IdCliente == 2);
 
-        var clienteActualizado = new ClienteDto
+        Func<ActualizarClienteDto, Task>? callback = null;
+        _dialogService.MostrarDialogoModificar(Arg.Any<ClienteDto>(), Arg.Do<Func<ActualizarClienteDto, Task>>(cb => callback = cb));
+
+        // Act
+        _sut.EditarClienteCommand.Execute(null);
+
+        callback.Should().NotBeNull();
+        var dto = new ActualizarClienteDto
         {
             IdCliente = 2,
             RazonSocialONombre = "Juan Pérez Modificado",
@@ -208,30 +299,9 @@ public class ClientesViewModelTests
             NumeroDocumento = "20-22222222-2",
             CondicionIva = CondicionIvaEnum.ConsumidorFinal,
             TieneCuentaCorriente = true,
-            LimiteCredito = 15000m,
-            SaldoCuentaCorriente = 0m
+            LimiteCredito = 15000m
         };
-
-        _clienteService.ObtenerClientePorIdAsync(2, Arg.Any<CancellationToken>())
-            .Returns(clienteActualizado);
-
-        _dialogService.MostrarDialogoModificar(Arg.Any<ClienteDto>(), Arg.Do<Func<ActualizarClienteDto, Task>>(async callback =>
-        {
-            var dto = new ActualizarClienteDto
-            {
-                IdCliente = 2,
-                RazonSocialONombre = "Juan Pérez Modificado",
-                TipoDocumento = TipoDocumentoEnum.Dni,
-                NumeroDocumento = "20-22222222-2",
-                CondicionIva = CondicionIvaEnum.ConsumidorFinal,
-                TieneCuentaCorriente = true,
-                LimiteCredito = 15000m
-            };
-            await callback(dto);
-        }));
-
-        // Act
-        _sut.EditarClienteCommand.Execute(null);
+        await callback!(dto);
 
         // Assert
         await _clienteService.Received(1).ActualizarClienteAsync(Arg.Any<ActualizarClienteDto>(), Arg.Any<CancellationToken>());
@@ -242,8 +312,6 @@ public class ClientesViewModelTests
     public async Task DarDeBajaClienteAsync_ConSaldoDeudor_MuestraErrorYNoElimina()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(new List<ClienteDto>(_clientesEjemplo));
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Cliente 1 tiene SaldoCuentaCorriente = 15000m
@@ -261,8 +329,6 @@ public class ClientesViewModelTests
     public async Task DarDeBajaClienteAsync_SinSaldoYConfirmado_EliminaYActualizaLista()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(new List<ClienteDto>(_clientesEjemplo));
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Cliente 2 tiene SaldoCuentaCorriente = 0
@@ -282,8 +348,6 @@ public class ClientesViewModelTests
     public async Task DarDeBajaClienteAsync_CanceladoPorUsuario_NoElimina()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(new List<ClienteDto>(_clientesEjemplo));
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         _sut.ClienteSeleccionado = _sut.Clientes.First(c => c.IdCliente == 2);
@@ -301,8 +365,6 @@ public class ClientesViewModelTests
     public async Task CobrarCuentaCorrienteAsync_ConClienteYSaldoDeudor_InvocaDialogoYActualizaSaldoLocal()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(new List<ClienteDto>(_clientesEjemplo));
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Cliente 1 tiene Deuda = 15000
@@ -322,6 +384,10 @@ public class ClientesViewModelTests
 
         _dialogService.MostrarCobranzaModalAsync(Arg.Is<ClienteDto>(c => c.IdCliente == 1))
             .Returns(resultadoCobranza);
+
+        // Simular que el servicio reflejará el saldo actualizado al recargar
+        int idx = _clientesLista.FindIndex(c => c.IdCliente == 1);
+        _clientesLista[idx] = _clientesLista[idx] with { SaldoCuentaCorriente = 10000m };
 
         // Act
         await _sut.CobrarCuentaCorrienteCommand.ExecuteAsync(null);
@@ -376,12 +442,11 @@ public class ClientesViewModelTests
     public async Task Paginacion_ConTamanoInferior_DivideEnPaginasYNavega()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(_clientesEjemplo);
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Act - Ajustar tamaño a 2 (con 3 clientes => 2 páginas)
         _sut.TamanoPagina = 2;
+        await Task.Delay(100);
 
         // Assert página 1
         _sut.TotalPaginas.Should().Be(2);
@@ -391,7 +456,7 @@ public class ClientesViewModelTests
         _sut.PuedeRetrocederPagina.Should().BeFalse();
 
         // Act - Avanzar
-        _sut.PaginaSiguienteCommand.Execute(null);
+        await _sut.PaginaSiguienteCommand.ExecuteAsync(null);
 
         // Assert página 2
         _sut.PaginaActual.Should().Be(2);
@@ -400,16 +465,16 @@ public class ClientesViewModelTests
         _sut.PuedeRetrocederPagina.Should().BeTrue();
 
         // Act - Retroceder
-        _sut.PaginaAnteriorCommand.Execute(null);
+        await _sut.PaginaAnteriorCommand.ExecuteAsync(null);
         _sut.PaginaActual.Should().Be(1);
         _sut.Clientes.Should().HaveCount(2);
 
         // Act - Última página
-        _sut.UltimaPaginaCommand.Execute(null);
+        await _sut.UltimaPaginaCommand.ExecuteAsync(null);
         _sut.PaginaActual.Should().Be(2);
 
         // Act - Primera página
-        _sut.PrimeraPaginaCommand.Execute(null);
+        await _sut.PrimeraPaginaCommand.ExecuteAsync(null);
         _sut.PaginaActual.Should().Be(1);
     }
 
@@ -417,16 +482,16 @@ public class ClientesViewModelTests
     public async Task Paginacion_CambioDeFiltro_ReiniciaAPaginaUno()
     {
         // Arrange
-        _clienteService.BuscarClientesAsync(string.Empty, Arg.Any<CancellationToken>())
-            .Returns(_clientesEjemplo);
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         _sut.TamanoPagina = 1;
-        _sut.PaginaSiguienteCommand.Execute(null);
+        await Task.Delay(100);
+        await _sut.PaginaSiguienteCommand.ExecuteAsync(null);
         _sut.PaginaActual.Should().Be(2);
 
         // Act - Cambiar filtro de búsqueda
         _sut.TextoBusqueda = "Escuela";
+        await Task.Delay(350);
 
         // Assert
         _sut.PaginaActual.Should().Be(1);

@@ -1,8 +1,11 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Retail.Application.DTOs.Proveedores;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
+using Retail.Infrastructure.Persistence.Services;
 using Xunit;
 
 namespace Retail.Infrastructure.IntegrationTests;
@@ -558,5 +561,152 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         cobranzaEnDb!.Monto.Should().Be(3500m);
         cobranzaEnDb.MedioPago.Should().Be(Domain.Enums.MedioPagoEnum.Efectivo);
         cobranzaEnDb.Referencia.Should().Be("Recibo Test #555");
+    }
+
+    [Fact]
+    public async Task Proveedor_CuitDuplicadoConSoftDelete_DebePermitirRecreacionPorIndiceFiltrado()
+    {
+        // Arrange
+        const string cuitCompartido = "30-71234567-9";
+        var prov1 = new Proveedor
+        {
+            RazonSocial = "Proveedor Original",
+            Cuit = cuitCompartido,
+            Telefono = "123456",
+            Email = "original@test.com"
+        };
+        await _context.Proveedores.AddAsync(prov1);
+        await _context.SaveChangesAsync();
+
+        // Act 1: Soft delete del primero
+        prov1.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+
+        // Act 2: Crear un nuevo proveedor activo con el mismo CUIT
+        var prov2 = new Proveedor
+        {
+            RazonSocial = "Proveedor Recreado",
+            Cuit = cuitCompartido,
+            Telefono = "654321",
+            Email = "recreado@test.com"
+        };
+        await _context.Proveedores.AddAsync(prov2);
+        var act = async () => await _context.SaveChangesAsync();
+
+        // Assert: El índice filtrado ([deleted_at] IS NULL) permite la reutilización del CUIT
+        await act.Should().NotThrowAsync();
+
+        var proveedoresEnDb = await _context.Proveedores
+            .IgnoreQueryFilters()
+            .Where(p => p.Cuit == cuitCompartido)
+            .ToListAsync();
+
+        proveedoresEnDb.Should().HaveCount(2);
+        proveedoresEnDb.Should().ContainSingle(p => !p.IsDeleted);
+        proveedoresEnDb.Should().ContainSingle(p => p.IsDeleted);
+    }
+
+    [Fact]
+    public async Task CatalogoProveedor_CodigoDuplicadoMismoProveedor_DebeFallarPorIndiceCompuesto()
+    {
+        // Arrange
+        var proveedor = new Proveedor
+        {
+            RazonSocial = "Distribuidora Mayorista Test",
+            Cuit = $"30-{Random.Shared.Next(10000000, 99999999)}-0"
+        };
+        await _context.Proveedores.AddAsync(proveedor);
+        await _context.SaveChangesAsync();
+
+        const string codigoArticulo = "COD-TEST-999";
+
+        var item1 = new CatalogoProveedor
+        {
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = codigoArticulo,
+            DescripcionProveedor = "Item Original",
+            CostoReposicion = 1500m,
+            CodigoBarras = "7790000001234"
+        };
+        await _context.CatalogosProveedores.AddAsync(item1);
+        await _context.SaveChangesAsync();
+
+        // Act: Intentar insertar otro ítem con el mismo código para el mismo proveedor
+        var itemDuplicado = new CatalogoProveedor
+        {
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = codigoArticulo,
+            DescripcionProveedor = "Item Duplicado Mismo Prov",
+            CostoReposicion = 2000m
+        };
+        await _context.CatalogosProveedores.AddAsync(itemDuplicado);
+        var act = async () => await _context.SaveChangesAsync();
+
+        // Assert: Violación de índice único compuesto (id_proveedor, codigo_proveedor)
+        await act.Should().ThrowAsync<DbUpdateException>();
+    }
+
+    [Fact]
+    public async Task CatalogoProveedorQueryService_ArticuloTiendaNoVinculadoConMismoEan_DebeMarcarCoincideConArticuloTiendaTrue()
+    {
+        // Arrange
+        var proveedor = new Proveedor
+        {
+            RazonSocial = "Distribuidora Papelera Austral",
+            Cuit = $"30-{Random.Shared.Next(10000000, 99999999)}-9"
+        };
+        await _context.Proveedores.AddAsync(proveedor);
+        await _context.SaveChangesAsync();
+
+        const string eanCompartido = "7791234567899";
+
+        // 1. Artículo existente en tienda NO vinculado a ningún catálogo
+        var articuloTienda = new Articulo
+        {
+            Descripcion = "Cuaderno Espiral A4 Tienda",
+            CodigoBarras = eanCompartido,
+            IdCatalogoProveedor = null,
+            CostoReposicion = 1000m,
+            PorcentajeGanancia = 40m,
+            PrecioVenta = 1400m,
+            StockActual = 15,
+            StockMinimo = 5,
+            EsServicio = false
+        };
+        await _context.Articulos.AddAsync(articuloTienda);
+
+        // 2. Ítem de catálogo del proveedor con el mismo código de barras
+        var itemCatalogo = new CatalogoProveedor
+        {
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = "AUSTR-001",
+            DescripcionProveedor = "Cuaderno Espiral A4 Mayorista",
+            CodigoBarras = eanCompartido,
+            CostoReposicion = 950m,
+            FechaActualizacion = DateTime.UtcNow
+        };
+        await _context.CatalogosProveedores.AddAsync(itemCatalogo);
+        await _context.SaveChangesAsync();
+
+        var queryService = new CatalogoProveedorQueryService(_context);
+        var consulta = new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            EstadoVinculacion = EstadoVinculacionCatalogoEnum.Todos,
+            Pagina = 1,
+            TamañoPagina = 10
+        };
+
+        // Act
+        var resultado = await queryService.ObtenerCatalogoPaginadoAsync(consulta);
+
+        // Assert (RF-05: detección inteligente de EAN en artículo existente no vinculado)
+        resultado.Should().NotBeNull();
+        resultado.Items.Should().ContainSingle();
+
+        var dto = resultado.Items[0];
+        dto.EstaVinculado.Should().BeFalse();
+        dto.CoincideConArticuloTienda.Should().BeTrue();
+        dto.CodigoBarras.Should().Be(eanCompartido);
     }
 }

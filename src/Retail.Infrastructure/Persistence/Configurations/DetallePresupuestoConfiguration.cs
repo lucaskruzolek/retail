@@ -8,7 +8,10 @@ public class DetallePresupuestoConfiguration : IEntityTypeConfiguration<DetalleP
 {
     public void Configure(EntityTypeBuilder<DetallePresupuesto> builder)
     {
-        builder.ToTable("DETALLE_PRESUPUESTOS");
+        builder.ToTable("DETALLE_PRESUPUESTOS", t =>
+        {
+            t.HasCheckConstraint("CK_DETALLE_PRESUPUESTOS_Valores", "[cantidad] > 0 AND [precio_unitario_pactado] >= 0 AND [subtotal_item] >= 0");
+        });
 
         builder.HasKey(dp => dp.Id);
 

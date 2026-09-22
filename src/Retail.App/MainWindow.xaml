@@ -417,7 +417,7 @@
                                 </Grid>
                             </Button>
 
-                            <!-- 7. Proveedores e Importador -->
+                            <!-- 7. Proveedores -->
                             <Button Command="{Binding NavegarProveedoresCommand}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
@@ -435,7 +435,7 @@
                                 </Button.Style>
                                 <Button.ToolTip>
                                     <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <TextBlock Text="Proveedores e Importador" FontWeight="SemiBold" />
+                                        <TextBlock Text="Padrón de Proveedores" FontWeight="SemiBold" />
                                     </ToolTip>
                                 </Button.ToolTip>
                                 <Grid>
@@ -452,6 +452,48 @@
                                                                 VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1"
                                                Text="Proveedores"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- 8. Catálogos Mayoristas e Importador -->
+                            <Button Command="{Binding NavegarCatalogosCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Catalogos">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <TextBlock Text="Catálogos Mayoristas e Importador" FontWeight="SemiBold" />
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="RegularFileDetail"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Catálogos"
                                                VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"
                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"

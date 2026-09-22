@@ -8,7 +8,10 @@ public class PagoVentaConfiguration : IEntityTypeConfiguration<PagoVenta>
 {
     public void Configure(EntityTypeBuilder<PagoVenta> builder)
     {
-        builder.ToTable("PAGOS_VENTA");
+        builder.ToTable("PAGOS_VENTA", t =>
+        {
+            t.HasCheckConstraint("CK_PAGOS_VENTA_Monto", "[monto] > 0");
+        });
 
         builder.HasKey(pv => pv.Id);
 

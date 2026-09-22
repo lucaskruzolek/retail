@@ -9,6 +9,8 @@ public interface IClienteService
 {
     Task<IReadOnlyList<ClienteDto>> BuscarClientesAsync(string terminoBusqueda, CancellationToken cancellationToken = default);
 
+    Task<ClientesPaginadosDto> ListarClientesPaginadosAsync(ConsultaClientesDto consulta, CancellationToken cancellationToken = default);
+
     Task<ClienteDto?> ObtenerClientePorIdAsync(int idCliente, CancellationToken cancellationToken = default);
 
     Task<ClienteDto> CrearClienteAsync(CrearClienteDto dto, CancellationToken cancellationToken = default);

@@ -19,6 +19,7 @@ public class ClienteService : IClienteService
     private readonly IValidator<RegistrarCobranzaDto> _registrarCobranzaValidator;
     private readonly ICajaService _cajaService;
     private readonly ITicketPrinterService _ticketPrinterService;
+    private readonly IClienteQueryService? _clienteQueryService;
 
     public ClienteService(
         IRepository<Cliente> clienteRepository,
@@ -27,7 +28,8 @@ public class ClienteService : IClienteService
         IValidator<ActualizarClienteDto> actualizarClienteValidator,
         IValidator<RegistrarCobranzaDto> registrarCobranzaValidator,
         ICajaService cajaService,
-        ITicketPrinterService ticketPrinterService)
+        ITicketPrinterService ticketPrinterService,
+        IClienteQueryService? clienteQueryService = null)
     {
         _clienteRepository = clienteRepository ?? throw new ArgumentNullException(nameof(clienteRepository));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
@@ -36,10 +38,69 @@ public class ClienteService : IClienteService
         _registrarCobranzaValidator = registrarCobranzaValidator ?? throw new ArgumentNullException(nameof(registrarCobranzaValidator));
         _cajaService = cajaService ?? throw new ArgumentNullException(nameof(cajaService));
         _ticketPrinterService = ticketPrinterService ?? throw new ArgumentNullException(nameof(ticketPrinterService));
+        _clienteQueryService = clienteQueryService;
+    }
+
+    public async Task<ClientesPaginadosDto> ListarClientesPaginadosAsync(ConsultaClientesDto consulta, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(consulta);
+
+        if (_clienteQueryService != null)
+        {
+            return await _clienteQueryService.ObtenerClientesPaginadosAsync(consulta, cancellationToken);
+        }
+
+        var todos = await BuscarClientesAsync(string.Empty, cancellationToken);
+        var query = todos.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
+        {
+            var term = consulta.TerminoBusqueda.Trim();
+            query = query.Where(c =>
+                c.RazonSocialONombre.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                c.NumeroDocumento.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                (c.Email != null && c.Email.Contains(term, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (consulta.CondicionIva.HasValue)
+        {
+            query = query.Where(c => c.CondicionIva == consulta.CondicionIva.Value);
+        }
+
+        if (consulta.SoloConDeuda)
+        {
+            query = query.Where(c => c.SaldoCuentaCorriente > 0m);
+        }
+
+        if (consulta.SoloConCuentaCorriente)
+        {
+            query = query.Where(c => c.TieneCuentaCorriente);
+        }
+
+        var filtrados = query.OrderBy(c => c.RazonSocialONombre).ToList();
+        int tamano = Math.Max(1, consulta.TamanoPagina);
+        int pagina = Math.Max(1, consulta.Pagina);
+        var items = filtrados.Skip((pagina - 1) * tamano).Take(tamano).ToList();
+
+        return new ClientesPaginadosDto
+        {
+            Items = items,
+            TotalRegistros = filtrados.Count,
+            TotalClientes = todos.Count,
+            TotalClientesConDeuda = todos.Count(c => c.SaldoCuentaCorriente > 0m),
+            TotalDeudaCartera = todos.Sum(c => c.SaldoCuentaCorriente),
+            PaginaActual = pagina,
+            TamanoPagina = tamano
+        };
     }
 
     public async Task<IReadOnlyList<ClienteDto>> BuscarClientesAsync(string terminoBusqueda, CancellationToken cancellationToken = default)
     {
+        if (_clienteQueryService != null)
+        {
+            return await _clienteQueryService.BuscarClientesRapidoAsync(terminoBusqueda, 50, cancellationToken);
+        }
+
         var todos = await _clienteRepository.ListAllAsync(includeDeleted: false, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(terminoBusqueda))

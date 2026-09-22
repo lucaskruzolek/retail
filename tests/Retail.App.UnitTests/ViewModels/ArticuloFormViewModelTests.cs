@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Retail.App.ViewModels.Articulos;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Proveedores;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
@@ -260,5 +261,152 @@ public class ArticuloFormViewModelTests
         // Assert
         dto.IdCategoria.Should().BeNull();
         dto.IdMarca.Should().BeNull();
+    }
+
+    [Fact]
+    public void ConfigurarEdicion_ConArticuloVinculado_CargaCamposDeProveedorYEstado()
+    {
+        // Arrange
+        var articulo = new ArticuloDto
+        {
+            IdArticulo = 10,
+            Descripcion = "Cuaderno Espiral A4",
+            IdCatalogoProveedor = 99,
+            ProveedorNombre = "Laprida Distribuidora S.A.",
+            CodigoProveedor = "LAP-445",
+            DescripcionProveedor = "Cuaderno Espiral 80H A4 Rayado",
+            CostoCatalogoProveedor = 1250m,
+            CostoReposicion = 1250m,
+            PorcentajeGanancia = 40m,
+            PrecioVenta = 1750m,
+            StockActual = 10,
+            StockMinimo = 2,
+            EsServicio = false
+        };
+
+        // Act
+        _sut.ConfigurarEdicion(articulo, _categorias, _marcas);
+
+        // Assert
+        _sut.EstaVinculadoAProveedor.Should().BeTrue();
+        _sut.NoEstaVinculadoAProveedor.Should().BeFalse();
+        _sut.IdCatalogoProveedor.Should().Be(99);
+        _sut.ProveedorRazonSocial.Should().Be("Laprida Distribuidora S.A.");
+        _sut.CodigoProveedor.Should().Be("LAP-445");
+        _sut.DescripcionProveedor.Should().Be("Cuaderno Espiral 80H A4 Rayado");
+        _sut.CostoProveedor.Should().Be(1250m);
+        _sut.TextoBotonVinculacion.Should().Be("Cambiar...");
+    }
+
+    [Fact]
+    public async Task VincularCatalogoAsync_SeleccionValida_ActualizaPropiedadesYCosto()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
+        _sut.PorcentajeGanancia = 50m;
+        _sut.Descripcion = "Cuaderno";
+
+        var catalogoItem = new CatalogoProveedorDto
+        {
+            Id = 55,
+            IdProveedor = 3,
+            ProveedorRazonSocial = "Distribuidora Papelera",
+            CodigoProveedor = "PAP-001",
+            DescripcionProveedor = "Cuaderno A4 80H Rayado",
+            CodigoBarras = "7798888888888",
+            CostoReposicion = 1000m
+        };
+
+        _sut.OnAbrirSelectorProveedorAsync = (termino, idProv) => Task.FromResult<CatalogoProveedorDto?>(catalogoItem);
+
+        // Act
+        await _sut.VincularCatalogoCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.EstaVinculadoAProveedor.Should().BeTrue();
+        _sut.IdCatalogoProveedor.Should().Be(55);
+        _sut.ProveedorRazonSocial.Should().Be("Distribuidora Papelera");
+        _sut.CodigoProveedor.Should().Be("PAP-001");
+        _sut.DescripcionProveedor.Should().Be("Cuaderno A4 80H Rayado");
+        _sut.CostoProveedor.Should().Be(1000m);
+        _sut.CostoReposicion.Should().Be(1000m);
+        _sut.PrecioVentaCalculado.Should().Be(1500m); // 1000 + 50%
+        _sut.CodigoBarras.Should().Be("7798888888888");
+    }
+
+    [Fact]
+    public async Task VincularCatalogoAsync_SeleccionCancelada_MantieneValoresPrevios()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
+        _sut.CostoReposicion = 600m;
+        _sut.OnAbrirSelectorProveedorAsync = (termino, idProv) => Task.FromResult<CatalogoProveedorDto?>(null);
+
+        // Act
+        await _sut.VincularCatalogoCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.EstaVinculadoAProveedor.Should().BeFalse();
+        _sut.IdCatalogoProveedor.Should().BeNull();
+        _sut.CostoReposicion.Should().Be(600m);
+    }
+
+    [Fact]
+    public void DesvincularCatalogo_ArticuloVinculado_LimpiaCamposProveedorYPreservaCosto()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
+        _sut.IdCatalogoProveedor = 12;
+        _sut.ProveedorRazonSocial = "Laprida";
+        _sut.CodigoProveedor = "L-01";
+        _sut.DescripcionProveedor = "Item Laprida";
+        _sut.CostoProveedor = 850m;
+        _sut.CostoReposicion = 850m;
+
+        // Act
+        _sut.DesvincularCatalogoCommand.Execute(null);
+
+        // Assert
+        _sut.EstaVinculadoAProveedor.Should().BeFalse();
+        _sut.NoEstaVinculadoAProveedor.Should().BeTrue();
+        _sut.IdCatalogoProveedor.Should().BeNull();
+        _sut.ProveedorRazonSocial.Should().BeNull();
+        _sut.CodigoProveedor.Should().BeNull();
+        _sut.DescripcionProveedor.Should().BeNull();
+        _sut.CostoProveedor.Should().BeNull();
+        _sut.CostoReposicion.Should().Be(850m);
+    }
+
+    [Fact]
+    public void ObtenerCrearDto_ConVinculacionAProveedor_IncluyeIdCatalogoProveedor()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
+        _sut.Descripcion = "Producto Vinculado";
+        _sut.IdCatalogoProveedor = 77;
+        _sut.CostoReposicion = 300m;
+
+        // Act
+        var dto = _sut.ObtenerCrearDto();
+
+        // Assert
+        dto.IdCatalogoProveedor.Should().Be(77);
+    }
+
+    [Fact]
+    public void ObtenerActualizarDto_ConVinculacionAProveedor_IncluyeIdCatalogoProveedor()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
+        _sut.IdArticulo = 5;
+        _sut.Descripcion = "Producto Actualizado";
+        _sut.IdCatalogoProveedor = 88;
+        _sut.CostoReposicion = 400m;
+
+        // Act
+        var dto = _sut.ObtenerActualizarDto();
+
+        // Assert
+        dto.IdCatalogoProveedor.Should().Be(88);
     }
 }

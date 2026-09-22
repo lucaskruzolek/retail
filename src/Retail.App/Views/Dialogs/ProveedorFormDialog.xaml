@@ -1,0 +1,142 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.ProveedorFormDialog"
+                   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                   Title="{Binding TituloVentana}"
+                   Width="480"
+                   Height="460"
+                   MinWidth="440"
+                   MinHeight="400"
+                   WindowStartupLocation="CenterOwner"
+                   ExtendsContentIntoTitleBar="True"
+                   WindowBackdropType="Mica"
+                   Background="{DynamicResource SurfaceBackgroundBrush}"
+                   ResizeMode="NoResize">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Colors.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Icons.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Barra de Título Fluent -->
+        <Grid Grid.Row="0">
+            <ui:TitleBar Height="32"
+                         Padding="8,0"
+                         Background="{DynamicResource SurfaceBackgroundBrush}"
+                         ShowMaximize="False"
+                         CanMaximize="False" />
+            <TextBlock Text="{Binding TituloVentana}"
+                       FontFamily="{StaticResource FontFamilyText}"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="48,0"
+                       TextTrimming="CharacterEllipsis"
+                       IsHitTestVisible="False" />
+        </Grid>
+
+        <!-- Contenido Central -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,12">
+            <StackPanel>
+                <!-- Alerta de Validación -->
+                <Border Background="{DynamicResource DangerBackgroundBrush}"
+                        BorderBrush="{DynamicResource DangerBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="12,8"
+                        Margin="0,0,0,12"
+                        Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{Binding MensajeError}"
+                               Foreground="{DynamicResource DangerForegroundBrush}"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <!-- Grupo de Datos del Distribuidor -->
+                <Border Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <!-- Razón Social -->
+                        <TextBlock Text="Razón Social *"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,0,0,4" />
+                        <ui:TextBox Text="{Binding RazonSocial, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="ej. Distribuidora Papelera Austral S.A."
+                                    Margin="0,0,0,12" />
+
+                        <!-- CUIT -->
+                        <TextBlock Text="CUIT (11 dígitos numéricos) *"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,0,0,4" />
+                        <ui:TextBox Text="{Binding Cuit, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="ej. 30712345678"
+                                    FontFamily="{StaticResource FontFamilyMonospace}"
+                                    Margin="0,0,0,12" />
+
+                        <!-- Teléfono -->
+                        <TextBlock Text="Teléfono de Contacto"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,0,0,4" />
+                        <ui:TextBox Text="{Binding Telefono, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="ej. +54 11 4321-9876"
+                                    Margin="0,0,0,12" />
+
+                        <!-- Email -->
+                        <TextBlock Text="Correo Electrónico"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,0,0,4" />
+                        <ui:TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="ej. ventas@austral.com.ar" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Barra Inferior de Acciones -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SurfaceCardBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Command="{Binding CancelarCommand}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        Margin="0,0,10,0"
+                        IsCancel="True">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Cancelar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button Command="{Binding GuardarCommand}"
+                        CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        IsDefault="True">
+                    <StackPanel Orientation="Horizontal">
+                        
+                        <TextBlock Text="Guardar Proveedor" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

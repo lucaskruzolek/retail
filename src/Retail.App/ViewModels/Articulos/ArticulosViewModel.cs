@@ -11,7 +11,7 @@ using Retail.Domain.Exceptions;
 namespace Retail.App.ViewModels.Articulos;
 
 /// <summary>
-/// ViewModel principal para la administración del catálogo de artículos y visualización de alertas de stock (RF-04, RF-08).
+/// ViewModel principal para la administración del catálogo de artículos y visualización de alertas de stock con push-down a SQL Server (RF-04, RF-08, Ley 8).
 /// </summary>
 public partial class ArticulosViewModel : ObservableObject
 {
@@ -19,9 +19,9 @@ public partial class ArticulosViewModel : ObservableObject
     private readonly IArticuloDialogService _dialogService;
     private readonly ILogger<ArticulosViewModel> _logger;
 
-    private List<ArticuloDto> _cacheArticulos = new();
     private List<CategoriaDto> _cacheCategorias = new();
     private List<MarcaDto> _cacheMarcas = new();
+    private CancellationTokenSource? _searchCts;
 
     public ObservableCollection<ArticuloDto> Articulos { get; } = new();
 
@@ -96,29 +96,46 @@ public partial class ArticulosViewModel : ObservableObject
     partial void OnTextoBusquedaChanged(string value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        _ = DebounceBusquedaAsync(token);
+    }
+
+    private async Task DebounceBusquedaAsync(CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(250, token);
+            await CargarArticulosAsync(token);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (token.IsCancellationRequested ||
+                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
+        { }
     }
 
     partial void OnIdCategoriaFiltroChanged(int value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _ = CargarArticulosAsync();
     }
 
     partial void OnSoloStockCriticoChanged(bool value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _ = CargarArticulosAsync();
     }
 
     partial void OnTamanoPaginaChanged(int value)
     {
         PaginaActual = 1;
-        AplicarFiltrosLocales();
+        _ = CargarArticulosAsync();
     }
 
     [RelayCommand]
-    public async Task CargarArticulosAsync()
+    public async Task CargarArticulosAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -126,29 +143,63 @@ public partial class ArticulosViewModel : ObservableObject
             MensajeError = null;
             MensajeEstado = "Cargando catálogo de artículos...";
 
-            var articulos = await _inventarioService.ListarArticulosAsync();
-            var categorias = await _inventarioService.ListarCategoriasAsync();
-            var marcas = await _inventarioService.ListarMarcasAsync();
-
-            _cacheArticulos = articulos.ToList();
-            _cacheCategorias = categorias.ToList();
-            _cacheMarcas = marcas.ToList();
-
-            // Cargar categorías en el combo de filtro
-            CategoriasFiltro.Clear();
-            CategoriasFiltro.Add(new CategoriaDto { IdCategoria = 0, NombreCategoria = "Todas las Categorías" });
-            foreach (var cat in _cacheCategorias)
+            if (CategoriasFiltro.Count == 0)
             {
-                CategoriasFiltro.Add(cat);
+                var categorias = await _inventarioService.ListarCategoriasAsync(cancellationToken);
+                var marcas = await _inventarioService.ListarMarcasAsync(cancellationToken);
+                _cacheCategorias = categorias.ToList();
+                _cacheMarcas = marcas.ToList();
+
+                EjecutarEnDispatcher(() =>
+                {
+                    CategoriasFiltro.Clear();
+                    CategoriasFiltro.Add(new CategoriaDto { IdCategoria = 0, NombreCategoria = "Todas las Categorías" });
+                    foreach (var cat in _cacheCategorias)
+                    {
+                        CategoriasFiltro.Add(cat);
+                    }
+                });
             }
 
-            TotalArticulos = _cacheArticulos.Count;
-            TotalAlertasStock = _cacheArticulos.Count(a => a.StockBajo);
+            var consulta = new ConsultaArticulosDto
+            {
+                TerminoBusqueda = TextoBusqueda,
+                IdCategoria = IdCategoriaFiltro > 0 ? IdCategoriaFiltro : null,
+                SoloStockCritico = SoloStockCritico,
+                Pagina = PaginaActual,
+                TamanoPagina = TamanoPagina
+            };
 
-            PaginaActual = 1;
-            AplicarFiltrosLocales();
+            var resultado = await Task.Run(
+                () => _inventarioService.ListarArticulosPaginadosAsync(consulta, cancellationToken),
+                cancellationToken);
 
-            MensajeEstado = $"Se cargaron {TotalArticulos} artículos ({TotalAlertasStock} con alerta de stock).";
+            EjecutarEnDispatcher(() =>
+            {
+                Articulos.Clear();
+                foreach (var art in resultado.Items)
+                {
+                    Articulos.Add(art);
+                }
+            });
+
+            TotalArticulos = resultado.TotalArticulos;
+            TotalAlertasStock = resultado.TotalAlertasStock;
+            TotalRegistrosFiltrados = resultado.TotalRegistros;
+            TotalPaginas = resultado.TotalPaginas;
+
+            OnPropertyChanged(nameof(PuedeRetrocederPagina));
+            OnPropertyChanged(nameof(PuedeAvanzarPagina));
+            OnPropertyChanged(nameof(InformacionPaginacion));
+
+            MensajeEstado = $"Mostrando {Articulos.Count} de {TotalArticulos} artículos ({TotalAlertasStock} con alerta de stock).";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) when (cancellationToken.IsCancellationRequested ||
+                                   ex.InnerException is OperationCanceledException ||
+                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogDebug("Consulta de artículos cancelada por nueva acción del usuario.");
         }
         catch (Exception ex)
         {
@@ -288,104 +339,54 @@ public partial class ArticulosViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void PaginaSiguiente()
+    public async Task PaginaSiguienteAsync()
     {
         if (PuedeAvanzarPagina)
         {
             PaginaActual++;
-            ActualizarPaginaActual();
+            await CargarArticulosAsync();
         }
     }
 
     [RelayCommand]
-    public void PaginaAnterior()
+    public async Task PaginaAnteriorAsync()
     {
         if (PuedeRetrocederPagina)
         {
             PaginaActual--;
-            ActualizarPaginaActual();
+            await CargarArticulosAsync();
         }
     }
 
     [RelayCommand]
-    public void PrimeraPagina()
+    public async Task PrimeraPaginaAsync()
     {
         if (PaginaActual != 1)
         {
             PaginaActual = 1;
-            ActualizarPaginaActual();
+            await CargarArticulosAsync();
         }
     }
 
     [RelayCommand]
-    public void UltimaPagina()
+    public async Task UltimaPaginaAsync()
     {
         if (PaginaActual != TotalPaginas)
         {
             PaginaActual = TotalPaginas;
-            ActualizarPaginaActual();
+            await CargarArticulosAsync();
         }
     }
 
-    private List<ArticuloDto> _cacheFiltrados = new();
-
-    private void AplicarFiltrosLocales()
+    private static void EjecutarEnDispatcher(Action action)
     {
-        var query = _cacheArticulos.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(TextoBusqueda))
+        if (System.Windows.Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
         {
-            var termino = TextoBusqueda.Trim();
-            query = query.Where(a =>
-                (!string.IsNullOrEmpty(a.CodigoBarras) && a.CodigoBarras.Contains(termino, StringComparison.OrdinalIgnoreCase)) ||
-                a.Descripcion.Contains(termino, StringComparison.OrdinalIgnoreCase) ||
-                (a.MarcaNombre != null && a.MarcaNombre.Contains(termino, StringComparison.OrdinalIgnoreCase)));
+            dispatcher.Invoke(action);
         }
-
-        if (IdCategoriaFiltro > 0)
+        else
         {
-            query = query.Where(a => a.IdCategoria == IdCategoriaFiltro);
+            action();
         }
-
-        if (SoloStockCritico)
-        {
-            query = query.Where(a => a.StockBajo);
-        }
-
-        _cacheFiltrados = query.OrderBy(a => a.Descripcion).ToList();
-        TotalRegistrosFiltrados = _cacheFiltrados.Count;
-
-        TotalPaginas = Math.Max(1, (int)Math.Ceiling((double)TotalRegistrosFiltrados / Math.Max(1, TamanoPagina)));
-
-        if (PaginaActual > TotalPaginas)
-        {
-            PaginaActual = TotalPaginas;
-        }
-        else if (PaginaActual < 1)
-        {
-            PaginaActual = 1;
-        }
-
-        ActualizarPaginaActual();
-    }
-
-    private void ActualizarPaginaActual()
-    {
-        var paginaItems = _cacheFiltrados
-            .Skip((PaginaActual - 1) * TamanoPagina)
-            .Take(TamanoPagina)
-            .ToList();
-
-        Articulos.Clear();
-        foreach (var item in paginaItems)
-        {
-            Articulos.Add(item);
-        }
-
-        OnPropertyChanged(nameof(PuedeRetrocederPagina));
-        OnPropertyChanged(nameof(PuedeAvanzarPagina));
-        OnPropertyChanged(nameof(InformacionPaginacion));
-
-        MensajeEstado = $"Mostrando {Articulos.Count} de {TotalArticulos} artículos.";
     }
 }

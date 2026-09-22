@@ -1,4 +1,5 @@
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Proveedores;
 
 namespace Retail.App.Services;
 
@@ -24,4 +25,6 @@ public interface IArticuloDialogService
         IReadOnlyList<CategoriaDto> categorias,
         IReadOnlyList<MarcaDto> marcas,
         Func<ActualizarArticuloDto, Task>? onGuardarAsync = null);
+
+    Task<CatalogoProveedorDto?> AbrirSelectorCatalogoProveedorAsync(string? textoInicial = null, int? idProveedor = null);
 }

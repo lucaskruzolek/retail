@@ -8,7 +8,10 @@ public class PresupuestoConfiguration : IEntityTypeConfiguration<Presupuesto>
 {
     public void Configure(EntityTypeBuilder<Presupuesto> builder)
     {
-        builder.ToTable("PRESUPUESTOS");
+        builder.ToTable("PRESUPUESTOS", t =>
+        {
+            t.HasCheckConstraint("CK_PRESUPUESTOS_Totales", "[subtotal] >= 0 AND [descuento] >= 0 AND [total] >= 0");
+        });
 
         builder.HasKey(p => p.Id);
 

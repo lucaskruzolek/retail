@@ -84,8 +84,40 @@ public class ArticulosViewModelTests
         _inventarioService = Substitute.For<IInventarioService>();
         _dialogService = Substitute.For<IArticuloDialogService>();
 
-        _inventarioService.ListarArticulosAsync(Arg.Any<CancellationToken>())
-            .Returns(_articulosEjemplo);
+        _inventarioService.ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
+            {
+                var consulta = callInfo.Arg<ConsultaArticulosDto>();
+                var items = _articulosEjemplo.AsEnumerable();
+                if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
+                {
+                    items = items.Where(a => a.Descripcion.Contains(consulta.TerminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
+                                             (a.CodigoBarras != null && a.CodigoBarras.Contains(consulta.TerminoBusqueda, StringComparison.OrdinalIgnoreCase)));
+                }
+                if (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0)
+                {
+                    items = items.Where(a => a.IdCategoria == consulta.IdCategoria.Value);
+                }
+                if (consulta.SoloStockCritico)
+                {
+                    items = items.Where(a => a.StockBajo);
+                }
+                var list = items.ToList();
+                int tamano = Math.Max(1, consulta.TamanoPagina);
+                int pagina = Math.Max(1, consulta.Pagina);
+                var paged = list.Skip((pagina - 1) * tamano).Take(tamano).ToList();
+
+                return new ArticulosPaginadosDto
+                {
+                    Items = paged,
+                    TotalRegistros = list.Count,
+                    TotalArticulos = _articulosEjemplo.Count,
+                    TotalAlertasStock = _articulosEjemplo.Count(a => a.StockBajo),
+                    PaginaActual = pagina,
+                    TamanoPagina = tamano
+                };
+            });
+
         _inventarioService.ListarCategoriasAsync(Arg.Any<CancellationToken>())
             .Returns(_categoriasEjemplo);
         _inventarioService.ListarMarcasAsync(Arg.Any<CancellationToken>())
@@ -115,6 +147,7 @@ public class ArticulosViewModelTests
 
         // Act
         _sut.TextoBusqueda = "Bic";
+        await Task.Delay(350);
 
         // Assert
         _sut.Articulos.Should().HaveCount(1);
@@ -129,6 +162,7 @@ public class ArticulosViewModelTests
 
         // Act
         _sut.IdCategoriaFiltro = 2; // Regalería
+        await Task.Delay(100);
 
         // Assert
         _sut.Articulos.Should().HaveCount(1);
@@ -143,11 +177,44 @@ public class ArticulosViewModelTests
 
         // Act
         _sut.SoloStockCritico = true;
+        await Task.Delay(100);
 
         // Assert
         _sut.Articulos.Should().HaveCount(1);
         _sut.Articulos[0].Descripcion.Should().Be("Cuaderno Rivadavia A4");
         _sut.Articulos[0].StockBajo.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Paginacion_AvanzarYRetroceder_CambiaPaginaYItems()
+    {
+        // Arrange
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+
+        // Act - Cambiar tamaño a 2 (con 3 items => 2 páginas)
+        _sut.TamanoPagina = 2;
+        await Task.Delay(100);
+
+        // Assert página 1
+        _sut.TotalPaginas.Should().Be(2);
+        _sut.PaginaActual.Should().Be(1);
+        _sut.Articulos.Should().HaveCount(2);
+        _sut.PuedeAvanzarPagina.Should().BeTrue();
+        _sut.PuedeRetrocederPagina.Should().BeFalse();
+
+        // Act - Avanzar
+        await _sut.PaginaSiguienteCommand.ExecuteAsync(null);
+
+        // Assert página 2
+        _sut.PaginaActual.Should().Be(2);
+        _sut.Articulos.Should().HaveCount(1);
+        _sut.PuedeAvanzarPagina.Should().BeFalse();
+        _sut.PuedeRetrocederPagina.Should().BeTrue();
+
+        // Act - Retroceder
+        await _sut.PaginaAnteriorCommand.ExecuteAsync(null);
+        _sut.PaginaActual.Should().Be(1);
+        _sut.Articulos.Should().HaveCount(2);
     }
 
     [Fact]
@@ -184,7 +251,7 @@ public class ArticulosViewModelTests
 
         // Assert
         await _inventarioService.Received(1).CrearArticuloAsync(nuevoDto, Arg.Any<CancellationToken>());
-        await _inventarioService.Received(2).ListarArticulosAsync(Arg.Any<CancellationToken>());
+        await _inventarioService.Received(2).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -243,7 +310,7 @@ public class ArticulosViewModelTests
 
         // Assert
         await _inventarioService.Received(1).ActualizarArticuloAsync(modDto, Arg.Any<CancellationToken>());
-        await _inventarioService.Received(2).ListarArticulosAsync(Arg.Any<CancellationToken>());
+        await _inventarioService.Received(2).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -261,7 +328,7 @@ public class ArticulosViewModelTests
 
         // Assert
         await _inventarioService.Received(1).BajaArticuloAsync(1, Arg.Any<CancellationToken>());
-        await _inventarioService.Received(2).ListarArticulosAsync(Arg.Any<CancellationToken>());
+        await _inventarioService.Received(2).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

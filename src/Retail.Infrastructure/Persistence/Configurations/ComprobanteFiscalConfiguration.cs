@@ -8,7 +8,10 @@ public class ComprobanteFiscalConfiguration : IEntityTypeConfiguration<Comproban
 {
     public void Configure(EntityTypeBuilder<ComprobanteFiscal> builder)
     {
-        builder.ToTable("COMPROBANTES_FISCALES");
+        builder.ToTable("COMPROBANTES_FISCALES", t =>
+        {
+            t.HasCheckConstraint("CK_COMPROBANTES_FISCALES_Numeracion", "[punto_venta] > 0 AND [numero_comprobante] >= 0");
+        });
 
         builder.HasKey(cf => cf.Id);
 

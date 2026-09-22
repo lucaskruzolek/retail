@@ -18,4 +18,15 @@ public class Proveedor : BaseEntity, IAggregateRoot
     public ICollection<CatalogoProveedor> Catalogos { get; set; } = new List<CatalogoProveedor>();
 
     public ICollection<Compra> Compras { get; set; } = new List<Compra>();
+
+    public void ActualizarDatos(string razonSocial, string cuit, string? telefono = null, string? email = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(razonSocial);
+        ArgumentException.ThrowIfNullOrWhiteSpace(cuit);
+
+        RazonSocial = razonSocial.Trim();
+        Cuit = cuit.Trim();
+        Telefono = string.IsNullOrWhiteSpace(telefono) ? null : telefono.Trim();
+        Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+    }
 }

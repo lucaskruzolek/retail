@@ -1,9 +1,11 @@
 using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.ViewModels.Articulos;
 using Retail.App.Views.Dialogs;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Proveedores;
 
 namespace Retail.App.Services;
 
@@ -12,10 +14,14 @@ namespace Retail.App.Services;
 /// </summary>
 public class ArticuloDialogService : IArticuloDialogService
 {
+    private readonly IServiceProvider? _serviceProvider;
     private readonly ILogger<ArticuloDialogService> _logger;
 
-    public ArticuloDialogService(ILogger<ArticuloDialogService>? logger = null)
+    public ArticuloDialogService(
+        IServiceProvider? serviceProvider = null,
+        ILogger<ArticuloDialogService>? logger = null)
     {
+        _serviceProvider = serviceProvider;
         _logger = logger ?? NullLogger<ArticuloDialogService>.Instance;
     }
 
@@ -57,6 +63,10 @@ public class ArticuloDialogService : IArticuloDialogService
     {
         var vm = new ArticuloFormViewModel();
         vm.ConfigurarAlta(categorias, marcas);
+        vm.OnAbrirSelectorProveedorAsync = async (texto, idProv) =>
+        {
+            return await AbrirSelectorCatalogoProveedorAsync(texto, idProv);
+        };
 
         if (onGuardarAsync != null)
         {
@@ -86,6 +96,10 @@ public class ArticuloDialogService : IArticuloDialogService
 
         var vm = new ArticuloFormViewModel();
         vm.ConfigurarEdicion(articulo, categorias, marcas);
+        vm.OnAbrirSelectorProveedorAsync = async (texto, idProv) =>
+        {
+            return await AbrirSelectorCatalogoProveedorAsync(texto, idProv);
+        };
 
         if (onGuardarAsync != null)
         {
@@ -104,4 +118,25 @@ public class ArticuloDialogService : IArticuloDialogService
         var result = dialog.ShowDialog();
         return result == true ? vm.ObtenerActualizarDto() : null;
     }
+
+    public async Task<CatalogoProveedorDto?> AbrirSelectorCatalogoProveedorAsync(string? textoInicial = null, int? idProveedor = null)
+    {
+        if (_serviceProvider == null)
+        {
+            return null;
+        }
+
+        var vm = _serviceProvider.GetRequiredService<SeleccionarCatalogoProveedorModalViewModel>();
+        await vm.InicializarAsync(textoInicial, idProveedor);
+
+        var dialog = new SeleccionarCatalogoProveedorModalDialog(vm);
+        if (System.Windows.Application.Current?.MainWindow is { IsVisible: true } owner)
+        {
+            dialog.Owner = owner;
+        }
+
+        var result = dialog.ShowDialog();
+        return result == true && vm.DialogResult ? vm.ItemSeleccionado : null;
+    }
 }
+

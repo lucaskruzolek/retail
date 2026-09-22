@@ -8,7 +8,10 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
 {
     public void Configure(EntityTypeBuilder<CatalogoProveedor> builder)
     {
-        builder.ToTable("CATALOGOS_PROVEEDORES");
+        builder.ToTable("CATALOGOS_PROVEEDORES", t =>
+        {
+            t.HasCheckConstraint("CK_CATALOGOS_PROVEEDORES_PrecioCosto", "[precio_costo] >= 0");
+        });
 
         builder.HasKey(cp => cp.Id);
 
@@ -24,12 +27,20 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
             .HasMaxLength(50)
             .IsRequired();
 
+        builder.Property(cp => cp.CodigoBarras)
+            .HasColumnName("codigo_barras")
+            .HasMaxLength(50);
+
+        builder.HasIndex(cp => new { cp.IdProveedor, cp.CodigoProveedor })
+            .IsUnique()
+            .HasFilter("[deleted_at] IS NULL");
+
         builder.Property(cp => cp.DescripcionProveedor)
             .HasColumnName("descripcion_proveedor")
             .HasMaxLength(200)
             .IsRequired();
 
-        builder.Property(cp => cp.PrecioCosto)
+        builder.Property(cp => cp.CostoReposicion)
             .HasColumnName("precio_costo")
             .HasPrecision(18, 2)
             .IsRequired();

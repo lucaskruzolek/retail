@@ -7,6 +7,10 @@ public partial class ArticuloFormDialog : Wpf.Ui.Controls.FluentWindow
 {
     public ArticuloFormViewModel ViewModel { get; }
 
+    public ArticuloFormDialog() : this(new ArticuloFormViewModel())
+    {
+    }
+
     public ArticuloFormDialog(ArticuloFormViewModel viewModel)
     {
         InitializeComponent();

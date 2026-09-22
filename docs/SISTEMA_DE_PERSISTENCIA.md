@@ -110,6 +110,37 @@ graph TD
 * **Queda estrictamente prohibido** escribir *Stored Procedures*, *Triggers* o funciones escalares en SQL que calculen márgenes de ganancia (markup), validen límites de crédito o descuenten stock.
 * Esas invariantes pertenecen con exclusividad a las entidades y servicios de dominio en [`Retail.Domain`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain) y son testeadas en la suite [`Retail.Domain.UnitTests`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Domain.UnitTests).
 
+### 7. Defensa en Profundidad Declarativa (CHECK Constraints)
+* Para prevenir corrupción física de datos ante accesos fuera de la aplicación (scripts de soporte, mantenimientos o herramientas ETL), el motor relacional implementa restricciones declarativas `CHECK` que custodian los límites físicos del estado:
+  * Precios, subtotales, totales y costos no negativos ($\ge 0$).
+  * Cantidades y montos de imputación transaccional estrictamente positivos ($> 0$).
+  * Existencias físicas no negativas (`[stock_actual] >= 0 OR [es_servicio] = 1`).
+  * Límites y deudas de cuenta corriente no negativas ($\ge 0$).
+
+---
+
+## 🛡️ Catálogo de Restricciones CHECK en Motor Relacional
+
+| Entidad / Tabla | Nombre de Constraint | Expresión SQL Server | Propósito de Defensa en Profundidad |
+| :--- | :--- | :--- | :--- |
+| **`ARTICULOS`** | `CK_ARTICULOS_Precios` | `[precio_venta] >= 0 AND [costo_reposicion] >= 0 AND [porcentaje_ganancia] >= 0` | Precios, costos y márgenes de ganancia no negativos. |
+| **`ARTICULOS`** | `CK_ARTICULOS_StockMinimo` | `[stock_minimo] >= 0` | Umbral de reposición de catálogo no negativo. |
+| **`ARTICULOS`** | `CK_ARTICULOS_StockActual` | `([stock_actual] >= 0) OR ([es_servicio] = 1)` | Prohibición de stock negativo en mostrador (excepto servicios `RF-04`). |
+| **`CATALOGOS_PROVEEDORES`** | `CK_CATALOGOS_PROVEEDORES_PrecioCosto` | `[precio_costo] >= 0` | Precios de lista mayorista no negativos. |
+| **`CLIENTES`** | `CK_CLIENTES_LimiteCredito` | `[limite_credito] >= 0` | Límite crediticio asignado no negativo. |
+| **`CLIENTES`** | `CK_CLIENTES_SaldoCuentaCorriente` | `[saldo_cuenta_corriente] >= 0` | Deuda del cliente no negativa (no admite saldo acreedor `RF-20`). |
+| **`COBRANZAS_CLIENTES`** | `CK_COBRANZAS_CLIENTES_Monto` | `[monto] > 0` | Cancelación de deuda mayor a cero. |
+| **`VENTAS`** | `CK_VENTAS_Totales` | `[subtotal] >= 0 AND [descuento] >= 0 AND [total] >= 0` | Totales consolidados de mostrador no negativos. |
+| **`DETALLE_VENTAS`** | `CK_DETALLE_VENTAS_Valores` | `[cantidad] > 0 AND [precio_unitario] >= 0 AND [subtotal_item] >= 0` | Cantidad vendida mayor a cero y precios no negativos. |
+| **`PAGOS_VENTA`** | `CK_PAGOS_VENTA_Monto` | `[monto] > 0` | Medios de pago imputados mayores a cero. |
+| **`PRESUPUESTOS`** | `CK_PRESUPUESTOS_Totales` | `[subtotal] >= 0 AND [descuento] >= 0 AND [total] >= 0` | Totales de cotización no negativos. |
+| **`DETALLE_PRESUPUESTOS`**| `CK_DETALLE_PRESUPUESTOS_Valores`| `[cantidad] > 0 AND [precio_unitario_pactado] >= 0 AND [subtotal_item] >= 0` | Cantidad presupuestada mayor a cero y precios pactados válidos. |
+| **`COMPRAS`** | `CK_COMPRAS_Totales` | `[subtotal] >= 0 AND [total] >= 0` | Facturas de compra con totales válidos. |
+| **`DETALLE_COMPRAS`** | `CK_DETALLE_COMPRAS_Valores` | `[cantidad] > 0 AND [costo_unitario] >= 0 AND [subtotal_item] >= 0` | Cantidad de mercadería recibida mayor a cero. |
+| **`TURNOS_CAJA`** | `CK_TURNOS_CAJA_Saldos` | `[saldo_inicial] >= 0 AND [total_ventas_efectivo] >= 0 AND [total_ingresos_efectivo] >= 0 AND [total_egresos_efectivo] >= 0 AND [total_ventas_electronicas] >= 0 AND [monto_retenido_en_caja] >= 0` | Totales acumulativos no negativos en gaveta de efectivo. |
+| **`MOVIMIENTOS_CAJA`** | `CK_MOVIMIENTOS_CAJA_Monto` | `[monto] > 0` | Ingresos y retiros de efectivo estrictamente mayores a cero. |
+| **`COMPROBANTES_FISCALES`**| `CK_COMPROBANTES_FISCALES_Numeracion`| `[punto_venta] > 0 AND [numero_comprobante] >= 0` | Punto de venta mayor a cero y número de comprobante fiscal válido. |
+
 ---
 
 ## 💻 Entorno LocalDB, Conexión y Semillero

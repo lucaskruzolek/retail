@@ -1,9 +1,11 @@
+using Retail.Application.DTOs.Common;
+
 namespace Retail.Application.DTOs.Proveedores;
 
 /// <summary>
 /// Información de un proveedor o distribuidor mayorista.
 /// </summary>
-public record class ProveedorDto
+public record class ProveedorDto : BaseDto
 {
     public required int IdProveedor { get; init; }
     public required string RazonSocial { get; init; }
