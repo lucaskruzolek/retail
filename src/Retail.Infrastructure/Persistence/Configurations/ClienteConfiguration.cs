@@ -8,7 +8,11 @@ public class ClienteConfiguration : IEntityTypeConfiguration<Cliente>
 {
     public void Configure(EntityTypeBuilder<Cliente> builder)
     {
-        builder.ToTable("CLIENTES");
+        builder.ToTable("CLIENTES", t =>
+        {
+            t.HasCheckConstraint("CK_CLIENTES_LimiteCredito", "[limite_credito] >= 0");
+            t.HasCheckConstraint("CK_CLIENTES_SaldoCuentaCorriente", "[saldo_cuenta_corriente] >= 0");
+        });
 
         builder.HasKey(c => c.Id);
 

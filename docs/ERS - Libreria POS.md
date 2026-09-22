@@ -48,18 +48,11 @@ El producto unifica en un único proceso ejecutable la interfaz visual de mostra
 
 | Nombre | Fernandez, Pablo |
 | :---- | :---- |
-| Rol | Líder Técnico / Desarrollador Backend |
 | Email | pablofernandez.12@gmail.com |
 
 | Nombre | Kruzolek, Lucas |
 | :---- | :---- |
-| Rol | Desarrollador Frontend / UI Designer |
 | Email | lucaskruzolek@gmail.com |
-
-| Nombre | Gerencia del Comercio |
-| :---- | :---- |
-| Rol | Product Owner / Stakeholder |
-| Email | gerencia@retail-libreria.local |
 
 ## 1.4. Definiciones, Acrónimos y Abreviaturas {#14-definiciones-acrónimos-y-abreviaturas}
 
@@ -176,6 +169,7 @@ graph TD
 * **WPF Dispatcher:** Ninguna operación pesada de base de datos, lectura de archivos o llamada HTTP a `arcasdk` se ejecutará en el hilo de UI.
 * **Criptografía de Contraseñas:** Hashing unidireccional seguro mediante BCrypt o PBKDF2.
 * **Índice Filtrado para Artesanías:** La base de datos debe soportar múltiples productos con código de barras `NULL` sin infringir la unicidad de los códigos asignados.
+* **Defensa en Profundidad en Base de Datos (CHECK Constraints):** El motor relacional (SQL Server) impone restricciones declarativas no eludibles para garantizar que precios, costos, subtotales, totales, márgenes y límites de crédito sean no negativos ($\ge 0$), que cantidades y montos imputados sean estrictamente positivos ($> 0$), y que el stock físico no pueda registrar valores negativos (`[stock_actual] >= 0 OR [es_servicio] = 1`), previniendo corrupción física ante accesos fuera de la aplicación.
 
 ---
 
@@ -230,7 +224,7 @@ graph TD
 | **RF-06** | **Baja Lógica de Artículos** | Aplicar borrado lógico (`deleted_at IS NOT NULL`) para ocultar artículos en el POS conservando intacto su historial. |
 | **RF-07** | **Importación Masiva en Segundo Plano** | Carga de archivos locales Excel (.xlsx) o CSV mapeando columnas de distribuidor (Código, Descripción, Costo) sin congelar la UI mediante `MiniExcel` (`Task.Run`). La ingesta alimenta la base de referencia `CATALOGOS_PROVEEDORES` (evitando sobrecargar el inventario propio), actualiza atómicamente los costos y precios de los artículos ya vinculados, y deja disponibles los registros restantes para su incorporación selectiva. |
 | **RF-08** | **Alertas de Stock Mínimo** | Disparar advertencias visuales en catálogo y panel del Encargado cuando $\text{StockActual} \le \text{StockMinimo}$. |
-| **RF-09** | **Ventas y Cobros Multimedio** | Registrar ventas ágiles en mostrador permitiendo asociar un cliente (Consumidor Final por defecto) y cobrar mediante efectivo con cálculo de vuelto, tarjetas, transferencias o Cuenta Corriente (si el cliente está habilitado y tiene saldo disponible). |
+| **RF-09** | **Ventas y Cobros Multimedio** | Registrar ventas ágiles en mostrador permitiendo asociar un cliente (Consumidor Final por defecto) y cobrar mediante efectivo, tarjetas, transferencias o Cuenta Corriente (si el cliente está habilitado y tiene saldo disponible). |
 | **RF-10** | **Descuento Atómico de Stock** | Al confirmarse el cobro, el sistema debe descontar de forma síncrona el stock de los artículos vendidos dentro de una transacción ACID local. |
 | **RF-11** | **Emisión de Presupuestos Independientes** | Guardar cotizaciones en la entidad `PRESUPUESTOS` con vigencia temporal configurable (15 días por defecto, editable al emitir), congelando el `precio_unitario_pactado` en `DETALLE_PRESUPUESTOS`. **No descuenta stock ni afecta la caja**. |
 | **RF-12** | **Conversión de Presupuesto a Venta y Conciliación Adaptativa** | Recuperar un presupuesto en el POS. Si está vigente, respeta los precios pactados; si venció, no bloquea destructivamente la operación sino que audita aumentos de catálogo y permite conciliar/actualizar a precios vigentes vía alerta en UI. En ambos casos audita stock físico ($\text{StockActual} \ge \text{CantidadPresupuestada}$). Al confirmarse el cobro, registra la nueva venta en el turno activo y marca el presupuesto como `CONVERTIDO`. |

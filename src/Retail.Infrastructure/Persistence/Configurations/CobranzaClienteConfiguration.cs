@@ -8,7 +8,10 @@ public class CobranzaClienteConfiguration : IEntityTypeConfiguration<CobranzaCli
 {
     public void Configure(EntityTypeBuilder<CobranzaCliente> builder)
     {
-        builder.ToTable("COBRANZAS_CLIENTES");
+        builder.ToTable("COBRANZAS_CLIENTES", t =>
+        {
+            t.HasCheckConstraint("CK_COBRANZAS_CLIENTES_Monto", "[monto] > 0");
+        });
 
         builder.HasKey(cc => cc.Id);
 

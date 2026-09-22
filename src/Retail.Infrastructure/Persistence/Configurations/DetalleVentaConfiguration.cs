@@ -8,7 +8,10 @@ public class DetalleVentaConfiguration : IEntityTypeConfiguration<DetalleVenta>
 {
     public void Configure(EntityTypeBuilder<DetalleVenta> builder)
     {
-        builder.ToTable("DETALLE_VENTAS");
+        builder.ToTable("DETALLE_VENTAS", t =>
+        {
+            t.HasCheckConstraint("CK_DETALLE_VENTAS_Valores", "[cantidad] > 0 AND [precio_unitario] >= 0 AND [subtotal_item] >= 0");
+        });
 
         builder.HasKey(dv => dv.Id);
 

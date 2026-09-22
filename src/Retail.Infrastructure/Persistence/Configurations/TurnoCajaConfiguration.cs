@@ -8,7 +8,10 @@ public class TurnoCajaConfiguration : IEntityTypeConfiguration<TurnoCaja>
 {
     public void Configure(EntityTypeBuilder<TurnoCaja> builder)
     {
-        builder.ToTable("TURNOS_CAJA");
+        builder.ToTable("TURNOS_CAJA", t =>
+        {
+            t.HasCheckConstraint("CK_TURNOS_CAJA_Saldos", "[saldo_inicial] >= 0 AND [total_ventas_efectivo] >= 0 AND [total_ingresos_efectivo] >= 0 AND [total_egresos_efectivo] >= 0 AND [total_ventas_electronicas] >= 0 AND [monto_retenido_en_caja] >= 0");
+        });
 
         builder.HasKey(tc => tc.Id);
 

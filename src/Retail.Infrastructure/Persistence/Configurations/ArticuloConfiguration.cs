@@ -8,7 +8,12 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
 {
     public void Configure(EntityTypeBuilder<Articulo> builder)
     {
-        builder.ToTable("ARTICULOS");
+        builder.ToTable("ARTICULOS", t =>
+        {
+            t.HasCheckConstraint("CK_ARTICULOS_Precios", "[precio_venta] >= 0 AND [costo_reposicion] >= 0 AND [porcentaje_ganancia] >= 0");
+            t.HasCheckConstraint("CK_ARTICULOS_StockMinimo", "[stock_minimo] >= 0");
+            t.HasCheckConstraint("CK_ARTICULOS_StockActual", "([stock_actual] >= 0) OR ([es_servicio] = 1)");
+        });
 
         builder.HasKey(a => a.Id);
 

@@ -8,7 +8,10 @@ public class MovimientoCajaConfiguration : IEntityTypeConfiguration<MovimientoCa
 {
     public void Configure(EntityTypeBuilder<MovimientoCaja> builder)
     {
-        builder.ToTable("MOVIMIENTOS_CAJA");
+        builder.ToTable("MOVIMIENTOS_CAJA", t =>
+        {
+            t.HasCheckConstraint("CK_MOVIMIENTOS_CAJA_Monto", "[monto] > 0");
+        });
 
         builder.HasKey(mc => mc.Id);
 

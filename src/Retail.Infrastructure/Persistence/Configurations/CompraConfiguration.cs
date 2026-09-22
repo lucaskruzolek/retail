@@ -8,7 +8,10 @@ public class CompraConfiguration : IEntityTypeConfiguration<Compra>
 {
     public void Configure(EntityTypeBuilder<Compra> builder)
     {
-        builder.ToTable("COMPRAS");
+        builder.ToTable("COMPRAS", t =>
+        {
+            t.HasCheckConstraint("CK_COMPRAS_Totales", "[subtotal] >= 0 AND [total] >= 0");
+        });
 
         builder.HasKey(c => c.Id);
 
