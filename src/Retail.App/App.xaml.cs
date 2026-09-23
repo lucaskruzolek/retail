@@ -150,9 +150,9 @@ public partial class App : System.Windows.Application
         var loginWindow = _host.Services.GetRequiredService<Retail.App.Views.Auth.LoginWindow>();
 
         var loginExitoso = loginWindow.ShowDialog();
+
         if (loginExitoso != true || !session.EstaAutenticado)
         {
-            Log.Information("Inicio de sesión cancelado o ventana cerrada. Finalizando ejecución.");
             Shutdown();
             return;
         }

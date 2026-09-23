@@ -44,9 +44,6 @@ public partial class ComprasViewModel : ObservableObject
     {
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-        // Cargar listado inicial de proveedores al instanciar
-        _ = CargarProveedoresAsync();
     }
 
     [RelayCommand]
@@ -55,13 +52,17 @@ public partial class ComprasViewModel : ObservableObject
         IsBusy = true;
         try
         {
-            var lista = await Task.Run(() => _proveedorService.ListarProveedoresAsync(cancellationToken), cancellationToken);
+            var lista = await _proveedorService.ListarProveedoresAsync(cancellationToken);
             Proveedores.Clear();
-            foreach (var p in lista)
+            if (lista != null)
             {
-                Proveedores.Add(p);
+                foreach (var p in lista)
+                {
+                    Proveedores.Add(p);
+                }
             }
         }
+        catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error al cargar proveedores en el módulo de compras");

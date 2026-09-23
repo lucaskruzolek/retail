@@ -166,7 +166,7 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public void NavegarModulosEnConstruccion_CajaPresupuestosCompras_DebeInvocarModuloEnConstruccion()
+    public void NavegarModulosEnConstruccion_CajaYPresupuestos_DebeInvocarModuloEnConstruccion()
     {
         // Arrange
         var vm = new MainViewModel(_sessionMock, _navigationMock);
@@ -179,12 +179,37 @@ public class MainViewModelTests
         vm.NavegarPresupuestosCommand.Execute(null);
         vm.ModuloActivo.Should().Be("Presupuestos");
 
-        // Act Compras
-        vm.NavegarComprasCommand.Execute(null);
-        vm.ModuloActivo.Should().Be("Compras");
+        // Assert: 2 llamadas a NavigateTo<ModuloEnConstruccionView> con configuración
+        _navigationMock.Received(2).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
+    }
 
-        // Assert: 3 llamadas a NavigateTo<ModuloEnConstruccionView> con configuración
-        _navigationMock.Received(3).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
+    [Fact]
+    public void NavegarComprasCommand_DebeNavegarHaciaComprasView()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+
+        // Act
+        vm.NavegarComprasCommand.Execute(null);
+
+        // Assert
+        vm.ModuloActivo.Should().Be("Compras");
+        vm.TituloModuloActual.Should().Be("Compras a Proveedores y Recálculo de Precios");
+        _navigationMock.Received(1).NavigateTo<ComprasView>();
+    }
+
+    [Fact]
+    public void OnNavigated_ConComprasView_DebeActualizarModuloActivoYTitulo()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+
+        // Act
+        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(ComprasView));
+
+        // Assert
+        vm.ModuloActivo.Should().Be("Compras");
+        vm.TituloModuloActual.Should().Be("Compras a Proveedores y Recálculo de Precios");
     }
 
     [Fact]

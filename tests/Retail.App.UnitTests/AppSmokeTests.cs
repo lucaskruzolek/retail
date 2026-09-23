@@ -8,6 +8,7 @@ using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Auth;
 using Retail.App.ViewModels.Clientes;
+using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Proveedores;
 using Retail.App.ViewModels.Usuarios;
 using Retail.App.ViewModels.Ventas;
@@ -847,5 +848,74 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de SeleccionarCatalogoProveedorModalDialog debe resolverse sin errores");
         dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ComprasView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ComprasView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var proveedorServiceMock = Substitute.For<IProveedorService>();
+            var loggerMock = Substitute.For<ILogger<ComprasViewModel>>();
+            var viewModel = new ComprasViewModel(proveedorServiceMock, loggerMock);
+
+            try
+            {
+                view = new ComprasView(viewModel);
+                viewModel.DetalleCompraItems.Add(new DetalleCompraItemViewModel
+                {
+                    IdArticulo = 1,
+                    CodigoArticulo = "7791234567011",
+                    DescripcionArticulo = "Cuaderno Rivadavia Tapa Dura",
+                    CostoUnitario = 3200m,
+                    Cantidad = 10,
+                    PorcentajeGanancia = 50m
+                });
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ComprasView debe resolverse sin errores de recursos o controles");
+        view.Should().NotBeNull();
+        view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ComprasView_InputBindings_DebenEstarAsociadosAComandosCorrespondientes()
+    {
+        // Arrange & Act
+        WpfTestHelper.Run(() =>
+        {
+            var proveedorServiceMock = Substitute.For<IProveedorService>();
+            var loggerMock = Substitute.For<ILogger<ComprasViewModel>>();
+            var viewModel = new ComprasViewModel(proveedorServiceMock, loggerMock);
+
+            var view = new ComprasView(viewModel);
+
+            // Assert
+            view.InputBindings.Count.Should().Be(2);
+
+            var keyBindings = view.InputBindings.OfType<System.Windows.Input.KeyBinding>().ToList();
+            keyBindings.Should().HaveCount(2);
+
+            var bindingF2 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F2);
+            bindingF2.Should().NotBeNull();
+            bindingF2!.Command.Should().Be(viewModel.AgregarItemCommand);
+
+            var bindingF12 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F12);
+            bindingF12.Should().NotBeNull();
+            bindingF12!.Command.Should().Be(viewModel.RegistrarCompraCommand);
+        });
     }
 }

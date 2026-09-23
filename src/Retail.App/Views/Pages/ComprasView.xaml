@@ -9,6 +9,11 @@
              Focusable="True"
              Background="{DynamicResource SurfaceBackgroundBrush}">
 
+    <UserControl.InputBindings>
+        <KeyBinding Key="F2" Command="{Binding AgregarItemCommand}" />
+        <KeyBinding Key="F12" Command="{Binding RegistrarCompraCommand}" />
+    </UserControl.InputBindings>
+
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
