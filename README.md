@@ -1,93 +1,147 @@
-# Retail - Sistema ERP & Punto de Venta para Librería
+# Retail - Sistema de Gestión y Punto de Venta (POS)
 
-Sistema integral de gestión comercial, Punto de Venta (POS), inventario, facturación electrónica y padrón de clientes para librerías y comercios minoristas, desarrollado bajo **.NET 8 LTS** y **C# 12** estructurado como un **Monolito Limpio de Escritorio (Clean Desktop Monolith)** en Windows.
+¡Bienvenido al repositorio de **Retail**! Este proyecto es un sistema de escritorio para la administración integral de una librería y comercio minorista. Permite gestionar ventas en mostrador, control de stock, compras a distribuidores, padrón de clientes con cuentas corrientes y facturación.
+
+Está desarrollado sobre **.NET 8 LTS** y **C# 12**, utilizando **WPF** para la interfaz visual y **SQL Server** con **Entity Framework Core 8** para el almacenamiento de datos.
 
 ---
 
-## 🏛️ Arquitectura Global del Sistema
+## 🏛️ Arquitectura del Sistema
 
-El sistema consolida en un único proceso de escritorio ejecutable la interfaz visual en WPF (.NET 8), los casos de uso del negocio y el acceso a datos sobre un motor relacional local (**Microsoft SQL Server Express / LocalDB**), comunicándose de forma asíncrona con el microservicio local de facturación electrónica:
+El proyecto está organizado siguiendo principios de arquitectura limpia para mantener el código ordenado, mantenible y fácil de entender:
 
 ```mermaid
 graph TD
-    subgraph "Proceso de Escritorio: Retail.App (WPF .NET 8)"
-        subgraph "Capa de Presentación (UI & MVVM)"
-            VIEWS["Vistas XAML y Diálogos\n(PosView, CajaView, ArticulosView, ClientesView, ComprasView)"]
-            VMS["ViewModels\n(CommunityToolkit.Mvvm / Source Generators)"]
-            VIEWS <-->|"Data Binding & Commands"| VMS
-        end
+    UI["Retail.App (Interfaz de usuario WPF / MVVM)"]
+    APP["Retail.Application (Casos de uso y reglas de aplicación)"]
+    DOM["Retail.Domain (Entidades y reglas centrales del negocio)"]
+    INFRA["Retail.Infrastructure (Base de datos SQL Server y servicios externos)"]
 
-        subgraph "Capa de Aplicación (Casos de Uso)"
-            APP_SRV["Servicios de Aplicación\n(VentaService, PresupuestoService, ClienteService, CajaService, CompraService)"]
-            VALID["Validadores de Entrada\n(FluentValidation)"]
-            VMS -->|"Invocación Directa C#\n(Inyección de Dependencias)"| APP_SRV
-            APP_SRV --> VALID
-        end
-
-        subgraph "Capa de Dominio (Reglas Puras)"
-            DOM["Entidades, Enums, Reglas e Invariantes\n(Articulo, Venta, Presupuesto, Cliente, CobranzaCliente, TurnoCaja, Compra)"]
-            APP_SRV --> DOM
-        end
-
-        subgraph "Capa de Infraestructura (Persistencia & I/O)"
-            EF["Entity Framework Core 8\n(RetailDbContext / Transacciones ACID)"]
-            EXCEL["Importador Excel / CSV\n(MiniExcel en Task.Run)"]
-            ARCA_CLI["Cliente Fiscal HTTP\n(HttpClient hacia arcasdk local)"]
-            APP_SRV --> EF
-            APP_SRV --> EXCEL
-            APP_SRV --> ARCA_CLI
-        end
-    end
-
-    subgraph "Persistencia y Servicios Locales (Localhost)"
-        DB[("Microsoft SQL Server Express / LocalDB\n(Instancia Local en 127.0.0.1 / LocalDB)")]
-        SDK["Microservicio Fiscal Local\n(arcasdk en localhost:8080)"]
-    end
-
-    subgraph "Servicios Externos en la Nube"
-        ARCA_SRV["Servidores Fiscales ARCA\n(Web Services Fiscales AFIP)"]
-    end
-
-    EF -->|"Conexión Local TDS"| DB
-    ARCA_CLI <-->|"HTTP / JSON (Localhost)"| SDK
-    SDK <-->|"HTTPS / SOAP"| ARCA_SRV
+    UI --> APP
+    UI --> INFRA
+    INFRA --> APP
+    APP --> DOM
 ```
 
----
+### Proyectos de la solución
 
-## 📁 Estructura del Repositorio y Proyectos de la Solución
-
-| Directorio | Capa / Proyecto | Responsabilidad y Contenido |
-| :--- | :--- | :--- |
-| [`src/Retail.Domain/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/README.md) | **Domain Layer** | Entidades (`Articulo`, `Venta`, `Presupuesto`, `Cliente`, `CobranzaCliente`, `TurnoCaja`), reglas puras, invariantes (recálculo automático de precios por compras, índice filtrado de código de barras para artesanías). |
-| [`src/Retail.Application/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/README.md) | **Application Layer** | Casos de uso (`VentaService`, `PresupuestoService`, `ClienteService`, `CajaService`, `CompraService`), DTOs de transporte, validadores FluentValidation e interfaces de persistencia. |
-| [`src/Retail.Infrastructure/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/README.md) | **Infrastructure Layer** | Persistencia con Entity Framework Core 8 (`RetailDbContext`), índices filtrados en SQL Server, cliente HTTP `arcasdk`, lector masivo Excel (`MiniExcel`) y hashing de contraseñas. |
-| [`src/Retail.App/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/README.md) | **Presentation (Desktop App)** | Aplicación de escritorio WPF (.NET 8) con MVVM (`CommunityToolkit.Mvvm`), Host de Inyección de Dependencias, modales de cobro y cobranza multimedio, e impresión térmica ESC/POS. |
-| [`tests/`](file:///c:/Users/lucas/Proyectos/retail/tests/README.md) | **Test Suites** | Pruebas unitarias de dominio y aplicación, y pruebas de integración de infraestructura con base de datos local. |
+* **[`src/Retail.Domain`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/):** Contiene las entidades principales (`Articulo`, `Venta`, `Cliente`, `TurnoCaja`, `Compra`, etc.) y las reglas del negocio. No depende de ninguna librería externa.
+* **[`src/Retail.Application`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/):** Servicios de aplicación que coordinan las acciones del usuario, validaciones con FluentValidation y transferencia de datos (DTOs).
+* **[`src/Retail.Infrastructure`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/):** Acceso a base de datos con Entity Framework Core 8, consultas SQL optimizadas, importación de planillas Excel y seguridad de contraseñas.
+* **[`src/Retail.App`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/):** La aplicación de escritorio WPF, sus ventanas, estilos visuales y la configuración de inicio.
 
 ---
 
-## 🛠️ Stack Tecnológico
+## 📋 Requisitos Previos
 
-- **Lenguaje & Plataforma:** C# 12 / .NET 8 LTS
-- **Frontend de Escritorio:** WPF (Windows Presentation Foundation) con `CommunityToolkit.Mvvm`
-- **Inyección de Dependencias:** `Microsoft.Extensions.DependencyInjection`
-- **Acceso a Datos & ORM:** Entity Framework Core 8 con SQL Server Express / LocalDB
-- **Validaciones:** `FluentValidation`
-- **Facturación Electrónica:** Microservicio local `arcasdk` (Factura A automática para Responsables Inscriptos, Factura B y Contingencia Resiliente)
-- **Procesamiento de Planillas:** `MiniExcel` (Streaming de bajo consumo de RAM)
-- **Criptografía de Contraseñas:** `BCrypt.Net-Next` o `PBKDF2`
-- **Pruebas Automatizadas:** xUnit, FluentAssertions, NSubstitute
+Antes de comenzar, asegúrate de contar con lo siguiente en tu equipo:
+
+1. **Windows 10 o Windows 11 (64 bits).**
+2. **[.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)** (versión 8.0.x o superior).
+3. **Un motor de base de datos SQL Server.** Puedes usar cualquiera de estas dos opciones:
+   * **SQL Server Express LocalDB:** Muy liviano y recomendado para desarrollo (suele instalarse automáticamente con Visual Studio).
+   * **SQL Server Express:** La versión gratuita tradicional de SQL Server, ideal si quieres simular una instalación real de mostrador o en red local.
 
 ---
 
-## 📄 Documentos de Especificación y Diseño
+## 🚀 Guía de Puesta en Marcha y Despliegue
 
-- [Especificación de Requisitos de Software (ERS v3.2)](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md)
-- [Propuesta de Arquitectura y Estructura Global](file:///c:/Users/lucas/Proyectos/retail/docs/Arquitectura%20y%20Estructura%20del%20Proyecto.md)
-- [Diagrama Entidad-Relación (DER)](file:///c:/Users/lucas/Proyectos/retail/docs/DER.mmd)
-- [Roadmap de Implementación y Acciones Inmediatas](file:///c:/Users/lucas/Proyectos/retail/docs/Roadmap%20de%20Implementacion.md)
-- [Estrategia y Directrices de CI/CD (GitHub Actions)](file:///c:/Users/lucas/Proyectos/retail/docs/Estrategia%20de%20CI-CD.md)
-- [Mapa Semántico del Proyecto (Índice para Humanos y Agentes)](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md)
-- [Directivas y Barandillas para Agentes de Código (AGENTS.md)](file:///c:/Users/lucas/Proyectos/retail/AGENTS.md)
-- [Guía de Presentación y Defensa Técnica](file:///c:/Users/lucas/Proyectos/retail/docs/Presentacion%20-%20Defensa%20de%20Dise%C3%B1o%20Tecnico.md)
+Sigue estos pasos para dejar el sistema funcionando en pocos minutos:
+
+### 1. Clonar el repositorio
+Abre una terminal y clona el proyecto en tu carpeta preferida:
+```bash
+git clone https://github.com/tu-usuario/retail.git
+cd retail
+```
+
+### 2. Configurar la Base de Datos en `appsettings.json`
+Abre el archivo [`src/Retail.App/appsettings.json`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/appsettings.json) y define tu cadena de conexión en la propiedad `DefaultConnection`.
+
+#### Opción A: Usar LocalDB (Recomendado para desarrollo rápido)
+Es la opción más simple porque no requiere tener un servicio de SQL Server corriendo todo el tiempo:
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=RetailDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+  }
+}
+```
+
+#### Opción B: Usar SQL Server Express
+Si tienes instalado SQL Server Express en tu máquina:
+
+* **Con tu usuario de Windows (Autenticación integrada):**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=RetailDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+  }
+}
+```
+
+* **Con usuario y contraseña de SQL (por ejemplo, `sa`):**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost\\SQLEXPRESS;Database=RetailDb;User Id=sa;Password=TuPasswordSegura!;MultipleActiveResultSets=true;TrustServerCertificate=True"
+  }
+}
+```
+
+> **Nota:** El parámetro `TrustServerCertificate=True` es necesario para evitar errores de certificados al conectarte a instancias locales de SQL Server.
+
+---
+
+### 3. Ejecutar la Aplicación
+Compila y ejecuta la aplicación con el siguiente comando:
+```bash
+dotnet run --project src/Retail.App/Retail.App.csproj
+```
+
+> **¿Qué pasa en el primer arranque?**  
+> No necesitas crear tablas ni ejecutar scripts SQL manualmente. Al iniciar, el sistema detecta si la base de datos existe, aplica automáticamente todas las migraciones necesarias y carga datos iniciales de prueba (roles, categorías, artículos y un usuario administrador).
+
+---
+
+### 4. Iniciar Sesión
+Al abrirse el sistema, verás la pantalla de inicio de sesión. Puedes ingresar con el usuario creado por defecto:
+
+* **Usuario:** `admin`
+* **Contraseña:** `Admin123!`
+* **Rol:** Gerente
+
+---
+
+### 5. Generar el Ejecutable para Mostrador (Publicación)
+Si quieres empaquetar el sistema para instalarlo en la computadora de la librería sin necesidad de instalar .NET SDK en esa máquina, puedes generar un ejecutable único y auto-contenido:
+
+```bash
+dotnet publish src/Retail.App/Retail.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+```
+
+El ejecutable listo para usar se generará en la carpeta:  
+`src/Retail.App/bin/Release/net8.0-windows/win-x64/publish/`
+
+---
+
+## 🛠️ Tecnologías Utilizadas
+
+* **C# 12 / .NET 8 LTS**
+* **WPF** (Windows Presentation Foundation) con `CommunityToolkit.Mvvm`
+* **Entity Framework Core 8** (SQL Server / LocalDB)
+* **FluentValidation** para validación de datos
+* **MiniExcel** para importación ágil de listas de proveedores
+* **BCrypt.Net-Next** para encriptación de contraseñas
+* **Serilog** para registro de eventos y logs locales
+
+---
+
+## 📚 Documentación Adicional
+
+Si quieres profundizar en el diseño y los requerimientos del sistema:
+* [Especificación de Requisitos de Software (ERS)](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md)
+* [Mapa Semántico y Guía del Repositorio](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md)
+* [Manual del Sistema de Persistencia](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_PERSISTENCIA.md)
+* [Manual del Sistema de Diseño UI](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md)
+* [Estrategia de Integración Continua (CI/CD)](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_CI_CD.md)
