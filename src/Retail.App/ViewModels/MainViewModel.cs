@@ -108,6 +108,11 @@ public partial class MainViewModel : ObservableObject
             ModuloActivo = "Catalogos";
             TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
         }
+        else if (viewType == typeof(ComprasView))
+        {
+            ModuloActivo = "Compras";
+            TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
+        }
         else if (viewType == typeof(ModuloEnConstruccionView))
         {
             // El título es establecido por el comando de navegación que invoca la vista
@@ -184,15 +189,7 @@ public partial class MainViewModel : ObservableObject
     {
         ModuloActivo = "Compras";
         TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
-        _navigationService.NavigateTo<ModuloEnConstruccionView>(view =>
-        {
-            view.Configurar(
-                titulo: "Gestión de Compras y Recálculo por Markup",
-                etapa: "Etapa 4: Épica 4 - Módulo 4.2",
-                responsable: "Pablo Fernandez",
-                requisitos: "RF-19",
-                descripcion: "Ingreso de facturas de distribuidores con incremento de stock físico y recálculo automático e inmediato de precios de venta.");
-        });
+        _navigationService.NavigateTo<ComprasView>();
     }
 
     [RelayCommand]

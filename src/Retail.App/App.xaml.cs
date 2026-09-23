@@ -109,6 +109,9 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<Retail.App.Services.IVentaDialogService, Retail.App.Services.VentaDialogService>();
                 services.AddTransient<Retail.App.ViewModels.Ventas.PosViewModel>();
                 services.AddTransient<Retail.App.Views.Pages.PosView>();
+                // Registro de la Vista de Compras y su ViewModel(Módulo 4.2)
+                services.AddTransient<Retail.App.Views.Pages.ComprasView>();
+                services.AddTransient<Retail.App.ViewModels.Compras.ComprasViewModel>();
 
                 // Módulos en Construcción (Cortesía informativa de Roadmap)
 
