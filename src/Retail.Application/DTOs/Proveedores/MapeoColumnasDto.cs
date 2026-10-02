@@ -11,4 +11,7 @@ public record class MapeoColumnasDto
     public required string ColumnaDescripcion { get; init; }
     public required string ColumnaPrecioCosto { get; init; }
     public int FilaInicial { get; init; } = 2;
+
+    /// <summary>Extensión del archivo de origen (".xlsx" o ".csv"); define el formato con el que se lee el stream.</summary>
+    public string ExtensionArchivo { get; init; } = ".xlsx";
 }

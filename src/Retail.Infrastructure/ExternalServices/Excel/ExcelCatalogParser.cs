@@ -1,4 +1,3 @@
-using System.Globalization;
 using MiniExcelLibs;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Infrastructure;
@@ -24,7 +23,10 @@ public class ExcelCatalogParser : IExcelCatalogParser
 
         await Task.Run(() =>
         {
-            var rows = stream.Query(useHeaderRow: true);
+            var tipoArchivo = mapeo.ExtensionArchivo.Equals(".csv", StringComparison.OrdinalIgnoreCase)
+                ? ExcelType.CSV
+                : ExcelType.XLSX;
+            var rows = stream.Query(useHeaderRow: true, excelType: tipoArchivo);
             int totalFilasLeidas = 0;
 
             foreach (IDictionary<string, object> row in rows)
@@ -81,9 +83,7 @@ public class ExcelCatalogParser : IExcelCatalogParser
                 }
                 else
                 {
-                    string precioStr = valPrecio.ToString()?.Trim().Replace("$", "").Trim() ?? string.Empty;
-                    if (!decimal.TryParse(precioStr, NumberStyles.Any, CultureInfo.InvariantCulture, out precioCosto) &&
-                        !decimal.TryParse(precioStr, NumberStyles.Any, new CultureInfo("es-AR"), out precioCosto))
+                    if (!ParseadorPrecioTexto.TryParse(valPrecio.ToString(), out precioCosto))
                     {
                         continue;
                     }

@@ -126,4 +126,44 @@ public class ExcelCatalogParserTests : IDisposable
         // Assert
         items.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task ParsearCatalogoAsync_ConCsvYPreciosEnTextoEsAr_LeeElArchivoYInterpretaLosImportes()
+    {
+        // Arrange
+        var rutaCsv = Path.ChangeExtension(_tempFilePath, ".csv");
+        await File.WriteAllTextAsync(
+            rutaCsv,
+            "CODIGO,DETALLE,PRECIO\n" +
+            "A1,Libro uno,\"1.500\"\n" +
+            "A2,Libro dos,\"1,50\"\n" +
+            "A3,Libro tres,\"1.234,56\"\n");
+
+        try
+        {
+            var parser = new ExcelCatalogParser();
+            var mapeo = new MapeoColumnasDto
+            {
+                IdProveedor = 1,
+                ColumnaCodigo = "CODIGO",
+                ColumnaDescripcion = "DETALLE",
+                ColumnaPrecioCosto = "PRECIO",
+                ExtensionArchivo = ".csv"
+            };
+
+            // Act
+            IReadOnlyList<ItemCatalogoImportadoDto> items;
+            await using (var stream = File.OpenRead(rutaCsv))
+            {
+                items = await parser.ParsearCatalogoAsync(stream, mapeo, null, CancellationToken.None);
+            }
+
+            // Assert
+            items.Select(i => i.PrecioCosto).Should().Equal(1500m, 1.5m, 1234.56m);
+        }
+        finally
+        {
+            File.Delete(rutaCsv);
+        }
+    }
 }
