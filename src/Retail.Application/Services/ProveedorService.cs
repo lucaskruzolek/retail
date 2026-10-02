@@ -14,6 +14,9 @@ namespace Retail.Application.Services;
 /// </summary>
 public class ProveedorService : IProveedorService
 {
+    private const int LongitudMaximaCodigo = 50;
+    private const int LongitudMaximaDescripcion = 200;
+
     private readonly IRepository<Proveedor> _proveedorRepository;
     private readonly ICatalogoProveedorQueryService _catalogoQueryService;
     private readonly IRepository<Articulo> _articuloRepository;
@@ -168,17 +171,24 @@ public class ProveedorService : IProveedorService
         var filasImportadas = await _excelCatalogParser.ParsearCatalogoAsync(archivoStream, mapeo, progreso, cancellationToken);
 
         var articulosLocales = await _articuloRepository.FindAsync(a => a.IdCatalogoProveedor != null, includeDeleted: false, cancellationToken);
-        var mapArticulos = articulosLocales.ToDictionary(a => a.IdCatalogoProveedor!.Value, a => a);
+        var articulosPorCatalogo = articulosLocales.ToLookup(a => a.IdCatalogoProveedor!.Value);
 
-        var codigos = filasImportadas.Select(f => f.CodigoProveedor);
-        var mapCatalogos = await _catalogoQueryService.ObtenerMapaPorCodigosProveedorAsync(mapeo.IdProveedor, codigos, cancellationToken);
+        var erroresDetalle = new List<string>();
+        var filasValidas = FiltrarFilasValidas(filasImportadas, erroresDetalle);
+
+        var codigos = filasValidas.Select(f => f.Item.CodigoProveedor);
+        var mapCatalogosExactos = await _catalogoQueryService.ObtenerMapaPorCodigosProveedorAsync(mapeo.IdProveedor, codigos, cancellationToken);
+        var mapCatalogos = new Dictionary<string, CatalogoProveedor>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (codigo, catalogo) in mapCatalogosExactos)
+        {
+            mapCatalogos.TryAdd(codigo.Trim(), catalogo);
+        }
 
         int filasProcesadas = 0;
         int nuevosRegistros = 0;
         int actualizados = 0;
-        int errores = 0;
 
-        foreach (var item in filasImportadas)
+        foreach (var (numeroFila, item) in filasValidas)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -189,7 +199,7 @@ public class ProveedorService : IProveedorService
                     catalogoExistente.ActualizarPrecio(item.PrecioCosto, item.Descripcion, item.CodigoBarras);
                     await _catalogoQueryService.ActualizarAsync(catalogoExistente, cancellationToken);
 
-                    if (mapArticulos.TryGetValue(catalogoExistente.Id, out var articuloAsociado))
+                    foreach (var articuloAsociado in articulosPorCatalogo[catalogoExistente.Id])
                     {
                         articuloAsociado.ActualizarCostoYRecalcularPrecio(item.PrecioCosto);
                         await _articuloRepository.UpdateAsync(articuloAsociado, cancellationToken);
@@ -208,14 +218,15 @@ public class ProveedorService : IProveedorService
                         FechaActualizacion = DateTime.UtcNow
                     };
                     await _catalogoQueryService.AgregarAsync(nuevoCatalogo, cancellationToken);
+                    mapCatalogos[item.CodigoProveedor] = nuevoCatalogo;
                     nuevosRegistros++;
                 }
 
                 filasProcesadas++;
             }
-            catch
+            catch (Exception ex) when (ex is ArgumentException or DomainException)
             {
-                errores++;
+                erroresDetalle.Add($"Fila {numeroFila}: {ex.Message}");
             }
         }
 
@@ -227,9 +238,68 @@ public class ProveedorService : IProveedorService
             TotalFilasProcesadas = filasProcesadas,
             NuevosRegistros = nuevosRegistros,
             PreciosActualizados = actualizados,
-            FilasConError = errores,
+            FilasConError = erroresDetalle.Count,
+            ErroresDetalle = erroresDetalle,
             TiempoTranscurrido = cronometro.Elapsed
         };
+    }
+
+    /// <summary>
+    /// Normaliza (trim) y valida cada fila de la planilla contra los límites de columna y descarta duplicados
+    /// de código (sin distinguir mayúsculas). Las filas descartadas se reportan en <paramref name="errores"/>
+    /// para que un dato inválido no aborte el guardado de toda la importación.
+    /// </summary>
+    private static List<(int NumeroFila, ItemCatalogoImportadoDto Item)> FiltrarFilasValidas(
+        IReadOnlyList<ItemCatalogoImportadoDto> filas,
+        List<string> errores)
+    {
+        var validas = new List<(int, ItemCatalogoImportadoDto)>(filas.Count);
+        var codigosVistos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < filas.Count; i++)
+        {
+            int numeroFila = i + 1;
+            var fila = filas[i];
+            string codigo = (fila.CodigoProveedor ?? string.Empty).Trim();
+            string descripcion = (fila.Descripcion ?? string.Empty).Trim();
+            string? codigoBarras = string.IsNullOrWhiteSpace(fila.CodigoBarras) ? null : fila.CodigoBarras.Trim();
+
+            string? motivo = null;
+            if (codigo.Length == 0)
+            {
+                motivo = "el código de proveedor está vacío.";
+            }
+            else if (codigo.Length > LongitudMaximaCodigo)
+            {
+                motivo = $"el código '{codigo}' supera los {LongitudMaximaCodigo} caracteres.";
+            }
+            else if (descripcion.Length == 0)
+            {
+                motivo = "la descripción está vacía.";
+            }
+            else if (descripcion.Length > LongitudMaximaDescripcion)
+            {
+                motivo = $"la descripción supera los {LongitudMaximaDescripcion} caracteres.";
+            }
+            else if (codigoBarras is { Length: > LongitudMaximaCodigo })
+            {
+                motivo = $"el código de barras supera los {LongitudMaximaCodigo} caracteres.";
+            }
+            else if (!codigosVistos.Add(codigo))
+            {
+                motivo = $"el código '{codigo}' está duplicado en la planilla (se conserva la primera aparición).";
+            }
+
+            if (motivo != null)
+            {
+                errores.Add($"Fila {numeroFila}: {motivo}");
+                continue;
+            }
+
+            validas.Add((numeroFila, fila with { CodigoProveedor = codigo, Descripcion = descripcion, CodigoBarras = codigoBarras }));
+        }
+
+        return validas;
     }
 
     public async Task<CatalogoPaginadoDto> ListarItemsCatalogoAsync(ConsultaCatalogoProveedorDto consulta, CancellationToken cancellationToken = default)
@@ -245,10 +315,20 @@ public class ProveedorService : IProveedorService
             ? dto.Items.Select(i => i.IdCatalogo).ToList()
             : dto.IdsCatalogo ?? Array.Empty<int>();
 
-        var catalogos = await _catalogoQueryService.ObtenerPorIdsAsync(ids, cancellationToken);
-        var itemDict = dto.Items.ToDictionary(i => i.IdCatalogo);
+        ids = ids.Distinct().ToList();
 
-        foreach (var catalogo in catalogos)
+        var catalogos = await _catalogoQueryService.ObtenerPorIdsAsync(ids, cancellationToken);
+        var itemDict = dto.Items
+            .GroupBy(i => i.IdCatalogo)
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var yaVinculados = await _articuloRepository.FindAsync(
+            a => a.IdCatalogoProveedor != null && ids.Contains(a.IdCatalogoProveedor.Value),
+            includeDeleted: false,
+            cancellationToken);
+        var idsYaVinculados = yaVinculados.Select(a => a.IdCatalogoProveedor!.Value).ToHashSet();
+
+        foreach (var catalogo in catalogos.Where(c => !idsYaVinculados.Contains(c.Id)))
         {
             var porcentajeGanancia = itemDict.TryGetValue(catalogo.Id, out var itemDto)
                 ? itemDto.PorcentajeGanancia
