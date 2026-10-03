@@ -144,7 +144,8 @@ public partial class ImportarPlanillaViewModel : ObservableObject
                 ColumnaCodigoBarras = string.IsNullOrWhiteSpace(ColumnaCodigoBarras) ? null : ColumnaCodigoBarras.Trim(),
                 ColumnaDescripcion = ColumnaDescripcion.Trim(),
                 ColumnaPrecioCosto = ColumnaPrecio.Trim(),
-                FilaInicial = FilaInicial
+                FilaInicial = FilaInicial,
+                ExtensionArchivo = Path.GetExtension(RutaArchivo)
             };
 
             var progreso = new Progress<int>(p =>
