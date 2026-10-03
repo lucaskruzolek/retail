@@ -281,6 +281,9 @@ public class ProveedorServiceTests
             PorcentajeGananciaSugerido = 40m
         };
 
+        _articuloRepoMock.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(new List<Articulo>());
+
         var articulosAgregados = new List<Articulo>();
         await _articuloRepoMock.AddAsync(Arg.Do<Articulo>(a => articulosAgregados.Add(a)), Arg.Any<CancellationToken>());
 
@@ -298,5 +301,174 @@ public class ProveedorServiceTests
         art2.PrecioVenta.Should().Be(2500m); // 2000 * 1.25 = 2500
 
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    private static ItemCatalogoImportadoDto Fila(string codigo, string descripcion = "Producto", decimal precio = 100m, string? codigoBarras = null)
+    {
+        return new ItemCatalogoImportadoDto
+        {
+            CodigoProveedor = codigo,
+            Descripcion = descripcion,
+            PrecioCosto = precio,
+            CodigoBarras = codigoBarras
+        };
+    }
+
+    private void PrepararImportacion(
+        IReadOnlyList<ItemCatalogoImportadoDto> filas,
+        Dictionary<string, CatalogoProveedor>? catalogosExistentes = null,
+        List<Articulo>? articulosVinculados = null)
+    {
+        _proveedorRepoMock.GetByIdAsync(1, false, Arg.Any<CancellationToken>())
+            .Returns(new Proveedor { Id = 1 });
+
+        _excelParserMock.ParsearCatalogoAsync(Arg.Any<Stream>(), Arg.Any<MapeoColumnasDto>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .Returns(filas);
+
+        _articuloRepoMock.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(articulosVinculados ?? new List<Articulo>());
+
+        _catalogoQueryMock.ObtenerMapaPorCodigosProveedorAsync(1, Arg.Any<IEnumerable<string>>(), Arg.Any<CancellationToken>())
+            .Returns(catalogosExistentes ?? new Dictionary<string, CatalogoProveedor>());
+    }
+
+    private static MapeoColumnasDto Mapeo()
+    {
+        return new MapeoColumnasDto
+        {
+            IdProveedor = 1,
+            ColumnaCodigo = "A",
+            ColumnaDescripcion = "B",
+            ColumnaPrecioCosto = "C"
+        };
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConCodigosDuplicadosPorMayusculasOEspacios_ConservaPrimeraYReportaError()
+    {
+        // Arrange
+        PrepararImportacion(new List<ItemCatalogoImportadoDto>
+        {
+            Fila("ABC-1"),
+            Fila("abc-1 "),
+            Fila(" ABC-1"),
+            Fila("XYZ-9")
+        });
+
+        var agregados = new List<CatalogoProveedor>();
+        await _catalogoQueryMock.AgregarAsync(Arg.Do<CatalogoProveedor>(c => agregados.Add(c)), Arg.Any<CancellationToken>());
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        agregados.Select(c => c.CodigoProveedor).Should().Equal("ABC-1", "XYZ-9");
+        resultado.NuevosRegistros.Should().Be(2);
+        resultado.FilasConError.Should().Be(2);
+        resultado.ErroresDetalle.Should().HaveCount(2);
+        resultado.ErroresDetalle[0].Should().Contain("Fila 2").And.Contain("duplicado");
+        await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConCodigoODescripcionExcedidos_ReportaErrorSinAbortarElResto()
+    {
+        // Arrange
+        PrepararImportacion(new List<ItemCatalogoImportadoDto>
+        {
+            Fila(new string('C', 51)),
+            Fila("OK-1", new string('D', 201)),
+            Fila("OK-2", "Descripción válida", 50m, new string('9', 51)),
+            Fila("OK-3")
+        });
+
+        var agregados = new List<CatalogoProveedor>();
+        await _catalogoQueryMock.AgregarAsync(Arg.Do<CatalogoProveedor>(c => agregados.Add(c)), Arg.Any<CancellationToken>());
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        agregados.Should().ContainSingle().Which.CodigoProveedor.Should().Be("OK-3");
+        resultado.FilasConError.Should().Be(3);
+        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 1:") && e.Contains("50"));
+        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 2:") && e.Contains("200"));
+        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 3:") && e.Contains("código de barras"));
+        await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConCodigoExistenteEnOtraCapitalizacion_ActualizaSinCrearDuplicado()
+    {
+        // Arrange
+        var existente = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "ABC-1", DescripcionProveedor = "Viejo", CostoReposicion = 10m };
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila(" abc-1 ", "Nuevo", 99m) },
+            new Dictionary<string, CatalogoProveedor> { ["ABC-1"] = existente });
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        existente.CostoReposicion.Should().Be(99m);
+        resultado.NuevosRegistros.Should().Be(0);
+        resultado.FilasConError.Should().Be(0);
+        await _catalogoQueryMock.DidNotReceive().AgregarAsync(Arg.Any<CatalogoProveedor>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConDosArticulosVinculadosAlMismoCatalogo_ActualizaAmbosSinFallar()
+    {
+        // Arrange
+        var existente = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "ABC-1", DescripcionProveedor = "Viejo", CostoReposicion = 10m };
+        var articuloA = new Articulo { Id = 1, Descripcion = "A", IdCatalogoProveedor = 7, CostoReposicion = 10m, PorcentajeGanancia = 50m, PrecioVenta = 15m };
+        var articuloB = new Articulo { Id = 2, Descripcion = "B", IdCatalogoProveedor = 7, CostoReposicion = 10m, PorcentajeGanancia = 100m, PrecioVenta = 20m };
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila("ABC-1", "Nuevo", 100m) },
+            new Dictionary<string, CatalogoProveedor> { ["ABC-1"] = existente },
+            new List<Articulo> { articuloA, articuloB });
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        resultado.PreciosActualizados.Should().Be(2);
+        articuloA.PrecioVenta.Should().Be(150m);
+        articuloB.PrecioVenta.Should().Be(200m);
+    }
+
+    [Fact]
+    public async Task IncorporarArticulosATiendaAsync_ConCatalogoYaVinculado_NoCreaArticuloDuplicado()
+    {
+        // Arrange
+        var catalogos = new List<CatalogoProveedor>
+        {
+            new() { Id = 1, IdProveedor = 5, CodigoProveedor = "P1", DescripcionProveedor = "Prod 1", CostoReposicion = 1000m },
+            new() { Id = 2, IdProveedor = 5, CodigoProveedor = "P2", DescripcionProveedor = "Prod 2", CostoReposicion = 2000m }
+        };
+
+        _catalogoQueryMock.ObtenerPorIdsAsync(Arg.Any<IEnumerable<int>>(), Arg.Any<CancellationToken>())
+            .Returns(catalogos);
+
+        _articuloRepoMock.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(new List<Articulo> { new() { Id = 99, Descripcion = "Ya existe", IdCatalogoProveedor = 1 } });
+
+        var dto = new IncorporarCatalogoArticulosDto
+        {
+            Items = new List<ItemIncorporacionArticuloDto>
+            {
+                new() { IdCatalogo = 1, PorcentajeGanancia = 50m },
+                new() { IdCatalogo = 2, PorcentajeGanancia = 25m }
+            }
+        };
+
+        var agregados = new List<Articulo>();
+        await _articuloRepoMock.AddAsync(Arg.Do<Articulo>(a => agregados.Add(a)), Arg.Any<CancellationToken>());
+
+        // Act
+        await _service.IncorporarArticulosATiendaAsync(dto);
+
+        // Assert
+        agregados.Should().ContainSingle().Which.IdCatalogoProveedor.Should().Be(2);
     }
 }

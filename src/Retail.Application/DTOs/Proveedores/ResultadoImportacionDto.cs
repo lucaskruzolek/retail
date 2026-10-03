@@ -9,5 +9,6 @@ public record class ResultadoImportacionDto
     public required int PreciosActualizados { get; init; }
     public required int NuevosRegistros { get; init; }
     public required int FilasConError { get; init; }
+    public IReadOnlyList<string> ErroresDetalle { get; init; } = Array.Empty<string>();
     public required TimeSpan TiempoTranscurrido { get; init; }
 }
