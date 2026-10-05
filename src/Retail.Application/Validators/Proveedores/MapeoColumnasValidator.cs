@@ -22,7 +22,7 @@ public class MapeoColumnasValidator : AbstractValidator<MapeoColumnasDto>
         RuleFor(x => x.ColumnaPrecioCosto)
             .NotEmpty().WithMessage("El nombre de la columna para precio de costo es obligatorio.");
 
-        RuleFor(x => x.FilaInicial)
-            .GreaterThanOrEqualTo(1).WithMessage("La fila inicial debe ser mayor o igual a 1.");
+        RuleFor(x => x.FilaEncabezado)
+            .GreaterThanOrEqualTo(1).WithMessage("La fila de encabezado debe ser mayor o igual a 1.");
     }
 }

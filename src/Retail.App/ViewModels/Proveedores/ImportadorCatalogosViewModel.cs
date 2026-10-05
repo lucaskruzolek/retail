@@ -410,8 +410,10 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
 
             var dto = modalVm.ObtenerDto();
 
-            await Task.Run(() => _proveedorService.IncorporarArticulosATiendaAsync(dto));
-            MensajeEstado = $"{itemsSeleccionados.Count} artículo(s) incorporados a la tienda correctamente.";
+            var resultado = await Task.Run(() => _proveedorService.IncorporarArticulosATiendaAsync(dto));
+            MensajeEstado = resultado.OmitidosYaVinculados > 0
+                ? $"{resultado.Incorporados} artículo(s) incorporados a la tienda. {resultado.OmitidosYaVinculados} omitido(s) porque ya estaban en la tienda."
+                : $"{resultado.Incorporados} artículo(s) incorporados a la tienda correctamente.";
             TieneItemsSeleccionados = false;
             SeleccionarTodos = false;
             await CargarCatalogoAsync();

@@ -10,7 +10,9 @@ public record class MapeoColumnasDto
     public string? ColumnaCodigoBarras { get; init; }
     public required string ColumnaDescripcion { get; init; }
     public required string ColumnaPrecioCosto { get; init; }
-    public int FilaInicial { get; init; } = 2;
+
+    /// <summary>Fila de la hoja donde están los encabezados (el mismo número que muestra Excel); los datos empiezan en la siguiente.</summary>
+    public int FilaEncabezado { get; init; } = 1;
 
     /// <summary>Extensión del archivo de origen (".xlsx" o ".csv"); define el formato con el que se lee el stream.</summary>
     public string ExtensionArchivo { get; init; } = ".xlsx";

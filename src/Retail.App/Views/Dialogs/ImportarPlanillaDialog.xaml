@@ -5,9 +5,9 @@
                     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                     Title="Importar Planilla de Proveedor"
                     Width="540"
-                    Height="520"
+                    Height="640"
                     MinWidth="480"
-                    MinHeight="460"
+                    MinHeight="560"
                     WindowStartupLocation="CenterOwner"
                     ExtendsContentIntoTitleBar="True"
                     WindowBackdropType="Mica"
@@ -142,6 +142,7 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <!-- Columna Código -->
@@ -167,7 +168,7 @@
                             </StackPanel>
 
                             <!-- Columna Descripción -->
-                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,10">
                                 <TextBlock Text="Columna Descripción *"
                                            Style="{StaticResource TextBlockCaption}"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
@@ -178,7 +179,7 @@
                             </StackPanel>
 
                             <!-- Columna Precio -->
-                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,0">
+                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,10">
                                 <TextBlock Text="Columna Precio Costo *"
                                            Style="{StaticResource TextBlockCaption}"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
@@ -187,6 +188,24 @@
                                          FontFamily="{StaticResource FontFamilyMonospace}"
                                          Height="32" />
                             </StackPanel>
+
+                            <!-- Fila de Encabezado (H-05): las planillas suelen traer filas de título antes de los encabezados -->
+                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Fila de Encabezado *"
+                                           Style="{StaticResource TextBlockCaption}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding FilaEncabezado, UpdateSourceTrigger=PropertyChanged}"
+                                         FontFamily="{StaticResource FontFamilyMonospace}"
+                                         Height="32" />
+                            </StackPanel>
+                            <TextBlock Grid.Row="2" Grid.Column="1"
+                                       Margin="8,0,0,0"
+                                       VerticalAlignment="Bottom"
+                                       Text="Número de fila (como en Excel) donde están los nombres de las columnas."
+                                       Style="{StaticResource TextBlockCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap" />
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -198,8 +217,8 @@
                                    Style="{StaticResource TextBlockCaption}"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Margin="0,0,0,4" />
-                        <ProgressBar Value="{Binding ProgresoImportacion}"
-                                     Minimum="0" Maximum="100"
+                        <!-- Indeterminada (H-04): con lectura streaming el total de filas no se conoce de antemano -->
+                        <ProgressBar IsIndeterminate="True"
                                      Height="6"
                                      Foreground="{DynamicResource PrimaryBrush}"
                                      Background="{DynamicResource SurfaceBorderBrush}" />
@@ -224,6 +243,35 @@
                                        Foreground="{DynamicResource DangerForegroundBrush}" />
                         </Border>
                     </StackPanel>
+
+                    <!-- Detalle de Filas con Error (H-01) -->
+                    <Border Style="{StaticResource CardBorderStyle}"
+                            Padding="12,8"
+                            Margin="0,8,0,0"
+                            Visibility="{Binding TieneErroresDetalle, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel>
+                            <TextBlock Text="Detalle de filas con error"
+                                       Style="{StaticResource TextBlockCaption}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DangerForegroundBrush}"
+                                       Margin="0,0,0,4" />
+                            <ScrollViewer MaxHeight="96"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl ItemsSource="{Binding UltimoResultado.ErroresDetalle}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}"
+                                                       Style="{StaticResource TextBlockCaption}"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,1" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
             </StackPanel>
