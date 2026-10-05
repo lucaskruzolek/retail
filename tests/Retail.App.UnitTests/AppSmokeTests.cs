@@ -198,38 +198,38 @@ public class AppSmokeTests
         });
     }
 
-        [Fact]
-        public void CajaView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    [Fact]
+    public void CajaView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        CajaView? view = null;
+
+        WpfTestHelper.Run(() =>
         {
-            // Arrange
-            Exception? xamlException = null;
-            CajaView? view = null;
+            var cajaServiceMock = Substitute.For<ICajaService>();
+            var dialogServiceMock = Substitute.For<ICajaDialogService>();
+            var viewModel = new Retail.App.ViewModels.Caja.CajaViewModel(cajaServiceMock, dialogServiceMock);
 
-            WpfTestHelper.Run(() =>
+            try
             {
-                var cajaServiceMock = Substitute.For<ICajaService>();
-                var dialogServiceMock = Substitute.For<ICajaDialogService>();
-                var viewModel = new Retail.App.ViewModels.Caja.CajaViewModel(cajaServiceMock, dialogServiceMock);
+                view = new CajaView(viewModel);
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
 
-                try
-                {
-                    view = new CajaView(viewModel);
-                    view.Measure(new System.Windows.Size(1024, 768));
-                    view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
-                    view.UpdateLayout();
-                }
-                catch (Exception ex)
-                {
-                    xamlException = ex;
-                }
-            });
-
-            // Assert
-            xamlException.Should().BeNull("el XAML de CajaView debe compilarse y resolverse sin errores de recursos o controles");
-            view.Should().NotBeNull();
-            view!.ViewModel.Should().NotBeNull();
-        }
-        [Fact]
+        // Assert
+        xamlException.Should().BeNull("el XAML de CajaView debe compilarse y resolverse sin errores de recursos o controles");
+        view.Should().NotBeNull();
+        view!.ViewModel.Should().NotBeNull();
+    }
+    [Fact]
     public void ClientesView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
@@ -744,6 +744,41 @@ public class AppSmokeTests
         xamlException.Should().BeNull("el XAML de ImportadorCatalogosView debe resolverse sin errores");
         view.Should().NotBeNull();
         view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(nameof(AperturaTurnoDialog))]
+    [InlineData(nameof(MovimientoCajaDialog))]
+    [InlineData(nameof(ArqueoCiegoDialog))]
+    public void DialogosDeCaja_InstanciacionEnHiloSTA_DebenCargarXAMLSinExcepciones(string nombreDialogo)
+    {
+        // Arrange
+        Exception? xamlException = null;
+        System.Windows.Window? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                dialog = nombreDialogo switch
+                {
+                    nameof(AperturaTurnoDialog) => new AperturaTurnoDialog(),
+                    nameof(MovimientoCajaDialog) => new MovimientoCajaDialog(idTurno: 1),
+                    _ => new ArqueoCiegoDialog(idTurno: 1)
+                };
+                dialog.Measure(new System.Windows.Size(520, 520));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 520, 520));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull($"el XAML de {nombreDialogo} debe resolver todos sus recursos");
+        dialog.Should().NotBeNull();
     }
 
     [Fact]

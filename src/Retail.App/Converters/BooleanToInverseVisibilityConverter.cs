@@ -11,7 +11,7 @@ public class InverseBooleanToVisibilityConverter : IValueConverter
     {
         if (value is bool b && b)
             return Visibility.Collapsed;
-        
+
         return Visibility.Visible;
     }
 

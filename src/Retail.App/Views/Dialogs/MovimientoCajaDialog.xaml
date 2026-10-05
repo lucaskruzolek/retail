@@ -58,7 +58,7 @@
                            Style="{StaticResource TextBlockHeader2}"
                            Margin="0,0,0,6" />
                 <TextBlock Text="Registre un ingreso extraordinario o retiro de efectivo en la gaveta activa."
-                           Style="{StaticResource TextBlockSecondary}"
+                           Style="{StaticResource TextBlockBodySecondary}"
                            Margin="0,0,0,18" />
 
                 <!-- Tipo de Movimiento -->
@@ -114,7 +114,7 @@
                         Click="Cancelar_Click" />
 
                 <Button Content="Guardar"
-                        Style="{StaticResource PrimaryKeycapButtonStyle}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
                         Width="110"
                         DockPanel.Dock="Right"
                         Click="Aceptar_Click" />

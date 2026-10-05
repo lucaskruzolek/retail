@@ -166,21 +166,32 @@ public class MainViewModelTests
     }
 
     [Fact]
-    public void NavegarModulosEnConstruccion_CajaYPresupuestos_DebeInvocarModuloEnConstruccion()
+    public void NavegarPresupuestosCommand_ModuloEnConstruccion_DebeInvocarModuloEnConstruccion()
     {
         // Arrange
         var vm = new MainViewModel(_sessionMock, _navigationMock);
 
-        // Act Caja
-        vm.NavegarCajaCommand.Execute(null);
-        vm.ModuloActivo.Should().Be("Caja");
-
-        // Act Presupuestos
+        // Act
         vm.NavegarPresupuestosCommand.Execute(null);
-        vm.ModuloActivo.Should().Be("Presupuestos");
 
-        // Assert: 2 llamadas a NavigateTo<ModuloEnConstruccionView> con configuración
-        _navigationMock.Received(2).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
+        // Assert
+        vm.ModuloActivo.Should().Be("Presupuestos");
+        _navigationMock.Received(1).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
+    }
+
+    [Fact]
+    public void NavegarCajaCommand_DebeNavegarHaciaCajaView()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+
+        // Act
+        vm.NavegarCajaCommand.Execute(null);
+
+        // Assert: el módulo 3.1 ya está implementado y no usa la vista "en construcción"
+        vm.ModuloActivo.Should().Be("Caja");
+        _navigationMock.Received(1).NavigateTo<CajaView>();
+        _navigationMock.DidNotReceive().NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
     }
 
     [Fact]

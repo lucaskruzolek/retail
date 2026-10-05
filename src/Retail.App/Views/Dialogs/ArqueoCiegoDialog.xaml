@@ -58,7 +58,7 @@
                            Style="{StaticResource TextBlockHeader2}"
                            Margin="0,0,0,6" />
                 <TextBlock Text="Declare únicamente el dinero físico contado en la gaveta y el fondo a retener para el turno siguiente."
-                           Style="{StaticResource TextBlockSecondary}"
+                           Style="{StaticResource TextBlockBodySecondary}"
                            TextWrapping="Wrap"
                            Margin="0,0,0,20" />
 
@@ -105,7 +105,7 @@
                         Click="Cancelar_Click" />
 
                 <Button Content="Confirmar Cierre"
-                        Style="{StaticResource DestructiveKeycapButtonStyle}"
+                        Style="{StaticResource DangerActionButtonStyle}"
                         Width="140"
                         DockPanel.Dock="Right"
                         Click="Aceptar_Click" />
