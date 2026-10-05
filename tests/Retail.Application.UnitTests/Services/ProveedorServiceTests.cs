@@ -307,6 +307,7 @@ public class ProveedorServiceTests
     {
         return new ItemCatalogoImportadoDto
         {
+            NumeroFila = 0, // PrepararImportacion asigna el número de fila real
             CodigoProveedor = codigo,
             Descripcion = descripcion,
             PrecioCosto = precio,
@@ -314,16 +315,27 @@ public class ProveedorServiceTests
         };
     }
 
+    /// <summary>
+    /// Simula lo que entrega el parser para una planilla con el encabezado en la fila 1:
+    /// la primera fila de datos es la 2, la segunda la 3, y así sucesivamente.
+    /// </summary>
     private void PrepararImportacion(
         IReadOnlyList<ItemCatalogoImportadoDto> filas,
         Dictionary<string, CatalogoProveedor>? catalogosExistentes = null,
-        List<Articulo>? articulosVinculados = null)
+        List<Articulo>? articulosVinculados = null,
+        IReadOnlyList<string>? filasDescartadasPorParser = null)
     {
         _proveedorRepoMock.GetByIdAsync(1, false, Arg.Any<CancellationToken>())
             .Returns(new Proveedor { Id = 1 });
 
+        var parseo = new ResultadoParseoCatalogoDto
+        {
+            Items = filas.Select((fila, indice) => fila with { NumeroFila = indice + 2 }).ToList(),
+            FilasDescartadas = filasDescartadasPorParser ?? Array.Empty<string>()
+        };
+
         _excelParserMock.ParsearCatalogoAsync(Arg.Any<Stream>(), Arg.Any<MapeoColumnasDto>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
-            .Returns(filas);
+            .Returns(parseo);
 
         _articuloRepoMock.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
             .Returns(articulosVinculados ?? new List<Articulo>());
@@ -366,7 +378,7 @@ public class ProveedorServiceTests
         resultado.NuevosRegistros.Should().Be(2);
         resultado.FilasConError.Should().Be(2);
         resultado.ErroresDetalle.Should().HaveCount(2);
-        resultado.ErroresDetalle[0].Should().Contain("Fila 2").And.Contain("duplicado");
+        resultado.ErroresDetalle[0].Should().Contain("Fila 3").And.Contain("duplicado");
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -391,9 +403,9 @@ public class ProveedorServiceTests
         // Assert
         agregados.Should().ContainSingle().Which.CodigoProveedor.Should().Be("OK-3");
         resultado.FilasConError.Should().Be(3);
-        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 1:") && e.Contains("50"));
-        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 2:") && e.Contains("200"));
-        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 3:") && e.Contains("código de barras"));
+        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 2:") && e.Contains("50"));
+        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 3:") && e.Contains("200"));
+        resultado.ErroresDetalle.Should().Contain(e => e.StartsWith("Fila 4:") && e.Contains("código de barras"));
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -466,9 +478,122 @@ public class ProveedorServiceTests
         await _articuloRepoMock.AddAsync(Arg.Do<Articulo>(a => agregados.Add(a)), Arg.Any<CancellationToken>());
 
         // Act
-        await _service.IncorporarArticulosATiendaAsync(dto);
+        var resultado = await _service.IncorporarArticulosATiendaAsync(dto);
 
         // Assert
         agregados.Should().ContainSingle().Which.IdCatalogoProveedor.Should().Be(2);
+        resultado.Incorporados.Should().Be(1);
+        resultado.OmitidosYaVinculados.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConFilasDescartadasPorElParser_LasIncluyeEnErroresDetalle()
+    {
+        // Arrange
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila("OK-1") },
+            filasDescartadasPorParser: new List<string> { "Fila 7: el precio 'abc' no es un importe válido." });
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        resultado.NuevosRegistros.Should().Be(1);
+        resultado.FilasConError.Should().Be(1);
+        resultado.ErroresDetalle.Should().ContainSingle().Which.Should().StartWith("Fila 7:");
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConCostoIgualAlDelArticulo_NoCuentaPrecioActualizadoNiLoModifica()
+    {
+        // Arrange: el artículo ya tiene el costo que trae la planilla
+        var existente = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "ABC-1", DescripcionProveedor = "Viejo", CostoReposicion = 100m };
+        var articulo = new Articulo { Id = 1, Descripcion = "A", IdCatalogoProveedor = 7, CostoReposicion = 100m, PorcentajeGanancia = 50m, PrecioVenta = 150m };
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila("ABC-1", "Nuevo", 100m) },
+            new Dictionary<string, CatalogoProveedor> { ["ABC-1"] = existente },
+            new List<Articulo> { articulo });
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        resultado.PreciosActualizados.Should().Be(0);
+        articulo.PrecioVenta.Should().Be(150m);
+        await _articuloRepoMock.DidNotReceive().UpdateAsync(Arg.Any<Articulo>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConCostoDistintoSoloEnUnArticulo_CuentaSoloEseArticulo()
+    {
+        // Arrange: el artículo B fue editado a mano y ya tiene el costo nuevo; el A no
+        var existente = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "ABC-1", DescripcionProveedor = "Viejo", CostoReposicion = 10m };
+        var articuloA = new Articulo { Id = 1, Descripcion = "A", IdCatalogoProveedor = 7, CostoReposicion = 10m, PorcentajeGanancia = 50m, PrecioVenta = 15m };
+        var articuloB = new Articulo { Id = 2, Descripcion = "B", IdCatalogoProveedor = 7, CostoReposicion = 100m, PorcentajeGanancia = 50m, PrecioVenta = 150m };
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila("ABC-1", "Nuevo", 100m) },
+            new Dictionary<string, CatalogoProveedor> { ["ABC-1"] = existente },
+            new List<Articulo> { articuloA, articuloB });
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        resultado.PreciosActualizados.Should().Be(1);
+        articuloA.PrecioVenta.Should().Be(150m);
+        await _articuloRepoMock.Received(1).UpdateAsync(articuloA, Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// Configura el repositorio para que evalúe en memoria el predicado que recibe. Así el test verifica
+    /// la condición del filtro (no solo que se llamó a FindAsync), aunque no su traducción a SQL.
+    /// </summary>
+    private void PrepararArticulosParaVincular(Articulo articulo, CatalogoProveedor catalogo, List<Articulo> articulosEnTienda)
+    {
+        _articuloRepoMock.GetByIdAsync(articulo.Id, false, Arg.Any<CancellationToken>())
+            .Returns(articulo);
+
+        _catalogoQueryMock.ObtenerPorIdAsync(catalogo.Id, Arg.Any<CancellationToken>())
+            .Returns(catalogo);
+
+        _articuloRepoMock.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(llamada => articulosEnTienda
+                .Where(llamada.Arg<Expression<Func<Articulo, bool>>>().Compile())
+                .ToList());
+    }
+
+    [Fact]
+    public async Task VincularArticuloACatalogoAsync_ConCatalogoVinculadoAOtroArticulo_LanzaDomainExceptionSinGuardar()
+    {
+        // Arrange
+        var catalogo = new CatalogoProveedor { Id = 25, IdProveedor = 1, CodigoProveedor = "EDD-700", DescripcionProveedor = "Edding 700", CostoReposicion = 800m };
+        var duenio = new Articulo { Id = 5, Descripcion = "Marcador Edding", IdCatalogoProveedor = 25 };
+        var articulo = new Articulo { Id = 10, Descripcion = "Marcador Permanente Negro", CostoReposicion = 500m, PorcentajeGanancia = 40m };
+        PrepararArticulosParaVincular(articulo, catalogo, new List<Articulo> { duenio, articulo });
+
+        // Act
+        var accion = () => _service.VincularArticuloACatalogoAsync(10, 25);
+
+        // Assert
+        await accion.Should().ThrowAsync<DomainException>()
+            .WithMessage("*EDD-700*Marcador Edding*");
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        await _unitOfWorkMock.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VincularArticuloACatalogoAsync_RevinculandoElMismoArticulo_ActualizaSinError()
+    {
+        // Arrange: el único artículo vinculado al ítem es el mismo que se revincula
+        var catalogo = new CatalogoProveedor { Id = 25, IdProveedor = 1, CodigoProveedor = "EDD-700", DescripcionProveedor = "Edding 700", CostoReposicion = 800m };
+        var articulo = new Articulo { Id = 10, Descripcion = "Marcador Permanente Negro", IdCatalogoProveedor = 25, CostoReposicion = 500m, PorcentajeGanancia = 40m };
+        PrepararArticulosParaVincular(articulo, catalogo, new List<Articulo> { articulo });
+
+        // Act
+        await _service.VincularArticuloACatalogoAsync(10, 25);
+
+        // Assert
+        articulo.CostoReposicion.Should().Be(800m);
+        await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

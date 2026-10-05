@@ -95,6 +95,8 @@ graph TD
   * Utilizar `EF.Functions.Like` para búsquedas parciales (`%termino%`).
   * Utilizar `Skip()` y `Take()` para paginación nativa (`OFFSET ... ROWS FETCH NEXT ... ROWS ONLY`).
   * Delegar agregaciones numéricas al motor relacional (`CountAsync()`, `SumAsync()`).
+* **Listas en memoria dentro de un filtro (`lista.Contains(columna)`):** EF Core 8 las envía como **un único parámetro JSON** que SQL Server desarma con `OPENJSON`, por lo que el límite de 2.100 parámetros por consulta no aplica. Está verificado contra LocalDB con 3.000 códigos en [`CatalogoProveedorQueryServiceTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Infrastructure.IntegrationTests/Services/CatalogoProveedorQueryServiceTests.cs), que además protege ante un cambio de versión de EF Core que modifique esa traducción.
+  * **Supuesto de despliegue:** `OPENJSON` requiere que la base tenga **nivel de compatibilidad ≥ 130** (SQL Server 2016+). Una base restaurada desde una versión anterior con un nivel inferior hace fallar estas consultas, y el test contra LocalDB no lo detecta. Verificar con `SELECT compatibility_level FROM sys.databases WHERE name = DB_NAME();`.
 
 ### 5. Tipado Estricto de Moneda y Precisión Decimal Fiscal
 * Todo importe monetario (`precio_venta`, `costo_reposicion`, `subtotal`, `total`, `monto`) debe representarse en C# obligatoriamente como tipo de datos `decimal` (nunca `float` ni `double` debido a errores de redondeo en aritmética de punto flotante IEEE).

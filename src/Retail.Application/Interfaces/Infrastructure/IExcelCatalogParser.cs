@@ -7,7 +7,7 @@ namespace Retail.Application.Interfaces.Infrastructure;
 /// </summary>
 public interface IExcelCatalogParser
 {
-    Task<IReadOnlyList<ItemCatalogoImportadoDto>> ParsearCatalogoAsync(
+    Task<ResultadoParseoCatalogoDto> ParsearCatalogoAsync(
         Stream stream,
         MapeoColumnasDto mapeo,
         IProgress<int>? progreso = null,

@@ -42,14 +42,19 @@ public partial class ImportarPlanillaViewModel : ObservableObject
     private string _columnaPrecio = "PRECIO";
 
     [ObservableProperty]
-    private int _filaInicial = 2;
+    [NotifyPropertyChangedFor(nameof(PuedeImportar))]
+    private int _filaEncabezado = 1;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeImportar))]
     private bool _isBusy;
 
+    /// <summary>
+    /// Filas leídas hasta el momento. Con lectura streaming no se conoce el total por adelantado,
+    /// por eso la barra es indeterminada y el avance se informa como cantidad de filas (H-04).
+    /// </summary>
     [ObservableProperty]
-    private int _progresoImportacion;
+    private int _filasLeidas;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneMensajeEstado))]
@@ -61,6 +66,7 @@ public partial class ImportarPlanillaViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneResultado))]
+    [NotifyPropertyChangedFor(nameof(TieneErroresDetalle))]
     private ResultadoImportacionDto? _ultimoResultado;
 
     public bool HayArchivoSeleccionado => !string.IsNullOrWhiteSpace(RutaArchivo);
@@ -68,10 +74,14 @@ public partial class ImportarPlanillaViewModel : ObservableObject
     public bool TieneMensajeError => !string.IsNullOrWhiteSpace(MensajeError);
     public bool TieneResultado => UltimoResultado != null;
 
+    /// <summary>Indica si hay filas con error para mostrar su detalle en el diálogo (H-01).</summary>
+    public bool TieneErroresDetalle => UltimoResultado is { ErroresDetalle.Count: > 0 };
+
     public bool PuedeImportar =>
         !IsBusy &&
         Proveedor != null &&
         HayArchivoSeleccionado &&
+        FilaEncabezado >= 1 &&
         !string.IsNullOrWhiteSpace(ColumnaCodigo) &&
         !string.IsNullOrWhiteSpace(ColumnaDescripcion) &&
         !string.IsNullOrWhiteSpace(ColumnaPrecio);
@@ -94,9 +104,9 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         ColumnaCodigoBarras = "EAN";
         ColumnaDescripcion = "DESCRIPCION";
         ColumnaPrecio = "PRECIO";
-        FilaInicial = 2;
+        FilaEncabezado = 1;
         IsBusy = false;
-        ProgresoImportacion = 0;
+        FilasLeidas = 0;
         MensajeEstado = null;
         MensajeError = null;
         UltimoResultado = null;
@@ -129,7 +139,7 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         }
 
         IsBusy = true;
-        ProgresoImportacion = 0;
+        FilasLeidas = 0;
         MensajeError = null;
         MensajeEstado = "Iniciando lectura streaming de planilla con MiniExcel...";
 
@@ -144,14 +154,14 @@ public partial class ImportarPlanillaViewModel : ObservableObject
                 ColumnaCodigoBarras = string.IsNullOrWhiteSpace(ColumnaCodigoBarras) ? null : ColumnaCodigoBarras.Trim(),
                 ColumnaDescripcion = ColumnaDescripcion.Trim(),
                 ColumnaPrecioCosto = ColumnaPrecio.Trim(),
-                FilaInicial = FilaInicial,
+                FilaEncabezado = FilaEncabezado,
                 ExtensionArchivo = Path.GetExtension(RutaArchivo)
             };
 
-            var progreso = new Progress<int>(p =>
+            var progreso = new Progress<int>(filas =>
             {
-                ProgresoImportacion = p;
-                MensajeEstado = $"Procesando filas... ({p} leídas)";
+                FilasLeidas = filas;
+                MensajeEstado = $"Leyendo planilla... ({filas:N0} filas leídas)";
             });
 
             UltimoResultado = await Task.Run(
@@ -171,6 +181,13 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         {
             MensajeEstado = "Importación cancelada.";
         }
+        catch (InvalidDataException ex)
+        {
+            // Planilla que no coincide con el mapeo (columna o fila de encabezado inexistente):
+            // es un error de configuración del usuario, no una falla del sistema.
+            _logger.LogWarning(ex, "Planilla incompatible con el mapeo para el proveedor {IdProveedor}", Proveedor?.IdProveedor);
+            MensajeError = ex.Message;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error durante la importación de planilla para el proveedor {IdProveedor}", Proveedor?.IdProveedor);
@@ -179,7 +196,6 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         finally
         {
             IsBusy = false;
-            ProgresoImportacion = 100;
         }
     }
 

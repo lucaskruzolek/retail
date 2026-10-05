@@ -168,15 +168,16 @@ public class ProveedorService : IProveedorService
 
         var cronometro = Stopwatch.StartNew();
 
-        var filasImportadas = await _excelCatalogParser.ParsearCatalogoAsync(archivoStream, mapeo, progreso, cancellationToken);
+        var parseo = await _excelCatalogParser.ParsearCatalogoAsync(archivoStream, mapeo, progreso, cancellationToken);
 
         var articulosLocales = await _articuloRepository.FindAsync(a => a.IdCatalogoProveedor != null, includeDeleted: false, cancellationToken);
         var articulosPorCatalogo = articulosLocales.ToLookup(a => a.IdCatalogoProveedor!.Value);
 
-        var erroresDetalle = new List<string>();
-        var filasValidas = FiltrarFilasValidas(filasImportadas, erroresDetalle);
+        // Las filas que el parser no pudo interpretar también son errores que el usuario debe ver (H-03).
+        var erroresDetalle = new List<string>(parseo.FilasDescartadas);
+        var filasValidas = FiltrarFilasValidas(parseo.Items, erroresDetalle);
 
-        var codigos = filasValidas.Select(f => f.Item.CodigoProveedor);
+        var codigos = filasValidas.Select(f => f.CodigoProveedor);
         var mapCatalogosExactos = await _catalogoQueryService.ObtenerMapaPorCodigosProveedorAsync(mapeo.IdProveedor, codigos, cancellationToken);
         var mapCatalogos = new Dictionary<string, CatalogoProveedor>(StringComparer.OrdinalIgnoreCase);
         foreach (var (codigo, catalogo) in mapCatalogosExactos)
@@ -188,7 +189,7 @@ public class ProveedorService : IProveedorService
         int nuevosRegistros = 0;
         int actualizados = 0;
 
-        foreach (var (numeroFila, item) in filasValidas)
+        foreach (var item in filasValidas)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -201,6 +202,12 @@ public class ProveedorService : IProveedorService
 
                     foreach (var articuloAsociado in articulosPorCatalogo[catalogoExistente.Id])
                     {
+                        // Solo cuenta como precio actualizado si el costo del artículo realmente cambia (H-16).
+                        if (articuloAsociado.CostoReposicion == item.PrecioCosto)
+                        {
+                            continue;
+                        }
+
                         articuloAsociado.ActualizarCostoYRecalcularPrecio(item.PrecioCosto);
                         await _articuloRepository.UpdateAsync(articuloAsociado, cancellationToken);
                         actualizados++;
@@ -226,7 +233,7 @@ public class ProveedorService : IProveedorService
             }
             catch (Exception ex) when (ex is ArgumentException or DomainException)
             {
-                erroresDetalle.Add($"Fila {numeroFila}: {ex.Message}");
+                erroresDetalle.Add($"Fila {item.NumeroFila}: {ex.Message}");
             }
         }
 
@@ -247,19 +254,18 @@ public class ProveedorService : IProveedorService
     /// <summary>
     /// Normaliza (trim) y valida cada fila de la planilla contra los límites de columna y descarta duplicados
     /// de código (sin distinguir mayúsculas). Las filas descartadas se reportan en <paramref name="errores"/>
-    /// para que un dato inválido no aborte el guardado de toda la importación.
+    /// para que un dato inválido no aborte el guardado de toda la importación. Los mensajes usan el número de
+    /// fila real de la hoja, informado por el parser (H-02).
     /// </summary>
-    private static List<(int NumeroFila, ItemCatalogoImportadoDto Item)> FiltrarFilasValidas(
+    private static List<ItemCatalogoImportadoDto> FiltrarFilasValidas(
         IReadOnlyList<ItemCatalogoImportadoDto> filas,
         List<string> errores)
     {
-        var validas = new List<(int, ItemCatalogoImportadoDto)>(filas.Count);
+        var validas = new List<ItemCatalogoImportadoDto>(filas.Count);
         var codigosVistos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        for (int i = 0; i < filas.Count; i++)
+        foreach (var fila in filas)
         {
-            int numeroFila = i + 1;
-            var fila = filas[i];
             string codigo = (fila.CodigoProveedor ?? string.Empty).Trim();
             string descripcion = (fila.Descripcion ?? string.Empty).Trim();
             string? codigoBarras = string.IsNullOrWhiteSpace(fila.CodigoBarras) ? null : fila.CodigoBarras.Trim();
@@ -292,11 +298,11 @@ public class ProveedorService : IProveedorService
 
             if (motivo != null)
             {
-                errores.Add($"Fila {numeroFila}: {motivo}");
+                errores.Add($"Fila {fila.NumeroFila}: {motivo}");
                 continue;
             }
 
-            validas.Add((numeroFila, fila with { CodigoProveedor = codigo, Descripcion = descripcion, CodigoBarras = codigoBarras }));
+            validas.Add(fila with { CodigoProveedor = codigo, Descripcion = descripcion, CodigoBarras = codigoBarras });
         }
 
         return validas;
@@ -307,7 +313,7 @@ public class ProveedorService : IProveedorService
         return await _catalogoQueryService.ObtenerCatalogoPaginadoAsync(consulta, cancellationToken);
     }
 
-    public async Task IncorporarArticulosATiendaAsync(IncorporarCatalogoArticulosDto dto, CancellationToken cancellationToken = default)
+    public async Task<ResultadoIncorporacionDto> IncorporarArticulosATiendaAsync(IncorporarCatalogoArticulosDto dto, CancellationToken cancellationToken = default)
     {
         await _incorporarArticulosValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
@@ -328,8 +334,18 @@ public class ProveedorService : IProveedorService
             cancellationToken);
         var idsYaVinculados = yaVinculados.Select(a => a.IdCatalogoProveedor!.Value).ToHashSet();
 
-        foreach (var catalogo in catalogos.Where(c => !idsYaVinculados.Contains(c.Id)))
+        int incorporados = 0;
+        int omitidosYaVinculados = 0;
+
+        foreach (var catalogo in catalogos)
         {
+            // Un ítem que ya tiene artículo en la tienda no se duplica, pero se informa (H-11).
+            if (idsYaVinculados.Contains(catalogo.Id))
+            {
+                omitidosYaVinculados++;
+                continue;
+            }
+
             var porcentajeGanancia = itemDict.TryGetValue(catalogo.Id, out var itemDto)
                 ? itemDto.PorcentajeGanancia
                 : dto.PorcentajeGananciaSugerido;
@@ -351,9 +367,16 @@ public class ProveedorService : IProveedorService
             };
 
             await _articuloRepository.AddAsync(nuevoArticulo, cancellationToken);
+            incorporados++;
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return new ResultadoIncorporacionDto
+        {
+            Incorporados = incorporados,
+            OmitidosYaVinculados = omitidosYaVinculados
+        };
     }
 
     public async Task VincularArticuloACatalogoAsync(int idArticulo, int idCatalogoProveedor, CancellationToken cancellationToken = default)
@@ -368,6 +391,19 @@ public class ProveedorService : IProveedorService
         if (catalogo == null)
         {
             throw new DomainException($"No se encontró el ítem de catálogo con ID {idCatalogoProveedor}.");
+        }
+
+        // Un ítem de catálogo se vincula a un solo artículo de la tienda, igual que en la incorporación (H-17).
+        // Revincular el mismo artículo sigue permitido.
+        var vinculadosAOtroArticulo = await _articuloRepository.FindAsync(
+            a => a.IdCatalogoProveedor == idCatalogoProveedor && a.Id != idArticulo,
+            includeDeleted: false,
+            cancellationToken);
+        if (vinculadosAOtroArticulo.Count > 0)
+        {
+            throw new DomainException(
+                $"El ítem '{catalogo.CodigoProveedor}' ya está vinculado al artículo '{vinculadosAOtroArticulo[0].Descripcion}'. " +
+                "Desvincúlelo antes de vincularlo a otro artículo.");
         }
 
         articulo.VincularCatalogoProveedor(catalogo.Id, catalogo.CostoReposicion);
