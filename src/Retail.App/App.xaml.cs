@@ -1,4 +1,3 @@
-using Retail.App.Services;
 using System.Globalization;
 using System.IO;
 using System.Windows;
@@ -7,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Retail.App.Services;
 using Retail.App.Views.Dialogs;
 using Retail.Application;
 using Retail.Application.Interfaces.Infrastructure;
