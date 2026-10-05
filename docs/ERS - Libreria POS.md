@@ -143,6 +143,7 @@ graph TD
 * **Apertura de Turno:** Registro del fondo de cambio inicial.
 * **Movimientos Varios:** Ingresos y retiros justificados en efectivo.
 * **Arqueo Ciego de Efectivo:** El cajero declara únicamente el dinero físico contado en efectivo. El sistema calcula faltante/sobrante y provee un total informativo de cobros electrónicos para cotejar con el cierre de lote del POS físico.
+* **Estado:** ✅ Implementado (Fases 1-4 completadas, fase 5 pendiente)
 
 ### Módulo VI: Facturación Fiscal Electrónica (ARCA)
 * **Automatización Tributaria:** Si la venta está asociada a un cliente Responsable Inscripto, emite **Factura A** automáticamente; en cualquier otro caso, emite **Factura B**.

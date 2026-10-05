@@ -1,0 +1,115 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.ArqueoCiegoDialog"
+                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                  Title="Arqueo Ciego de Caja"
+                  Width="460"
+                  Height="400"
+                  MinWidth="420"
+                  MinHeight="360"
+                  WindowStartupLocation="CenterOwner"
+                  ExtendsContentIntoTitleBar="True"
+                  WindowBackdropType="Mica"
+                  Background="{DynamicResource SurfaceBackgroundBrush}"
+                  ResizeMode="NoResize">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Colors.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Icons.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Barra de Título Fluent -->
+        <Grid Grid.Row="0">
+            <ui:TitleBar Height="32"
+                         Padding="8,0"
+                         Background="{DynamicResource SurfaceBackgroundBrush}"
+                         ShowMaximize="False"
+                         CanMaximize="False" />
+            <TextBlock Text="Arqueo Ciego de Caja"
+                       FontFamily="{StaticResource FontFamilyText}"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="48,0"
+                       IsHitTestVisible="False" />
+        </Grid>
+
+        <!-- Contenido -->
+        <Border Grid.Row="1" Padding="24,12">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Cierre de Turno y Arqueo Ciego"
+                           Style="{StaticResource TextBlockHeader2}"
+                           Margin="0,0,0,6" />
+                <TextBlock Text="Declare únicamente el dinero físico contado en la gaveta y el fondo a retener para el turno siguiente."
+                           Style="{StaticResource TextBlockSecondary}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,20" />
+
+                <!-- Saldo Declarado -->
+                <TextBlock Text="Efectivo Contado en Gaveta ($):"
+                           FontFamily="{StaticResource FontFamilyText}"
+                           FontWeight="Medium"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           Margin="0,0,0,6" />
+                <TextBox Text="{Binding SaldoDeclaradoEfectivo, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontSize="16"
+                         FontWeight="SemiBold"
+                         Height="38"
+                         VerticalContentAlignment="Center"
+                         Margin="0,0,0,16" />
+
+                <!-- Monto Retenido -->
+                <TextBlock Text="Monto Retenido en Caja para Próximo Turno ($):"
+                           FontFamily="{StaticResource FontFamilyText}"
+                           FontWeight="Medium"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           Margin="0,0,0,6" />
+                <TextBox Text="{Binding MontoRetenidoEnCaja, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontSize="16"
+                         FontWeight="SemiBold"
+                         Height="38"
+                         VerticalContentAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <!-- Botonera Inferior -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SurfaceCardBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="24,14">
+            <DockPanel LastChildFill="False">
+                <Button Content="Cancelar"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        Width="100"
+                        DockPanel.Dock="Left"
+                        Click="Cancelar_Click" />
+
+                <Button Content="Confirmar Cierre"
+                        Style="{StaticResource DestructiveKeycapButtonStyle}"
+                        Width="140"
+                        DockPanel.Dock="Right"
+                        Click="Aceptar_Click" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

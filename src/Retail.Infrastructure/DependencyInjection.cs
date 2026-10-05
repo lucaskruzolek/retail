@@ -65,9 +65,8 @@ public static class DependencyInjection
         // 5. Procesamiento Streaming de Planillas Excel (MiniExcel)
         services.AddSingleton<IExcelCatalogParser, Retail.Infrastructure.ExternalServices.Excel.ExcelCatalogParser>();
 
-        // 6. Doble de prueba para Turnos de Caja (desacople de Etapa 3.1)
-        services.TryAddScoped<Retail.Application.Interfaces.Services.ICajaService, Retail.Infrastructure.ExternalServices.Mocks.FakeCajaService>();
-
+        // 6. Reemplazamos el doble de prueba por la implementación real de CajaService.
+        services.AddScoped<Retail.Application.Interfaces.Services.ICajaService, Retail.Application.Services.CajaService>();
         return services;
     }
 }

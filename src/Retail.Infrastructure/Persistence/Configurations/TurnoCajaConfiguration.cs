@@ -91,5 +91,10 @@ public class TurnoCajaConfiguration : IEntityTypeConfiguration<TurnoCaja>
             .WithMany(u => u.TurnosCaja)
             .HasForeignKey(tc => tc.IdUsuario)
             .OnDelete(DeleteBehavior.Restrict);
+        // Índice filtrado único para asegurar un único turno abierto a la vez
+        builder.HasIndex(tc => tc.Estado)
+            .IsUnique()
+            .HasFilter("[estado] = 'Abierto' AND [deleted_at] IS NULL")
+            .HasDatabaseName("IX_TURNOS_CAJA_TurnoAbierto");
     }
 }

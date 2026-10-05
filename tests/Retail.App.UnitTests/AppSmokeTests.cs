@@ -198,7 +198,38 @@ public class AppSmokeTests
         });
     }
 
-    [Fact]
+        [Fact]
+        public void CajaView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+        {
+            // Arrange
+            Exception? xamlException = null;
+            CajaView? view = null;
+
+            WpfTestHelper.Run(() =>
+            {
+                var cajaServiceMock = Substitute.For<ICajaService>();
+                var dialogServiceMock = Substitute.For<ICajaDialogService>();
+                var viewModel = new Retail.App.ViewModels.Caja.CajaViewModel(cajaServiceMock, dialogServiceMock);
+
+                try
+                {
+                    view = new CajaView(viewModel);
+                    view.Measure(new System.Windows.Size(1024, 768));
+                    view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                    view.UpdateLayout();
+                }
+                catch (Exception ex)
+                {
+                    xamlException = ex;
+                }
+            });
+
+            // Assert
+            xamlException.Should().BeNull("el XAML de CajaView debe compilarse y resolverse sin errores de recursos o controles");
+            view.Should().NotBeNull();
+            view!.ViewModel.Should().NotBeNull();
+        }
+        [Fact]
     public void ClientesView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange

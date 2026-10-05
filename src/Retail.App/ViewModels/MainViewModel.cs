@@ -157,15 +157,7 @@ public partial class MainViewModel : ObservableObject
     {
         ModuloActivo = "Caja";
         TituloModuloActual = "Turnos de Caja y Arqueo Ciego";
-        _navigationService.NavigateTo<ModuloEnConstruccionView>(view =>
-        {
-            view.Configurar(
-                titulo: "Turnos de Caja y Arqueo Ciego",
-                etapa: "Etapa 3: Épica 3 - Módulo 3.1",
-                responsable: "Pablo Fernandez",
-                requisitos: "RF-13, RF-14, RF-15",
-                descripcion: "Apertura de turno con fondo inicial, movimientos extraordinarios de efectivo y arqueo ciego con acta comparativa.");
-        });
+        _navigationService.NavigateTo<CajaView>();
     }
 
     [RelayCommand]

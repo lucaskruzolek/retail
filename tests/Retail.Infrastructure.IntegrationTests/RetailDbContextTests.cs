@@ -512,13 +512,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         await _context.Usuarios.AddAsync(usuario);
         await _context.SaveChangesAsync();
 
-        var turno = new TurnoCaja
-        {
-            IdUsuario = usuario.Id,
-            FechaApertura = DateTime.UtcNow,
-            SaldoInicial = 1000m,
-            Estado = Domain.Enums.EstadoTurnoEnum.Abierto
-        };
+        var turno = TurnoCaja.Abrir(idUsuario: 1, saldoInicial: 1000m);
         await _context.TurnosCaja.AddAsync(turno);
         await _context.SaveChangesAsync();
 
