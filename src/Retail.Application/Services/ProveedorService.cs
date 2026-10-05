@@ -170,7 +170,12 @@ public class ProveedorService : IProveedorService
 
         var parseo = await _excelCatalogParser.ParsearCatalogoAsync(archivoStream, mapeo, progreso, cancellationToken);
 
-        var articulosLocales = await _articuloRepository.FindAsync(a => a.IdCatalogoProveedor != null, includeDeleted: false, cancellationToken);
+        // Q2: solo los artículos con hilo a un renglón de ESTE proveedor (H-14). SQL Server lo resuelve con
+        // un JOIN por la FK y un único parámetro escalar, sin enviar listas de IDs.
+        var articulosLocales = await _articuloRepository.FindAsync(
+            a => a.CatalogoProveedor != null && a.CatalogoProveedor.IdProveedor == mapeo.IdProveedor,
+            includeDeleted: false,
+            cancellationToken);
         var articulosPorCatalogo = articulosLocales.ToLookup(a => a.IdCatalogoProveedor!.Value);
 
         // Las filas que el parser no pudo interpretar también son errores que el usuario debe ver (H-03).

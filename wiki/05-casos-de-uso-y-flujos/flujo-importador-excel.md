@@ -35,7 +35,7 @@ Entre las dos hay un **hilo**: la columna `id_catalogo_proveedor` de cada artíc
 ### 1.3 Streaming contra DOM
 Librerías como `ClosedXML` cargan la hoja completa como un árbol de objetos en memoria (modelo DOM). **MiniExcel** lee el archivo como un flujo hacia adelante (*forward-only*) y entrega las filas de a una, sin construir ese árbol.
 
-> ⚠️ **Precisión importante para la defensa:** el *lector* de MiniExcel es streaming, pero nuestro parser **acumula las filas válidas en una lista** antes de procesarlas, y el Change Tracker de EF Core mantiene todas las entidades modificadas hasta el guardado. El consumo de memoria crece con el tamaño de la planilla (O(n)), aunque con objetos pequeños. Para 5.000 filas, el test de integración verifica < 3 s y < 50 MB de incremento. La medición contra el límite de `RNF-03` es la Fase 2 del handoff (hallazgo H-15).
+> ⚠️ **Precisión importante para la defensa:** el *lector* de MiniExcel es streaming, pero nuestro parser **acumula las filas válidas en una lista** antes de procesarlas, y el Change Tracker de EF Core mantiene todas las entidades modificadas hasta el guardado. El consumo de memoria crece con el tamaño de la planilla (O(n)), aunque con objetos pequeños. Lo medimos de punta a punta contra LocalDB (`ImportacionPlanillaIntegrationTests`): **5.000 filas retienen ≈ 13 MB**, un 4 % del límite de `RNF-03`, así que no hace falta procesar por lotes. El parseo solo tarda < 3 s; la importación completa, entre 3,9 y 4,6 s en una PC de desarrollo.
 
 ---
 
@@ -160,7 +160,7 @@ flowchart LR
 | :--- | :--- | :--- |
 | MiniExcel (streaming) | ClosedXML (DOM) | El modelo DOM carga la hoja completa como árbol de objetos |
 | Q1 + Q2 antes del recorrido | Consultar dentro del `foreach` | Problema N+1: 2 consultas en lugar de miles |
-| Un solo `SaveChanges` | Guardado por lotes con `ChangeTracker.Clear()` | Los lotes rompen la atomicidad, `Clear()` viola la Ley 1 desde Application y vacía un DbContext compartido por toda la app. Se reevalúa solo si la medición de RNF-03 lo exige (handoff, D-08) |
+| Un solo `SaveChanges` | Guardado por lotes con `ChangeTracker.Clear()` | Los lotes rompen la atomicidad, `Clear()` viola la Ley 1 desde Application y vacía un DbContext compartido por toda la app. Medido: 5.000 filas retienen ≈ 13 MB, así que los lotes no se justifican (handoff, D-08 cerrada) |
 | `Contains` con OPENJSON | Partir la lista en bloques de 1.000 | El límite de 2.100 no aplica en EF Core 8; probado con un test de integración |
 | Markup en `Articulo` | Stored Procedure | Ley 8: las reglas de negocio no viven en la base |
 | Encabezado por letra de columna | `useHeaderRow: true` | Fija el encabezado en la fila 1 y oculta el número de fila real |
@@ -180,7 +180,7 @@ flowchart LR
 > **Respuesta modelo:** "No. EF Core 8 envía la lista como un único parámetro JSON que SQL Server desarma con `OPENJSON`. Lo verificamos con un test de integración contra LocalDB, que además nos protege si una actualización de EF Core cambia esa traducción. El supuesto es que la base tenga compatibilidad ≥ 130."
 
 ### Pregunta 4: *"¿El consumo de memoria es constante gracias al streaming?"*
-> **Respuesta modelo:** "El lector de MiniExcel es streaming, pero nuestro parser acumula las filas válidas y el ChangeTracker retiene las entidades modificadas hasta el guardado, así que la memoria crece con la planilla. Para 5.000 filas lo acotamos con un test (< 50 MB de incremento). La medición formal contra `RNF-03` está planificada; si no se cumple, se evaluaría procesar por lotes dentro de una transacción explícita."
+> **Respuesta modelo:** "El lector de MiniExcel es streaming, pero nuestro parser acumula las filas válidas y el ChangeTracker retiene las entidades modificadas hasta el guardado, así que la memoria crece con la planilla. Lo medimos de punta a punta: 5.000 filas retienen unos 13 MB, el 4 % de los 300 MB de `RNF-03`. Con esa evidencia descartamos procesar por lotes, que habría complicado el código y roto la atomicidad. El tiempo no lo afirmamos en el test: varía con LocalDB y el disco, y `RNF-02` pide no bloquear la UI, no un tiempo fijo."
 
 ### Pregunta 5: *"¿Cómo saben que el número de fila del reporte de errores coincide con el que ve el usuario?"*
 > **Respuesta modelo:** "El parser lee la hoja sin cabecera automática y cuenta las filas a medida que las recorre, incluidas las vacías. Tenemos tests de integración con filas de título y filas en blanco, en XLSX y en CSV, que verifican la numeración."
