@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using Retail.App.Helpers;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 
@@ -10,8 +11,11 @@ namespace Retail.App.ViewModels.Compras;
 /// <summary>
 /// ViewModel principal para la gestión de compras a distribuidores e ingreso de facturas/remitos (Módulo 4.2).
 /// </summary>
-public partial class ComprasViewModel : ObservableObject
+public partial class ComprasViewModel : ObservableObject, IDisposable
 {
+    // Serializa la carga de proveedores sobre el DbContext de esta pantalla y la cancela al salir de ella (H-19).
+    private readonly CargaSerializada _cargaProveedores = new();
+
     private readonly IProveedorService _proveedorService;
     private readonly ILogger<ComprasViewModel> _logger;
 
@@ -50,28 +54,28 @@ public partial class ComprasViewModel : ObservableObject
     private async Task CargarProveedoresAsync(CancellationToken cancellationToken = default)
     {
         IsBusy = true;
-        try
-        {
-            var lista = await _proveedorService.ListarProveedoresAsync(cancellationToken);
-            Proveedores.Clear();
-            if (lista != null)
+
+        await _cargaProveedores.EjecutarAsync(
+            token => Task.Run(() => _proveedorService.ListarProveedoresAsync(token), token),
+            lista =>
             {
-                foreach (var p in lista)
+                Proveedores.Clear();
+                if (lista != null)
                 {
-                    Proveedores.Add(p);
+                    foreach (var p in lista)
+                    {
+                        Proveedores.Add(p);
+                    }
                 }
-            }
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al cargar proveedores en el módulo de compras");
-            MensajeError = "No se pudieron cargar los proveedores.";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+            },
+            ex =>
+            {
+                _logger.LogError(ex, "Error al cargar proveedores en el módulo de compras");
+                MensajeError = "No se pudieron cargar los proveedores.";
+            },
+            cancellationToken: cancellationToken);
+
+        IsBusy = _cargaProveedores.EnCurso;
     }
 
     [RelayCommand]
@@ -114,5 +118,15 @@ public partial class ComprasViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// Lo invoca el scope de la pantalla al salir de ella: cancela la carga en curso para que no use el
+    /// DbContext ya descartado ni muestre errores en otra pantalla (H-19).
+    /// </summary>
+    public void Dispose()
+    {
+        _cargaProveedores.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

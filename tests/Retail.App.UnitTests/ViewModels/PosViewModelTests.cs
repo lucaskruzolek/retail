@@ -29,7 +29,7 @@ public class PosViewModelTests
         _sessionMock.NombreCompleto.Returns("Juan Cajero");
         _sessionMock.IdUsuario.Returns(2);
 
-        _cajaServiceMock.ObtenerTurnoActivoAsync().Returns(new TurnoCajaDto
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(new TurnoCajaDto
         {
             IdTurno = 1,
             IdUsuario = 2,
@@ -45,16 +45,22 @@ public class PosViewModelTests
         });
     }
 
-    private PosViewModel CrearViewModel()
+    /// <summary>
+    /// Crea el ViewModel y espera la lectura inicial del estado de la caja, que el constructor lanza en segundo
+    /// plano: así ningún test puede ser pisado por ella después de asignar CajaAbierta.
+    /// </summary>
+    private async Task<PosViewModel> CrearViewModelAsync()
     {
-        return new PosViewModel(_ventaServiceMock, _cajaServiceMock, _sessionMock, _dialogServiceMock);
+        var viewModel = new PosViewModel(_ventaServiceMock, _cajaServiceMock, _sessionMock, _dialogServiceMock);
+        await viewModel.CargarEstadoCajaAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        return viewModel;
     }
 
     [Fact]
     public async Task ProcesarEnterAsync_ConArticuloResaltadoEnPopup_DebeAgregarAlTicketYCerrarPopup()
     {
         // Arrange
-        var viewModel = CrearViewModel();
+        var viewModel = await CrearViewModelAsync();
         var articulo = new ArticuloVentaDto
         {
             IdArticulo = 10,
@@ -87,7 +93,7 @@ public class PosViewModelTests
     public async Task ProcesarEnterAsync_ConArticuloExistente_DebeIncrementarCantidadSinDuplicarFila()
     {
         // Arrange
-        var viewModel = CrearViewModel();
+        var viewModel = await CrearViewModelAsync();
         var articulo = new ArticuloVentaDto
         {
             IdArticulo = 10,
@@ -115,10 +121,58 @@ public class PosViewModelTests
     }
 
     [Fact]
-    public void IncrementarYDecrementarCantidad_DebeActualizarSubtotalesYTotales()
+    public async Task ProcesarEnterAsync_ConLectorDeCodigosYBusquedaPredictivaEnCurso_EsperaSuTurnoYAgregaElArticulo()
+    {
+        // Arrange: el lector tipea el código (dispara la búsqueda predictiva) y manda Enter mientras ella consulta
+        const string codigo = "7791234567011";
+        var viewModel = await CrearViewModelAsync();
+        var consultoSugerencias = new TaskCompletionSource();
+        var sugerencias = new TaskCompletionSource<IReadOnlyList<ArticuloVentaDto>>();
+        var buscoArticulo = false;
+
+        _ventaServiceMock.BuscarPorCodigoBarrasAsync(codigo, Arg.Any<CancellationToken>()).Returns((ArticuloVentaDto?)null);
+        _ventaServiceMock.BuscarPorTextoAsync(codigo, Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                consultoSugerencias.TrySetResult();
+                return sugerencias.Task;
+            });
+        _ventaServiceMock.BuscarArticuloParaVentaAsync(codigo, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                buscoArticulo = true;
+                return new ArticuloVentaDto
+                {
+                    IdArticulo = 10,
+                    CodigoBarras = codigo,
+                    Descripcion = "Cuaderno Rivadavia 48h",
+                    PrecioVenta = 4800m,
+                    StockActual = 20,
+                    EsServicio = false
+                };
+            });
+
+        viewModel.TextoBusqueda = codigo;
+        await consultoSugerencias.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Act
+        var enter = viewModel.ProcesarEnterAsync();
+        await Task.Delay(100);
+        var buscoAntesDeLiberar = buscoArticulo;
+        sugerencias.SetException(new InvalidOperationException("Operation cancelled by user"));
+        await enter.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        buscoAntesDeLiberar.Should().BeFalse("la búsqueda del artículo espera a que la predictiva libere el DbContext (H-19)");
+        viewModel.Items.Should().ContainSingle().Which.IdArticulo.Should().Be(10);
+        _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarError(default!, default!);
+    }
+
+    [Fact]
+    public async Task IncrementarYDecrementarCantidad_DebeActualizarSubtotalesYTotales()
     {
         // Arrange
-        var viewModel = CrearViewModel();
+        var viewModel = await CrearViewModelAsync();
         var articulo = new ArticuloVentaDto
         {
             IdArticulo = 5,
@@ -147,10 +201,10 @@ public class PosViewModelTests
     }
 
     [Fact]
-    public void EliminarItem_DebeQuitarFilaYRecalcularTotales()
+    public async Task EliminarItem_DebeQuitarFilaYRecalcularTotales()
     {
         // Arrange
-        var viewModel = CrearViewModel();
+        var viewModel = await CrearViewModelAsync();
         viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
         {
             IdArticulo = 1,
@@ -182,10 +236,10 @@ public class PosViewModelTests
     }
 
     [Fact]
-    public void LimpiarVenta_ConConfirmacionPositiva_DebeVaciarTicket()
+    public async Task LimpiarVenta_ConConfirmacionPositiva_DebeVaciarTicket()
     {
         // Arrange
-        var viewModel = CrearViewModel();
+        var viewModel = await CrearViewModelAsync();
         viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
         {
             IdArticulo = 1,
@@ -209,7 +263,7 @@ public class PosViewModelTests
     public async Task CobrarVentaAsync_ConTicketVacio_NoDebeAbrirModalDeCobro()
     {
         // Arrange
-        var viewModel = CrearViewModel();
+        var viewModel = await CrearViewModelAsync();
         viewModel.CajaAbierta = true;
 
         // Act
@@ -223,7 +277,7 @@ public class PosViewModelTests
     public async Task CobrarVentaAsync_ConCajaCerrada_DebeMostrarAlertaYNoCobrar()
     {
         // Arrange
-        var viewModel = CrearViewModel();
+        var viewModel = await CrearViewModelAsync();
         viewModel.CajaAbierta = false;
         viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
         {
@@ -246,7 +300,7 @@ public class PosViewModelTests
     public async Task CobrarVentaAsync_ConCobroExitoso_DebeRegistrarVentaYVaciarTicket()
     {
         // Arrange
-        var viewModel = CrearViewModel();
+        var viewModel = await CrearViewModelAsync();
         viewModel.CajaAbierta = true;
         viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
         {

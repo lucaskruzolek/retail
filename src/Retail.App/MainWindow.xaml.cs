@@ -99,7 +99,9 @@ public partial class MainWindow : FluentWindow
 
     private Task RealizarCambioUsuarioAsync()
     {
-        var loginWindow = _serviceProvider.GetRequiredService<LoginWindow>();
+        // El login tiene su propio scope (y su propio DbContext), que se descarta al cerrarse la ventana (H-19).
+        using var scopeLogin = _serviceProvider.CreateScope();
+        var loginWindow = scopeLogin.ServiceProvider.GetRequiredService<LoginWindow>();
         loginWindow.Owner = this;
 
         loginWindow.ShowDialog();

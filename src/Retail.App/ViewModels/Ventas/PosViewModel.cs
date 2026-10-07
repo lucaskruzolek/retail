@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
@@ -19,7 +20,7 @@ namespace Retail.App.ViewModels.Ventas;
 /// Orquesta el SearchBar unificado con popup predictivo, la grilla del ticket contable,
 /// atajos F1 a F12 y el despacho hacia el checkout multimedio.
 /// </summary>
-public partial class PosViewModel : ObservableObject
+public partial class PosViewModel : ObservableObject, IDisposable
 {
     private static readonly CultureInfo CulturaArgentina = CultureInfo.GetCultureInfo("es-AR");
 
@@ -29,7 +30,11 @@ public partial class PosViewModel : ObservableObject
     private readonly IVentaDialogService _dialogService;
     private readonly ILogger<PosViewModel> _logger;
 
-    private CancellationTokenSource? _searchCts;
+    private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(180);
+
+    // Todos los accesos a datos del mostrador (búsqueda predictiva, artículo escaneado y estado de la caja)
+    // pasan por esta fila: nunca usan el DbContext de la pantalla al mismo tiempo y se cancelan al salir (H-19).
+    private readonly CargaSerializada _accesoDatos = new();
 
     [ObservableProperty]
     private string _textoBusqueda = string.Empty;
@@ -125,90 +130,75 @@ public partial class PosViewModel : ObservableObject
 
     partial void OnTextoBusquedaChanged(string value)
     {
-        _searchCts?.Cancel();
-        _searchCts?.Dispose();
-        _searchCts = new CancellationTokenSource();
-
-        var token = _searchCts.Token;
         string texto = value.Trim();
 
         if (texto.Length < 2)
         {
-            ResultadosBusqueda.Clear();
-            MostrarPopupBusqueda = false;
-            IndiceResultadoSeleccionado = -1;
+            // Una carga vacía reemplaza a la búsqueda en curso, cuyos resultados ya no corresponden al texto.
+            _ = _accesoDatos.EjecutarAsync(
+                _ => Task.FromResult<IReadOnlyList<ArticuloVentaDto>>(Array.Empty<ArticuloVentaDto>()),
+                MostrarResultadosBusqueda,
+                _ => { });
+            OcultarResultadosBusqueda();
             return;
         }
 
-        _ = Task.Run(async () =>
+        _ = _accesoDatos.EjecutarAsync(
+            token => Task.Run(() => BuscarSugerenciasAsync(texto, token), token),
+            MostrarResultadosBusqueda,
+            ex => _logger.LogError(ex, "Error en la búsqueda predictiva de artículos para mostrador."),
+            EsperaBusqueda);
+    }
+
+    private async Task<IReadOnlyList<ArticuloVentaDto>> BuscarSugerenciasAsync(string texto, CancellationToken token)
+    {
+        var lista = new List<ArticuloVentaDto>();
+
+        // Si son dígitos, intentamos código de barras exacto primero
+        if (texto.All(char.IsDigit))
         {
-            try
+            var artCodigo = await _ventaService.BuscarPorCodigoBarrasAsync(texto, token);
+            if (artCodigo != null)
             {
-                await Task.Delay(180, token);
-                if (token.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                var lista = new List<ArticuloVentaDto>();
-
-                // Si son dígitos, intentamos código de barras exacto primero
-                if (texto.All(char.IsDigit))
-                {
-                    var artCodigo = await _ventaService.BuscarPorCodigoBarrasAsync(texto, token);
-                    if (artCodigo != null)
-                    {
-                        lista.Add(artCodigo);
-                    }
-                }
-
-                // Luego búsqueda predictiva de texto
-                var coincidenciasTexto = await _ventaService.BuscarPorTextoAsync(texto, 10, token);
-                foreach (var art in coincidenciasTexto)
-                {
-                    if (lista.All(a => a.IdArticulo != art.IdArticulo))
-                    {
-                        lista.Add(art);
-                    }
-                }
-
-                if (!token.IsCancellationRequested)
-                {
-                    App.Current?.Dispatcher?.Invoke(() =>
-                    {
-                        ResultadosBusqueda.Clear();
-                        foreach (var item in lista)
-                        {
-                            ResultadosBusqueda.Add(item);
-                        }
-
-                        MostrarPopupBusqueda = ResultadosBusqueda.Count > 0;
-                        IndiceResultadoSeleccionado = ResultadosBusqueda.Count > 0 ? 0 : -1;
-                    });
-                }
+                lista.Add(artCodigo);
             }
-            catch (OperationCanceledException)
+        }
+
+        // Luego búsqueda predictiva de texto
+        var coincidenciasTexto = await _ventaService.BuscarPorTextoAsync(texto, 10, token);
+        foreach (var art in coincidenciasTexto)
+        {
+            if (lista.All(a => a.IdArticulo != art.IdArticulo))
             {
-                // Tarea cancelada normalmente por nueva tecla
+                lista.Add(art);
             }
-            catch (Exception ex) when (token.IsCancellationRequested ||
-                                       ex.InnerException is OperationCanceledException ||
-                                       ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
-            {
-                // Comando cancelado normalmente por nueva tecla (TDS Attention)
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error en la búsqueda predictiva de artículos para mostrador.");
-            }
-        }, token);
+        }
+
+        return lista;
+    }
+
+    private void MostrarResultadosBusqueda(IReadOnlyList<ArticuloVentaDto> lista)
+    {
+        ResultadosBusqueda.Clear();
+        foreach (var item in lista)
+        {
+            ResultadosBusqueda.Add(item);
+        }
+
+        MostrarPopupBusqueda = ResultadosBusqueda.Count > 0;
+        IndiceResultadoSeleccionado = ResultadosBusqueda.Count > 0 ? 0 : -1;
+    }
+
+    private void OcultarResultadosBusqueda()
+    {
+        ResultadosBusqueda.Clear();
+        MostrarPopupBusqueda = false;
+        IndiceResultadoSeleccionado = -1;
     }
 
     [RelayCommand]
     public async Task ProcesarEnterAsync()
     {
-        _searchCts?.Cancel();
-
         // 1. Si hay un ítem resaltado en el popup desplegado, cargarlo
         if (MostrarPopupBusqueda && IndiceResultadoSeleccionado >= 0 && IndiceResultadoSeleccionado < ResultadosBusqueda.Count)
         {
@@ -218,28 +208,38 @@ public partial class PosViewModel : ObservableObject
             return;
         }
 
-        // 2. Si se ingresó un valor directo en el campo sin navegar el popup
+        // 2. Si se ingresó un valor directo en el campo sin navegar el popup (típico del lector de códigos)
         string entrada = TextoBusqueda.Trim();
         if (string.IsNullOrWhiteSpace(entrada))
         {
             return;
         }
 
+        // Limpiar el buscador reemplaza la búsqueda predictiva en curso; la búsqueda del artículo espera
+        // su turno para no usar el DbContext al mismo tiempo que ella (H-19).
         LimpiarBuscador();
 
-        var articulo = await _ventaService.BuscarArticuloParaVentaAsync(entrada);
-        if (articulo != null)
-        {
-            AgregarArticuloAlTicket(articulo);
-        }
-        else
-        {
-            _dialogService.MostrarAlerta(
-                "Artículo no encontrado",
-                $"No se encontró ningún artículo que coincida con '{entrada}'.");
-        }
+        await _accesoDatos.EjecutarOperacionAsync(
+            token => Task.Run(() => _ventaService.BuscarArticuloParaVentaAsync(entrada, token), token),
+            articulo =>
+            {
+                if (articulo != null)
+                {
+                    AgregarArticuloAlTicket(articulo);
+                }
+                else
+                {
+                    _dialogService.MostrarAlerta(
+                        "Artículo no encontrado",
+                        $"No se encontró ningún artículo que coincida con '{entrada}'.");
+                }
+            },
+            ex =>
+            {
+                _logger.LogError(ex, "Error al buscar el artículo ingresado en mostrador: {Entrada}", entrada);
+                _dialogService.MostrarError("Error de búsqueda", ex.Message);
+            });
     }
-
     [RelayCommand]
     public void MoverSeleccionPopupArriba()
     {
@@ -417,18 +417,20 @@ public partial class PosViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task CargarEstadoCajaAsync()
+    public Task CargarEstadoCajaAsync()
     {
-        try
-        {
-            TurnoActivo = await _cajaService.ObtenerTurnoActivoAsync();
-            CajaAbierta = TurnoActivo?.Estado == EstadoTurnoEnum.Abierto;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "No se pudo recuperar el turno de caja activo: {Mensaje}", ex.Message);
-            CajaAbierta = false;
-        }
+        return _accesoDatos.EjecutarOperacionAsync(
+            token => Task.Run(() => _cajaService.ObtenerTurnoActivoAsync(token), token),
+            turno =>
+            {
+                TurnoActivo = turno;
+                CajaAbierta = TurnoActivo?.Estado == EstadoTurnoEnum.Abierto;
+            },
+            ex =>
+            {
+                _logger.LogWarning(ex, "No se pudo recuperar el turno de caja activo: {Mensaje}", ex.Message);
+                CajaAbierta = false;
+            });
     }
 
     public void AgregarArticuloAlTicket(ArticuloVentaDto articulo)
@@ -484,5 +486,15 @@ public partial class PosViewModel : ObservableObject
         OnPropertyChanged(nameof(Total));
         OnPropertyChanged(nameof(TotalFormateado));
         OnPropertyChanged(nameof(PuedeCobrar));
+    }
+
+    /// <summary>
+    /// Lo invoca el scope de la pantalla al salir de ella: cancela los accesos a datos pendientes para que no
+    /// usen el DbContext ya descartado ni muestren errores en otra pantalla (H-19).
+    /// </summary>
+    public void Dispose()
+    {
+        _accesoDatos.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

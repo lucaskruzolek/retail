@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.Interfaces.Services;
@@ -13,13 +14,17 @@ namespace Retail.App.ViewModels.Clientes;
 /// <summary>
 /// ViewModel principal para la administración del padrón de clientes y gestión de cuentas corrientes con push-down a SQL Server (RF-20, Ley 8).
 /// </summary>
-public partial class ClientesViewModel : ObservableObject
+public partial class ClientesViewModel : ObservableObject, IDisposable
 {
     private readonly IClienteService _clienteService;
     private readonly IClienteDialogService _dialogService;
     private readonly ILogger<ClientesViewModel> _logger;
 
-    private CancellationTokenSource? _searchCts;
+    private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
+
+    // Búsqueda, filtros y paginación comparten esta carga: nunca usan el DbContext de la pantalla al mismo
+    // tiempo, solo la vigente actualiza la grilla y al salir de la pantalla se cancela (H-19).
+    private readonly CargaSerializada _cargaClientes = new();
 
     public ObservableCollection<ClienteDto> Clientes { get; } = new();
 
@@ -110,24 +115,7 @@ public partial class ClientesViewModel : ObservableObject
     partial void OnTextoBusquedaChanged(string value)
     {
         PaginaActual = 1;
-        _searchCts?.Cancel();
-        _searchCts = new CancellationTokenSource();
-        var token = _searchCts.Token;
-
-        _ = DebounceBusquedaAsync(token);
-    }
-
-    private async Task DebounceBusquedaAsync(CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(250, token);
-            await CargarClientesAsync(token);
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (token.IsCancellationRequested ||
-                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
-        { }
+        _ = CargarClientesConEsperaAsync(EsperaBusqueda);
     }
 
     partial void OnCondicionIvaFiltroChanged(CondicionIvaEnum? value)
@@ -155,66 +143,64 @@ public partial class ClientesViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task CargarClientesAsync(CancellationToken cancellationToken = default)
+    public Task CargarClientesAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            IsBusy = true;
-            MensajeError = null;
-            MensajeEstado = "Cargando padrón de clientes...";
+        return CargarClientesConEsperaAsync(TimeSpan.Zero, cancellationToken);
+    }
 
-            var consulta = new ConsultaClientesDto
+    private async Task CargarClientesConEsperaAsync(TimeSpan espera, CancellationToken cancellationToken = default)
+    {
+        var consulta = new ConsultaClientesDto
+        {
+            TerminoBusqueda = TextoBusqueda,
+            CondicionIva = CondicionIvaFiltro,
+            SoloConDeuda = SoloConDeuda,
+            SoloConCuentaCorriente = SoloConCuentaCorriente,
+            Pagina = PaginaActual,
+            TamanoPagina = TamanoPagina
+        };
+
+        IsBusy = true;
+        MensajeError = null;
+        MensajeEstado = "Cargando padrón de clientes...";
+
+        await _cargaClientes.EjecutarAsync(
+            token => Task.Run(() => _clienteService.ListarClientesPaginadosAsync(consulta, token), token),
+            MostrarClientes,
+            ex =>
             {
-                TerminoBusqueda = TextoBusqueda,
-                CondicionIva = CondicionIvaFiltro,
-                SoloConDeuda = SoloConDeuda,
-                SoloConCuentaCorriente = SoloConCuentaCorriente,
-                Pagina = PaginaActual,
-                TamanoPagina = TamanoPagina
-            };
+                _logger.LogError(ex, "Error al cargar clientes: {Mensaje}", ex.Message);
+                MensajeError = $"Error al cargar clientes: {ex.Message}";
+                _dialogService.MostrarError("Error de Carga", ex.Message);
+            },
+            espera,
+            cancellationToken);
 
-            var resultado = await Task.Run(
-                () => _clienteService.ListarClientesPaginadosAsync(consulta, cancellationToken),
-                cancellationToken);
+        IsBusy = _cargaClientes.EnCurso;
+    }
 
-            EjecutarEnDispatcher(() =>
+    private void MostrarClientes(ClientesPaginadosDto resultado)
+    {
+        EjecutarEnDispatcher(() =>
+        {
+            Clientes.Clear();
+            foreach (var c in resultado.Items)
             {
-                Clientes.Clear();
-                foreach (var c in resultado.Items)
-                {
-                    Clientes.Add(c);
-                }
-            });
+                Clientes.Add(c);
+            }
+        });
 
-            TotalClientes = resultado.TotalClientes;
-            TotalClientesConDeuda = resultado.TotalClientesConDeuda;
-            TotalDeudaCartera = resultado.TotalDeudaCartera;
-            TotalRegistrosFiltrados = resultado.TotalRegistros;
-            TotalPaginas = resultado.TotalPaginas;
+        TotalClientes = resultado.TotalClientes;
+        TotalClientesConDeuda = resultado.TotalClientesConDeuda;
+        TotalDeudaCartera = resultado.TotalDeudaCartera;
+        TotalRegistrosFiltrados = resultado.TotalRegistros;
+        TotalPaginas = resultado.TotalPaginas;
 
-            OnPropertyChanged(nameof(PuedeRetrocederPagina));
-            OnPropertyChanged(nameof(PuedeAvanzarPagina));
-            OnPropertyChanged(nameof(InformacionPaginacion));
+        OnPropertyChanged(nameof(PuedeRetrocederPagina));
+        OnPropertyChanged(nameof(PuedeAvanzarPagina));
+        OnPropertyChanged(nameof(InformacionPaginacion));
 
-            MensajeEstado = $"Mostrando {Clientes.Count} de {TotalClientes} clientes (Deuda total: {TotalDeudaCartera:C}).";
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (cancellationToken.IsCancellationRequested ||
-                                   ex.InnerException is OperationCanceledException ||
-                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogDebug("Consulta de clientes cancelada por nueva acción del usuario.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al cargar clientes: {Mensaje}", ex.Message);
-            MensajeError = $"Error al cargar clientes: {ex.Message}";
-            _dialogService.MostrarError("Error de Carga", ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        MensajeEstado = $"Mostrando {Clientes.Count} de {TotalClientes} clientes (Deuda total: {TotalDeudaCartera:C}).";
     }
 
     [RelayCommand]
@@ -395,5 +381,15 @@ public partial class ClientesViewModel : ObservableObject
         {
             action();
         }
+    }
+
+    /// <summary>
+    /// Lo invoca el scope de la pantalla al salir de ella: cancela la carga en curso para que no use el
+    /// DbContext ya descartado ni muestre errores en otra pantalla (H-19).
+    /// </summary>
+    public void Dispose()
+    {
+        _cargaClientes.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

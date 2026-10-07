@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
 
-public class ClientesViewModelTests
+public class ClientesViewModelTests : IDisposable
 {
     private readonly IClienteService _clienteService;
     private readonly IClienteDialogService _dialogService;
@@ -497,5 +497,11 @@ public class ClientesViewModelTests
         _sut.PaginaActual.Should().Be(1);
         _sut.TotalRegistrosFiltrados.Should().Be(1);
         _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Escuela Nro 5");
+    }
+
+    public void Dispose()
+    {
+        _sut.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

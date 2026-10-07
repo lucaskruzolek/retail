@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
@@ -13,8 +14,11 @@ namespace Retail.App.ViewModels.Usuarios;
 /// <summary>
 /// ViewModel principal para el panel gerencial de administración de usuarios y roles RBAC (RF-03).
 /// </summary>
-public partial class UsuariosViewModel : ObservableObject
+public partial class UsuariosViewModel : ObservableObject, IDisposable
 {
+    // Serializa las cargas de operadores sobre el DbContext de esta pantalla y las cancela al salir de ella (H-19).
+    private readonly CargaSerializada _cargaUsuarios = new();
+
     private readonly IUsuarioService _usuarioService;
     private readonly IUsuarioDialogService _dialogService;
     private readonly ILogger<UsuariosViewModel> _logger;
@@ -84,30 +88,29 @@ public partial class UsuariosViewModel : ObservableObject
     [RelayCommand]
     public async Task CargarUsuariosAsync()
     {
-        try
-        {
-            IsBusy = true;
-            MensajeError = null;
-            MensajeEstado = "Cargando operadores...";
+        IsBusy = true;
+        MensajeError = null;
+        MensajeEstado = "Cargando operadores...";
 
-            var lista = await _usuarioService.ListarUsuariosAsync();
-            _cacheUsuarios = lista.ToList();
+        await _cargaUsuarios.EjecutarAsync(
+            token => Task.Run(() => _usuarioService.ListarUsuariosAsync(token), token),
+            lista =>
+            {
+                _cacheUsuarios = lista.ToList();
 
-            PaginaActual = 1;
-            AplicarFiltroLocal();
+                PaginaActual = 1;
+                AplicarFiltroLocal();
 
-            MensajeEstado = $"Se cargaron {_cacheUsuarios.Count} operadores.";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al obtener la lista de operadores: {Mensaje}", ex.Message);
-            MensajeError = $"Error al obtener usuarios: {ex.Message}";
-            _dialogService.MostrarError("Error de Carga", ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+                MensajeEstado = $"Se cargaron {_cacheUsuarios.Count} operadores.";
+            },
+            ex =>
+            {
+                _logger.LogError(ex, "Error al obtener la lista de operadores: {Mensaje}", ex.Message);
+                MensajeError = $"Error al obtener usuarios: {ex.Message}";
+                _dialogService.MostrarError("Error de Carga", ex.Message);
+            });
+
+        IsBusy = _cargaUsuarios.EnCurso;
     }
 
     [RelayCommand]
@@ -369,5 +372,15 @@ public partial class UsuariosViewModel : ObservableObject
         OnPropertyChanged(nameof(PuedeRetrocederPagina));
         OnPropertyChanged(nameof(PuedeAvanzarPagina));
         OnPropertyChanged(nameof(InformacionPaginacion));
+    }
+
+    /// <summary>
+    /// Lo invoca el scope de la pantalla al salir de ella: cancela la carga en curso para que no use el
+    /// DbContext ya descartado ni muestre errores en otra pantalla (H-19).
+    /// </summary>
+    public void Dispose()
+    {
+        _cargaUsuarios.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
