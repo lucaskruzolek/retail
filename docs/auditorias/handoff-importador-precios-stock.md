@@ -103,10 +103,11 @@ Archivos clave:
 | H-11 | `IncorporarArticulosATiendaAsync` omite en silencio los ítems ya vinculados (devuelve `Task`, sin informe) | `ProveedorService.cs` | **Resuelto** (Fase 1, commit `e47cbdd`): devuelve `ResultadoIncorporacionDto` (incorporados y omitidos) | Pablo |
 | H-12 | `VincularArticuloACatalogoAsync` vincula y copia el costo del ítem tal cual: un artículo "unidad" vinculado a un ítem "pack x100" recibe el costo del pack | `ProveedorService.cs`, `Articulo.VincularCatalogoProveedor` | Abierto, se resuelve con el modelo de la sección 5 | Ambos |
 | H-13 | El explorador elige el artículo vinculado con `GroupBy(...).First()` sin orden definido | `CatalogoProveedorQueryService.cs` | Abierto, depende de la sección 5 | Pablo |
-| H-14 | Se cargan todos los artículos vinculados de **todos** los proveedores, con tracking. Solución propuesta: filtrar por proveedor a través de la navegación (ver sección 6.1) | `ProveedorService.ImportarPlanillaProveedorAsync` | Abierto (rendimiento) | Pablo (toca la consulta de `Articulo`: coordinar con Lucas) |
-| H-15 | El "streaming" termina en el parser: se materializa toda la `List` y todas las entidades quedan en el Change Tracker. No está medido contra RNF-03 (≤ 300 MB) | Parser y servicio | Abierto, medir antes de optimizar | Pablo |
+| H-14 | Se cargan todos los artículos vinculados de **todos** los proveedores, con tracking. Solución propuesta: filtrar por proveedor a través de la navegación (ver sección 6.1) | `ProveedorService.ImportarPlanillaProveedorAsync` | **Resuelto** (Fase 2): filtro por navegación (sección 6.1). Verificado en LocalDB: con 2.000 artículos de otro proveedor, solo se cargan los del proveedor importado | Pablo (toca la consulta de `Articulo`: coordinar con Lucas) |
+| H-15 | El "streaming" termina en el parser: se materializa toda la `List` y todas las entidades quedan en el Change Tracker. No está medido contra RNF-03 (≤ 300 MB) | Parser y servicio | **Medido** (Fase 2): 5.000 filas de punta a punta retienen ≈ 13 MB (4 % de RNF-03). Tiempo típico 3,9–4,6 s en LocalDB, con un caso aislado de 28,5 s atribuible al entorno | Pablo |
 | H-16 | `PreciosActualizados` cuenta artículos tocados aunque el costo no haya cambiado. Comparar contra el costo **de cada artículo** (`articulo.CostoReposicion != nuevoCosto`), no contra el del catálogo: un artículo editado a mano puede tener otro costo | `ProveedorService.cs` | **Resuelto** (Fase 1, commit `e47cbdd`) | Pablo |
 | H-17 | El PR #4 agregó el chequeo de "ya vinculado" solo en `IncorporarArticulosATiendaAsync`. `VincularArticuloACatalogoAsync` no chequea nada, así que por esa vía todavía se crean vínculos 1 a N, en contra de la regla 1 de la sección 5.2 | `ProveedorService.VincularArticuloACatalogoAsync` | **Resuelto** (Fase 1, commit `e47cbdd`): `DomainException` si el ítem ya tiene otro artículo; revincular el mismo sigue permitido. El índice único llega en la Fase 3 | Pablo |
+| H-18 | Condición de carrera en `ImportadorCatalogosViewModel`: asignar `ProveedorActivo` dispara una carga asíncrona del catálogo que pone `MensajeError = null`; si termina después de que un comando escribió un error, lo borra. Hace intermitente el test `IncorporarSeleccionadosCommand_SinElementosSeleccionados_EstableceMensajeDeError` (falló 1 de 4 corridas). Detectado el 5 de octubre al verificar la Fase 2 | `ImportadorCatalogosViewModel.OnProveedorActivoChanged` | Abierto | Pablo |
 
 **Resueltos por los PRs #3 y #4** (no volver a trabajarlos): precios en texto es-AR, lectura de CSV, mayúsculas contra collation, duplicados en la planilla, `catch` vacío, `ToDictionary` con claves repetidas, largos que hacían fallar el `SaveChanges`.
 
@@ -123,7 +124,7 @@ Archivos clave:
 | D-05 | ¿Un ítem de proveedor puede costar $0 (bonificados)? | Sí (unificar en ≥ 0) / No (unificar en > 0 y reportarlo) | Unificar la regla en el dominio, en un solo lugar |
 | D-06 | Modo de redondeo del precio de venta | `ToEven` (actual, implícito) / `AwayFromZero` | `AwayFromZero` explícito, por convención comercial |
 | D-07 | Deduplicación: ¿qué fila gana? | Primera (PR #4) / Última (propuesta en `solucion-optimizacion-importador-excel.md`) | Decidir y documentar. Cualquiera sirve si se reporta |
-| D-08 | Transacción única contra lotes | Ver sección 6 | Lotes **dentro de una transacción explícita**, solo si la medición de H-15 lo justifica. Dos condiciones obligatorias: **(a)** Ley 1: `ProveedorService` (Application) no puede tocar `RetailDbContext.ChangeTracker`; habría que exponer la limpieza en `IUnitOfWork`. **(b)** El DbContext es **compartido por toda la app** (los servicios Scoped se resuelven desde la raíz; el único `CreateScope()` está en `App.xaml.cs:139`). `ChangeTracker.Clear()` desvincularía las entidades de otras pantallas, así que la importación necesitaría **su propio scope de DI** |
+| D-08 | Transacción única contra lotes | Ver sección 6 | **CERRADA (Fase 2): no se implementa.** La medición de H-15 da ≈ 13 MB para 5.000 filas, así que los lotes no se justifican. Si en el futuro hiciera falta, rigen dos condiciones obligatorias: **(a)** Ley 1: `ProveedorService` (Application) no puede tocar `RetailDbContext.ChangeTracker`; habría que exponer la limpieza en `IUnitOfWork`. **(b)** El DbContext es **compartido por toda la app** (los servicios Scoped se resuelven desde la raíz; el único `CreateScope()` está en `App.xaml.cs:139`). `ChangeTracker.Clear()` desvincularía las entidades de otras pantallas, así que la importación necesitaría **su propio scope de DI** |
 | D-09 | Precisión del costo unitario derivado | `decimal(18,2)` actual / `decimal(18,4)` para costos y redondeo solo del precio | **DECIDIDA (7 de octubre): se mantiene `decimal(18,2)`**, sin migración de precisión. El costo del derivado se redondea a 2 decimales (RF-21); el error es de hasta medio centavo por unidad, relevante solo en productos de centavos. El modo de redondeo depende de D-06 |
 
 ---
@@ -262,8 +263,23 @@ Cambios de contrato que Pablo debe conocer:
 
 Hallazgo de los tests: MiniExcel entrega las filas vacías intermedias en XLSX y CSV, así que contar filas da el número real. La nota [`wiki/05-casos-de-uso-y-flujos/flujo-importador-excel.md`](../../wiki/05-casos-de-uso-y-flujos/flujo-importador-excel.md) se reescribió: la anterior describía un diseño (`IAsyncEnumerable`, lotes de 500, memoria O(1)) que no coincidía con el código.
 
-### Fase 2: Medición y transacción (Pablo)
+### Fase 2: Medición y transacción (Pablo) — ✅ COMPLETADA
 H-14 con el filtro de la sección 6.1 y su test de integración (es barato y no depende de medir). Después, un test con 5.000 filas sintéticas (roadmap: < 3 s, ≤ 300 MB). Solo si no cumple, implementar D-08 (lotes dentro de una transacción, con las condiciones (a) y (b)).
+
+**Estado (5 de octubre):** rama `perf/importador-fase-2`. Nuevo `ImportacionPlanillaIntegrationTests.cs`: primeros tests **de punta a punta** del importador (`ProveedorService` con repositorios, Unit of Work, query service y parser reales, contra LocalDB).
+
+| Corrida | Tiempo total | Memoria retenida | Artículos cargados |
+|---|---|---|---|
+| 1 | 4.624 ms | 12,7 MB | 2.500 |
+| 2 | 28.507 ms | 12,8 MB | 2.500 |
+| 3 | 3.869 ms | 12,7 MB | 2.500 |
+| 4 | 4.471 ms | 12,8 MB | 2.500 |
+
+Escenario: 2.500 renglones existentes con artículo vinculado, 2.500 nuevos y 2.000 artículos de otro proveedor como ruido. Conclusiones:
+- **Memoria:** estable y muy por debajo de RNF-03 → **D-08 cerrada**. El test afirma < 100 MB.
+- **H-14:** se cargan 2.500 artículos en lugar de 4.500. El test lo afirma contando las entradas `Articulo` del ChangeTracker.
+- **Tiempo:** **no se afirma**, solo se informa en la salida del test. En la corrida 2 también la preparación de datos fue lenta (el test entero tardó 1 min 8 s, contra 9–11 s en las demás), lo que apunta a LocalDB o al disco. Un límite fijo volvería el test *flaky* en el CI. RNF-02 exige no bloquear la UI (la importación corre en `Task.Run`), no un tiempo fijo, y el criterio de < 3 s del roadmap aplica al parseo, que cubre `ExcelCatalogParserTests`.
+- **Posible optimización futura (no medida):** los `UpdateAsync` sobre entidades ya seguidas marcan todas las columnas como modificadas; sin ellos, EF generaría `UPDATE` solo de las columnas que cambian. Evaluar solo si el tiempo llegara a ser un problema real.
 
 ### Fase 3: Presentaciones y stock (Lucas + Pablo, después de D-01, D-03 y D-09)
 1. ✅ **ERS redactada** (7 de octubre, rama `docs/ers-presentaciones`): RF-21 nuevo "Presentaciones de Venta y Fraccionamiento", precisiones en RF-05, RF-10 y RF-19, cuatro definiciones en 1.4, un punto en el Módulo I y una fila en la matriz de trazabilidad. Pendiente de revisión de Pablo.
@@ -303,6 +319,21 @@ H-06 (escrituras por la raíz `Proveedor`), H-07 + D-05, H-08, H-09 + D-06, H-10
 | 6 | H1 local confirmado como falso positivo por el test de integración. Se corrigieron cuatro filas de la tabla de evaluación que habían quedado fuera de ella |
 | 7 | Fase 0: pasos 1 a 3 hechos (el 4, `.gitattributes`, sigue pendiente). Fase 1 completada, con los cambios de contrato para la revisión de Pablo |
 | 7 | Fase 0 reordenada y sin los pasos de atribución; H-17 y el test de compatibilidad en Fase 1; H-14 adelantado en Fase 2; Fase 3 empieza por la ERS |
+
+### Actualización del 5 de octubre: Fase 2 completada
+
+| Sección | Cambio |
+|---|---|
+| 3 | H-14 resuelto (filtro por navegación, verificado en LocalDB). H-15 medido: ≈ 13 MB para 5.000 filas |
+| 4 | D-08 cerrada: los lotes no se justifican con la memoria medida |
+| 7 | Fase 2 completada, con la tabla de las cuatro corridas y la decisión de no afirmar el tiempo |
+
+### Hallazgo durante la verificación de la Fase 2
+
+| Sección | Cambio |
+|---|---|
+| 3 | Nuevo H-18: condición de carrera en `ImportadorCatalogosViewModel` que vuelve intermitente un test |
+| — | `main` no compilaba desde el PR #8 (módulo 3.1): namespace de `CajaView`, tres estilos XAML inexistentes en los diálogos de Caja, un test de navegación desactualizado y formato. Se corrigió en una rama aparte, `fix/build-main-caja` (commit `605df15`), para que lo revise Pablo |
 
 ### Actualización del 7 de octubre: inicio de la Fase 3
 
