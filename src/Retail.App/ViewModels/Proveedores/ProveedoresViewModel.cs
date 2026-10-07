@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
@@ -13,8 +14,11 @@ namespace Retail.App.ViewModels.Proveedores;
 /// ViewModel principal para la administración del padrón de proveedores y distribuidores (Etapa 2.2).
 /// Sigue el patrón MVVM de CommunityToolkit con paginación integrada y delegación de diálogos a IProveedorDialogService.
 /// </summary>
-public partial class ProveedoresViewModel : ObservableObject
+public partial class ProveedoresViewModel : ObservableObject, IDisposable
 {
+    // Serializa las cargas de proveedores sobre el DbContext de esta pantalla y las cancela al salir de ella (H-19).
+    private readonly CargaSerializada _cargaProveedores = new();
+
     private readonly IProveedorService _proveedorService;
     private readonly IProveedorDialogService _dialogService;
     private readonly ILogger<ProveedoresViewModel> _logger;
@@ -126,33 +130,23 @@ public partial class ProveedoresViewModel : ObservableObject
         MensajeError = null;
         MensajeEstado = null;
 
-        try
-        {
-            var lista = await Task.Run(
-                () => _proveedorService.ListarProveedoresAsync(cancellationToken),
-                cancellationToken);
+        await _cargaProveedores.EjecutarAsync(
+            token => Task.Run(() => _proveedorService.ListarProveedoresAsync(token), token),
+            lista =>
+            {
+                _cacheProveedores = lista.ToList();
+                TotalProveedores = _cacheProveedores.Count;
+                PaginaActual = 1;
+                AplicarFiltroLocal();
+            },
+            ex =>
+            {
+                _logger.LogError(ex, "Error al cargar proveedores");
+                MensajeError = "No se pudo cargar la lista de proveedores.";
+            },
+            cancellationToken: cancellationToken);
 
-            _cacheProveedores = lista.ToList();
-            TotalProveedores = _cacheProveedores.Count;
-            PaginaActual = 1;
-            AplicarFiltroLocal();
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (cancellationToken.IsCancellationRequested ||
-                                   ex.InnerException is OperationCanceledException ||
-                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogDebug("Carga de proveedores cancelada por nueva acción del usuario.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al cargar proveedores");
-            MensajeError = "No se pudo cargar la lista de proveedores.";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        IsBusy = _cargaProveedores.EnCurso;
     }
 
     [RelayCommand]
@@ -311,5 +305,15 @@ public partial class ProveedoresViewModel : ObservableObject
         OnPropertyChanged(nameof(PuedeRetrocederPagina));
         OnPropertyChanged(nameof(PuedeAvanzarPagina));
         OnPropertyChanged(nameof(InformacionPaginacion));
+    }
+
+    /// <summary>
+    /// Lo invoca el scope de la pantalla al salir de ella: cancela la carga en curso para que no use el
+    /// DbContext ya descartado ni muestre errores en otra pantalla (H-19).
+    /// </summary>
+    public void Dispose()
+    {
+        _cargaProveedores.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

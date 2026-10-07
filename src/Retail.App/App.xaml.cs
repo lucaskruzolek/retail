@@ -58,71 +58,88 @@ public partial class App : System.Windows.Application
             {
                 config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
             })
-            .ConfigureServices((context, services) =>
+            // Validación de ciclos de vida: si un servicio Scoped (por ejemplo, el DbContext) se resuelve
+            // desde el proveedor raíz, la app falla al arrancar en lugar de compartir el contexto en silencio (H-19).
+            .UseDefaultServiceProvider(options =>
             {
-                // Inyección de capas del Clean Monolith
-                services.AddApplicationServices();
-                services.AddInfrastructureServices(context.Configuration);
-
-                // Sesión de Usuario y Navegación Desacoplada (Módulo 1.1)
-                services.AddSingleton<Retail.App.Services.ICurrentUserSession, Retail.App.Services.CurrentUserSession>();
-                services.AddSingleton<Retail.App.Services.INavigationService, Retail.App.Services.NavigationService>();
-                services.AddTransient<Retail.App.ViewModels.Auth.LoginViewModel>();
-                services.AddTransient<Retail.App.Views.Auth.LoginWindow>();
-                services.AddSingleton<Retail.App.ViewModels.MainViewModel>();
-                services.AddSingleton<MainWindow>();
-
-                // Vistas de Desarrollo
-                services.AddTransient<Retail.App.Views.Dev.StyleGalleryView>();
-
-                // Operadores y Usuarios (Módulo 1.2)
-                services.AddSingleton<Retail.App.Services.IUsuarioDialogService, Retail.App.Services.UsuarioDialogService>();
-                services.AddTransient<Retail.App.ViewModels.Usuarios.UsuariosViewModel>();
-                services.AddTransient<Retail.App.Views.Pages.UsuariosView>();
-
-                // Artículos y Catálogo (Módulo 2.1)
-                services.AddSingleton<Retail.App.Services.IArticuloDialogService, Retail.App.Services.ArticuloDialogService>();
-                services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();
-                services.AddTransient<Retail.App.ViewModels.Articulos.SeleccionarCatalogoProveedorModalViewModel>();
-                services.AddTransient<Retail.App.Views.Pages.ArticulosView>();
-                services.AddTransient<Retail.App.Views.Dialogs.SeleccionarCatalogoProveedorModalDialog>();
-
-                services.AddSingleton<Retail.App.Services.IClienteDialogService, Retail.App.Services.ClienteDialogService>();
-                services.AddTransient<Retail.App.ViewModels.Clientes.ClientesViewModel>();
-                services.AddTransient<Retail.App.ViewModels.Clientes.ClienteFormViewModel>();
-                services.AddTransient<Retail.App.Views.Pages.ClientesView>();
-
-                // Proveedores y Catálogos de Proveedores (Módulo 2.2)
-                services.AddSingleton<Retail.App.Services.IProveedorDialogService, Retail.App.Services.ProveedorDialogService>();
-                services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedoresViewModel>();
-                services.AddTransient<Retail.App.ViewModels.Proveedores.ImportadorCatalogosViewModel>();
-                services.AddTransient<Retail.App.Views.Pages.ProveedoresView>();
-                services.AddTransient<Retail.App.Views.Pages.ImportadorCatalogosView>();
-                services.AddTransient<Retail.App.Views.Dialogs.IncorporarArticulosModalDialog>();
-                services.AddTransient<Retail.App.ViewModels.Proveedores.IncorporarArticulosModalViewModel>();
-                services.AddTransient<Retail.App.Views.Dialogs.ImportarPlanillaDialog>();
-                services.AddTransient<Retail.App.ViewModels.Proveedores.ImportarPlanillaViewModel>();
-                services.AddTransient<Retail.App.Views.Dialogs.ProveedorFormDialog>();
-                services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedorFormViewModel>();
-                services.AddTransient<Retail.App.Views.Dialogs.VincularArticuloModalDialog>();
-                services.AddTransient<Retail.App.ViewModels.Proveedores.VincularArticuloModalViewModel>();
-                // Punto de Venta y Mostrador (Módulo 4.1)
-                services.AddSingleton<Retail.App.Services.IVentaDialogService, Retail.App.Services.VentaDialogService>();
-                services.AddTransient<Retail.App.ViewModels.Ventas.PosViewModel>();
-                services.AddTransient<Retail.App.Views.Pages.PosView>();
-                services.AddTransient<Retail.App.Views.Pages.CajaView>();
-                services.AddTransient<Retail.App.ViewModels.Caja.CajaViewModel>();
-                // Registro de la Vista de Compras y su ViewModel(Módulo 4.2)
-                services.AddTransient<Retail.App.Views.Pages.ComprasView>();
-                services.AddTransient<Retail.App.ViewModels.Compras.ComprasViewModel>();
-                services.AddTransient<ICajaDialogService, CajaDialogService>();
-
-                // Módulos en Construcción (Cortesía informativa de Roadmap)
-
-                services.AddTransient<Retail.App.Views.Pages.ModuloEnConstruccionView>();
+                options.ValidateScopes = true;
+                options.ValidateOnBuild = true;
             })
-
+            .ConfigureServices((context, services) => RegistrarServicios(services, context.Configuration))
             .Build();
+    }
+
+    /// <summary>
+    /// Registra todas las capas y los componentes de UI. Es público y estático para que las pruebas validen
+    /// la configuración real de inyección de dependencias sin instanciar la aplicación WPF.
+    /// </summary>
+    /// <remarks>
+    /// Ciclos de vida (H-19): el Shell (MainWindow, MainViewModel, navegación y sesión) es Singleton (Ley 10).
+    /// Cada pantalla se resuelve en su propio scope (<see cref="NavigationService"/>), y los servicios de
+    /// diálogo son Scoped para que un modal use el mismo DbContext que la pantalla que lo abre.
+    /// </remarks>
+    public static void RegistrarServicios(IServiceCollection services, IConfiguration configuration)
+    {
+        // Inyección de capas del Clean Monolith
+        services.AddApplicationServices();
+        services.AddInfrastructureServices(configuration);
+
+        // Sesión de Usuario y Navegación Desacoplada (Módulo 1.1)
+        services.AddSingleton<Retail.App.Services.ICurrentUserSession, Retail.App.Services.CurrentUserSession>();
+        services.AddSingleton<Retail.App.Services.INavigationService, Retail.App.Services.NavigationService>();
+        services.AddTransient<Retail.App.ViewModels.Auth.LoginViewModel>();
+        services.AddTransient<Retail.App.Views.Auth.LoginWindow>();
+        services.AddSingleton<Retail.App.ViewModels.MainViewModel>();
+        services.AddSingleton<MainWindow>();
+
+        // Vistas de Desarrollo
+        services.AddTransient<Retail.App.Views.Dev.StyleGalleryView>();
+
+        // Operadores y Usuarios (Módulo 1.2)
+        services.AddScoped<Retail.App.Services.IUsuarioDialogService, Retail.App.Services.UsuarioDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Usuarios.UsuariosViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.UsuariosView>();
+
+        // Artículos y Catálogo (Módulo 2.1)
+        services.AddScoped<Retail.App.Services.IArticuloDialogService, Retail.App.Services.ArticuloDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();
+        services.AddTransient<Retail.App.ViewModels.Articulos.SeleccionarCatalogoProveedorModalViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.ArticulosView>();
+        services.AddTransient<Retail.App.Views.Dialogs.SeleccionarCatalogoProveedorModalDialog>();
+
+        services.AddScoped<Retail.App.Services.IClienteDialogService, Retail.App.Services.ClienteDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Clientes.ClientesViewModel>();
+        services.AddTransient<Retail.App.ViewModels.Clientes.ClienteFormViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.ClientesView>();
+
+        // Proveedores y Catálogos de Proveedores (Módulo 2.2)
+        services.AddScoped<Retail.App.Services.IProveedorDialogService, Retail.App.Services.ProveedorDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedoresViewModel>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.ImportadorCatalogosViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.ProveedoresView>();
+        services.AddTransient<Retail.App.Views.Pages.ImportadorCatalogosView>();
+        services.AddTransient<Retail.App.Views.Dialogs.IncorporarArticulosModalDialog>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.IncorporarArticulosModalViewModel>();
+        services.AddTransient<Retail.App.Views.Dialogs.ImportarPlanillaDialog>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.ImportarPlanillaViewModel>();
+        services.AddTransient<Retail.App.Views.Dialogs.ProveedorFormDialog>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedorFormViewModel>();
+        services.AddTransient<Retail.App.Views.Dialogs.VincularArticuloModalDialog>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.VincularArticuloModalViewModel>();
+        // Punto de Venta y Mostrador (Módulo 4.1)
+        services.AddScoped<Retail.App.Services.IVentaDialogService, Retail.App.Services.VentaDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Ventas.PosViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.PosView>();
+        services.AddTransient<Retail.App.Views.Pages.CajaView>();
+        services.AddTransient<Retail.App.ViewModels.Caja.CajaViewModel>();
+        // Registro de la Vista de Compras y su ViewModel(Módulo 4.2)
+        services.AddTransient<Retail.App.Views.Pages.ComprasView>();
+        services.AddTransient<Retail.App.ViewModels.Compras.ComprasViewModel>();
+        services.AddTransient<ICajaDialogService, CajaDialogService>();
+
+        // Módulos en Construcción (Cortesía informativa de Roadmap)
+
+        services.AddTransient<Retail.App.Views.Pages.ModuloEnConstruccionView>();
     }
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -151,9 +168,14 @@ public partial class App : System.Windows.Application
 
         // Flujo de autenticación obligatorio de inicio (RF-01)
         var session = _host.Services.GetRequiredService<Retail.App.Services.ICurrentUserSession>();
-        var loginWindow = _host.Services.GetRequiredService<Retail.App.Views.Auth.LoginWindow>();
 
-        var loginExitoso = loginWindow.ShowDialog();
+        // El login tiene su propio scope (y su propio DbContext), que se descarta al cerrarse la ventana (H-19).
+        bool? loginExitoso;
+        using (var scopeLogin = _host.Services.CreateScope())
+        {
+            var loginWindow = scopeLogin.ServiceProvider.GetRequiredService<Retail.App.Views.Auth.LoginWindow>();
+            loginExitoso = loginWindow.ShowDialog();
+        }
 
         if (loginExitoso != true || !session.EstaAutenticado)
         {

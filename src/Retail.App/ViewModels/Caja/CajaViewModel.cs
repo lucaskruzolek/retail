@@ -1,13 +1,17 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.Interfaces.Services;
 
 namespace Retail.App.ViewModels.Caja;
 
-public partial class CajaViewModel : ObservableObject
+public partial class CajaViewModel : ObservableObject, IDisposable
 {
+    // Serializa la lectura del turno sobre el DbContext de esta pantalla y la cancela al salir de ella (H-19).
+    private readonly CargaSerializada _cargaTurno = new();
+
     private readonly ICajaService _cajaService;
     private readonly ICajaDialogService _dialogService;
 
@@ -30,17 +34,16 @@ public partial class CajaViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task CargarTurnoActivoAsync()
+    public Task CargarTurnoActivoAsync()
     {
-        try
-        {
-            TurnoActivo = await _cajaService.ObtenerTurnoActivoAsync();
-            TieneTurnoActivo = TurnoActivo != null;
-        }
-        catch (Exception ex)
-        {
-            _dialogService.MostrarError("Error", $"Error al cargar el turno activo: {ex.Message}");
-        }
+        return _cargaTurno.EjecutarAsync(
+            token => Task.Run(() => _cajaService.ObtenerTurnoActivoAsync(token), token),
+            turno =>
+            {
+                TurnoActivo = turno;
+                TieneTurnoActivo = TurnoActivo != null;
+            },
+            ex => _dialogService.MostrarError("Error", $"Error al cargar el turno activo: {ex.Message}"));
     }
 
     [RelayCommand]
@@ -120,5 +123,15 @@ public partial class CajaViewModel : ObservableObject
                 _dialogService.MostrarError("Error", $"Error al cerrar el turno: {ex.Message}");
             }
         }
+    }
+
+    /// <summary>
+    /// Lo invoca el scope de la pantalla al salir de ella: cancela la carga en curso para que no use el
+    /// DbContext ya descartado ni muestre errores en otra pantalla (H-19).
+    /// </summary>
+    public void Dispose()
+    {
+        _cargaTurno.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

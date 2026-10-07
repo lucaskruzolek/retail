@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
 
-public class ArticulosViewModelTests
+public class ArticulosViewModelTests : IDisposable
 {
     private readonly IInventarioService _inventarioService;
     private readonly IArticuloDialogService _dialogService;
@@ -346,5 +346,40 @@ public class ArticulosViewModelTests
 
         // Assert
         await _inventarioService.DidNotReceive().BajaArticuloAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CambiarFiltro_ConBusquedaEnCurso_EsperaQueTermineYNoMuestraErrorDeLaBusquedaObsoleta()
+    {
+        // Arrange: la búsqueda "Bic" está consultando cuando el usuario activa "solo stock crítico"
+        var consultoBic = new TaskCompletionSource();
+        var respuestaBic = new TaskCompletionSource<ArticulosPaginadosDto>();
+        _inventarioService.ListarArticulosPaginadosAsync(
+                Arg.Is<ConsultaArticulosDto>(c => c.TerminoBusqueda == "Bic" && !c.SoloStockCritico),
+                Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                consultoBic.TrySetResult();
+                return respuestaBic.Task;
+            });
+        await _sut.CargarArticulosAsync();
+        _sut.TextoBusqueda = "Bic";
+        await consultoBic.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Act: antes los dos usaban el DbContext a la vez y el segundo abría un diálogo de error (H-19)
+        _sut.SoloStockCritico = true;
+        respuestaBic.SetException(new InvalidOperationException("Operation cancelled by user"));
+        await _sut.CargarArticulosAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Assert
+        _dialogService.DidNotReceiveWithAnyArgs().MostrarError(default!, default!);
+        _sut.MensajeError.Should().BeNull();
+        _sut.IsBusy.Should().BeFalse();
+    }
+
+    public void Dispose()
+    {
+        _sut.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

@@ -1,5 +1,6 @@
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Retail.App.ViewModels.Ventas;
 using Retail.App.Views.Dialogs;
 using Retail.Application.DTOs.Clientes;
@@ -40,7 +41,10 @@ public class VentaDialogService : IVentaDialogService
     public Task<ClienteDto?> MostrarSeleccionarClienteModalAsync(ClienteDto? clienteActual)
     {
         var clienteService = _serviceProvider.GetRequiredService<IClienteService>();
-        var viewModel = new SeleccionarClienteModalViewModel(clienteService);
+        var logger = _serviceProvider.GetService<ILogger<SeleccionarClienteModalViewModel>>();
+
+        // Al cerrarse el modal se descarta su ViewModel, que cancela la búsqueda pendiente (H-19).
+        using var viewModel = new SeleccionarClienteModalViewModel(clienteService, logger);
         var dialog = new SeleccionarClienteModalDialog(viewModel)
         {
             Owner = System.Windows.Application.Current?.MainWindow

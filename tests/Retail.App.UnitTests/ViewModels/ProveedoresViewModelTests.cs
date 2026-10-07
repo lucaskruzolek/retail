@@ -9,7 +9,7 @@ using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
 
-public class ProveedoresViewModelTests
+public class ProveedoresViewModelTests : IDisposable
 {
     private readonly IProveedorService _proveedorService;
     private readonly IProveedorDialogService _dialogService;
@@ -242,5 +242,11 @@ public class ProveedoresViewModelTests
         // Assert
         _sut.MensajeError.Should().Be("Seleccione un proveedor de la grilla para dar de baja.");
         await _dialogService.DidNotReceive().ConfirmarEliminacionAsync(Arg.Any<string>());
+    }
+
+    public void Dispose()
+    {
+        _sut.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

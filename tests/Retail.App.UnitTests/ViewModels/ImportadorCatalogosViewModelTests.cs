@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
 
-public class ImportadorCatalogosViewModelTests
+public class ImportadorCatalogosViewModelTests : IDisposable
 {
     private readonly IProveedorService _proveedorService;
     private readonly IProveedorDialogService _dialogService;
@@ -38,6 +38,12 @@ public class ImportadorCatalogosViewModelTests
             _inventarioService,
             _navigationService,
             NullLogger<ImportadorCatalogosViewModel>.Instance);
+    }
+
+    public void Dispose()
+    {
+        _sut.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]
@@ -204,30 +210,27 @@ public class ImportadorCatalogosViewModelTests
     }
 
     [Fact]
-    public async Task CargarCatalogoAsync_ConCargasSolapadasYRespuestaFueraDeOrden_MuestraLaUltimaCarga()
+    public async Task CargarCatalogoAsync_ConCargaReemplazadaQueRespondeTarde_EsperaQueLibereElContextoYMuestraSoloLaUltima()
     {
-        // Arrange: la búsqueda "bi" responde DESPUÉS que la búsqueda "bic".
-        // Las respuestas se asocian al término buscado y no al orden de llamada: el servicio se invoca
-        // dentro de Task.Run, así que el orden en que llegan las llamadas al mock no es determinista.
-        var respuestaA = new TaskCompletionSource<CatalogoPaginadoDto>();
-        var respuestaB = new TaskCompletionSource<CatalogoPaginadoDto>();
-        ConfigurarRespuesta("bi", respuestaA.Task);
-        ConfigurarRespuesta("bic", respuestaB.Task);
-        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
-
-        // Act: cada cambio del término dispara además su propia carga automática, que también queda obsoleta
+        // Arrange: la carga de "bi" ya está consultando cuando el usuario escribe "bic"
+        var consultoBi = new TaskCompletionSource();
+        var respuestaBi = new TaskCompletionSource<CatalogoPaginadoDto>();
+        ConfigurarRespuesta("bi", respuestaBi.Task, consultoBi);
+        ConfigurarRespuesta("bic", Task.FromResult(Paginado("BIC-01")));
         _sut.TextoBusquedaCatalogo = "bi";
-        var cargaA = _sut.CargarCatalogoAsync();
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+        await consultoBi.Task.WaitAsync(LimiteEspera);
+
+        // Act
         _sut.TextoBusquedaCatalogo = "bic";
-        var cargaB = _sut.CargarCatalogoAsync();
+        await Task.Delay(400);
+        var consultoBicAntesDeLiberar = ConsultasDe("bic");
+        respuestaBi.SetResult(Paginado("BI-99"));
+        await _sut.CargarCatalogoAsync().WaitAsync(LimiteEspera);
 
-        respuestaB.SetResult(Paginado("BIC-01"));
-        await cargaB.WaitAsync(LimiteEspera);
-        respuestaA.SetResult(Paginado("BI-99"));
-        await cargaA.WaitAsync(LimiteEspera);
-
-        // Assert: la respuesta tardía de A no pisa la grilla de B
-        _sut.ItemsCatalogo.Should().ContainSingle().Which.CodigoProveedor.Should().Be("BIC-01");
+        // Assert
+        consultoBicAntesDeLiberar.Should().Be(0, "mientras la carga anterior ocupa el DbContext, la nueva espera (H-19)");
+        _sut.ItemsCatalogo.Should().ContainSingle().Which.CodigoProveedor.Should().Be("BIC-01", "la respuesta tardía de \"bi\" se descarta (H-18)");
         _sut.IsBusy.Should().BeFalse();
     }
 
@@ -235,32 +238,64 @@ public class ImportadorCatalogosViewModelTests
     public async Task CargarCatalogoAsync_ConCargaObsoletaQueFalla_NoMuestraError()
     {
         // Arrange
-        var respuestaA = new TaskCompletionSource<CatalogoPaginadoDto>();
-        ConfigurarRespuesta("bi", respuestaA.Task);
+        var consultoBi = new TaskCompletionSource();
+        var respuestaBi = new TaskCompletionSource<CatalogoPaginadoDto>();
+        ConfigurarRespuesta("bi", respuestaBi.Task, consultoBi);
         ConfigurarRespuesta("bic", Task.FromResult(Paginado("BIC-01")));
-        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
-
-        // Act
         _sut.TextoBusquedaCatalogo = "bi";
-        var cargaA = _sut.CargarCatalogoAsync();
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+        await consultoBi.Task.WaitAsync(LimiteEspera);
+
+        // Act: la consulta reemplazada termina como termina una consulta cancelada de SQL Server
         _sut.TextoBusquedaCatalogo = "bic";
+        respuestaBi.SetException(new InvalidOperationException("Operation cancelled by user"));
         await _sut.CargarCatalogoAsync().WaitAsync(LimiteEspera);
-        respuestaA.SetException(new InvalidOperationException("Timeout de la consulta obsoleta"));
-        await cargaA.WaitAsync(LimiteEspera);
 
         // Assert
         _sut.MensajeError.Should().BeNull();
         _sut.ItemsCatalogo.Should().ContainSingle().Which.CodigoProveedor.Should().Be("BIC-01");
     }
 
-    private void ConfigurarRespuesta(string terminoBusqueda, Task<CatalogoPaginadoDto> respuesta)
+    [Fact]
+    public async Task Dispose_ConCargaEnCurso_NoMuestraErrorNiResultado()
+    {
+        // Arrange
+        var consultoBi = new TaskCompletionSource();
+        var respuestaBi = new TaskCompletionSource<CatalogoPaginadoDto>();
+        ConfigurarRespuesta("bi", respuestaBi.Task, consultoBi);
+        _sut.TextoBusquedaCatalogo = "bi";
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+        await consultoBi.Task.WaitAsync(LimiteEspera);
+
+        // Act: se sale de la pantalla y la consulta termina con el DbContext ya descartado
+        _sut.Dispose();
+        respuestaBi.SetException(new ObjectDisposedException("RetailDbContext"));
+        await Task.Delay(100);
+
+        // Assert
+        _sut.MensajeError.Should().BeNull("no debe aparecer un error de una pantalla que ya no está");
+        _sut.ItemsCatalogo.Should().BeEmpty();
+    }
+
+    private void ConfigurarRespuesta(string terminoBusqueda, Task<CatalogoPaginadoDto> respuesta, TaskCompletionSource? alConsultar = null)
     {
         _proveedorService.ListarItemsCatalogoAsync(
                 Arg.Is<ConsultaCatalogoProveedorDto>(c => c.TerminoBusqueda == terminoBusqueda),
                 Arg.Any<CancellationToken>())
-            .Returns(respuesta);
+            .Returns(_ =>
+            {
+                alConsultar?.TrySetResult();
+                return respuesta;
+            });
     }
 
+    private int ConsultasDe(string terminoBusqueda)
+    {
+        return _proveedorService.ReceivedCalls()
+            .Count(c => c.GetMethodInfo().Name == nameof(IProveedorService.ListarItemsCatalogoAsync)
+                        && c.GetArguments()[0] is ConsultaCatalogoProveedorDto consulta
+                        && consulta.TerminoBusqueda == terminoBusqueda);
+    }
     private static CatalogoPaginadoDto Paginado(string codigo)
     {
         return new CatalogoPaginadoDto

@@ -12,7 +12,7 @@ using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
 
-public class UsuariosViewModelTests
+public class UsuariosViewModelTests : IDisposable
 {
     private readonly IUsuarioService _usuarioService;
     private readonly IUsuarioDialogService _dialogService;
@@ -348,5 +348,11 @@ public class UsuariosViewModelTests
         });
 
         threadEx.Should().BeNull();
+    }
+
+    public void Dispose()
+    {
+        _sut.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

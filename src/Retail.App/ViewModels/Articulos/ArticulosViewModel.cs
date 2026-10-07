@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.Interfaces.Services;
@@ -13,7 +14,7 @@ namespace Retail.App.ViewModels.Articulos;
 /// <summary>
 /// ViewModel principal para la administración del catálogo de artículos y visualización de alertas de stock con push-down a SQL Server (RF-04, RF-08, Ley 8).
 /// </summary>
-public partial class ArticulosViewModel : ObservableObject
+public partial class ArticulosViewModel : ObservableObject, IDisposable
 {
     private readonly IInventarioService _inventarioService;
     private readonly IArticuloDialogService _dialogService;
@@ -21,7 +22,12 @@ public partial class ArticulosViewModel : ObservableObject
 
     private List<CategoriaDto> _cacheCategorias = new();
     private List<MarcaDto> _cacheMarcas = new();
-    private CancellationTokenSource? _searchCts;
+
+    private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
+
+    // Búsqueda, filtros y paginación comparten esta carga: nunca usan el DbContext de la pantalla al mismo
+    // tiempo, solo la vigente actualiza la grilla y al salir de la pantalla se cancela (H-19).
+    private readonly CargaSerializada _cargaArticulos = new();
 
     public ObservableCollection<ArticuloDto> Articulos { get; } = new();
 
@@ -96,24 +102,7 @@ public partial class ArticulosViewModel : ObservableObject
     partial void OnTextoBusquedaChanged(string value)
     {
         PaginaActual = 1;
-        _searchCts?.Cancel();
-        _searchCts = new CancellationTokenSource();
-        var token = _searchCts.Token;
-
-        _ = DebounceBusquedaAsync(token);
-    }
-
-    private async Task DebounceBusquedaAsync(CancellationToken token)
-    {
-        try
-        {
-            await Task.Delay(250, token);
-            await CargarArticulosAsync(token);
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (token.IsCancellationRequested ||
-                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
-        { }
+        _ = CargarArticulosConEsperaAsync(EsperaBusqueda);
     }
 
     partial void OnIdCategoriaFiltroChanged(int value)
@@ -135,82 +124,95 @@ public partial class ArticulosViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task CargarArticulosAsync(CancellationToken cancellationToken = default)
+    public Task CargarArticulosAsync(CancellationToken cancellationToken = default)
     {
-        try
+        return CargarArticulosConEsperaAsync(TimeSpan.Zero, cancellationToken);
+    }
+
+    private async Task CargarArticulosConEsperaAsync(TimeSpan espera, CancellationToken cancellationToken = default)
+    {
+        bool cargarCategorias = CategoriasFiltro.Count == 0;
+        var consulta = new ConsultaArticulosDto
         {
-            IsBusy = true;
-            MensajeError = null;
-            MensajeEstado = "Cargando catálogo de artículos...";
+            TerminoBusqueda = TextoBusqueda,
+            IdCategoria = IdCategoriaFiltro > 0 ? IdCategoriaFiltro : null,
+            SoloStockCritico = SoloStockCritico,
+            Pagina = PaginaActual,
+            TamanoPagina = TamanoPagina
+        };
 
-            if (CategoriasFiltro.Count == 0)
+        IsBusy = true;
+        MensajeError = null;
+        MensajeEstado = "Cargando catálogo de artículos...";
+
+        await _cargaArticulos.EjecutarAsync(
+            async token =>
             {
-                var categorias = await _inventarioService.ListarCategoriasAsync(cancellationToken);
-                var marcas = await _inventarioService.ListarMarcasAsync(cancellationToken);
-                _cacheCategorias = categorias.ToList();
-                _cacheMarcas = marcas.ToList();
-
-                EjecutarEnDispatcher(() =>
+                // Las consultas de una misma carga son secuenciales: nunca se solapan sobre el DbContext.
+                IReadOnlyList<CategoriaDto>? categorias = null;
+                IReadOnlyList<MarcaDto>? marcas = null;
+                if (cargarCategorias)
                 {
-                    CategoriasFiltro.Clear();
-                    CategoriasFiltro.Add(new CategoriaDto { IdCategoria = 0, NombreCategoria = "Todas las Categorías" });
-                    foreach (var cat in _cacheCategorias)
-                    {
-                        CategoriasFiltro.Add(cat);
-                    }
-                });
-            }
+                    categorias = await _inventarioService.ListarCategoriasAsync(token);
+                    marcas = await _inventarioService.ListarMarcasAsync(token);
+                }
 
-            var consulta = new ConsultaArticulosDto
+                var pagina = await Task.Run(() => _inventarioService.ListarArticulosPaginadosAsync(consulta, token), token);
+                return (Categorias: categorias, Marcas: marcas, Pagina: pagina);
+            },
+            resultado => MostrarArticulos(resultado.Categorias, resultado.Marcas, resultado.Pagina),
+            ex =>
             {
-                TerminoBusqueda = TextoBusqueda,
-                IdCategoria = IdCategoriaFiltro > 0 ? IdCategoriaFiltro : null,
-                SoloStockCritico = SoloStockCritico,
-                Pagina = PaginaActual,
-                TamanoPagina = TamanoPagina
-            };
+                _logger.LogError(ex, "Error al cargar el catálogo de artículos: {Mensaje}", ex.Message);
+                MensajeError = $"Error al cargar catálogo: {ex.Message}";
+                _dialogService.MostrarError("Error de Carga", ex.Message);
+            },
+            espera,
+            cancellationToken);
 
-            var resultado = await Task.Run(
-                () => _inventarioService.ListarArticulosPaginadosAsync(consulta, cancellationToken),
-                cancellationToken);
+        IsBusy = _cargaArticulos.EnCurso;
+    }
+
+    private void MostrarArticulos(
+        IReadOnlyList<CategoriaDto>? categorias,
+        IReadOnlyList<MarcaDto>? marcas,
+        ArticulosPaginadosDto resultado)
+    {
+        if (categorias is not null && marcas is not null)
+        {
+            _cacheCategorias = categorias.ToList();
+            _cacheMarcas = marcas.ToList();
 
             EjecutarEnDispatcher(() =>
             {
-                Articulos.Clear();
-                foreach (var art in resultado.Items)
+                CategoriasFiltro.Clear();
+                CategoriasFiltro.Add(new CategoriaDto { IdCategoria = 0, NombreCategoria = "Todas las Categorías" });
+                foreach (var cat in _cacheCategorias)
                 {
-                    Articulos.Add(art);
+                    CategoriasFiltro.Add(cat);
                 }
             });
+        }
 
-            TotalArticulos = resultado.TotalArticulos;
-            TotalAlertasStock = resultado.TotalAlertasStock;
-            TotalRegistrosFiltrados = resultado.TotalRegistros;
-            TotalPaginas = resultado.TotalPaginas;
+        EjecutarEnDispatcher(() =>
+        {
+            Articulos.Clear();
+            foreach (var art in resultado.Items)
+            {
+                Articulos.Add(art);
+            }
+        });
 
-            OnPropertyChanged(nameof(PuedeRetrocederPagina));
-            OnPropertyChanged(nameof(PuedeAvanzarPagina));
-            OnPropertyChanged(nameof(InformacionPaginacion));
+        TotalArticulos = resultado.TotalArticulos;
+        TotalAlertasStock = resultado.TotalAlertasStock;
+        TotalRegistrosFiltrados = resultado.TotalRegistros;
+        TotalPaginas = resultado.TotalPaginas;
 
-            MensajeEstado = $"Mostrando {Articulos.Count} de {TotalArticulos} artículos ({TotalAlertasStock} con alerta de stock).";
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (cancellationToken.IsCancellationRequested ||
-                                   ex.InnerException is OperationCanceledException ||
-                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogDebug("Consulta de artículos cancelada por nueva acción del usuario.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al cargar el catálogo de artículos: {Mensaje}", ex.Message);
-            MensajeError = $"Error al cargar catálogo: {ex.Message}";
-            _dialogService.MostrarError("Error de Carga", ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        OnPropertyChanged(nameof(PuedeRetrocederPagina));
+        OnPropertyChanged(nameof(PuedeAvanzarPagina));
+        OnPropertyChanged(nameof(InformacionPaginacion));
+
+        MensajeEstado = $"Mostrando {Articulos.Count} de {TotalArticulos} artículos ({TotalAlertasStock} con alerta de stock).";
     }
 
     [RelayCommand]
@@ -388,5 +390,15 @@ public partial class ArticulosViewModel : ObservableObject
         {
             action();
         }
+    }
+
+    /// <summary>
+    /// Lo invoca el scope de la pantalla al salir de ella: cancela la carga en curso para que no use el
+    /// DbContext ya descartado ni muestre errores en otra pantalla (H-19).
+    /// </summary>
+    public void Dispose()
+    {
+        _cargaArticulos.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

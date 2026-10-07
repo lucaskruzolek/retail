@@ -3,6 +3,7 @@ using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.Views.Dialogs;
 using Retail.Application.DTOs.Proveedores;
@@ -16,7 +17,7 @@ namespace Retail.App.ViewModels.Proveedores;
 /// ViewModel para la consulta y curaduría del catálogo de distribuidores e incorporación asistida a tienda (Etapa 2.2).
 /// Orquesta la vista previa del catálogo con push-down a SQL, filtros reactivos y la incorporación controlada a tienda.
 /// </summary>
-public partial class ImportadorCatalogosViewModel : ObservableObject
+public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposable
 {
     private readonly IProveedorService _proveedorService;
     private readonly IProveedorDialogService _dialogService;
@@ -24,9 +25,10 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
     private readonly INavigationService _navigationService;
     private readonly ILogger<ImportadorCatalogosViewModel> _logger;
 
-    // Carga del catálogo en curso. Cada carga nueva cancela la anterior, y solo la vigente puede modificar
-    // la pantalla, para que una respuesta lenta no pise los resultados de una búsqueda más reciente (H-18).
-    private CancellationTokenSource? _cargaCatalogoCts;
+    private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
+
+    // Serializa las cargas del catálogo sobre el DbContext de esta pantalla y las cancela al salir de ella (H-18, H-19).
+    private readonly CargaSerializada _cargaCatalogo = new();
 
     // ------------------------------------------------------------------ //
     // Proveedor activo y selección                                       //
@@ -218,7 +220,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
     partial void OnTextoBusquedaCatalogoChanged(string value)
     {
         PaginaActual = 1;
-        _ = CargarCatalogoAsync();
+        _ = CargarCatalogoConEsperaAsync(EsperaBusqueda);
     }
 
     // ------------------------------------------------------------------ //
@@ -248,90 +250,74 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
     // ------------------------------------------------------------------ //
 
     [RelayCommand]
-    public async Task CargarCatalogoAsync(CancellationToken cancellationToken = default)
+    public Task CargarCatalogoAsync(CancellationToken cancellationToken = default)
+    {
+        return CargarCatalogoConEsperaAsync(TimeSpan.Zero, cancellationToken);
+    }
+
+    /// <summary>
+    /// Carga una página del catálogo a través de <see cref="CargaSerializada"/>: cada carga nueva cancela la
+    /// anterior y espera a que libere el DbContext de la pantalla, y solo la vigente actualiza la grilla (H-18, H-19).
+    /// </summary>
+    private async Task CargarCatalogoConEsperaAsync(TimeSpan espera, CancellationToken cancellationToken = default)
     {
         if (ProveedorActivo is null)
         {
             return;
         }
 
-        _cargaCatalogoCts?.Cancel();
-        var cargaCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        _cargaCatalogoCts = cargaCts;
-        var token = cargaCts.Token;
-
-        bool EsCargaVigente() => ReferenceEquals(cargaCts, _cargaCatalogoCts);
+        var consulta = new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = ProveedorActivo.IdProveedor,
+            TerminoBusqueda = TextoBusquedaCatalogo,
+            EstadoVinculacion = FiltroEstado,
+            Pagina = PaginaActual,
+            TamañoPagina = TamanoPagina
+        };
 
         IsBusy = true;
         MensajeError = null;
 
+        await _cargaCatalogo.EjecutarAsync(
+            token => Task.Run(() => _proveedorService.ListarItemsCatalogoAsync(consulta, token), token),
+            MostrarCatalogo,
+            ex =>
+            {
+                _logger.LogError(ex, "Error al cargar catálogo del proveedor");
+                MensajeError = "No se pudo cargar el catálogo.";
+            },
+            espera,
+            cancellationToken);
+
+        IsBusy = _cargaCatalogo.EnCurso;
+    }
+
+    private void MostrarCatalogo(CatalogoPaginadoDto resultado)
+    {
+        LimpiarItemsCatalogo();
+        foreach (var item in resultado.Items)
+        {
+            item.PropertyChanged += Item_PropertyChanged;
+            ItemsCatalogo.Add(item);
+        }
+
+        TotalItemsCatalogo = resultado.TotalRegistros;
+        TotalPaginas = Math.Max(1, resultado.TotalPaginas);
+
+        _isUpdatingSeleccionarTodos = true;
         try
         {
-            var consulta = new ConsultaCatalogoProveedorDto
-            {
-                IdProveedor = ProveedorActivo.IdProveedor,
-                TerminoBusqueda = TextoBusquedaCatalogo,
-                EstadoVinculacion = FiltroEstado,
-                Pagina = PaginaActual,
-                TamañoPagina = TamanoPagina
-            };
-
-            var resultado = await Task.Run(
-                () => _proveedorService.ListarItemsCatalogoAsync(consulta, token),
-                token);
-
-            // Si mientras se esperaba la respuesta empezó otra carga, esta quedó obsoleta: no toca la grilla.
-            if (!EsCargaVigente())
-            {
-                return;
-            }
-
-            LimpiarItemsCatalogo();
-            foreach (var item in resultado.Items)
-            {
-                item.PropertyChanged += Item_PropertyChanged;
-                ItemsCatalogo.Add(item);
-            }
-
-            TotalItemsCatalogo = resultado.TotalRegistros;
-            TotalPaginas = Math.Max(1, resultado.TotalPaginas);
-
-            _isUpdatingSeleccionarTodos = true;
-            try
-            {
-                SeleccionarTodos = false;
-                TieneItemsSeleccionados = false;
-            }
-            finally
-            {
-                _isUpdatingSeleccionarTodos = false;
-            }
-
-            OnPropertyChanged(nameof(PuedeRetrocederPagina));
-            OnPropertyChanged(nameof(PuedeAvanzarPagina));
-            OnPropertyChanged(nameof(InformacionPaginacion));
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex) when (token.IsCancellationRequested ||
-                                   !EsCargaVigente() ||
-                                   ex.InnerException is OperationCanceledException ||
-                                   ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogDebug("Carga de catálogo cancelada u obsoleta por una nueva acción del usuario.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al cargar catálogo del proveedor");
-            MensajeError = "No se pudo cargar el catálogo.";
+            SeleccionarTodos = false;
+            TieneItemsSeleccionados = false;
         }
         finally
         {
-            // Una carga obsoleta no apaga el indicador: la carga vigente sigue en curso.
-            if (EsCargaVigente())
-            {
-                IsBusy = false;
-            }
+            _isUpdatingSeleccionarTodos = false;
         }
+
+        OnPropertyChanged(nameof(PuedeRetrocederPagina));
+        OnPropertyChanged(nameof(PuedeAvanzarPagina));
+        OnPropertyChanged(nameof(InformacionPaginacion));
     }
 
     [RelayCommand]
@@ -513,5 +499,15 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
                 _isUpdatingSeleccionarTodos = false;
             }
         }
+    }
+
+    /// <summary>
+    /// Lo invoca el scope de la pantalla al salir de ella: cancela la carga en curso para que no use el
+    /// DbContext ya descartado ni informe errores en otra pantalla (H-19).
+    /// </summary>
+    public void Dispose()
+    {
+        _cargaCatalogo.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
