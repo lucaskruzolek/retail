@@ -24,6 +24,10 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
     private readonly INavigationService _navigationService;
     private readonly ILogger<ImportadorCatalogosViewModel> _logger;
 
+    // Carga del catálogo en curso. Cada carga nueva cancela la anterior, y solo la vigente puede modificar
+    // la pantalla, para que una respuesta lenta no pise los resultados de una búsqueda más reciente (H-18).
+    private CancellationTokenSource? _cargaCatalogoCts;
+
     // ------------------------------------------------------------------ //
     // Proveedor activo y selección                                       //
     // ------------------------------------------------------------------ //
@@ -251,6 +255,13 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
             return;
         }
 
+        _cargaCatalogoCts?.Cancel();
+        var cargaCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _cargaCatalogoCts = cargaCts;
+        var token = cargaCts.Token;
+
+        bool EsCargaVigente() => ReferenceEquals(cargaCts, _cargaCatalogoCts);
+
         IsBusy = true;
         MensajeError = null;
 
@@ -266,8 +277,14 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
             };
 
             var resultado = await Task.Run(
-                () => _proveedorService.ListarItemsCatalogoAsync(consulta, cancellationToken),
-                cancellationToken);
+                () => _proveedorService.ListarItemsCatalogoAsync(consulta, token),
+                token);
+
+            // Si mientras se esperaba la respuesta empezó otra carga, esta quedó obsoleta: no toca la grilla.
+            if (!EsCargaVigente())
+            {
+                return;
+            }
 
             LimpiarItemsCatalogo();
             foreach (var item in resultado.Items)
@@ -295,11 +312,12 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
             OnPropertyChanged(nameof(InformacionPaginacion));
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) when (cancellationToken.IsCancellationRequested ||
+        catch (Exception ex) when (token.IsCancellationRequested ||
+                                   !EsCargaVigente() ||
                                    ex.InnerException is OperationCanceledException ||
                                    ex.Message.Contains("Operation cancelled by user", StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogDebug("Carga de catálogo cancelada por nueva acción del usuario.");
+            _logger.LogDebug("Carga de catálogo cancelada u obsoleta por una nueva acción del usuario.");
         }
         catch (Exception ex)
         {
@@ -308,7 +326,11 @@ public partial class ImportadorCatalogosViewModel : ObservableObject
         }
         finally
         {
-            IsBusy = false;
+            // Una carga obsoleta no apaga el indicador: la carga vigente sigue en curso.
+            if (EsCargaVigente())
+            {
+                IsBusy = false;
+            }
         }
     }
 
