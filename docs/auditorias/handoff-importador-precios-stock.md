@@ -117,15 +117,15 @@ Archivos clave:
 
 | ID | Pregunta | Opciones | Recomendación de la sesión |
 |---|---|---|---|
-| D-01 | Stock de presentaciones (pack y unidad) | A) stocks separados + fraccionamiento explícito · B) stock único en unidad base · C) A con fraccionamiento automático en el POS | **A**, con el POS *ofreciendo* abrir un pack cuando no alcanzan los sueltos (no lo hace solo) |
+| D-01 | Stock de presentaciones (pack y unidad) | A) stocks separados + fraccionamiento explícito · B) stock único en unidad base · C) A con fraccionamiento automático en el POS | **DECIDIDA (7 de octubre): A**, con el POS *ofreciendo* abrir un pack cuando no alcanzan los sueltos (no lo hace solo). En la ERS: RF-10 y RF-21 |
 | D-02 | ¿Registrar los movimientos de stock (`MovimientoStock`)? | Sí (tipo, artículo, cantidad, usuario, fecha) / No (solo `StockActual`) | **CERRADA (5 de octubre): No.** La ERS no lo pide (verificado: no menciona movimientos de stock ni kardex). Queda como mejora documentada (YAGNI) |
-| D-03 | ¿Un artículo derivado puede salir de más de un origen? | No (`IdArticuloOrigen` alcanza) / Sí (tabla de presentaciones) | **No**, por ahora |
+| D-03 | ¿Un artículo derivado puede salir de más de un origen? | No (`IdArticuloOrigen` alcanza) / Sí (tabla de presentaciones) | **DECIDIDA (7 de octubre): No.** Un solo origen y un solo nivel (RF-21) |
 | D-04 | Formato numérico de planillas en texto | Heurística es-AR actual / selector de formato por proveedor / alerta de variación abrupta de costo (H7 de la auditoría local) | Selector por proveedor, más alerta de variación como red de seguridad |
 | D-05 | ¿Un ítem de proveedor puede costar $0 (bonificados)? | Sí (unificar en ≥ 0) / No (unificar en > 0 y reportarlo) | Unificar la regla en el dominio, en un solo lugar |
 | D-06 | Modo de redondeo del precio de venta | `ToEven` (actual, implícito) / `AwayFromZero` | `AwayFromZero` explícito, por convención comercial |
 | D-07 | Deduplicación: ¿qué fila gana? | Primera (PR #4) / Última (propuesta en `solucion-optimizacion-importador-excel.md`) | Decidir y documentar. Cualquiera sirve si se reporta |
-| D-08 | Transacción única contra lotes | Ver sección 6 | **CERRADA (Fase 2): no se implementa.** La medición de H-15 da ≈ 13 MB para 5.000 filas, así que los lotes no se justifican. Si en el futuro hiciera falta, rigen estas condiciones: Dos condiciones obligatorias: **(a)** Ley 1: `ProveedorService` (Application) no puede tocar `RetailDbContext.ChangeTracker`; habría que exponer la limpieza en `IUnitOfWork`. **(b)** El DbContext es **compartido por toda la app** (los servicios Scoped se resuelven desde la raíz; el único `CreateScope()` está en `App.xaml.cs:139`). `ChangeTracker.Clear()` desvincularía las entidades de otras pantallas, así que la importación necesitaría **su propio scope de DI** |
-| D-09 | Precisión del costo unitario derivado | `decimal(18,2)` actual / `decimal(18,4)` para costos y redondeo solo del precio | `(18,4)` en `costo_reposicion` si se implementan presentaciones |
+| D-08 | Transacción única contra lotes | Ver sección 6 | **CERRADA (Fase 2): no se implementa.** La medición de H-15 da ≈ 13 MB para 5.000 filas, así que los lotes no se justifican. Si en el futuro hiciera falta, rigen dos condiciones obligatorias: **(a)** Ley 1: `ProveedorService` (Application) no puede tocar `RetailDbContext.ChangeTracker`; habría que exponer la limpieza en `IUnitOfWork`. **(b)** El DbContext es **compartido por toda la app** (los servicios Scoped se resuelven desde la raíz; el único `CreateScope()` está en `App.xaml.cs:139`). `ChangeTracker.Clear()` desvincularía las entidades de otras pantallas, así que la importación necesitaría **su propio scope de DI** |
+| D-09 | Precisión del costo unitario derivado | `decimal(18,2)` actual / `decimal(18,4)` para costos y redondeo solo del precio | **DECIDIDA (7 de octubre): se mantiene `decimal(18,2)`**, sin migración de precisión. El costo del derivado se redondea a 2 decimales (RF-21); el error es de hasta medio centavo por unidad, relevante solo en productos de centavos. El modo de redondeo depende de D-06 |
 
 ---
 
@@ -282,7 +282,7 @@ Escenario: 2.500 renglones existentes con artículo vinculado, 2.500 nuevos y 2.
 - **Posible optimización futura (no medida):** los `UpdateAsync` sobre entidades ya seguidas marcan todas las columnas como modificadas; sin ellos, EF generaría `UPDATE` solo de las columnas que cambian. Evaluar solo si el tiempo llegara a ser un problema real.
 
 ### Fase 3: Presentaciones y stock (Lucas + Pablo, después de D-01, D-03 y D-09)
-1. **Redactar en la ERS** el requisito de presentaciones y fraccionamiento (RF nuevo o ajuste de RF-04/RF-05/RF-10) y acordarlo con Pablo.
+1. ✅ **ERS redactada** (7 de octubre, rama `docs/ers-presentaciones`): RF-21 nuevo "Presentaciones de Venta y Fraccionamiento", precisiones en RF-05, RF-10 y RF-19, cuatro definiciones en 1.4, un punto en el Módulo I y una fila en la matriz de trazabilidad. Pendiente de revisión de Pablo.
 2. Modelo de la sección 5.2, `DescontarStock` / `IncrementarStock`, `FraccionarAsync`, propagación de costos a los derivados, migración con índice único filtrado y CHECK, ajustes en el vínculo (H-12, H-13, H-17) y actualización de DER, MAPA y SISTEMA_DE_PERSISTENCIA.
 
 ### Fase 4: Deuda de diseño
@@ -334,3 +334,10 @@ H-06 (escrituras por la raíz `Proveedor`), H-07 + D-05, H-08, H-09 + D-06, H-10
 |---|---|
 | 3 | Nuevo H-18: condición de carrera en `ImportadorCatalogosViewModel` que vuelve intermitente un test |
 | — | `main` no compilaba desde el PR #8 (módulo 3.1): namespace de `CajaView`, tres estilos XAML inexistentes en los diálogos de Caja, un test de navegación desactualizado y formato. Se corrigió en una rama aparte, `fix/build-main-caja` (commit `605df15`), para que lo revise Pablo |
+
+### Actualización del 7 de octubre: inicio de la Fase 3
+
+| Sección | Cambio |
+|---|---|
+| 4 | D-01, D-03 y D-09 decididas (D-09: se mantiene `decimal(18,2)`, a diferencia de la recomendación original) |
+| 7 | Fase 3, paso 1: ERS redactada con RF-21 |
