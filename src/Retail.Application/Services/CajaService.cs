@@ -33,7 +33,7 @@ public class CajaService : ICajaService
     public async Task<TurnoCajaDto?> ObtenerTurnoActivoAsync(CancellationToken cancellationToken = default)
     {
         var turnosAbiertos = await _turnoRepository.FindAsync(t => t.Estado == EstadoTurnoEnum.Abierto, cancellationToken);
-        
+
         var listaTurnos = turnosAbiertos as IList<TurnoCaja> ?? turnosAbiertos.ToList();
         if (listaTurnos.Count == 0) return null;
 
@@ -52,7 +52,7 @@ public class CajaService : ICajaService
 
         // Asumimos terminal por defecto o ID de terminal según requerimiento
         var nuevoTurno = TurnoCaja.Abrir(dto.IdUsuario, dto.SaldoInicial);
-        
+
         await _turnoRepository.AddAsync(nuevoTurno, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 

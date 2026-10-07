@@ -1,8 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Retail.App.Services;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.Interfaces.Services;
-using Retail.App.Services;
 
 namespace Retail.App.ViewModels.Caja;
 
@@ -51,7 +51,7 @@ public partial class CajaViewModel : ObservableObject
             try
             {
                 // ID de usuario temporal de sesión
-                int usuarioIdActual = 1; 
+                int usuarioIdActual = 1;
 
                 var dto = new AperturaTurnoDto
                 {
@@ -61,7 +61,7 @@ public partial class CajaViewModel : ObservableObject
 
                 TurnoActivo = await _cajaService.AbrirTurnoAsync(dto);
                 TieneTurnoActivo = true;
-                
+
                 _dialogService.MostrarInformacion("Caja", "Turno abierto exitosamente.");
             }
             catch (Exception ex)
@@ -108,7 +108,7 @@ public partial class CajaViewModel : ObservableObject
                 };
 
                 var resultado = await _cajaService.CerrarTurnoConArqueoCiegoAsync(dto);
-                
+
                 _dialogService.MostrarInformacion("Arqueo de Caja",
                     $"Turno cerrado con éxito.\nSaldo Teórico: ${resultado.SaldoTeoricoEfectivo:N2}\nDeclarado: ${resultado.SaldoDeclaradoEfectivo:N2}\nDiferencia: ${resultado.DiferenciaEfectivo:N2}");
 

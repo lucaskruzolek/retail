@@ -58,7 +58,7 @@
                            Style="{StaticResource TextBlockHeader2}"
                            Margin="0,0,0,6" />
                 <TextBlock Text="Ingrese el efectivo inicial con el que arranca la gaveta."
-                           Style="{StaticResource TextBlockSecondary}"
+                           Style="{StaticResource TextBlockBodySecondary}"
                            Margin="0,0,0,20" />
 
                 <TextBlock Text="Saldo Inicial en Efectivo ($):"
@@ -89,7 +89,7 @@
                         Click="Cancelar_Click" />
 
                 <Button Content="Abrir Turno"
-                        Style="{StaticResource PrimaryKeycapButtonStyle}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
                         Width="120"
                         DockPanel.Dock="Right"
                         Click="Aceptar_Click" />
