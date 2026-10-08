@@ -377,6 +377,147 @@ public class ArticulosViewModelTests : IDisposable
         _sut.IsBusy.Should().BeFalse();
     }
 
+    // ---------- Presentaciones y fraccionamiento (RF-21) ----------
+
+    [Fact]
+    public async Task CrearPresentacionAsync_CuandoUsuarioConfirma_LlamaServicioYRecarga()
+    {
+        // Arrange
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        var origen = _articulosEjemplo[0];
+        var dto = new CrearPresentacionDto
+        {
+            IdArticuloOrigen = origen.IdArticulo,
+            UnidadesPorOrigen = 10,
+            Descripcion = "Cuaderno Rivadavia A4 (unidad)",
+            PorcentajeGanancia = 40m,
+            StockMinimo = 0
+        };
+        _dialogService.MostrarDialogoCrearPresentacion(origen, Arg.Any<Func<CrearPresentacionDto, Task>>())
+            .Returns(callInfo =>
+            {
+                callInfo.Arg<Func<CrearPresentacionDto, Task>>()?.Invoke(dto);
+                return dto;
+            });
+
+        // Act
+        await _sut.CrearPresentacionCommand.ExecuteAsync(origen);
+
+        // Assert
+        await _inventarioService.Received(1).CrearPresentacionAsync(dto, Arg.Any<CancellationToken>());
+        await _inventarioService.Received(2).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CrearPresentacionAsync_ArticuloDerivado_InformaSinAbrirDialogo()
+    {
+        // Act
+        await _sut.CrearPresentacionCommand.ExecuteAsync(Presentacion(idOrigen: 1));
+
+        // Assert
+        _dialogService.DidNotReceive().MostrarDialogoCrearPresentacion(Arg.Any<ArticuloDto>(), Arg.Any<Func<CrearPresentacionDto, Task>>());
+        _dialogService.Received(1).MostrarInformacion(Arg.Any<string>(), Arg.Is<string>(m => m.Contains("ya es una presentación")));
+    }
+
+    [Fact]
+    public async Task CrearPresentacionAsync_Servicio_InformaSinAbrirDialogo()
+    {
+        // Arrange
+        var servicio = _articulosEjemplo[1] with { EsServicio = true };
+
+        // Act
+        await _sut.CrearPresentacionCommand.ExecuteAsync(servicio);
+
+        // Assert
+        _dialogService.DidNotReceive().MostrarDialogoCrearPresentacion(Arg.Any<ArticuloDto>(), Arg.Any<Func<CrearPresentacionDto, Task>>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_CuandoUsuarioConfirma_LlamaFraccionarYRecarga()
+    {
+        // Arrange
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        var origen = _articulosEjemplo[0];
+        var derivado = Presentacion(idOrigen: origen.IdArticulo);
+        _inventarioService.ObtenerPorIdAsync(origen.IdArticulo, Arg.Any<CancellationToken>()).Returns(origen);
+        _inventarioService.FraccionarAsync(Arg.Any<FraccionarDto>(), Arg.Any<CancellationToken>()).Returns(20);
+        _dialogService.MostrarDialogoFraccionar(derivado, origen, Arg.Any<Func<FraccionarDto, Task<int>>>())
+            .Returns(callInfo => callInfo.Arg<Func<FraccionarDto, Task<int>>>()!
+                .Invoke(new FraccionarDto { IdArticuloDerivado = derivado.IdArticulo, CantidadOrigen = 2 })
+                .GetAwaiter()
+                .GetResult());
+
+        // Act
+        await _sut.FraccionarCommand.ExecuteAsync(derivado);
+
+        // Assert
+        await _inventarioService.Received(1).FraccionarAsync(
+            Arg.Is<FraccionarDto>(d => d.IdArticuloDerivado == derivado.IdArticulo && d.CantidadOrigen == 2),
+            Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarInformacion(Arg.Any<string>(), Arg.Is<string>(m => m.Contains("20 unidad(es)")));
+        await _inventarioService.Received(2).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_CuandoUsuarioCancela_NoRecarga()
+    {
+        // Arrange
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        var origen = _articulosEjemplo[0];
+        _inventarioService.ObtenerPorIdAsync(origen.IdArticulo, Arg.Any<CancellationToken>()).Returns(origen);
+        _dialogService.MostrarDialogoFraccionar(Arg.Any<ArticuloDto>(), Arg.Any<ArticuloDto>(), Arg.Any<Func<FraccionarDto, Task<int>>>())
+            .Returns((int?)null);
+
+        // Act
+        await _sut.FraccionarCommand.ExecuteAsync(Presentacion(idOrigen: origen.IdArticulo));
+
+        // Assert
+        await _inventarioService.DidNotReceive().FraccionarAsync(Arg.Any<FraccionarDto>(), Arg.Any<CancellationToken>());
+        await _inventarioService.Received(1).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_ArticuloNoDerivado_InformaSinConsultarElOrigen()
+    {
+        // Act
+        await _sut.FraccionarCommand.ExecuteAsync(_articulosEjemplo[1]);
+
+        // Assert
+        await _inventarioService.DidNotReceive().ObtenerPorIdAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarInformacion(Arg.Any<string>(), Arg.Is<string>(m => m.Contains("no es una presentación derivada")));
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_OrigenDadoDeBaja_MuestraErrorSinAbrirDialogo()
+    {
+        // Arrange
+        _inventarioService.ObtenerPorIdAsync(99, Arg.Any<CancellationToken>()).Returns((ArticuloDto?)null);
+
+        // Act
+        await _sut.FraccionarCommand.ExecuteAsync(Presentacion(idOrigen: 99));
+
+        // Assert
+        _dialogService.DidNotReceive().MostrarDialogoFraccionar(Arg.Any<ArticuloDto>(), Arg.Any<ArticuloDto>(), Arg.Any<Func<FraccionarDto, Task<int>>>());
+        _dialogService.Received(1).MostrarError(Arg.Any<string>(), Arg.Is<string>(m => m.Contains("dado de baja")));
+    }
+
+    private static ArticuloDto Presentacion(int idOrigen)
+    {
+        return new ArticuloDto
+        {
+            IdArticulo = 10,
+            Descripcion = "Cuaderno Rivadavia A4 (unidad)",
+            IdArticuloOrigen = idOrigen,
+            UnidadesPorOrigen = 10,
+            CostoReposicion = 100m,
+            PorcentajeGanancia = 40m,
+            PrecioVenta = 140m,
+            StockActual = 0,
+            StockMinimo = 0,
+            EsServicio = false
+        };
+    }
+
     public void Dispose()
     {
         _sut.Dispose();

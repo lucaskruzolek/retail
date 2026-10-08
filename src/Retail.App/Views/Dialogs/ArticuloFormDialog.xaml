@@ -131,15 +131,19 @@
                             </StackPanel>
                         </Grid>
 
-                        <!-- Es Servicio -->
+                        <!-- Es Servicio (no aplica a una presentación derivada, RF-21) -->
                         <CheckBox Content="Es un servicio (no posee stock)"
                                   IsChecked="{Binding EsServicio}"
+                                  Visibility="{Binding NoEsDerivado, Converter={StaticResource BoolToVisConverter}}"
                                   Margin="0,6,0,0" />
                     </StackPanel>
                 </Border>
 
-                <!-- Grupo 2: Enlace con Distribuidor / Proveedor -->
-                <Border Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+                <!-- Grupo 2: Enlace con Distribuidor / Proveedor (solo el artículo de compra se vincula, RF-21) -->
+                <Border Style="{StaticResource CardBorderStyle}"
+                        Padding="16"
+                        Margin="0,0,0,12"
+                        Visibility="{Binding NoEsDerivado, Converter={StaticResource BoolToVisConverter}}">
                     <StackPanel>
                         <DockPanel LastChildFill="False" Margin="0,0,0,12">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -351,6 +355,17 @@
                                             PlaceholderText="40.00" />
                             </StackPanel>
                         </Grid>
+
+                        <!-- Aviso de costo derivado (RF-21, regla 4): editable, pero el origen lo reemplaza -->
+                        <Border Style="{StaticResource BadgeWarningStyle}"
+                                HorizontalAlignment="Stretch"
+                                Margin="0,0,0,12"
+                                Visibility="{Binding EsDerivado, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="{Binding AvisoCostoDerivado}"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Foreground="{DynamicResource WarningForegroundBrush}" />
+                        </Border>
 
                         <!-- Tarjeta de Precio de Venta Calculado -->
                         <Border Background="{DynamicResource PrimaryLightBrush}"

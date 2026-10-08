@@ -1,0 +1,167 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.FraccionarDialog"
+                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                  Title="Fraccionar Artículo de Origen"
+                  Width="480"
+                  Height="460"
+                  MinWidth="440"
+                  MinHeight="420"
+                  WindowStartupLocation="CenterOwner"
+                  ExtendsContentIntoTitleBar="True"
+                  WindowBackdropType="Mica"
+                  Background="{DynamicResource SurfaceBackgroundBrush}"
+                  ResizeMode="NoResize">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Colors.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Icons.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Barra de Título Fluent Estandarizada -->
+        <Grid Grid.Row="0">
+            <ui:TitleBar Height="32"
+                         Padding="8,0"
+                         Background="{DynamicResource SurfaceBackgroundBrush}"
+                         ShowMaximize="False"
+                         CanMaximize="False" />
+            <TextBlock Text="Fraccionar Artículo de Origen"
+                       FontFamily="{StaticResource FontFamilyText}"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="48,0"
+                       IsHitTestVisible="False" />
+        </Grid>
+
+        <Border Grid.Row="1" Padding="24,12">
+            <StackPanel>
+                <!-- Alerta de Validación -->
+                <Border Background="{DynamicResource DangerBackgroundBrush}"
+                        BorderBrush="{DynamicResource DangerBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="12,8"
+                        Margin="0,0,0,12"
+                        Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{Binding MensajeError}"
+                               Foreground="{DynamicResource DangerForegroundBrush}"
+                               FontSize="12"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <TextBlock Text="{Binding UnidadesPorOrigen, StringFormat={}Cada unidad del origen se abre en {0} unidades de la presentación.}"
+                           Style="{StaticResource TextBlockBodySecondary}"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,12" />
+
+                <!-- Cantidad a fraccionar -->
+                <TextBlock Text="Unidades del origen a abrir *"
+                           Style="{StaticResource TextBlockBodySecondary}"
+                           Margin="0,0,0,4" />
+                <ui:TextBox Text="{Binding CantidadOrigen, UpdateSourceTrigger=PropertyChanged}"
+                            FontFamily="{StaticResource FontFamilyMonospace}"
+                            PlaceholderText="1"
+                            Margin="0,0,0,16" />
+
+                <!-- Vista previa: stocks antes y después -->
+                <Border Style="{StaticResource CardBorderStyle}" Padding="16,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                   Text="{Binding DescripcionOrigen}"
+                                   Style="{StaticResource TextBlockBody}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,2,0,10">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="12" Height="12"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Margin="0,0,4,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Origen" Style="{StaticResource TextBlockCaption}" />
+                        </StackPanel>
+                        <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
+                                   VerticalAlignment="Top"
+                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}">
+                            <Run Text="{Binding StockOrigen, Mode=OneWay}" />
+                            <Run Text=" → " />
+                            <Run Text="{Binding StockOrigenResultante, Mode=OneWay}" />
+                        </TextBlock>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0"
+                                   Text="{Binding DescripcionDerivado}"
+                                   Style="{StaticResource TextBlockBody}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Margin="0,2,0,0">
+                            <iconPacks:PackIconBoxIcons Kind="RegularCut" Width="12" Height="12"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Margin="0,0,4,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding UnidadesResultantes, StringFormat={}Presentación (+{0} unid.)}"
+                                       Style="{StaticResource TextBlockCaption}" />
+                        </StackPanel>
+                        <TextBlock Grid.Row="2" Grid.RowSpan="2" Grid.Column="1"
+                                   VerticalAlignment="Top"
+                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                   FontWeight="Bold"
+                                   Foreground="{DynamicResource PrimaryBrush}">
+                            <Run Text="{Binding StockDerivado, Mode=OneWay}" />
+                            <Run Text=" → " />
+                            <Run Text="{Binding StockDerivadoResultante, Mode=OneWay}" />
+                        </TextBlock>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </Border>
+
+        <!-- Botones de Acción Inferiores -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SurfaceCardBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="24,12">
+            <DockPanel LastChildFill="False">
+                <Button Content="Cancelar"
+                        Click="BtnCancelar_Click"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        Width="100" />
+
+                <Button Content="Fraccionar"
+                        Click="BtnConfirmar_Click"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        DockPanel.Dock="Right"
+                        Padding="16,8" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

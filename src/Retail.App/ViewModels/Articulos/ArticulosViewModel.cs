@@ -334,6 +334,115 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Alta de una presentación derivada del artículo indicado, por ejemplo la unidad suelta de un pack (RF-21).
+    /// </summary>
+    [RelayCommand]
+    public async Task CrearPresentacionAsync(ArticuloDto? param)
+    {
+        var origen = param ?? ArticuloSeleccionado;
+        if (origen == null)
+        {
+            _dialogService.MostrarInformacion("Presentaciones", "Seleccione el artículo de compra (por ejemplo, el pack) para crear su presentación.");
+            return;
+        }
+
+        // Aviso temprano con las mismas reglas que valida el Dominio (un solo nivel, sin servicios).
+        if (origen.EsDerivado)
+        {
+            _dialogService.MostrarInformacion("Presentaciones", $"'{origen.Descripcion}' ya es una presentación derivada: no puede ser origen de otra.");
+            return;
+        }
+
+        if (origen.EsServicio)
+        {
+            _dialogService.MostrarInformacion("Presentaciones", "Un servicio no maneja stock y no puede tener presentaciones.");
+            return;
+        }
+
+        try
+        {
+            var creada = _dialogService.MostrarDialogoCrearPresentacion(
+                origen,
+                async (dto) =>
+                {
+                    await _inventarioService.CrearPresentacionAsync(dto);
+                });
+
+            if (creada != null)
+            {
+                _dialogService.MostrarInformacion(
+                    "Presentaciones",
+                    $"Se creó la presentación '{creada.Descripcion}'. Para darle stock, fraccione el artículo de origen.");
+                await CargarArticulosAsync();
+            }
+        }
+        catch (DomainException dex)
+        {
+            _logger.LogWarning(dex, "Validación de negocio al crear presentación: {Mensaje}", dex.Message);
+            _dialogService.MostrarError("Regla de Catálogo", dex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error inesperado al crear presentación: {Mensaje}", ex.Message);
+            _dialogService.MostrarError("Error Inesperado", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Abre unidades del artículo de origen y las suma a la presentación indicada (RF-21).
+    /// </summary>
+    [RelayCommand]
+    public async Task FraccionarAsync(ArticuloDto? param)
+    {
+        var derivado = param ?? ArticuloSeleccionado;
+        if (derivado == null)
+        {
+            _dialogService.MostrarInformacion("Fraccionamiento", "Seleccione la presentación (por ejemplo, la unidad suelta) que quiere reponer.");
+            return;
+        }
+
+        if (derivado.IdArticuloOrigen is not int idArticuloOrigen)
+        {
+            _dialogService.MostrarInformacion("Fraccionamiento", $"'{derivado.Descripcion}' no es una presentación derivada: no tiene un artículo de origen para fraccionar.");
+            return;
+        }
+
+        try
+        {
+            // El diálogo necesita el stock vigente del origen para la vista previa y el aviso temprano.
+            var origen = await _inventarioService.ObtenerPorIdAsync(idArticuloOrigen);
+            if (origen == null)
+            {
+                _dialogService.MostrarError("Fraccionamiento", $"El artículo de origen de '{derivado.Descripcion}' fue dado de baja.");
+                return;
+            }
+
+            var unidades = _dialogService.MostrarDialogoFraccionar(
+                derivado,
+                origen,
+                (dto) => _inventarioService.FraccionarAsync(dto));
+
+            if (unidades != null)
+            {
+                _dialogService.MostrarInformacion(
+                    "Fraccionamiento",
+                    $"Se sumaron {unidades} unidad(es) a '{derivado.Descripcion}'.");
+                await CargarArticulosAsync();
+            }
+        }
+        catch (DomainException dex)
+        {
+            _logger.LogWarning(dex, "Validación de negocio al fraccionar: {Mensaje}", dex.Message);
+            _dialogService.MostrarError("Regla de Stock", dex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error inesperado al fraccionar: {Mensaje}", ex.Message);
+            _dialogService.MostrarError("Error Inesperado", ex.Message);
+        }
+    }
+
     [RelayCommand]
     public void AlternarSoloStockCritico()
     {

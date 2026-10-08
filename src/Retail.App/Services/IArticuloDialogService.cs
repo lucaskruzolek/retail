@@ -27,4 +27,19 @@ public interface IArticuloDialogService
         Func<ActualizarArticuloDto, Task>? onGuardarAsync = null);
 
     Task<CatalogoProveedorDto?> AbrirSelectorCatalogoProveedorAsync(string? textoInicial = null, int? idProveedor = null);
+
+    /// <summary>
+    /// Alta de una presentación derivada del artículo indicado (RF-21). Devuelve los datos guardados o null si se canceló.
+    /// </summary>
+    CrearPresentacionDto? MostrarDialogoCrearPresentacion(
+        ArticuloDto origen,
+        Func<CrearPresentacionDto, Task>? onGuardarAsync = null);
+
+    /// <summary>
+    /// Fraccionamiento del origen en la presentación indicada (RF-21). Devuelve las unidades obtenidas o null si se canceló.
+    /// </summary>
+    int? MostrarDialogoFraccionar(
+        ArticuloDto derivado,
+        ArticuloDto origen,
+        Func<FraccionarDto, Task<int>>? onConfirmarAsync = null);
 }

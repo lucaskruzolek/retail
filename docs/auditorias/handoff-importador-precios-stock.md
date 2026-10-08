@@ -2,9 +2,9 @@
 
 > **Para el agente que lea esto:** este archivo resume las sesiones del 2 al 7 de octubre de 2026 sobre el Módulo 2.2 (importador de catálogos) y su relación con artículos y stock. Contiene el estado del repositorio, los hallazgos verificados en el código, las decisiones tomadas y el plan de trabajo por fases.
 >
-> **Estado al 7 de octubre (noche):** las Fases 0 (salvo `.gitattributes`), 1 y 2 están completadas y mergeadas. De la **Fase 3** (presentaciones de venta y fraccionamiento, RF-21), el **PR 3a** (Dominio, Aplicación, Persistencia, tests y documentación técnica) está implementado en `feat/presentaciones-fase-3a` y espera commit y PR. **La próxima tarea es el PR 3b (UI)**. El estado y los desvíos del 3a están en la **sección 7, Fase 3**: leela entera antes de proponer nada.
+> **Estado al 7 de octubre (noche):** las Fases 0 (salvo `.gitattributes`), 1 y 2 están completadas y mergeadas. La **Fase 3** (presentaciones de venta y fraccionamiento, RF-21) está implementada: el **PR 3a** (backend, commit `08d6f4b`, en `feat/presentaciones-fase-3a`, subido y en revisión de Pablo) y el **PR 3b** (UI, en `feat/presentaciones-fase-3b`, apilada sobre la del 3a). Falta la prueba manual de la UI, el commit del 3b y el merge de ambos. Estado y desvíos en la **sección 7, Fase 3**.
 >
-> **Cómo usarlo:** en una sesión nueva de Claude Code, pedí: *"Leé `@docs/auditorias/handoff-importador-precios-stock.md` y proponé en plan mode el plan del PR 3b de la Fase 3"*.
+> **Cómo usarlo:** en una sesión nueva de Claude Code, pedí: *"Leé `@docs/auditorias/handoff-importador-precios-stock.md` y decime cómo seguimos después de la Fase 3"*. Lo pendiente después de la Fase 3: `.gitattributes` (Fase 0, paso 4, tras el merge del 3a y coordinado con Pablo), la Fase 4 (deuda de diseño) y las notas de `wiki/` de la Fase 3, que el estudiante decidió no escribir por ahora.
 
 ---
 
@@ -39,7 +39,9 @@ Además de `AGENTS.md` (las 10 Leyes, el protocolo de lectura jerárquica y el b
 
 Los PRs se mergean por *squash* y GitHub borra la rama remota: después del merge, la rama local queda `[gone]` y se borra con `git branch -D` (el `-d` la rechaza porque el squash no conserva los commits originales).
 
-**Rama pendiente de PR:** `feat/presentaciones-fase-3a` (PR 3a de la Fase 3, sin commitear al cierre de la sesión del 7 de octubre). La revisa Pablo, porque toca `ProveedorService`, `CatalogoProveedorQueryService` e `ImportacionPlanillaIntegrationTests`. El PR 3b sale de `main` después de su merge.
+**Ramas pendientes de PR:**
+- `feat/presentaciones-fase-3a`: PR 3a, commit `08d6f4b`, subida a `origin`. La revisa Pablo, porque toca `ProveedorService`, `CatalogoProveedorQueryService` e `ImportacionPlanillaIntegrationTests`.
+- `feat/presentaciones-fase-3b`: PR 3b, **apilada** sobre la del 3a (decisión del 7 de octubre, para no frenar la UI durante la revisión). Si la revisión cambia el 3a, se trae con **merge**, nunca con rebase. Su PR se abre contra `main` después del merge del 3a; hasta entonces, si se abre antes, va contra `feat/presentaciones-fase-3a` para que el diff muestre solo la UI.
 
 ### Entorno
 
@@ -105,7 +107,7 @@ Archivos clave:
 | H-09 | Redondeo bancario implícito: `Math.Round(x, 2)` usa `ToEven` (2,345 da 2,34) | `Articulo.CalcularPrecioVenta` | **Resuelto** (Fase 3, PR 3a): `Articulo.RedondearMoneda` es el único punto de redondeo (`AwayFromZero`), para el precio y el costo derivado | Lucas |
 | H-10 | Ambigüedad de `"12.500"`: se resuelve con una heurística fija a favor de es-AR. Un CSV exportado en inglés multiplicaría precios × 1000 sin error | `ParseadorPrecioTexto.cs` | Abierto, requiere decisión D-04 | Pablo |
 | H-11 | `IncorporarArticulosATiendaAsync` omite en silencio los ítems ya vinculados (devuelve `Task`, sin informe) | `ProveedorService.cs` | **Resuelto** (Fase 1, commit `e47cbdd`): devuelve `ResultadoIncorporacionDto` (incorporados y omitidos) | Pablo |
-| H-12 | `VincularArticuloACatalogoAsync` vincula y copia el costo del ítem tal cual: un artículo "unidad" vinculado a un ítem "pack x100" recibe el costo del pack | `ProveedorService.cs`, `Articulo.VincularCatalogoProveedor` | **Resuelto en el backend** (Fase 3, PR 3a): un derivado no se puede vincular (Dominio y CHECK); la unidad se modela como presentación del pack y recibe el costo dividido. Falta la UI (PR 3b) | Ambos |
+| H-12 | `VincularArticuloACatalogoAsync` vincula y copia el costo del ítem tal cual: un artículo "unidad" vinculado a un ítem "pack x100" recibe el costo del pack | `ProveedorService.cs`, `Articulo.VincularCatalogoProveedor` | **Resuelto en el backend** (Fase 3, PR 3a): un derivado no se puede vincular (Dominio y CHECK); la unidad se modela como presentación del pack y recibe el costo dividido. En la UI (PR 3b), la edición de una presentación oculta el vínculo con distribuidor y la unidad se da de alta desde la fila del pack | Ambos |
 | H-13 | El explorador elige el artículo vinculado con `GroupBy(...).First()` sin orden definido | `CatalogoProveedorQueryService.cs` | **Resuelto** (Fase 3, PR 3a): índice único filtrado `IX_ARTICULOS_id_catalogo_proveedor` y `ToDictionary` | Pablo |
 | H-14 | Se cargan todos los artículos vinculados de **todos** los proveedores, con tracking. Solución propuesta: filtrar por proveedor a través de la navegación (ver sección 6.1) | `ProveedorService.ImportarPlanillaProveedorAsync` | **Resuelto** (Fase 2): filtro por navegación (sección 6.1). Verificado en LocalDB: con 2.000 artículos de otro proveedor, solo se cargan los del proveedor importado | Pablo (toca la consulta de `Articulo`: coordinar con Lucas) |
 | H-15 | El "streaming" termina en el parser: se materializa toda la `List` y todas las entidades quedan en el Change Tracker. No está medido contra RNF-03 (≤ 300 MB) | Parser y servicio | **Medido** (Fase 2): 5.000 filas de punta a punta retienen ≈ 13 MB (4 % de RNF-03). Tiempo típico 3,9–4,6 s en LocalDB, con un caso aislado de 28,5 s atribuible al entorno | Pablo |
@@ -304,6 +306,14 @@ Escenario: 2.500 renglones existentes con artículo vinculado, 2.500 nuevos y 2.
 - **`FraccionarAsync`** recibe un `FraccionarDto` validado y devuelve las unidades obtenidas. `ArticuloDto` expone `IdArticuloOrigen`, `UnidadesPorOrigen` y `EsDerivado`, también en la proyección de `ArticuloQueryService`, para el PR 3b.
 - **Riesgo anotado para la Etapa 4:** dos terminales fraccionando el mismo pack a la vez pueden perder una actualización (`Articulo` no tiene `rowversion`). Es el mismo problema que el descuento de stock de RF-10.
 
+**Estado (7 de octubre): PR 3b implementado** en `feat/presentaciones-fase-3b`, sin commitear. Decisiones del estudiante: **diálogo propio** para el alta (`PresentacionFormDialog`), **stock editable** al editar una presentación (es un ajuste de inventario físico, no un ingreso de mercadería; el backend ya lo permitía) y **botones por fila** en la columna Acciones. Contenido:
+- `PresentacionFormDialog` y `FraccionarDialog` con sus ViewModels. La vista previa usa las fórmulas del Dominio (`Articulo.CalcularCostoPresentacion` y `CalcularPrecioVenta`), y los errores de dominio se muestran dentro del diálogo.
+- `ArticulosView`: badge "Presentación ×N" en la columna Distribuidor y, en Acciones, "Crear presentación" (artículos de compra) o "Fraccionar" (presentaciones), según `DataTrigger`.
+- `ArticuloFormDialog` en modo presentación: oculta "Es servicio" y el vínculo con distribuidor, y muestra el aviso de la regla 4 junto al costo.
+- Tests de ViewModel y smoke tests STA de los dos diálogos nuevos y del formulario en modo presentación. El smoke test de `ArticulosView` ahora incluye una fila derivada, porque sin ella nunca construía el badge ni el botón Fraccionar.
+- **Sin nota de `wiki/`** (decisión del estudiante).
+- **Prueba manual pendiente:** al ejecutar la app se aplica la migración `AddPresentacionesDeVenta` a la base de desarrollo `RetailDb`.
+
 #### Alcance y división en PRs
 
 | PR | Contenido | Revisión |
@@ -430,3 +440,11 @@ H-06 (escrituras por la raíz `Proveedor`), H-07 + D-05 y H-10 + D-04. (H-08 y H
 | Portada, 1 | PRs #12 y #13 mergeados. Rama pendiente: `feat/presentaciones-fase-3a`. Próxima tarea: PR 3b (UI) |
 | 3 | H-08, H-09 y H-13 resueltos. H-12 resuelto en el backend (falta la UI del PR 3b) |
 | 7 | Prerrequisitos cumplidos. Estado del PR 3a y sus desvíos aprobados: CHECK extendido, hueco de `NULL` en la fórmula original del CHECK (detectado por un test de integración y corregido), regla 2 vista desde el origen, contrato de `FraccionarAsync` y riesgo de *lost update* para la Etapa 4 |
+
+### Actualización del 7 de octubre: PR 3a subido y PR 3b implementado
+
+| Sección | Cambio |
+|---|---|
+| Portada, 1 | PR 3a commiteado (`08d6f4b`) y subido. PR 3b en `feat/presentaciones-fase-3b`, apilada sobre la del 3a. Pendientes después de la Fase 3 |
+| 3 | H-12 resuelto también en la UI |
+| 7 | Estado del PR 3b: decisiones de diseño (diálogo propio, stock editable, botones por fila), contenido, sin nota de `wiki/` y prueba manual pendiente |
