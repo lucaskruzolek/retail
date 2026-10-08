@@ -118,6 +118,8 @@ graph TD
   * Cantidades y montos de imputación transaccional estrictamente positivos ($> 0$).
   * Existencias físicas no negativas (`[stock_actual] >= 0 OR [es_servicio] = 1`).
   * Límites y deudas de cuenta corriente no negativas ($\ge 0$).
+* **Cuidado con `NULL` (lógica de tres valores):** un `CHECK` solo rechaza la fila cuando la condición da `FALSE`; si da `UNKNOWN`, la acepta. Una comparación contra una columna nula (`[unidades_por_origen] >= 1` con `NULL`) da `UNKNOWN`, así que **toda columna nullable que deba tener valor necesita un `IS NOT NULL` explícito**. Lo detectó el test `Presentacion_OrigenSinUnidades_LaRechazaElCheck` en la Fase 3: la fórmula sin `IS NOT NULL` aceptaba un derivado sin unidades.
+* **Alcance de un `CHECK`:** solo ve la fila que se guarda. Las reglas entre filas se cubren con índices únicos filtrados (unicidad) o quedan en Dominio/Aplicación (por ejemplo, "un derivado no puede ser origen de otro"), porque expresarlas en la base requeriría funciones escalares, prohibidas por la Ley 6.
 
 ### 8. Un `DbContext` por Pantalla y Accesos Serializados (H-19)
 * El `RetailDbContext` es una *Unit of Work* **no segura para hilos**: EF Core no admite dos operaciones simultáneas sobre la misma instancia. Verificado contra LocalDB: la segunda consulta lanza `InvalidOperationException` aunque la primera ya esté cancelada, y una consulta cancelada termina en `SqlException` ("Operation cancelled by user"), no en `OperationCanceledException`.
@@ -134,6 +136,7 @@ graph TD
 | **`ARTICULOS`** | `CK_ARTICULOS_Precios` | `[precio_venta] >= 0 AND [costo_reposicion] >= 0 AND [porcentaje_ganancia] >= 0` | Precios, costos y márgenes de ganancia no negativos. |
 | **`ARTICULOS`** | `CK_ARTICULOS_StockMinimo` | `[stock_minimo] >= 0` | Umbral de reposición de catálogo no negativo. |
 | **`ARTICULOS`** | `CK_ARTICULOS_StockActual` | `([stock_actual] >= 0) OR ([es_servicio] = 1)` | Prohibición de stock negativo en mostrador (excepto servicios `RF-04`). |
+| **`ARTICULOS`** | `CK_ARTICULOS_Presentacion` | `([id_articulo_origen] IS NULL AND [unidades_por_origen] IS NULL) OR ([id_articulo_origen] IS NOT NULL AND [unidades_por_origen] IS NOT NULL AND [unidades_por_origen] >= 1 AND [id_catalogo_proveedor] IS NULL AND [es_servicio] = 0 AND [id_articulo_origen] <> [id_articulo])` | Presentación derivada (`RF-21`): origen y unidades van juntos, al menos 1 unidad, sin catálogo propio, no servicio y sin autorreferencia. Complementada por la FK autorreferencial `Restrict` y el índice único filtrado `IX_ARTICULOS_id_catalogo_proveedor` (un artículo activo por ítem del proveedor, `RF-05`). |
 | **`CATALOGOS_PROVEEDORES`** | `CK_CATALOGOS_PROVEEDORES_PrecioCosto` | `[precio_costo] >= 0` | Precios de lista mayorista no negativos. |
 | **`CLIENTES`** | `CK_CLIENTES_LimiteCredito` | `[limite_credito] >= 0` | Límite crediticio asignado no negativo. |
 | **`CLIENTES`** | `CK_CLIENTES_SaldoCuentaCorriente` | `[saldo_cuenta_corriente] >= 0` | Deuda del cliente no negativa (no admite saldo acreedor `RF-20`). |

@@ -84,6 +84,8 @@ public class ArticuloQueryService : IArticuloQueryService
             IdMarca = a.IdMarca,
             MarcaNombre = a.Marca?.NombreMarca ?? "Sin marca",
             IdCatalogoProveedor = a.IdCatalogoProveedor,
+            IdArticuloOrigen = a.IdArticuloOrigen,
+            UnidadesPorOrigen = a.UnidadesPorOrigen,
             ProveedorNombre = a.CatalogoProveedor?.Proveedor?.RazonSocial,
             CodigoProveedor = a.CatalogoProveedor?.CodigoProveedor,
             DescripcionProveedor = a.CatalogoProveedor?.DescripcionProveedor,

@@ -4,12 +4,13 @@ using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
 using Retail.Domain.Exceptions;
+using Retail.Domain.Services;
 
 namespace Retail.Application.Services;
 
 /// <summary>
 /// Implementación de los casos de uso de administración del catálogo de artículos, stock,
-/// cálculo reactivo de markup y alertas de inventario (RF-04, RF-06, RF-08).
+/// cálculo reactivo de markup, alertas de inventario y presentaciones derivadas (RF-04, RF-06, RF-08, RF-21).
 /// </summary>
 public class InventarioService : IInventarioService
 {
@@ -19,6 +20,8 @@ public class InventarioService : IInventarioService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<CrearArticuloDto> _crearArticuloValidator;
     private readonly IValidator<ActualizarArticuloDto> _actualizarArticuloValidator;
+    private readonly IValidator<CrearPresentacionDto> _crearPresentacionValidator;
+    private readonly IValidator<FraccionarDto> _fraccionarValidator;
     private readonly ICatalogoProveedorQueryService? _catalogoQueryService;
     private readonly IArticuloQueryService? _articuloQueryService;
 
@@ -29,6 +32,8 @@ public class InventarioService : IInventarioService
         IUnitOfWork unitOfWork,
         IValidator<CrearArticuloDto> crearArticuloValidator,
         IValidator<ActualizarArticuloDto> actualizarArticuloValidator,
+        IValidator<CrearPresentacionDto> crearPresentacionValidator,
+        IValidator<FraccionarDto> fraccionarValidator,
         ICatalogoProveedorQueryService? catalogoQueryService = null,
         IArticuloQueryService? articuloQueryService = null)
     {
@@ -38,6 +43,8 @@ public class InventarioService : IInventarioService
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _crearArticuloValidator = crearArticuloValidator ?? throw new ArgumentNullException(nameof(crearArticuloValidator));
         _actualizarArticuloValidator = actualizarArticuloValidator ?? throw new ArgumentNullException(nameof(actualizarArticuloValidator));
+        _crearPresentacionValidator = crearPresentacionValidator ?? throw new ArgumentNullException(nameof(crearPresentacionValidator));
+        _fraccionarValidator = fraccionarValidator ?? throw new ArgumentNullException(nameof(fraccionarValidator));
         _catalogoQueryService = catalogoQueryService;
         _articuloQueryService = articuloQueryService;
     }
@@ -202,20 +209,7 @@ public class InventarioService : IInventarioService
         ArgumentNullException.ThrowIfNull(dto);
         await _crearArticuloValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
-        // Validar unicidad de código de barras no nulo
-        if (!string.IsNullOrWhiteSpace(dto.CodigoBarras))
-        {
-            var codigoNormalizado = dto.CodigoBarras.Trim();
-            var existentes = await _articuloRepository.FindAsync(
-                a => a.CodigoBarras == codigoNormalizado,
-                includeDeleted: false,
-                cancellationToken);
-
-            if (existentes.Count > 0)
-            {
-                throw new DomainException($"Ya existe un artículo activo con el código de barras '{codigoNormalizado}'.");
-            }
-        }
+        await ValidarCodigoBarrasUnicoAsync(dto.CodigoBarras, idArticuloExcluido: null, cancellationToken);
 
         var articulo = new Articulo();
         articulo.ActualizarDatos(
@@ -257,20 +251,20 @@ public class InventarioService : IInventarioService
             throw new DomainException($"No se encontró ningún artículo activo con el identificador {dto.IdArticulo}.");
         }
 
-        // Validar unicidad de código de barras no nulo si cambió
-        if (!string.IsNullOrWhiteSpace(dto.CodigoBarras))
-        {
-            var codigoNormalizado = dto.CodigoBarras.Trim();
-            var existentes = await _articuloRepository.FindAsync(
-                a => a.Id != dto.IdArticulo && a.CodigoBarras == codigoNormalizado,
-                includeDeleted: false,
-                cancellationToken);
+        await ValidarCodigoBarrasUnicoAsync(dto.CodigoBarras, dto.IdArticulo, cancellationToken);
 
-            if (existentes.Count > 0)
-            {
-                throw new DomainException($"Ya existe otro artículo activo con el código de barras '{codigoNormalizado}'.");
-            }
+        // Las presentaciones se cargan antes de modificar el artículo: un origen con presentaciones
+        // no puede pasar a ser un servicio (RF-21) y, si cambia su costo, hay que propagarlo.
+        var presentaciones = articulo.EsDerivado
+            ? Array.Empty<Articulo>()
+            : await ObtenerPresentacionesAsync(articulo.Id, cancellationToken);
+        if (dto.EsServicio && presentaciones.Count > 0)
+        {
+            throw new DomainException(
+                $"El artículo '{articulo.Descripcion}' tiene presentaciones derivadas y no puede convertirse en un servicio.");
         }
+
+        var costoAnterior = articulo.CostoReposicion;
 
         articulo.ActualizarDatos(
             descripcion: dto.Descripcion,
@@ -285,6 +279,11 @@ public class InventarioService : IInventarioService
             idCatalogoProveedor: dto.IdCatalogoProveedor);
 
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
+        if (articulo.CostoReposicion != costoAnterior)
+        {
+            await PropagarCostoAPresentacionesAsync(articulo, presentaciones, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         var categoria = articulo.IdCategoria.HasValue
@@ -311,6 +310,16 @@ public class InventarioService : IInventarioService
         if (articulo == null)
         {
             throw new DomainException($"No se encontró ningún artículo activo con el identificador {idArticulo}.");
+        }
+
+        // La regla mira a otros artículos, por eso vive acá y no en el Dominio: un origen con presentaciones
+        // activas dejaría derivados huérfanos cuyo costo nadie actualiza (RF-21).
+        var presentaciones = await ObtenerPresentacionesAsync(articulo.Id, cancellationToken);
+        if (presentaciones.Count > 0)
+        {
+            throw new DomainException(
+                $"No se puede dar de baja '{articulo.Descripcion}' porque tiene {presentaciones.Count} presentación(es) derivada(s) activa(s), " +
+                $"por ejemplo '{presentaciones[0].Descripcion}'. Dé de baja primero las presentaciones.");
         }
 
         articulo.MarkAsDeleted();
@@ -352,9 +361,91 @@ public class InventarioService : IInventarioService
             throw new DomainException($"No se encontró ningún artículo activo con el identificador {idArticulo}.");
         }
 
+        var costoAnterior = articulo.CostoReposicion;
         articulo.ActualizarCostoYRecalcularPrecio(nuevoCostoReposicion);
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
+
+        if (articulo.CostoReposicion != costoAnterior && !articulo.EsDerivado)
+        {
+            var presentaciones = await ObtenerPresentacionesAsync(articulo.Id, cancellationToken);
+            await PropagarCostoAPresentacionesAsync(articulo, presentaciones, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<ArticuloDto> CrearPresentacionAsync(CrearPresentacionDto dto, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+        await _crearPresentacionValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        var origen = await _articuloRepository.GetByIdAsync(dto.IdArticuloOrigen, includeDeleted: false, cancellationToken);
+        if (origen == null)
+        {
+            throw new DomainException($"No se encontró ningún artículo activo con el identificador {dto.IdArticuloOrigen}.");
+        }
+
+        await ValidarCodigoBarrasUnicoAsync(dto.CodigoBarras, idArticuloExcluido: null, cancellationToken);
+
+        // La presentación hereda la clasificación del origen y arranca sin stock: solo recibe unidades
+        // por fraccionamiento. El costo 0 es provisorio: DefinirComoPresentacionDe lo deriva del origen.
+        var presentacion = new Articulo();
+        presentacion.ActualizarDatos(
+            descripcion: dto.Descripcion,
+            idCategoria: origen.IdCategoria,
+            idMarca: origen.IdMarca,
+            codigoBarras: dto.CodigoBarras,
+            costoReposicion: 0m,
+            porcentajeGanancia: dto.PorcentajeGanancia,
+            stockActual: 0,
+            stockMinimo: dto.StockMinimo,
+            esServicio: false);
+        presentacion.DefinirComoPresentacionDe(origen, dto.UnidadesPorOrigen);
+
+        await _articuloRepository.AddAsync(presentacion, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        var categoria = presentacion.IdCategoria.HasValue
+            ? await _categoriaRepository.GetByIdAsync(presentacion.IdCategoria.Value, cancellationToken)
+            : null;
+        var marca = presentacion.IdMarca.HasValue
+            ? await _marcaRepository.GetByIdAsync(presentacion.IdMarca.Value, cancellationToken)
+            : null;
+
+        return MapToDto(presentacion, categoria?.NombreCategoria, marca?.NombreMarca);
+    }
+
+    public async Task<int> FraccionarAsync(FraccionarDto dto, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+        await _fraccionarValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        var derivado = await _articuloRepository.GetByIdAsync(dto.IdArticuloDerivado, includeDeleted: false, cancellationToken);
+        if (derivado == null)
+        {
+            throw new DomainException($"No se encontró ningún artículo activo con el identificador {dto.IdArticuloDerivado}.");
+        }
+
+        if (derivado.IdArticuloOrigen is not int idArticuloOrigen)
+        {
+            throw new DomainException($"El artículo '{derivado.Descripcion}' no es una presentación derivada: no se puede fraccionar.");
+        }
+
+        var origen = await _articuloRepository.GetByIdAsync(idArticuloOrigen, includeDeleted: false, cancellationToken);
+        if (origen == null)
+        {
+            throw new DomainException($"El artículo de origen de '{derivado.Descripcion}' fue dado de baja: no se puede fraccionar.");
+        }
+
+        var unidadesObtenidas = ServicioFraccionamiento.Fraccionar(origen, derivado, dto.CantidadOrigen);
+
+        // Dos agregados en un único SaveChanges: la transacción implícita de EF Core guarda
+        // los dos stocks o ninguno (RF-21).
+        await _articuloRepository.UpdateAsync(origen, cancellationToken);
+        await _articuloRepository.UpdateAsync(derivado, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return unidadesObtenidas;
     }
 
     public async Task<IReadOnlyList<CategoriaDto>> ListarCategoriasAsync(CancellationToken cancellationToken = default)
@@ -385,6 +476,60 @@ public class InventarioService : IInventarioService
             .ToList();
     }
 
+    /// <summary>
+    /// Rechaza un código de barras que ya usa otro artículo activo. <paramref name="idArticuloExcluido"/>
+    /// es el artículo que se está editando, para que no choque consigo mismo.
+    /// </summary>
+    private async Task ValidarCodigoBarrasUnicoAsync(string? codigoBarras, int? idArticuloExcluido, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(codigoBarras))
+        {
+            return;
+        }
+
+        var codigoNormalizado = codigoBarras.Trim();
+        var existentes = idArticuloExcluido is int idExcluido
+            ? await _articuloRepository.FindAsync(
+                a => a.Id != idExcluido && a.CodigoBarras == codigoNormalizado,
+                includeDeleted: false,
+                cancellationToken)
+            : await _articuloRepository.FindAsync(
+                a => a.CodigoBarras == codigoNormalizado,
+                includeDeleted: false,
+                cancellationToken);
+
+        if (existentes.Count > 0)
+        {
+            var mensaje = idArticuloExcluido.HasValue
+                ? $"Ya existe otro artículo activo con el código de barras '{codigoNormalizado}'."
+                : $"Ya existe un artículo activo con el código de barras '{codigoNormalizado}'.";
+            throw new DomainException(mensaje);
+        }
+    }
+
+    private async Task<IReadOnlyList<Articulo>> ObtenerPresentacionesAsync(int idArticuloOrigen, CancellationToken cancellationToken)
+    {
+        return await _articuloRepository.FindAsync(
+            a => a.IdArticuloOrigen == idArticuloOrigen,
+            includeDeleted: false,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Recalcula el costo y el precio de cada presentación a partir del costo actual del origen (RF-21).
+    /// </summary>
+    private async Task PropagarCostoAPresentacionesAsync(
+        Articulo origen,
+        IReadOnlyList<Articulo> presentaciones,
+        CancellationToken cancellationToken)
+    {
+        foreach (var presentacion in presentaciones)
+        {
+            presentacion.RecalcularCostoDesdeOrigen(origen.CostoReposicion);
+            await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
+        }
+    }
+
     private static ArticuloDto MapToDto(
         Articulo articulo,
         string? categoriaNombre,
@@ -401,6 +546,8 @@ public class InventarioService : IInventarioService
             IdMarca = articulo.IdMarca,
             MarcaNombre = marcaNombre ?? "Sin marca",
             IdCatalogoProveedor = articulo.IdCatalogoProveedor,
+            IdArticuloOrigen = articulo.IdArticuloOrigen,
+            UnidadesPorOrigen = articulo.UnidadesPorOrigen,
             ProveedorNombre = catalogo?.Proveedor?.RazonSocial,
             CodigoProveedor = catalogo?.CodigoProveedor,
             DescripcionProveedor = catalogo?.DescripcionProveedor,

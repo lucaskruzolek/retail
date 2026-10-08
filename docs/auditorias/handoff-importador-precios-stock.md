@@ -2,9 +2,9 @@
 
 > **Para el agente que lea esto:** este archivo resume las sesiones del 2 al 7 de octubre de 2026 sobre el Módulo 2.2 (importador de catálogos) y su relación con artículos y stock. Contiene el estado del repositorio, los hallazgos verificados en el código, las decisiones tomadas y el plan de trabajo por fases.
 >
-> **Estado al 7 de octubre:** las Fases 0 (salvo `.gitattributes`), 1 y 2 están completadas y mergeadas. **La próxima tarea es la Fase 3** (presentaciones de venta y fraccionamiento, RF-21). Su guía de arranque completa está en la **sección 7, Fase 3**: leela entera antes de proponer nada.
+> **Estado al 7 de octubre (noche):** las Fases 0 (salvo `.gitattributes`), 1 y 2 están completadas y mergeadas. De la **Fase 3** (presentaciones de venta y fraccionamiento, RF-21), el **PR 3a** (Dominio, Aplicación, Persistencia, tests y documentación técnica) está implementado en `feat/presentaciones-fase-3a` y espera commit y PR. **La próxima tarea es el PR 3b (UI)**. El estado y los desvíos del 3a están en la **sección 7, Fase 3**: leela entera antes de proponer nada.
 >
-> **Cómo usarlo:** en una sesión nueva de Claude Code, pedí: *"Leé `@docs/auditorias/handoff-importador-precios-stock.md` y proponé en plan mode el plan del PR 3a de la Fase 3, empezando por el Dominio"*.
+> **Cómo usarlo:** en una sesión nueva de Claude Code, pedí: *"Leé `@docs/auditorias/handoff-importador-precios-stock.md` y proponé en plan mode el plan del PR 3b de la Fase 3"*.
 
 ---
 
@@ -34,10 +34,12 @@ Además de `AGENTS.md` (las 10 Leyes, el protocolo de lectura jerárquica y el b
 | #9 | Arreglo del build de `main` tras el módulo 3.1 de Caja (namespace de `CajaView`, estilos XAML inexistentes, smoke tests) |
 | #10 | ERS: RF-21 (presentaciones y fraccionamiento) y precisiones en RF-05, RF-10 y RF-19 |
 | #11 | Fase 2: H-14 (filtro por navegación) y medición de H-15 |
+| #12 | H-18: descarte de cargas obsoletas del catálogo (arreglo parcial) |
+| #13 | H-19: un `DbContext` por pantalla y `CargaSerializada` (completa H-18) |
 
 Los PRs se mergean por *squash* y GitHub borra la rama remota: después del merge, la rama local queda `[gone]` y se borra con `git branch -D` (el `-d` la rechaza porque el squash no conserva los commits originales).
 
-**Rama pendiente de PR:** `fix/importador-carga-catalogo` (H-18, más esta actualización del handoff). **La Fase 3 arranca después de su merge.**
+**Rama pendiente de PR:** `feat/presentaciones-fase-3a` (PR 3a de la Fase 3, sin commitear al cierre de la sesión del 7 de octubre). La revisa Pablo, porque toca `ProveedorService`, `CatalogoProveedorQueryService` e `ImportacionPlanillaIntegrationTests`. El PR 3b sale de `main` después de su merge.
 
 ### Entorno
 
@@ -99,12 +101,12 @@ Archivos clave:
 | H-05 | `MapeoColumnasDto.FilaInicial` se valida y se muestra, pero el parser la ignora (`useHeaderRow: true` fijo) | `ExcelCatalogParser.cs` | **Resuelto** (Fase 1, commit `e47cbdd`): renombrada a `FilaEncabezado` (por defecto 1), editable en el diálogo; encabezados sin distinguir mayúsculas, acentos ni espacios | Pablo |
 | H-06 | `CatalogoProveedor` se escribe desde un *query service* (`AgregarAsync`/`ActualizarAsync`), saltando la raíz `Proveedor` (Ley 2, CQRS) | `ICatalogoProveedorQueryService`, `CatalogoProveedorQueryService.cs` | Abierto (deuda de diseño) | Pablo |
 | H-07 | Invariante de costo inconsistente: un ítem existente con costo 0 se rechaza (`ActualizarPrecio` exige > 0); un ítem nuevo con costo 0 se crea (inicializador con setters públicos). La base admite >= 0 | `CatalogoProveedor.cs`, `ProveedorService.cs` | Abierto, requiere decisión D-05 | Pablo |
-| H-08 | `ActualizarCostoYRecalcularPrecio` asigna `CostoReposicion` antes de validar (si `CalcularPrecioVenta` lanza, queda estado parcial) | `Articulo.cs` | Abierto. **Se corrige en la Fase 3** (PR 3a), porque el paso de Dominio modifica este método | Lucas |
-| H-09 | Redondeo bancario implícito: `Math.Round(x, 2)` usa `ToEven` (2,345 da 2,34) | `Articulo.CalcularPrecioVenta` | Abierto. D-06 decidida (`AwayFromZero`); **se corrige en la Fase 3** (PR 3a) | Lucas |
+| H-08 | `ActualizarCostoYRecalcularPrecio` asigna `CostoReposicion` antes de validar (si `CalcularPrecioVenta` lanza, queda estado parcial) | `Articulo.cs` | **Resuelto** (Fase 3, PR 3a): el precio se calcula antes de asignar. La misma causa estaba en `ActualizarDatos` y `VincularCatalogoProveedor`, y se corrigió en los tres | Lucas |
+| H-09 | Redondeo bancario implícito: `Math.Round(x, 2)` usa `ToEven` (2,345 da 2,34) | `Articulo.CalcularPrecioVenta` | **Resuelto** (Fase 3, PR 3a): `Articulo.RedondearMoneda` es el único punto de redondeo (`AwayFromZero`), para el precio y el costo derivado | Lucas |
 | H-10 | Ambigüedad de `"12.500"`: se resuelve con una heurística fija a favor de es-AR. Un CSV exportado en inglés multiplicaría precios × 1000 sin error | `ParseadorPrecioTexto.cs` | Abierto, requiere decisión D-04 | Pablo |
 | H-11 | `IncorporarArticulosATiendaAsync` omite en silencio los ítems ya vinculados (devuelve `Task`, sin informe) | `ProveedorService.cs` | **Resuelto** (Fase 1, commit `e47cbdd`): devuelve `ResultadoIncorporacionDto` (incorporados y omitidos) | Pablo |
-| H-12 | `VincularArticuloACatalogoAsync` vincula y copia el costo del ítem tal cual: un artículo "unidad" vinculado a un ítem "pack x100" recibe el costo del pack | `ProveedorService.cs`, `Articulo.VincularCatalogoProveedor` | Abierto, se resuelve con el modelo de la sección 5 | Ambos |
-| H-13 | El explorador elige el artículo vinculado con `GroupBy(...).First()` sin orden definido | `CatalogoProveedorQueryService.cs` | Abierto. **Se resuelve en la Fase 3**: con el índice único filtrado en `id_catalogo_proveedor`, el `GroupBy(...).First()` vuelve a ser innecesario y se reemplaza por `ToDictionary` | Pablo |
+| H-12 | `VincularArticuloACatalogoAsync` vincula y copia el costo del ítem tal cual: un artículo "unidad" vinculado a un ítem "pack x100" recibe el costo del pack | `ProveedorService.cs`, `Articulo.VincularCatalogoProveedor` | **Resuelto en el backend** (Fase 3, PR 3a): un derivado no se puede vincular (Dominio y CHECK); la unidad se modela como presentación del pack y recibe el costo dividido. Falta la UI (PR 3b) | Ambos |
+| H-13 | El explorador elige el artículo vinculado con `GroupBy(...).First()` sin orden definido | `CatalogoProveedorQueryService.cs` | **Resuelto** (Fase 3, PR 3a): índice único filtrado `IX_ARTICULOS_id_catalogo_proveedor` y `ToDictionary` | Pablo |
 | H-14 | Se cargan todos los artículos vinculados de **todos** los proveedores, con tracking. Solución propuesta: filtrar por proveedor a través de la navegación (ver sección 6.1) | `ProveedorService.ImportarPlanillaProveedorAsync` | **Resuelto** (Fase 2): filtro por navegación (sección 6.1). Verificado en LocalDB: con 2.000 artículos de otro proveedor, solo se cargan los del proveedor importado | Pablo (toca la consulta de `Articulo`: coordinar con Lucas) |
 | H-15 | El "streaming" termina en el parser: se materializa toda la `List` y todas las entidades quedan en el Change Tracker. No está medido contra RNF-03 (≤ 300 MB) | Parser y servicio | **Medido** (Fase 2): 5.000 filas de punta a punta retienen ≈ 13 MB (4 % de RNF-03). Tiempo típico 3,9–4,6 s en LocalDB, con un caso aislado de 28,5 s atribuible al entorno | Pablo |
 | H-16 | `PreciosActualizados` cuenta artículos tocados aunque el costo no haya cambiado. Comparar contra el costo **de cada artículo** (`articulo.CostoReposicion != nuevoCosto`), no contra el del catálogo: un artículo editado a mano puede tener otro costo | `ProveedorService.cs` | **Resuelto** (Fase 1, commit `e47cbdd`) | Pablo |
@@ -293,8 +295,14 @@ Escenario: 2.500 renglones existentes con artículo vinculado, 2.500 nuevos y 2.
 
 1. ✅ ERS aprobada y mergeada (PR #10).
 2. ✅ Fase 2 mergeada (PR #11): el filtro de H-14 es la base de la propagación.
-3. ⏳ `fix/importador-carga-catalogo` (H-18) mergeada en `main`.
-4. Crear la rama `feat/presentaciones-fase-3a` **desde `main` actualizado**, solo cuando el usuario lo pida (regla 3).
+3. ✅ `fix/importador-carga-catalogo` (PR #12) y `fix/dbcontext-por-pantalla` (PR #13, H-19) mergeadas en `main`.
+4. ✅ Rama `feat/presentaciones-fase-3a` creada desde `main` en `e4706a0` (7 de octubre).
+
+**Estado (7 de octubre): PR 3a implementado**, pasos 1 a 5, en `feat/presentaciones-fase-3a`, pendiente de commit y PR (los abre el estudiante). Desvíos respecto de esta guía, todos aprobados durante la sesión:
+- **CHECK extendido y corregido.** Además de lo previsto, rechaza un derivado que sea servicio o derive de sí mismo. La fórmula original de la fila del paso 3 tenía un hueco: con `unidades_por_origen = NULL`, `NULL >= 1` da `UNKNOWN` y un CHECK solo rechaza `FALSE`, así que aceptaba un derivado sin unidades. Lo detectó el test de integración `Presentacion_OrigenSinUnidades_LaRechazaElCheck`; se agregó `[unidades_por_origen] IS NOT NULL` y se regeneró la migración (no estaba aplicada fuera de las bases de test). La fórmula vigente está en `SISTEMA_DE_PERSISTENCIA.md`.
+- **Regla 2 vista desde el origen.** `ActualizarArticuloAsync` rechaza convertir en servicio un origen con presentaciones (necesita mirar otros artículos, por eso va en Application).
+- **`FraccionarAsync`** recibe un `FraccionarDto` validado y devuelve las unidades obtenidas. `ArticuloDto` expone `IdArticuloOrigen`, `UnidadesPorOrigen` y `EsDerivado`, también en la proyección de `ArticuloQueryService`, para el PR 3b.
+- **Riesgo anotado para la Etapa 4:** dos terminales fraccionando el mismo pack a la vez pueden perder una actualización (`Articulo` no tiene `rowversion`). Es el mismo problema que el descuento de stock de RF-10.
 
 #### Alcance y división en PRs
 
@@ -316,7 +324,7 @@ Escenario: 2.500 renglones existentes con artículo vinculado, 2.500 nuevos y 2.
 | 1 | Dominio | `Retail.Domain/Services/ServicioFraccionamiento.cs` (**carpeta nueva**, registrarla en el MAPA) | `Fraccionar(origen, derivado, cantidadOrigen)`: valida que `derivado.IdArticuloOrigen == origen.Id` y `cantidadOrigen ≥ 1`, y llama a `DescontarStock` e `IncrementarStock` |
 | 2 | Aplicación | `InventarioService` + DTOs (`CrearPresentacionDto`, `FraccionarDto`) + validadores FluentValidation | `CrearPresentacionAsync`: crea el derivado heredando categoría y marca del origen. `FraccionarAsync(idArticuloDerivado, cantidadOrigen)`: carga los dos artículos, usa el servicio de dominio y hace **un** `SaveChanges`. `BajaArticuloAsync` rechaza un origen con derivados activos (regla 8). **Propagación** cuando cambia el costo del origen en `ActualizarArticuloAsync` y `ActualizarCostoYPrecioAsync` |
 | 2 | Aplicación | `ProveedorService` (**de Pablo**) | Propagación en `ImportarPlanillaProveedorAsync` (consulta de la regla 9 + `ToLookup` por `IdArticuloOrigen`, contando en `PreciosActualizados` solo los costos que cambian, como H-16) y en `VincularArticuloACatalogoAsync` |
-| 3 | Infraestructura | `ArticuloConfiguration.cs` + migración `AddPresentacionesDeVenta` | Columnas `id_articulo_origen` y `unidades_por_origen`. FK autorreferencial con `OnDelete(Restrict)`. CHECK `CK_ARTICULOS_Presentacion`: `([id_articulo_origen] IS NULL AND [unidades_por_origen] IS NULL) OR ([id_articulo_origen] IS NOT NULL AND [unidades_por_origen] >= 1 AND [id_catalogo_proveedor] IS NULL)`. **Índice único filtrado** en `id_catalogo_proveedor` con `[id_catalogo_proveedor] IS NOT NULL AND [deleted_at] IS NULL` (reemplaza al índice no único de la convención; mismo patrón que `codigo_barras`). Comando: el de `SISTEMA_DE_PERSISTENCIA.md` |
+| 3 | Infraestructura | `ArticuloConfiguration.cs` + migración `AddPresentacionesDeVenta` | Columnas `id_articulo_origen` y `unidades_por_origen`. FK autorreferencial con `OnDelete(Restrict)`. CHECK `CK_ARTICULOS_Presentacion` (**fórmula corregida**, ver "Estado" más arriba): `([id_articulo_origen] IS NULL AND [unidades_por_origen] IS NULL) OR ([id_articulo_origen] IS NOT NULL AND [unidades_por_origen] IS NOT NULL AND [unidades_por_origen] >= 1 AND [id_catalogo_proveedor] IS NULL AND [es_servicio] = 0 AND [id_articulo_origen] <> [id_articulo])`. **Índice único filtrado** en `id_catalogo_proveedor` con `[id_catalogo_proveedor] IS NOT NULL AND [deleted_at] IS NULL` (reemplaza al índice no único de la convención; mismo patrón que `codigo_barras`). Comando: el de `SISTEMA_DE_PERSISTENCIA.md` |
 | 3 | Infraestructura | `CatalogoProveedorQueryService.cs` | H-13: volver de `GroupBy(...).First()` a `ToDictionary`, ahora garantizado por el índice único |
 | 4 | Tests | `Retail.Domain.UnitTests`, `Retail.Application.UnitTests`, `Retail.Infrastructure.IntegrationTests` | Ver criterios de aceptación |
 | 5 | Docs | `docs/DER.mmd`, `MAPA_DEL_PROYECTO.md`, `SISTEMA_DE_PERSISTENCIA.md` (catálogo de CHECK) y este handoff | — |
@@ -414,3 +422,11 @@ H-06 (escrituras por la raíz `Proveedor`), H-07 + D-05 y H-10 + D-04. (H-08 y H
 | Sección | Cambio |
 |---|---|
 | 3 | H-18 y H-19 resueltos en `fix/dbcontext-por-pantalla`: scope de DI por pantalla, validación de scopes y `CargaSerializada` en todas las pantallas con acceso a datos. Riesgos residuales documentados en H-19 |
+
+### Actualización del 7 de octubre: PR 3a de la Fase 3 implementado
+
+| Sección | Cambio |
+|---|---|
+| Portada, 1 | PRs #12 y #13 mergeados. Rama pendiente: `feat/presentaciones-fase-3a`. Próxima tarea: PR 3b (UI) |
+| 3 | H-08, H-09 y H-13 resueltos. H-12 resuelto en el backend (falta la UI del PR 3b) |
+| 7 | Prerrequisitos cumplidos. Estado del PR 3a y sus desvíos aprobados: CHECK extendido, hueco de `NULL` en la fórmula original del CHECK (detectado por un test de integración y corregido), regla 2 vista desde el origen, contrato de `FraccionarAsync` y riesgo de *lost update* para la Etapa 4 |
