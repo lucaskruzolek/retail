@@ -150,6 +150,8 @@ public class AppSmokeTests
                     StockMinimo = 10,
                     EsServicio = false
                 });
+                // Una presentación derivada (RF-21) activa los triggers del badge y del botón Fraccionar.
+                viewModel.Articulos.Add(ArticuloDeEjemplo(idArticulo: 2, idArticuloOrigen: 1));
                 view.Measure(new System.Windows.Size(1024, 768));
                 view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
                 view.UpdateLayout();
@@ -444,6 +446,119 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de ArticuloFormDialog debe resolverse sin errores");
         dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ArticuloFormDialog_EdicionDePresentacionDerivada_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange: el modo derivado oculta servicio y distribuidor y muestra el aviso de costo (RF-21)
+        Exception? xamlException = null;
+        ArticuloFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ArticuloFormViewModel();
+            viewModel.ConfigurarEdicion(
+                ArticuloDeEjemplo(idArticulo: 8, idArticuloOrigen: 7),
+                Array.Empty<CategoriaDto>(),
+                Array.Empty<MarcaDto>());
+
+            try
+            {
+                dialog = new ArticuloFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(640, 750));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 640, 750));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el modo derivado de ArticuloFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+        dialog!.ViewModel.EsDerivado.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PresentacionFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PresentacionFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new PresentacionFormViewModel();
+            viewModel.Configurar(ArticuloDeEjemplo(idArticulo: 7, idArticuloOrigen: null));
+
+            try
+            {
+                dialog = new PresentacionFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(560, 660));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 560, 660));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PresentacionFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void FraccionarDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        FraccionarDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new FraccionarViewModel();
+            viewModel.Configurar(
+                ArticuloDeEjemplo(idArticulo: 8, idArticuloOrigen: 7),
+                ArticuloDeEjemplo(idArticulo: 7, idArticuloOrigen: null));
+
+            try
+            {
+                dialog = new FraccionarDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(500, 480));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 500, 480));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de FraccionarDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    private static ArticuloDto ArticuloDeEjemplo(int idArticulo, int? idArticuloOrigen)
+    {
+        return new ArticuloDto
+        {
+            IdArticulo = idArticulo,
+            Descripcion = idArticuloOrigen.HasValue ? "Sobre manila (unidad)" : "Sobre manila (pack x100)",
+            IdArticuloOrigen = idArticuloOrigen,
+            UnidadesPorOrigen = idArticuloOrigen.HasValue ? 100 : null,
+            CostoReposicion = idArticuloOrigen.HasValue ? 10m : 1000m,
+            PorcentajeGanancia = 40m,
+            PrecioVenta = idArticuloOrigen.HasValue ? 14m : 1400m,
+            StockActual = 5,
+            StockMinimo = 1,
+            EsServicio = false
+        };
     }
 
     [Fact]

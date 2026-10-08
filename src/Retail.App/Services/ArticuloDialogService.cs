@@ -119,6 +119,59 @@ public class ArticuloDialogService : IArticuloDialogService
         return result == true ? vm.ObtenerActualizarDto() : null;
     }
 
+    public CrearPresentacionDto? MostrarDialogoCrearPresentacion(
+        ArticuloDto origen,
+        Func<CrearPresentacionDto, Task>? onGuardarAsync = null)
+    {
+        ArgumentNullException.ThrowIfNull(origen);
+
+        var vm = new PresentacionFormViewModel();
+        vm.Configurar(origen);
+
+        if (onGuardarAsync != null)
+        {
+            vm.OnGuardarAsync = async () =>
+            {
+                await onGuardarAsync(vm.ObtenerDto());
+            };
+        }
+
+        var dialog = new PresentacionFormDialog(vm);
+        if (System.Windows.Application.Current?.MainWindow is { IsVisible: true } owner)
+        {
+            dialog.Owner = owner;
+        }
+
+        var result = dialog.ShowDialog();
+        return result == true ? vm.ObtenerDto() : null;
+    }
+
+    public int? MostrarDialogoFraccionar(
+        ArticuloDto derivado,
+        ArticuloDto origen,
+        Func<FraccionarDto, Task<int>>? onConfirmarAsync = null)
+    {
+        ArgumentNullException.ThrowIfNull(derivado);
+        ArgumentNullException.ThrowIfNull(origen);
+
+        var vm = new FraccionarViewModel();
+        vm.Configurar(derivado, origen);
+
+        if (onConfirmarAsync != null)
+        {
+            vm.OnConfirmarAsync = () => onConfirmarAsync(vm.ObtenerDto());
+        }
+
+        var dialog = new FraccionarDialog(vm);
+        if (System.Windows.Application.Current?.MainWindow is { IsVisible: true } owner)
+        {
+            dialog.Owner = owner;
+        }
+
+        var result = dialog.ShowDialog();
+        return result == true ? vm.UnidadesObtenidas ?? vm.UnidadesResultantes : null;
+    }
+
     public async Task<CatalogoProveedorDto?> AbrirSelectorCatalogoProveedorAsync(string? textoInicial = null, int? idProveedor = null)
     {
         if (_serviceProvider == null)

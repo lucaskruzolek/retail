@@ -82,7 +82,32 @@ public partial class ArticuloFormViewModel : ObservableObject
 
     public bool EsAlta => !EsModoEdicion;
 
-    public string TituloVentana => EsModoEdicion ? "Modificar Artículo de Catálogo" : "Alta de Artículo / Producto";
+    public string TituloVentana => EsDerivado
+        ? "Modificar Presentación de Venta"
+        : EsModoEdicion ? "Modificar Artículo de Catálogo" : "Alta de Artículo / Producto";
+
+    /// <summary>
+    /// El artículo editado es una presentación derivada (RF-21): no puede ser servicio ni vincularse a un
+    /// distribuidor, y su costo lo recalcula el origen.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NoEsDerivado))]
+    [NotifyPropertyChangedFor(nameof(TituloVentana))]
+    [NotifyPropertyChangedFor(nameof(AvisoCostoDerivado))]
+    private bool _esDerivado;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AvisoCostoDerivado))]
+    private int? _unidadesPorOrigen;
+
+    public bool NoEsDerivado => !EsDerivado;
+
+    /// <summary>
+    /// Aviso de la regla 4: el costo se puede editar, pero se reemplaza cuando cambia el costo del origen.
+    /// </summary>
+    public string AvisoCostoDerivado => EsDerivado
+        ? $"Costo derivado del artículo de origen (÷ {UnidadesPorOrigen}). Si lo edita, se reemplazará la próxima vez que cambie el costo del origen."
+        : string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
@@ -148,6 +173,8 @@ public partial class ArticuloFormViewModel : ObservableObject
         StockActual = 0;
         StockMinimo = 5;
         EsServicio = false;
+        EsDerivado = false;
+        UnidadesPorOrigen = null;
         IdCatalogoProveedor = null;
         ProveedorRazonSocial = null;
         CodigoProveedor = null;
@@ -181,6 +208,8 @@ public partial class ArticuloFormViewModel : ObservableObject
         StockActual = articulo.StockActual;
         StockMinimo = articulo.StockMinimo;
         EsServicio = articulo.EsServicio;
+        EsDerivado = articulo.EsDerivado;
+        UnidadesPorOrigen = articulo.UnidadesPorOrigen;
         MensajeError = null;
         IsBusy = false;
         OnGuardarAsync = null;

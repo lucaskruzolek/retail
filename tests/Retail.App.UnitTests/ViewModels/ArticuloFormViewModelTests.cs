@@ -409,4 +409,82 @@ public class ArticuloFormViewModelTests
         // Assert
         dto.IdCatalogoProveedor.Should().Be(88);
     }
+
+    // ---------- Edición de una presentación derivada (RF-21) ----------
+
+    [Fact]
+    public void ConfigurarEdicion_PresentacionDerivada_ActivaModoDerivadoConAvisoDeCosto()
+    {
+        // Act
+        _sut.ConfigurarEdicion(PresentacionDerivada(), _categorias, _marcas);
+
+        // Assert
+        _sut.EsDerivado.Should().BeTrue();
+        _sut.NoEsDerivado.Should().BeFalse();
+        _sut.UnidadesPorOrigen.Should().Be(100);
+        _sut.TituloVentana.Should().Be("Modificar Presentación de Venta");
+        _sut.AvisoCostoDerivado.Should().Contain("÷ 100").And.Contain("se reemplazará");
+    }
+
+    [Fact]
+    public void ConfigurarEdicion_ArticuloComun_NoMuestraAvisoDeCosto()
+    {
+        // Arrange
+        var articulo = PresentacionDerivada() with { IdArticuloOrigen = null, UnidadesPorOrigen = null };
+
+        // Act
+        _sut.ConfigurarEdicion(articulo, _categorias, _marcas);
+
+        // Assert
+        _sut.EsDerivado.Should().BeFalse();
+        _sut.AvisoCostoDerivado.Should().BeEmpty();
+        _sut.TituloVentana.Should().Be("Modificar Artículo de Catálogo");
+    }
+
+    [Fact]
+    public void ConfigurarAlta_DespuesDeEditarUnaPresentacion_SaleDelModoDerivado()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(PresentacionDerivada(), _categorias, _marcas);
+
+        // Act
+        _sut.ConfigurarAlta(_categorias, _marcas);
+
+        // Assert
+        _sut.EsDerivado.Should().BeFalse();
+        _sut.UnidadesPorOrigen.Should().BeNull();
+    }
+
+    [Fact]
+    public void ObtenerActualizarDto_PresentacionConCostoEditado_EnviaElCostoManualSinCatalogoNiServicio()
+    {
+        // Arrange: la regla 4 permite editar el costo de un derivado
+        _sut.ConfigurarEdicion(PresentacionDerivada(), _categorias, _marcas);
+        _sut.CostoReposicion = 12.5m;
+
+        // Act
+        var dto = _sut.ObtenerActualizarDto();
+
+        // Assert
+        dto.CostoReposicion.Should().Be(12.5m);
+        dto.IdCatalogoProveedor.Should().BeNull();
+        dto.EsServicio.Should().BeFalse();
+    }
+
+    private static ArticuloDto PresentacionDerivada()
+    {
+        return new ArticuloDto
+        {
+            IdArticulo = 8,
+            Descripcion = "Sobre manila (unidad)",
+            IdArticuloOrigen = 7,
+            UnidadesPorOrigen = 100,
+            CostoReposicion = 10m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 15m,
+            StockActual = 20,
+            StockMinimo = 5,
+            EsServicio = false
+        };
+    }
 }

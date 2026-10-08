@@ -155,42 +155,8 @@
                           BorderThickness="1"
                           Margin="16,0,16,8">
                 <DataGrid.Columns>
-                    <!-- Código de Barras -->
-                    <DataGridTemplateColumn Header="Código de Barras" Width="150">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Grid VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding CodigoBarras}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                               VerticalAlignment="Center" />
-                                    <!-- Placeholder si es null -->
-                                    <TextBlock Text="(Artesanal / Sin Código)"
-                                               FontStyle="Italic"
-                                               FontSize="11"
-                                               Foreground="{DynamicResource TextMutedBrush}"
-                                               VerticalAlignment="Center">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding CodigoBarras}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding CodigoBarras}" Value="">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </Grid>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-
-                    <!-- Descripción -->
+                    <!-- Descripción (el código de barras no se muestra en la grilla para aliviarla;
+                         la búsqueda por código sigue disponible y el dato se ve al editar el artículo) -->
                     <DataGridTextColumn Header="Descripción"
                                         Binding="{Binding Descripcion}"
                                         Width="*"
@@ -260,11 +226,31 @@
                                                Foreground="{DynamicResource TextMutedBrush}"
                                                VerticalAlignment="Center"
                                                Visibility="Visible" />
+
+                                    <!-- Caso 3: Presentación derivada (RF-21): su costo sale del artículo de origen -->
+                                    <Border x:Name="BadgePresentacion"
+                                            Style="{StaticResource BadgeNeutralStyle}"
+                                            HorizontalAlignment="Left"
+                                            ToolTip="Costo derivado del artículo de origen: se actualiza cuando cambia el costo del origen."
+                                            Visibility="Collapsed">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularGitBranch" Width="11" Height="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding UnidadesPorOrigen, StringFormat={}Presentación ×{0}}"
+                                                       FontSize="11"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
                                 </Grid>
 
                                 <DataTemplate.Triggers>
                                     <DataTrigger Binding="{Binding EstaVinculadoAProveedor}" Value="True">
                                         <Setter TargetName="BadgeVinculado" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding EsDerivado}" Value="True">
+                                        <Setter TargetName="BadgePresentacion" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </DataTemplate.Triggers>
@@ -280,7 +266,7 @@
 
                     <!-- Margen Ganancia -->
                     <DataGridTextColumn Header="Margen (%)"
-                                        Binding="{Binding PorcentajeGanancia, StringFormat={}{0:N1}%}"
+                                        Binding="{Binding PorcentajeGanancia, StringFormat={}{0:N1}}"
                                         Width="85"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
@@ -301,7 +287,7 @@
                     </DataGridTemplateColumn>
 
                     <!-- Stock y Alerta (RF-08) -->
-                    <DataGridTemplateColumn Header="Stock Físico" Width="130">
+                    <DataGridTemplateColumn Header="Stock" Width="130">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Grid VerticalAlignment="Center">
@@ -354,10 +340,33 @@
                     </DataGridTemplateColumn>
 
                     <!-- Acciones Contextuales -->
-                    <DataGridTemplateColumn Header="Acciones" Width="100">
+                    <DataGridTemplateColumn Header="Acciones" Width="140">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <!-- Crear presentación (RF-21): solo en artículos de compra que no son servicios -->
+                                    <Button x:Name="BtnCrearPresentacion"
+                                            Command="{Binding DataContext.CrearPresentacionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource KeycapButtonStyle}"
+                                            Padding="6,4"
+                                            Margin="0,0,4,0"
+                                            ToolTip="Crear presentación de venta (por ejemplo, la unidad suelta)">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularGitBranch" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    </Button>
+
+                                    <!-- Fraccionar (RF-21): solo en presentaciones derivadas -->
+                                    <Button x:Name="BtnFraccionar"
+                                            Command="{Binding DataContext.FraccionarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource KeycapButtonStyle}"
+                                            Padding="6,4"
+                                            Margin="0,0,4,0"
+                                            Visibility="Collapsed"
+                                            ToolTip="Fraccionar: abrir unidades del artículo de origen">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularCut" Width="14" Height="14" Foreground="{DynamicResource PrimaryBrush}" />
+                                    </Button>
+
                                     <!-- Editar -->
                                     <Button Command="{Binding DataContext.EditarArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                             CommandParameter="{Binding}"
@@ -377,6 +386,17 @@
                                         <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" Foreground="{DynamicResource DangerBrush}" />
                                     </Button>
                                 </StackPanel>
+
+                                <!-- Un derivado no puede ser origen de otro (un solo nivel) y un servicio no tiene presentaciones -->
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding EsDerivado}" Value="True">
+                                        <Setter TargetName="BtnCrearPresentacion" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="BtnFraccionar" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding EsServicio}" Value="True">
+                                        <Setter TargetName="BtnCrearPresentacion" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
