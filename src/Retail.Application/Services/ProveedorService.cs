@@ -178,6 +178,16 @@ public class ProveedorService : IProveedorService
             cancellationToken);
         var articulosPorCatalogo = articulosLocales.ToLookup(a => a.IdCatalogoProveedor!.Value);
 
+        // Q3: las presentaciones derivadas de esos artículos (RF-21). No tienen catálogo propio, así que se
+        // llega a ellas por la navegación al origen: otro JOIN con el mismo parámetro escalar, sin listas.
+        var presentaciones = await _articuloRepository.FindAsync(
+            a => a.ArticuloOrigen != null
+                && a.ArticuloOrigen.CatalogoProveedor != null
+                && a.ArticuloOrigen.CatalogoProveedor.IdProveedor == mapeo.IdProveedor,
+            includeDeleted: false,
+            cancellationToken);
+        var presentacionesPorOrigen = presentaciones.ToLookup(a => a.IdArticuloOrigen);
+
         // Las filas que el parser no pudo interpretar también son errores que el usuario debe ver (H-03).
         var erroresDetalle = new List<string>(parseo.FilasDescartadas);
         var filasValidas = FiltrarFilasValidas(parseo.Items, erroresDetalle);
@@ -216,6 +226,21 @@ public class ProveedorService : IProveedorService
                         articuloAsociado.ActualizarCostoYRecalcularPrecio(item.PrecioCosto);
                         await _articuloRepository.UpdateAsync(articuloAsociado, cancellationToken);
                         actualizados++;
+
+                        // El nuevo costo se propaga a las presentaciones; cada una cuenta solo si su costo cambia,
+                        // porque el redondeo puede dejar igual el costo unitario (H-16, RF-21).
+                        foreach (var presentacion in presentacionesPorOrigen[articuloAsociado.Id])
+                        {
+                            var costoAnteriorPresentacion = presentacion.CostoReposicion;
+                            presentacion.RecalcularCostoDesdeOrigen(articuloAsociado.CostoReposicion);
+                            if (presentacion.CostoReposicion == costoAnteriorPresentacion)
+                            {
+                                continue;
+                            }
+
+                            await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
+                            actualizados++;
+                        }
                     }
                 }
                 else
@@ -414,6 +439,18 @@ public class ProveedorService : IProveedorService
         articulo.VincularCatalogoProveedor(catalogo.Id, catalogo.CostoReposicion);
 
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
+
+        // El costo del catálogo llega también a las presentaciones del artículo (RF-05, RF-21).
+        var presentaciones = await _articuloRepository.FindAsync(
+            a => a.IdArticuloOrigen == articulo.Id,
+            includeDeleted: false,
+            cancellationToken);
+        foreach (var presentacion in presentaciones)
+        {
+            presentacion.RecalcularCostoDesdeOrigen(articulo.CostoReposicion);
+            await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
+        }
+
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 

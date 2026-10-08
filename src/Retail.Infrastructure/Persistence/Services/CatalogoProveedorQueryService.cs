@@ -55,9 +55,9 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
             })
             .ToListAsync(cancellationToken);
 
-        var articulosMap = articulosVinculados
-            .GroupBy(a => a.IdCatalogoProveedor)
-            .ToDictionary(g => g.Key, g => g.First());
+        // El índice único filtrado en id_catalogo_proveedor garantiza un solo artículo activo por ítem (H-13):
+        // si la invariante se rompiera, ToDictionary falla de forma visible en lugar de elegir uno al azar.
+        var articulosMap = articulosVinculados.ToDictionary(a => a.IdCatalogoProveedor);
 
         // Recuperar códigos de barra de artículos propios no vinculados para detección inteligente (RF-05)
         var codigosBarrasTiendaLista = await _context.Articulos

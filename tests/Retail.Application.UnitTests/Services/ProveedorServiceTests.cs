@@ -596,4 +596,121 @@ public class ProveedorServiceTests
         articulo.CostoReposicion.Should().Be(800m);
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
+
+    // ---------- Propagación a presentaciones derivadas (RF-21) ----------
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_CambiaCostoDelOrigen_PropagaAlDerivadoYLoCuenta()
+    {
+        // Arrange
+        var (catalogo, origen, derivado) = PrepararPackConPresentacion(costo: 1000m, unidadesPorOrigen: 100);
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila("SOB-100", "Sobre manila x100", 2000m) },
+            new Dictionary<string, CatalogoProveedor> { ["SOB-100"] = catalogo });
+        EvaluarPredicadosSobre(origen, derivado);
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        origen.CostoReposicion.Should().Be(2000m);
+        derivado.CostoReposicion.Should().Be(20m);
+        derivado.PrecioVenta.Should().Be(30m);
+        resultado.PreciosActualizados.Should().Be(2);
+        await _articuloRepoMock.Received(1).UpdateAsync(derivado, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_CostoDelOrigenSinCambios_NoTocaDerivados()
+    {
+        // Arrange: el costo del derivado se editó a mano y se respeta mientras el origen no cambie
+        var (catalogo, origen, derivado) = PrepararPackConPresentacion(costo: 1000m, unidadesPorOrigen: 100);
+        derivado.ActualizarCostoYRecalcularPrecio(12m);
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila("SOB-100", "Sobre manila x100", 1000m) },
+            new Dictionary<string, CatalogoProveedor> { ["SOB-100"] = catalogo });
+        EvaluarPredicadosSobre(origen, derivado);
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        derivado.CostoReposicion.Should().Be(12m);
+        resultado.PreciosActualizados.Should().Be(0);
+        await _articuloRepoMock.DidNotReceive().UpdateAsync(Arg.Any<Articulo>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_CostoDelDerivadoIgualTrasRedondear_CuentaSoloElOrigen()
+    {
+        // Arrange: 45 / 1000 y 45,20 / 1000 redondean a 0,05
+        var (catalogo, origen, derivado) = PrepararPackConPresentacion(costo: 45m, unidadesPorOrigen: 1000);
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila("SOB-100", "Sobre manila x1000", 45.20m) },
+            new Dictionary<string, CatalogoProveedor> { ["SOB-100"] = catalogo });
+        EvaluarPredicadosSobre(origen, derivado);
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        derivado.CostoReposicion.Should().Be(0.05m);
+        resultado.PreciosActualizados.Should().Be(1);
+        await _articuloRepoMock.DidNotReceive().UpdateAsync(derivado, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VincularArticuloACatalogoAsync_OrigenConPresentaciones_PropagaElCosto()
+    {
+        // Arrange
+        var catalogo = new CatalogoProveedor { Id = 25, IdProveedor = 1, CodigoProveedor = "EDD-700", DescripcionProveedor = "Edding 700 x10", CostoReposicion = 800m };
+        var articulo = new Articulo { Id = 10, Descripcion = "Marcador Edding (caja x10)", CostoReposicion = 500m, PorcentajeGanancia = 40m };
+        var unidad = new Articulo { Id = 11, Descripcion = "Marcador Edding (unidad)", PorcentajeGanancia = 50m };
+        unidad.DefinirComoPresentacionDe(articulo, 10);
+        PrepararArticulosParaVincular(articulo, catalogo, new List<Articulo> { articulo, unidad });
+
+        // Act
+        await _service.VincularArticuloACatalogoAsync(10, 25);
+
+        // Assert
+        unidad.CostoReposicion.Should().Be(80m);
+        unidad.PrecioVenta.Should().Be(120m);
+        await _articuloRepoMock.Received(1).UpdateAsync(unidad, Arg.Any<CancellationToken>());
+        await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// Un artículo de compra (pack) vinculado al renglón "SOB-100" del proveedor 1, con una presentación derivada.
+    /// Las navegaciones quedan cargadas para que los predicados de la importación se puedan evaluar en memoria.
+    /// </summary>
+    private static (CatalogoProveedor Catalogo, Articulo Origen, Articulo Derivado) PrepararPackConPresentacion(
+        decimal costo,
+        int unidadesPorOrigen)
+    {
+        var catalogo = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "SOB-100", DescripcionProveedor = "Sobre manila", CostoReposicion = costo };
+        var origen = new Articulo
+        {
+            Id = 1,
+            Descripcion = "Sobre manila (pack)",
+            IdCatalogoProveedor = 7,
+            CatalogoProveedor = catalogo,
+            CostoReposicion = costo,
+            PorcentajeGanancia = 40m
+        };
+        var derivado = new Articulo { Id = 2, Descripcion = "Sobre manila (unidad)", PorcentajeGanancia = 50m };
+        derivado.DefinirComoPresentacionDe(origen, unidadesPorOrigen);
+
+        return (catalogo, origen, derivado);
+    }
+
+    /// <summary>
+    /// Reemplaza la respuesta fija de <c>FindAsync</c> por la evaluación en memoria del predicado recibido.
+    /// </summary>
+    private void EvaluarPredicadosSobre(params Articulo[] articulos)
+    {
+        _articuloRepoMock.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(llamada => articulos
+                .Where(llamada.Arg<Expression<Func<Articulo, bool>>>().Compile())
+                .ToList());
+    }
 }

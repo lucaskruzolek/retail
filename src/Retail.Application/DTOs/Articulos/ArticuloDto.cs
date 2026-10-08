@@ -20,6 +20,9 @@ public record class ArticuloDto : BaseDto
     public string? DescripcionProveedor { get; init; }
     public decimal? CostoCatalogoProveedor { get; init; }
     public bool EstaVinculadoAProveedor => IdCatalogoProveedor.HasValue && IdCatalogoProveedor.Value > 0;
+    public int? IdArticuloOrigen { get; init; }
+    public int? UnidadesPorOrigen { get; init; }
+    public bool EsDerivado => IdArticuloOrigen.HasValue && IdArticuloOrigen.Value > 0;
     public required decimal CostoReposicion { get; init; }
     public required decimal PorcentajeGanancia { get; init; }
     public required decimal PrecioVenta { get; init; }

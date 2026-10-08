@@ -27,6 +27,17 @@ public interface IInventarioService
 
     Task ActualizarCostoYPrecioAsync(int idArticulo, decimal nuevoCostoReposicion, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Crea una presentación derivada de un artículo de compra (RF-21).
+    /// </summary>
+    Task<ArticuloDto> CrearPresentacionAsync(CrearPresentacionDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fracciona unidades del origen en la presentación indicada, en una única transacción (RF-21).
+    /// </summary>
+    /// <returns>Las unidades que recibió la presentación.</returns>
+    Task<int> FraccionarAsync(FraccionarDto dto, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<CategoriaDto>> ListarCategoriasAsync(CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<MarcaDto>> ListarMarcasAsync(CancellationToken cancellationToken = default);

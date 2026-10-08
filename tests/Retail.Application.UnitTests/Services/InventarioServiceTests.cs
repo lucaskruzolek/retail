@@ -36,7 +36,9 @@ public class InventarioServiceTests
             _marcaRepository,
             _unitOfWork,
             _crearValidator,
-            _actualizarValidator);
+            _actualizarValidator,
+            new CrearPresentacionValidator(),
+            new FraccionarValidator());
     }
 
     [Fact]
@@ -380,5 +382,325 @@ public class InventarioServiceTests
         resultado.Should().HaveCount(2);
         resultado[0].NombreMarca.Should().Be("Faber-Castell");
         resultado[1].NombreMarca.Should().Be("Pelikan");
+    }
+
+    // ---------- Presentaciones derivadas y fraccionamiento (RF-21) ----------
+
+    [Fact]
+    public async Task CrearPresentacionAsync_OrigenValido_CreaDerivadoConCostoDerivadoYDatosHeredados()
+    {
+        // Arrange
+        var origen = CrearOrigen();
+        PrepararTienda(origen);
+        Articulo? agregado = null;
+        await _articuloRepository.AddAsync(Arg.Do<Articulo>(a => agregado = a), Arg.Any<CancellationToken>());
+
+        var dto = new CrearPresentacionDto
+        {
+            IdArticuloOrigen = 1,
+            UnidadesPorOrigen = 100,
+            Descripcion = "Sobre manila (unidad)",
+            CodigoBarras = "SOBRE-U",
+            PorcentajeGanancia = 100m,
+            StockMinimo = 20
+        };
+
+        // Act
+        var resultado = await _sut.CrearPresentacionAsync(dto);
+
+        // Assert
+        agregado.Should().NotBeNull();
+        agregado!.IdArticuloOrigen.Should().Be(1);
+        agregado.UnidadesPorOrigen.Should().Be(100);
+        agregado.CostoReposicion.Should().Be(10m);
+        agregado.PrecioVenta.Should().Be(20m);
+        agregado.StockActual.Should().Be(0);
+        agregado.StockMinimo.Should().Be(20);
+        agregado.IdCategoria.Should().Be(3);
+        agregado.IdMarca.Should().Be(4);
+        resultado.EsDerivado.Should().BeTrue();
+        resultado.UnidadesPorOrigen.Should().Be(100);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CrearPresentacionAsync_OrigenInexistente_LanzaDomainException()
+    {
+        // Arrange
+        PrepararTienda();
+
+        // Act
+        var act = () => _sut.CrearPresentacionAsync(PresentacionDe(idOrigen: 99));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*99*");
+        await _articuloRepository.DidNotReceive().AddAsync(Arg.Any<Articulo>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CrearPresentacionAsync_OrigenEsDerivado_LanzaDomainExceptionSinGuardar()
+    {
+        // Arrange
+        var origen = CrearOrigen();
+        var derivado = CrearDerivado(origen);
+        PrepararTienda(origen, derivado);
+
+        // Act
+        var act = () => _sut.CrearPresentacionAsync(PresentacionDe(idOrigen: derivado.Id));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*un solo nivel*");
+        await _articuloRepository.DidNotReceive().AddAsync(Arg.Any<Articulo>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CrearPresentacionAsync_CodigoBarrasDuplicado_LanzaDomainException()
+    {
+        // Arrange
+        var otro = new Articulo { Id = 7, Descripcion = "Otro", CodigoBarras = "7790001" };
+        PrepararTienda(CrearOrigen(), otro);
+
+        // Act
+        var act = () => _sut.CrearPresentacionAsync(PresentacionDe(idOrigen: 1) with { CodigoBarras = "7790001" });
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*7790001*");
+        await _articuloRepository.DidNotReceive().AddAsync(Arg.Any<Articulo>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_StockSuficiente_ActualizaAmbosStocksConUnSoloSaveChanges()
+    {
+        // Arrange
+        var origen = CrearOrigen(stock: 5);
+        var derivado = CrearDerivado(origen, stock: 3);
+        PrepararTienda(origen, derivado);
+
+        // Act
+        var unidades = await _sut.FraccionarAsync(new FraccionarDto { IdArticuloDerivado = 2, CantidadOrigen = 2 });
+
+        // Assert
+        unidades.Should().Be(200);
+        origen.StockActual.Should().Be(3);
+        derivado.StockActual.Should().Be(203);
+        await _articuloRepository.Received(1).UpdateAsync(origen, Arg.Any<CancellationToken>());
+        await _articuloRepository.Received(1).UpdateAsync(derivado, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_StockInsuficiente_NoGuarda()
+    {
+        // Arrange
+        var origen = CrearOrigen(stock: 1);
+        var derivado = CrearDerivado(origen, stock: 3);
+        PrepararTienda(origen, derivado);
+
+        // Act
+        var act = () => _sut.FraccionarAsync(new FraccionarDto { IdArticuloDerivado = 2, CantidadOrigen = 2 });
+
+        // Assert
+        await act.Should().ThrowAsync<StockInsuficienteException>();
+        origen.StockActual.Should().Be(1);
+        derivado.StockActual.Should().Be(3);
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_ArticuloNoDerivado_LanzaDomainException()
+    {
+        // Arrange
+        PrepararTienda(CrearOrigen());
+
+        // Act
+        var act = () => _sut.FraccionarAsync(new FraccionarDto { IdArticuloDerivado = 1, CantidadOrigen = 1 });
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*no es una presentación derivada*");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_OrigenDadoDeBaja_LanzaDomainException()
+    {
+        // Arrange
+        var origen = CrearOrigen();
+        var derivado = CrearDerivado(origen);
+        origen.MarkAsDeleted();
+        PrepararTienda(origen, derivado);
+
+        // Act
+        var act = () => _sut.FraccionarAsync(new FraccionarDto { IdArticuloDerivado = 2, CantidadOrigen = 1 });
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*dado de baja*");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_CantidadMenorAUno_LanzaValidationException()
+    {
+        // Act
+        var act = () => _sut.FraccionarAsync(new FraccionarDto { IdArticuloDerivado = 2, CantidadOrigen = 0 });
+
+        // Assert
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+    }
+
+    [Fact]
+    public async Task BajaArticuloAsync_OrigenConPresentacionesActivas_LanzaDomainExceptionSinGuardar()
+    {
+        // Arrange
+        var origen = CrearOrigen();
+        PrepararTienda(origen, CrearDerivado(origen));
+
+        // Act
+        var act = () => _sut.BajaArticuloAsync(1);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*Sobre manila (unidad)*");
+        origen.IsDeleted.Should().BeFalse();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BajaArticuloAsync_PresentacionDerivada_LaDaDeBaja()
+    {
+        // Arrange
+        var origen = CrearOrigen();
+        var derivado = CrearDerivado(origen);
+        PrepararTienda(origen, derivado);
+
+        // Act
+        await _sut.BajaArticuloAsync(2);
+
+        // Assert
+        derivado.IsDeleted.Should().BeTrue();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_CambiaCostoDelOrigen_PropagaASusPresentaciones()
+    {
+        // Arrange
+        var origen = CrearOrigen();
+        var derivado = CrearDerivado(origen);
+        PrepararTienda(origen, derivado);
+
+        // Act
+        await _sut.ActualizarArticuloAsync(EdicionDe(origen, costo: 2000m, esServicio: false));
+
+        // Assert
+        derivado.CostoReposicion.Should().Be(20m);
+        derivado.PrecioVenta.Should().Be(30m);
+        await _articuloRepository.Received(1).UpdateAsync(derivado, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_OrigenConPresentacionesPasaAServicio_LanzaDomainException()
+    {
+        // Arrange
+        var origen = CrearOrigen();
+        PrepararTienda(origen, CrearDerivado(origen));
+
+        // Act
+        var act = () => _sut.ActualizarArticuloAsync(EdicionDe(origen, costo: 1000m, esServicio: true));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*servicio*");
+        origen.EsServicio.Should().BeFalse();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ActualizarCostoYPrecioAsync_OrigenConPresentaciones_PropagaElCosto()
+    {
+        // Arrange
+        var origen = CrearOrigen();
+        var derivado = CrearDerivado(origen);
+        PrepararTienda(origen, derivado);
+
+        // Act
+        await _sut.ActualizarCostoYPrecioAsync(1, 4500m);
+
+        // Assert
+        derivado.CostoReposicion.Should().Be(45m);
+        derivado.PrecioVenta.Should().Be(67.5m);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// Simula la tabla de artículos en memoria: <c>GetByIdAsync</c> ignora los dados de baja y <c>FindAsync</c>
+    /// evalúa el predicado recibido, así el test verifica la condición del filtro (no su traducción a SQL).
+    /// </summary>
+    private void PrepararTienda(params Articulo[] articulos)
+    {
+        _articuloRepository.GetByIdAsync(Arg.Any<int>(), false, Arg.Any<CancellationToken>())
+            .Returns(llamada => articulos.FirstOrDefault(a => a.Id == llamada.ArgAt<int>(0) && !a.IsDeleted));
+
+        _articuloRepository.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(llamada => articulos
+                .Where(a => !a.IsDeleted)
+                .Where(llamada.Arg<Expression<Func<Articulo, bool>>>().Compile())
+                .ToList());
+    }
+
+    private static Articulo CrearOrigen(int stock = 5)
+    {
+        return new Articulo
+        {
+            Id = 1,
+            Descripcion = "Sobre manila (pack x100)",
+            IdCategoria = 3,
+            IdMarca = 4,
+            CostoReposicion = 1000m,
+            PorcentajeGanancia = 40m,
+            PrecioVenta = 1400m,
+            StockActual = stock,
+            StockMinimo = 1
+        };
+    }
+
+    private static Articulo CrearDerivado(Articulo origen, int stock = 0)
+    {
+        var derivado = new Articulo
+        {
+            Id = 2,
+            Descripcion = "Sobre manila (unidad)",
+            PorcentajeGanancia = 50m,
+            StockActual = stock
+        };
+        derivado.DefinirComoPresentacionDe(origen, 100);
+        return derivado;
+    }
+
+    private static CrearPresentacionDto PresentacionDe(int idOrigen)
+    {
+        return new CrearPresentacionDto
+        {
+            IdArticuloOrigen = idOrigen,
+            UnidadesPorOrigen = 10,
+            Descripcion = "Presentación",
+            PorcentajeGanancia = 50m,
+            StockMinimo = 0
+        };
+    }
+
+    private static ActualizarArticuloDto EdicionDe(Articulo articulo, decimal costo, bool esServicio)
+    {
+        return new ActualizarArticuloDto
+        {
+            IdArticulo = articulo.Id,
+            Descripcion = articulo.Descripcion,
+            IdCategoria = articulo.IdCategoria,
+            IdMarca = articulo.IdMarca,
+            CostoReposicion = costo,
+            PorcentajeGanancia = articulo.PorcentajeGanancia,
+            StockActual = articulo.StockActual,
+            StockMinimo = articulo.StockMinimo,
+            EsServicio = esServicio
+        };
     }
 }

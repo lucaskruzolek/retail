@@ -17,7 +17,8 @@ erDiagram
     CATEGORIAS ||--o{ ARTICULOS : "clasifica"
     MARCAS ||--o{ ARTICULOS : "agrupa"
     PROVEEDORES ||--o{ CATALOGOS_PROVEEDORES : "suministra"
-    CATALOGOS_PROVEEDORES ||--o{ ARTICULOS : "enlace_opcional"
+    CATALOGOS_PROVEEDORES |o--o| ARTICULOS : "enlace_opcional"
+    ARTICULOS |o--o{ ARTICULOS : "presentacion_derivada"
     PROVEEDORES ||--o{ COMPRAS : "factura"
 
     VENTAS ||--|{ DETALLE_VENTAS : "posee"
@@ -120,7 +121,9 @@ erDiagram
         string descripcion
         int id_categoria "FK nullable"
         int id_marca "FK nullable"
-        int id_catalogo_proveedor "FK nullable"
+        int id_catalogo_proveedor "FK nullable, UK (filtered)"
+        int id_articulo_origen "FK nullable (self, RF-21)"
+        int unidades_por_origen "nullable, >= 1 si es derivado"
         decimal costo_reposicion
         decimal porcentaje_ganancia
         decimal precio_venta

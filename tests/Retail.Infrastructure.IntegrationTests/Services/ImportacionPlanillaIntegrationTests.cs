@@ -166,6 +166,51 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
     }
 
     /// <summary>
+    /// RF-21: la consulta de la regla 9 (JOIN por ArticuloOrigen.CatalogoProveedor) se traduce a SQL y trae solo
+    /// las presentaciones del proveedor importado; el costo nuevo se propaga a ellas y cuenta como precio actualizado.
+    /// </summary>
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConPresentacionDerivada_PropagaCostoSoloALasDelProveedor()
+    {
+        // Arrange: cada proveedor tiene un renglón "P-00001" con su pack vinculado y una presentación x10
+        var proveedorA = await CrearProveedorAsync("Distribuidora Sur", "30-11111111-1");
+        var proveedorB = await CrearProveedorAsync("Papelera Norte", "30-22222222-2");
+        await CrearCatalogoConArticulosAsync(proveedorA, "P", 1);
+        await CrearCatalogoConArticulosAsync(proveedorB, "P", 1);
+        var derivadoA = await CrearPresentacionAsync(proveedorA);
+        var derivadoB = await CrearPresentacionAsync(proveedorB);
+        _context.ChangeTracker.Clear();
+
+        await EscribirPlanillaAsync(new[] { ("P-00001", 200m) });
+
+        // Act
+        var resultado = await ImportarAsync(proveedorA.Id);
+        _context.ChangeTracker.Clear();
+
+        // Assert
+        resultado.PreciosActualizados.Should().Be(2, "cambian el pack y su presentación");
+        var leidoA = await _context.Articulos.AsNoTracking().SingleAsync(a => a.Id == derivadoA.Id);
+        var leidoB = await _context.Articulos.AsNoTracking().SingleAsync(a => a.Id == derivadoB.Id);
+        leidoA.CostoReposicion.Should().Be(20m);
+        leidoA.PrecioVenta.Should().Be(40m);
+        leidoB.CostoReposicion.Should().Be(10m, "la presentación de otro proveedor no se toca");
+    }
+
+    /// <summary>
+    /// Crea una presentación x10 (ganancia 100 %) del artículo vinculado al catálogo del proveedor.
+    /// </summary>
+    private async Task<Articulo> CrearPresentacionAsync(Proveedor proveedor)
+    {
+        var origen = await _context.Articulos
+            .SingleAsync(a => a.CatalogoProveedor != null && a.CatalogoProveedor.IdProveedor == proveedor.Id);
+        var presentacion = new Articulo { Descripcion = $"{origen.Descripcion} (unidad)", PorcentajeGanancia = 100m };
+        presentacion.DefinirComoPresentacionDe(origen, 10);
+        _context.Articulos.Add(presentacion);
+        await _context.SaveChangesAsync();
+        return presentacion;
+    }
+
+    /// <summary>
     /// Medición de H-15: importa 5.000 filas (2.500 existentes con artículo vinculado y 2.500 nuevas) con
     /// 2.000 artículos de otro proveedor como ruido. Se afirma la memoria retenida (estable, ≈ 13 MB medidos)
     /// contra RNF-03. El tiempo solo se informa en la salida: depende de LocalDB y del disco (se midieron
