@@ -115,6 +115,33 @@ public class ServicioFraccionamientoTests
         derivado.StockActual.Should().Be(int.MaxValue - 5);
     }
 
+    [Theory]
+    [InlineData(3, 100, 1)]
+    [InlineData(100, 100, 1)]
+    [InlineData(101, 100, 2)]
+    [InlineData(7, 6, 2)]
+    [InlineData(5, 1, 5)]
+    public void CalcularOrigenesNecesarios_UnidadesFaltantes_RedondeaHaciaArriba(int faltantes, int unidadesPorOrigen, int esperado)
+    {
+        // Act
+        var origenes = ServicioFraccionamiento.CalcularOrigenesNecesarios(faltantes, unidadesPorOrigen);
+
+        // Assert
+        origenes.Should().Be(esperado);
+    }
+
+    [Theory]
+    [InlineData(0, 100)]
+    [InlineData(3, 0)]
+    public void CalcularOrigenesNecesarios_ValoresMenoresAUno_LanzaArgumentOutOfRangeException(int faltantes, int unidadesPorOrigen)
+    {
+        // Act
+        var act = () => ServicioFraccionamiento.CalcularOrigenesNecesarios(faltantes, unidadesPorOrigen);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
     private static (Articulo Origen, Articulo Derivado) CrearPackYUnidad(int stockOrigen, int stockDerivado, int unidadesPorOrigen)
     {
         var origen = new Articulo

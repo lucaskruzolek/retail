@@ -7,6 +7,7 @@ using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
+using Retail.Domain.Services;
 
 namespace Retail.Application.Services;
 
@@ -17,6 +18,7 @@ namespace Retail.Application.Services;
 public class VentaService : IVentaService
 {
     private readonly IRepository<Articulo> _articuloRepository;
+    private readonly IArticuloQueryService _articuloQueryService;
     private readonly IRepository<Venta> _ventaRepository;
     private readonly IRepository<TurnoCaja> _turnoRepository;
     private readonly IRepository<Cliente> _clienteRepository;
@@ -26,6 +28,7 @@ public class VentaService : IVentaService
 
     public VentaService(
         IRepository<Articulo> articuloRepository,
+        IArticuloQueryService articuloQueryService,
         IRepository<Venta> ventaRepository,
         IRepository<TurnoCaja> turnoRepository,
         IRepository<Cliente> clienteRepository,
@@ -34,6 +37,7 @@ public class VentaService : IVentaService
         ITicketPrinterService ticketPrinterService)
     {
         _articuloRepository = articuloRepository ?? throw new ArgumentNullException(nameof(articuloRepository));
+        _articuloQueryService = articuloQueryService ?? throw new ArgumentNullException(nameof(articuloQueryService));
         _ventaRepository = ventaRepository ?? throw new ArgumentNullException(nameof(ventaRepository));
         _turnoRepository = turnoRepository ?? throw new ArgumentNullException(nameof(turnoRepository));
         _clienteRepository = clienteRepository ?? throw new ArgumentNullException(nameof(clienteRepository));
@@ -42,40 +46,98 @@ public class VentaService : IVentaService
         _ticketPrinterService = ticketPrinterService ?? throw new ArgumentNullException(nameof(ticketPrinterService));
     }
 
-    public async Task<ArticuloVentaDto?> BuscarPorCodigoBarrasAsync(string codigoBarras, CancellationToken cancellationToken = default)
+    public Task<ArticuloVentaDto?> BuscarPorCodigoBarrasAsync(string codigoBarras, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(codigoBarras))
         {
-            return null;
+            return Task.FromResult<ArticuloVentaDto?>(null);
         }
 
-        string codigoLimpio = codigoBarras.Trim();
-        var articulos = await _articuloRepository.FindAsync(
-            a => a.CodigoBarras == codigoLimpio,
-            includeDeleted: false,
-            cancellationToken);
-
-        return articulos.Count > 0 ? MapToVentaDto(articulos[0]) : null;
+        // Lectura sin tracking (Ley 8): las búsquedas no dejan entidades en el contexto del POS, que con
+        // datos viejos provocarían conflictos de concurrencia falsos al vender (Ley 9 de persistencia).
+        return _articuloQueryService.ObtenerParaVentaPorCodigoBarrasAsync(codigoBarras.Trim(), cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ArticuloVentaDto>> BuscarPorTextoAsync(string termino, int limite = 15, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ArticuloVentaDto>> BuscarPorTextoAsync(string termino, int limite = 15, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(termino))
         {
-            return Array.Empty<ArticuloVentaDto>();
+            return Task.FromResult<IReadOnlyList<ArticuloVentaDto>>(Array.Empty<ArticuloVentaDto>());
         }
 
-        string terminoLimpio = termino.Trim();
-        var articulos = await _articuloRepository.FindAsync(
-            a => a.Descripcion.Contains(terminoLimpio) || (a.CodigoBarras != null && a.CodigoBarras.Contains(terminoLimpio)),
-            includeDeleted: false,
-            cancellationToken);
+        return _articuloQueryService.BuscarParaVentaAsync(termino.Trim(), limite, cancellationToken);
+    }
 
-        return articulos
-            .OrderBy(a => a.Descripcion)
-            .Take(limite)
-            .Select(MapToVentaDto)
+    public async Task<VerificacionTicketDto> VerificarTicketAsync(IReadOnlyList<DetalleVentaDto> items, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+
+        // Un artículo repetido en el ticket se verifica contra la cantidad total.
+        var lineas = items
+            .GroupBy(i => i.IdArticulo)
+            .Select(g => (Item: g.First(), Cantidad: g.Sum(i => i.Cantidad)))
             .ToList();
+
+        var disponibilidades = await _articuloQueryService.ObtenerDisponibilidadAsync(
+            lineas.Select(l => l.Item.IdArticulo).ToList(),
+            cancellationToken);
+        var disponibilidadPorId = disponibilidades.ToDictionary(d => d.IdArticulo);
+
+        var preciosActualizados = new List<PrecioActualizadoDto>();
+        var faltantes = new List<FaltanteStockDto>();
+        var noDisponibles = new List<string>();
+
+        foreach (var (item, cantidad) in lineas)
+        {
+            if (!disponibilidadPorId.TryGetValue(item.IdArticulo, out var disponible))
+            {
+                noDisponibles.Add(item.Descripcion);
+                continue;
+            }
+
+            if (disponible.PrecioVenta != item.PrecioUnitario)
+            {
+                preciosActualizados.Add(new PrecioActualizadoDto
+                {
+                    IdArticulo = disponible.IdArticulo,
+                    Descripcion = disponible.Descripcion,
+                    PrecioAnterior = item.PrecioUnitario,
+                    PrecioActual = disponible.PrecioVenta
+                });
+            }
+
+            if (!disponible.EsServicio && cantidad > disponible.StockActual)
+            {
+                faltantes.Add(CrearFaltante(disponible, cantidad));
+            }
+        }
+
+        return new VerificacionTicketDto
+        {
+            PreciosActualizados = preciosActualizados,
+            Faltantes = faltantes,
+            ArticulosNoDisponibles = noDisponibles
+        };
+    }
+
+    private static FaltanteStockDto CrearFaltante(DisponibilidadArticuloDto disponible, int cantidadSolicitada)
+    {
+        // Solo una presentación con su origen activo se puede reponer fraccionando (RF-21).
+        int origenesAFraccionar = disponible.UnidadesPorOrigen is int unidadesPorOrigen && disponible.StockOrigen.HasValue
+            ? ServicioFraccionamiento.CalcularOrigenesNecesarios(cantidadSolicitada - disponible.StockActual, unidadesPorOrigen)
+            : 0;
+
+        return new FaltanteStockDto
+        {
+            IdArticulo = disponible.IdArticulo,
+            Descripcion = disponible.Descripcion,
+            CantidadSolicitada = cantidadSolicitada,
+            StockActual = disponible.StockActual,
+            DescripcionOrigen = disponible.DescripcionOrigen,
+            UnidadesPorOrigen = disponible.UnidadesPorOrigen,
+            StockOrigen = disponible.StockOrigen,
+            OrigenesAFraccionar = origenesAFraccionar
+        };
     }
 
     public async Task<ArticuloVentaDto?> BuscarArticuloParaVentaAsync(string codigoOBusqueda, CancellationToken cancellationToken = default)
@@ -191,13 +253,13 @@ public class VentaService : IVentaService
         {
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
-        catch
+        finally
         {
-            // La base revirtió la transacción, pero el contexto conserva en memoria la venta agregada y los
-            // agregados modificados. Se descartan para que no se guarden con la próxima venta; el reintento
-            // vuelve a leer stock y rowversion actualizados.
+            // Si falló, la base revirtió la transacción pero el contexto conserva en memoria la venta y los agregados
+            // modificados: se descartan para que no se guarden con la próxima venta (Ley 9). Si se guardó, se liberan
+            // igual (D-15): así la próxima venta lee stock y rowversion frescos y no choca con un conflicto falso si
+            // otra terminal modificó esos artículos en el medio.
             _unitOfWork.DescartarCambios();
-            throw;
         }
 
         var response = new VentaResponseDto
@@ -247,18 +309,5 @@ public class VentaService : IVentaService
     public Task<IReadOnlyList<VentaResponseDto>> ListarVentasTurnoAsync(int idTurno, CancellationToken cancellationToken = default)
     {
         return Task.FromResult<IReadOnlyList<VentaResponseDto>>(Array.Empty<VentaResponseDto>());
-    }
-
-    private static ArticuloVentaDto MapToVentaDto(Articulo a)
-    {
-        return new ArticuloVentaDto
-        {
-            IdArticulo = a.Id,
-            CodigoBarras = a.CodigoBarras,
-            Descripcion = a.Descripcion,
-            PrecioVenta = a.PrecioVenta,
-            StockActual = a.StockActual,
-            EsServicio = a.EsServicio
-        };
     }
 }

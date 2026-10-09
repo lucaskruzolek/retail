@@ -23,7 +23,11 @@ public partial class ItemVentaPosViewModel : ObservableObject
     [ObservableProperty]
     private string _descripcion = string.Empty;
 
+    // El precio puede cambiar después de cargado el ítem: el POS lo actualiza al verificar el ticket (D-14).
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PrecioUnitarioFormateado))]
+    [NotifyPropertyChangedFor(nameof(SubtotalItem))]
+    [NotifyPropertyChangedFor(nameof(SubtotalItemFormateado))]
     private decimal _precioUnitario;
 
     [ObservableProperty]
@@ -32,6 +36,7 @@ public partial class ItemVentaPosViewModel : ObservableObject
     private int _cantidad = 1;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneAlertaStockBajo))]
     private int _stockActual;
 
     [ObservableProperty]

@@ -38,4 +38,23 @@ public static class ServicioFraccionamiento
 
         return unidadesObtenidas;
     }
+
+    /// <summary>
+    /// Mínimo de unidades del origen que hay que fraccionar para cubrir <paramref name="unidadesFaltantes"/> de la
+    /// presentación: la división redondeada hacia arriba (faltan 3 sueltos de un pack x100 → 1 pack).
+    /// </summary>
+    public static int CalcularOrigenesNecesarios(int unidadesFaltantes, int unidadesPorOrigen)
+    {
+        if (unidadesFaltantes < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(unidadesFaltantes), "Las unidades faltantes deben ser al menos 1.");
+        }
+
+        if (unidadesPorOrigen < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(unidadesPorOrigen), "Las unidades por origen deben ser al menos 1.");
+        }
+
+        return (unidadesFaltantes + unidadesPorOrigen - 1) / unidadesPorOrigen;
+    }
 }
