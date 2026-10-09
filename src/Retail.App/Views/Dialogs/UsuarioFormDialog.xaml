@@ -4,10 +4,10 @@
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   Title="{Binding TituloVentana}"
-                  Width="480"
-                  Height="480"
-                  MinWidth="440"
-                  MinHeight="440"
+                  Width="520"
+                  Height="620"
+                  MinWidth="480"
+                  MinHeight="520"
                   WindowStartupLocation="CenterOwner"
                   ExtendsContentIntoTitleBar="True"
                   WindowBackdropType="Mica"
@@ -81,10 +81,16 @@
                             PlaceholderText="ej. jperez"
                             Margin="0,0,0,14" />
 
-                <!-- Nombre Completo -->
-                <TextBlock Text="Nombre y Apellido Completo" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                <ui:TextBox Text="{Binding NombreCompleto, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="ej. Juan Pérez"
+                <!-- Nombre -->
+                <TextBlock Text="Nombre" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                <ui:TextBox Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="ej. Juan Carlos"
+                            Margin="0,0,0,14" />
+
+                <!-- Apellido -->
+                <TextBlock Text="Apellido" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                <ui:TextBox Text="{Binding Apellido, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="ej. Pérez"
                             Margin="0,0,0,14" />
 
                 <!-- Contraseña (Solo en Alta) -->
@@ -93,6 +99,12 @@
                     <ui:PasswordBox x:Name="TxtPasswordBox"
                                     PasswordChanged="TxtPasswordBox_PasswordChanged"
                                     PlaceholderText="Mínimo 6 caracteres"
+                                    Margin="0,0,0,14" />
+
+                    <TextBlock Text="Confirmar Contraseña" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                    <ui:PasswordBox x:Name="TxtConfirmarPasswordBox"
+                                    PasswordChanged="TxtConfirmarPasswordBox_PasswordChanged"
+                                    PlaceholderText="Repita la contraseña"
                                     Margin="0,0,0,14" />
                 </StackPanel>
 

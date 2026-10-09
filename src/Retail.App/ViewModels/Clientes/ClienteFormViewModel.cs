@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using FluentValidation;
 using Retail.Application.DTOs.Clientes;
 using Retail.Domain.Enums;
 
@@ -112,41 +113,18 @@ public partial class ClienteFormViewModel : ObservableObject
         MensajeError = null;
     }
 
-    public bool Validar()
+    /// <summary>
+    /// Muestra el error devuelto por el servicio. Las reglas de formato no se replican acá: las valida
+    /// ClienteService con los validadores de Application, que reutilizan las reglas del Dominio. Una
+    /// <see cref="ValidationException"/> trae todos los campos inválidos y se listan uno por línea.
+    /// </summary>
+    public void InformarError(Exception ex)
     {
-        MensajeError = null;
+        ArgumentNullException.ThrowIfNull(ex);
 
-        if (string.IsNullOrWhiteSpace(RazonSocialONombre))
-        {
-            MensajeError = "La razón social o nombre es obligatorio.";
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(NumeroDocumento))
-        {
-            MensajeError = "El número de documento o CUIT es obligatorio.";
-            return false;
-        }
-
-        if (NumeroDocumento.Trim().Length < 7)
-        {
-            MensajeError = "El número de documento debe contener al menos 7 caracteres.";
-            return false;
-        }
-
-        if (TieneCuentaCorriente && LimiteCredito < 0m)
-        {
-            MensajeError = "El límite de crédito no puede ser negativo.";
-            return false;
-        }
-
-        if (!string.IsNullOrWhiteSpace(Email) && !Email.Contains('@', StringComparison.Ordinal))
-        {
-            MensajeError = "El formato del correo electrónico no es válido.";
-            return false;
-        }
-
-        return true;
+        MensajeError = ex is ValidationException validacion && validacion.Errors.Any()
+            ? string.Join("\n", validacion.Errors.Select(e => e.ErrorMessage).Distinct())
+            : ex.Message;
     }
 
     public CrearClienteDto GenerarCrearDto() => new()

@@ -1,26 +1,39 @@
 using Retail.Domain.Common;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 
 namespace Retail.Domain.Entities;
 
 /// <summary>
 /// Raíz de Agregado que representa a un cliente con soporte de cuenta corriente comercial.
+/// Los datos de identificación y contacto solo cambian a través de <see cref="Crear"/> y
+/// <see cref="ActualizarDatos"/>, que los normalizan y validan con las reglas de <c>Retail.Domain.Common</c>.
 /// </summary>
 public class Cliente : BaseEntity, IAggregateRoot
 {
-    public string RazonSocialONombre { get; set; } = string.Empty;
+    // Lo usa EF Core para materializar la entidad desde la base; el código de negocio usa Crear.
+    private Cliente()
+    {
+    }
 
-    public TipoDocumentoEnum TipoDocumento { get; set; } = TipoDocumentoEnum.Dni;
+    /// <summary>
+    /// "Apellido y Nombre" de una persona física o razón social de una empresa, en un único campo como lo pide el
+    /// comprobante fiscal de ARCA. Cuál de las dos reglas se aplica lo decide el tipo de documento.
+    /// </summary>
+    public string RazonSocialONombre { get; private set; } = string.Empty;
 
-    public string NumeroDocumento { get; set; } = string.Empty;
+    public TipoDocumentoEnum TipoDocumento { get; private set; } = TipoDocumentoEnum.Dni;
 
-    public CondicionIvaEnum CondicionIva { get; set; } = CondicionIvaEnum.ConsumidorFinal;
+    /// <summary>Forma canónica: solo dígitos para DNI, CUIT y CUIL; mayúsculas sin separadores para pasaporte.</summary>
+    public string NumeroDocumento { get; private set; } = string.Empty;
 
-    public string? DomicilioFiscal { get; set; }
+    public CondicionIvaEnum CondicionIva { get; private set; } = CondicionIvaEnum.ConsumidorFinal;
 
-    public string? Telefono { get; set; }
+    public string? DomicilioFiscal { get; private set; }
 
-    public string? Email { get; set; }
+    public string? Telefono { get; private set; }
+
+    public string? Email { get; private set; }
 
     public bool TieneCuentaCorriente { get; set; }
 
@@ -36,6 +49,43 @@ public class Cliente : BaseEntity, IAggregateRoot
 
     public decimal CreditoDisponible => TieneCuentaCorriente ? Math.Max(0m, LimiteCredito - SaldoCuentaCorriente) : 0m;
 
+    /// <summary>
+    /// Método de creación del agregado: es la única forma de dar de alta un cliente. La cuenta corriente se
+    /// habilita aparte con <see cref="HabilitarCuentaCorriente"/>, que custodia su propia invariante.
+    /// </summary>
+    public static Cliente Crear(
+        string razonSocialONombre,
+        TipoDocumentoEnum tipoDocumento,
+        string numeroDocumento,
+        CondicionIvaEnum condicionIva,
+        string? domicilioFiscal = null,
+        string? telefono = null,
+        string? email = null)
+    {
+        var cliente = new Cliente();
+        cliente.ActualizarDatos(
+            razonSocialONombre,
+            tipoDocumento,
+            numeroDocumento,
+            condicionIva,
+            domicilioFiscal,
+            telefono,
+            email);
+        return cliente;
+    }
+
+    /// <summary>
+    /// Un DNI, un CUIL o un pasaporte identifican a una persona física, así que el nombre se valida como nombre de
+    /// persona (sin dígitos ni símbolos). Un CUIT puede ser de una empresa, así que admite una razón social como
+    /// "3M Argentina S.A.". Lo reutiliza el validador de Application para no duplicar la regla.
+    /// </summary>
+    public static bool EsNombreValido(TipoDocumentoEnum tipoDocumento, string? razonSocialONombre)
+    {
+        return ReglasDocumento.IdentificaPersonaFisica(tipoDocumento)
+            ? ReglasTexto.EsNombreDePersonaValido(razonSocialONombre, ReglasTexto.LongitudMaximaRazonSocial)
+            : ReglasTexto.EsRazonSocialValida(razonSocialONombre);
+    }
+
     public void ActualizarDatos(
         string razonSocialONombre,
         TipoDocumentoEnum tipoDocumento,
@@ -45,16 +95,35 @@ public class Cliente : BaseEntity, IAggregateRoot
         string? telefono,
         string? email)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(razonSocialONombre);
-        ArgumentException.ThrowIfNullOrWhiteSpace(numeroDocumento);
+        if (!Enum.IsDefined(tipoDocumento))
+        {
+            throw new DomainException($"El tipo de documento '{tipoDocumento}' no es válido.");
+        }
 
-        RazonSocialONombre = razonSocialONombre.Trim();
+        if (!Enum.IsDefined(condicionIva))
+        {
+            throw new DomainException($"La condición de IVA '{condicionIva}' no es válida.");
+        }
+
+        // Se validan todos los valores antes de asignar alguno: el agregado nunca queda a medio actualizar.
+        var nombreNormalizado = ReglasDocumento.IdentificaPersonaFisica(tipoDocumento)
+            ? ReglasTexto.ExigirNombreDePersona(
+                razonSocialONombre,
+                "nombre del cliente",
+                ReglasTexto.LongitudMaximaRazonSocial)
+            : ReglasTexto.ExigirRazonSocial(razonSocialONombre, "razón social del cliente");
+        var documentoNormalizado = ReglasDocumento.Exigir(tipoDocumento, numeroDocumento);
+        var domicilioNormalizado = ReglasTexto.ExigirDomicilioOpcional(domicilioFiscal);
+        var telefonoNormalizado = ReglasContacto.ExigirTelefonoOpcional(telefono);
+        var emailNormalizado = ReglasContacto.ExigirEmailOpcional(email);
+
+        RazonSocialONombre = nombreNormalizado;
         TipoDocumento = tipoDocumento;
-        NumeroDocumento = numeroDocumento.Trim();
+        NumeroDocumento = documentoNormalizado;
         CondicionIva = condicionIva;
-        DomicilioFiscal = string.IsNullOrWhiteSpace(domicilioFiscal) ? null : domicilioFiscal.Trim();
-        Telefono = string.IsNullOrWhiteSpace(telefono) ? null : telefono.Trim();
-        Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        DomicilioFiscal = domicilioNormalizado;
+        Telefono = telefonoNormalizado;
+        Email = emailNormalizado;
     }
 
     public void HabilitarCuentaCorriente(decimal limiteCredito)

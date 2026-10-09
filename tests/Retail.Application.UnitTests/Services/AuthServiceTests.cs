@@ -33,6 +33,19 @@ public class AuthServiceTests
             _validator);
     }
 
+    private static Usuario CrearUsuario(
+        int id,
+        string nombreUsuario,
+        string nombre,
+        string apellido,
+        string passwordHash,
+        RolUsuarioEnum rol)
+    {
+        var usuario = Usuario.Crear(nombreUsuario, nombre, apellido, passwordHash, rol);
+        usuario.Id = id;
+        return usuario;
+    }
+
     [Fact]
     public async Task LoginAsync_CredencialesValidas_RetornaLoginResultDto()
     {
@@ -43,14 +56,7 @@ public class AuthServiceTests
             Password = "Password123!"
         };
 
-        var usuario = new Usuario
-        {
-            Id = 1,
-            NombreUsuario = "admin",
-            NombreCompleto = "Administrador del Sistema",
-            PasswordHash = "hashedPassword",
-            IdRol = (int)RolUsuarioEnum.Gerente
-        };
+        var usuario = CrearUsuario(1, "admin", "Administrador", "Sistema", "hashedPassword", RolUsuarioEnum.Gerente);
 
         _usuarioRepository.FindAsync(
             Arg.Any<Expression<Func<Usuario, bool>>>(),
@@ -67,7 +73,7 @@ public class AuthServiceTests
         result.Should().NotBeNull();
         result.IdUsuario.Should().Be(1);
         result.NombreUsuario.Should().Be("admin");
-        result.NombreCompleto.Should().Be("Administrador del Sistema");
+        result.NombreCompleto.Should().Be("Administrador Sistema");
         result.Rol.Should().Be(RolUsuarioEnum.Gerente);
     }
 
@@ -104,14 +110,7 @@ public class AuthServiceTests
             Password = "PasswordErronea!"
         };
 
-        var usuario = new Usuario
-        {
-            Id = 1,
-            NombreUsuario = "admin",
-            NombreCompleto = "Administrador",
-            PasswordHash = "hashedPassword",
-            IdRol = (int)RolUsuarioEnum.Gerente
-        };
+        var usuario = CrearUsuario(1, "admin", "Administrador", "General", "hashedPassword", RolUsuarioEnum.Gerente);
 
         _usuarioRepository.FindAsync(
             Arg.Any<Expression<Func<Usuario, bool>>>(),
@@ -128,6 +127,31 @@ public class AuthServiceTests
         await act.Should().ThrowAsync<CredencialesInvalidasException>();
     }
 
+    [Theory]
+    [InlineData("Admin")]
+    [InlineData("  ADMIN ")]
+    public async Task LoginAsync_NombreUsuarioConMayusculas_BuscaLaFormaCanonicaEnMinusculas(string nombreIngresado)
+    {
+        // Arrange: el alta guarda el login en minúsculas, así que el login debe normalizarlo igual (V-8).
+        var request = new LoginRequestDto { NombreUsuario = nombreIngresado, Password = "Password123!" };
+        var usuario = CrearUsuario(1, "admin", "Administrador", "General", "hashedPassword", RolUsuarioEnum.Gerente);
+
+        Expression<Func<Usuario, bool>>? filtro = null;
+        _usuarioRepository.FindAsync(
+                Arg.Do<Expression<Func<Usuario, bool>>>(f => filtro = f),
+                includeDeleted: true,
+                Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { usuario });
+        _passwordHasher.VerifyPassword(request.Password, usuario.PasswordHash).Returns(true);
+
+        // Act
+        var result = await _sut.LoginAsync(request);
+
+        // Assert
+        filtro!.Compile()(usuario).Should().BeTrue();
+        result.NombreUsuario.Should().Be("admin");
+    }
+
     [Fact]
     public async Task LoginAsync_UsuarioInactivo_LanzaUsuarioInactivoException()
     {
@@ -138,14 +162,7 @@ public class AuthServiceTests
             Password = "Password123!"
         };
 
-        var usuario = new Usuario
-        {
-            Id = 5,
-            NombreUsuario = "despedido",
-            NombreCompleto = "Operador Inactivo",
-            PasswordHash = "hashedPassword",
-            IdRol = (int)RolUsuarioEnum.Cajero
-        };
+        var usuario = CrearUsuario(5, "despedido", "Operador", "Inactivo", "hashedPassword", RolUsuarioEnum.Cajero);
         usuario.MarkAsDeleted(); // Soft delete
 
         _usuarioRepository.FindAsync(
@@ -199,24 +216,10 @@ public class AuthServiceTests
             Password = "PasswordNueva123!"
         };
 
-        var usuarioInactivo = new Usuario
-        {
-            Id = 1,
-            NombreUsuario = "lucas",
-            NombreCompleto = "Lucas Anterior",
-            PasswordHash = "hashViejo",
-            IdRol = (int)RolUsuarioEnum.Cajero
-        };
+        var usuarioInactivo = CrearUsuario(1, "lucas", "Lucas", "Anterior", "hashViejo", RolUsuarioEnum.Cajero);
         usuarioInactivo.MarkAsDeleted();
 
-        var usuarioActivo = new Usuario
-        {
-            Id = 2,
-            NombreUsuario = "lucas",
-            NombreCompleto = "Lucas Nuevo",
-            PasswordHash = "hashNuevo",
-            IdRol = (int)RolUsuarioEnum.Gerente
-        };
+        var usuarioActivo = CrearUsuario(2, "lucas", "Lucas", "Nuevo", "hashNuevo", RolUsuarioEnum.Gerente);
 
         // Simula la consulta en BD donde coexisten el registro inactivo (Id=1) y el activo (Id=2)
         _usuarioRepository.FindAsync(
@@ -248,24 +251,10 @@ public class AuthServiceTests
             Password = "PasswordIncorrecta!"
         };
 
-        var usuarioInactivo = new Usuario
-        {
-            Id = 1,
-            NombreUsuario = "lucas",
-            NombreCompleto = "Lucas Anterior",
-            PasswordHash = "hashViejo",
-            IdRol = (int)RolUsuarioEnum.Cajero
-        };
+        var usuarioInactivo = CrearUsuario(1, "lucas", "Lucas", "Anterior", "hashViejo", RolUsuarioEnum.Cajero);
         usuarioInactivo.MarkAsDeleted();
 
-        var usuarioActivo = new Usuario
-        {
-            Id = 2,
-            NombreUsuario = "lucas",
-            NombreCompleto = "Lucas Nuevo",
-            PasswordHash = "hashNuevo",
-            IdRol = (int)RolUsuarioEnum.Gerente
-        };
+        var usuarioActivo = CrearUsuario(2, "lucas", "Lucas", "Nuevo", "hashNuevo", RolUsuarioEnum.Gerente);
 
         _usuarioRepository.FindAsync(
             Arg.Any<Expression<Func<Usuario, bool>>>(),

@@ -9,6 +9,7 @@ public record class CrearUsuarioDto
 {
     public required string NombreUsuario { get; init; }
     public required string Password { get; init; }
-    public required string NombreCompleto { get; init; }
+    public required string Nombre { get; init; }
+    public required string Apellido { get; init; }
     public required RolUsuarioEnum Rol { get; init; }
 }

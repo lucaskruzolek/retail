@@ -1,6 +1,8 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
 using Xunit;
@@ -87,12 +89,6 @@ public class UnitOfWorkIntegrationTests : IAsyncLifetime, IDisposable
 
     private static Cliente CrearCliente(string nombre, string documento, decimal limiteCredito)
     {
-        return new Cliente
-        {
-            RazonSocialONombre = nombre,
-            NumeroDocumento = documento,
-            TieneCuentaCorriente = limiteCredito != 0m,
-            LimiteCredito = limiteCredito
-        };
+        return ClientesDePrueba.Crear(razonSocialONombre: nombre, tipoDocumento: TipoDocumentoEnum.Dni, numeroDocumento: documento, condicionIva: CondicionIvaEnum.ConsumidorFinal, tieneCuentaCorriente: limiteCredito != 0m, limiteCredito: limiteCredito);
     }
 }

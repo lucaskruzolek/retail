@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Retail.Application.DTOs.Clientes;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
 using Xunit;
@@ -46,36 +47,9 @@ public class ClienteQueryServiceTests : IAsyncLifetime, IDisposable
         // Arrange
         var clientes = new List<Cliente>
         {
-            new()
-            {
-                RazonSocialONombre = "Librería Central",
-                TipoDocumento = TipoDocumentoEnum.Cuit,
-                NumeroDocumento = "30-10101010-1",
-                CondicionIva = CondicionIvaEnum.ResponsableInscripto,
-                TieneCuentaCorriente = true,
-                LimiteCredito = 50000m,
-                SaldoCuentaCorriente = 15000m
-            },
-            new()
-            {
-                RazonSocialONombre = "Carlos Gomez",
-                TipoDocumento = TipoDocumentoEnum.Dni,
-                NumeroDocumento = "20-20202020-2",
-                CondicionIva = CondicionIvaEnum.ConsumidorFinal,
-                TieneCuentaCorriente = true,
-                LimiteCredito = 20000m,
-                SaldoCuentaCorriente = 5000m
-            },
-            new()
-            {
-                RazonSocialONombre = "Escuela Normal",
-                TipoDocumento = TipoDocumentoEnum.Cuit,
-                NumeroDocumento = "30-30303030-3",
-                CondicionIva = CondicionIvaEnum.Exento,
-                TieneCuentaCorriente = true,
-                LimiteCredito = 80000m,
-                SaldoCuentaCorriente = 0m
-            }
+            ClientesDePrueba.Crear(razonSocialONombre: "Librería Central", tipoDocumento: TipoDocumentoEnum.Cuit, numeroDocumento: "30101010100", condicionIva: CondicionIvaEnum.ResponsableInscripto, tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 15000m),
+            ClientesDePrueba.Crear(razonSocialONombre: "Carlos Gomez", tipoDocumento: TipoDocumentoEnum.Dni, numeroDocumento: "20202020", condicionIva: CondicionIvaEnum.ConsumidorFinal, tieneCuentaCorriente: true, limiteCredito: 20000m, saldoCuentaCorriente: 5000m),
+            ClientesDePrueba.Crear(razonSocialONombre: "Escuela Normal", tipoDocumento: TipoDocumentoEnum.Cuit, numeroDocumento: "30303030308", condicionIva: CondicionIvaEnum.Exento, tieneCuentaCorriente: true, limiteCredito: 80000m, saldoCuentaCorriente: 0m)
         };
         _context.Clientes.AddRange(clientes);
         await _context.SaveChangesAsync();
@@ -103,8 +77,8 @@ public class ClienteQueryServiceTests : IAsyncLifetime, IDisposable
     {
         // Arrange
         _context.Clientes.AddRange(
-            new Cliente { RazonSocialONombre = "Ana Martinez", NumeroDocumento = "27-40404040-7", CondicionIva = CondicionIvaEnum.ConsumidorFinal },
-            new Cliente { RazonSocialONombre = "Supermercado Norte", NumeroDocumento = "30-50505050-5", CondicionIva = CondicionIvaEnum.ResponsableInscripto }
+            ClientesDePrueba.Crear(razonSocialONombre: "Ana Martinez", numeroDocumento: "27404040400", condicionIva: CondicionIvaEnum.ConsumidorFinal, tipoDocumento: TipoDocumentoEnum.Cuit),
+            ClientesDePrueba.Crear(razonSocialONombre: "Supermercado Norte", numeroDocumento: "30505050505", condicionIva: CondicionIvaEnum.ResponsableInscripto, tipoDocumento: TipoDocumentoEnum.Cuit)
         );
         await _context.SaveChangesAsync();
 
@@ -115,7 +89,7 @@ public class ClienteQueryServiceTests : IAsyncLifetime, IDisposable
 
         // Assert
         resDoc.Should().ContainSingle(c => c.RazonSocialONombre == "Ana Martinez");
-        resNom.Should().ContainSingle(c => c.NumeroDocumento == "30-50505050-5");
+        resNom.Should().ContainSingle(c => c.NumeroDocumento == "30505050505"); // se guarda sin guiones
     }
 
     [Fact]
@@ -123,8 +97,8 @@ public class ClienteQueryServiceTests : IAsyncLifetime, IDisposable
     {
         // Arrange: razon_social_o_nombre usa Modern_Spanish_CI_AI
         _context.Clientes.AddRange(
-            new Cliente { RazonSocialONombre = "Librería Martínez", NumeroDocumento = "27-11111111-1", CondicionIva = CondicionIvaEnum.ConsumidorFinal },
-            new Cliente { RazonSocialONombre = "Papelera Peña", NumeroDocumento = "27-22222222-2", CondicionIva = CondicionIvaEnum.ConsumidorFinal });
+            ClientesDePrueba.Crear(razonSocialONombre: "Librería Martínez", numeroDocumento: "27111111117", condicionIva: CondicionIvaEnum.ConsumidorFinal, tipoDocumento: TipoDocumentoEnum.Cuit),
+            ClientesDePrueba.Crear(razonSocialONombre: "Papelera Peña", numeroDocumento: "27222222228", condicionIva: CondicionIvaEnum.ConsumidorFinal, tipoDocumento: TipoDocumentoEnum.Cuit));
         await _context.SaveChangesAsync();
 
         // Act

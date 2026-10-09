@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
 using Retail.Infrastructure.Persistence.Services;
@@ -228,13 +229,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         var repo = new Repository<Usuario>(_context);
         var uow = new UnitOfWork(_context);
 
-        var usuario = new Usuario
-        {
-            NombreUsuario = "operador.test",
-            NombreCompleto = "Operador de Prueba",
-            PasswordHash = "hash123",
-            IdRol = rol.Id
-        };
+        var usuario = Usuario.Crear("operador.test", "Operador", "Prueba", "hash123", RolUsuarioEnum.Cajero);
 
         await repo.AddAsync(usuario);
         await uow.SaveChangesAsync();
@@ -262,13 +257,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             await _context.SaveChangesAsync();
         }
 
-        var usuario1 = new Usuario
-        {
-            NombreUsuario = "lucas.softdelete",
-            NombreCompleto = "Lucas Anterior",
-            PasswordHash = "hash1",
-            IdRol = rol.Id
-        };
+        var usuario1 = Usuario.Crear("lucas.softdelete", "Lucas", "Anterior", "hash1", RolUsuarioEnum.Cajero);
         await _context.Usuarios.AddAsync(usuario1);
         await _context.SaveChangesAsync();
 
@@ -277,13 +266,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         // Act: Insertar un segundo usuario independiente con el mismo nombre de usuario
-        var usuario2 = new Usuario
-        {
-            NombreUsuario = "lucas.softdelete",
-            NombreCompleto = "Lucas Nuevo",
-            PasswordHash = "hash2",
-            IdRol = rol.Id
-        };
+        var usuario2 = Usuario.Crear("lucas.softdelete", "Lucas", "Nuevo", "hash2", RolUsuarioEnum.Cajero);
         await _context.Usuarios.AddAsync(usuario2);
         await _context.SaveChangesAsync();
 
@@ -311,23 +294,11 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             await _context.SaveChangesAsync();
         }
 
-        var usuario1 = new Usuario
-        {
-            NombreUsuario = "operador.duplicado",
-            NombreCompleto = "Operador Uno",
-            PasswordHash = "hash1",
-            IdRol = rol.Id
-        };
+        var usuario1 = Usuario.Crear("operador.duplicado", "Operador", "Uno", "hash1", RolUsuarioEnum.Cajero);
         await _context.Usuarios.AddAsync(usuario1);
         await _context.SaveChangesAsync();
 
-        var usuario2 = new Usuario
-        {
-            NombreUsuario = "operador.duplicado",
-            NombreCompleto = "Operador Dos",
-            PasswordHash = "hash2",
-            IdRol = rol.Id
-        };
+        var usuario2 = Usuario.Crear("operador.duplicado", "Operador", "Dos", "hash2", RolUsuarioEnum.Cajero);
         await _context.Usuarios.AddAsync(usuario2);
 
         // Act
@@ -443,16 +414,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     public async Task Cliente_ConMismoNumeroDocumento_SiEstaEliminado_PermiteReingresoPorIndiceFiltrado()
     {
         // Arrange
-        var cliente1 = new Cliente
-        {
-            RazonSocialONombre = "Cliente Inicial",
-            TipoDocumento = Domain.Enums.TipoDocumentoEnum.Dni,
-            NumeroDocumento = "40123456",
-            CondicionIva = Domain.Enums.CondicionIvaEnum.ConsumidorFinal,
-            TieneCuentaCorriente = false,
-            LimiteCredito = 0m,
-            SaldoCuentaCorriente = 0m
-        };
+        var cliente1 = ClientesDePrueba.Crear(razonSocialONombre: "Cliente Inicial", tipoDocumento: Domain.Enums.TipoDocumentoEnum.Dni, numeroDocumento: "40123456", condicionIva: Domain.Enums.CondicionIvaEnum.ConsumidorFinal, tieneCuentaCorriente: false, limiteCredito: 0m, saldoCuentaCorriente: 0m);
 
         await _context.Clientes.AddAsync(cliente1);
         await _context.SaveChangesAsync();
@@ -461,16 +423,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         cliente1.MarkAsDeleted();
         await _context.SaveChangesAsync();
 
-        var cliente2 = new Cliente
-        {
-            RazonSocialONombre = "Cliente Nuevo Mismo Documento",
-            TipoDocumento = Domain.Enums.TipoDocumentoEnum.Dni,
-            NumeroDocumento = "40123456",
-            CondicionIva = Domain.Enums.CondicionIvaEnum.ConsumidorFinal,
-            TieneCuentaCorriente = true,
-            LimiteCredito = 20000m,
-            SaldoCuentaCorriente = 0m
-        };
+        var cliente2 = ClientesDePrueba.Crear(razonSocialONombre: "Cliente Nuevo Mismo Documento", tipoDocumento: Domain.Enums.TipoDocumentoEnum.Dni, numeroDocumento: "40123456", condicionIva: Domain.Enums.CondicionIvaEnum.ConsumidorFinal, tieneCuentaCorriente: true, limiteCredito: 20000m, saldoCuentaCorriente: 0m);
 
         // Act
         await _context.Clientes.AddAsync(cliente2);
@@ -502,13 +455,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             await _context.SaveChangesAsync();
         }
 
-        var usuario = new Usuario
-        {
-            NombreUsuario = $"cajero.cobranza.{Guid.NewGuid():N}"[..20],
-            NombreCompleto = "Cajero Cobranza Test",
-            PasswordHash = "hash123",
-            IdRol = rol.Id
-        };
+        var usuario = Usuario.Crear($"cajero.cobranza.{Guid.NewGuid():N}"[..20], "Cajero", "Test", "hash123", RolUsuarioEnum.Cajero);
         await _context.Usuarios.AddAsync(usuario);
         await _context.SaveChangesAsync();
 
@@ -516,16 +463,14 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         await _context.TurnosCaja.AddAsync(turno);
         await _context.SaveChangesAsync();
 
-        var cliente = new Cliente
-        {
-            RazonSocialONombre = "Cliente Con Cobranza Test",
-            TipoDocumento = Domain.Enums.TipoDocumentoEnum.Dni,
-            NumeroDocumento = $"99{Random.Shared.Next(100000, 999999)}",
-            CondicionIva = Domain.Enums.CondicionIvaEnum.ConsumidorFinal,
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 10000m
-        };
+        var cliente = ClientesDePrueba.Crear(
+            razonSocialONombre: "Cliente Con Cobranza Test",
+            tipoDocumento: Domain.Enums.TipoDocumentoEnum.Dni,
+            numeroDocumento: $"99{Random.Shared.Next(100000, 999999)}",
+            condicionIva: Domain.Enums.CondicionIvaEnum.ConsumidorFinal,
+            tieneCuentaCorriente: true,
+            limiteCredito: 50000m,
+            saldoCuentaCorriente: 10000m);
         await _context.Clientes.AddAsync(cliente);
         await _context.SaveChangesAsync();
 

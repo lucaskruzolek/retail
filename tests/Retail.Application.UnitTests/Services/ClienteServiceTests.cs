@@ -5,6 +5,7 @@ using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
+using Retail.Application.UnitTests.TestData;
 using Retail.Application.Validators.Clientes;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
@@ -50,8 +51,8 @@ public class ClienteServiceTests
         // Arrange
         var clientes = new List<Cliente>
         {
-            new() { Id = 1, RazonSocialONombre = "Zeta Librería", NumeroDocumento = "30-11111111-1" },
-            new() { Id = 2, RazonSocialONombre = "Alfa Papelería", NumeroDocumento = "30-22222222-2" }
+            ClientesDePrueba.Crear(id: 1, razonSocialONombre: "Zeta Librería", numeroDocumento: "30111111118", tipoDocumento: TipoDocumentoEnum.Cuit),
+            ClientesDePrueba.Crear(id: 2, razonSocialONombre: "Alfa Papelería", numeroDocumento: "30222222229", tipoDocumento: TipoDocumentoEnum.Cuit)
         };
 
         _clienteRepository.ListAllAsync(false, Arg.Any<CancellationToken>())
@@ -72,8 +73,8 @@ public class ClienteServiceTests
         // Arrange
         var clientes = new List<Cliente>
         {
-            new() { Id = 1, RazonSocialONombre = "Librería Central", NumeroDocumento = "30-11111111-1" },
-            new() { Id = 2, RazonSocialONombre = "Papelería Sur", NumeroDocumento = "30-99999999-9" }
+            ClientesDePrueba.Crear(id: 1, razonSocialONombre: "Librería Central", numeroDocumento: "30111111118", tipoDocumento: TipoDocumentoEnum.Cuit),
+            ClientesDePrueba.Crear(id: 2, razonSocialONombre: "Papelería Sur", numeroDocumento: "30999999995", tipoDocumento: TipoDocumentoEnum.Cuit)
         };
 
         _clienteRepository.ListAllAsync(false, Arg.Any<CancellationToken>())
@@ -90,15 +91,7 @@ public class ClienteServiceTests
     public async Task ObtenerClientePorIdAsync_ClienteExiste_RetornaDto()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 5,
-            RazonSocialONombre = "Cliente Uno",
-            NumeroDocumento = "30-12345678-9",
-            TieneCuentaCorriente = true,
-            LimiteCredito = 20000m,
-            SaldoCuentaCorriente = 5000m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 5, razonSocialONombre: "Cliente Uno", numeroDocumento: "30123456781", tieneCuentaCorriente: true, limiteCredito: 20000m, saldoCuentaCorriente: 5000m, tipoDocumento: TipoDocumentoEnum.Cuit);
 
         _clienteRepository.GetByIdAsync(5, Arg.Any<CancellationToken>())
             .Returns(cliente);
@@ -134,7 +127,7 @@ public class ClienteServiceTests
         {
             RazonSocialONombre = "Distribuidora Norte",
             TipoDocumento = TipoDocumentoEnum.Cuit,
-            NumeroDocumento = "30-33445566-7",
+            NumeroDocumento = "30-33445566-8",
             CondicionIva = CondicionIvaEnum.ResponsableInscripto,
             TieneCuentaCorriente = true,
             LimiteCredito = 60000m
@@ -162,12 +155,12 @@ public class ClienteServiceTests
         {
             RazonSocialONombre = "Distribuidora Norte",
             TipoDocumento = TipoDocumentoEnum.Cuit,
-            NumeroDocumento = "30-33445566-7",
+            NumeroDocumento = "30-33445566-8",
             CondicionIva = CondicionIvaEnum.ResponsableInscripto
         };
 
         _clienteRepository.FindAsync(Arg.Any<Expression<Func<Cliente, bool>>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Cliente> { new() { Id = 1, NumeroDocumento = "30-33445566-7" } });
+            .Returns(new List<Cliente> { ClientesDePrueba.Crear(id: 1, numeroDocumento: "30334455668", tipoDocumento: TipoDocumentoEnum.Cuit) });
 
         // Act
         var act = async () => await _sut.CrearClienteAsync(dto);
@@ -182,21 +175,14 @@ public class ClienteServiceTests
     public async Task ActualizarClienteAsync_DatosValidos_ActualizaYPersiste()
     {
         // Arrange
-        var clienteExistente = new Cliente
-        {
-            Id = 3,
-            RazonSocialONombre = "Nombre Original",
-            NumeroDocumento = "30-11111111-1",
-            TieneCuentaCorriente = false,
-            LimiteCredito = 0m
-        };
+        var clienteExistente = ClientesDePrueba.Crear(id: 3, razonSocialONombre: "Nombre Original", numeroDocumento: "30111111118", tieneCuentaCorriente: false, limiteCredito: 0m, tipoDocumento: TipoDocumentoEnum.Cuit);
 
         var dto = new ActualizarClienteDto
         {
             IdCliente = 3,
             RazonSocialONombre = "Nombre Modificado",
             TipoDocumento = TipoDocumentoEnum.Cuit,
-            NumeroDocumento = "30-11111111-1",
+            NumeroDocumento = "30-11111111-8",
             CondicionIva = CondicionIvaEnum.ResponsableInscripto,
             TieneCuentaCorriente = true,
             LimiteCredito = 25000m
@@ -247,19 +233,14 @@ public class ClienteServiceTests
     public async Task ActualizarClienteAsync_DocumentoColisionaConOtroCliente_LanzaInvalidOperationException()
     {
         // Arrange
-        var clienteExistente = new Cliente
-        {
-            Id = 3,
-            RazonSocialONombre = "Cliente Tres",
-            NumeroDocumento = "30-11111111-1"
-        };
+        var clienteExistente = ClientesDePrueba.Crear(id: 3, razonSocialONombre: "Cliente Tres", numeroDocumento: "30111111118", tipoDocumento: TipoDocumentoEnum.Cuit);
 
         var dto = new ActualizarClienteDto
         {
             IdCliente = 3,
             RazonSocialONombre = "Cliente Tres",
             TipoDocumento = TipoDocumentoEnum.Cuit,
-            NumeroDocumento = "30-22222222-2",
+            NumeroDocumento = "30-22222222-9",
             CondicionIva = CondicionIvaEnum.ResponsableInscripto,
             TieneCuentaCorriente = false,
             LimiteCredito = 0m
@@ -269,7 +250,7 @@ public class ClienteServiceTests
             .Returns(clienteExistente);
 
         _clienteRepository.FindAsync(Arg.Any<Expression<Func<Cliente, bool>>>(), Arg.Any<CancellationToken>())
-            .Returns(new List<Cliente> { new() { Id = 4, NumeroDocumento = "30-22222222-2" } });
+            .Returns(new List<Cliente> { ClientesDePrueba.Crear(id: 4, numeroDocumento: "30222222229", tipoDocumento: TipoDocumentoEnum.Cuit) });
 
         // Act
         var act = async () => await _sut.ActualizarClienteAsync(dto);
@@ -283,22 +264,14 @@ public class ClienteServiceTests
     public async Task ActualizarClienteAsync_LimiteMenorALaDeuda_DescartaLosCambiosYNoGuarda()
     {
         // Arrange: el nombre se modifica antes de que el Dominio rechace el nuevo límite
-        var clienteExistente = new Cliente
-        {
-            Id = 3,
-            RazonSocialONombre = "Nombre Original",
-            NumeroDocumento = "30-11111111-1",
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 20000m
-        };
+        var clienteExistente = ClientesDePrueba.Crear(id: 3, razonSocialONombre: "Nombre Original", numeroDocumento: "30111111118", tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 20000m, tipoDocumento: TipoDocumentoEnum.Cuit);
 
         var dto = new ActualizarClienteDto
         {
             IdCliente = 3,
             RazonSocialONombre = "Nombre Modificado",
             TipoDocumento = TipoDocumentoEnum.Cuit,
-            NumeroDocumento = "30-11111111-1",
+            NumeroDocumento = "30-11111111-8",
             CondicionIva = CondicionIvaEnum.ResponsableInscripto,
             TieneCuentaCorriente = true,
             LimiteCredito = 100m
@@ -324,12 +297,7 @@ public class ClienteServiceTests
     public async Task BajaClienteAsync_ClienteValidoSinDeuda_MarcaComoEliminadoYPersiste()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 7,
-            RazonSocialONombre = "Cliente Para Borrar",
-            SaldoCuentaCorriente = 0m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 7, razonSocialONombre: "Cliente Para Borrar", saldoCuentaCorriente: 0m);
 
         _clienteRepository.GetByIdAsync(7, Arg.Any<CancellationToken>())
             .Returns(cliente);
@@ -346,13 +314,7 @@ public class ClienteServiceTests
     public async Task DebitarCuentaCorrienteAsync_ClienteValido_ImputaDebitoYPersiste()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 8,
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 10000m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 8, tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 10000m);
 
         _clienteRepository.GetByIdAsync(8, Arg.Any<CancellationToken>())
             .Returns(cliente);
@@ -369,14 +331,7 @@ public class ClienteServiceTests
     public async Task RegistrarCobranzaAsync_ConTurnoActivoValido_ReduceSaldoImputaEnCajaEmiteTicketYRetornaResultado()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 10,
-            RazonSocialONombre = "Papelería Central",
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 20000m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 10, razonSocialONombre: "Papelería Central", tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 20000m);
 
         var turno = new Retail.Application.DTOs.Caja.TurnoCajaDto
         {
@@ -429,14 +384,7 @@ public class ClienteServiceTests
     public async Task RegistrarCobranzaAsync_FallaLaImputacionEnCaja_DescartaLosCambiosYNoGuarda()
     {
         // Arrange: el cliente ya registró la cobranza cuando la caja la rechaza (turno cerrado desde otra terminal)
-        var cliente = new Cliente
-        {
-            Id = 10,
-            RazonSocialONombre = "Papelería Central",
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 20000m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 10, razonSocialONombre: "Papelería Central", tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 20000m);
 
         _cajaService.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>())
             .Returns(new Retail.Application.DTOs.Caja.TurnoCajaDto
@@ -536,13 +484,7 @@ public class ClienteServiceTests
     public async Task RegistrarCobranzaAsync_SiFallaTicketPrinter_NoRevierteLaTransaccionFinanciera()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 4,
-            RazonSocialONombre = "Cliente Impresión Falla",
-            TieneCuentaCorriente = true,
-            SaldoCuentaCorriente = 5000m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 4, razonSocialONombre: "Cliente Impresión Falla", tieneCuentaCorriente: true, saldoCuentaCorriente: 5000m);
 
         var turno = new Retail.Application.DTOs.Caja.TurnoCajaDto
         {
@@ -582,12 +524,7 @@ public class ClienteServiceTests
     public async Task ListarHistorialCobranzasAsync_ConCobranzas_RetornaListaOrdenadaDescendente()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 6,
-            TieneCuentaCorriente = true,
-            SaldoCuentaCorriente = 0m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 6, tieneCuentaCorriente: true, saldoCuentaCorriente: 0m);
 
         var cobranzaAntigua = new CobranzaCliente
         {
@@ -624,5 +561,60 @@ public class ClienteServiceTests
         historial.Should().HaveCount(2);
         historial[0].IdCobranza.Should().Be(2); // La más reciente primero
         historial[1].IdCobranza.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CrearClienteAsync_DniConPuntos_BuscaElDuplicadoPorLaFormaCanonica()
+    {
+        // Arrange: regresión de C-1. Antes "12.345.678" y "12345678" quedaban como dos clientes distintos.
+        var dto = new CrearClienteDto
+        {
+            RazonSocialONombre = "pérez juan",
+            TipoDocumento = TipoDocumentoEnum.Dni,
+            NumeroDocumento = "12.345.678",
+            CondicionIva = CondicionIvaEnum.ConsumidorFinal
+        };
+
+        Expression<Func<Cliente, bool>>? filtro = null;
+        _clienteRepository.FindAsync(Arg.Do<Expression<Func<Cliente, bool>>>(f => filtro = f), Arg.Any<CancellationToken>())
+            .Returns(new List<Cliente>());
+
+        // Act
+        var resultado = await _sut.CrearClienteAsync(dto);
+
+        // Assert
+        var yaRegistrado = ClientesDePrueba.Crear(
+            razonSocialONombre: "Pérez Juan",
+            tipoDocumento: TipoDocumentoEnum.Dni,
+            numeroDocumento: "12345678",
+            condicionIva: CondicionIvaEnum.ConsumidorFinal);
+        filtro!.Compile()(yaRegistrado).Should().BeTrue();
+        resultado.NumeroDocumento.Should().Be("12345678");
+        resultado.RazonSocialONombre.Should().Be("Pérez Juan");
+    }
+
+    [Fact]
+    public async Task CrearClienteAsync_ConCuentaCorriente_LaHabilitaConElLimiteIndicado()
+    {
+        // Arrange
+        var dto = new CrearClienteDto
+        {
+            RazonSocialONombre = "Escuela Normal",
+            TipoDocumento = TipoDocumentoEnum.Cuit,
+            NumeroDocumento = "30712345671",
+            CondicionIva = CondicionIvaEnum.Exento,
+            TieneCuentaCorriente = true,
+            LimiteCredito = 80000m
+        };
+        _clienteRepository.FindAsync(Arg.Any<Expression<Func<Cliente, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Cliente>());
+
+        // Act
+        var resultado = await _sut.CrearClienteAsync(dto);
+
+        // Assert
+        resultado.TieneCuentaCorriente.Should().BeTrue();
+        resultado.LimiteCredito.Should().Be(80000m);
+        resultado.SaldoCuentaCorriente.Should().Be(0m);
     }
 }

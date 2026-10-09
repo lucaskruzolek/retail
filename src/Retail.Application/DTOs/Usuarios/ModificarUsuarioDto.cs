@@ -8,6 +8,7 @@ namespace Retail.Application.DTOs.Usuarios;
 public record class ModificarUsuarioDto
 {
     public required int IdUsuario { get; init; }
-    public required string NombreCompleto { get; init; }
+    public required string Nombre { get; init; }
+    public required string Apellido { get; init; }
     public required RolUsuarioEnum Rol { get; init; }
 }

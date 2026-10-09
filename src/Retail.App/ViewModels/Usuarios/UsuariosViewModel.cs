@@ -171,7 +171,9 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            _dialogService.MostrarInformacion("Operación Exitosa", $"Los datos de '{dto.NombreCompleto}' fueron actualizados.");
+            // Se muestra el nombre que devolvió el servicio, ya normalizado por el agregado, que es el que se guardó.
+            var nombreGuardado = actualizado?.NombreCompleto ?? $"{dto.Nombre} {dto.Apellido}";
+            _dialogService.MostrarInformacion("Operación Exitosa", $"Los datos de '{nombreGuardado}' fueron actualizados.");
 
             await CargarUsuariosAsync();
             UsuarioSeleccionado = Usuarios.FirstOrDefault(u => u.IdUsuario == (actualizado?.IdUsuario ?? dto.IdUsuario));
@@ -339,7 +341,10 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
                 u.NombreCompleto.Contains(texto, StringComparison.OrdinalIgnoreCase));
         }
 
-        _cacheFiltrados = query.OrderBy(u => u.NombreUsuario).ToList();
+        _cacheFiltrados = query
+            .OrderBy(u => u.Apellido)
+            .ThenBy(u => u.Nombre)
+            .ToList();
         TotalRegistrosFiltrados = _cacheFiltrados.Count;
 
         TotalPaginas = Math.Max(1, (int)Math.Ceiling((double)TotalRegistrosFiltrados / Math.Max(1, TamanoPagina)));

@@ -32,8 +32,8 @@ public class UsuariosViewModelTests : IDisposable
         // Arrange
         var lista = new List<UsuarioDto>
         {
-            new() { IdUsuario = 1, NombreUsuario = "admin", NombreCompleto = "Ana Gerente", Rol = RolUsuarioEnum.Gerente, Activo = true, CreatedAt = DateTime.UtcNow },
-            new() { IdUsuario = 2, NombreUsuario = "cajero", NombreCompleto = "Juan Cajero", Rol = RolUsuarioEnum.Cajero, Activo = true, CreatedAt = DateTime.UtcNow }
+            new() { IdUsuario = 1, NombreUsuario = "admin", Nombre = "Ana", Apellido = "Gerente", Rol = RolUsuarioEnum.Gerente, Activo = true, CreatedAt = DateTime.UtcNow },
+            new() { IdUsuario = 2, NombreUsuario = "cajero", Nombre = "Juan", Apellido = "Cajero", Rol = RolUsuarioEnum.Cajero, Activo = true, CreatedAt = DateTime.UtcNow }
         };
 
         _usuarioService.ListarUsuariosAsync(Arg.Any<CancellationToken>())
@@ -72,8 +72,8 @@ public class UsuariosViewModelTests : IDisposable
         // Arrange
         var lista = new List<UsuarioDto>
         {
-            new() { IdUsuario = 1, NombreUsuario = "admin", NombreCompleto = "Ana Gerente", Rol = RolUsuarioEnum.Gerente, Activo = true, CreatedAt = DateTime.UtcNow },
-            new() { IdUsuario = 2, NombreUsuario = "cajero", NombreCompleto = "Juan Perez", Rol = RolUsuarioEnum.Cajero, Activo = true, CreatedAt = DateTime.UtcNow }
+            new() { IdUsuario = 1, NombreUsuario = "admin", Nombre = "Ana", Apellido = "Gerente", Rol = RolUsuarioEnum.Gerente, Activo = true, CreatedAt = DateTime.UtcNow },
+            new() { IdUsuario = 2, NombreUsuario = "cajero", Nombre = "Juan", Apellido = "Perez", Rol = RolUsuarioEnum.Cajero, Activo = true, CreatedAt = DateTime.UtcNow }
         };
 
         _usuarioService.ListarUsuariosAsync(Arg.Any<CancellationToken>())
@@ -109,7 +109,8 @@ public class UsuariosViewModelTests : IDisposable
         var dto = new CrearUsuarioDto
         {
             NombreUsuario = "nuevo",
-            NombreCompleto = "Nuevo Operador",
+            Nombre = "Nuevo",
+            Apellido = "Operador",
             Password = "Password123!",
             Rol = RolUsuarioEnum.Cajero
         };
@@ -118,7 +119,8 @@ public class UsuariosViewModelTests : IDisposable
         {
             IdUsuario = 5,
             NombreUsuario = "nuevo",
-            NombreCompleto = "Nuevo Operador",
+            Nombre = "Nuevo",
+            Apellido = "Operador",
             Rol = RolUsuarioEnum.Cajero,
             Activo = true,
             CreatedAt = DateTime.UtcNow
@@ -179,7 +181,8 @@ public class UsuariosViewModelTests : IDisposable
         {
             IdUsuario = 2,
             NombreUsuario = "cajero",
-            NombreCompleto = "Juan Cajero",
+            Nombre = "Juan",
+            Apellido = "Cajero",
             Rol = RolUsuarioEnum.Cajero,
             Activo = true,
             CreatedAt = DateTime.UtcNow
@@ -188,7 +191,8 @@ public class UsuariosViewModelTests : IDisposable
         var modDto = new ModificarUsuarioDto
         {
             IdUsuario = 2,
-            NombreCompleto = "Juan Modificado",
+            Nombre = "Juan",
+            Apellido = "Modificado",
             Rol = RolUsuarioEnum.Encargado
         };
 
@@ -196,7 +200,8 @@ public class UsuariosViewModelTests : IDisposable
         {
             IdUsuario = 2,
             NombreUsuario = "cajero",
-            NombreCompleto = "Juan Modificado",
+            Nombre = "Juan",
+            Apellido = "Modificado",
             Rol = RolUsuarioEnum.Encargado,
             Activo = true,
             CreatedAt = DateTime.UtcNow
@@ -229,7 +234,8 @@ public class UsuariosViewModelTests : IDisposable
         {
             IdUsuario = 1,
             NombreUsuario = "admin",
-            NombreCompleto = "Admin Unico",
+            Nombre = "Admin",
+            Apellido = "Unico",
             Rol = RolUsuarioEnum.Gerente,
             Activo = true,
             CreatedAt = DateTime.UtcNow
@@ -255,7 +261,8 @@ public class UsuariosViewModelTests : IDisposable
         {
             IdUsuario = 3,
             NombreUsuario = "cajero",
-            NombreCompleto = "Carlos",
+            Nombre = "Carlos",
+            Apellido = "Carlos",
             Rol = RolUsuarioEnum.Cajero,
             Activo = true,
             CreatedAt = DateTime.UtcNow
@@ -278,7 +285,8 @@ public class UsuariosViewModelTests : IDisposable
         {
             IdUsuario = 4,
             NombreUsuario = "inactivo",
-            NombreCompleto = "Dado de Baja",
+            Nombre = "Dado",
+            Apellido = "de Baja",
             Rol = RolUsuarioEnum.Cajero,
             Activo = false,
             CreatedAt = DateTime.UtcNow
@@ -301,7 +309,8 @@ public class UsuariosViewModelTests : IDisposable
         {
             IdUsuario = 2,
             NombreUsuario = "cajero",
-            NombreCompleto = "Juan Cajero",
+            Nombre = "Juan",
+            Apellido = "Cajero",
             Rol = RolUsuarioEnum.Cajero,
             Activo = true,
             CreatedAt = DateTime.UtcNow

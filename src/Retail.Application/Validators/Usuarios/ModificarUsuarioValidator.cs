@@ -1,5 +1,6 @@
 using FluentValidation;
 using Retail.Application.DTOs.Usuarios;
+using Retail.Application.Validators.Common;
 
 namespace Retail.Application.Validators.Usuarios;
 
@@ -10,13 +11,16 @@ public class ModificarUsuarioValidator : AbstractValidator<ModificarUsuarioDto>
 {
     public ModificarUsuarioValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(x => x.IdUsuario)
             .GreaterThan(0).WithMessage("El identificador del usuario debe ser mayor a cero.");
 
-        RuleFor(x => x.NombreCompleto)
-            .NotEmpty().WithMessage("El nombre completo es obligatorio.")
-            .MinimumLength(3).WithMessage("El nombre completo debe contener al menos 3 caracteres.")
-            .MaximumLength(100).WithMessage("El nombre completo no puede exceder 100 caracteres.");
+        RuleFor(x => x.Nombre)
+            .NombreDePersona("el nombre");
+
+        RuleFor(x => x.Apellido)
+            .NombreDePersona("el apellido");
 
         RuleFor(x => x.Rol)
             .IsInEnum().WithMessage("El rol de usuario especificado no es válido.");

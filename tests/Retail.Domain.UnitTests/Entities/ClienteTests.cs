@@ -2,6 +2,7 @@ using FluentAssertions;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
+using Retail.Domain.UnitTests.TestData;
 using Xunit;
 
 namespace Retail.Domain.UnitTests.Entities;
@@ -12,41 +13,35 @@ public class ClienteTests
     public void ActualizarDatos_ValoresValidos_ActualizaPropiedades()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            RazonSocialONombre = "Librería San Martín",
-            TipoDocumento = TipoDocumentoEnum.Cuit,
-            NumeroDocumento = "30-11223344-5",
-            CondicionIva = CondicionIvaEnum.ResponsableInscripto
-        };
+        var cliente = ClientesDePrueba.Crear(razonSocialONombre: "Librería San Martín", tipoDocumento: TipoDocumentoEnum.Cuit, numeroDocumento: "30112233446", condicionIva: CondicionIvaEnum.ResponsableInscripto);
 
         // Act
         cliente.ActualizarDatos(
-            "Librería San Martín S.A.",
+            "  Librería   San Martín S.A. ",
             TipoDocumentoEnum.Cuit,
-            "30-99887766-5",
+            "30-99887766-7",
             CondicionIvaEnum.ResponsableInscripto,
-            "Av. Corrientes 1234",
-            "1144556677",
-            "contacto@libreriasanmartin.com");
+            "Av.  Corrientes 1234",
+            "(011) 4455-6677",
+            " Contacto@LibreriaSanMartin.com ");
 
-        // Assert
+        // Assert: cada valor queda en su forma canónica.
         cliente.RazonSocialONombre.Should().Be("Librería San Martín S.A.");
-        cliente.NumeroDocumento.Should().Be("30-99887766-5");
+        cliente.NumeroDocumento.Should().Be("30998877667");
         cliente.DomicilioFiscal.Should().Be("Av. Corrientes 1234");
-        cliente.Telefono.Should().Be("1144556677");
+        cliente.Telefono.Should().Be("01144556677");
         cliente.Email.Should().Be("contacto@libreriasanmartin.com");
     }
 
     [Theory]
-    [InlineData("", "30-11223344-5")]
-    [InlineData("   ", "30-11223344-5")]
+    [InlineData("", "12345678")]
+    [InlineData("   ", "12345678")]
     [InlineData("Cliente Valido", "")]
     [InlineData("Cliente Valido", "   ")]
-    public void ActualizarDatos_CamposObligatoriosVacios_LanzaArgumentException(string razonSocial, string numeroDocumento)
+    public void ActualizarDatos_CamposObligatoriosVacios_LanzaDomainException(string razonSocial, string numeroDocumento)
     {
         // Arrange
-        var cliente = new Cliente();
+        var cliente = ClientesDePrueba.Crear();
 
         // Act
         var act = () => cliente.ActualizarDatos(
@@ -59,14 +54,100 @@ public class ClienteTests
             null);
 
         // Assert
-        act.Should().Throw<ArgumentException>();
+        act.Should().Throw<DomainException>();
+    }
+
+    [Theory]
+    [InlineData(TipoDocumentoEnum.Dni, "12345678")]
+    [InlineData(TipoDocumentoEnum.Cuil, "20123456786")]
+    [InlineData(TipoDocumentoEnum.Pasaporte, "AAA123456")]
+    public void Crear_PersonaFisicaConDigitosEnElNombre_LanzaDomainException(TipoDocumentoEnum tipo, string documento)
+    {
+        // DNI, CUIL y pasaporte identifican a una persona: "Juan123" no es un nombre válido.
+        var act = () => Cliente.Crear("Juan123 Pérez", tipo, documento, CondicionIvaEnum.ConsumidorFinal);
+
+        act.Should().Throw<DomainException>().WithMessage("*nombre del cliente*");
+    }
+
+    [Fact]
+    public void Crear_EmpresaConCuitYDigitosEnLaRazonSocial_LaAceptaSinAlterarMayusculas()
+    {
+        // Act: con CUIT puede ser una empresa, y "3M" o "S.A." se escriben así a propósito.
+        var cliente = Cliente.Crear("3M Argentina S.A.", TipoDocumentoEnum.Cuit, "30-71234567-1", CondicionIvaEnum.ResponsableInscripto);
+
+        // Assert
+        cliente.RazonSocialONombre.Should().Be("3M Argentina S.A.");
+        cliente.NumeroDocumento.Should().Be("30712345671");
+    }
+
+    [Fact]
+    public void Crear_PersonaFisicaConDni_NormalizaNombreYDocumento()
+    {
+        // Act
+        var cliente = Cliente.Crear("  PÉREZ   juan ", TipoDocumentoEnum.Dni, "12.345.678", CondicionIvaEnum.ConsumidorFinal);
+
+        // Assert
+        cliente.RazonSocialONombre.Should().Be("Pérez Juan");
+        cliente.NumeroDocumento.Should().Be("12345678");
+        cliente.TieneCuentaCorriente.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("12345678", TipoDocumentoEnum.Cuit)]
+    [InlineData("20123456780", TipoDocumentoEnum.Cuit)]
+    [InlineData("30712345671", TipoDocumentoEnum.Cuil)]
+    [InlineData("ABC1234", TipoDocumentoEnum.Dni)]
+    public void Crear_DocumentoQueNoCorrespondeAlTipo_LanzaDomainException(string documento, TipoDocumentoEnum tipo)
+    {
+        var act = () => Cliente.Crear("Librería Central", tipo, documento, CondicionIvaEnum.ConsumidorFinal);
+
+        act.Should().Throw<DomainException>();
+    }
+
+    [Theory]
+    [InlineData("a@b", null)]
+    [InlineData(null, "llamar a la tarde")]
+    public void Crear_ContactoInvalido_LanzaDomainException(string? email, string? telefono)
+    {
+        var act = () => Cliente.Crear(
+            "Librería Central S.A.",
+            TipoDocumentoEnum.Cuit,
+            "30712345671",
+            CondicionIvaEnum.ResponsableInscripto,
+            telefono: telefono,
+            email: email);
+
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
+    public void ActualizarDatos_EmailInvalido_NoModificaNingunDato()
+    {
+        // Arrange
+        var cliente = Cliente.Crear("Librería Central S.A.", TipoDocumentoEnum.Cuit, "30712345671", CondicionIvaEnum.ResponsableInscripto);
+
+        // Act: el nombre y el documento son válidos, pero el email no.
+        var act = () => cliente.ActualizarDatos(
+            "Otra Razón Social",
+            TipoDocumentoEnum.Cuit,
+            "20123456786",
+            CondicionIvaEnum.Monotributo,
+            null,
+            null,
+            "a@b");
+
+        // Assert: el agregado valida todo antes de asignar, así que nada cambió.
+        act.Should().Throw<DomainException>();
+        cliente.RazonSocialONombre.Should().Be("Librería Central S.A.");
+        cliente.NumeroDocumento.Should().Be("30712345671");
+        cliente.CondicionIva.Should().Be(CondicionIvaEnum.ResponsableInscripto);
     }
 
     [Fact]
     public void HabilitarCuentaCorriente_LimiteValido_HabilitaCuentaYEstableceLimite()
     {
         // Arrange
-        var cliente = new Cliente { TieneCuentaCorriente = false, LimiteCredito = 0m };
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: false, limiteCredito: 0m);
 
         // Act
         cliente.HabilitarCuentaCorriente(50000m);
@@ -80,7 +161,7 @@ public class ClienteTests
     public void HabilitarCuentaCorriente_LimiteNegativo_LanzaArgumentOutOfRangeException()
     {
         // Arrange
-        var cliente = new Cliente();
+        var cliente = ClientesDePrueba.Crear();
 
         // Act
         var act = () => cliente.HabilitarCuentaCorriente(-100m);
@@ -94,12 +175,7 @@ public class ClienteTests
     public void DeshabilitarCuentaCorriente_ConSaldoCero_DeshabilitaCuentaYReiniciaLimite()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 0m
-        };
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 0m);
 
         // Act
         cliente.DeshabilitarCuentaCorriente();
@@ -113,12 +189,7 @@ public class ClienteTests
     public void DeshabilitarCuentaCorriente_ConSaldoDeudor_LanzaInvalidOperationException()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 12500m
-        };
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 12500m);
 
         // Act
         var act = () => cliente.DeshabilitarCuentaCorriente();
@@ -132,7 +203,7 @@ public class ClienteTests
     public void ModificarLimiteCredito_SinCuentaCorriente_LanzaCuentaCorrienteNoHabilitadaException()
     {
         // Arrange
-        var cliente = new Cliente { Id = 10, TieneCuentaCorriente = false };
+        var cliente = ClientesDePrueba.Crear(id: 10, tieneCuentaCorriente: false);
 
         // Act
         var act = () => cliente.ModificarLimiteCredito(10000m);
@@ -146,12 +217,7 @@ public class ClienteTests
     public void ModificarLimiteCredito_LimiteMenorADeudaActual_LanzaInvalidOperationException()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 30000m
-        };
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 30000m);
 
         // Act
         var act = () => cliente.ModificarLimiteCredito(20000m);
@@ -165,12 +231,7 @@ public class ClienteTests
     public void ModificarLimiteCredito_ValoresValidos_ActualizaLimite()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 20000m
-        };
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 20000m);
 
         // Act
         cliente.ModificarLimiteCredito(40000m);
@@ -183,7 +244,7 @@ public class ClienteTests
     public void DebitarCuentaCorriente_SinCuentaCorriente_LanzaCuentaCorrienteNoHabilitadaException()
     {
         // Arrange
-        var cliente = new Cliente { Id = 5, TieneCuentaCorriente = false };
+        var cliente = ClientesDePrueba.Crear(id: 5, tieneCuentaCorriente: false);
 
         // Act
         var act = () => cliente.DebitarCuentaCorriente(1500m);
@@ -197,7 +258,7 @@ public class ClienteTests
     public void DebitarCuentaCorriente_MontoInvalido_LanzaArgumentOutOfRangeException()
     {
         // Arrange
-        var cliente = new Cliente { TieneCuentaCorriente = true, LimiteCredito = 10000m };
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: true, limiteCredito: 10000m);
 
         // Act
         var act = () => cliente.DebitarCuentaCorriente(0m);
@@ -211,13 +272,7 @@ public class ClienteTests
     public void DebitarCuentaCorriente_SuperaLimiteCredito_LanzaLimiteCreditoExcedidoException()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 8,
-            TieneCuentaCorriente = true,
-            LimiteCredito = 10000m,
-            SaldoCuentaCorriente = 8000m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 8, tieneCuentaCorriente: true, limiteCredito: 10000m, saldoCuentaCorriente: 8000m);
 
         // Act
         var act = () => cliente.DebitarCuentaCorriente(3000m);
@@ -231,12 +286,7 @@ public class ClienteTests
     public void DebitarCuentaCorriente_MontoValido_IncrementaSaldoDeudor()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            TieneCuentaCorriente = true,
-            LimiteCredito = 20000m,
-            SaldoCuentaCorriente = 5000m
-        };
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: true, limiteCredito: 20000m, saldoCuentaCorriente: 5000m);
 
         // Act
         cliente.DebitarCuentaCorriente(4500m);
@@ -249,7 +299,7 @@ public class ClienteTests
     public void AcreditarCobranza_MontoInvalido_LanzaArgumentOutOfRangeException()
     {
         // Arrange
-        var cliente = new Cliente { SaldoCuentaCorriente = 5000m };
+        var cliente = ClientesDePrueba.Crear(saldoCuentaCorriente: 5000m);
 
         // Act
         var act = () => cliente.AcreditarCobranza(-10m);
@@ -263,7 +313,7 @@ public class ClienteTests
     public void AcreditarCobranza_MontoSuperiorASaldo_LanzaCobranzaExcedeDeudaException()
     {
         // Arrange
-        var cliente = new Cliente { Id = 12, SaldoCuentaCorriente = 4000m };
+        var cliente = ClientesDePrueba.Crear(id: 12, saldoCuentaCorriente: 4000m);
 
         // Act
         var act = () => cliente.AcreditarCobranza(5000m);
@@ -277,7 +327,7 @@ public class ClienteTests
     public void AcreditarCobranza_MontoValido_ReduceSaldoDeudor()
     {
         // Arrange
-        var cliente = new Cliente { SaldoCuentaCorriente = 7500m };
+        var cliente = ClientesDePrueba.Crear(saldoCuentaCorriente: 7500m);
 
         // Act
         cliente.AcreditarCobranza(2500m);
@@ -290,19 +340,9 @@ public class ClienteTests
     public void CreditoDisponible_CalculoReactivo_CalculaCorrectamente()
     {
         // Arrange
-        var clienteConCtaCte = new Cliente
-        {
-            TieneCuentaCorriente = true,
-            LimiteCredito = 25000m,
-            SaldoCuentaCorriente = 10000m
-        };
+        var clienteConCtaCte = ClientesDePrueba.Crear(tieneCuentaCorriente: true, limiteCredito: 25000m, saldoCuentaCorriente: 10000m);
 
-        var clienteSinCtaCte = new Cliente
-        {
-            TieneCuentaCorriente = false,
-            LimiteCredito = 25000m,
-            SaldoCuentaCorriente = 0m
-        };
+        var clienteSinCtaCte = ClientesDePrueba.Crear(tieneCuentaCorriente: false, limiteCredito: 25000m, saldoCuentaCorriente: 0m);
 
         // Assert
         clienteConCtaCte.CreditoDisponible.Should().Be(15000m);
@@ -313,7 +353,7 @@ public class ClienteTests
     public void MarkAsDeleted_ConSaldoDeudor_LanzaInvalidOperationException()
     {
         // Arrange
-        var cliente = new Cliente { SaldoCuentaCorriente = 3500m };
+        var cliente = ClientesDePrueba.Crear(saldoCuentaCorriente: 3500m);
 
         // Act
         var act = () => cliente.MarkAsDeleted();
@@ -328,7 +368,7 @@ public class ClienteTests
     public void MarkAsDeleted_SinSaldoDeudor_MarcaComoEliminado()
     {
         // Arrange
-        var cliente = new Cliente { SaldoCuentaCorriente = 0m };
+        var cliente = ClientesDePrueba.Crear(saldoCuentaCorriente: 0m);
 
         // Act
         cliente.MarkAsDeleted();
@@ -342,13 +382,7 @@ public class ClienteTests
     public void RegistrarCobranza_ConDatosValidos_ReduceSaldoYAgregaEntidadCobranza()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 5,
-            TieneCuentaCorriente = true,
-            LimiteCredito = 50000m,
-            SaldoCuentaCorriente = 15000m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 5, tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 15000m);
 
         // Act
         var cobranza = cliente.RegistrarCobranza(
@@ -375,12 +409,7 @@ public class ClienteTests
     public void RegistrarCobranza_ConMontoMayorASaldo_LanzaCobranzaExcedeDeudaException()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 9,
-            TieneCuentaCorriente = true,
-            SaldoCuentaCorriente = 5000m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 9, tieneCuentaCorriente: true, saldoCuentaCorriente: 5000m);
 
         // Act
         var act = () => cliente.RegistrarCobranza(1, 1, 6000m, MedioPagoEnum.TransferenciaQr);
@@ -396,11 +425,7 @@ public class ClienteTests
     public void RegistrarCobranza_ConMontoCeroONegativo_LanzaArgumentOutOfRangeException()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            TieneCuentaCorriente = true,
-            SaldoCuentaCorriente = 1000m
-        };
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: true, saldoCuentaCorriente: 1000m);
 
         // Act
         var act = () => cliente.RegistrarCobranza(1, 1, 0m, MedioPagoEnum.Efectivo);
@@ -415,12 +440,7 @@ public class ClienteTests
     public void RegistrarCobranza_ClienteSinCuentaNiDeuda_LanzaCuentaCorrienteNoHabilitadaException()
     {
         // Arrange
-        var cliente = new Cliente
-        {
-            Id = 15,
-            TieneCuentaCorriente = false,
-            SaldoCuentaCorriente = 0m
-        };
+        var cliente = ClientesDePrueba.Crear(id: 15, tieneCuentaCorriente: false, saldoCuentaCorriente: 0m);
 
         // Act
         var act = () => cliente.RegistrarCobranza(1, 1, 500m, MedioPagoEnum.Efectivo);

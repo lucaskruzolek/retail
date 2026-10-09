@@ -337,7 +337,8 @@ public class AppSmokeTests
                 {
                     IdUsuario = 1,
                     NombreUsuario = "admin",
-                    NombreCompleto = "Administrador General",
+                    Nombre = "Administrador",
+                    Apellido = "General",
                     Rol = RolUsuarioEnum.Gerente,
                     Activo = true,
                     CreatedAt = DateTime.UtcNow
@@ -574,7 +575,8 @@ public class AppSmokeTests
             {
                 IdUsuario = 2,
                 NombreUsuario = "cajero1",
-                NombreCompleto = "Juan Pérez",
+                Nombre = "Juan",
+                Apellido = "Pérez",
                 Rol = RolUsuarioEnum.Cajero,
                 Activo = true,
                 CreatedAt = DateTime.UtcNow
