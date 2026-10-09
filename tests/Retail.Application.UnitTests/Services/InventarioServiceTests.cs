@@ -510,7 +510,7 @@ public class InventarioServiceTests
     }
 
     [Fact]
-    public async Task FraccionarAsync_FallaElGuardado_DescartaLosCambiosYPropagaLaExcepcion()
+    public async Task FraccionarAsync_FallaElGuardado_PropagaLaExcepcion()
     {
         // Arrange
         var origen = CrearOrigen(stock: 5);
@@ -523,9 +523,8 @@ public class InventarioServiceTests
         // Act
         var act = () => _sut.FraccionarAsync(new FraccionarDto { IdArticuloDerivado = 2, CantidadOrigen = 2 });
 
-        // Assert
+        // Assert: el descarte de los cambios lo garantiza la Unit of Work (UnitOfWorkIntegrationTests)
         await act.Should().ThrowAsync<ConflictoDeConcurrenciaException>();
-        _unitOfWork.Received(1).DescartarCambios();
     }
 
     [Fact]

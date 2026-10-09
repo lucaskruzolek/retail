@@ -1,12 +1,14 @@
 using System.Linq.Expressions;
 using FluentAssertions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.Validators.Clientes;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 using Xunit;
 
 namespace Retail.Application.UnitTests.Services;
@@ -278,6 +280,47 @@ public class ClienteServiceTests
     }
 
     [Fact]
+    public async Task ActualizarClienteAsync_LimiteMenorALaDeuda_DescartaLosCambiosYNoGuarda()
+    {
+        // Arrange: el nombre se modifica antes de que el Dominio rechace el nuevo límite
+        var clienteExistente = new Cliente
+        {
+            Id = 3,
+            RazonSocialONombre = "Nombre Original",
+            NumeroDocumento = "30-11111111-1",
+            TieneCuentaCorriente = true,
+            LimiteCredito = 50000m,
+            SaldoCuentaCorriente = 20000m
+        };
+
+        var dto = new ActualizarClienteDto
+        {
+            IdCliente = 3,
+            RazonSocialONombre = "Nombre Modificado",
+            TipoDocumento = TipoDocumentoEnum.Cuit,
+            NumeroDocumento = "30-11111111-1",
+            CondicionIva = CondicionIvaEnum.ResponsableInscripto,
+            TieneCuentaCorriente = true,
+            LimiteCredito = 100m
+        };
+
+        _clienteRepository.GetByIdAsync(3, Arg.Any<CancellationToken>())
+            .Returns(clienteExistente);
+
+        _clienteRepository.FindAsync(Arg.Any<Expression<Func<Cliente, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Cliente>());
+
+        // Act
+        var act = async () => await _sut.ActualizarClienteAsync(dto);
+
+        // Assert: sin el descarte, el nombre nuevo se guardaría con la próxima operación de la pantalla
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*no puede ser inferior a la deuda*");
+        _unitOfWork.Received(1).DescartarCambios();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task BajaClienteAsync_ClienteValidoSinDeuda_MarcaComoEliminadoYPersiste()
     {
         // Arrange
@@ -380,6 +423,54 @@ public class ClienteServiceTests
         await _cajaService.Received(1).RegistrarIngresoCobranzaAsync(1, 8000m, MedioPagoEnum.Efectivo, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
         await _ticketPrinterService.Received(1).ImprimirReciboCobranzaAsync(resultado, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarCobranzaAsync_FallaLaImputacionEnCaja_DescartaLosCambiosYNoGuarda()
+    {
+        // Arrange: el cliente ya registró la cobranza cuando la caja la rechaza (turno cerrado desde otra terminal)
+        var cliente = new Cliente
+        {
+            Id = 10,
+            RazonSocialONombre = "Papelería Central",
+            TieneCuentaCorriente = true,
+            LimiteCredito = 50000m,
+            SaldoCuentaCorriente = 20000m
+        };
+
+        _cajaService.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>())
+            .Returns(new Retail.Application.DTOs.Caja.TurnoCajaDto
+            {
+                IdTurno = 1,
+                IdUsuario = 1,
+                FechaApertura = DateTime.UtcNow.Date,
+                SaldoInicial = 5000m,
+                Estado = EstadoTurnoEnum.Abierto
+            });
+
+        _clienteRepository.GetByIdWithIncludesAsync(10, Arg.Any<CancellationToken>(), Arg.Any<Expression<Func<Cliente, object>>[]>())
+            .Returns(cliente);
+
+        _cajaService.RegistrarIngresoCobranzaAsync(1, 8000m, MedioPagoEnum.Efectivo, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new TurnoYaCerradoException("No se puede imputar cobranzas en un turno cerrado."));
+
+        var dto = new RegistrarCobranzaDto
+        {
+            IdCliente = 10,
+            IdTurno = 1,
+            IdUsuario = 1,
+            Monto = 8000m,
+            MedioPago = MedioPagoEnum.Efectivo
+        };
+
+        // Act
+        var act = async () => await _sut.RegistrarCobranzaAsync(dto);
+
+        // Assert: sin el descarte, la deuda reducida y la cobranza se guardarían con la próxima operación
+        await act.Should().ThrowAsync<TurnoYaCerradoException>();
+        _unitOfWork.Received(1).DescartarCambios();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _ticketPrinterService.DidNotReceiveWithAnyArgs().ImprimirReciboCobranzaAsync(default!, default);
     }
 
     [Fact]

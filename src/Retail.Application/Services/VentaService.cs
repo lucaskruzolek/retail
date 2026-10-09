@@ -248,19 +248,13 @@ public class VentaService : IVentaService
         await _ventaRepository.AddAsync(venta, cancellationToken);
 
         // 6. Un único SaveChanges: EF Core guarda la venta con sus ítems y pagos, el stock, el turno y la cuenta
-        //    corriente en una sola transacción de SQL Server. O se guarda todo, o nada (RF-10).
-        try
-        {
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        finally
-        {
-            // Si falló, la base revirtió la transacción pero el contexto conserva en memoria la venta y los agregados
-            // modificados: se descartan para que no se guarden con la próxima venta (Ley 9). Si se guardó, se liberan
-            // igual (D-15): así la próxima venta lee stock y rowversion frescos y no choca con un conflicto falso si
-            // otra terminal modificó esos artículos en el medio.
-            _unitOfWork.DescartarCambios();
-        }
+        //    corriente en una sola transacción de SQL Server. O se guarda todo, o nada (RF-10). Si falla, la Unit of
+        //    Work descarta los cambios en memoria para que no se guarden con la próxima venta.
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Una unidad de trabajo por venta (D-15): se liberan las entidades guardadas para que la próxima venta lea
+        // stock y rowversion frescos y no choque con un conflicto falso si otra terminal modificó esos artículos.
+        _unitOfWork.DescartarCambios();
 
         var response = new VentaResponseDto
         {

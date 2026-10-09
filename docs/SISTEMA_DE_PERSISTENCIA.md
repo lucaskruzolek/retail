@@ -131,13 +131,15 @@ graph TD
 ### 9. Concurrencia Optimista y Contexto Limpio Tras un Fallo (D-12, Módulo 4.1)
 * **`rowversion` en `ARTICULOS`:** la columna `row_version` se mapea como *shadow property* (`builder.Property<byte[]>("RowVersion").IsRowVersion()`), sin propiedad en la entidad: es un mecanismo de la base, no un concepto del Dominio. EF Core la agrega al `WHERE` de cada `UPDATE`; si otra terminal modificó la fila entre la lectura y el guardado, el `UPDATE` no afecta filas y SQL Server revierte **toda** la transacción. Evita el *lost update* (dos terminales leen stock 1 y ambas escriben 0).
 * **Traducción en la frontera:** [`UnitOfWork.SaveChangesAsync`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Repositories/UnitOfWork.cs) convierte `DbUpdateConcurrencyException` (tipo de EF Core) en [`ConflictoDeConcurrenciaException`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Exceptions/ConflictoDeConcurrenciaException.cs) (tipo de Application), porque Application no referencia EF Core (Ley 1 de `AGENTS.md`).
-* **El ChangeTracker no se limpia solo:** si un caso de uso falla después de modificar entidades, o falla el `SaveChanges`, los cambios quedan en memoria y, como el contexto vive mientras dura la pantalla (Ley 8), **se guardarían con la próxima operación exitosa**. Dos defensas, ambas en [`VentaService.RegistrarVentaAsync`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Services/VentaService.cs):
-  1. **Validar todo antes de modificar cualquier agregado:** primero las verificaciones que pueden fallar (`Articulo.VerificarStockDisponible`, `Venta.ValidarCierre`, límite de crédito); recién después las mutaciones (`DescontarStock`, `ImputarVenta`).
-  2. **`IUnitOfWork.DescartarCambios()`** (`ChangeTracker.Clear()`) cuando falla el `SaveChanges`. Es seguro desde H-19: limpia solo el contexto de esa pantalla. `InventarioService.FraccionarAsync` hace lo mismo, porque desde el POS comparte el contexto con la venta.
-  3. **Una unidad de trabajo por operación (D-15):** `RegistrarVentaAsync` llama a `DescartarCambios()` también después de un guardado **exitoso**, para que la próxima venta lea stock y `rowversion` frescos en lugar de reutilizar entidades en memoria que otra terminal pudo modificar.
-  4. **Lecturas sin tracking en el mostrador:** las búsquedas del POS y la verificación del ticket (`IArticuloQueryService`) proyectan a DTO con `AsNoTracking()`: no dejan entidades en el contexto que después provoquen conflictos falsos.
+* **El ChangeTracker no se limpia solo:** si un caso de uso falla después de modificar entidades, o falla el `SaveChanges`, los cambios quedan en memoria y, como el contexto vive mientras dura la pantalla (Ley 8), **se guardarían con la próxima operación exitosa**. Defensas:
+  1. **Validar todo antes de modificar cualquier agregado:** primero las verificaciones que pueden fallar (`Articulo.VerificarStockDisponible`, `Venta.ValidarCierre`, límite de crédito); recién después las mutaciones (`DescontarStock`, `ImputarVenta`). Ver [`VentaService.RegistrarVentaAsync`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Services/VentaService.cs) y `Articulo.ActualizarDatos` (H-08).
+  2. **La Unit of Work descarta ante un guardado fallido, para todos los servicios:** [`UnitOfWork.SaveChangesAsync`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Repositories/UnitOfWork.cs) invoca `DescartarCambios()` (`ChangeTracker.Clear()`) ante **cualquier** excepción (conflicto de concurrencia, `CHECK`, índice único, timeout o cancelación) y relanza; `CommitTransactionAsync` guarda a través de ese mismo método. Los servicios no repiten el `try/catch`. Es seguro desde H-19: limpia solo el contexto de esa pantalla. Lo verifica [`UnitOfWorkIntegrationTests`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Infrastructure.IntegrationTests/UnitOfWorkIntegrationTests.cs) contra LocalDB.
+  3. **Mutaciones que el Dominio rechaza antes de guardar:** si un caso de uso modifica un agregado y otra regla falla después, sin llegar al `SaveChanges`, el servicio invoca `DescartarCambios()` en un `catch` que envuelve solo ese tramo. Casos actuales en [`ClienteService`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Services/ClienteService.cs): `ActualizarClienteAsync` (el límite nuevo es menor a la deuda después de que `ActualizarDatos` ya modificó el cliente) y `RegistrarCobranzaAsync` (la caja rechaza la imputación después de que la cobranza redujo la deuda).
+  4. **Una unidad de trabajo por operación (D-15):** `RegistrarVentaAsync` llama a `DescartarCambios()` también después de un guardado **exitoso**, para que la próxima venta lea stock y `rowversion` frescos en lugar de reutilizar entidades en memoria que otra terminal pudo modificar.
+  5. **Lecturas sin tracking en el mostrador:** las búsquedas del POS y la verificación del ticket (`IArticuloQueryService`) proyectan a DTO con `AsNoTracking()`: no dejan entidades en el contexto que después provoquen conflictos falsos.
 * **Identidad de EF Core:** una consulta con tracking devuelve la instancia que ya está en memoria y **no la actualiza** con los valores de la base. Sin `DescartarCambios`, un reintento tras un conflicto reutilizaría el `rowversion` viejo y volvería a fallar. Lo verifica `RegistrarVentaIntegrationTests` con dos contextos.
-* **Pendiente:** los demás servicios (`CajaService`, `ClienteService`, `InventarioService`, `ProveedorService`) todavía no descartan cambios ante un guardado fallido. Evaluar llevar el descarte a `UnitOfWork.SaveChangesAsync` para todos (coordinar con Pablo).
+* **El descarte tras un guardado exitoso no se generaliza:** D-15 es una decisión del mostrador. Llevarlo a la Unit of Work rompería los flujos que guardan más de una vez sobre las mismas entidades (por ejemplo, `RegistrarCobranzaAsync`, que guarda a través de `CajaService` y después vuelve a guardar) y las transacciones explícitas con varios `SaveChanges`.
+* **Pendiente:** `ImportarPlanillaProveedorAsync` captura los errores fila por fila a propósito; una fila que falle a mitad de camino (después de modificar el artículo y antes de terminar con sus presentaciones) quedaría parcialmente modificada y se guardaría con el resto del lote.
 
 ---
 
@@ -278,16 +280,11 @@ public async Task<VentaResponseDto> RegistrarVentaAsync(CrearVentaDto dto, Cance
     turno!.ImputarVenta(venta.TotalEfectivo, venta.TotalElectronico);
     await _ventaRepository.AddAsync(venta, ct);
 
-    // 5. Un único SaveChanges = una transacción; si falla, limpiar el contexto de la pantalla
-    try
-    {
-        await _unitOfWork.SaveChangesAsync(ct);
-    }
-    catch
-    {
-        _unitOfWork.DescartarCambios();
-        throw;
-    }
+    // 5. Un único SaveChanges = una transacción; si falla, la Unit of Work limpia el contexto de la pantalla
+    await _unitOfWork.SaveChangesAsync(ct);
+
+    // 6. Una unidad de trabajo por venta (D-15): la próxima venta lee stock y rowversion frescos
+    _unitOfWork.DescartarCambios();
 
     return MapearRespuesta(venta);
 }
