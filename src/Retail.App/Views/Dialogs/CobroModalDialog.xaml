@@ -64,57 +64,99 @@
                         CornerRadius="6"
                         Padding="12,8"
                         Margin="0,0,0,12"
-                        Visibility="{Binding MensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
                                FontSize="12"
                                TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Tarjeta 1: Desglose del Total y Saldo Pendiente -->
+                <!-- Tarjeta 1: Cliente, total y estado del cobro (D-17). El total tiene su propia fila a todo el
+                     ancho: en una columna compartida, un importe largo desbordaba sobre la pastilla del saldo. -->
                 <Border Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="CLIENTE"
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   FontWeight="Bold" />
+                        <TextBlock Text="{Binding Cliente.RazonSocialONombre, FallbackValue='Consumidor Final', TargetNullValue='Consumidor Final'}"
+                                   Style="{StaticResource TextBlockBody}"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="0,2,0,0" />
 
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="TOTAL A COBRAR"
-                                       Style="{StaticResource TextBlockCaptionSecondary}"
-                                       FontWeight="Bold" />
-                            <TextBlock Text="{Binding TotalVentaFormateado}"
-                                       Style="{StaticResource TextBlockDisplayCurrency}"
-                                       FontSize="28"
-                                       Margin="0,2,0,0" />
-                            <TextBlock Text="{Binding Cliente.RazonSocialONombre, FallbackValue='Consumidor Final', TargetNullValue='Consumidor Final'}"
-                                       Style="{StaticResource TextBlockBodySecondary}"
-                                       Margin="0,4,0,0" />
-                        </StackPanel>
+                        <Border Height="1"
+                                Background="{DynamicResource SurfaceBorderBrush}"
+                                Margin="0,12" />
 
-                        <!-- Pastilla de Saldo Pendiente -->
-                        <Border Grid.Column="1"
-                                CornerRadius="6"
-                                Padding="14,8"
-                                VerticalAlignment="Center"
-                                Background="{DynamicResource PrimaryLightBrush}"
-                                BorderBrush="{DynamicResource PrimaryBrush}"
-                                BorderThickness="1">
-                            <StackPanel HorizontalAlignment="Right">
-                                <TextBlock Text="SALDO PENDIENTE"
-                                           FontSize="10"
-                                           FontWeight="Bold"
-                                           Foreground="{DynamicResource PrimaryBrush}"
-                                           HorizontalAlignment="Right" />
-                                <TextBlock Text="{Binding SaldoPendienteFormateado}"
-                                           FontFamily="{StaticResource FontFamilyMonospace}"
-                                           FontSize="18"
-                                           FontWeight="Bold"
-                                           Foreground="{DynamicResource PrimaryBrush}"
-                                           HorizontalAlignment="Right" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
+                        <TextBlock Text="TOTAL A COBRAR"
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   FontWeight="Bold" />
+                        <!-- TextBlockDisplayCurrency alinea a la derecha (visor del POS); en el modal se lee como encabezado -->
+                        <TextBlock Text="{Binding TotalVentaFormateado}"
+                                   Style="{StaticResource TextBlockDisplayCurrency}"
+                                   TextAlignment="Left"
+                                   Margin="0,2,0,0" />
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Lo ya imputado con los pagos cargados -->
+                            <Border Grid.Column="0"
+                                    CornerRadius="6"
+                                    Padding="12,8"
+                                    Background="{DynamicResource SurfaceBackgroundBrush}"
+                                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                    BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="IMPUTADO"
+                                               FontSize="10"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <TextBlock Text="{Binding TotalImputadoFormateado}"
+                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                               Typography.NumeralAlignment="Tabular"
+                                               FontSize="16"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Saldo pendiente: carmín mientras falte cobrar, verde cuando llega a cero -->
+                            <Border Grid.Column="2"
+                                    CornerRadius="6"
+                                    Padding="12,8"
+                                    BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding TieneSaldoPendiente}" Value="False">
+                                                <Setter Property="Background" Value="{DynamicResource SuccessBackgroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource SuccessBorderBrush}" />
+                                                <Setter Property="TextElement.Foreground" Value="{DynamicResource SuccessForegroundBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <TextBlock Text="SALDO PENDIENTE"
+                                               FontSize="10"
+                                               FontWeight="Bold" />
+                                    <TextBlock Text="{Binding SaldoPendienteFormateado}"
+                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                               Typography.NumeralAlignment="Tabular"
+                                               FontSize="16"
+                                               FontWeight="Bold" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </StackPanel>
                 </Border>
 
                 <!-- Tarjeta 2: Selección del Medio de Pago e Imputación -->
@@ -124,13 +166,15 @@
 
                         <!-- Selector de Medios de Pago -->
                         <ComboBox ItemsSource="{Binding MediosPagoDisponibles}"
+                                  ItemTemplate="{StaticResource EnumTextoItemTemplate}"
                                   SelectedItem="{Binding MedioPagoSeleccionado, Mode=TwoWay}"
                                   Margin="0,0,0,12" />
 
                         <!-- Monto a Imputar -->
                         <TextBlock Text="Monto a Cancelar" Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,0,0,4" />
                         <ui:TextBox Text="{Binding MontoImputar, UpdateSourceTrigger=PropertyChanged}"
-                                    FontFamily="{StaticResource FontFamilyMonospace}"
+                                    FontFamily="{StaticResource FontFamilyNumeric}"
+                                    Typography.NumeralAlignment="Tabular"
                                     FontSize="15"
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,12" />
@@ -146,27 +190,27 @@
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        Content="+$1.000"
+                                        Content="$1.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarDosMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        Content="+$2.000"
+                                        Content="$2.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarCincoMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        Content="+$5.000"
+                                        Content="$5.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarDiezMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        Content="+$10.000"
+                                        Content="$10.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarVeinteMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        Content="+$20.000"
+                                        Content="$20.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                             </WrapPanel>
@@ -180,7 +224,8 @@
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Efectivo Recibido" Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,0,0,4" />
                                     <ui:TextBox Text="{Binding EfectivoRecibido, UpdateSourceTrigger=PropertyChanged}"
-                                                FontFamily="{StaticResource FontFamilyMonospace}"
+                                                FontFamily="{StaticResource FontFamilyNumeric}"
+                                                Typography.NumeralAlignment="Tabular"
                                                 FontSize="15"
                                                 FontWeight="SemiBold" />
                                 </StackPanel>
@@ -198,7 +243,8 @@
                                                    FontWeight="Bold"
                                                    Foreground="{DynamicResource SuccessForegroundBrush}" />
                                         <TextBlock Text="{Binding VueltoFormateado}"
-                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                   FontFamily="{StaticResource FontFamilyNumeric}"
+                                                   Typography.NumeralAlignment="Tabular"
                                                    FontSize="18"
                                                    FontWeight="Bold"
                                                    Foreground="{DynamicResource SuccessForegroundBrush}" />
@@ -220,7 +266,8 @@
                                                FontWeight="SemiBold"
                                                Foreground="{DynamicResource WarningForegroundBrush}" />
                                     <TextBlock Text="{Binding CreditoDisponibleFormateado}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                               Typography.NumeralAlignment="Tabular"
                                                FontSize="16"
                                                FontWeight="Bold"
                                                Foreground="{DynamicResource WarningForegroundBrush}"
@@ -229,19 +276,9 @@
                             </Border>
                         </StackPanel>
 
-                        <!-- Campo Referencia opcional para tarjetas o transferencias -->
-                        <StackPanel Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisConverter}}">
-                            <!-- No se muestra para efectivo -->
-                        </StackPanel>
-                        <StackPanel Margin="0,0,0,12">
-                            <TextBlock Text="Nº de Referencia / Cupón / Operación (Opcional)"
-                                       Style="{StaticResource TextBlockCaptionSecondary}"
-                                       Margin="0,0,0,4" />
-                            <ui:TextBox Text="{Binding ReferenciaPago, UpdateSourceTrigger=PropertyChanged}"
-                                        PlaceholderText="Ej. Cupón 8492 o ID Transferencia..." />
-                        </StackPanel>
-
                         <!-- Botón Imputar Pago Parcial / Total -->
+                        <!-- D-22: sin campo de referencia/cupón (ningún requisito lo pide). La columna
+                             PAGOS_VENTA.referencia_pago y el Dominio lo siguen admitiendo si un RF futuro lo requiere. -->
                         <Button Command="{Binding ImputarPagoCommand}"
                                 Style="{StaticResource KeycapButtonStyle}"
                                 HorizontalAlignment="Stretch"
@@ -272,23 +309,22 @@
                                             <Button DockPanel.Dock="Right"
                                                     Command="{Binding DataContext.RemoverPagoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}"
-                                                    Style="{StaticResource KeycapButtonStyle}"
-                                                    Padding="6,4">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" Foreground="{DynamicResource DangerForegroundBrush}" />
+                                                    Style="{StaticResource IconDangerButtonStyle}"
+                                                    ToolTip="Quitar pago">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="16" Height="16" />
                                             </Button>
 
                                             <StackPanel DockPanel.Dock="Right" Margin="0,0,16,0" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Monto, StringFormat={}${0:N2}}"
-                                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                                           FontFamily="{StaticResource FontFamilyNumeric}"
+                                                           Typography.NumeralAlignment="Tabular"
                                                            FontWeight="Bold"
                                                            FontSize="14"
                                                            HorizontalAlignment="Right" />
                                             </StackPanel>
 
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding MedioPago}" FontWeight="SemiBold" />
-                                                <TextBlock Text="{Binding ReferenciaPago, FallbackValue='Sin referencia'}"
-                                                           Style="{StaticResource TextBlockCaptionSecondary}" />
+                                                <TextBlock Text="{Binding MedioPago, Converter={StaticResource EnumATextoConverter}}" FontWeight="SemiBold" />
                                             </StackPanel>
                                         </DockPanel>
                                     </Border>

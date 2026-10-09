@@ -71,7 +71,7 @@
                         <TextBlock Text="Código Prov: " Style="{StaticResource TextBlockBodySecondary}" FontSize="12" />
                         <TextBlock Text="{Binding ItemCatalogo.CodigoProveedor}" FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Margin="0,0,16,0" />
                         <TextBlock Text="Costo Reposición: " Style="{StaticResource TextBlockBodySecondary}" FontSize="12" />
-                        <TextBlock Text="{Binding ItemCatalogo.CostoReposicion, StringFormat={}{0:C2}}" FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding ItemCatalogo.CostoReposicion, StringFormat={}{0:C2}}" FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="SemiBold" />
                     </StackPanel>
                 </StackPanel>
             </Border>

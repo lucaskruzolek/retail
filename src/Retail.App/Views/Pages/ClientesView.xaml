@@ -168,7 +168,7 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
-                                        <TextBlock Text="{Binding TipoDocumento}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0" FontSize="11" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding TipoDocumento, Converter={StaticResource EnumATextoConverter}}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0" FontSize="11" VerticalAlignment="Center" />
                                         <TextBlock Text="{Binding NumeroDocumento}" FontFamily="{StaticResource FontFamilyMonospace}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -180,7 +180,7 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Border Style="{StaticResource BadgeNeutralStyle}">
-                                        <TextBlock Text="{Binding CondicionIva}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        <TextBlock Text="{Binding CondicionIva, Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </Border>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -225,7 +225,8 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding SaldoCuentaCorriente, StringFormat={}{0:C}}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                               Typography.NumeralAlignment="Tabular"
                                                FontWeight="Bold"
                                                FontSize="12"
                                                TextAlignment="Right"
@@ -251,7 +252,8 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding CreditoDisponible, StringFormat={}{0:C}}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                               Typography.NumeralAlignment="Tabular"
                                                FontSize="12"
                                                FontWeight="SemiBold"
                                                Foreground="{DynamicResource SuccessForegroundBrush}"

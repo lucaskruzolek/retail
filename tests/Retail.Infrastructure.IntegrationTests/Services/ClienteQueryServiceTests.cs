@@ -117,4 +117,24 @@ public class ClienteQueryServiceTests : IAsyncLifetime, IDisposable
         resDoc.Should().ContainSingle(c => c.RazonSocialONombre == "Ana Martinez");
         resNom.Should().ContainSingle(c => c.NumeroDocumento == "30-50505050-5");
     }
+
+    [Fact]
+    public async Task BuscarClientesRapidoAsync_SinAcentosNiMayusculas_EncuentraElNombreAcentuadoYRespetaLaEnie()
+    {
+        // Arrange: razon_social_o_nombre usa Modern_Spanish_CI_AI
+        _context.Clientes.AddRange(
+            new Cliente { RazonSocialONombre = "Librería Martínez", NumeroDocumento = "27-11111111-1", CondicionIva = CondicionIvaEnum.ConsumidorFinal },
+            new Cliente { RazonSocialONombre = "Papelera Peña", NumeroDocumento = "27-22222222-2", CondicionIva = CondicionIvaEnum.ConsumidorFinal });
+        await _context.SaveChangesAsync();
+
+        // Act
+        var sinAcentos = await _sut.BuscarClientesRapidoAsync("libreria martinez");
+        var conEnie = await _sut.BuscarClientesRapidoAsync("peña");
+        var sinEnie = await _sut.BuscarClientesRapidoAsync("pena");
+
+        // Assert
+        sinAcentos.Should().ContainSingle(c => c.RazonSocialONombre == "Librería Martínez");
+        conEnie.Should().ContainSingle(c => c.RazonSocialONombre == "Papelera Peña");
+        sinEnie.Should().BeEmpty("en castellano la ñ es una letra distinta de la n");
+    }
 }

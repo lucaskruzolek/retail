@@ -22,6 +22,7 @@ public class ClienteConfiguration : IEntityTypeConfiguration<Cliente>
         builder.Property(c => c.RazonSocialONombre)
             .HasColumnName("razon_social_o_nombre")
             .HasMaxLength(150)
+            .UseCollation(Cotejamientos.BusquedaEnCastellano)
             .IsRequired();
 
         builder.Property(c => c.TipoDocumento)

@@ -78,4 +78,7 @@
     <SolidColorBrush x:Key="KeycapPrimaryBackgroundBrush" Color="#6B0720" />
     <SolidColorBrush x:Key="KeycapPrimaryBorderBrush" Color="#850C2A" />
 
+    <!-- Elevación de superficies flotantes (popups, desplegables): color de la sombra de DropShadowEffect -->
+    <Color x:Key="ElevationShadowColor">#18181B</Color>
+
 </ResourceDictionary>

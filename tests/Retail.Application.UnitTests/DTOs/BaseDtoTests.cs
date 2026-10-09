@@ -61,4 +61,84 @@ public class BaseDtoTests
             $"el DTO {tipoDto.Name} debe heredar de BaseDto para evitar fugas de memoria en WPF (TypeDescriptor.AddValueChanged)");
         typeof(INotifyPropertyChanged).IsAssignableFrom(tipoDto).Should().BeTrue();
     }
+
+    [Fact]
+    public void GetHashCode_AlSuscribirseAPropertyChanged_NoCambia()
+    {
+        // Arrange: lo mismo que hace un {Binding} de WPF al dibujar el ítem en un ListBox o DataGrid
+        var articulo = CrearArticuloVenta(1, "Lápiz");
+        int hashAntes = articulo.GetHashCode();
+
+        // Act
+        articulo.PropertyChanged += (_, _) => { };
+
+        // Assert
+        articulo.GetHashCode().Should().Be(hashAntes);
+    }
+
+    [Fact]
+    public void HashSet_ItemEnlazadoDespuesDeAgregarlo_LoSigueEncontrando()
+    {
+        // Arrange: un Selector de WPF guarda la selección en un diccionario por hash
+        var articulo = CrearArticuloVenta(1, "Lápiz");
+        var seleccionados = new HashSet<ArticuloVentaDto> { articulo };
+
+        // Act
+        articulo.PropertyChanged += (_, _) => { };
+
+        // Assert
+        seleccionados.Should().Contain(articulo);
+        seleccionados.Remove(articulo).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Equals_MismasPropiedadesYDistintosSuscriptores_SonIguales()
+    {
+        // Arrange
+        var articulo = CrearArticuloVenta(1, "Lápiz");
+        var copia = articulo with { };
+
+        // Act
+        articulo.PropertyChanged += (_, _) => { };
+
+        // Assert: la igualdad por valor del record se conserva, sin depender de quién escucha el evento
+        articulo.Should().Be(copia);
+        articulo.GetHashCode().Should().Be(copia.GetHashCode());
+    }
+
+    [Fact]
+    public void Equals_DistintasPropiedades_NoSonIguales()
+    {
+        // Arrange
+        var lapiz = CrearArticuloVenta(1, "Lápiz");
+        var goma = CrearArticuloVenta(2, "Goma");
+
+        // Assert: la base no debe anular la comparación de las propiedades de los derivados
+        lapiz.Should().NotBe(goma);
+    }
+
+    [Fact]
+    public void Equals_DistintoTipoDeDto_NoSonIguales()
+    {
+        // Arrange: dos records derivados de BaseDto sin propiedades propias
+        var dto = new TestDto();
+        var otro = new OtroTestDto();
+
+        // Assert: el EqualityContract (el tipo concreto) sigue formando parte de la igualdad
+        dto.Equals(otro).Should().BeFalse();
+    }
+
+    private sealed record OtroTestDto : BaseDto;
+
+    private static ArticuloVentaDto CrearArticuloVenta(int id, string descripcion)
+    {
+        return new ArticuloVentaDto
+        {
+            IdArticulo = id,
+            Descripcion = descripcion,
+            PrecioVenta = 300m,
+            StockActual = 5,
+            EsServicio = false
+        };
+    }
 }

@@ -97,6 +97,105 @@ public class PosViewModelTests
     }
 
     [Fact]
+    public async Task ProcesarEnterAsync_TrasBajarConLaFlecha_AgregaElSegundoResultado()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelAsync();
+        viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto { IdArticulo = 10, Descripcion = "Lápiz HB", PrecioVenta = 300m, StockActual = 5, EsServicio = false });
+        viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto { IdArticulo = 11, Descripcion = "Lápiz 2B", PrecioVenta = 350m, StockActual = 5, EsServicio = false });
+        viewModel.IndiceResultadoSeleccionado = 0;
+        viewModel.MostrarPopupBusqueda = true;
+
+        // Act
+        viewModel.MoverSeleccionPopupAbajo();
+        await viewModel.ProcesarEnterAsync();
+
+        // Assert
+        viewModel.Items.Should().ContainSingle().Which.IdArticulo.Should().Be(11);
+    }
+
+    [Fact]
+    public async Task CantidadTipeadaEnLaGrilla_RecalculaLosTotales()
+    {
+        // Arrange: 100 hojas sueltas, sin 100 clics en +
+        var viewModel = await CrearViewModelAsync();
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Hoja A4", PrecioVenta = 50m, StockActual = 500, EsServicio = false });
+
+        // Act: lo mismo que hace el binding del TextBox de la celda
+        viewModel.Items[0].Cantidad = 100;
+
+        // Assert
+        viewModel.Total.Should().Be(5000m);
+        viewModel.CantidadTotalArticulos.Should().Be(100);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task CantidadMenorAUno_VuelveAlValorAnteriorSinQuitarLaFila(int cantidadInvalida)
+    {
+        // Arrange
+        var viewModel = await CrearViewModelAsync();
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Hoja A4", PrecioVenta = 50m, StockActual = 500, EsServicio = false });
+        viewModel.Items[0].Cantidad = 3;
+
+        // Act
+        viewModel.Items[0].Cantidad = cantidadInvalida;
+
+        // Assert (D-25)
+        viewModel.Items.Should().ContainSingle();
+        viewModel.Items[0].Cantidad.Should().Be(3);
+        viewModel.Total.Should().Be(150m);
+    }
+
+    [Fact]
+    public async Task ItemQuitadoDelTicket_YaNoAfectaLosTotales()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelAsync();
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Hoja A4", PrecioVenta = 50m, StockActual = 500, EsServicio = false });
+        var quitado = viewModel.Items[0];
+        viewModel.EliminarItem(quitado);
+
+        // Act: el ViewModel se desuscribió del ítem al quitarlo
+        quitado.Cantidad = 10;
+
+        // Assert
+        viewModel.Total.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task TieneItems_ReflejaSiElTicketTieneArticulos()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelAsync();
+        var cambios = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => cambios.Add(e.PropertyName);
+
+        // Act + Assert: habilita y deshabilita el botón Limpiar venta
+        viewModel.TieneItems.Should().BeFalse();
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Hoja A4", PrecioVenta = 50m, StockActual = 500, EsServicio = false });
+        viewModel.TieneItems.Should().BeTrue();
+        cambios.Should().Contain(nameof(PosViewModel.TieneItems));
+    }
+
+    [Fact]
+    public async Task MoverSeleccionPopup_EnLosExtremos_DaLaVuelta()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelAsync();
+        viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto { IdArticulo = 10, Descripcion = "Lápiz HB", PrecioVenta = 300m, StockActual = 5, EsServicio = false });
+        viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto { IdArticulo = 11, Descripcion = "Lápiz 2B", PrecioVenta = 350m, StockActual = 5, EsServicio = false });
+        viewModel.IndiceResultadoSeleccionado = 0;
+
+        // Act + Assert
+        viewModel.MoverSeleccionPopupArriba();
+        viewModel.IndiceResultadoSeleccionado.Should().Be(1);
+        viewModel.MoverSeleccionPopupAbajo();
+        viewModel.IndiceResultadoSeleccionado.Should().Be(0);
+    }
+
+    [Fact]
     public async Task ProcesarEnterAsync_ConArticuloExistente_DebeIncrementarCantidadSinDuplicarFila()
     {
         // Arrange

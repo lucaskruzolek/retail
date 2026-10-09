@@ -69,7 +69,8 @@
                            Foreground="{DynamicResource TextPrimaryBrush}"
                            Margin="0,0,0,6" />
                 <TextBox Text="{Binding SaldoDeclaradoEfectivo, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
-                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontFamily="{StaticResource FontFamilyNumeric}"
+                         Typography.NumeralAlignment="Tabular"
                          FontSize="16"
                          FontWeight="SemiBold"
                          Height="38"
@@ -83,7 +84,8 @@
                            Foreground="{DynamicResource TextPrimaryBrush}"
                            Margin="0,0,0,6" />
                 <TextBox Text="{Binding MontoRetenidoEnCaja, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
-                         FontFamily="{StaticResource FontFamilyMonospace}"
+                         FontFamily="{StaticResource FontFamilyNumeric}"
+                         Typography.NumeralAlignment="Tabular"
                          FontSize="16"
                          FontWeight="SemiBold"
                          Height="38"

@@ -33,7 +33,20 @@ public partial class ItemVentaPosViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SubtotalItem))]
     [NotifyPropertyChangedFor(nameof(SubtotalItemFormateado))]
+    [NotifyPropertyChangedFor(nameof(TieneAlertaStockBajo))]
     private int _cantidad = 1;
+
+    /// <summary>
+    /// D-25: la cantidad se puede tipear en la grilla. Un valor menor a 1 se descarta y vuelve el anterior: quitar un
+    /// artículo es una acción explícita (papelera o Supr), no el efecto de un 0 tipeado por error.
+    /// </summary>
+    partial void OnCantidadChanged(int oldValue, int newValue)
+    {
+        if (newValue < 1)
+        {
+            Cantidad = oldValue;
+        }
+    }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneAlertaStockBajo))]
