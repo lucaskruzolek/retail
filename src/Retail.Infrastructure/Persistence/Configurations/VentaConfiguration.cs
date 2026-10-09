@@ -26,9 +26,9 @@ public class VentaConfiguration : IEntityTypeConfiguration<Venta>
             .HasColumnName("id_usuario")
             .IsRequired();
 
+        // NULL representa al Consumidor Final (D-10): no hace falta una fila "cliente genérico" en CLIENTES.
         builder.Property(v => v.IdCliente)
-            .HasColumnName("id_cliente")
-            .IsRequired();
+            .HasColumnName("id_cliente");
 
         builder.Property(v => v.IdPresupuestoOrigen)
             .HasColumnName("id_presupuesto_origen");

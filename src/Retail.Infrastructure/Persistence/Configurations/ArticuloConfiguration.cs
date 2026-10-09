@@ -105,6 +105,14 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
 
         builder.Ignore(a => a.IsDeleted);
 
+        // Control de concurrencia optimista (D-12): SQL Server cambia el rowversion en cada UPDATE y EF Core lo
+        // agrega al WHERE. Si otra terminal modificó el artículo (por ejemplo, vendió el último), el UPDATE no
+        // afecta filas y SaveChanges lanza DbUpdateConcurrencyException en lugar de pisar el stock.
+        // Es una shadow property: un detalle de persistencia que el Dominio no necesita conocer.
+        builder.Property<byte[]>("RowVersion")
+            .HasColumnName("row_version")
+            .IsRowVersion();
+
         builder.HasOne(a => a.Categoria)
             .WithMany(c => c.Articulos)
             .HasForeignKey(a => a.IdCategoria)

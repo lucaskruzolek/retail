@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Infrastructure.Persistence.Context;
 
@@ -20,7 +22,21 @@ public class UnitOfWork : IUnitOfWork
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            throw new ConflictoDeConcurrenciaException(
+                "Otro usuario modificó los mismos datos mientras se procesaba la operación. Vuelva a intentarlo.",
+                ex);
+        }
+    }
+
+    public void DescartarCambios()
+    {
+        _context.ChangeTracker.Clear();
     }
 
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)

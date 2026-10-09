@@ -237,14 +237,23 @@ public class Articulo : BaseEntity, IAggregateRoot
 
     public void DescontarStock(int cantidad)
     {
+        VerificarStockDisponible(cantidad);
+
+        StockActual -= cantidad;
+    }
+
+    /// <summary>
+    /// Verifica, sin modificar el artículo, que se puedan descontar <paramref name="cantidad"/> unidades.
+    /// Permite validar todos los artículos de una operación antes de mutar cualquiera de ellos.
+    /// </summary>
+    public void VerificarStockDisponible(int cantidad)
+    {
         ValidarMovimientoDeStock(cantidad);
 
         if (cantidad > StockActual)
         {
             throw new StockInsuficienteException(Id, StockActual, cantidad);
         }
-
-        StockActual -= cantidad;
     }
 
     public void IncrementarStock(int cantidad)

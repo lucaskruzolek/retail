@@ -744,6 +744,35 @@ public class ArticuloTests
     }
 
     [Fact]
+    public void VerificarStockDisponible_StockSuficiente_NoLanzaNiModificaElStock()
+    {
+        // Arrange
+        var articulo = new Articulo { Id = 8, Descripcion = "Lápiz", StockActual = 5 };
+
+        // Act
+        var act = () => articulo.VerificarStockDisponible(5);
+
+        // Assert
+        act.Should().NotThrow();
+        articulo.StockActual.Should().Be(5);
+    }
+
+    [Fact]
+    public void VerificarStockDisponible_StockInsuficiente_LanzaStockInsuficienteException()
+    {
+        // Arrange
+        var articulo = new Articulo { Id = 8, Descripcion = "Lápiz", StockActual = 2 };
+
+        // Act
+        var act = () => articulo.VerificarStockDisponible(3);
+
+        // Assert
+        act.Should().Throw<StockInsuficienteException>()
+            .Which.StockActual.Should().Be(2);
+        articulo.StockActual.Should().Be(2);
+    }
+
+    [Fact]
     public void IncrementarStock_CantidadValida_SumaLaCantidad()
     {
         // Arrange

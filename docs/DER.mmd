@@ -6,7 +6,7 @@ erDiagram
     USUARIOS ||--o{ COMPRAS : "ingresa"
     USUARIOS ||--o{ COBRANZAS_CLIENTES : "registra"
 
-    CLIENTES ||--o{ VENTAS : "se_factura_a"
+    CLIENTES |o--o{ VENTAS : "se_factura_a"
     CLIENTES ||--o{ PRESUPUESTOS : "se_cotiza_a"
     CLIENTES ||--o{ COBRANZAS_CLIENTES : "abona_deuda"
 
@@ -130,6 +130,7 @@ erDiagram
         int stock_actual
         int stock_minimo
         bool es_servicio
+        rowversion row_version "concurrencia optimista (D-12)"
         datetime deleted_at
     }
 
@@ -157,7 +158,7 @@ erDiagram
         int id_venta PK
         int id_turno FK
         int id_usuario FK
-        int id_cliente FK
+        int id_cliente "FK nullable (NULL = Consumidor Final)"
         int id_presupuesto_origen FK
         datetime fecha_hora
         decimal subtotal
