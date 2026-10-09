@@ -1,10 +1,10 @@
 # Handoff: Importador de planillas, precios y stock por presentaciones
 
-> **Para el agente que lea esto:** este archivo resume las sesiones del 2 al 7 de octubre de 2026 sobre el Módulo 2.2 (importador de catálogos) y su relación con artículos y stock. Contiene el estado del repositorio, los hallazgos verificados en el código, las decisiones tomadas y el plan de trabajo por fases.
+> **Para el agente que lea esto:** este archivo resume las sesiones del 2 al 8 de octubre de 2026 sobre el Módulo 2.2 (importador de catálogos) y su relación con artículos y stock. Contiene el estado del repositorio, los hallazgos verificados en el código, las decisiones tomadas y el plan de trabajo por fases.
 >
-> **Estado al 7 de octubre (noche):** las Fases 0 (salvo `.gitattributes`), 1 y 2 están completadas y mergeadas. La **Fase 3** (presentaciones de venta y fraccionamiento, RF-21) está implementada: el **PR 3a** (backend, commit `08d6f4b`, en `feat/presentaciones-fase-3a`, subido y en revisión de Pablo) y el **PR 3b** (UI, en `feat/presentaciones-fase-3b`, apilada sobre la del 3a). Falta la prueba manual de la UI, el commit del 3b y el merge de ambos. Estado y desvíos en la **sección 7, Fase 3**.
+> **Estado al 8 de octubre:** las Fases 0 (salvo `.gitattributes`), 1, 2 y **3** están completadas y mergeadas. La Fase 3 (presentaciones de venta y fraccionamiento, RF-21) entró en `main` con el **PR #14** (3a, backend) y el **PR #15** (3b, UI), con la prueba manual de la UI aprobada por el estudiante. Detalle y desvíos en la **sección 7, Fase 3**.
 >
-> **Cómo usarlo:** en una sesión nueva de Claude Code, pedí: *"Leé `@docs/auditorias/handoff-importador-precios-stock.md` y decime cómo seguimos después de la Fase 3"*. Lo pendiente después de la Fase 3: `.gitattributes` (Fase 0, paso 4, tras el merge del 3a y coordinado con Pablo), la Fase 4 (deuda de diseño) y las notas de `wiki/` de la Fase 3, que el estudiante decidió no escribir por ahora.
+> **Cómo usarlo:** la línea de trabajo del importador y las presentaciones está **cerrada**. Lo que queda de este handoff: `.gitattributes` (Fase 0, paso 4, coordinado con Pablo), la Fase 4 (deuda de diseño, código de Pablo) y las notas de `wiki/` de la Fase 3, que el estudiante decidió no escribir por ahora. El siguiente trabajo de Lucas es el **Módulo 4.1, fase de persistencia** (`docs/roadmap/etapa-4-pos-compras.md`): `VentaService.RegistrarVentaAsync` todavía es un stub y ahí se conectan `DescontarStock` y la oferta de fraccionar del POS (RF-10, ver "Fuera de alcance de la Fase 3" en la sección 7).
 
 ---
 
@@ -22,7 +22,7 @@ Además de `AGENTS.md` (las 10 Leyes, el protocolo de lectura jerárquica y el b
 
 ---
 
-## 1. Estado del repositorio (al 7 de octubre de 2026)
+## 1. Estado del repositorio (al 8 de octubre de 2026)
 
 ### PRs mergeados en `origin/main` en esta línea de trabajo
 
@@ -36,12 +36,12 @@ Además de `AGENTS.md` (las 10 Leyes, el protocolo de lectura jerárquica y el b
 | #11 | Fase 2: H-14 (filtro por navegación) y medición de H-15 |
 | #12 | H-18: descarte de cargas obsoletas del catálogo (arreglo parcial) |
 | #13 | H-19: un `DbContext` por pantalla y `CargaSerializada` (completa H-18) |
+| #14 | Fase 3, PR 3a: presentaciones de venta y fraccionamiento, backend (RF-21). Commit `08d6f4b` |
+| #15 | Fase 3, PR 3b: UI de presentaciones y fraccionamiento. Commit `5b5fa03`; merge en `main` `5ef62f4` |
 
 Los PRs se mergean por *squash* y GitHub borra la rama remota: después del merge, la rama local queda `[gone]` y se borra con `git branch -D` (el `-d` la rechaza porque el squash no conserva los commits originales).
 
-**Ramas pendientes de PR:**
-- `feat/presentaciones-fase-3a`: PR 3a, commit `08d6f4b`, subida a `origin`. La revisa Pablo, porque toca `ProveedorService`, `CatalogoProveedorQueryService` e `ImportacionPlanillaIntegrationTests`.
-- `feat/presentaciones-fase-3b`: PR 3b, **apilada** sobre la del 3a (decisión del 7 de octubre, para no frenar la UI durante la revisión). Si la revisión cambia el 3a, se trae con **merge**, nunca con rebase. Su PR se abre contra `main` después del merge del 3a; hasta entonces, si se abre antes, va contra `feat/presentaciones-fase-3a` para que el diff muestre solo la UI.
+**Ramas pendientes de PR:** ninguna en esta línea de trabajo (8 de octubre).
 
 ### Entorno
 
@@ -289,7 +289,7 @@ Escenario: 2.500 renglones existentes con artículo vinculado, 2.500 nuevos y 2.
 - **Tiempo:** **no se afirma**, solo se informa en la salida del test. En la corrida 2 también la preparación de datos fue lenta (el test entero tardó 1 min 8 s, contra 9–11 s en las demás), lo que apunta a LocalDB o al disco. Un límite fijo volvería el test *flaky* en el CI. RNF-02 exige no bloquear la UI (la importación corre en `Task.Run`), no un tiempo fijo, y el criterio de < 3 s del roadmap aplica al parseo, que cubre `ExcelCatalogParserTests`.
 - **Posible optimización futura (no medida):** los `UpdateAsync` sobre entidades ya seguidas marcan todas las columnas como modificadas; sin ellos, EF generaría `UPDATE` solo de las columnas que cambian. Evaluar solo si el tiempo llegara a ser un problema real.
 
-### Fase 3: Presentaciones y stock (Lucas + Pablo) — GUÍA DE ARRANQUE
+### Fase 3: Presentaciones y stock (Lucas + Pablo) — ✅ COMPLETADA (PRs #14 y #15)
 
 **Requisito:** RF-21 de la ERS, con las precisiones de RF-05, RF-10 y RF-19. **Modelo y reglas:** sección 5.2 (reglas 1 a 9). **Decisiones cerradas:** D-01, D-03, D-06 y D-09 (sección 4), más las del 7 de octubre que figuran en 5.2: costo del derivado editable, baja de un origen con derivados rechazada. **No reabrirlas.**
 
@@ -300,19 +300,20 @@ Escenario: 2.500 renglones existentes con artículo vinculado, 2.500 nuevos y 2.
 3. ✅ `fix/importador-carga-catalogo` (PR #12) y `fix/dbcontext-por-pantalla` (PR #13, H-19) mergeadas en `main`.
 4. ✅ Rama `feat/presentaciones-fase-3a` creada desde `main` en `e4706a0` (7 de octubre).
 
-**Estado (7 de octubre): PR 3a implementado**, pasos 1 a 5, en `feat/presentaciones-fase-3a`, pendiente de commit y PR (los abre el estudiante). Desvíos respecto de esta guía, todos aprobados durante la sesión:
+**Estado (8 de octubre): PR 3a mergeado** como PR #14 (commit `08d6f4b`), con los pasos 1 a 5. Desvíos respecto de esta guía, todos aprobados durante la sesión:
 - **CHECK extendido y corregido.** Además de lo previsto, rechaza un derivado que sea servicio o derive de sí mismo. La fórmula original de la fila del paso 3 tenía un hueco: con `unidades_por_origen = NULL`, `NULL >= 1` da `UNKNOWN` y un CHECK solo rechaza `FALSE`, así que aceptaba un derivado sin unidades. Lo detectó el test de integración `Presentacion_OrigenSinUnidades_LaRechazaElCheck`; se agregó `[unidades_por_origen] IS NOT NULL` y se regeneró la migración (no estaba aplicada fuera de las bases de test). La fórmula vigente está en `SISTEMA_DE_PERSISTENCIA.md`.
 - **Regla 2 vista desde el origen.** `ActualizarArticuloAsync` rechaza convertir en servicio un origen con presentaciones (necesita mirar otros artículos, por eso va en Application).
 - **`FraccionarAsync`** recibe un `FraccionarDto` validado y devuelve las unidades obtenidas. `ArticuloDto` expone `IdArticuloOrigen`, `UnidadesPorOrigen` y `EsDerivado`, también en la proyección de `ArticuloQueryService`, para el PR 3b.
 - **Riesgo anotado para la Etapa 4:** dos terminales fraccionando el mismo pack a la vez pueden perder una actualización (`Articulo` no tiene `rowversion`). Es el mismo problema que el descuento de stock de RF-10.
 
-**Estado (7 de octubre): PR 3b implementado** en `feat/presentaciones-fase-3b`, sin commitear. Decisiones del estudiante: **diálogo propio** para el alta (`PresentacionFormDialog`), **stock editable** al editar una presentación (es un ajuste de inventario físico, no un ingreso de mercadería; el backend ya lo permitía) y **botones por fila** en la columna Acciones. Contenido:
+**Estado (8 de octubre): PR 3b mergeado** como PR #15 (commit `5b5fa03`, merge `5ef62f4`). Decisiones del estudiante: **diálogo propio** para el alta (`PresentacionFormDialog`), **stock editable** al editar una presentación (es un ajuste de inventario físico, no un ingreso de mercadería; el backend ya lo permitía) y **botones por fila** en la columna Acciones. Contenido:
 - `PresentacionFormDialog` y `FraccionarDialog` con sus ViewModels. La vista previa usa las fórmulas del Dominio (`Articulo.CalcularCostoPresentacion` y `CalcularPrecioVenta`), y los errores de dominio se muestran dentro del diálogo.
 - `ArticulosView`: badge "Presentación ×N" en la columna Distribuidor y, en Acciones, "Crear presentación" (artículos de compra) o "Fraccionar" (presentaciones), según `DataTrigger`.
 - `ArticuloFormDialog` en modo presentación: oculta "Es servicio" y el vínculo con distribuidor, y muestra el aviso de la regla 4 junto al costo.
 - Tests de ViewModel y smoke tests STA de los dos diálogos nuevos y del formulario en modo presentación. El smoke test de `ArticulosView` ahora incluye una fila derivada, porque sin ella nunca construía el badge ni el botón Fraccionar.
 - **Sin nota de `wiki/`** (decisión del estudiante).
-- **Prueba manual pendiente:** al ejecutar la app se aplica la migración `AddPresentacionesDeVenta` a la base de desarrollo `RetailDb`.
+- **Prueba manual aprobada** por el estudiante antes del merge. Al ejecutar la app se aplica la migración `AddPresentacionesDeVenta` a la base de desarrollo `RetailDb`.
+- Además, el 3b quitó la columna Código de Barras de la grilla de Artículos para hacer lugar al botón nuevo; el dato sigue en la búsqueda y en el formulario.
 
 #### Alcance y división en PRs
 
@@ -448,3 +449,11 @@ H-06 (escrituras por la raíz `Proveedor`), H-07 + D-05 y H-10 + D-04. (H-08 y H
 | Portada, 1 | PR 3a commiteado (`08d6f4b`) y subido. PR 3b en `feat/presentaciones-fase-3b`, apilada sobre la del 3a. Pendientes después de la Fase 3 |
 | 3 | H-12 resuelto también en la UI |
 | 7 | Estado del PR 3b: decisiones de diseño (diálogo propio, stock editable, botones por fila), contenido, sin nota de `wiki/` y prueba manual pendiente |
+
+### Actualización del 8 de octubre: Fase 3 cerrada
+
+| Sección | Cambio |
+|---|---|
+| Portada | Fase 3 completada. Lo que queda de este handoff (`.gitattributes`, Fase 4, notas de `wiki/`) y el siguiente trabajo de Lucas: Módulo 4.1, persistencia |
+| 1 | PRs #14 (3a) y #15 (3b) mergeados. Sin ramas pendientes en esta línea de trabajo |
+| 7 | Fase 3 marcada como completada. Prueba manual del 3b aprobada. Se registra que el 3b quitó la columna Código de Barras de la grilla |

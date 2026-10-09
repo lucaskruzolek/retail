@@ -65,7 +65,7 @@ graph TD
 
 ---
 
-## ⚖️ Las 6 Leyes Inviolables de Persistencia para Agentes
+## ⚖️ Las 9 Leyes Inviolables de Persistencia para Agentes
 
 ### 1. Persistencia Restringida a Raíces de Agregado (`IAggregateRoot`)
 * **Queda estrictamente prohibido** crear interfaces o clases de repositorio para entidades internas o secundarias (ejemplo: `IDetalleVentaRepository`, `PagoVentaRepository`, `MovimientoCajaRepository`).
@@ -126,6 +126,15 @@ graph TD
 * **Ciclo de vida:** el contexto y los servicios de Application son `Scoped`. [`NavigationService`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Services/NavigationService.cs) crea **un scope de DI por pantalla** y descarta el de la anterior; los `*DialogService` son `Scoped`, así que un modal comparte el contexto de la pantalla que lo abre; el login tiene su propio scope. Es el equivalente de escritorio de "un contexto por request" en la web.
 * **Red de seguridad:** el Host activa `ValidateScopes` y `ValidateOnBuild`. **Queda prohibido** resolver servicios `Scoped` desde el proveedor raíz (por ejemplo, con `App.Services`): la app falla al arrancar y `InyeccionDependenciasTests` lo detecta.
 * **Dentro de una pantalla**, todo acceso a datos que pueda solaparse (búsquedas por tecla, filtros, paginación, cargas iniciales) pasa por [`CargaSerializada`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Helpers/CargaSerializada.cs): espera a que el acceso anterior libere el contexto, descarta respuestas obsoletas y cancela lo pendiente al salir de la pantalla (el ViewModel implementa `IDisposable` y el scope lo invoca).
+
+### 9. Concurrencia Optimista y Contexto Limpio Tras un Fallo (D-12, Módulo 4.1)
+* **`rowversion` en `ARTICULOS`:** la columna `row_version` se mapea como *shadow property* (`builder.Property<byte[]>("RowVersion").IsRowVersion()`), sin propiedad en la entidad: es un mecanismo de la base, no un concepto del Dominio. EF Core la agrega al `WHERE` de cada `UPDATE`; si otra terminal modificó la fila entre la lectura y el guardado, el `UPDATE` no afecta filas y SQL Server revierte **toda** la transacción. Evita el *lost update* (dos terminales leen stock 1 y ambas escriben 0).
+* **Traducción en la frontera:** [`UnitOfWork.SaveChangesAsync`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Repositories/UnitOfWork.cs) convierte `DbUpdateConcurrencyException` (tipo de EF Core) en [`ConflictoDeConcurrenciaException`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Exceptions/ConflictoDeConcurrenciaException.cs) (tipo de Application), porque Application no referencia EF Core (Ley 1 de `AGENTS.md`).
+* **El ChangeTracker no se limpia solo:** si un caso de uso falla después de modificar entidades, o falla el `SaveChanges`, los cambios quedan en memoria y, como el contexto vive mientras dura la pantalla (Ley 8), **se guardarían con la próxima operación exitosa**. Dos defensas, ambas en [`VentaService.RegistrarVentaAsync`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Services/VentaService.cs):
+  1. **Validar todo antes de modificar cualquier agregado:** primero las verificaciones que pueden fallar (`Articulo.VerificarStockDisponible`, `Venta.ValidarCierre`, límite de crédito); recién después las mutaciones (`DescontarStock`, `ImputarVenta`).
+  2. **`IUnitOfWork.DescartarCambios()`** (`ChangeTracker.Clear()`) cuando falla el `SaveChanges`. Es seguro desde H-19: limpia solo el contexto de esa pantalla.
+* **Identidad de EF Core:** una consulta con tracking devuelve la instancia que ya está en memoria y **no la actualiza** con los valores de la base. Sin `DescartarCambios`, un reintento tras un conflicto reutilizaría el `rowversion` viejo y volvería a fallar. Lo verifica `RegistrarVentaIntegrationTests` con dos contextos.
+* **Pendiente:** los demás servicios (`CajaService`, `ClienteService`, `InventarioService`, `ProveedorService`) todavía no descartan cambios ante un guardado fallido. Evaluar llevar el descarte a `UnitOfWork.SaveChangesAsync` para todos (coordinar con Pablo).
 
 ---
 
@@ -229,45 +238,55 @@ public class CatalogoQueryService(RetailDbContext context)
 ```
 
 ### 2. Mutación Transaccional con Agregado y Unit of Work (Write Side)
+Versión resumida de [`VentaService.RegistrarVentaAsync`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Services/VentaService.cs) (la implementación real también valida el DTO, el precio contra el catálogo y la cuenta corriente). El orden importa: **primero todo lo que puede fallar, después las mutaciones** (Ley 9).
+
 ```csharp
-using Retail.Application.Common.Interfaces;
-using Retail.Application.DTOs.Ventas;
-using Retail.Application.Interfaces.Persistence;
-using Retail.Domain.Entities;
-
-namespace Retail.Application.Services;
-
-public class VentaService(
-    IRepository<Venta> ventaRepository,
-    IRepository<Articulo> articuloRepository,
-    IUnitOfWork unitOfWork) : IVentaService
+public async Task<VentaResponseDto> RegistrarVentaAsync(CrearVentaDto dto, CancellationToken ct = default)
 {
-    public async Task<int> RegistrarVentaAsync(CrearVentaDto dto, CancellationToken ct = default)
+    // 1. Cargar agregados con tracking: los artículos en UNA consulta (Contains → OPENJSON)
+    var turno = await _turnoRepository.GetByIdAsync(dto.IdTurno, ct);
+    var ids = dto.Items.Select(i => i.IdArticulo).Distinct().ToList();
+    var articulosPorId = (await _articuloRepository.FindAsync(a => ids.Contains(a.Id), includeDeleted: false, ct))
+        .ToDictionary(a => a.Id);
+
+    // 2. Armar la raíz: el agregado calcula sus totales y valida que los pagos cubran el total
+    var venta = Venta.Registrar(dto.IdTurno, dto.IdUsuario, dto.IdCliente);
+    foreach (var item in dto.Items)
     {
-        // 1. Instanciar la Raíz del Agregado
-        var venta = new Venta(dto.IdUsuario, dto.IdTurno, dto.IdCliente);
-
-        foreach (var item in dto.Items)
-        {
-            // 2. Cargar raíz de artículo con Change Tracker activo para mutación
-            var articulo = await articuloRepository.GetByIdAsync(item.IdArticulo, ct)
-                ?? throw new KeyNotFoundException($"Artículo {item.IdArticulo} no encontrado.");
-
-            // 3. Regla de dominio: descontar stock
-            articulo.DescontarStock(item.Cantidad);
-
-            // 4. Regla de agregado: el agregado calcula sus subtotales internamente
-            venta.AgregarItem(articulo.Id, item.Cantidad, articulo.PrecioVenta);
-        }
-
-        // 5. Agregar la raíz al repositorio
-        await ventaRepository.AddAsync(venta, ct);
-
-        // 6. Transacción atómica ACID (persiste la venta, sus items y el stock modificado)
-        await unitOfWork.SaveChangesAsync(ct);
-
-        return venta.Id;
+        venta.AgregarItem(item.IdArticulo, item.Cantidad, articulosPorId[item.IdArticulo].PrecioVenta);
     }
+    foreach (var pago in dto.Pagos)
+    {
+        venta.ImputarPago(pago.MedioPago, pago.Monto, pago.ReferenciaPago);
+    }
+    venta.ValidarCierre();
+
+    // 3. Verificar el stock de TODOS antes de descontar cualquiera (sin mutar)
+    foreach (var detalle in venta.Detalles)
+    {
+        articulosPorId[detalle.IdArticulo].VerificarStockDisponible(detalle.Cantidad);
+    }
+
+    // 4. Mutaciones: ya no pueden fallar por reglas de negocio
+    foreach (var detalle in venta.Detalles)
+    {
+        articulosPorId[detalle.IdArticulo].DescontarStock(detalle.Cantidad);
+    }
+    turno!.ImputarVenta(venta.TotalEfectivo, venta.TotalElectronico);
+    await _ventaRepository.AddAsync(venta, ct);
+
+    // 5. Un único SaveChanges = una transacción; si falla, limpiar el contexto de la pantalla
+    try
+    {
+        await _unitOfWork.SaveChangesAsync(ct);
+    }
+    catch
+    {
+        _unitOfWork.DescartarCambios();
+        throw;
+    }
+
+    return MapearRespuesta(venta);
 }
 ```
 
@@ -280,10 +299,10 @@ public class VentaService(
 | [`BaseEntity.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Common/BaseEntity.cs) | `Retail.Domain` | Entidad base con `Id`, timestamps de auditoría y método `MarkAsDeleted()`. |
 | [`IAggregateRoot.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Common/IAggregateRoot.cs) | `Retail.Domain` | Interfaz marcadora para delimitar consistencia transaccional DDD. |
 | [`IRepository.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Interfaces/Persistence/IRepository.cs) | `Retail.Application` | Contrato genérico de persistencia restringido a `where T : BaseEntity, IAggregateRoot`. |
-| [`IUnitOfWork.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Common/Interfaces/IUnitOfWork.cs) | `Retail.Application` | Abstracción para control transaccional atómico y confirmación de cambios. |
+| [`IUnitOfWork.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Interfaces/Persistence/IUnitOfWork.cs) | `Retail.Application` | Abstracción para control transaccional atómico, confirmación de cambios y descarte de cambios tras un guardado fallido (Ley 9). |
 | [`RetailDbContext.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Context/RetailDbContext.cs) | `Retail.Infrastructure` | Contexto de EF Core 8 con filtros globales de Soft Delete e intercepción de borrado. |
 | [`Repository.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Repositories/Repository.cs) | `Retail.Infrastructure` | Implementación genérica de acceso a datos para Raíces de Agregado. |
-| [`UnitOfWork.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Repositories/UnitOfWork.cs) | `Retail.Infrastructure` | Coordinador transaccional sobre `RetailDbContext`. |
+| [`UnitOfWork.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Repositories/UnitOfWork.cs) | `Retail.Infrastructure` | Coordinador transaccional sobre `RetailDbContext`; traduce `DbUpdateConcurrencyException` a `ConflictoDeConcurrenciaException`. |
 | [`ArticuloConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/ArticuloConfiguration.cs) | `Retail.Infrastructure` | Configuración Fluent API de artículo con índice único filtrado (`[codigo_barras] IS NOT NULL AND [deleted_at] IS NULL`). |
 | [`DbInitializer.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Initialization/DbInitializer.cs) | `Retail.Infrastructure` | Semillero idempotente de roles, usuario `admin`, categorías, marcas y 20 artículos. |
 | [`RetailDbContextModelSnapshot.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Migrations/RetailDbContextModelSnapshot.cs) | `Retail.Infrastructure` | Foto satelital de las 19 entidades generada por la herramienta CLI de EF Core. |
