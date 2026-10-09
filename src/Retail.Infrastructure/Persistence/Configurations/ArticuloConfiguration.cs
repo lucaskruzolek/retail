@@ -42,6 +42,7 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
         builder.Property(a => a.Descripcion)
             .HasColumnName("descripcion")
             .HasMaxLength(200)
+            .UseCollation(Cotejamientos.BusquedaEnCastellano)
             .IsRequired();
 
         builder.Property(a => a.IdCategoria)

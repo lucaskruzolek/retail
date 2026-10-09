@@ -20,4 +20,20 @@ public abstract record class BaseDto : INotifyPropertyChanged
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+
+    /// <summary>
+    /// Igualdad de la base sin el evento <see cref="PropertyChanged"/>. Un <c>record</c> compara todos sus campos, y
+    /// el campo oculto del evento guarda sus suscriptores: cada <c>Binding</c> de WPF que se suscribía cambiaba el
+    /// <see cref="GetHashCode"/> del DTO, y los <c>Selector</c> (ListBox, DataGrid), que guardan la selección en un
+    /// diccionario por hash, quedaban corruptos. Los records derivados siguen comparando sus propiedades.
+    /// </summary>
+    public virtual bool Equals(BaseDto? other)
+    {
+        return other is not null && EqualityContract == other.EqualityContract;
+    }
+
+    public override int GetHashCode()
+    {
+        return EqualityContract.GetHashCode();
+    }
 }

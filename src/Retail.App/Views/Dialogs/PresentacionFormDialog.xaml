@@ -95,7 +95,8 @@
                                        Style="{StaticResource TextBlockBodySecondary}"
                                        VerticalAlignment="Center" />
                             <TextBlock Text="{Binding CostoOrigen, StringFormat={}{0:C2}}"
-                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                       FontFamily="{StaticResource FontFamilyNumeric}"
+                                       Typography.NumeralAlignment="Tabular"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        VerticalAlignment="Center"
@@ -104,7 +105,8 @@
                                        Style="{StaticResource TextBlockBodySecondary}"
                                        VerticalAlignment="Center" />
                             <TextBlock Text="{Binding StockOrigen, StringFormat={}{0} unid.}"
-                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                       FontFamily="{StaticResource FontFamilyNumeric}"
+                                       Typography.NumeralAlignment="Tabular"
                                        FontWeight="SemiBold"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        VerticalAlignment="Center" />
@@ -150,7 +152,8 @@
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding UnidadesPorOrigen, UpdateSourceTrigger=PropertyChanged}"
-                                            FontFamily="{StaticResource FontFamilyMonospace}"
+                                            FontFamily="{StaticResource FontFamilyNumeric}"
+                                            Typography.NumeralAlignment="Tabular"
                                             PlaceholderText="100" />
                             </StackPanel>
 
@@ -159,7 +162,8 @@
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
-                                            FontFamily="{StaticResource FontFamilyMonospace}"
+                                            FontFamily="{StaticResource FontFamilyNumeric}"
+                                            Typography.NumeralAlignment="Tabular"
                                             PlaceholderText="40.00" />
                             </StackPanel>
 
@@ -168,7 +172,8 @@
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding StockMinimo, UpdateSourceTrigger=PropertyChanged}"
-                                            FontFamily="{StaticResource FontFamilyMonospace}"
+                                            FontFamily="{StaticResource FontFamilyNumeric}"
+                                            Typography.NumeralAlignment="Tabular"
                                             PlaceholderText="0" />
                             </StackPanel>
                         </Grid>
@@ -197,7 +202,8 @@
                                        Text="{Binding CostoUnitarioCalculado, StringFormat={}$ {0:N2}}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
-                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                       FontFamily="{StaticResource FontFamilyNumeric}"
+                                       Typography.NumeralAlignment="Tabular"
                                        Foreground="{DynamicResource PrimaryPressedBrush}"
                                        VerticalAlignment="Center" />
                         </DockPanel>
@@ -211,7 +217,8 @@
                                        Text="{Binding PrecioVentaCalculado, StringFormat={}$ {0:N2}}"
                                        FontSize="22"
                                        FontWeight="Bold"
-                                       FontFamily="{StaticResource FontFamilyMonospace}"
+                                       FontFamily="{StaticResource FontFamilyNumeric}"
+                                       Typography.NumeralAlignment="Tabular"
                                        Foreground="{DynamicResource PrimaryBrush}"
                                        VerticalAlignment="Center" />
                         </DockPanel>

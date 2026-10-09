@@ -105,7 +105,8 @@
                                 </StackPanel>
                             </Button>
                             <ui:TextBox Text="{Binding PorcentajeGananciaGlobal, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
-                                        FontFamily="{StaticResource FontFamilyMonospace}"
+                                        FontFamily="{StaticResource FontFamilyNumeric}"
+                                        Typography.NumeralAlignment="Tabular"
                                         FontSize="14"
                                         VerticalContentAlignment="Center"
                                         Height="34" />
@@ -196,7 +197,8 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
-                                             FontFamily="{StaticResource FontFamilyMonospace}"
+                                             FontFamily="{StaticResource FontFamilyNumeric}"
+                                             Typography.NumeralAlignment="Tabular"
                                              FontSize="13"
                                              TextAlignment="Right"
                                              Padding="4,2"
@@ -212,7 +214,8 @@
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding PrecioVenta, StringFormat=C2}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                               Typography.NumeralAlignment="Tabular"
                                                FontWeight="Bold"
                                                FontSize="13"
                                                Foreground="{DynamicResource PrimaryBrush}"

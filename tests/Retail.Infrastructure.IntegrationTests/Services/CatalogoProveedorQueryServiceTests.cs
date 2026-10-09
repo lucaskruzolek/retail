@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Retail.Application.DTOs.Proveedores;
 using Retail.Domain.Entities;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
@@ -72,5 +73,30 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         mapa.Should().HaveCount(existentes);
         mapa.Should().ContainKey("COD-00001").And.ContainKey($"COD-{existentes:D5}");
         mapa.Should().NotContainKey("COD-02501");
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_TerminoSinAcentos_EncuentraLaDescripcionAcentuadaYRespetaLaEnie()
+    {
+        // Arrange: descripcion_proveedor usa Modern_Spanish_CI_AI
+        var proveedor = new Proveedor { RazonSocial = "Distribuidora Norte", Cuit = "30-87654321-0" };
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+
+        _context.CatalogosProveedores.AddRange(
+            new CatalogoProveedor { IdProveedor = proveedor.Id, CodigoProveedor = "A1", DescripcionProveedor = "Compás escolar metálico", CostoReposicion = 100m },
+            new CatalogoProveedor { IdProveedor = proveedor.Id, CodigoProveedor = "A2", DescripcionProveedor = "Agenda año 2027", CostoReposicion = 100m });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var sinAcentos = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id, TerminoBusqueda = "COMPAS ESCOLAR" });
+        var conEnie = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id, TerminoBusqueda = "año" });
+        var sinEnie = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id, TerminoBusqueda = "ano" });
+
+        // Assert
+        sinAcentos.Items.Should().ContainSingle(i => i.CodigoProveedor == "A1");
+        conEnie.Items.Should().ContainSingle(i => i.CodigoProveedor == "A2");
+        sinEnie.Items.Should().BeEmpty("en castellano la ñ es una letra distinta de la n");
     }
 }

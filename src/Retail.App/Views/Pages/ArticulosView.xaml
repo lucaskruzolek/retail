@@ -275,7 +275,8 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding PrecioVenta, StringFormat={}{0:N2}}"
-                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                           FontFamily="{StaticResource FontFamilyNumeric}"
+                                           Typography.NumeralAlignment="Tabular"
                                            FontWeight="Bold"
                                            FontSize="13"
                                            Foreground="{DynamicResource PrimaryBrush}"

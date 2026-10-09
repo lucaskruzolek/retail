@@ -115,4 +115,25 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         res.Items.Should().ContainSingle(a => a.Descripcion == "Articulo Critico");
         res.TotalRegistros.Should().Be(1);
     }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_TerminoSinAcentos_EncuentraLaDescripcionAcentuadaYRespetaLaEnie()
+    {
+        // Arrange: ARTICULOS.descripcion usa Modern_Spanish_CI_AI (la misma columna que busca el POS)
+        _context.Articulos.AddRange(
+            new Articulo { Descripcion = "Lápiz Negro HB", CostoReposicion = 100, PorcentajeGanancia = 50, PrecioVenta = 150, StockActual = 10, StockMinimo = 1 },
+            new Articulo { Descripcion = "Agenda Año 2027", CostoReposicion = 100, PorcentajeGanancia = 50, PrecioVenta = 150, StockActual = 10, StockMinimo = 1 });
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var sinAcentos = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { TerminoBusqueda = "lapiz negro" });
+        var conEnie = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { TerminoBusqueda = "año" });
+        var sinEnie = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { TerminoBusqueda = "ano" });
+
+        // Assert
+        sinAcentos.Items.Should().ContainSingle(a => a.Descripcion == "Lápiz Negro HB");
+        conEnie.Items.Should().ContainSingle(a => a.Descripcion == "Agenda Año 2027");
+        sinEnie.Items.Should().BeEmpty("en castellano la ñ es una letra distinta de la n");
+    }
 }

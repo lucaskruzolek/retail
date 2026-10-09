@@ -115,7 +115,7 @@
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
                     <TextBlock Text="Total de la Compra a Proveedor:" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding TotalCompra, StringFormat=C2}" FontFamily="{StaticResource FontFamilyMonospace}" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="{Binding TotalCompra, StringFormat=C2}" FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
                 </StackPanel>
 
                 <Button DockPanel.Dock="Right" Command="{Binding RegistrarCompraCommand}" Style="{StaticResource PrimaryActionButtonStyle}" Padding="20,10" VerticalAlignment="Center">

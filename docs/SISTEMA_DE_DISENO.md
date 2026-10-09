@@ -29,13 +29,13 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 
 ### 3. Tipografía Dual de Alta Precisión
 * **Interfaz General y Formularios:** Utilizar la fuente nativa de Windows 11 `Segoe UI Variable Text` / `Segoe UI Variable Display` mediante los estilos de [`src/Retail.App/Styles/Typography.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Typography.xaml) (`TextBlockHeader1`, `TextBlockHeader2`, `TextBlockBody`, etc.).
-* **Mostrador, Moneda y Códigos Numéricos:** Es **obligatorio** utilizar tipografía monoespaciada `Cascadia Code` (`FontFamily="{StaticResource FontFamilyMonospace}"`) en:
-  * El total gigante de venta de mostrador (`TextBlockDisplayCurrency`).
-  * Todas las celdas de precios unitarios y subtotales en `DataGrid` (`TextBlockCurrencyCell`).
-  * Cantidades de stock y números de comprobantes fiscales.
-  * Etiquetas de teclas de atajo de teclado (`TextBlockKeycap`).
-  * Códigos de barras de artículos.  
-  *Justificación:* Cada dígito ocupa exactamente los mismos píxeles de ancho horizontal, garantizando que los decimales y comas se alineen verticalmente con rigor contable.
+* **Importes, Cantidades y Stock (D-23):** Es **obligatorio** utilizar `FontFamily="{StaticResource FontFamilyNumeric}"` (Segoe UI Variable Display) **junto con** `Typography.NumeralAlignment="Tabular"`, o los estilos que ya los traen:
+  * El total gigante de venta de mostrador (`TextBlockDisplayCurrency`) y los importes destacados de modales (`TextBlockCurrencyLarge`).
+  * Las celdas de precios unitarios y subtotales en `DataGrid` (`TextBlockCurrencyCell`) y las celdas numéricas (`TextBlockNumericCell`: número de fila, cantidades, stock).
+  * Los campos de edición de montos, porcentajes y cantidades.  
+  *Justificación:* con números **tabulares**, cada dígito ocupa el mismo ancho y los decimales se alinean verticalmente con rigor contable, igual que con una fuente monoespaciada (verificado: `111111` y `000000` miden lo mismo). Se reemplazó Cascadia Code en los importes porque es una fuente de programación: alineaba bien pero se leía como código, y su punto y su coma ocupan el ancho de un dígito.
+* **Códigos y Textos Técnicos:** `Cascadia Code` (`FontFamily="{StaticResource FontFamilyMonospace}"`) se reserva para lo que **es** un código: códigos de barras, CUIT/DNI, códigos de proveedor, números de comprobante, teclas de atajo (`TextBlockKeycap`), códigos de color y trazas técnicas (`TextBlockMonospaceCell` en grillas).
+* **Dependencia de la PC:** ninguna fuente viene incluida en la aplicación. Segoe UI Variable viene con Windows 11 (en Windows 10 cae a Segoe UI); si falta Cascadia Code, WPF usa Consolas.
 
 ### 4. Componentes y Botones de Mostrador
 * Las acciones de mostrador deben utilizar prioritariamente la botonera con teclas de función (`F1` a `F12`):
@@ -44,6 +44,10 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
   * Botón principal de cobro / confirmación: `Style="{StaticResource PrimaryActionButtonStyle}"` conteniendo la pastilla carmín `<Border Style="{StaticResource KeycapPrimaryBadgeStyle}">`.
 * Las tablas deben implementar obligatoriamente `Style="{StaticResource DataGridRetailStyle}"`, sus filas `DataGridRowRetailStyle` y sus celdas `DataGridCellRetailStyle`, garantizando selección suave horizontal sin bordes verticales divisorios.
 * Los estados de negocio (stock bajo, éxito fiscal, errores) deben representarse con los badges semáforo: `BadgeWarningStyle`, `BadgeDangerStyle` y `BadgeSuccessStyle`.
+* **Desplegables de resultados de búsqueda** (buscador del POS): contenedor flotante con borde `SurfaceBorderBrush` y sombra (`DropShadowEffect` con `ElevationShadowColor`) para despegarlo de la página; filas con `ItemContainerStyle="{StaticResource SearchResultListBoxItemStyle}"` (fila completa, cursor de mano, carmín sólido al seleccionarse) y textos con `SearchResultTitleTextStyle`, `SearchResultAmountTextStyle` y `SearchResultMetaTextStyle`, que pasan a `PrimaryForegroundBrush` / `PrimaryLightBrush` sobre el carmín. El hover selecciona la fila: mouse y teclado comparten un único estado de selección. Ver la sección 6.1 de [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml).
+* **Botones de ícono:** para eliminar una fila de grilla o lista, `IconDangerButtonStyle` (28×28, sin borde ni fondo, ícono gris `TextMutedBrush` que pasa a `DangerForegroundBrush` sobre `DangerBackgroundBrush` en hover); para una acción secundaria junto a un botón primario (ej. `Limpiar venta [F8]` a la derecha de `Cobrar`), `IconPrimarySquareButtonStyle` (56×56, `PrimaryLightBrush` con borde e ícono carmín; en hover, el carmín sólido del botón primario; deshabilitado con opacidad 0,45 y cursor de prohibido, igual que `PrimaryActionButtonStyle`). El ícono **no** fija `Foreground`: lo hereda del botón. Siempre con `ToolTip` que nombre la acción y su atajo. Ver la sección 6.2 de la galería.
+* **Enums en pantalla:** nunca se muestra el nombre de un enum del Dominio (`TarjetaDebito`). Los `ComboBox` usan `ItemTemplate="{StaticResource EnumTextoItemTemplate}"` y los `TextBlock` `Converter={StaticResource EnumATextoConverter}`, ambos en `Controls.xaml`. Los textos se definen en [`EnumATextoConverter.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Converters/EnumATextoConverter.cs) (presentación, no Dominio).
+* **Visibilidad invertida:** el `BooleanToVisibilityConverter` de WPF **ignora** `ConverterParameter`. Para ocultar con `true` se usa `InverseBooleanToVisibilityConverter` (declarado en los recursos de la vista, como `CajaView` y `PosView`), y un `string` nunca se enlaza a un conversor booleano: se expone una propiedad `bool` (`TieneError`).
 
 ### 5. Diálogos Modales y Formularios
 * **Barra de Título Estandarizada:** Todo diálogo modal debe configurar en su `<ui:TitleBar>`: `Height="32"`, `Padding="8,0"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, `ShowMaximize="False"` y `CanMaximize="False"`, sin ícono, y con el título centrado mediante `<ui:TitleBar.CenterContent>` asegurando presencia del botón de cierre y preservación del `ControlTemplate`.
@@ -104,6 +108,11 @@ Definidos en [`src/Retail.App/Styles/Colors.xaml`](file:///c:/Users/lucas/Proyec
 | `KeycapPrimaryBackgroundBrush` | `#6B0720` | Fondo carmín oscuro de la tecla rápida en botones primarios (`[F12]`). |
 | `KeycapPrimaryBorderBrush` | `#850C2A` | Borde carmín de la tecla rápida en botones primarios. |
 
+### 6. Elevación
+| Token XAML | Valor Hex | Uso Semántico |
+| :--- | :--- | :--- |
+| `ElevationShadowColor` | `#18181B` | `Color` (no pincel) para `DropShadowEffect` de superficies flotantes: desplegables y popups. Opacidad recomendada 0.18. |
+
 ---
 
 ## 🔤 Jerarquía Tipográfica y Estilos de Texto
@@ -116,8 +125,11 @@ Definidos en [`src/Retail.App/Styles/Typography.xaml`](file:///c:/Users/lucas/Pr
 | `TextBlockHeader2` | Segoe UI Variable | 16 px | SemiBold | Títulos de secciones o tarjetas secundarias. |
 | `TextBlockBody` | Segoe UI Variable | 14 px | Regular | Textos descriptivos, campos de formulario. |
 | `TextBlockCaption` | Segoe UI Variable | 12 px | Regular | Notas al pie, marcas de versión, instrucciones. |
-| `TextBlockDisplayCurrency` | Cascadia Code | 32 px | Bold | **Total gigante de la venta actual (mostrador).** |
-| `TextBlockCurrencyCell` | Cascadia Code | 14 px | SemiBold | Precios unitarios y subtotales en columnas de grillas. |
+| `TextBlockDisplayCurrency` | Segoe UI Variable Display, tabular | 32 px | SemiBold | **Total gigante de la venta actual (mostrador).** |
+| `TextBlockCurrencyLarge` | Segoe UI Variable Display, tabular | 24 px | SemiBold | Importes destacados en modales (saldo deudor, cobranzas). |
+| `TextBlockCurrencyCell` | Segoe UI Variable Display, tabular | 14 px | SemiBold | Precios unitarios y subtotales en columnas de grillas. |
+| `TextBlockNumericCell` | Segoe UI Variable Display, tabular | 13 px | SemiBold | Números de fila, cantidades y stock en grillas. |
+| `TextBlockMonospaceCell` | Cascadia Code | 13 px | SemiBold | Códigos de barras, documentos e identificadores en grillas. |
 | `TextBlockKeycap` | Cascadia Code | 11 px | Bold | Letras de teclas de atajo (`F1`, `F4`, `F12`, `ESC`). |
 
 ---

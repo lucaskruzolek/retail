@@ -123,7 +123,7 @@
                         <TextBlock Text="Leyenda secundaria: Búsqueda indexada por código de barras o descripción." Style="{StaticResource TextBlockCaption}" />
                     </StackPanel>
 
-                    <!-- Caja de Total POS (Monospace) -->
+                    <!-- Caja de Total POS (números tabulares, D-23) -->
                     <Border Grid.Column="1"
                             Background="{DynamicResource PrimaryLightBrush}"
                             BorderBrush="{DynamicResource PrimaryBrush}"
@@ -139,7 +139,7 @@
                                        Style="{StaticResource TextBlockDisplayCurrency}"
                                        Foreground="{DynamicResource PrimaryPressedBrush}"
                                        Margin="0,4,0,0" />
-                            <TextBlock Text="(Alineación decimal fija con Cascadia Code)"
+                            <TextBlock Text="(Alineación decimal con números tabulares de Segoe UI Variable)"
                                        FontSize="10"
                                        Foreground="{DynamicResource TextSecondaryBrush}"
                                        HorizontalAlignment="Right"
@@ -398,6 +398,93 @@
                         <TextBlock Text="Turno Caja Abierto" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource SuccessForegroundBrush}" />
                     </Border>
                 </WrapPanel>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- SECCIÓN 6.1: RESULTADOS DE BÚSQUEDA (Desplegable del POS) -->
+            <!-- ========================================================= -->
+            <TextBlock Text="6.1 Resultados de Búsqueda en Desplegable (SearchResult)"
+                       Style="{StaticResource TextBlockHeader2}"
+                       Margin="0,0,0,12" />
+
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="Superficie flotante con sombra (ElevationShadowColor). La fila seleccionada (teclado o hover) se pinta de carmín completo con textos claros; el resto lleva fondo blanco y separador fino."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12" />
+
+                    <Border Background="{DynamicResource SurfaceCardBrush}"
+                            BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6"
+                            Padding="0,4"
+                            Margin="8,0,8,12"
+                            MaxWidth="520"
+                            HorizontalAlignment="Left">
+                        <Border.Effect>
+                            <DropShadowEffect Color="{StaticResource ElevationShadowColor}"
+                                              Opacity="0.18"
+                                              BlurRadius="16"
+                                              ShadowDepth="4"
+                                              Direction="270" />
+                        </Border.Effect>
+                        <ListBox ItemContainerStyle="{StaticResource SearchResultListBoxItemStyle}"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 Background="Transparent"
+                                 Width="500">
+                            <ListBoxItem IsSelected="True">
+                                <DockPanel LastChildFill="True">
+                                    <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                        <TextBlock Text="$300,00" Style="{StaticResource SearchResultAmountTextStyle}" HorizontalAlignment="Right" />
+                                        <TextBlock Text="Stock: 5" Style="{StaticResource SearchResultMetaTextStyle}" FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular" HorizontalAlignment="Right" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Lápiz HB (fila seleccionada)" Style="{StaticResource SearchResultTitleTextStyle}" />
+                                        <TextBlock Text="7790001" Style="{StaticResource SearchResultMetaTextStyle}" FontFamily="{StaticResource FontFamilyMonospace}" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </ListBoxItem>
+                            <ListBoxItem>
+                                <DockPanel LastChildFill="True">
+                                    <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right">
+                                        <TextBlock Text="$350,00" Style="{StaticResource SearchResultAmountTextStyle}" HorizontalAlignment="Right" />
+                                        <TextBlock Text="Stock: 8" Style="{StaticResource SearchResultMetaTextStyle}" FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular" HorizontalAlignment="Right" />
+                                    </StackPanel>
+                                    <StackPanel>
+                                        <TextBlock Text="Lápiz 2B" Style="{StaticResource SearchResultTitleTextStyle}" />
+                                        <TextBlock Text="7790002" Style="{StaticResource SearchResultMetaTextStyle}" FontFamily="{StaticResource FontFamilyMonospace}" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </ListBoxItem>
+                        </ListBox>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- SECCIÓN 6.2: BOTONES DE ÍCONO                           -->
+            <!-- ========================================================= -->
+            <TextBlock Text="6.2 Botones de Ícono"
+                       Style="{StaticResource TextBlockHeader2}"
+                       Margin="0,0,0,12" />
+
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="IconDangerButtonStyle: eliminar una fila de grilla o lista (ícono gris, rojo en hover). IconPrimarySquareButtonStyle: acción secundaria junto a un botón primario (rosa claro con borde carmín, carmín sólido en hover)."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12" />
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource IconDangerButtonStyle}" ToolTip="Eliminar ítem [Supr]" VerticalAlignment="Center">
+                            <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="16" Height="16" />
+                        </Button>
+                        <Button Style="{StaticResource IconPrimarySquareButtonStyle}" ToolTip="Limpiar venta [F8]" Margin="16,0,0,0">
+                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="22" Height="22" />
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
             </Border>
 
             <!-- ========================================================= -->

@@ -79,7 +79,8 @@
                            Style="{StaticResource TextBlockBodySecondary}"
                            Margin="0,0,0,4" />
                 <ui:TextBox Text="{Binding CantidadOrigen, UpdateSourceTrigger=PropertyChanged}"
-                            FontFamily="{StaticResource FontFamilyMonospace}"
+                            FontFamily="{StaticResource FontFamilyNumeric}"
+                            Typography.NumeralAlignment="Tabular"
                             PlaceholderText="1"
                             Margin="0,0,0,16" />
 
@@ -109,7 +110,8 @@
                         </StackPanel>
                         <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
                                    VerticalAlignment="Top"
-                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                   FontFamily="{StaticResource FontFamilyNumeric}"
+                                   Typography.NumeralAlignment="Tabular"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextPrimaryBrush}">
                             <Run Text="{Binding StockOrigen, Mode=OneWay}" />
@@ -130,7 +132,8 @@
                         </StackPanel>
                         <TextBlock Grid.Row="2" Grid.RowSpan="2" Grid.Column="1"
                                    VerticalAlignment="Top"
-                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                   FontFamily="{StaticResource FontFamilyNumeric}"
+                                   Typography.NumeralAlignment="Tabular"
                                    FontWeight="Bold"
                                    Foreground="{DynamicResource PrimaryBrush}">
                             <Run Text="{Binding StockDerivado, Mode=OneWay}" />

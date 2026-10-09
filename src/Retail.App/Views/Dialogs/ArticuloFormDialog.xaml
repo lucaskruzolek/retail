@@ -275,7 +275,8 @@
                                         <TextBlock Text="{Binding CostoProveedor, StringFormat={}{0:C2}}"
                                                    FontSize="15"
                                                    FontWeight="Bold"
-                                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                                   FontFamily="{StaticResource FontFamilyNumeric}"
+                                                   Typography.NumeralAlignment="Tabular"
                                                    Foreground="{DynamicResource PrimaryBrush}"
                                                    HorizontalAlignment="Right"
                                                    Margin="0,2,0,0" />
@@ -341,7 +342,8 @@
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding CostoReposicion, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
-                                            FontFamily="{StaticResource FontFamilyMonospace}"
+                                            FontFamily="{StaticResource FontFamilyNumeric}"
+                                            Typography.NumeralAlignment="Tabular"
                                             PlaceholderText="0.00" />
                             </StackPanel>
 
@@ -351,7 +353,8 @@
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
-                                            FontFamily="{StaticResource FontFamilyMonospace}"
+                                            FontFamily="{StaticResource FontFamilyNumeric}"
+                                            Typography.NumeralAlignment="Tabular"
                                             PlaceholderText="40.00" />
                             </StackPanel>
                         </Grid>
@@ -385,14 +388,16 @@
                                     <TextBlock Text="$"
                                                FontSize="20"
                                                FontWeight="Bold"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                               Typography.NumeralAlignment="Tabular"
                                                Foreground="{DynamicResource PrimaryBrush}"
                                                Margin="0,0,4,0"
                                                VerticalAlignment="Center" />
                                     <TextBlock Text="{Binding PrecioVentaCalculado, StringFormat={}{0:N2}}"
                                                FontSize="22"
                                                FontWeight="Bold"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
+                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                               Typography.NumeralAlignment="Tabular"
                                                Foreground="{DynamicResource PrimaryBrush}"
                                                VerticalAlignment="Center" />
                                 </StackPanel>
@@ -424,7 +429,8 @@
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding StockActual, UpdateSourceTrigger=PropertyChanged}"
                                             IsEnabled="{Binding ManejaStockFisico}"
-                                            FontFamily="{StaticResource FontFamilyMonospace}"
+                                            FontFamily="{StaticResource FontFamilyNumeric}"
+                                            Typography.NumeralAlignment="Tabular"
                                             PlaceholderText="0" />
                             </StackPanel>
 
@@ -435,7 +441,8 @@
                                            Margin="0,0,0,4" />
                                 <ui:TextBox Text="{Binding StockMinimo, UpdateSourceTrigger=PropertyChanged}"
                                             IsEnabled="{Binding ManejaStockFisico}"
-                                            FontFamily="{StaticResource FontFamilyMonospace}"
+                                            FontFamily="{StaticResource FontFamilyNumeric}"
+                                            Typography.NumeralAlignment="Tabular"
                                             PlaceholderText="5" />
                             </StackPanel>
                         </Grid>

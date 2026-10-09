@@ -38,6 +38,7 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
         builder.Property(cp => cp.DescripcionProveedor)
             .HasColumnName("descripcion_proveedor")
             .HasMaxLength(200)
+            .UseCollation(Cotejamientos.BusquedaEnCastellano)
             .IsRequired();
 
         builder.Property(cp => cp.CostoReposicion)

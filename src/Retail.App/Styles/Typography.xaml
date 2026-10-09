@@ -6,8 +6,12 @@
     <!-- ================================================================= -->
     <FontFamily x:Key="FontFamilyText">Segoe UI Variable Text, Segoe UI, Helvetica Neue, sans-serif</FontFamily>
     <FontFamily x:Key="FontFamilyDisplay">Segoe UI Variable Display, Segoe UI, sans-serif</FontFamily>
+    <!-- Importes, cantidades y stock (D-23): la fuente de la interfaz con Typography.NumeralAlignment="Tabular".
+         Los números tabulares tienen todos el mismo ancho, así que los decimales se alinean igual que con una fuente
+         monoespaciada, sin la estética de código. Todo uso debe declarar también NumeralAlignment="Tabular". -->
+    <FontFamily x:Key="FontFamilyNumeric">Segoe UI Variable Display, Segoe UI, sans-serif</FontFamily>
+    <!-- Códigos (barras, CUIT, documento, proveedor), teclas F1-F12 y textos técnicos: ahí sí es un código -->
     <FontFamily x:Key="FontFamilyMonospace">Cascadia Code, Consolas, Courier New</FontFamily>
-    <FontFamily x:Key="CascadiaCodeFontFamily">Cascadia Code, Consolas, Courier New</FontFamily>
 
     <!-- ================================================================= -->
     <!-- ESCALA TIPOGRÁFICA DE TEXTBLOCK                                   -->
@@ -69,26 +73,29 @@
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
     </Style>
 
-    <!-- Total Gigante para Mostrador POS (32px, Bold, Monospace, alineado a la derecha) -->
+    <!-- Total Gigante para Mostrador POS (32px, SemiBold, números tabulares, alineado a la derecha) -->
     <Style x:Key="TextBlockDisplayCurrency" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
         <Setter Property="FontSize" Value="32" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="TextAlignment" Value="Right" />
     </Style>
 
-    <!-- Importe Destacado / Saldo Deudor para Diálogos y Modales (24px, Bold, Monospace) -->
+    <!-- Importe Destacado / Saldo Deudor para Diálogos y Modales (24px, SemiBold, números tabulares) -->
     <Style x:Key="TextBlockCurrencyLarge" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
         <Setter Property="FontSize" Value="24" />
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
     </Style>
 
-    <!-- Celda de Precios y Subtotales en Grillas (14px, SemiBold, Monospace, alineado verticalmente al centro) -->
+    <!-- Celda de Precios y Subtotales en Grillas (14px, SemiBold, números tabulares, alineado verticalmente al centro) -->
     <Style x:Key="TextBlockCurrencyCell" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -99,6 +106,16 @@
     <!-- Celda Monoespaciada Estándar en Grillas (Códigos de barra, Documentos, IDs - 13px, Cascadia Code) -->
     <Style x:Key="TextBlockMonospaceCell" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Celda Numérica en Grillas (números de fila, cantidades, stock - 13px, SemiBold, números tabulares) -->
+    <Style x:Key="TextBlockNumericCell" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />

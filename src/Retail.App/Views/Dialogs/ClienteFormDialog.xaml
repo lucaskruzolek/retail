@@ -101,6 +101,7 @@
                                            Style="{StaticResource TextBlockBodySecondary}"
                                            Margin="0,0,0,4" />
                                 <ComboBox ItemsSource="{Binding TiposDocumentoDisponibles}"
+                                          ItemTemplate="{StaticResource EnumTextoItemTemplate}"
                                           SelectedItem="{Binding TipoDocumento, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch" />
                             </StackPanel>
@@ -120,6 +121,7 @@
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    Margin="0,0,0,4" />
                         <ComboBox ItemsSource="{Binding CondicionesIvaDisponibles}"
+                                  ItemTemplate="{StaticResource EnumTextoItemTemplate}"
                                   SelectedItem="{Binding CondicionIva, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch" />
                     </StackPanel>
@@ -187,7 +189,8 @@
                                    Margin="0,0,0,4" />
                         <ui:TextBox Text="{Binding LimiteCredito, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:N2}'}"
                                     IsEnabled="{Binding TieneCuentaCorriente}"
-                                    FontFamily="{StaticResource FontFamilyMonospace}"
+                                    FontFamily="{StaticResource FontFamilyNumeric}"
+                                    Typography.NumeralAlignment="Tabular"
                                     PlaceholderText="0.00" />
                         <TextBlock Text="Monto máximo que el cliente puede adeudar por ventas a crédito."
                                    Style="{StaticResource TextBlockBodyMuted}"

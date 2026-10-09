@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -99,6 +101,8 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
     public bool PuedeCobrar => Items.Count > 0 && CajaAbierta;
 
+    public bool TieneItems => Items.Count > 0;
+
     public string OperadorNombre => _session.NombreCompleto;
 
     public PosViewModel(
@@ -114,9 +118,42 @@ public partial class PosViewModel : ObservableObject, IDisposable
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? NullLogger<PosViewModel>.Instance;
 
-        Items.CollectionChanged += (_, _) => RecalcularTotales();
+        Items.CollectionChanged += OnItemsCollectionChanged;
 
         _ = CargarEstadoCajaAsync();
+    }
+
+    /// <summary>
+    /// La cantidad de un ítem ahora también se edita por teclado desde la grilla, sin pasar por los comandos +/-:
+    /// el ViewModel escucha a cada ítem del ticket para recalcular los totales ante cualquier cambio de cantidad.
+    /// </summary>
+    private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.OldItems != null)
+        {
+            foreach (ItemVentaPosViewModel item in e.OldItems)
+            {
+                item.PropertyChanged -= OnItemPropertyChanged;
+            }
+        }
+
+        if (e.NewItems != null)
+        {
+            foreach (ItemVentaPosViewModel item in e.NewItems)
+            {
+                item.PropertyChanged += OnItemPropertyChanged;
+            }
+        }
+
+        RecalcularTotales();
+    }
+
+    private void OnItemPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(ItemVentaPosViewModel.Cantidad) or nameof(ItemVentaPosViewModel.PrecioUnitario))
+        {
+            RecalcularTotales();
+        }
     }
 
     partial void OnClienteChanged(ClienteDto? value)
@@ -486,6 +523,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(Total));
         OnPropertyChanged(nameof(TotalFormateado));
         OnPropertyChanged(nameof(PuedeCobrar));
+        OnPropertyChanged(nameof(TieneItems));
     }
 
     /// <summary>

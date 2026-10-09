@@ -146,6 +146,7 @@
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    Margin="0,0,0,4" />
                         <ComboBox ItemsSource="{Binding MediosPagoDisponibles}"
+                                  ItemTemplate="{StaticResource EnumTextoItemTemplate}"
                                   SelectedItem="{Binding MedioPago, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch"
                                   Margin="0,0,0,12" />
@@ -163,7 +164,8 @@
 
                             <ui:TextBox Grid.Column="0"
                                         Text="{Binding MontoCobro, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:N2}', ConverterCulture='es-AR'}"
-                                        FontFamily="{StaticResource CascadiaCodeFontFamily}"
+                                        FontFamily="{StaticResource FontFamilyNumeric}"
+                                        Typography.NumeralAlignment="Tabular"
                                         FontSize="14"
                                         FontWeight="SemiBold"
                                         PlaceholderText="0,00" />
@@ -200,7 +202,8 @@
                                                Style="{StaticResource TextBlockBodySecondary}"
                                                Margin="0,0,0,4" />
                                     <ui:TextBox Text="{Binding EfectivoRecibido, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:N2}', ConverterCulture='es-AR'}"
-                                                FontFamily="{StaticResource CascadiaCodeFontFamily}"
+                                                FontFamily="{StaticResource FontFamilyNumeric}"
+                                                Typography.NumeralAlignment="Tabular"
                                                 FontSize="13"
                                                 PlaceholderText="0,00" />
                                 </StackPanel>
@@ -215,7 +218,8 @@
                                             CornerRadius="4"
                                             Padding="8,5">
                                         <TextBlock Text="{Binding Vuelto, StringFormat='{}{0:C}', ConverterCulture='es-AR'}"
-                                                   FontFamily="{StaticResource CascadiaCodeFontFamily}"
+                                                   FontFamily="{StaticResource FontFamilyNumeric}"
+                                                   Typography.NumeralAlignment="Tabular"
                                                    FontSize="14"
                                                    FontWeight="Bold"
                                                    Foreground="#107C41"

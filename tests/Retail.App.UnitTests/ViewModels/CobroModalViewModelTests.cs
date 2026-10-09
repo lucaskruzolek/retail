@@ -73,6 +73,85 @@ public class CobroModalViewModelTests
     }
 
     [Fact]
+    public void Efectivo_PrimerBillete_ReemplazaElMontoExactoPrecargado()
+    {
+        // Arrange: el modal precarga el monto exacto como sugerencia
+        var viewModel = new CobroModalViewModel(3500m, null);
+
+        // Act
+        viewModel.SumarCincoMil();
+
+        // Assert
+        viewModel.EfectivoRecibido.Should().Be(5000m);
+        viewModel.Vuelto.Should().Be(1500m);
+    }
+
+    [Fact]
+    public void Efectivo_BilletesSiguientes_SumanAlPrimero()
+    {
+        // Arrange
+        var viewModel = new CobroModalViewModel(3500m, null);
+
+        // Act: el cliente entrega dos billetes de $2.000
+        viewModel.SumarDosMil();
+        viewModel.SumarDosMil();
+
+        // Assert
+        viewModel.EfectivoRecibido.Should().Be(4000m);
+        viewModel.Vuelto.Should().Be(500m);
+    }
+
+    [Fact]
+    public void Efectivo_Exacto_ReiniciaElConteoDeBilletes()
+    {
+        // Arrange
+        var viewModel = new CobroModalViewModel(3500m, null);
+        viewModel.SumarCincoMil();
+
+        // Act
+        viewModel.EstablecerPagoExacto();
+        var recibidoTrasExacto = viewModel.EfectivoRecibido;
+        viewModel.SumarMil();
+
+        // Assert
+        recibidoTrasExacto.Should().Be(3500m);
+        viewModel.EfectivoRecibido.Should().Be(1000m);
+    }
+
+    [Fact]
+    public void Efectivo_MontoTipeadoPorElCajero_LosBilletesLeSuman()
+    {
+        // Arrange
+        var viewModel = new CobroModalViewModel(3500m, null);
+        viewModel.EfectivoRecibido = 3000m;
+
+        // Act
+        viewModel.SumarMil();
+
+        // Assert
+        viewModel.EfectivoRecibido.Should().Be(4000m);
+    }
+
+    [Fact]
+    public void Efectivo_TrasImputarUnPagoParcial_ElPrimerBilleteVuelveAReemplazar()
+    {
+        // Arrange: se imputan $4.000 de un total de $10.000 y queda sugerido el saldo de $6.000
+        var viewModel = new CobroModalViewModel(10000m, null);
+        viewModel.MontoImputar = 4000m;
+        viewModel.SumarCincoMil();
+        viewModel.ImputarPago();
+
+        // Act
+        var sugerido = viewModel.EfectivoRecibido;
+        viewModel.SumarDiezMil();
+
+        // Assert
+        sugerido.Should().Be(6000m);
+        viewModel.EfectivoRecibido.Should().Be(10000m);
+        viewModel.Vuelto.Should().Be(4000m);
+    }
+
+    [Fact]
     public void Efectivo_CalculoVuelto_DebeSerDiferenciaEntreRecibidoYTotal()
     {
         // Arrange

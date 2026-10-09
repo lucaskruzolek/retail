@@ -40,13 +40,15 @@ public partial class CobroModalViewModel : ObservableObject
     private decimal _efectivoRecibido;
 
     [ObservableProperty]
-    private string? _referenciaPago;
-
-    [ObservableProperty]
     private bool _imprimirTicket = true;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneError))]
     private string? _mensajeError;
+
+    // El banner de error enlazaba el string con BooleanToVisibilityConverter, que solo entiende bool y lo ocultaba
+    // siempre: mismo patrón que ArticuloFormViewModel.
+    public bool TieneError => !string.IsNullOrWhiteSpace(MensajeError);
 
     public ObservableCollection<PagoVentaDto> PagosImputados { get; } = new();
 
@@ -103,12 +105,24 @@ public partial class CobroModalViewModel : ObservableObject
         _efectivoRecibido = totalVenta;
     }
 
+    // D-16: el monto exacto precargado es solo una sugerencia. El primer billete lo reemplaza (el cliente entrega
+    // $5.000 para un total de $3.500) y los siguientes suman (dos billetes de $2.000). Si el cajero tipea el monto,
+    // el conteo ya empezó y los billetes suman a lo tipeado.
+    private bool _conteoDeBilletesIniciado;
+    private bool _asignandoSugerencia;
+
+    partial void OnEfectivoRecibidoChanged(decimal value)
+    {
+        if (!_asignandoSugerencia)
+        {
+            _conteoDeBilletesIniciado = true;
+        }
+    }
+
     [RelayCommand]
     public void AgregarMontoEfectivo(decimal monto)
     {
-        EfectivoRecibido += monto;
-        OnPropertyChanged(nameof(Vuelto));
-        OnPropertyChanged(nameof(VueltoFormateado));
+        EfectivoRecibido = _conteoDeBilletesIniciado ? EfectivoRecibido + monto : monto;
     }
 
     [RelayCommand]
@@ -126,12 +140,28 @@ public partial class CobroModalViewModel : ObservableObject
     [RelayCommand]
     public void SumarVeinteMil() => AgregarMontoEfectivo(20000m);
 
+    /// <summary>
+    /// Vuelve al monto exacto y reinicia el conteo: el próximo billete lo reemplaza.
+    /// </summary>
     [RelayCommand]
     public void EstablecerPagoExacto()
     {
-        EfectivoRecibido = MontoImputar;
-        OnPropertyChanged(nameof(Vuelto));
-        OnPropertyChanged(nameof(VueltoFormateado));
+        SugerirEfectivoExacto(MontoImputar);
+    }
+
+    private void SugerirEfectivoExacto(decimal monto)
+    {
+        _asignandoSugerencia = true;
+        try
+        {
+            EfectivoRecibido = monto;
+        }
+        finally
+        {
+            _asignandoSugerencia = false;
+        }
+
+        _conteoDeBilletesIniciado = false;
     }
 
     [RelayCommand]
@@ -173,13 +203,11 @@ public partial class CobroModalViewModel : ObservableObject
         {
             MedioPago = MedioPagoSeleccionado,
             Monto = MontoImputar,
-            ReferenciaPago = string.IsNullOrWhiteSpace(ReferenciaPago) ? null : ReferenciaPago.Trim(),
             MontoRecibido = efectivoRecibidoDto,
             Vuelto = vueltoDto
         };
 
         PagosImputados.Add(pago);
-        ReferenciaPago = null;
 
         ActualizarEstadosDeSaldo();
     }
@@ -215,9 +243,7 @@ public partial class CobroModalViewModel : ObservableObject
         OnPropertyChanged(nameof(PuedeConfirmar));
 
         MontoImputar = SaldoPendiente;
-        EfectivoRecibido = SaldoPendiente;
+        SugerirEfectivoExacto(SaldoPendiente);
         OnPropertyChanged(nameof(MontoImputarFormateado));
-        OnPropertyChanged(nameof(Vuelto));
-        OnPropertyChanged(nameof(VueltoFormateado));
     }
 }

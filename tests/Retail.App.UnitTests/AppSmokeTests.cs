@@ -617,6 +617,16 @@ public class AppSmokeTests
             sessionMock.NombreCompleto.Returns("Administrador General");
             var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, sessionMock, dialogServiceMock);
 
+            // Con un ítem, la grilla genera la fila: cantidad editable y botón de eliminar con sus estilos
+            viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
+            {
+                IdArticulo = 1,
+                Descripcion = "Hoja A4",
+                PrecioVenta = 50m,
+                StockActual = 500,
+                EsServicio = false
+            });
+
             try
             {
                 view = new PosView(viewModel);
@@ -634,6 +644,61 @@ public class AppSmokeTests
         xamlException.Should().BeNull("el XAML de PosView debe resolverse sin errores");
         view.Should().NotBeNull();
         view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PosView_DesplegableConResultadoSeleccionado_ResuelveElEstiloYLaPlantillaDeLaFila()
+    {
+        // Arrange: el contenido de un Popup solo se construye al abrirse, así que el smoke test anterior nunca
+        // generaba las filas del desplegable. Acá se mide el contenido directamente para forzar su construcción.
+        Exception? xamlException = null;
+        bool filaGenerada = false;
+        bool filaSeleccionada = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var ventaServiceMock = Substitute.For<IVentaService>();
+            var cajaServiceMock = Substitute.For<ICajaService>();
+            var sessionMock = Substitute.For<ICurrentUserSession>();
+            var dialogServiceMock = Substitute.For<IVentaDialogService>();
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, sessionMock, dialogServiceMock);
+            viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto
+            {
+                IdArticulo = 1,
+                CodigoBarras = "7790001",
+                Descripcion = "Lápiz HB",
+                PrecioVenta = 300m,
+                StockActual = 5,
+                EsServicio = false
+            });
+            viewModel.IndiceResultadoSeleccionado = 0;
+
+            try
+            {
+                var view = new PosView(viewModel);
+                var popup = (System.Windows.Controls.Primitives.Popup)view.FindName("PopupResultados");
+                var lista = (System.Windows.Controls.ListBox)view.FindName("ListaResultados");
+                var contenido = (System.Windows.FrameworkElement)popup.Child;
+
+                contenido.Measure(new System.Windows.Size(600, 300));
+                contenido.Arrange(new System.Windows.Rect(0, 0, 600, 300));
+                contenido.UpdateLayout();
+
+                // Los objetos de WPF solo se pueden leer desde su hilo STA
+                var fila = lista.ItemContainerGenerator.ContainerFromIndex(0) as System.Windows.Controls.ListBoxItem;
+                filaGenerada = fila != null;
+                filaSeleccionada = fila?.IsSelected == true;
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el estilo y la plantilla de las filas del desplegable deben resolverse");
+        filaGenerada.Should().BeTrue("la fila del resultado debe generarse con su contenedor");
+        filaSeleccionada.Should().BeTrue();
     }
 
     [Fact]
