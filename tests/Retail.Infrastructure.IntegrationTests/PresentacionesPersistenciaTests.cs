@@ -242,7 +242,7 @@ public class PresentacionesPersistenciaTests : IAsyncLifetime, IDisposable
 
     private async Task<CatalogoProveedor> GuardarCatalogoAsync(string codigo)
     {
-        var proveedor = new Proveedor { RazonSocial = "Distribuidora Sur", Cuit = "30-11111111-1" };
+        var proveedor = Proveedor.Crear("Distribuidora Sur", "30-11111111-8");
         _context.Proveedores.Add(proveedor);
         await _context.SaveChangesAsync();
 

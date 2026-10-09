@@ -6,6 +6,7 @@ using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
+using Retail.Application.UnitTests.TestData;
 using Retail.Application.Validators.Proveedores;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
@@ -51,7 +52,7 @@ public class ProveedorServiceTests
         var dto = new CrearProveedorDto
         {
             RazonSocial = "Papelera Central",
-            Cuit = "30-11223344-5",
+            Cuit = "30-11223344-6",
             Telefono = "12345678",
             Email = "ventas@central.com"
         };
@@ -65,11 +66,11 @@ public class ProveedorServiceTests
         // Assert
         resultado.Should().NotBeNull();
         resultado.RazonSocial.Should().Be("Papelera Central");
-        resultado.Cuit.Should().Be("30-11223344-5");
+        resultado.Cuit.Should().Be("30112233446"); // se guarda sin guiones
 
         await _proveedorRepoMock.Received(1).AddAsync(Arg.Is<Proveedor>(p =>
             p.RazonSocial == "Papelera Central" &&
-            p.Cuit == "30-11223344-5"
+            p.Cuit == "30112233446"
         ), Arg.Any<CancellationToken>());
 
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -82,13 +83,13 @@ public class ProveedorServiceTests
         var dto = new CrearProveedorDto
         {
             RazonSocial = "Papelera Duplicada",
-            Cuit = "30-11223344-5"
+            Cuit = "30-11223344-6"
         };
 
         _proveedorRepoMock.FindAsync(Arg.Any<Expression<Func<Proveedor, bool>>>(), false, Arg.Any<CancellationToken>())
             .Returns(new List<Proveedor>
             {
-                new() { RazonSocial = "Ya Existente", Cuit = "30-11223344-5" }
+                Proveedor.Crear("Ya Existente", "30-11223344-6")
             });
 
         // Act
@@ -103,12 +104,7 @@ public class ProveedorServiceTests
     public async Task ActualizarProveedorAsync_ConDatosValidos_ActualizaProveedorYGuarda()
     {
         // Arrange
-        var proveedorExistente = new Proveedor
-        {
-            Id = 5,
-            RazonSocial = "Nombre Anterior",
-            Cuit = "30-99999999-1"
-        };
+        var proveedorExistente = ProveedoresDePrueba.ConId(5, Proveedor.Crear("Nombre Anterior", "30-99999999-5"));
 
         _proveedorRepoMock.GetByIdAsync(5, false, Arg.Any<CancellationToken>())
             .Returns(proveedorExistente);
@@ -116,12 +112,12 @@ public class ProveedorServiceTests
         _proveedorRepoMock.FindAsync(Arg.Any<Expression<Func<Proveedor, bool>>>(), false, Arg.Any<CancellationToken>())
             .Returns(new List<Proveedor>());
 
-        var dto = new ProveedorDto
+        var dto = new ActualizarProveedorDto
         {
             IdProveedor = 5,
             RazonSocial = "Nombre Modificado",
-            Cuit = "30-88888888-2",
-            Telefono = "456789",
+            Cuit = "30-88888888-4",
+            Telefono = "4567-8901",
             Email = "nuevo@email.com"
         };
 
@@ -130,7 +126,8 @@ public class ProveedorServiceTests
 
         // Assert
         proveedorExistente.RazonSocial.Should().Be("Nombre Modificado");
-        proveedorExistente.Cuit.Should().Be("30-88888888-2");
+        proveedorExistente.Cuit.Should().Be("30888888884");
+        proveedorExistente.Telefono.Should().Be("45678901");
         await _proveedorRepoMock.Received(1).UpdateAsync(proveedorExistente, Arg.Any<CancellationToken>());
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -139,12 +136,7 @@ public class ProveedorServiceTests
     public async Task EliminarProveedorAsync_ConIdValido_MarcaComoEliminado()
     {
         // Arrange
-        var proveedor = new Proveedor
-        {
-            Id = 3,
-            RazonSocial = "Proveedor a Borrar",
-            Cuit = "30-33333333-3"
-        };
+        var proveedor = ProveedoresDePrueba.ConId(3, Proveedor.Crear("Proveedor a Borrar", "33-33333333-9"));
 
         _proveedorRepoMock.GetByIdAsync(3, false, Arg.Any<CancellationToken>())
             .Returns(proveedor);
@@ -326,7 +318,7 @@ public class ProveedorServiceTests
         IReadOnlyList<string>? filasDescartadasPorParser = null)
     {
         _proveedorRepoMock.GetByIdAsync(1, false, Arg.Any<CancellationToken>())
-            .Returns(new Proveedor { Id = 1 });
+            .Returns(ProveedoresDePrueba.ConId(1, Proveedor.Crear("Distribuidora Mayorista", "30712345671")));
 
         var parseo = new ResultadoParseoCatalogoDto
         {
@@ -741,5 +733,38 @@ public class ProveedorServiceTests
             .Returns(llamada => articulos
                 .Where(llamada.Arg<Expression<Func<Articulo, bool>>>().Compile())
                 .ToList());
+    }
+
+    [Fact]
+    public async Task CrearProveedorAsync_CuitConGuionesYaRegistradoSinGuiones_LoDetectaComoDuplicado()
+    {
+        // Arrange: regresión de P-1. El proveedor existente se guardó como "20123456786" y el nuevo se escribe con
+        // guiones; antes la búsqueda probaba "20123456786" y "20-12345678-6" contra un valor guardado crudo y,
+        // según cómo se hubiera escrito el primero, no lo encontraba.
+        var dto = new CrearProveedorDto { RazonSocial = "Distribuidora Sur", Cuit = "20-12345678-6" };
+        var yaRegistrado = Proveedor.Crear("Distribuidora Sur", "20123456786");
+
+        Expression<Func<Proveedor, bool>>? filtro = null;
+        _proveedorRepoMock.FindAsync(Arg.Do<Expression<Func<Proveedor, bool>>>(f => filtro = f), false, Arg.Any<CancellationToken>())
+            .Returns(callInfo => filtro!.Compile()(yaRegistrado) ? new List<Proveedor> { yaRegistrado } : new List<Proveedor>());
+
+        // Act
+        var act = async () => await _service.CrearProveedorAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*20123456786*");
+        await _proveedorRepoMock.DidNotReceive().AddAsync(Arg.Any<Proveedor>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("30-11223344-5")]
+    [InlineData("11111111111")]
+    public async Task CrearProveedorAsync_CuitConDigitoVerificadorIncorrecto_LanzaValidationException(string cuit)
+    {
+        // Act
+        var act = async () => await _service.CrearProveedorAsync(new CrearProveedorDto { RazonSocial = "Papelera Central", Cuit = cuit });
+
+        // Assert
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>().WithMessage("*CUIT*");
     }
 }

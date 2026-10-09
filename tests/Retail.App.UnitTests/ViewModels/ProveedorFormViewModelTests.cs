@@ -106,7 +106,7 @@ public class ProveedorFormViewModelTests
         await _sut.GuardarCommand.ExecuteAsync(null);
 
         // Assert
-        await _proveedorService.Received(1).ActualizarProveedorAsync(Arg.Is<ProveedorDto>(d =>
+        await _proveedorService.Received(1).ActualizarProveedorAsync(Arg.Is<ActualizarProveedorDto>(d =>
             d.IdProveedor == 10 &&
             d.RazonSocial == "Distribuidora Modificada" &&
             d.Telefono == "123456"

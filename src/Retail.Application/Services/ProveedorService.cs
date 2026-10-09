@@ -4,7 +4,9 @@ using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.Application.Services;
@@ -23,7 +25,7 @@ public class ProveedorService : IProveedorService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IExcelCatalogParser _excelCatalogParser;
     private readonly IValidator<CrearProveedorDto> _crearProveedorValidator;
-    private readonly IValidator<ProveedorDto> _actualizarProveedorValidator;
+    private readonly IValidator<ActualizarProveedorDto> _actualizarProveedorValidator;
     private readonly IValidator<MapeoColumnasDto> _mapeoColumnasValidator;
     private readonly IValidator<IncorporarCatalogoArticulosDto> _incorporarArticulosValidator;
 
@@ -34,7 +36,7 @@ public class ProveedorService : IProveedorService
         IUnitOfWork unitOfWork,
         IExcelCatalogParser excelCatalogParser,
         IValidator<CrearProveedorDto> crearProveedorValidator,
-        IValidator<ProveedorDto> actualizarProveedorValidator,
+        IValidator<ActualizarProveedorDto> actualizarProveedorValidator,
         IValidator<MapeoColumnasDto> mapeoColumnasValidator,
         IValidator<IncorporarCatalogoArticulosDto> incorporarArticulosValidator)
     {
@@ -85,19 +87,20 @@ public class ProveedorService : IProveedorService
     {
         await _crearProveedorValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
-        string cuitLimpio = dto.Cuit.Replace("-", "").Trim();
+        // El CUIT se guarda siempre como 11 dígitos, así que basta una comparación con la forma canónica. Antes
+        // se guardaba tal como se escribía y "20-12345678-6" no coincidía con "20123456786" (P-1).
+        string cuitNormalizado = ReglasDocumento.Normalizar(TipoDocumentoEnum.Cuit, dto.Cuit);
         var existentes = await _proveedorRepository.FindAsync(
-            p => p.Cuit == cuitLimpio || p.Cuit == dto.Cuit.Trim(),
+            p => p.Cuit == cuitNormalizado,
             includeDeleted: false,
             cancellationToken);
 
         if (existentes.Count > 0)
         {
-            throw new DomainException($"Ya existe un proveedor activo registrado con el CUIT {dto.Cuit}.");
+            throw new DomainException($"Ya existe un proveedor activo registrado con el CUIT {cuitNormalizado}.");
         }
 
-        var proveedor = new Proveedor();
-        proveedor.ActualizarDatos(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
+        var proveedor = Proveedor.Crear(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
 
         await _proveedorRepository.AddAsync(proveedor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -112,7 +115,7 @@ public class ProveedorService : IProveedorService
         };
     }
 
-    public async Task ActualizarProveedorAsync(ProveedorDto dto, CancellationToken cancellationToken = default)
+    public async Task ActualizarProveedorAsync(ActualizarProveedorDto dto, CancellationToken cancellationToken = default)
     {
         await _actualizarProveedorValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
@@ -122,15 +125,15 @@ public class ProveedorService : IProveedorService
             throw new DomainException($"No se encontró el proveedor con ID {dto.IdProveedor}.");
         }
 
-        string cuitLimpio = dto.Cuit.Replace("-", "").Trim();
+        string cuitNormalizado = ReglasDocumento.Normalizar(TipoDocumentoEnum.Cuit, dto.Cuit);
         var existentes = await _proveedorRepository.FindAsync(
-            p => (p.Cuit == cuitLimpio || p.Cuit == dto.Cuit.Trim()) && p.Id != dto.IdProveedor,
+            p => p.Cuit == cuitNormalizado && p.Id != dto.IdProveedor,
             includeDeleted: false,
             cancellationToken);
 
         if (existentes.Count > 0)
         {
-            throw new DomainException($"Ya existe otro proveedor activo registrado con el CUIT {dto.Cuit}.");
+            throw new DomainException($"Ya existe otro proveedor activo registrado con el CUIT {cuitNormalizado}.");
         }
 
         proveedor.ActualizarDatos(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);

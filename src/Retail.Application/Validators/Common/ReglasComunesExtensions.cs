@@ -116,4 +116,24 @@ public static class ReglasComunesExtensions
                 $"Revise el teléfono: debe contener entre {ReglasContacto.DigitosMinimosTelefono} y " +
                 $"{ReglasContacto.DigitosMaximosTelefono} dígitos; se admiten espacios, guiones, paréntesis y un '+' inicial.");
     }
+
+    /// <param name="campo">Nombre del campo con su artículo, tal como aparece en el mensaje.</param>
+    public static IRuleBuilderOptions<T, string> RazonSocial<T>(this IRuleBuilder<T, string> ruleBuilder, string campo)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage($"Complete {campo}.")
+            .Must(valor => ReglasTexto.EsRazonSocialValida(valor))
+            .WithMessage(
+                $"Revise {campo}: debe contener al menos una letra y solo admite letras, números y la puntuación " +
+                $". , & ' - ( ) / º ª °, entre {ReglasTexto.LongitudMinimaRazonSocial} y " +
+                $"{ReglasTexto.LongitudMaximaRazonSocial} caracteres.");
+    }
+
+    public static IRuleBuilderOptions<T, string> Cuit<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("Complete el CUIT.")
+            .Must(valor => ReglasDocumento.EsCuitValido(valor))
+            .WithMessage($"Revise el CUIT: no es un {ReglasDocumento.DescribirFormato(TipoDocumentoEnum.Cuit)}.");
+    }
 }

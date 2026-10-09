@@ -506,14 +506,8 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     public async Task Proveedor_CuitDuplicadoConSoftDelete_DebePermitirRecreacionPorIndiceFiltrado()
     {
         // Arrange
-        const string cuitCompartido = "30-71234567-9";
-        var prov1 = new Proveedor
-        {
-            RazonSocial = "Proveedor Original",
-            Cuit = cuitCompartido,
-            Telefono = "123456",
-            Email = "original@test.com"
-        };
+        const string cuitCompartido = "30712345671"; // forma canónica: así se guarda y se consulta
+        var prov1 = Proveedor.Crear("Proveedor Original", cuitCompartido, telefono: "12345678", email: "original@test.com");
         await _context.Proveedores.AddAsync(prov1);
         await _context.SaveChangesAsync();
 
@@ -522,13 +516,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         // Act 2: Crear un nuevo proveedor activo con el mismo CUIT
-        var prov2 = new Proveedor
-        {
-            RazonSocial = "Proveedor Recreado",
-            Cuit = cuitCompartido,
-            Telefono = "654321",
-            Email = "recreado@test.com"
-        };
+        var prov2 = Proveedor.Crear("Proveedor Recreado", cuitCompartido, telefono: "87654321", email: "recreado@test.com");
         await _context.Proveedores.AddAsync(prov2);
         var act = async () => await _context.SaveChangesAsync();
 
@@ -549,11 +537,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     public async Task CatalogoProveedor_CodigoDuplicadoMismoProveedor_DebeFallarPorIndiceCompuesto()
     {
         // Arrange
-        var proveedor = new Proveedor
-        {
-            RazonSocial = "Distribuidora Mayorista Test",
-            Cuit = $"30-{Random.Shared.Next(10000000, 99999999)}-0"
-        };
+        var proveedor = Proveedor.Crear("Distribuidora Mayorista Test", ClientesDePrueba.SiguienteCuit());
         await _context.Proveedores.AddAsync(proveedor);
         await _context.SaveChangesAsync();
 
@@ -589,11 +573,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     public async Task CatalogoProveedorQueryService_ArticuloTiendaNoVinculadoConMismoEan_DebeMarcarCoincideConArticuloTiendaTrue()
     {
         // Arrange
-        var proveedor = new Proveedor
-        {
-            RazonSocial = "Distribuidora Papelera Austral",
-            Cuit = $"30-{Random.Shared.Next(10000000, 99999999)}-9"
-        };
+        var proveedor = Proveedor.Crear("Distribuidora Papelera Austral", ClientesDePrueba.SiguienteCuit());
         await _context.Proveedores.AddAsync(proveedor);
         await _context.SaveChangesAsync();
 

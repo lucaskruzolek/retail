@@ -13,7 +13,7 @@ public interface IProveedorService
 
     Task<ProveedorDto> CrearProveedorAsync(CrearProveedorDto dto, CancellationToken cancellationToken = default);
 
-    Task ActualizarProveedorAsync(ProveedorDto dto, CancellationToken cancellationToken = default);
+    Task ActualizarProveedorAsync(ActualizarProveedorDto dto, CancellationToken cancellationToken = default);
 
     Task BajaProveedorAsync(int idProveedor, CancellationToken cancellationToken = default);
 
