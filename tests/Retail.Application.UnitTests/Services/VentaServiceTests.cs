@@ -485,7 +485,7 @@ public class VentaServiceTests
     }
 
     [Fact]
-    public async Task RegistrarVentaAsync_ConflictoDeConcurrenciaAlGuardar_DescartaLosCambiosYPropagaLaExcepcion()
+    public async Task RegistrarVentaAsync_ConflictoDeConcurrenciaAlGuardar_PropagaLaExcepcionSinImprimir()
     {
         // Arrange
         var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
@@ -497,9 +497,8 @@ public class VentaServiceTests
         // Act
         var act = () => _sut.RegistrarVentaAsync(CrearDto([Item(cuaderno, 1)], [Pago(MedioPagoEnum.Efectivo, 1500m)]));
 
-        // Assert
+        // Assert: el descarte de los cambios lo garantiza la Unit of Work (UnitOfWorkIntegrationTests)
         await act.Should().ThrowAsync<ConflictoDeConcurrenciaException>();
-        _unitOfWork.Received(1).DescartarCambios();
         await _ticketPrinterService.DidNotReceiveWithAnyArgs().ImprimirTicketVentaAsync(default!, default);
     }
 

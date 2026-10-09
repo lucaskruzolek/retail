@@ -28,9 +28,17 @@ public class UnitOfWork : IUnitOfWork
         }
         catch (DbUpdateConcurrencyException ex)
         {
+            DescartarCambios();
             throw new ConflictoDeConcurrenciaException(
                 "Otro usuario modificó los mismos datos mientras se procesaba la operación. Vuelva a intentarlo.",
                 ex);
+        }
+        catch
+        {
+            // La base revirtió la transacción, pero el contexto vive mientras dura la pantalla (H-19): sin limpiarlo,
+            // los cambios rechazados se guardarían con la próxima operación exitosa.
+            DescartarCambios();
+            throw;
         }
     }
 
@@ -58,7 +66,8 @@ public class UnitOfWork : IUnitOfWork
 
         try
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            // El SaveChangesAsync propio, no el del contexto: traduce los conflictos y descarta los cambios si falla.
+            await SaveChangesAsync(cancellationToken);
             await _currentTransaction.CommitAsync(cancellationToken);
         }
         catch

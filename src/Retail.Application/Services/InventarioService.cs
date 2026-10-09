@@ -440,20 +440,11 @@ public class InventarioService : IInventarioService
         var unidadesObtenidas = ServicioFraccionamiento.Fraccionar(origen, derivado, dto.CantidadOrigen);
 
         // Dos agregados en un único SaveChanges: la transacción implícita de EF Core guarda
-        // los dos stocks o ninguno (RF-21).
+        // los dos stocks o ninguno (RF-21). Si falla, la Unit of Work descarta los stocks modificados, que desde el
+        // POS comparten el contexto con la venta.
         await _articuloRepository.UpdateAsync(origen, cancellationToken);
         await _articuloRepository.UpdateAsync(derivado, cancellationToken);
-        try
-        {
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
-        }
-        catch
-        {
-            // Desde el POS, el fraccionamiento comparte el contexto con la venta: un stock modificado y no guardado
-            // (por ejemplo, por un conflicto de concurrencia) se guardaría con la venta siguiente (Ley 9).
-            _unitOfWork.DescartarCambios();
-            throw;
-        }
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return unidadesObtenidas;
     }

@@ -180,29 +180,39 @@ public class ClienteService : IClienteService
             throw new InvalidOperationException($"Ya existe otro cliente activo registrado con el número de documento '{documentoSanitizado}'.");
         }
 
-        cliente.ActualizarDatos(
-            dto.RazonSocialONombre,
-            dto.TipoDocumento,
-            documentoSanitizado,
-            dto.CondicionIva,
-            dto.DomicilioFiscal,
-            dto.Telefono,
-            dto.Email);
-
-        if (dto.TieneCuentaCorriente)
+        try
         {
-            if (!cliente.TieneCuentaCorriente)
+            cliente.ActualizarDatos(
+                dto.RazonSocialONombre,
+                dto.TipoDocumento,
+                documentoSanitizado,
+                dto.CondicionIva,
+                dto.DomicilioFiscal,
+                dto.Telefono,
+                dto.Email);
+
+            if (dto.TieneCuentaCorriente)
             {
-                cliente.HabilitarCuentaCorriente(dto.LimiteCredito);
+                if (!cliente.TieneCuentaCorriente)
+                {
+                    cliente.HabilitarCuentaCorriente(dto.LimiteCredito);
+                }
+                else
+                {
+                    cliente.ModificarLimiteCredito(dto.LimiteCredito);
+                }
             }
-            else
+            else if (cliente.TieneCuentaCorriente)
             {
-                cliente.ModificarLimiteCredito(dto.LimiteCredito);
+                cliente.DeshabilitarCuentaCorriente();
             }
         }
-        else if (cliente.TieneCuentaCorriente)
+        catch
         {
-            cliente.DeshabilitarCuentaCorriente();
+            // El Dominio puede rechazar la cuenta corriente (por ejemplo, un límite menor a la deuda) después de que
+            // ActualizarDatos ya modificó el cliente: se descarta para que no se guarde con la próxima operación.
+            _unitOfWork.DescartarCambios();
+            throw;
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -279,7 +289,17 @@ public class ClienteService : IClienteService
             dto.MedioPago,
             dto.Referencia);
 
-        await _cajaService.RegistrarIngresoCobranzaAsync(dto.IdTurno, dto.Monto, dto.MedioPago, cancellationToken);
+        try
+        {
+            await _cajaService.RegistrarIngresoCobranzaAsync(dto.IdTurno, dto.Monto, dto.MedioPago, cancellationToken);
+        }
+        catch
+        {
+            // La cobranza ya redujo la deuda del cliente: si la caja la rechaza (por ejemplo, porque otra terminal
+            // cerró el turno), se descarta para que no se guarde con la próxima operación.
+            _unitOfWork.DescartarCambios();
+            throw;
+        }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
