@@ -10,6 +10,7 @@ Este módulo recopila material de estudio, matrices comparativas, justificacione
 | :--- | :--- | :--- | :--- |
 | **Preguntas Trampa de Profesores** | Cuestionario riguroso de 10 preguntas desafiantes organizadas en 5 bloques temáticos (Arquitectura, Persistencia, Concurrencia/UI, DDD y Resiliencia). | Demostrar comprensión de los fundamentos teóricos (Fowler, Evans, Martin, Deutsch) y responder con autoridad frente a preguntas capciosas de la mesa examinadora. | [Ver Artículo](preguntas-trampa-de-profesores.md) |
 | **Matriz de Trade-offs y Decisiones** | Análisis comparativo formal basado en el método ATAM y el estándar ISO/IEC 25010 a través de 7 matrices de decisión técnica. | Explicar por qué se eligió cada tecnología frente a las alternativas descartadas (WPF vs Web, Monolito vs Microservicios, LocalDB vs SQLite, EF Core vs Dapper, etc.). | [Ver Artículo](matriz-tradeoffs-arquitectura.md) |
+| **Normalización y Validación de Datos Maestros** | Informe de la corrección pedida por la cátedra: causa raíz (modelo anémico y reglas triplicadas), reglas únicas en el Dominio, 1FN/3FN en Usuarios, bug de CUIT duplicado, migraciones probadas contra LocalDB y 10 preguntas de defensa con respuesta modelo. | Defender por qué la regla vive en la Raíz de Agregado, cómo se valida un CUIT y qué garantiza cada capa (defensa en profundidad). | [Ver Artículo](normalizacion-y-validacion-de-datos-maestros.md) |
 
 ---
 
