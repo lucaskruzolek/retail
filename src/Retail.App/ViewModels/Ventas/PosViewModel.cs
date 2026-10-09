@@ -2,8 +2,10 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FluentValidation;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
@@ -12,8 +14,10 @@ using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.DTOs.Ventas;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Ventas;
 
@@ -28,6 +32,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
     private readonly IVentaService _ventaService;
     private readonly ICajaService _cajaService;
+    private readonly IInventarioService _inventarioService;
     private readonly ICurrentUserSession _session;
     private readonly IVentaDialogService _dialogService;
     private readonly ILogger<PosViewModel> _logger;
@@ -108,12 +113,14 @@ public partial class PosViewModel : ObservableObject, IDisposable
     public PosViewModel(
         IVentaService ventaService,
         ICajaService cajaService,
+        IInventarioService inventarioService,
         ICurrentUserSession session,
         IVentaDialogService dialogService,
         ILogger<PosViewModel>? logger = null)
     {
         _ventaService = ventaService ?? throw new ArgumentNullException(nameof(ventaService));
         _cajaService = cajaService ?? throw new ArgumentNullException(nameof(cajaService));
+        _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? NullLogger<PosViewModel>.Instance;
@@ -385,10 +392,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
         if (confirma)
         {
-            Items.Clear();
-            Descuento = 0m;
-            Cliente = null;
-            RecalcularTotales();
+            VaciarTicket();
         }
     }
 
@@ -406,10 +410,12 @@ public partial class PosViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var pagos = await _dialogService.MostrarCobroModalAsync(Total, Cliente);
-        if (pagos == null || pagos.Count == 0)
+        // Sin turno o sin usuario la venta no se puede imputar: no se inventa un valor por defecto.
+        if (TurnoActivo is not { } turno || _session.IdUsuario is not int idUsuario)
         {
-            // Operación cancelada por el cajero
+            _dialogService.MostrarAlerta(
+                "Sesión incompleta",
+                "No se pudo identificar el turno de caja o el usuario de la sesión. Vuelva a cargar el estado de la caja o a iniciar sesión.");
             return;
         }
 
@@ -417,30 +423,50 @@ public partial class PosViewModel : ObservableObject, IDisposable
         {
             IsBusy = true;
 
+            if (!await PrepararTicketParaCobroAsync())
+            {
+                return;
+            }
+
+            IsBusy = false;
+            var pagos = await _dialogService.MostrarCobroModalAsync(Total, Cliente);
+            if (pagos == null || pagos.Count == 0)
+            {
+                // Operación cancelada por el cajero
+                return;
+            }
+
+            IsBusy = true;
             var crearVentaDto = new CrearVentaDto
             {
-                IdTurno = TurnoActivo?.IdTurno ?? 1,
-                IdUsuario = _session.IdUsuario ?? 1,
+                IdTurno = turno.IdTurno,
+                IdUsuario = idUsuario,
                 IdCliente = Cliente?.IdCliente,
                 Descuento = Descuento,
-                Items = Items.Select(i => new DetalleVentaDto
-                {
-                    IdArticulo = i.IdArticulo,
-                    CodigoBarras = i.CodigoBarras,
-                    Descripcion = i.Descripcion,
-                    Cantidad = i.Cantidad,
-                    PrecioUnitario = i.PrecioUnitario
-                }).ToList(),
+                Items = CrearDetallesDelTicket(),
                 Pagos = pagos
             };
 
-            await _ventaService.RegistrarVentaAsync(crearVentaDto);
-
-            // Venta completada con éxito: limpiar mostrador
-            Items.Clear();
-            Descuento = 0m;
-            Cliente = null;
-            RecalcularTotales();
+            var (completado, _) = await EjecutarEnFilaAsync(token => _ventaService.RegistrarVentaAsync(crearVentaDto, token));
+            if (completado)
+            {
+                VaciarTicket();
+            }
+        }
+        catch (ValidationException ex)
+        {
+            _dialogService.MostrarAlerta("Venta no registrada", string.Join("\n", ex.Errors.Select(e => e.ErrorMessage)));
+        }
+        catch (ConflictoDeConcurrenciaException ex)
+        {
+            // Otra terminal vendió o modificó los mismos artículos: el ticket se conserva para reintentar.
+            _dialogService.MostrarAlerta("Datos actualizados por otra terminal", ex.Message);
+        }
+        catch (DomainException ex)
+        {
+            // Regla de negocio (stock, límite de crédito, precio cambiado): es información para el cajero, no una
+            // falla del sistema. El ticket se conserva.
+            _dialogService.MostrarAlerta("Venta no registrada", ex.Message);
         }
         catch (Exception ex)
         {
@@ -451,6 +477,172 @@ public partial class PosViewModel : ObservableObject, IDisposable
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// Verifica el ticket contra el catálogo antes de abrir el cobro: actualiza los precios que cambiaron (D-14),
+    /// frena si hay artículos dados de baja o sin stock, y ofrece fraccionar las presentaciones (RF-10, D-13).
+    /// Es una ayuda para el cajero; RegistrarVentaAsync vuelve a validar todo al confirmar.
+    /// </summary>
+    /// <returns><c>false</c> si el cobro no puede continuar.</returns>
+    private async Task<bool> PrepararTicketParaCobroAsync()
+    {
+        var detalles = CrearDetallesDelTicket();
+        var (completado, verificacion) = await EjecutarEnFilaAsync(token => _ventaService.VerificarTicketAsync(detalles, token));
+        if (!completado)
+        {
+            return false;
+        }
+
+        if (verificacion.ArticulosNoDisponibles.Count > 0)
+        {
+            _dialogService.MostrarAlerta(
+                "Artículos dados de baja",
+                "Quite del ticket los siguientes artículos, que ya no están disponibles:\n" +
+                string.Join("\n", verificacion.ArticulosNoDisponibles.Select(d => $"• {d}")));
+            return false;
+        }
+
+        if (verificacion.PreciosActualizados.Count > 0)
+        {
+            AplicarPreciosActualizados(verificacion.PreciosActualizados);
+        }
+
+        // Si algún faltante no se puede cubrir, se informan todos y no se fracciona nada: abrir un pack para una venta
+        // que igual no se va a poder cobrar dejaría stock movido sin motivo.
+        var sinSolucion = verificacion.Faltantes.Where(f => !f.PuedeFraccionar).ToList();
+        if (sinSolucion.Count > 0)
+        {
+            _dialogService.MostrarAlerta(
+                "Stock insuficiente",
+                string.Join("\n", sinSolucion.Select(DescribirFaltante)));
+            return false;
+        }
+
+        foreach (var faltante in verificacion.Faltantes)
+        {
+            if (!await OfrecerFraccionarAsync(faltante))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void AplicarPreciosActualizados(IReadOnlyList<PrecioActualizadoDto> preciosActualizados)
+    {
+        foreach (var cambio in preciosActualizados)
+        {
+            var item = Items.FirstOrDefault(i => i.IdArticulo == cambio.IdArticulo);
+            if (item != null)
+            {
+                item.PrecioUnitario = cambio.PrecioActual;
+            }
+        }
+
+        RecalcularTotales();
+
+        _dialogService.MostrarAlerta(
+            "Precios actualizados",
+            "Los siguientes precios cambiaron en el catálogo y se actualizaron en el ticket:\n" +
+            string.Join("\n", preciosActualizados.Select(c =>
+                $"• {c.Descripcion}: {c.PrecioAnterior.ToString("C2", CulturaArgentina)} → {c.PrecioActual.ToString("C2", CulturaArgentina)}")) +
+            $"\n\nNuevo total: {TotalFormateado}");
+    }
+
+    /// <summary>
+    /// RF-10: el POS ofrece fraccionar el origen, pero no lo hace sin la confirmación del cajero.
+    /// </summary>
+    private async Task<bool> OfrecerFraccionarAsync(FaltanteStockDto faltante)
+    {
+        int unidadesQueSeSuman = faltante.OrigenesAFraccionar * (faltante.UnidadesPorOrigen ?? 0);
+        bool confirma = _dialogService.Confirmar(
+            "Fraccionar presentación",
+            $"Faltan {faltante.Faltante} de '{faltante.Descripcion}' (hay {faltante.StockActual}).\n\n" +
+            $"¿Abrir {faltante.OrigenesAFraccionar} de '{faltante.DescripcionOrigen}' (quedan {faltante.StockOrigen})? " +
+            $"Se sumarán {unidadesQueSeSuman} unidades.");
+
+        if (!confirma)
+        {
+            return false;
+        }
+
+        var fraccionar = new FraccionarDto
+        {
+            IdArticuloDerivado = faltante.IdArticulo,
+            CantidadOrigen = faltante.OrigenesAFraccionar
+        };
+        var (completado, unidadesObtenidas) = await EjecutarEnFilaAsync(token => _inventarioService.FraccionarAsync(fraccionar, token));
+        if (!completado)
+        {
+            return false;
+        }
+
+        var item = Items.FirstOrDefault(i => i.IdArticulo == faltante.IdArticulo);
+        if (item != null)
+        {
+            item.StockActual = faltante.StockActual + unidadesObtenidas;
+        }
+
+        return true;
+    }
+
+    private static string DescribirFaltante(FaltanteStockDto faltante)
+    {
+        string detalle = $"• {faltante.Descripcion}: se piden {faltante.CantidadSolicitada} y hay {faltante.StockActual}.";
+
+        if (faltante.OrigenesAFraccionar > 0 && faltante.DescripcionOrigen != null)
+        {
+            detalle += $" Tampoco alcanza fraccionando: harían falta {faltante.OrigenesAFraccionar} de '{faltante.DescripcionOrigen}' y quedan {faltante.StockOrigen}.";
+        }
+
+        return detalle;
+    }
+
+    private List<DetalleVentaDto> CrearDetallesDelTicket()
+    {
+        return Items.Select(i => new DetalleVentaDto
+        {
+            IdArticulo = i.IdArticulo,
+            CodigoBarras = i.CodigoBarras,
+            Descripcion = i.Descripcion,
+            Cantidad = i.Cantidad,
+            PrecioUnitario = i.PrecioUnitario
+        }).ToList();
+    }
+
+    private void VaciarTicket()
+    {
+        Items.Clear();
+        Descuento = 0m;
+        Cliente = null;
+        RecalcularTotales();
+    }
+
+    /// <summary>
+    /// Ejecuta un acceso a datos del cobro en la fila de la pantalla, para no usar el DbContext al mismo tiempo que
+    /// una búsqueda (H-19), y fuera del hilo de la UI (Ley 4). Convierte los callbacks de <see cref="CargaSerializada"/>
+    /// en un flujo secuencial: relanza el error para que lo trate quien llama.
+    /// </summary>
+    /// <returns><c>Completado = false</c> si la pantalla se descartó y el acceso se canceló.</returns>
+    private async Task<(bool Completado, T Resultado)> EjecutarEnFilaAsync<T>(Func<CancellationToken, Task<T>> acceso)
+    {
+        bool completado = false;
+        T resultado = default!;
+        ExceptionDispatchInfo? error = null;
+
+        await _accesoDatos.EjecutarOperacionAsync(
+            token => Task.Run(() => acceso(token), token),
+            valor =>
+            {
+                resultado = valor;
+                completado = true;
+            },
+            ex => error = ExceptionDispatchInfo.Capture(ex));
+
+        error?.Throw();
+        return (completado, resultado);
     }
 
     [RelayCommand]

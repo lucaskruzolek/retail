@@ -1,13 +1,16 @@
 using FluentAssertions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.App.ViewModels.Ventas;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.DTOs.Ventas;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
@@ -16,6 +19,7 @@ public class PosViewModelTests
 {
     private readonly IVentaService _ventaServiceMock;
     private readonly ICajaService _cajaServiceMock;
+    private readonly IInventarioService _inventarioServiceMock;
     private readonly ICurrentUserSession _sessionMock;
     private readonly IVentaDialogService _dialogServiceMock;
 
@@ -23,6 +27,7 @@ public class PosViewModelTests
     {
         _ventaServiceMock = Substitute.For<IVentaService>();
         _cajaServiceMock = Substitute.For<ICajaService>();
+        _inventarioServiceMock = Substitute.For<IInventarioService>();
         _sessionMock = Substitute.For<ICurrentUserSession>();
         _dialogServiceMock = Substitute.For<IVentaDialogService>();
 
@@ -43,6 +48,8 @@ public class PosViewModelTests
             TotalVentasElectronicas = 0m,
             Estado = EstadoTurnoEnum.Abierto
         });
+
+        ConfigurarVerificacion(VerificacionSinNovedades());
     }
 
     /// <summary>
@@ -51,7 +58,7 @@ public class PosViewModelTests
     /// </summary>
     private async Task<PosViewModel> CrearViewModelAsync()
     {
-        var viewModel = new PosViewModel(_ventaServiceMock, _cajaServiceMock, _sessionMock, _dialogServiceMock);
+        var viewModel = new PosViewModel(_ventaServiceMock, _cajaServiceMock, _inventarioServiceMock, _sessionMock, _dialogServiceMock);
         await viewModel.CargarEstadoCajaAsync().WaitAsync(TimeSpan.FromSeconds(5));
         return viewModel;
     }
@@ -424,7 +431,7 @@ public class PosViewModelTests
         _dialogServiceMock.MostrarCobroModalAsync(5000m, Arg.Any<ClienteDto?>())
             .Returns(pagos);
 
-        _ventaServiceMock.RegistrarVentaAsync(Arg.Any<CrearVentaDto>())
+        _ventaServiceMock.RegistrarVentaAsync(Arg.Any<CrearVentaDto>(), Arg.Any<CancellationToken>())
             .Returns(new VentaResponseDto
             {
                 IdVenta = 123,
@@ -444,8 +451,262 @@ public class PosViewModelTests
 
         // Assert
         await _ventaServiceMock.Received(1).RegistrarVentaAsync(Arg.Is<CrearVentaDto>(dto =>
-            dto.Items.Count == 1));
+            dto.Items.Count == 1 && dto.IdTurno == 1 && dto.IdUsuario == 2), Arg.Any<CancellationToken>());
         viewModel.Items.Should().BeEmpty();
         viewModel.Total.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_SinUsuarioEnSesion_MuestraAlertaYNoRegistraConUnUsuarioInventado()
+    {
+        // Arrange
+        _sessionMock.IdUsuario.Returns((int?)null);
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Libro", 5000m));
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).MostrarAlerta("Sesión incompleta", Arg.Any<string>());
+        await _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarCobroModalAsync(default, default);
+        await _ventaServiceMock.DidNotReceiveWithAnyArgs().RegistrarVentaAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_FaltaStockDeUnArticuloDeCompra_MuestraAlertaYNoAbreElCobro()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Libro", 5000m));
+        ConfigurarVerificacion(VerificacionSinNovedades() with
+        {
+            Faltantes = [new FaltanteStockDto { IdArticulo = 1, Descripcion = "Libro", CantidadSolicitada = 1, StockActual = 0 }]
+        });
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).MostrarAlerta("Stock insuficiente", Arg.Is<string>(m => m.Contains("Libro")));
+        _dialogServiceMock.DidNotReceiveWithAnyArgs().Confirmar(default!, default!);
+        await _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarCobroModalAsync(default, default);
+        viewModel.Items.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_FaltanSueltosYElCajeroAceptaFraccionar_FraccionaElMinimoYAbreElCobro()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(20, "Sobre (unidad)", 50m, stock: 2));
+        viewModel.Items[0].Cantidad = 5;
+        ConfigurarVerificacion(VerificacionSinNovedades() with { Faltantes = [FaltanteDeSobres(stockOrigen: 4)] });
+        _dialogServiceMock.Confirmar("Fraccionar presentación", Arg.Any<string>()).Returns(true);
+        _inventarioServiceMock.FraccionarAsync(Arg.Any<FraccionarDto>(), Arg.Any<CancellationToken>()).Returns(100);
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        await _inventarioServiceMock.Received(1).FraccionarAsync(
+            Arg.Is<FraccionarDto>(f => f.IdArticuloDerivado == 20 && f.CantidadOrigen == 1),
+            Arg.Any<CancellationToken>());
+        viewModel.Items[0].StockActual.Should().Be(102);
+        await _dialogServiceMock.Received(1).MostrarCobroModalAsync(250m, Arg.Any<ClienteDto?>());
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_FaltanSueltosYElCajeroRechazaFraccionar_NoFraccionaNiAbreElCobro()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(20, "Sobre (unidad)", 50m, stock: 2));
+        viewModel.Items[0].Cantidad = 5;
+        ConfigurarVerificacion(VerificacionSinNovedades() with { Faltantes = [FaltanteDeSobres(stockOrigen: 4)] });
+        _dialogServiceMock.Confirmar("Fraccionar presentación", Arg.Any<string>()).Returns(false);
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        await _inventarioServiceMock.DidNotReceiveWithAnyArgs().FraccionarAsync(default!, default);
+        await _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarCobroModalAsync(default, default);
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_PresentacionYArticuloSinSolucion_NoOfreceFraccionarNada()
+    {
+        // Arrange: si una venta no se puede cobrar igual, abrir un pack moverá stock sin motivo
+        var viewModel = await CrearViewModelConTicketAsync(
+            Articulo(20, "Sobre (unidad)", 50m, stock: 2),
+            Articulo(1, "Libro", 5000m));
+        ConfigurarVerificacion(VerificacionSinNovedades() with
+        {
+            Faltantes =
+            [
+                FaltanteDeSobres(stockOrigen: 4),
+                new FaltanteStockDto { IdArticulo = 1, Descripcion = "Libro", CantidadSolicitada = 1, StockActual = 0 }
+            ]
+        });
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).MostrarAlerta("Stock insuficiente", Arg.Any<string>());
+        _dialogServiceMock.DidNotReceiveWithAnyArgs().Confirmar(default!, default!);
+        await _inventarioServiceMock.DidNotReceiveWithAnyArgs().FraccionarAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_PrecioCambiadoEnElCatalogo_ActualizaElTicketYCobraElNuevoTotal()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Libro", 5000m));
+        ConfigurarVerificacion(VerificacionSinNovedades() with
+        {
+            PreciosActualizados =
+            [
+                new PrecioActualizadoDto { IdArticulo = 1, Descripcion = "Libro", PrecioAnterior = 5000m, PrecioActual = 5500m }
+            ]
+        });
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        viewModel.Items[0].PrecioUnitario.Should().Be(5500m);
+        _dialogServiceMock.Received(1).MostrarAlerta("Precios actualizados", Arg.Is<string>(m => m.Contains("Libro")));
+        await _dialogServiceMock.Received(1).MostrarCobroModalAsync(5500m, Arg.Any<ClienteDto?>());
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_ArticuloDadoDeBaja_MuestraAlertaYNoAbreElCobro()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Libro", 5000m));
+        ConfigurarVerificacion(VerificacionSinNovedades() with { ArticulosNoDisponibles = ["Libro"] });
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).MostrarAlerta("Artículos dados de baja", Arg.Is<string>(m => m.Contains("Libro")));
+        await _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarCobroModalAsync(default, default);
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_ConflictoDeConcurrencia_MuestraAlertaYConservaElTicket()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConTicketYPagoAsync();
+        _ventaServiceMock
+            .RegistrarVentaAsync(Arg.Any<CrearVentaDto>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ConflictoDeConcurrenciaException());
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).MostrarAlerta("Datos actualizados por otra terminal", Arg.Any<string>());
+        _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarError(default!, default!);
+        viewModel.Items.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_ReglaDeNegocioRechazada_MuestraAlertaYNoUnErrorDelSistema()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConTicketYPagoAsync();
+        _ventaServiceMock
+            .RegistrarVentaAsync(Arg.Any<CrearVentaDto>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new LimiteCreditoExcedidoException("Límite de crédito excedido."));
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).MostrarAlerta("Venta no registrada", "Límite de crédito excedido.");
+        _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarError(default!, default!);
+        viewModel.Items.Should().ContainSingle();
+        viewModel.IsBusy.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_ErrorInesperado_MuestraErrorYConservaElTicket()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConTicketYPagoAsync();
+        _ventaServiceMock
+            .RegistrarVentaAsync(Arg.Any<CrearVentaDto>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Se perdió la conexión"));
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).MostrarError("Error de Cobro", "Se perdió la conexión");
+        viewModel.Items.Should().ContainSingle();
+    }
+
+    private async Task<PosViewModel> CrearViewModelConTicketAsync(params ArticuloVentaDto[] articulos)
+    {
+        var viewModel = await CrearViewModelAsync();
+        viewModel.CajaAbierta = true;
+        foreach (var articulo in articulos)
+        {
+            viewModel.AgregarArticuloAlTicket(articulo);
+        }
+
+        return viewModel;
+    }
+
+    private async Task<PosViewModel> CrearViewModelConTicketYPagoAsync()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Libro", 5000m));
+        _dialogServiceMock.MostrarCobroModalAsync(5000m, Arg.Any<ClienteDto?>())
+            .Returns(new List<PagoVentaDto> { new() { MedioPago = MedioPagoEnum.Efectivo, Monto = 5000m } });
+        return viewModel;
+    }
+
+    private static ArticuloVentaDto Articulo(int id, string descripcion, decimal precio, int stock = 10)
+    {
+        return new ArticuloVentaDto
+        {
+            IdArticulo = id,
+            Descripcion = descripcion,
+            PrecioVenta = precio,
+            StockActual = stock,
+            EsServicio = false
+        };
+    }
+
+    private static FaltanteStockDto FaltanteDeSobres(int stockOrigen)
+    {
+        return new FaltanteStockDto
+        {
+            IdArticulo = 20,
+            Descripcion = "Sobre (unidad)",
+            CantidadSolicitada = 5,
+            StockActual = 2,
+            DescripcionOrigen = "Sobre (pack x100)",
+            UnidadesPorOrigen = 100,
+            StockOrigen = stockOrigen,
+            OrigenesAFraccionar = 1
+        };
+    }
+
+    private static VerificacionTicketDto VerificacionSinNovedades()
+    {
+        return new VerificacionTicketDto
+        {
+            PreciosActualizados = [],
+            Faltantes = [],
+            ArticulosNoDisponibles = []
+        };
+    }
+
+    private void ConfigurarVerificacion(VerificacionTicketDto verificacion)
+    {
+        _ventaServiceMock
+            .VerificarTicketAsync(Arg.Any<IReadOnlyList<DetalleVentaDto>>(), Arg.Any<CancellationToken>())
+            .Returns(verificacion);
     }
 }

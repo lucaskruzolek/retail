@@ -117,6 +117,100 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task BuscarParaVentaAsync_MasCoincidenciasQueElLimite_DevuelveLasPrimerasPorDescripcionSinTracking()
+    {
+        // Arrange
+        _context.Articulos.AddRange(
+            CrearArticulo("Lápiz HB", codigoBarras: "501"),
+            CrearArticulo("Lápiz 2B", codigoBarras: "502"),
+            CrearArticulo("Lápiz de color", codigoBarras: "503"),
+            CrearArticulo("Goma", codigoBarras: "504"));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.BuscarParaVentaAsync("Lápiz", limite: 2);
+
+        // Assert: el límite y el orden se aplican en SQL; el contexto no queda siguiendo entidades
+        resultado.Select(a => a.Descripcion).Should().Equal("Lápiz 2B", "Lápiz de color");
+        _context.ChangeTracker.Entries().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ObtenerParaVentaPorCodigoBarrasAsync_CodigoExacto_DevuelveSoloEseArticulo()
+    {
+        // Arrange
+        _context.Articulos.AddRange(
+            CrearArticulo("Resma A4", codigoBarras: "7791234567890"),
+            CrearArticulo("Resma Oficio", codigoBarras: "77912345678901"));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.ObtenerParaVentaPorCodigoBarrasAsync("7791234567890");
+        var inexistente = await _sut.ObtenerParaVentaPorCodigoBarrasAsync("000");
+
+        // Assert
+        resultado!.Descripcion.Should().Be("Resma A4");
+        inexistente.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerDisponibilidadAsync_PresentacionYArticuloBorrado_DevuelveDatosDelOrigenYExcluyeElBorrado()
+    {
+        // Arrange
+        var pack = CrearArticulo("Sobre (pack x100)", stock: 4);
+        var borrado = CrearArticulo("Cuaderno discontinuado", stock: 9);
+        _context.Articulos.AddRange(pack, borrado);
+        await _context.SaveChangesAsync();
+
+        var unidad = CrearArticulo("Sobre (unidad)", stock: 2);
+        unidad.DefinirComoPresentacionDe(pack, 100);
+        _context.Articulos.Add(unidad);
+        borrado.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.ObtenerDisponibilidadAsync([unidad.Id, pack.Id, borrado.Id]);
+
+        // Assert
+        resultado.Should().HaveCount(2);
+        var disponibilidadUnidad = resultado.Single(d => d.IdArticulo == unidad.Id);
+        disponibilidadUnidad.StockActual.Should().Be(2);
+        disponibilidadUnidad.DescripcionOrigen.Should().Be("Sobre (pack x100)");
+        disponibilidadUnidad.UnidadesPorOrigen.Should().Be(100);
+        disponibilidadUnidad.StockOrigen.Should().Be(4);
+        resultado.Single(d => d.IdArticulo == pack.Id).StockOrigen.Should().BeNull();
+        _context.ChangeTracker.Entries().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ObtenerDisponibilidadAsync_OrigenDadoDeBaja_DevuelveElOrigenNulo()
+    {
+        // Arrange: la regla 8 de RF-21 impide esta situación desde la aplicación, pero la consulta no debe
+        // ofrecer fraccionar un origen borrado si los datos llegaran a quedar así.
+        var pack = CrearArticulo("Sobre (pack x100)", stock: 4);
+        _context.Articulos.Add(pack);
+        await _context.SaveChangesAsync();
+
+        var unidad = CrearArticulo("Sobre (unidad)", stock: 0);
+        unidad.DefinirComoPresentacionDe(pack, 100);
+        _context.Articulos.Add(unidad);
+        pack.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.ObtenerDisponibilidadAsync([unidad.Id]);
+
+        // Assert
+        var disponibilidad = resultado.Should().ContainSingle().Subject;
+        disponibilidad.DescripcionOrigen.Should().BeNull();
+        disponibilidad.StockOrigen.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ObtenerArticulosPaginadosAsync_TerminoSinAcentos_EncuentraLaDescripcionAcentuadaYRespetaLaEnie()
     {
         // Arrange: ARTICULOS.descripcion usa Modern_Spanish_CI_AI (la misma columna que busca el POS)
@@ -135,5 +229,19 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         sinAcentos.Items.Should().ContainSingle(a => a.Descripcion == "Lápiz Negro HB");
         conEnie.Items.Should().ContainSingle(a => a.Descripcion == "Agenda Año 2027");
         sinEnie.Items.Should().BeEmpty("en castellano la ñ es una letra distinta de la n");
+    }
+
+    private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int stock = 10)
+    {
+        return new Articulo
+        {
+            CodigoBarras = codigoBarras,
+            Descripcion = descripcion,
+            CostoReposicion = 100,
+            PorcentajeGanancia = 50,
+            PrecioVenta = 150,
+            StockActual = stock,
+            StockMinimo = 1
+        };
     }
 }

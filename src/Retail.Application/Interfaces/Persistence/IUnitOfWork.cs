@@ -18,9 +18,10 @@ public interface IUnitOfWork : IDisposable
     Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Descarta todos los cambios pendientes en memoria (entidades agregadas o modificadas que no se guardaron).
+    /// Descarta todos los cambios pendientes en memoria y deja de seguir las entidades cargadas.
     /// Se invoca cuando falla un guardado: como el contexto vive mientras dura la pantalla, sin esto los cambios
-    /// rechazados se guardarían junto con la próxima operación exitosa.
+    /// rechazados se guardarían junto con la próxima operación exitosa. Después de un guardado exitoso libera las
+    /// entidades para que la próxima operación lea datos frescos (D-15).
     /// </summary>
     void DescartarCambios();
 }

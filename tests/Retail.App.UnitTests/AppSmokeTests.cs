@@ -613,9 +613,10 @@ public class AppSmokeTests
             var cajaServiceMock = Substitute.For<ICajaService>();
             var sessionMock = Substitute.For<ICurrentUserSession>();
             var dialogServiceMock = Substitute.For<IVentaDialogService>();
+            var inventarioServiceMock = Substitute.For<IInventarioService>();
 
             sessionMock.NombreCompleto.Returns("Administrador General");
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, sessionMock, dialogServiceMock);
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock);
 
             // Con un ítem, la grilla genera la fila: cantidad editable y botón de eliminar con sus estilos
             viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
@@ -661,7 +662,8 @@ public class AppSmokeTests
             var cajaServiceMock = Substitute.For<ICajaService>();
             var sessionMock = Substitute.For<ICurrentUserSession>();
             var dialogServiceMock = Substitute.For<IVentaDialogService>();
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, sessionMock, dialogServiceMock);
+            var inventarioServiceMock = Substitute.For<IInventarioService>();
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock);
             viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto
             {
                 IdArticulo = 1,

@@ -1,7 +1,9 @@
 using System.Linq.Expressions;
 using FluentAssertions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.Validators.Articulos;
@@ -505,6 +507,25 @@ public class InventarioServiceTests
         origen.StockActual.Should().Be(1);
         derivado.StockActual.Should().Be(3);
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FraccionarAsync_FallaElGuardado_DescartaLosCambiosYPropagaLaExcepcion()
+    {
+        // Arrange
+        var origen = CrearOrigen(stock: 5);
+        var derivado = CrearDerivado(origen, stock: 3);
+        PrepararTienda(origen, derivado);
+        _unitOfWork
+            .SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ConflictoDeConcurrenciaException());
+
+        // Act
+        var act = () => _sut.FraccionarAsync(new FraccionarDto { IdArticuloDerivado = 2, CantidadOrigen = 2 });
+
+        // Assert
+        await act.Should().ThrowAsync<ConflictoDeConcurrenciaException>();
+        _unitOfWork.Received(1).DescartarCambios();
     }
 
     [Fact]

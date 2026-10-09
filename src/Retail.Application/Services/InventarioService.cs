@@ -443,7 +443,17 @@ public class InventarioService : IInventarioService
         // los dos stocks o ninguno (RF-21).
         await _articuloRepository.UpdateAsync(origen, cancellationToken);
         await _articuloRepository.UpdateAsync(derivado, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch
+        {
+            // Desde el POS, el fraccionamiento comparte el contexto con la venta: un stock modificado y no guardado
+            // (por ejemplo, por un conflicto de concurrencia) se guardaría con la venta siguiente (Ley 9).
+            _unitOfWork.DescartarCambios();
+            throw;
+        }
 
         return unidadesObtenidas;
     }
