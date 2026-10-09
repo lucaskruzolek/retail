@@ -11,6 +11,7 @@ using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
+using Retail.Infrastructure.Persistence.Services;
 using Xunit;
 
 namespace Retail.Infrastructure.IntegrationTests.Services;
@@ -198,6 +199,7 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
     {
         return new VentaService(
             new Repository<Articulo>(context),
+            new ArticuloQueryService(context),
             new Repository<Venta>(context),
             new Repository<TurnoCaja>(context),
             new Repository<Cliente>(context),

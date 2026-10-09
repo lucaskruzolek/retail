@@ -613,9 +613,10 @@ public class AppSmokeTests
             var cajaServiceMock = Substitute.For<ICajaService>();
             var sessionMock = Substitute.For<ICurrentUserSession>();
             var dialogServiceMock = Substitute.For<IVentaDialogService>();
+            var inventarioServiceMock = Substitute.For<IInventarioService>();
 
             sessionMock.NombreCompleto.Returns("Administrador General");
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, sessionMock, dialogServiceMock);
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock);
 
             try
             {

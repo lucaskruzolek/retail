@@ -23,6 +23,7 @@ public class VentaServiceTests
     private const int IdCliente = 3;
 
     private readonly IRepository<Articulo> _articuloRepository;
+    private readonly IArticuloQueryService _articuloQueryService;
     private readonly IRepository<Venta> _ventaRepository;
     private readonly IRepository<TurnoCaja> _turnoRepository;
     private readonly IRepository<Cliente> _clienteRepository;
@@ -34,6 +35,7 @@ public class VentaServiceTests
     public VentaServiceTests()
     {
         _articuloRepository = Substitute.For<IRepository<Articulo>>();
+        _articuloQueryService = Substitute.For<IArticuloQueryService>();
         _ventaRepository = Substitute.For<IRepository<Venta>>();
         _turnoRepository = Substitute.For<IRepository<TurnoCaja>>();
         _clienteRepository = Substitute.For<IRepository<Cliente>>();
@@ -46,6 +48,7 @@ public class VentaServiceTests
 
         _sut = new VentaService(
             _articuloRepository,
+            _articuloQueryService,
             _ventaRepository,
             _turnoRepository,
             _clienteRepository,
@@ -83,6 +86,175 @@ public class VentaServiceTests
         resultado.Total.Should().Be(4500m);
         resultado.ClienteNombre.Should().Be("Consumidor Final");
         await _ticketPrinterService.Received(1).ImprimirTicketVentaAsync(resultado, Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_PreciosYStockVigentes_NoInformaNada()
+    {
+        // Arrange
+        ConfigurarDisponibilidad(Disponibilidad(10, "Cuaderno", precio: 1500m, stock: 8));
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(10, "Cuaderno", cantidad: 8, precio: 1500m)]);
+
+        // Assert
+        resultado.PreciosActualizados.Should().BeEmpty();
+        resultado.Faltantes.Should().BeEmpty();
+        resultado.ArticulosNoDisponibles.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_PrecioCambiadoEnElCatalogo_InformaPrecioAnteriorYActual()
+    {
+        // Arrange
+        ConfigurarDisponibilidad(Disponibilidad(10, "Cuaderno", precio: 1800m, stock: 8));
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(10, "Cuaderno", cantidad: 1, precio: 1500m)]);
+
+        // Assert
+        var cambio = resultado.PreciosActualizados.Should().ContainSingle().Subject;
+        cambio.PrecioAnterior.Should().Be(1500m);
+        cambio.PrecioActual.Should().Be(1800m);
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_FaltaStockDeUnArticuloDeCompra_InformaFaltanteSinFraccionar()
+    {
+        // Arrange
+        ConfigurarDisponibilidad(Disponibilidad(10, "Cuaderno", precio: 1500m, stock: 2));
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(10, "Cuaderno", cantidad: 5, precio: 1500m)]);
+
+        // Assert
+        var faltante = resultado.Faltantes.Should().ContainSingle().Subject;
+        faltante.Faltante.Should().Be(3);
+        faltante.OrigenesAFraccionar.Should().Be(0);
+        faltante.PuedeFraccionar.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_FaltanSueltosYHayPacks_InformaElMinimoDePacksAFraccionar()
+    {
+        // Arrange: faltan 3 sobres sueltos; el pack trae 100 y hay 4 packs
+        ConfigurarDisponibilidad(Disponibilidad(20, "Sobre (unidad)", precio: 50m, stock: 2) with
+        {
+            IdArticuloOrigen = 21,
+            DescripcionOrigen = "Sobre (pack x100)",
+            UnidadesPorOrigen = 100,
+            StockOrigen = 4
+        });
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(20, "Sobre (unidad)", cantidad: 5, precio: 50m)]);
+
+        // Assert
+        var faltante = resultado.Faltantes.Should().ContainSingle().Subject;
+        faltante.OrigenesAFraccionar.Should().Be(1);
+        faltante.PuedeFraccionar.Should().BeTrue();
+        faltante.DescripcionOrigen.Should().Be("Sobre (pack x100)");
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_FaltanSueltosYNoAlcanzanLosPacks_InformaQueNoSePuedeFraccionar()
+    {
+        // Arrange: faltan 250 sueltos (3 packs) y hay 2 packs
+        ConfigurarDisponibilidad(Disponibilidad(20, "Sobre (unidad)", precio: 50m, stock: 0) with
+        {
+            IdArticuloOrigen = 21,
+            DescripcionOrigen = "Sobre (pack x100)",
+            UnidadesPorOrigen = 100,
+            StockOrigen = 2
+        });
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(20, "Sobre (unidad)", cantidad: 250, precio: 50m)]);
+
+        // Assert
+        var faltante = resultado.Faltantes.Should().ContainSingle().Subject;
+        faltante.OrigenesAFraccionar.Should().Be(3);
+        faltante.PuedeFraccionar.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_PresentacionConOrigenDadoDeBaja_NoOfreceFraccionar()
+    {
+        // Arrange: la proyección devuelve el origen nulo cuando está dado de baja
+        ConfigurarDisponibilidad(Disponibilidad(20, "Sobre (unidad)", precio: 50m, stock: 0) with
+        {
+            IdArticuloOrigen = 21,
+            UnidadesPorOrigen = 100
+        });
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(20, "Sobre (unidad)", cantidad: 1, precio: 50m)]);
+
+        // Assert
+        resultado.Faltantes.Single().PuedeFraccionar.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_ServicioSinStock_NoEsFaltante()
+    {
+        // Arrange
+        ConfigurarDisponibilidad(Disponibilidad(12, "Fotocopia", precio: 50m, stock: 0) with { EsServicio = true });
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(12, "Fotocopia", cantidad: 10, precio: 50m)]);
+
+        // Assert
+        resultado.Faltantes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_ArticuloDadoDeBaja_LoInformaComoNoDisponible()
+    {
+        // Arrange
+        ConfigurarDisponibilidad();
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(10, "Cuaderno", cantidad: 1, precio: 1500m)]);
+
+        // Assert
+        resultado.ArticulosNoDisponibles.Should().ContainSingle().Which.Should().Be("Cuaderno");
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_ArticuloRepetido_VerificaLaCantidadTotal()
+    {
+        // Arrange
+        ConfigurarDisponibilidad(Disponibilidad(10, "Cuaderno", precio: 1500m, stock: 5));
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync(
+            [ItemDto(10, "Cuaderno", cantidad: 3, precio: 1500m), ItemDto(10, "Cuaderno", cantidad: 3, precio: 1500m)]);
+
+        // Assert
+        resultado.Faltantes.Should().ContainSingle().Which.CantidadSolicitada.Should().Be(6);
+    }
+
+    [Fact]
+    public async Task BuscarPorTextoAsync_TerminoConEspacios_DelegaEnLaConsultaSinTracking()
+    {
+        // Act
+        await _sut.BuscarPorTextoAsync("  cuaderno ", 10);
+
+        // Assert
+        await _articuloQueryService.Received(1).BuscarParaVentaAsync("cuaderno", 10, Arg.Any<CancellationToken>());
+        await _articuloRepository.DidNotReceiveWithAnyArgs().FindAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task BuscarPorTextoAsync_TerminoVacio_NoConsultaLaBase()
+    {
+        // Act
+        var resultado = await _sut.BuscarPorTextoAsync("   ");
+
+        // Assert
+        resultado.Should().BeEmpty();
+        await _articuloQueryService.DidNotReceiveWithAnyArgs().BuscarParaVentaAsync(default!, default, default);
     }
 
     [Fact]
@@ -359,6 +531,36 @@ public class VentaServiceTests
         _articuloRepository
             .FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
             .Returns(articulos);
+    }
+
+    private void ConfigurarDisponibilidad(params DisponibilidadArticuloDto[] disponibilidades)
+    {
+        _articuloQueryService
+            .ObtenerDisponibilidadAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(disponibilidades);
+    }
+
+    private static DisponibilidadArticuloDto Disponibilidad(int id, string descripcion, decimal precio, int stock)
+    {
+        return new DisponibilidadArticuloDto
+        {
+            IdArticulo = id,
+            Descripcion = descripcion,
+            PrecioVenta = precio,
+            StockActual = stock,
+            EsServicio = false
+        };
+    }
+
+    private static DetalleVentaDto ItemDto(int idArticulo, string descripcion, int cantidad, decimal precio)
+    {
+        return new DetalleVentaDto
+        {
+            IdArticulo = idArticulo,
+            Descripcion = descripcion,
+            Cantidad = cantidad,
+            PrecioUnitario = precio
+        };
     }
 
     private Cliente ConfigurarClienteConCuentaCorriente(decimal limiteCredito)
