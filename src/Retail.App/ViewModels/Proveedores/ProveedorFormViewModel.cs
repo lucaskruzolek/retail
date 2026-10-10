@@ -86,7 +86,7 @@ public partial class ProveedorFormViewModel : ObservableObject
         {
             if (EsModoEdicion)
             {
-                var dto = new ProveedorDto
+                var dto = new ActualizarProveedorDto
                 {
                     IdProveedor = IdProveedor,
                     RazonSocial = RazonSocial,

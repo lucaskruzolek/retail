@@ -1,5 +1,5 @@
-using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
+using FluentValidation;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Domain.Enums;
 
@@ -7,12 +7,11 @@ namespace Retail.App.ViewModels.Usuarios;
 
 /// <summary>
 /// ViewModel para el diálogo modal de creación o edición de operadores del sistema.
+/// No replica las reglas de negocio: las valida <c>UsuarioService</c> con los validadores de Application, que a
+/// su vez reutilizan las reglas del Dominio. Acá solo se controla lo que el servicio no puede ver.
 /// </summary>
 public partial class UsuarioFormViewModel : ObservableObject
 {
-    [GeneratedRegex(@"^[a-zA-Z0-9_\.]+$")]
-    private static partial Regex UsernameRegex();
-
     [ObservableProperty]
     private int _idUsuario;
 
@@ -20,10 +19,16 @@ public partial class UsuarioFormViewModel : ObservableObject
     private string _nombreUsuario = string.Empty;
 
     [ObservableProperty]
-    private string _nombreCompleto = string.Empty;
+    private string _nombre = string.Empty;
+
+    [ObservableProperty]
+    private string _apellido = string.Empty;
 
     [ObservableProperty]
     private string _password = string.Empty;
+
+    [ObservableProperty]
+    private string _confirmarPassword = string.Empty;
 
     [ObservableProperty]
     private RolUsuarioEnum _rol = RolUsuarioEnum.Cajero;
@@ -66,8 +71,10 @@ public partial class UsuarioFormViewModel : ObservableObject
         EsModoEdicion = false;
         IdUsuario = 0;
         NombreUsuario = string.Empty;
-        NombreCompleto = string.Empty;
+        Nombre = string.Empty;
+        Apellido = string.Empty;
         Password = string.Empty;
+        ConfirmarPassword = string.Empty;
         Rol = RolUsuarioEnum.Cajero;
         MensajeError = null;
         IsBusy = false;
@@ -80,63 +87,51 @@ public partial class UsuarioFormViewModel : ObservableObject
         EsModoEdicion = true;
         IdUsuario = usuario.IdUsuario;
         NombreUsuario = usuario.NombreUsuario;
-        NombreCompleto = usuario.NombreCompleto;
+        Nombre = usuario.Nombre;
+        Apellido = usuario.Apellido;
         Password = string.Empty;
+        ConfirmarPassword = string.Empty;
         Rol = usuario.Rol;
         MensajeError = null;
         IsBusy = false;
         OnGuardarAsync = null;
     }
 
+    /// <summary>
+    /// Control previo al envío. La confirmación de la contraseña es una ayuda de la interfaz contra errores de
+    /// tipeo: no viaja en el DTO, así que es lo único que el servicio no puede validar.
+    /// </summary>
     public bool Validar()
     {
         MensajeError = null;
 
-        var username = NombreUsuario.Trim();
-        if (string.IsNullOrWhiteSpace(username) || username.Length < 3)
+        if (EsAlta && Password != ConfirmarPassword)
         {
-            MensajeError = "El nombre de usuario debe contener al menos 3 caracteres.";
-            return false;
-        }
-
-        if (username.Length > 50)
-        {
-            MensajeError = "El nombre de usuario no puede exceder 50 caracteres.";
-            return false;
-        }
-
-        if (!UsernameRegex().IsMatch(username))
-        {
-            MensajeError = "El nombre de usuario solo puede contener letras, números, puntos o guiones bajos (sin espacios).";
-            return false;
-        }
-
-        var nombreCompleto = NombreCompleto.Trim();
-        if (string.IsNullOrWhiteSpace(nombreCompleto) || nombreCompleto.Length < 3)
-        {
-            MensajeError = "El nombre completo debe contener al menos 3 caracteres.";
-            return false;
-        }
-
-        if (nombreCompleto.Length > 100)
-        {
-            MensajeError = "El nombre completo no puede exceder 100 caracteres.";
-            return false;
-        }
-
-        if (!EsModoEdicion && (string.IsNullOrWhiteSpace(Password) || Password.Length < 6))
-        {
-            MensajeError = "La contraseña debe contener al menos 6 caracteres.";
+            MensajeError = "Las contraseñas ingresadas no coinciden.";
             return false;
         }
 
         return true;
     }
 
+    /// <summary>
+    /// Muestra el error devuelto por el servicio. Una <see cref="ValidationException"/> trae todos los campos
+    /// inválidos a la vez, y se listan uno por línea en lugar del texto técnico de su propiedad Message.
+    /// </summary>
+    public void InformarError(Exception ex)
+    {
+        ArgumentNullException.ThrowIfNull(ex);
+
+        MensajeError = ex is ValidationException validacion && validacion.Errors.Any()
+            ? string.Join("\n", validacion.Errors.Select(e => e.ErrorMessage).Distinct())
+            : ex.Message;
+    }
+
     public CrearUsuarioDto ObtenerCrearDto() => new()
     {
-        NombreUsuario = NombreUsuario.Trim(),
-        NombreCompleto = NombreCompleto.Trim(),
+        NombreUsuario = NombreUsuario,
+        Nombre = Nombre,
+        Apellido = Apellido,
         Password = Password,
         Rol = Rol
     };
@@ -144,7 +139,8 @@ public partial class UsuarioFormViewModel : ObservableObject
     public ModificarUsuarioDto ObtenerModificarDto() => new()
     {
         IdUsuario = IdUsuario,
-        NombreCompleto = NombreCompleto.Trim(),
+        Nombre = Nombre,
+        Apellido = Apellido,
         Rol = Rol
     };
 }

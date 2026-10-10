@@ -28,6 +28,14 @@ public partial class UsuarioFormDialog : Wpf.Ui.Controls.FluentWindow
         }
     }
 
+    private void TxtConfirmarPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is Wpf.Ui.Controls.PasswordBox pb)
+        {
+            ViewModel.ConfirmarPassword = pb.Password;
+        }
+    }
+
     private void TxtNombreUsuario_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Space)
@@ -78,7 +86,7 @@ public partial class UsuarioFormDialog : Wpf.Ui.Controls.FluentWindow
             }
             catch (Exception ex)
             {
-                ViewModel.MensajeError = ex.Message;
+                ViewModel.InformarError(ex);
             }
             finally
             {

@@ -1,64 +1,110 @@
 using FluentAssertions;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 using Xunit;
 
 namespace Retail.Domain.UnitTests.Entities;
 
 public class UsuarioTests
 {
-    [Fact]
-    public void ActualizarDatos_ValoresValidos_ActualizaNombreCompletoERol()
+    private static Usuario CrearOperador(RolUsuarioEnum rol = RolUsuarioEnum.Cajero)
     {
-        // Arrange
-        var usuario = new Usuario
-        {
-            NombreUsuario = "operador",
-            NombreCompleto = "Operador Inicial",
-            IdRol = (int)RolUsuarioEnum.Cajero
-        };
+        return Usuario.Crear("operador", "Juan", "Pérez", "hash_inicial", rol);
+    }
 
+    [Fact]
+    public void Crear_DatosSinFormato_NormalizaLoginNombreYApellido()
+    {
         // Act
-        usuario.ActualizarDatos("Operador Modificado", (int)RolUsuarioEnum.Encargado);
+        var usuario = Usuario.Crear("  JPerez ", "  juan   CARLOS ", "de la FUENTE", "hash", RolUsuarioEnum.Encargado);
 
         // Assert
-        usuario.NombreCompleto.Should().Be("Operador Modificado");
+        usuario.NombreUsuario.Should().Be("jperez");
+        usuario.Nombre.Should().Be("Juan Carlos");
+        usuario.Apellido.Should().Be("De la Fuente");
+        usuario.NombreCompleto.Should().Be("Juan Carlos De la Fuente");
+        usuario.PasswordHash.Should().Be("hash");
         usuario.IdRol.Should().Be((int)RolUsuarioEnum.Encargado);
     }
 
     [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void ActualizarDatos_NombreCompletoVacio_LanzaArgumentException(string nombreInvalido)
+    [InlineData("Juan123", "Pérez")]
+    [InlineData("Juan", "P3rez")]
+    [InlineData("@@@", "Pérez")]
+    [InlineData("Juan", "")]
+    public void Crear_NombreOApellidoInvalido_LanzaDomainException(string nombre, string apellido)
     {
-        // Arrange
-        var usuario = new Usuario { NombreUsuario = "operador" };
+        var act = () => Usuario.Crear("jperez", nombre, apellido, "hash", RolUsuarioEnum.Cajero);
 
-        // Act
-        var act = () => usuario.ActualizarDatos(nombreInvalido, (int)RolUsuarioEnum.Cajero);
+        act.Should().Throw<DomainException>();
+    }
 
-        // Assert
+    [Theory]
+    [InlineData("123")]
+    [InlineData("j perez")]
+    [InlineData("a..b")]
+    public void Crear_NombreUsuarioInvalido_LanzaDomainException(string nombreUsuario)
+    {
+        var act = () => Usuario.Crear(nombreUsuario, "Juan", "Pérez", "hash", RolUsuarioEnum.Cajero);
+
+        act.Should().Throw<DomainException>().WithMessage("*nombre de usuario*");
+    }
+
+    [Fact]
+    public void Crear_RolInexistente_LanzaDomainException()
+    {
+        var act = () => Usuario.Crear("jperez", "Juan", "Pérez", "hash", (RolUsuarioEnum)99);
+
+        act.Should().Throw<DomainException>().WithMessage("*rol*");
+    }
+
+    [Fact]
+    public void Crear_HashVacio_LanzaArgumentException()
+    {
+        var act = () => Usuario.Crear("jperez", "Juan", "Pérez", " ", RolUsuarioEnum.Cajero);
+
         act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
-    public void ActualizarDatos_IdRolInvalido_LanzaArgumentOutOfRangeException()
+    public void ActualizarDatos_ValoresValidos_NormalizaYActualizaNombreApellidoYRol()
     {
         // Arrange
-        var usuario = new Usuario { NombreUsuario = "operador" };
+        var usuario = CrearOperador();
 
         // Act
-        var act = () => usuario.ActualizarDatos("Nombre Valido", 0);
+        usuario.ActualizarDatos("maría  josé", "o’connor", RolUsuarioEnum.Gerente);
 
         // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>();
+        usuario.Nombre.Should().Be("María José");
+        usuario.Apellido.Should().Be("O'Connor");
+        usuario.IdRol.Should().Be((int)RolUsuarioEnum.Gerente);
+    }
+
+    [Theory]
+    [InlineData("Juan123", "Gómez")]
+    [InlineData("Pedro", "G0mez")]
+    public void ActualizarDatos_NombreOApellidoInvalido_NoModificaElUsuario(string nombre, string apellido)
+    {
+        // Arrange
+        var usuario = CrearOperador();
+
+        // Act
+        var act = () => usuario.ActualizarDatos(nombre, apellido, RolUsuarioEnum.Gerente);
+
+        // Assert: la invariante se verifica antes de asignar, así que el agregado queda intacto.
+        act.Should().Throw<DomainException>();
+        usuario.Nombre.Should().Be("Juan");
+        usuario.Apellido.Should().Be("Pérez");
+        usuario.IdRol.Should().Be((int)RolUsuarioEnum.Cajero);
     }
 
     [Fact]
     public void ActualizarPassword_HashValido_ActualizaPasswordHash()
     {
         // Arrange
-        var usuario = new Usuario { NombreUsuario = "operador", PasswordHash = "hash_antiguo" };
+        var usuario = CrearOperador();
 
         // Act
         usuario.ActualizarPassword("nuevo_hash_seguro");
@@ -73,7 +119,7 @@ public class UsuarioTests
     public void ActualizarPassword_HashInvalido_LanzaArgumentException(string hashInvalido)
     {
         // Arrange
-        var usuario = new Usuario { NombreUsuario = "operador" };
+        var usuario = CrearOperador();
 
         // Act
         var act = () => usuario.ActualizarPassword(hashInvalido);
@@ -83,13 +129,13 @@ public class UsuarioTests
     }
 
     [Theory]
-    [InlineData((int)RolUsuarioEnum.Gerente, true)]
-    [InlineData((int)RolUsuarioEnum.Encargado, false)]
-    [InlineData((int)RolUsuarioEnum.Cajero, false)]
-    public void EsGerente_SegunIdRol_RetornaResultadoEsperado(int idRol, bool esperado)
+    [InlineData(RolUsuarioEnum.Gerente, true)]
+    [InlineData(RolUsuarioEnum.Encargado, false)]
+    [InlineData(RolUsuarioEnum.Cajero, false)]
+    public void EsGerente_SegunRol_RetornaResultadoEsperado(RolUsuarioEnum rol, bool esperado)
     {
         // Arrange
-        var usuario = new Usuario { IdRol = idRol };
+        var usuario = CrearOperador(rol);
 
         // Act
         var esGerente = usuario.EsGerente();

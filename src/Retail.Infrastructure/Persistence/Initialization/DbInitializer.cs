@@ -44,14 +44,20 @@ public static class DbInitializer
         await context.Roles.AddRangeAsync(rolCajero, rolEncargado, rolGerente);
         await context.SaveChangesAsync();
 
-        // 2. Semillero de Usuario Administrador Inicial
-        var usuarioAdmin = new Usuario
-        {
-            NombreUsuario = "admin",
-            NombreCompleto = "Administrador General",
-            PasswordHash = passwordHasher.HashPassword("Admin123!"),
-            IdRol = rolGerente.Id
-        };
+        // El agregado Usuario referencia el rol por RolUsuarioEnum: el IDENTITY que asignó la base a cada rol
+        // debe coincidir con el valor del enum. Se verifica acá para que una base mal sembrada falle al
+        // arrancar y no asigne permisos equivocados en silencio.
+        VerificarCorrespondenciaConEnum(rolCajero, RolUsuarioEnum.Cajero);
+        VerificarCorrespondenciaConEnum(rolEncargado, RolUsuarioEnum.Encargado);
+        VerificarCorrespondenciaConEnum(rolGerente, RolUsuarioEnum.Gerente);
+
+        // 2. Semillero de Usuario Administrador Inicial (pasa por las mismas reglas que cualquier alta)
+        var usuarioAdmin = Usuario.Crear(
+            "admin",
+            "Administrador",
+            "General",
+            passwordHasher.HashPassword("Admin123!"),
+            RolUsuarioEnum.Gerente);
 
         await context.Usuarios.AddAsync(usuarioAdmin);
         await context.SaveChangesAsync();
@@ -344,5 +350,15 @@ public static class DbInitializer
 
         await context.Articulos.AddRangeAsync(articulos);
         await context.SaveChangesAsync();
+    }
+
+    private static void VerificarCorrespondenciaConEnum(Rol rol, RolUsuarioEnum esperado)
+    {
+        if (rol.Id != (int)esperado)
+        {
+            throw new InvalidOperationException(
+                $"El rol '{rol.NombreRol}' se sembró con el identificador {rol.Id}, pero RolUsuarioEnum.{esperado} " +
+                $"vale {(int)esperado}. La tabla ROLES debe sembrarse sobre una base vacía y en el orden del enum.");
+        }
     }
 }

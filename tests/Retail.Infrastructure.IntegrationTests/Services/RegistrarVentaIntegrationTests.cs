@@ -9,6 +9,7 @@ using Retail.Application.Validators.Ventas;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
 using Retail.Infrastructure.Persistence.Services;
@@ -38,7 +39,11 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
         _sut = CrearServicio(_context);
 
         var rol = new Rol { NombreRol = "Cajero", Descripcion = "Atiende el mostrador" };
-        var usuario = new Usuario { NombreUsuario = "cajero1", PasswordHash = "hash", NombreCompleto = "Cajero Uno", Rol = rol };
+        _context.Roles.Add(rol);
+        await _context.SaveChangesAsync();
+
+        // Base nueva: el primer rol recibe el Id 1, que coincide con RolUsuarioEnum.Cajero.
+        var usuario = Usuario.Crear("cajero1", "Cajero", "Uno", "hash", RolUsuarioEnum.Cajero);
         _context.Usuarios.Add(usuario);
         await _context.SaveChangesAsync();
 
@@ -103,7 +108,7 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
     {
         // Arrange
         var cuaderno = await GuardarArticuloAsync("Cuaderno", precio: 1500m, stock: 8);
-        var cliente = new Cliente { RazonSocialONombre = "Librería del Centro", NumeroDocumento = "30111222333" };
+        var cliente = ClientesDePrueba.Crear(razonSocialONombre: "Librería del Centro", numeroDocumento: "30111222335", tipoDocumento: TipoDocumentoEnum.Cuit);
         cliente.HabilitarCuentaCorriente(10000m);
         _context.Clientes.Add(cliente);
         await _context.SaveChangesAsync();

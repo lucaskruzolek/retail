@@ -49,7 +49,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
     {
         // Arrange: 2.500 ítems persistidos para un proveedor
         const int existentes = 2500;
-        var proveedor = new Proveedor { RazonSocial = "Distribuidora Sur", Cuit = "30-12345678-9" };
+        var proveedor = Proveedor.Crear("Distribuidora Sur", "30-12345678-1");
         _context.Proveedores.Add(proveedor);
         await _context.SaveChangesAsync();
 
@@ -79,7 +79,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
     public async Task ObtenerCatalogoPaginadoAsync_TerminoSinAcentos_EncuentraLaDescripcionAcentuadaYRespetaLaEnie()
     {
         // Arrange: descripcion_proveedor usa Modern_Spanish_CI_AI
-        var proveedor = new Proveedor { RazonSocial = "Distribuidora Norte", Cuit = "30-87654321-0" };
+        var proveedor = Proveedor.Crear("Distribuidora Norte", "30-87654321-0");
         _context.Proveedores.Add(proveedor);
         await _context.SaveChangesAsync();
 

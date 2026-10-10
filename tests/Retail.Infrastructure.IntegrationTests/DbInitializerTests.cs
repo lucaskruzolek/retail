@@ -60,7 +60,9 @@ public class DbInitializerTests : IAsyncLifetime, IDisposable
             .FirstOrDefaultAsync(u => u.NombreUsuario == "admin");
 
         admin.Should().NotBeNull();
-        admin!.NombreCompleto.Should().Be("Administrador General");
+        admin!.Nombre.Should().Be("Administrador");
+        admin.Apellido.Should().Be("General");
+        admin.NombreCompleto.Should().Be("Administrador General");
         admin.Rol.Should().NotBeNull();
         admin.Rol!.NombreRol.Should().Be(nameof(RolUsuarioEnum.Gerente));
         _passwordHasher.VerifyPassword("Admin123!", admin.PasswordHash).Should().BeTrue();

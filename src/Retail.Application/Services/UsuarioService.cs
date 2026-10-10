@@ -1,8 +1,10 @@
 using FluentValidation;
+using FluentValidation.Results;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
@@ -43,7 +45,8 @@ public class UsuarioService : IUsuarioService
         var usuarios = await _usuarioRepository.ListAllAsync(includeDeleted: false, cancellationToken);
 
         return usuarios
-            .OrderBy(u => u.NombreCompleto)
+            .OrderBy(u => u.Apellido)
+            .ThenBy(u => u.Nombre)
             .Select(MapToDto)
             .ToList();
     }
@@ -74,7 +77,9 @@ public class UsuarioService : IUsuarioService
             throw new ValidationException(validationResult.Errors);
         }
 
-        var usernameNormalizado = dto.NombreUsuario.Trim();
+        // Se compara la forma canónica (minúsculas): "JPerez" y "jperez" son la misma cuenta por regla de
+        // dominio, sin depender de que la collation de la base ignore mayúsculas.
+        var usernameNormalizado = ReglasTexto.NormalizarNombreUsuario(dto.NombreUsuario);
         var existentes = await _usuarioRepository.FindAsync(
             u => u.NombreUsuario == usernameNormalizado,
             includeDeleted: false,
@@ -82,18 +87,12 @@ public class UsuarioService : IUsuarioService
 
         if (existentes.Count > 0)
         {
-            throw new DomainException($"El nombre de usuario '{dto.NombreUsuario}' ya se encuentra registrado en el sistema.");
+            throw new DomainException($"El nombre de usuario '{usernameNormalizado}' ya se encuentra registrado en el sistema.");
         }
 
         var passwordHash = _passwordHasher.HashPassword(dto.Password);
 
-        var nuevoUsuario = new Usuario
-        {
-            NombreUsuario = dto.NombreUsuario.Trim(),
-            NombreCompleto = dto.NombreCompleto.Trim(),
-            PasswordHash = passwordHash,
-            IdRol = (int)dto.Rol
-        };
+        var nuevoUsuario = Usuario.Crear(dto.NombreUsuario, dto.Nombre, dto.Apellido, passwordHash, dto.Rol);
 
         await _usuarioRepository.AddAsync(nuevoUsuario, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -131,7 +130,7 @@ public class UsuarioService : IUsuarioService
             }
         }
 
-        usuario.ActualizarDatos(dto.NombreCompleto, (int)dto.Rol);
+        usuario.ActualizarDatos(dto.Nombre, dto.Apellido, dto.Rol);
 
         await _usuarioRepository.UpdateAsync(usuario, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -185,6 +184,16 @@ public class UsuarioService : IUsuarioService
             throw new DomainException($"No se encontró ningún usuario activo con el ID {dto.IdUsuario}.");
         }
 
+        // Esta regla no está en CambiarPasswordValidator porque necesita el nombre de usuario, que se lee de la
+        // base. Se informa como error de validación para que la UI la muestre igual que las demás.
+        if (string.Equals(dto.NuevaPassword.Trim(), usuario.NombreUsuario, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ValidationException(
+            [
+                new ValidationFailure(nameof(dto.NuevaPassword), "La contraseña no puede ser igual al nombre de usuario.")
+            ]);
+        }
+
         var nuevoHash = _passwordHasher.HashPassword(dto.NuevaPassword);
         usuario.ActualizarPassword(nuevoHash);
 
@@ -198,7 +207,8 @@ public class UsuarioService : IUsuarioService
         {
             IdUsuario = usuario.Id,
             NombreUsuario = usuario.NombreUsuario,
-            NombreCompleto = usuario.NombreCompleto,
+            Nombre = usuario.Nombre,
+            Apellido = usuario.Apellido,
             Rol = (RolUsuarioEnum)usuario.IdRol,
             Activo = !usuario.IsDeleted,
             CreatedAt = usuario.CreatedAt

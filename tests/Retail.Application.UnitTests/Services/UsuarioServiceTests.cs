@@ -42,14 +42,26 @@ public class UsuarioServiceTests
             _cambiarPasswordValidator);
     }
 
+    private static Usuario CrearUsuario(
+        int id,
+        string nombreUsuario,
+        RolUsuarioEnum rol,
+        string nombre = "Juan",
+        string apellido = "Pérez")
+    {
+        var usuario = Usuario.Crear(nombreUsuario, nombre, apellido, "hash_inicial", rol);
+        usuario.Id = id;
+        return usuario;
+    }
+
     [Fact]
-    public async Task ListarUsuariosAsync_DebeLlamarListAllAsyncConFalseYRetornarDtos()
+    public async Task ListarUsuariosAsync_DebeLlamarListAllAsyncConFalseYRetornarDtosOrdenadosPorApellido()
     {
         // Arrange
         var usuarios = new List<Usuario>
         {
-            new() { Id = 1, NombreUsuario = "jperez", NombreCompleto = "Juan Perez", IdRol = (int)RolUsuarioEnum.Cajero },
-            new() { Id = 2, NombreUsuario = "admin", NombreCompleto = "Ana Gerente", IdRol = (int)RolUsuarioEnum.Gerente }
+            CrearUsuario(1, "jperez", RolUsuarioEnum.Cajero, "Juan", "Pérez"),
+            CrearUsuario(2, "admin", RolUsuarioEnum.Gerente, "Ana", "Gómez")
         };
 
         _usuarioRepository.ListAllAsync(includeDeleted: false, Arg.Any<CancellationToken>())
@@ -60,8 +72,8 @@ public class UsuarioServiceTests
 
         // Assert
         resultado.Should().HaveCount(2);
-        resultado[0].NombreCompleto.Should().Be("Ana Gerente"); // ordenado alfabéticamente
-        resultado[1].NombreCompleto.Should().Be("Juan Perez");
+        resultado[0].Apellido.Should().Be("Gómez"); // ordenado por apellido
+        resultado[1].Apellido.Should().Be("Pérez");
         resultado[0].Rol.Should().Be(RolUsuarioEnum.Gerente);
         resultado[1].Rol.Should().Be(RolUsuarioEnum.Cajero);
         await _usuarioRepository.Received(1).ListAllAsync(includeDeleted: false, Arg.Any<CancellationToken>());
@@ -98,13 +110,7 @@ public class UsuarioServiceTests
     public async Task ObtenerPorIdAsync_UsuarioExiste_RetornaUsuarioDto()
     {
         // Arrange
-        var usuario = new Usuario
-        {
-            Id = 5,
-            NombreUsuario = "mlopez",
-            NombreCompleto = "Maria Lopez",
-            IdRol = (int)RolUsuarioEnum.Encargado
-        };
+        var usuario = CrearUsuario(5, "mlopez", RolUsuarioEnum.Encargado, "María", "López");
 
         _usuarioRepository.GetByIdAsync(5, includeDeleted: true, Arg.Any<CancellationToken>())
             .Returns(usuario);
@@ -115,7 +121,9 @@ public class UsuarioServiceTests
         // Assert
         dto.IdUsuario.Should().Be(5);
         dto.NombreUsuario.Should().Be("mlopez");
-        dto.NombreCompleto.Should().Be("Maria Lopez");
+        dto.Nombre.Should().Be("María");
+        dto.Apellido.Should().Be("López");
+        dto.NombreCompleto.Should().Be("María López");
         dto.Rol.Should().Be(RolUsuarioEnum.Encargado);
         dto.Activo.Should().BeTrue();
     }
@@ -127,7 +135,8 @@ public class UsuarioServiceTests
         var dtoInvalido = new CrearUsuarioDto
         {
             NombreUsuario = "a", // muy corto
-            NombreCompleto = "", // vacío
+            Nombre = "",         // vacío
+            Apellido = "P3rez",  // con dígitos
             Password = "123",    // muy corta
             Rol = (RolUsuarioEnum)99 // inválido
         };
@@ -147,20 +156,21 @@ public class UsuarioServiceTests
         var dto = new CrearUsuarioDto
         {
             NombreUsuario = "Admin",
-            NombreCompleto = "Nuevo Admin",
+            Nombre = "Nuevo",
+            Apellido = "Admin",
             Password = "PasswordSegura123!",
             Rol = RolUsuarioEnum.Gerente
         };
 
         _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: false, Arg.Any<CancellationToken>())
-            .Returns(new List<Usuario> { new() { NombreUsuario = "admin" } });
+            .Returns(new List<Usuario> { CrearUsuario(1, "admin", RolUsuarioEnum.Gerente) });
 
         // Act
         var act = async () => await _sut.RegistrarUsuarioAsync(dto);
 
         // Assert
         await act.Should().ThrowAsync<DomainException>()
-            .WithMessage("*ya se encuentra registrado*");
+            .WithMessage("*'admin'*ya se encuentra registrado*");
         await _usuarioRepository.DidNotReceive().AddAsync(Arg.Any<Usuario>(), Arg.Any<CancellationToken>());
     }
 
@@ -171,7 +181,8 @@ public class UsuarioServiceTests
         var dto = new CrearUsuarioDto
         {
             NombreUsuario = "lucas",
-            NombreCompleto = "Lucas Nuevo Empleado",
+            Nombre = "Lucas",
+            Apellido = "Empleado",
             Password = "NuevaPassword123!",
             Rol = RolUsuarioEnum.Cajero
         };
@@ -188,12 +199,12 @@ public class UsuarioServiceTests
 
         // Assert
         resultado.NombreUsuario.Should().Be("lucas");
-        resultado.NombreCompleto.Should().Be("Lucas Nuevo Empleado");
+        resultado.NombreCompleto.Should().Be("Lucas Empleado");
         resultado.Rol.Should().Be(RolUsuarioEnum.Cajero);
 
         // Debe registrarse como una nueva entidad independiente (AddAsync), no modificar el registro histórico (UpdateAsync)
         await _usuarioRepository.Received(1).AddAsync(
-            Arg.Is<Usuario>(u => u.NombreUsuario == "lucas" && u.NombreCompleto == "Lucas Nuevo Empleado" && u.PasswordHash == "hash_nuevo_seguro"),
+            Arg.Is<Usuario>(u => u.NombreUsuario == "lucas" && u.Apellido == "Empleado" && u.PasswordHash == "hash_nuevo_seguro"),
             Arg.Any<CancellationToken>());
         await _usuarioRepository.DidNotReceive().UpdateAsync(Arg.Any<Usuario>(), Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
@@ -206,7 +217,8 @@ public class UsuarioServiceTests
         var dto = new CrearUsuarioDto
         {
             NombreUsuario = "nuevousuario",
-            NombreCompleto = "Nuevo Usuario",
+            Nombre = "Nuevo",
+            Apellido = "Usuario",
             Password = "PasswordSegura123!",
             Rol = RolUsuarioEnum.Cajero
         };
@@ -238,7 +250,8 @@ public class UsuarioServiceTests
         var dtoInvalido = new ModificarUsuarioDto
         {
             IdUsuario = 0,
-            NombreCompleto = "",
+            Nombre = "",
+            Apellido = "",
             Rol = (RolUsuarioEnum)99
         };
 
@@ -256,7 +269,8 @@ public class UsuarioServiceTests
         var dto = new ModificarUsuarioDto
         {
             IdUsuario = 42,
-            NombreCompleto = "Nombre Nuevo",
+            Nombre = "Nombre",
+            Apellido = "Nuevo",
             Rol = RolUsuarioEnum.Cajero
         };
 
@@ -275,13 +289,7 @@ public class UsuarioServiceTests
     public async Task ModificarUsuarioAsync_CambiaRolDeUltimoGerente_LanzaUltimoGerenteException()
     {
         // Arrange
-        var gerenteUnico = new Usuario
-        {
-            Id = 1,
-            NombreUsuario = "admin",
-            NombreCompleto = "Administrador",
-            IdRol = (int)RolUsuarioEnum.Gerente
-        };
+        var gerenteUnico = CrearUsuario(1, "admin", RolUsuarioEnum.Gerente);
 
         _usuarioRepository.GetByIdAsync(1, includeDeleted: false, Arg.Any<CancellationToken>())
             .Returns(gerenteUnico);
@@ -293,7 +301,8 @@ public class UsuarioServiceTests
         var dto = new ModificarUsuarioDto
         {
             IdUsuario = 1,
-            NombreCompleto = "Administrador Degradado",
+            Nombre = "Administrador",
+            Apellido = "Degradado",
             Rol = RolUsuarioEnum.Cajero // Intenta degradarse a Cajero
         };
 
@@ -309,8 +318,8 @@ public class UsuarioServiceTests
     public async Task ModificarUsuarioAsync_CambiaRolHabiendoOtroGerente_ActualizaExitosamente()
     {
         // Arrange
-        var gerente1 = new Usuario { Id = 1, NombreUsuario = "gerente1", IdRol = (int)RolUsuarioEnum.Gerente };
-        var gerente2 = new Usuario { Id = 2, NombreUsuario = "gerente2", IdRol = (int)RolUsuarioEnum.Gerente };
+        var gerente1 = CrearUsuario(1, "gerente1", RolUsuarioEnum.Gerente);
+        var gerente2 = CrearUsuario(2, "gerente2", RolUsuarioEnum.Gerente);
 
         _usuarioRepository.GetByIdAsync(1, includeDeleted: false, Arg.Any<CancellationToken>())
             .Returns(gerente1);
@@ -321,7 +330,8 @@ public class UsuarioServiceTests
         var dto = new ModificarUsuarioDto
         {
             IdUsuario = 1,
-            NombreCompleto = "Ex Gerente Ahora Encargado",
+            Nombre = "ex gerente",
+            Apellido = "ahora encargado",
             Rol = RolUsuarioEnum.Encargado
         };
 
@@ -330,7 +340,8 @@ public class UsuarioServiceTests
 
         // Assert
         resultado.Rol.Should().Be(RolUsuarioEnum.Encargado);
-        resultado.NombreCompleto.Should().Be("Ex Gerente Ahora Encargado");
+        resultado.Nombre.Should().Be("Ex Gerente"); // llega normalizado desde el agregado
+        resultado.Apellido.Should().Be("Ahora Encargado");
         await _usuarioRepository.Received(1).UpdateAsync(gerente1, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -339,7 +350,7 @@ public class UsuarioServiceTests
     public async Task BajaUsuarioAsync_EsUltimoGerente_LanzaUltimoGerenteException()
     {
         // Arrange
-        var unicoGerente = new Usuario { Id = 1, IdRol = (int)RolUsuarioEnum.Gerente };
+        var unicoGerente = CrearUsuario(1, "admin", RolUsuarioEnum.Gerente);
 
         _usuarioRepository.GetByIdAsync(1, includeDeleted: false, Arg.Any<CancellationToken>())
             .Returns(unicoGerente);
@@ -360,7 +371,7 @@ public class UsuarioServiceTests
     public async Task BajaUsuarioAsync_UsuarioNormal_AplicaBajaYGuardaCambios()
     {
         // Arrange
-        var cajero = new Usuario { Id = 5, IdRol = (int)RolUsuarioEnum.Cajero };
+        var cajero = CrearUsuario(5, "cajero", RolUsuarioEnum.Cajero);
 
         _usuarioRepository.GetByIdAsync(5, includeDeleted: false, Arg.Any<CancellationToken>())
             .Returns(cajero);
@@ -416,7 +427,7 @@ public class UsuarioServiceTests
     public async Task CambiarPasswordAsync_PasswordValida_HasheaYActualizaUsuario()
     {
         // Arrange
-        var usuario = new Usuario { Id = 3, NombreUsuario = "operador", PasswordHash = "hash_viejo" };
+        var usuario = CrearUsuario(3, "operador", RolUsuarioEnum.Cajero);
 
         _usuarioRepository.GetByIdAsync(3, includeDeleted: false, Arg.Any<CancellationToken>())
             .Returns(usuario);
@@ -437,5 +448,58 @@ public class UsuarioServiceTests
         usuario.PasswordHash.Should().Be("nuevo_hash_bcrypt");
         await _usuarioRepository.Received(1).UpdateAsync(usuario, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarUsuarioAsync_NombreUsuarioConMayusculas_LoBuscaYGuardaEnMinusculas()
+    {
+        // Arrange
+        var dto = new CrearUsuarioDto
+        {
+            NombreUsuario = "  JPerez ",
+            Nombre = "juan",
+            Apellido = "PÉREZ",
+            Password = "PasswordSegura123!",
+            Rol = RolUsuarioEnum.Cajero
+        };
+
+        Expression<Func<Usuario, bool>>? filtroDuplicados = null;
+        _usuarioRepository.FindAsync(
+                Arg.Do<Expression<Func<Usuario, bool>>>(filtro => filtroDuplicados = filtro),
+                includeDeleted: false,
+                Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario>());
+        _passwordHasher.HashPassword(Arg.Any<string>()).Returns("hash");
+
+        // Act
+        var resultado = await _sut.RegistrarUsuarioAsync(dto);
+
+        // Assert: el duplicado se busca por la forma canónica, no por lo que escribió el usuario.
+        var esDuplicado = filtroDuplicados!.Compile();
+        esDuplicado(CrearUsuario(9, "jperez", RolUsuarioEnum.Cajero)).Should().BeTrue();
+        resultado.NombreUsuario.Should().Be("jperez");
+        resultado.Nombre.Should().Be("Juan");
+        resultado.Apellido.Should().Be("Pérez");
+    }
+
+    [Theory]
+    [InlineData("operador")]
+    [InlineData("OPERADOR")]
+    public async Task CambiarPasswordAsync_IgualAlNombreUsuario_LanzaValidationExceptionSinGuardar(string nuevaPassword)
+    {
+        // Arrange
+        var usuario = CrearUsuario(3, "operador", RolUsuarioEnum.Cajero);
+        _usuarioRepository.GetByIdAsync(3, includeDeleted: false, Arg.Any<CancellationToken>())
+            .Returns(usuario);
+
+        var dto = new CambiarPasswordDto { IdUsuario = 3, NuevaPassword = nuevaPassword };
+
+        // Act
+        var act = async () => await _sut.CambiarPasswordAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<ValidationException>().WithMessage("*igual al nombre de usuario*");
+        _passwordHasher.DidNotReceive().HashPassword(Arg.Any<string>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 }

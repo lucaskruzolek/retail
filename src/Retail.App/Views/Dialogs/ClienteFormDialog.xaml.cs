@@ -19,10 +19,7 @@ public partial class ClienteFormDialog : Wpf.Ui.Controls.FluentWindow
 
     private async void BtnGuardar_Click(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.Validar())
-        {
-            return;
-        }
+        ViewModel.MensajeError = null;
 
         if (ViewModel.OnGuardarAsync != null)
         {
@@ -35,7 +32,7 @@ public partial class ClienteFormDialog : Wpf.Ui.Controls.FluentWindow
             }
             catch (Exception ex)
             {
-                ViewModel.MensajeError = ex.Message;
+                ViewModel.InformarError(ex);
             }
             finally
             {

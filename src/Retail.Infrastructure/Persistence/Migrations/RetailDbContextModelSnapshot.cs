@@ -897,7 +897,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[deleted_at] IS NULL");
 
-                    b.ToTable("PROVEEDORES", (string)null);
+                    b.ToTable("PROVEEDORES", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PROVEEDORES_Cuit", "LEN([cuit]) = 11 AND [cuit] NOT LIKE '%[^0-9]%'");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Rol", b =>
@@ -1038,6 +1041,13 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Apellido")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("apellido")
+                        .UseCollation("Modern_Spanish_CI_AI");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at");
@@ -1050,11 +1060,12 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_rol");
 
-                    b.Property<string>("NombreCompleto")
+                    b.Property<string>("Nombre")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)")
-                        .HasColumnName("nombre_completo");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("nombre")
+                        .UseCollation("Modern_Spanish_CI_AI");
 
                     b.Property<string>("NombreUsuario")
                         .IsRequired()
