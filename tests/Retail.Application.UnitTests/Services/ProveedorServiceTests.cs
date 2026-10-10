@@ -410,6 +410,35 @@ public class ProveedorServiceTests
     }
 
     [Fact]
+    public async Task ImportarPlanillaProveedorAsync_CanceladaAMitadDelLote_DescartaLosCambiosYNoGuarda()
+    {
+        // Arrange: el usuario cancela mientras se procesa la fila 2; las filas 1 y 2 ya quedaron en el contexto
+        PrepararImportacion(new List<ItemCatalogoImportadoDto> { Fila("A-1"), Fila("A-2"), Fila("A-3") });
+
+        using var cancelacion = new CancellationTokenSource();
+        int agregados = 0;
+        await _catalogoQueryMock.AgregarAsync(
+            Arg.Do<CatalogoProveedor>(_ =>
+            {
+                agregados++;
+                if (agregados == 2)
+                {
+                    cancelacion.Cancel();
+                }
+            }),
+            Arg.Any<CancellationToken>());
+
+        // Act
+        var act = () => _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo(), cancellationToken: cancelacion.Token);
+
+        // Assert: sin el descarte, media planilla se guardaría con la próxima operación de la pantalla
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        agregados.Should().Be(2);
+        _unitOfWorkMock.Received(1).DescartarCambios();
+        await _unitOfWorkMock.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ImportarPlanillaProveedorAsync_ConCodigoExistenteEnOtraCapitalizacion_ActualizaSinCrearDuplicado()
     {
         // Arrange
