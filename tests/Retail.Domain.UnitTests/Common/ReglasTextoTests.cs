@@ -236,4 +236,49 @@ public class ReglasTextoTests
 
         act.Should().Throw<DomainException>();
     }
+
+    // Idempotencia: Normalizar(Normalizar(x)) == Normalizar(x). Es la propiedad que permite que la frontera y el
+    // agregado normalicen cada uno por su cuenta sin alterar el resultado.
+
+    [Theory]
+    [InlineData("  MARÍA   de LOS ángeles ")]
+    [InlineData("o’connor")]
+    [InlineData("maría-josé")]
+    [InlineData("jose\u0301")]
+    public void NormalizarNombreDePersona_AplicadaDosVeces_DaElMismoResultado(string entrada)
+    {
+        var una = ReglasTexto.NormalizarNombreDePersona(entrada);
+
+        ReglasTexto.NormalizarNombreDePersona(una).Should().Be(una);
+    }
+
+    [Theory]
+    [InlineData("  LIBRERÍA   el  Ateneo S.R.L. ")]
+    [InlineData("O’Higgins Insumos")]
+    public void NormalizarRazonSocial_AplicadaDosVeces_DaElMismoResultado(string entrada)
+    {
+        var una = ReglasTexto.NormalizarRazonSocial(entrada);
+
+        ReglasTexto.NormalizarRazonSocial(una).Should().Be(una);
+    }
+
+    [Fact]
+    public void NormalizarDomicilioYNombreUsuario_AplicadasDosVeces_DanElMismoResultado()
+    {
+        var domicilio = ReglasTexto.NormalizarDomicilio("  Av.   Rivadavia \t 1234 ");
+        var login = ReglasTexto.NormalizarNombreUsuario("  J.Perez ");
+
+        ReglasTexto.NormalizarDomicilio(domicilio).Should().Be(domicilio);
+        ReglasTexto.NormalizarNombreUsuario(login).Should().Be(login);
+    }
+
+    [Fact]
+    public void ExigirNombreDePersona_ValorValido_DevuelveLoMismoQueNormalizar()
+    {
+        // Exigir normaliza una sola vez y devuelve ese mismo resultado.
+        const string entrada = "  pérez  DE la fuente ";
+
+        ReglasTexto.ExigirNombreDePersona(entrada, "apellido")
+            .Should().Be(ReglasTexto.NormalizarNombreDePersona(entrada));
+    }
 }

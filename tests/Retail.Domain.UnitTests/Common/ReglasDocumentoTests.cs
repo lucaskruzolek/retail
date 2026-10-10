@@ -130,4 +130,25 @@ public class ReglasDocumentoTests
 
         act.Should().Throw<DomainException>().WithMessage("*20123456780*CUIT*verificador*");
     }
+
+    [Theory]
+    [InlineData(TipoDocumentoEnum.Dni, "12.345.678")]
+    [InlineData(TipoDocumentoEnum.Cuit, "20-12345678-6")]
+    [InlineData(TipoDocumentoEnum.Pasaporte, " aaa 123456")]
+    public void Normalizar_AplicadaDosVeces_DaElMismoResultado(TipoDocumentoEnum tipo, string entrada)
+    {
+        var una = ReglasDocumento.Normalizar(tipo, entrada);
+
+        ReglasDocumento.Normalizar(tipo, una).Should().Be(una);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public void Exigir_Vacio_LanzaDomainException(string? valor)
+    {
+        var act = () => ReglasDocumento.Exigir(TipoDocumentoEnum.Dni, valor);
+
+        act.Should().Throw<DomainException>();
+    }
 }

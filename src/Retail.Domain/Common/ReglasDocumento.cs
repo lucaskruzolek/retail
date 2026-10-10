@@ -58,29 +58,19 @@ public static partial class ReglasDocumento
 
     public static bool EsValido(TipoDocumentoEnum tipo, string? valor)
     {
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            return false;
-        }
-
-        return tipo switch
-        {
-            TipoDocumentoEnum.Dni => FormatoDni().IsMatch(Normalizar(tipo, valor)),
-            TipoDocumentoEnum.Cuit => EsCuitValido(valor),
-            TipoDocumentoEnum.Cuil => EsCuilValido(valor),
-            TipoDocumentoEnum.Pasaporte => FormatoPasaporte().IsMatch(Normalizar(tipo, valor)),
-            _ => false
-        };
+        return !string.IsNullOrWhiteSpace(valor) && EsFormaCanonicaValida(tipo, Normalizar(tipo, valor));
     }
 
     public static string Exigir(TipoDocumentoEnum tipo, string? valor)
     {
-        if (!EsValido(tipo, valor))
+        // Se normaliza una sola vez: el mismo resultado se valida y se devuelve.
+        var normalizado = string.IsNullOrWhiteSpace(valor) ? string.Empty : Normalizar(tipo, valor);
+        if (!EsFormaCanonicaValida(tipo, normalizado))
         {
             throw new DomainException($"El número '{valor}' no es un {DescribirFormato(tipo)}.");
         }
 
-        return Normalizar(tipo, valor!);
+        return normalizado;
     }
 
     /// <summary>
@@ -89,7 +79,8 @@ public static partial class ReglasDocumento
     /// </summary>
     public static bool EsCuitValido(string? valor)
     {
-        return EsClaveTributariaValida(valor, admitePersonaJuridica: true);
+        return !string.IsNullOrWhiteSpace(valor)
+            && EsClaveTributariaCanonicaValida(Normalizar(TipoDocumentoEnum.Cuit, valor), admitePersonaJuridica: true);
     }
 
     /// <summary>
@@ -97,7 +88,8 @@ public static partial class ReglasDocumento
     /// </summary>
     public static bool EsCuilValido(string? valor)
     {
-        return EsClaveTributariaValida(valor, admitePersonaJuridica: false);
+        return !string.IsNullOrWhiteSpace(valor)
+            && EsClaveTributariaCanonicaValida(Normalizar(TipoDocumentoEnum.Cuil, valor), admitePersonaJuridica: false);
     }
 
     /// <summary>
@@ -115,14 +107,22 @@ public static partial class ReglasDocumento
         };
     }
 
-    private static bool EsClaveTributariaValida(string? valor, bool admitePersonaJuridica)
+    // Valida un documento que YA está normalizado. Lo usan tanto EsValido como Exigir, para que cada valor se
+    // normalice una sola vez por llamada.
+    private static bool EsFormaCanonicaValida(TipoDocumentoEnum tipo, string normalizado)
     {
-        if (string.IsNullOrWhiteSpace(valor))
+        return tipo switch
         {
-            return false;
-        }
+            TipoDocumentoEnum.Dni => FormatoDni().IsMatch(normalizado),
+            TipoDocumentoEnum.Cuit => EsClaveTributariaCanonicaValida(normalizado, admitePersonaJuridica: true),
+            TipoDocumentoEnum.Cuil => EsClaveTributariaCanonicaValida(normalizado, admitePersonaJuridica: false),
+            TipoDocumentoEnum.Pasaporte => FormatoPasaporte().IsMatch(normalizado),
+            _ => false
+        };
+    }
 
-        var digitos = SeparadoresDocumento().Replace(valor, string.Empty);
+    private static bool EsClaveTributariaCanonicaValida(string digitos, bool admitePersonaJuridica)
+    {
         if (!FormatoCuitCuil().IsMatch(digitos))
         {
             return false;

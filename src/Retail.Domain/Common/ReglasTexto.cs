@@ -87,15 +87,8 @@ public static partial class ReglasTexto
     /// </summary>
     public static bool EsNombreDePersonaValido(string? valor, int longitudMaxima)
     {
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            return false;
-        }
-
-        var normalizado = NormalizarNombreDePersona(valor);
-        return normalizado.Length >= LongitudMinimaNombrePersona
-            && normalizado.Length <= longitudMaxima
-            && FormatoNombrePersona().IsMatch(normalizado);
+        return !string.IsNullOrWhiteSpace(valor)
+            && EsFormaCanonicaDeNombreValida(NormalizarNombreDePersona(valor), longitudMaxima);
     }
 
     public static string ExigirNombreDePersona(string? valor, string nombreCampo)
@@ -105,14 +98,16 @@ public static partial class ReglasTexto
 
     public static string ExigirNombreDePersona(string? valor, string nombreCampo, int longitudMaxima)
     {
-        if (!EsNombreDePersonaValido(valor, longitudMaxima))
+        // Se normaliza una sola vez: el mismo resultado se valida y se devuelve.
+        var normalizado = string.IsNullOrWhiteSpace(valor) ? string.Empty : NormalizarNombreDePersona(valor);
+        if (!EsFormaCanonicaDeNombreValida(normalizado, longitudMaxima))
         {
             throw new DomainException(
                 $"El {nombreCampo} '{valor}' no es válido: solo admite letras, espacios, apóstrofos o guiones, " +
                 $"entre {LongitudMinimaNombrePersona} y {longitudMaxima} caracteres.");
         }
 
-        return NormalizarNombreDePersona(valor!);
+        return normalizado;
     }
 
     /// <summary>
@@ -126,21 +121,13 @@ public static partial class ReglasTexto
 
     public static bool EsRazonSocialValida(string? valor)
     {
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            return false;
-        }
-
-        var normalizado = NormalizarRazonSocial(valor);
-        return normalizado.Length >= LongitudMinimaRazonSocial
-            && normalizado.Length <= LongitudMaximaRazonSocial
-            && FormatoRazonSocial().IsMatch(normalizado)
-            && normalizado.Any(char.IsLetter);
+        return !string.IsNullOrWhiteSpace(valor) && EsFormaCanonicaDeRazonSocialValida(NormalizarRazonSocial(valor));
     }
 
     public static string ExigirRazonSocial(string? valor, string nombreCampo)
     {
-        if (!EsRazonSocialValida(valor))
+        var normalizado = string.IsNullOrWhiteSpace(valor) ? string.Empty : NormalizarRazonSocial(valor);
+        if (!EsFormaCanonicaDeRazonSocialValida(normalizado))
         {
             throw new DomainException(
                 $"La {nombreCampo} '{valor}' no es válida: debe contener al menos una letra, solo admite letras, " +
@@ -148,7 +135,7 @@ public static partial class ReglasTexto
                 $"{LongitudMaximaRazonSocial} caracteres.");
         }
 
-        return NormalizarRazonSocial(valor!);
+        return normalizado;
     }
 
     public static string NormalizarDomicilio(string valor)
@@ -158,15 +145,7 @@ public static partial class ReglasTexto
 
     public static bool EsDomicilioValido(string? valor)
     {
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            return false;
-        }
-
-        var normalizado = NormalizarDomicilio(valor);
-        return normalizado.Length >= LongitudMinimaDomicilio
-            && normalizado.Length <= LongitudMaximaDomicilio
-            && normalizado.Any(char.IsLetter);
+        return !string.IsNullOrWhiteSpace(valor) && EsFormaCanonicaDeDomicilioValida(NormalizarDomicilio(valor));
     }
 
     /// <summary>
@@ -179,14 +158,15 @@ public static partial class ReglasTexto
             return null;
         }
 
-        if (!EsDomicilioValido(valor))
+        var normalizado = NormalizarDomicilio(valor);
+        if (!EsFormaCanonicaDeDomicilioValida(normalizado))
         {
             throw new DomainException(
                 $"El domicilio '{valor}' no es válido: debe contener al menos una letra, entre " +
                 $"{LongitudMinimaDomicilio} y {LongitudMaximaDomicilio} caracteres.");
         }
 
-        return NormalizarDomicilio(valor);
+        return normalizado;
     }
 
     /// <summary>
@@ -201,20 +181,13 @@ public static partial class ReglasTexto
 
     public static bool EsNombreUsuarioValido(string? valor)
     {
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            return false;
-        }
-
-        var normalizado = NormalizarNombreUsuario(valor);
-        return normalizado.Length >= LongitudMinimaNombreUsuario
-            && normalizado.Length <= LongitudMaximaNombreUsuario
-            && FormatoNombreUsuario().IsMatch(normalizado);
+        return !string.IsNullOrWhiteSpace(valor) && EsFormaCanonicaDeNombreUsuarioValida(NormalizarNombreUsuario(valor));
     }
 
     public static string ExigirNombreUsuario(string? valor)
     {
-        if (!EsNombreUsuarioValido(valor))
+        var normalizado = string.IsNullOrWhiteSpace(valor) ? string.Empty : NormalizarNombreUsuario(valor);
+        if (!EsFormaCanonicaDeNombreUsuarioValida(normalizado))
         {
             throw new DomainException(
                 $"El nombre de usuario '{valor}' no es válido: debe empezar con una letra y solo admite letras sin " +
@@ -222,7 +195,38 @@ public static partial class ReglasTexto
                 $"{LongitudMaximaNombreUsuario} caracteres.");
         }
 
-        return NormalizarNombreUsuario(valor!);
+        return normalizado;
+    }
+
+    // Los EsFormaCanonica* validan un texto que YA está normalizado. Los usan tanto los EsValido públicos como los
+    // Exigir, para que cada valor se normalice una sola vez por llamada.
+    private static bool EsFormaCanonicaDeNombreValida(string normalizado, int longitudMaxima)
+    {
+        return normalizado.Length >= LongitudMinimaNombrePersona
+            && normalizado.Length <= longitudMaxima
+            && FormatoNombrePersona().IsMatch(normalizado);
+    }
+
+    private static bool EsFormaCanonicaDeRazonSocialValida(string normalizado)
+    {
+        return normalizado.Length >= LongitudMinimaRazonSocial
+            && normalizado.Length <= LongitudMaximaRazonSocial
+            && FormatoRazonSocial().IsMatch(normalizado)
+            && normalizado.Any(char.IsLetter);
+    }
+
+    private static bool EsFormaCanonicaDeDomicilioValida(string normalizado)
+    {
+        return normalizado.Length >= LongitudMinimaDomicilio
+            && normalizado.Length <= LongitudMaximaDomicilio
+            && normalizado.Any(char.IsLetter);
+    }
+
+    private static bool EsFormaCanonicaDeNombreUsuarioValida(string normalizado)
+    {
+        return normalizado.Length >= LongitudMinimaNombreUsuario
+            && normalizado.Length <= LongitudMaximaNombreUsuario
+            && FormatoNombreUsuario().IsMatch(normalizado);
     }
 
     // "maría-josé" -> "María-José", "o'connor" -> "O'Connor": mayúscula al inicio y después de cada guion o apóstrofo.

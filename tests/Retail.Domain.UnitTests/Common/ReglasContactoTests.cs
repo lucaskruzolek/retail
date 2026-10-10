@@ -112,4 +112,24 @@ public class ReglasContactoTests
 
         act.Should().Throw<DomainException>();
     }
+
+    [Theory]
+    [InlineData("  Ventas@Dist.COM ")]
+    [InlineData("a.b+Compras@D.co")]
+    public void NormalizarEmail_AplicadaDosVeces_DaElMismoResultado(string entrada)
+    {
+        var una = ReglasContacto.NormalizarEmail(entrada);
+
+        ReglasContacto.NormalizarEmail(una).Should().Be(una);
+    }
+
+    [Theory]
+    [InlineData("(011) 4555-1234")]
+    [InlineData("+54 9 11 4555-1234")]
+    public void NormalizarTelefono_AplicadaDosVeces_DaElMismoResultado(string entrada)
+    {
+        var una = ReglasContacto.NormalizarTelefono(entrada);
+
+        ReglasContacto.NormalizarTelefono(una).Should().Be(una);
+    }
 }

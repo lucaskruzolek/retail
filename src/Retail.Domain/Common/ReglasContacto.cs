@@ -37,12 +37,65 @@ public static partial class ReglasContacto
 
     public static bool EsEmailValido(string? valor)
     {
+        return !string.IsNullOrWhiteSpace(valor) && EsFormaCanonicaDeEmailValida(NormalizarEmail(valor));
+    }
+
+    public static string? ExigirEmailOpcional(string? valor)
+    {
         if (string.IsNullOrWhiteSpace(valor))
         {
-            return false;
+            return null;
         }
 
+        // Se normaliza una sola vez: el mismo resultado se valida y se devuelve.
         var normalizado = NormalizarEmail(valor);
+        if (!EsFormaCanonicaDeEmailValida(normalizado))
+        {
+            throw new DomainException(
+                $"El email '{valor}' no es válido: debe tener la forma usuario@dominio.ext y no superar " +
+                $"{LongitudMaximaEmail} caracteres.");
+        }
+
+        return normalizado;
+    }
+
+    /// <summary>
+    /// Deja solo los dígitos y un "+" inicial: "(011) 4555-1234" pasa a ser "01145551234". Las letras no se
+    /// quitan, para que un texto como "llamar a la tarde" sea rechazado en lugar de quedar vacío.
+    /// </summary>
+    public static string NormalizarTelefono(string valor)
+    {
+        ArgumentNullException.ThrowIfNull(valor);
+        return SeparadoresTelefono().Replace(valor.Trim(), string.Empty);
+    }
+
+    public static bool EsTelefonoValido(string? valor)
+    {
+        return !string.IsNullOrWhiteSpace(valor) && EsFormaCanonicaDeTelefonoValida(NormalizarTelefono(valor));
+    }
+
+    public static string? ExigirTelefonoOpcional(string? valor)
+    {
+        if (string.IsNullOrWhiteSpace(valor))
+        {
+            return null;
+        }
+
+        var normalizado = NormalizarTelefono(valor);
+        if (!EsFormaCanonicaDeTelefonoValida(normalizado))
+        {
+            throw new DomainException(
+                $"El teléfono '{valor}' no es válido: debe contener entre {DigitosMinimosTelefono} y " +
+                $"{DigitosMaximosTelefono} dígitos, con un '+' inicial opcional.");
+        }
+
+        return normalizado;
+    }
+
+    // Los EsFormaCanonica* validan un texto que YA está normalizado. Los usan tanto los EsValido públicos como los
+    // Exigir, para que cada valor se normalice una sola vez por llamada.
+    private static bool EsFormaCanonicaDeEmailValida(string normalizado)
+    {
         if (normalizado.Length > LongitudMaximaEmail || normalizado.Any(char.IsWhiteSpace))
         {
             return false;
@@ -61,61 +114,11 @@ public static partial class ReglasContacto
         return partesDominio.Length >= 2 && partesDominio.All(parte => parte.Length > 0);
     }
 
-    public static string? ExigirEmailOpcional(string? valor)
+    private static bool EsFormaCanonicaDeTelefonoValida(string normalizado)
     {
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            return null;
-        }
-
-        if (!EsEmailValido(valor))
-        {
-            throw new DomainException(
-                $"El email '{valor}' no es válido: debe tener la forma usuario@dominio.ext y no superar " +
-                $"{LongitudMaximaEmail} caracteres.");
-        }
-
-        return NormalizarEmail(valor);
-    }
-
-    /// <summary>
-    /// Deja solo los dígitos y un "+" inicial: "(011) 4555-1234" pasa a ser "01145551234". Las letras no se
-    /// quitan, para que un texto como "llamar a la tarde" sea rechazado en lugar de quedar vacío.
-    /// </summary>
-    public static string NormalizarTelefono(string valor)
-    {
-        ArgumentNullException.ThrowIfNull(valor);
-        return SeparadoresTelefono().Replace(valor.Trim(), string.Empty);
-    }
-
-    public static bool EsTelefonoValido(string? valor)
-    {
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            return false;
-        }
-
-        var normalizado = NormalizarTelefono(valor);
         var cantidadDigitos = normalizado.TrimStart('+').Length;
         return FormatoTelefono().IsMatch(normalizado)
             && cantidadDigitos >= DigitosMinimosTelefono
             && cantidadDigitos <= DigitosMaximosTelefono;
-    }
-
-    public static string? ExigirTelefonoOpcional(string? valor)
-    {
-        if (string.IsNullOrWhiteSpace(valor))
-        {
-            return null;
-        }
-
-        if (!EsTelefonoValido(valor))
-        {
-            throw new DomainException(
-                $"El teléfono '{valor}' no es válido: debe contener entre {DigitosMinimosTelefono} y " +
-                $"{DigitosMaximosTelefono} dígitos, con un '+' inicial opcional.");
-        }
-
-        return NormalizarTelefono(valor);
     }
 }

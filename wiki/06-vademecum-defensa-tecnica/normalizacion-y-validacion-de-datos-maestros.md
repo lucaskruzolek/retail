@@ -21,7 +21,7 @@
 | **Bug real:** el mismo CUIT escrito con y sin guiones permitía dos proveedores. | El CUIT se guarda siempre como 11 dígitos, y además lo exige un `CHECK` en la base. |
 | Un CUIT con dígito verificador incorrecto (`20-12345678-0`) se aceptaba. | Se valida el **dígito verificador módulo 11** y el prefijo (persona física o jurídica). |
 | `"a@b"` era un email válido; el teléfono era texto libre. | Email con dominio completo y en minúsculas; teléfono con 8 a 15 dígitos (E.164). |
-| No había tests de validadores de usuarios. | 1003 tests en verde (Release), incluidas tres migraciones probadas contra LocalDB. |
+| No había tests de validadores de usuarios. | 1020 tests en verde (Release), incluidas tres migraciones probadas contra LocalDB. |
 
 ---
 
@@ -126,6 +126,8 @@ flowchart TB
 | `Exigir*` | El valor normalizado o `DomainException` | El agregado | `ExigirNombreDePersona(" PÉREZ ", "apellido")` → `"Pérez"` |
 
 **Detalle importante:** `EsValido*` **normaliza primero y valida después**. Así el validador de la frontera y el agregado juzgan exactamente el mismo texto. Sin eso, `" J.Perez "` podría pasar en una capa y fallar en la otra.
+
+**¿Cuántas veces se normaliza un valor?** Dos por operación: una en la frontera (FluentValidation → `EsValido*`) y otra en el agregado (`Exigir*`). Esa repetición es buscada, porque el agregado no confía en que alguien haya validado antes. Dentro de cada llamada se normaliza **una sola vez**: `EsValido*` y `Exigir*` delegan en un helper privado `EsFormaCanonica*Valida(normalizado)` que valida el texto ya normalizado, y `Exigir*` devuelve ese mismo resultado. Repetir la normalización es inocuo porque las funciones son **puras** e **idempotentes**, `Normalizar(Normalizar(x)) == Normalizar(x)`, y hay tests que lo verifican.
 
 ### 4.3 Reglas por campo
 
@@ -255,7 +257,7 @@ sequenceDiagram
 | Infraestructura | Migraciones con datos reales sobre el esquema anterior, y el `CHECK`. | `MigracionSepararNombreApellidoTests`, `MigracionNormalizarClientesTests`, `MigracionNormalizarProveedoresTests` |
 | UI | Que el ViewModel no replique reglas y muestre bien los errores. | `UsuarioFormViewModelTests`, `ClienteFormViewModelTests` |
 
-**Resultado final:** 1003 de 1003 en Release (Dominio 344, Aplicación 261, App 290, Integración 108), 0 advertencias y `dotnet format` limpio.
+**Resultado final:** 1020 de 1020 en Release (Dominio 361, Aplicación 261, App 290, Integración 108), 0 advertencias y `dotnet format` limpio.
 
 **Un efecto colateral que conviene contar:** al encapsular, dejaron de compilar más de 70 lugares de los tests que construían entidades con `new X { ... }`, y varios usaban CUIT inventados (`30-11223344-5`) que no pasan el módulo 11. **Los tests mismos estaban cargando los datos inválidos que la cátedra criticó.** Se corrigieron y se agregó `TestData/ClientesDePrueba`, que genera CUIT válidos y distintos.
 
@@ -328,4 +330,4 @@ No lo suponemos. Hay un test por migración que parte del esquema anterior, inse
 | UI | `UsuarioFormViewModel`, `UsuarioFormDialog.xaml`, `ClienteFormViewModel`, `ProveedorFormViewModel` |
 | Documentación | `MAPA_DEL_PROYECTO.md`, `DER.mmd`, `SISTEMA_DE_PERSISTENCIA.md` |
 
-**Commits:** `2512aa9` (Fase A: reglas de dominio) · `a8ef1fd` (Fases B y C: Usuarios y Clientes) · `1a913b2` (Fase D: Proveedores) · más el commit de este informe.
+**Commits:** `2512aa9` (Fase A: reglas de dominio) · `a8ef1fd` (Fases B y C: Usuarios y Clientes) · `1a913b2` (Fase D: Proveedores) · `72b4a2b` (este informe) · más el ajuste que normaliza una sola vez por llamada.
