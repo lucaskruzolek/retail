@@ -88,6 +88,11 @@ public partial class LoginViewModel : ObservableObject
             _session.EstablecerSesion(resultado);
             LoginExitoso?.Invoke();
         }
+        catch (CuentaBloqueadaException ex)
+        {
+            TieneError = true;
+            MensajeError = ex.Message;
+        }
         catch (CredencialesInvalidasException ex)
         {
             TieneError = true;

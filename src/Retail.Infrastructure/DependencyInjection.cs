@@ -56,8 +56,11 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IRetailDbContext>(sp => sp.GetRequiredService<RetailDbContext>());
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.Configure<Retail.Application.DTOs.Auth.PoliticaBloqueoOptions>(
+            configuration.GetSection(Retail.Application.DTOs.Auth.PoliticaBloqueoOptions.SectionName));
+        services.AddScoped<IRegistroAccesosService, Retail.Infrastructure.Persistence.Services.RegistroAccesosService>();
         services.AddScoped<ICatalogoProveedorQueryService, Retail.Infrastructure.Persistence.Services.CatalogoProveedorQueryService>();
         services.AddScoped<IArticuloQueryService, Retail.Infrastructure.Persistence.Services.ArticuloQueryService>();
         services.AddScoped<IClienteQueryService, Retail.Infrastructure.Persistence.Services.ClienteQueryService>();

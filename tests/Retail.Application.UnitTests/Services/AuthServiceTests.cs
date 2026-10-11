@@ -17,6 +17,7 @@ namespace Retail.Application.UnitTests.Services;
 public class AuthServiceTests
 {
     private readonly IRepository<Usuario> _usuarioRepository;
+    private readonly IRegistroAccesosService _registroAccesosService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly LoginRequestValidator _validator;
     private readonly AuthService _sut;
@@ -26,11 +27,25 @@ public class AuthServiceTests
         _usuarioRepository = Substitute.For<IRepository<Usuario>>();
         _passwordHasher = Substitute.For<IPasswordHasher>();
         _validator = new LoginRequestValidator();
+        _registroAccesosService = Substitute.For<IRegistroAccesosService>();
+
+        _registroAccesosService.RegistrarIntentoAsync(
+                Arg.Any<string>(),
+                Arg.Any<int?>(),
+                Arg.Any<bool>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new ResultadoRegistroIntentoDto
+            {
+                Resultado = 0,
+                IntentosRestantes = 5,
+                BloqueadoHasta = null
+            });
 
         _sut = new AuthService(
             _usuarioRepository,
             _passwordHasher,
-            _validator);
+            _validator,
+            _registroAccesosService);
     }
 
     private static Usuario CrearUsuario(
@@ -269,6 +284,47 @@ public class AuthServiceTests
 
         // Assert
         await act.Should().ThrowAsync<CredencialesInvalidasException>();
+    }
+
+    [Fact]
+    public async Task LoginAsync_CuentaBloqueadaPorExcesoDeIntentos_LanzaCuentaBloqueadaException()
+    {
+        // Arrange
+        var request = new LoginRequestDto
+        {
+            NombreUsuario = "admin",
+            Password = "Password123!"
+        };
+
+        var usuario = CrearUsuario(1, "admin", "Administrador", "General", "hashedPassword", RolUsuarioEnum.Gerente);
+
+        _usuarioRepository.FindAsync(
+            Arg.Any<Expression<Func<Usuario, bool>>>(),
+            includeDeleted: true,
+            Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { usuario });
+
+        _passwordHasher.VerifyPassword(request.Password, usuario.PasswordHash).Returns(true);
+
+        var desbloqueoUtc = DateTime.UtcNow.AddMinutes(15);
+        _registroAccesosService.RegistrarIntentoAsync(
+            "admin",
+            1,
+            true,
+            Arg.Any<CancellationToken>())
+            .Returns(new ResultadoRegistroIntentoDto
+            {
+                Resultado = 2,
+                IntentosRestantes = 0,
+                BloqueadoHasta = desbloqueoUtc
+            });
+
+        // Act
+        var act = () => _sut.LoginAsync(request);
+
+        // Assert
+        var ex = await act.Should().ThrowAsync<CuentaBloqueadaException>();
+        ex.Which.BloqueadoHastaUtc.Should().Be(desbloqueoUtc);
     }
 }
 
