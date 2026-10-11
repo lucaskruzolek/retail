@@ -3,6 +3,7 @@ using Retail.Application.DTOs.Auth;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
@@ -39,7 +40,8 @@ public class AuthService : IAuthService
             throw new ValidationException(validationResult.Errors);
         }
 
-        var username = request.NombreUsuario.Trim();
+        // Misma forma canónica con la que UsuarioService guarda el login: "Admin" entra como "admin".
+        var username = ReglasTexto.NormalizarNombreUsuario(request.NombreUsuario);
         var usuarios = await _usuarioRepository.FindAsync(
             u => u.NombreUsuario == username,
             includeDeleted: true,

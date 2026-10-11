@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
 
 namespace Retail.Infrastructure.Persistence.Configurations;
@@ -17,7 +18,7 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
 
         builder.Property(u => u.NombreUsuario)
             .HasColumnName("nombre_usuario")
-            .HasMaxLength(50)
+            .HasMaxLength(ReglasTexto.LongitudMaximaNombreUsuario)
             .IsRequired();
 
         builder.HasIndex(u => u.NombreUsuario)
@@ -29,10 +30,20 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
             .HasMaxLength(255)
             .IsRequired();
 
-        builder.Property(u => u.NombreCompleto)
-            .HasColumnName("nombre_completo")
-            .HasMaxLength(100)
+        builder.Property(u => u.Nombre)
+            .HasColumnName("nombre")
+            .HasMaxLength(ReglasTexto.LongitudMaximaNombrePersona)
+            .UseCollation(Cotejamientos.BusquedaEnCastellano)
             .IsRequired();
+
+        builder.Property(u => u.Apellido)
+            .HasColumnName("apellido")
+            .HasMaxLength(ReglasTexto.LongitudMaximaNombrePersona)
+            .UseCollation(Cotejamientos.BusquedaEnCastellano)
+            .IsRequired();
+
+        // Derivado de Nombre y Apellido: persistirlo duplicaría datos (3FN).
+        builder.Ignore(u => u.NombreCompleto);
 
         builder.Property(u => u.IdRol)
             .HasColumnName("id_rol")

@@ -3,6 +3,7 @@ using Retail.Application.DTOs.Clientes;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
 
 namespace Retail.Application.Services;
@@ -133,27 +134,28 @@ public class ClienteService : IClienteService
         ArgumentNullException.ThrowIfNull(dto);
         await _crearClienteValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
-        string documentoSanitizado = dto.NumeroDocumento.Trim();
+        // Se compara la forma canónica: "12.345.678" y "12345678" son el mismo DNI (C-1).
+        string documentoNormalizado = ReglasDocumento.Normalizar(dto.TipoDocumento, dto.NumeroDocumento);
 
-        var existente = await _clienteRepository.FindAsync(c => c.NumeroDocumento == documentoSanitizado, cancellationToken);
+        var existente = await _clienteRepository.FindAsync(c => c.NumeroDocumento == documentoNormalizado, cancellationToken);
         if (existente.Count > 0)
         {
-            throw new InvalidOperationException($"Ya existe un cliente activo registrado con el número de documento '{documentoSanitizado}'.");
+            throw new InvalidOperationException($"Ya existe un cliente activo registrado con el número de documento '{documentoNormalizado}'.");
         }
 
-        var cliente = new Cliente
+        var cliente = Cliente.Crear(
+            dto.RazonSocialONombre,
+            dto.TipoDocumento,
+            dto.NumeroDocumento,
+            dto.CondicionIva,
+            dto.DomicilioFiscal,
+            dto.Telefono,
+            dto.Email);
+
+        if (dto.TieneCuentaCorriente)
         {
-            RazonSocialONombre = dto.RazonSocialONombre.Trim(),
-            TipoDocumento = dto.TipoDocumento,
-            NumeroDocumento = documentoSanitizado,
-            CondicionIva = dto.CondicionIva,
-            DomicilioFiscal = string.IsNullOrWhiteSpace(dto.DomicilioFiscal) ? null : dto.DomicilioFiscal.Trim(),
-            Telefono = string.IsNullOrWhiteSpace(dto.Telefono) ? null : dto.Telefono.Trim(),
-            Email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim(),
-            TieneCuentaCorriente = dto.TieneCuentaCorriente,
-            LimiteCredito = dto.TieneCuentaCorriente ? dto.LimiteCredito : 0m,
-            SaldoCuentaCorriente = 0m
-        };
+            cliente.HabilitarCuentaCorriente(dto.LimiteCredito);
+        }
 
         await _clienteRepository.AddAsync(cliente, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -169,15 +171,15 @@ public class ClienteService : IClienteService
         var cliente = await _clienteRepository.GetByIdAsync(dto.IdCliente, cancellationToken)
             ?? throw new KeyNotFoundException($"No se encontró el cliente activo con ID {dto.IdCliente}.");
 
-        string documentoSanitizado = dto.NumeroDocumento.Trim();
+        string documentoNormalizado = ReglasDocumento.Normalizar(dto.TipoDocumento, dto.NumeroDocumento);
 
         var duplicado = await _clienteRepository.FindAsync(
-            c => c.NumeroDocumento == documentoSanitizado && c.Id != dto.IdCliente,
+            c => c.NumeroDocumento == documentoNormalizado && c.Id != dto.IdCliente,
             cancellationToken);
 
         if (duplicado.Count > 0)
         {
-            throw new InvalidOperationException($"Ya existe otro cliente activo registrado con el número de documento '{documentoSanitizado}'.");
+            throw new InvalidOperationException($"Ya existe otro cliente activo registrado con el número de documento '{documentoNormalizado}'.");
         }
 
         try
@@ -185,7 +187,7 @@ public class ClienteService : IClienteService
             cliente.ActualizarDatos(
                 dto.RazonSocialONombre,
                 dto.TipoDocumento,
-                documentoSanitizado,
+                dto.NumeroDocumento,
                 dto.CondicionIva,
                 dto.DomicilioFiscal,
                 dto.Telefono,

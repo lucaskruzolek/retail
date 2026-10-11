@@ -73,7 +73,7 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
 
     private async Task<Proveedor> CrearProveedorAsync(string razonSocial, string cuit)
     {
-        var proveedor = new Proveedor { RazonSocial = razonSocial, Cuit = cuit };
+        var proveedor = Proveedor.Crear(razonSocial, cuit);
         _context.Proveedores.Add(proveedor);
         await _context.SaveChangesAsync();
         return proveedor;
@@ -137,8 +137,8 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
     public async Task ImportarPlanillaProveedorAsync_ConArticulosDeOtroProveedor_SoloCargaLosDelProveedorImportado()
     {
         // Arrange: los dos proveedores tienen un renglón "X-00001" con su artículo vinculado
-        var proveedorA = await CrearProveedorAsync("Distribuidora Sur", "30-11111111-1");
-        var proveedorB = await CrearProveedorAsync("Papelera Norte", "30-22222222-2");
+        var proveedorA = await CrearProveedorAsync("Distribuidora Sur", "30-11111111-8");
+        var proveedorB = await CrearProveedorAsync("Papelera Norte", "30-22222222-9");
         await CrearCatalogoConArticulosAsync(proveedorA, "X", 1);
         await CrearCatalogoConArticulosAsync(proveedorB, "X", 1);
         _context.ChangeTracker.Clear();
@@ -173,8 +173,8 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
     public async Task ImportarPlanillaProveedorAsync_ConPresentacionDerivada_PropagaCostoSoloALasDelProveedor()
     {
         // Arrange: cada proveedor tiene un renglón "P-00001" con su pack vinculado y una presentación x10
-        var proveedorA = await CrearProveedorAsync("Distribuidora Sur", "30-11111111-1");
-        var proveedorB = await CrearProveedorAsync("Papelera Norte", "30-22222222-2");
+        var proveedorA = await CrearProveedorAsync("Distribuidora Sur", "30-11111111-8");
+        var proveedorB = await CrearProveedorAsync("Papelera Norte", "30-22222222-9");
         await CrearCatalogoConArticulosAsync(proveedorA, "P", 1);
         await CrearCatalogoConArticulosAsync(proveedorB, "P", 1);
         var derivadoA = await CrearPresentacionAsync(proveedorA);
@@ -223,8 +223,8 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
         // Arrange
         const int existentes = 2500;
         const int nuevas = 2500;
-        var proveedor = await CrearProveedorAsync("Distribuidora Sur", "30-11111111-1");
-        var otroProveedor = await CrearProveedorAsync("Papelera Norte", "30-22222222-2");
+        var proveedor = await CrearProveedorAsync("Distribuidora Sur", "30-11111111-8");
+        var otroProveedor = await CrearProveedorAsync("Papelera Norte", "30-22222222-9");
         await CrearCatalogoConArticulosAsync(proveedor, "A", existentes);
         await CrearCatalogoConArticulosAsync(otroProveedor, "B", 2000);
         _context.ChangeTracker.Clear();

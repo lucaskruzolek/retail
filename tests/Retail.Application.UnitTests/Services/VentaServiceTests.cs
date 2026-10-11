@@ -8,6 +8,7 @@ using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
+using Retail.Application.UnitTests.TestData;
 using Retail.Application.Validators.Ventas;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
@@ -564,7 +565,7 @@ public class VentaServiceTests
 
     private Cliente ConfigurarClienteConCuentaCorriente(decimal limiteCredito)
     {
-        var cliente = new Cliente { Id = IdCliente, RazonSocialONombre = "Librería del Centro" };
+        var cliente = ClientesDePrueba.Crear(id: IdCliente, razonSocialONombre: "Librería del Centro");
         cliente.HabilitarCuentaCorriente(limiteCredito);
         _clienteRepository.GetByIdAsync(IdCliente, false, Arg.Any<CancellationToken>()).Returns(cliente);
         return cliente;

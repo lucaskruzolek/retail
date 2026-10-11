@@ -4,7 +4,9 @@ using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.Application.Services;
@@ -23,7 +25,7 @@ public class ProveedorService : IProveedorService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IExcelCatalogParser _excelCatalogParser;
     private readonly IValidator<CrearProveedorDto> _crearProveedorValidator;
-    private readonly IValidator<ProveedorDto> _actualizarProveedorValidator;
+    private readonly IValidator<ActualizarProveedorDto> _actualizarProveedorValidator;
     private readonly IValidator<MapeoColumnasDto> _mapeoColumnasValidator;
     private readonly IValidator<IncorporarCatalogoArticulosDto> _incorporarArticulosValidator;
 
@@ -34,7 +36,7 @@ public class ProveedorService : IProveedorService
         IUnitOfWork unitOfWork,
         IExcelCatalogParser excelCatalogParser,
         IValidator<CrearProveedorDto> crearProveedorValidator,
-        IValidator<ProveedorDto> actualizarProveedorValidator,
+        IValidator<ActualizarProveedorDto> actualizarProveedorValidator,
         IValidator<MapeoColumnasDto> mapeoColumnasValidator,
         IValidator<IncorporarCatalogoArticulosDto> incorporarArticulosValidator)
     {
@@ -85,19 +87,20 @@ public class ProveedorService : IProveedorService
     {
         await _crearProveedorValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
-        string cuitLimpio = dto.Cuit.Replace("-", "").Trim();
+        // El CUIT se guarda siempre como 11 dígitos, así que basta una comparación con la forma canónica. Antes
+        // se guardaba tal como se escribía y "20-12345678-6" no coincidía con "20123456786" (P-1).
+        string cuitNormalizado = ReglasDocumento.Normalizar(TipoDocumentoEnum.Cuit, dto.Cuit);
         var existentes = await _proveedorRepository.FindAsync(
-            p => p.Cuit == cuitLimpio || p.Cuit == dto.Cuit.Trim(),
+            p => p.Cuit == cuitNormalizado,
             includeDeleted: false,
             cancellationToken);
 
         if (existentes.Count > 0)
         {
-            throw new DomainException($"Ya existe un proveedor activo registrado con el CUIT {dto.Cuit}.");
+            throw new DomainException($"Ya existe un proveedor activo registrado con el CUIT {cuitNormalizado}.");
         }
 
-        var proveedor = new Proveedor();
-        proveedor.ActualizarDatos(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
+        var proveedor = Proveedor.Crear(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
 
         await _proveedorRepository.AddAsync(proveedor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -112,7 +115,7 @@ public class ProveedorService : IProveedorService
         };
     }
 
-    public async Task ActualizarProveedorAsync(ProveedorDto dto, CancellationToken cancellationToken = default)
+    public async Task ActualizarProveedorAsync(ActualizarProveedorDto dto, CancellationToken cancellationToken = default)
     {
         await _actualizarProveedorValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
@@ -122,15 +125,15 @@ public class ProveedorService : IProveedorService
             throw new DomainException($"No se encontró el proveedor con ID {dto.IdProveedor}.");
         }
 
-        string cuitLimpio = dto.Cuit.Replace("-", "").Trim();
+        string cuitNormalizado = ReglasDocumento.Normalizar(TipoDocumentoEnum.Cuit, dto.Cuit);
         var existentes = await _proveedorRepository.FindAsync(
-            p => (p.Cuit == cuitLimpio || p.Cuit == dto.Cuit.Trim()) && p.Id != dto.IdProveedor,
+            p => p.Cuit == cuitNormalizado && p.Id != dto.IdProveedor,
             includeDeleted: false,
             cancellationToken);
 
         if (existentes.Count > 0)
         {
-            throw new DomainException($"Ya existe otro proveedor activo registrado con el CUIT {dto.Cuit}.");
+            throw new DomainException($"Ya existe otro proveedor activo registrado con el CUIT {cuitNormalizado}.");
         }
 
         proveedor.ActualizarDatos(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
@@ -204,67 +207,81 @@ public class ProveedorService : IProveedorService
         int nuevosRegistros = 0;
         int actualizados = 0;
 
-        foreach (var item in filasValidas)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            try
+            foreach (var item in filasValidas)
             {
-                if (mapCatalogos.TryGetValue(item.CodigoProveedor, out var catalogoExistente))
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Una fila que falla no queda a medias: ActualizarPrecio valida antes de asignar y, si pasa, el
+                // precio es positivo, así que ni el artículo (H-08) ni sus presentaciones derivadas pueden fallar
+                // después. Si el Dominio agregara una regla que sí pudiera fallar ahí, habría que validar la fila
+                // completa antes de modificar el catálogo.
+                try
                 {
-                    catalogoExistente.ActualizarPrecio(item.PrecioCosto, item.Descripcion, item.CodigoBarras);
-                    await _catalogoQueryService.ActualizarAsync(catalogoExistente, cancellationToken);
-
-                    foreach (var articuloAsociado in articulosPorCatalogo[catalogoExistente.Id])
+                    if (mapCatalogos.TryGetValue(item.CodigoProveedor, out var catalogoExistente))
                     {
-                        // Solo cuenta como precio actualizado si el costo del artículo realmente cambia (H-16).
-                        if (articuloAsociado.CostoReposicion == item.PrecioCosto)
-                        {
-                            continue;
-                        }
+                        catalogoExistente.ActualizarPrecio(item.PrecioCosto, item.Descripcion, item.CodigoBarras);
+                        await _catalogoQueryService.ActualizarAsync(catalogoExistente, cancellationToken);
 
-                        articuloAsociado.ActualizarCostoYRecalcularPrecio(item.PrecioCosto);
-                        await _articuloRepository.UpdateAsync(articuloAsociado, cancellationToken);
-                        actualizados++;
-
-                        // El nuevo costo se propaga a las presentaciones; cada una cuenta solo si su costo cambia,
-                        // porque el redondeo puede dejar igual el costo unitario (H-16, RF-21).
-                        foreach (var presentacion in presentacionesPorOrigen[articuloAsociado.Id])
+                        foreach (var articuloAsociado in articulosPorCatalogo[catalogoExistente.Id])
                         {
-                            var costoAnteriorPresentacion = presentacion.CostoReposicion;
-                            presentacion.RecalcularCostoDesdeOrigen(articuloAsociado.CostoReposicion);
-                            if (presentacion.CostoReposicion == costoAnteriorPresentacion)
+                            // Solo cuenta como precio actualizado si el costo del artículo realmente cambia (H-16).
+                            if (articuloAsociado.CostoReposicion == item.PrecioCosto)
                             {
                                 continue;
                             }
 
-                            await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
+                            articuloAsociado.ActualizarCostoYRecalcularPrecio(item.PrecioCosto);
+                            await _articuloRepository.UpdateAsync(articuloAsociado, cancellationToken);
                             actualizados++;
+
+                            // El nuevo costo se propaga a las presentaciones; cada una cuenta solo si su costo cambia,
+                            // porque el redondeo puede dejar igual el costo unitario (H-16, RF-21).
+                            foreach (var presentacion in presentacionesPorOrigen[articuloAsociado.Id])
+                            {
+                                var costoAnteriorPresentacion = presentacion.CostoReposicion;
+                                presentacion.RecalcularCostoDesdeOrigen(articuloAsociado.CostoReposicion);
+                                if (presentacion.CostoReposicion == costoAnteriorPresentacion)
+                                {
+                                    continue;
+                                }
+
+                                await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
+                                actualizados++;
+                            }
                         }
                     }
-                }
-                else
-                {
-                    var nuevoCatalogo = new CatalogoProveedor
+                    else
                     {
-                        IdProveedor = mapeo.IdProveedor,
-                        CodigoProveedor = item.CodigoProveedor,
-                        CodigoBarras = item.CodigoBarras,
-                        DescripcionProveedor = item.Descripcion,
-                        CostoReposicion = item.PrecioCosto,
-                        FechaActualizacion = DateTime.UtcNow
-                    };
-                    await _catalogoQueryService.AgregarAsync(nuevoCatalogo, cancellationToken);
-                    mapCatalogos[item.CodigoProveedor] = nuevoCatalogo;
-                    nuevosRegistros++;
-                }
+                        var nuevoCatalogo = new CatalogoProveedor
+                        {
+                            IdProveedor = mapeo.IdProveedor,
+                            CodigoProveedor = item.CodigoProveedor,
+                            CodigoBarras = item.CodigoBarras,
+                            DescripcionProveedor = item.Descripcion,
+                            CostoReposicion = item.PrecioCosto,
+                            FechaActualizacion = DateTime.UtcNow
+                        };
+                        await _catalogoQueryService.AgregarAsync(nuevoCatalogo, cancellationToken);
+                        mapCatalogos[item.CodigoProveedor] = nuevoCatalogo;
+                        nuevosRegistros++;
+                    }
 
-                filasProcesadas++;
+                    filasProcesadas++;
+                }
+                catch (Exception ex) when (ex is ArgumentException or DomainException)
+                {
+                    erroresDetalle.Add($"Fila {item.NumeroFila}: {ex.Message}");
+                }
             }
-            catch (Exception ex) when (ex is ArgumentException or DomainException)
-            {
-                erroresDetalle.Add($"Fila {item.NumeroFila}: {ex.Message}");
-            }
+        }
+        catch
+        {
+            // Cancelación o falla inesperada a mitad del lote: las filas ya procesadas quedaron en el contexto de la
+            // pantalla y se guardarían con la próxima operación exitosa.
+            _unitOfWork.DescartarCambios();
+            throw;
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);

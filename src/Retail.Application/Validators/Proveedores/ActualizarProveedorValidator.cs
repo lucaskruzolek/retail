@@ -1,37 +1,31 @@
 using FluentValidation;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Application.Validators.Common;
 
 namespace Retail.Application.Validators.Proveedores;
 
 /// <summary>
-/// Validador declarativo para la modificación de distribuidores mayoristas.
+/// Validador declarativo para la modificación de distribuidores mayoristas. Usa las mismas reglas que el alta.
 /// </summary>
-public class ActualizarProveedorValidator : AbstractValidator<ProveedorDto>
+public class ActualizarProveedorValidator : AbstractValidator<ActualizarProveedorDto>
 {
     public ActualizarProveedorValidator()
     {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
         RuleFor(x => x.IdProveedor)
             .GreaterThan(0).WithMessage("El identificador del proveedor debe ser válido.");
 
         RuleFor(x => x.RazonSocial)
-            .NotEmpty().WithMessage("La razón social del proveedor es obligatoria.")
-            .MaximumLength(150).WithMessage("La razón social no puede exceder 150 caracteres.");
+            .RazonSocial("la razón social del proveedor");
 
         RuleFor(x => x.Cuit)
-            .NotEmpty().WithMessage("El CUIT del proveedor es obligatorio.")
-            .Must(CrearProveedorValidator.EsCuitValido).WithMessage("El formato del CUIT es inválido. Debe contener 11 dígitos numéricos.");
+            .Cuit();
 
-        When(x => !string.IsNullOrWhiteSpace(x.Email), () =>
-        {
-            RuleFor(x => x.Email)
-                .EmailAddress().WithMessage("El formato del correo electrónico no es válido.")
-                .MaximumLength(100).WithMessage("El correo electrónico no puede exceder 100 caracteres.");
-        });
+        RuleFor(x => x.Telefono)
+            .TelefonoOpcional();
 
-        When(x => !string.IsNullOrWhiteSpace(x.Telefono), () =>
-        {
-            RuleFor(x => x.Telefono)
-                .MaximumLength(50).WithMessage("El teléfono no puede exceder 50 caracteres.");
-        });
+        RuleFor(x => x.Email)
+            .EmailOpcional();
     }
 }

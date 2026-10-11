@@ -8,7 +8,13 @@ public class ProveedorConfiguration : IEntityTypeConfiguration<Proveedor>
 {
     public void Configure(EntityTypeBuilder<Proveedor> builder)
     {
-        builder.ToTable("PROVEEDORES");
+        // Defensa en profundidad (Ley 7 de persistencia): aunque el agregado ya normaliza el CUIT, la base rechaza
+        // por su cuenta cualquier valor que no sean 11 dígitos, por ejemplo un INSERT manual con guiones. El
+        // dígito verificador no se controla acá: sería lógica de negocio en la base, prohibida por la Ley 6.
+        builder.ToTable("PROVEEDORES", t =>
+        {
+            t.HasCheckConstraint("CK_PROVEEDORES_Cuit", "LEN([cuit]) = 11 AND [cuit] NOT LIKE '%[^0-9]%'");
+        });
 
         builder.HasKey(p => p.Id);
 

@@ -1,4 +1,6 @@
 using FluentAssertions;
+using FluentValidation;
+using FluentValidation.Results;
 using Retail.App.ViewModels.Clientes;
 using Retail.Application.DTOs.Clientes;
 using Retail.Domain.Enums;
@@ -36,7 +38,7 @@ public class ClienteFormViewModelTests
             IdCliente = 42,
             RazonSocialONombre = "Librería Central S.A.",
             TipoDocumento = TipoDocumentoEnum.Cuit,
-            NumeroDocumento = "30-55667788-9",
+            NumeroDocumento = "33-55667788-9",
             CondicionIva = CondicionIvaEnum.ResponsableInscripto,
             DomicilioFiscal = "Calle Falsa 123",
             Telefono = "11-2233-4455",
@@ -55,7 +57,7 @@ public class ClienteFormViewModelTests
         _sut.IdCliente.Should().Be(42);
         _sut.RazonSocialONombre.Should().Be("Librería Central S.A.");
         _sut.TipoDocumento.Should().Be(TipoDocumentoEnum.Cuit);
-        _sut.NumeroDocumento.Should().Be("30-55667788-9");
+        _sut.NumeroDocumento.Should().Be("33-55667788-9");
         _sut.CondicionIva.Should().Be(CondicionIvaEnum.ResponsableInscripto);
         _sut.TieneCuentaCorriente.Should().BeTrue();
         _sut.LimiteCredito.Should().Be(75000m);
@@ -90,57 +92,35 @@ public class ClienteFormViewModelTests
         _sut.LimiteCredito.Should().Be(10000m);
     }
 
+    // Las reglas de formato (nombre según tipo de documento, DNI/CUIT, email, teléfono) se prueban en
+    // ClienteValidatorTests: el ViewModel ya no las replica.
+
     [Fact]
-    public void Validar_CamposObligatoriosCompletos_RetornaTrue()
+    public void InformarError_ValidationException_ListaCadaErrorEnUnaLinea()
     {
         // Arrange
-        _sut.RazonSocialONombre = "Juan Pérez";
-        _sut.NumeroDocumento = "12345678";
-        _sut.TipoDocumento = TipoDocumentoEnum.Dni;
-        _sut.CondicionIva = CondicionIvaEnum.ConsumidorFinal;
+        var ex = new ValidationException(
+        [
+            new ValidationFailure("RazonSocialONombre", "Revise el nombre del cliente."),
+            new ValidationFailure("NumeroDocumento", "Revise el número de documento.")
+        ]);
 
         // Act
-        var result = _sut.Validar();
+        _sut.InformarError(ex);
 
         // Assert
-        result.Should().BeTrue();
-        _sut.TieneError.Should().BeFalse();
+        _sut.MensajeError.Should().Be("Revise el nombre del cliente.\nRevise el número de documento.");
+        _sut.TieneError.Should().BeTrue();
     }
 
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Validar_RazonSocialVacia_RetornaFalseYFijaError(string razonSocialInvalida)
+    [Fact]
+    public void InformarError_OtraExcepcion_MuestraSuMensaje()
     {
-        // Arrange
-        _sut.RazonSocialONombre = razonSocialInvalida;
-        _sut.NumeroDocumento = "12345678";
-
         // Act
-        var result = _sut.Validar();
+        _sut.InformarError(new InvalidOperationException("Ya existe un cliente activo registrado con el número de documento '12345678'."));
 
         // Assert
-        result.Should().BeFalse();
-        _sut.TieneError.Should().BeTrue();
-        _sut.MensajeError.Should().Contain("razón social");
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("123")]
-    public void Validar_NumeroDocumentoInvalido_RetornaFalseYFijaError(string docInvalido)
-    {
-        // Arrange
-        _sut.RazonSocialONombre = "Juan Pérez";
-        _sut.NumeroDocumento = docInvalido;
-
-        // Act
-        var result = _sut.Validar();
-
-        // Assert
-        result.Should().BeFalse();
-        _sut.TieneError.Should().BeTrue();
-        _sut.MensajeError.Should().Contain("documento");
+        _sut.MensajeError.Should().Contain("12345678");
     }
 
     [Fact]
@@ -162,7 +142,7 @@ public class ClienteFormViewModelTests
 
         // Assert
         dto.RazonSocialONombre.Should().Be("Papelería Belgrano");
-        dto.NumeroDocumento.Should().Be("30-11223344-5");
+        dto.NumeroDocumento.Should().Be("30-11223344-5"); // la interfaz solo recorta: normaliza el agregado
         dto.DomicilioFiscal.Should().Be("Av. Belgrano 1000");
         dto.Telefono.Should().Be("11-44556677");
         dto.Email.Should().Be("info@belgrano.com");
