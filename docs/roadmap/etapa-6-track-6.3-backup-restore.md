@@ -19,7 +19,7 @@
 | 4 | Backup | ✅ Hecha (commit por fase) |
 | 5 | Restore (opción C: base temporal + intercambio) | ✅ Hecha — commit `0bcbe88` más las correcciones de la revisión final (sección 1.3) |
 | 6 | UI (`BackupView`, `ConfirmarCredencialDialog`) | ✅ Hecha — 1395 tests, Release 0 advertencias. Pendiente: prueba manual en la app real (incluido el reinicio tras restaurar) |
-| 7 | Backup automático | ⏳ Siguiente (en secuencia, en el árbol principal) |
+| 7 | Backup automático | ⏳ Rediseñada (D-27 a D-29, sección 1.4). Prerrequisito: migración a SQL Server Express en un PR propio |
 
 **Forma de trabajo:** fase por fase y capa por capa (Dominio → Aplicación → Infraestructura → UI → Tests), con cada diff revisado por el estudiante. Desde el 2026-10-13, [`CLAUDE.md`](file:///c:/Users/lucas/Proyectos/retail/CLAUDE.md) §5 permite delegar código en subagentes cuando el estudiante lo pide: la sesión principal define los paquetes, revisa cada diff, corre la verificación y explica. Revisiones independientes de solo lectura en las Fases 1 (permisos) y 5 (restore). Commits y PR los pide el estudiante.
 
@@ -170,6 +170,39 @@ vigente en un flujo normal. Correcciones aplicadas:
 
 ---
 
+## 1.4. Plan de la Fase 7 (Rediseñada) y Prerrequisito SQL Server Express
+
+> Decidido por el estudiante el 2026-10-14: D-27 a D-29. Las decisiones intermedias sobre una regla de "24 h", qué copias
+> cuentan y reintentos quedan sin efecto: no hay lógica de "¿corresponde copiar?", la tarea copia siempre a su hora.
+
+### Paso A — Migración a SQL Server Express (rama `chore/sql-server-express` desde `main`, PR propio)
+
+| # | Tarea | Detalle |
+| :-: | :--- | :--- |
+| A-1 | Instalar SQL Server Express en cada equipo de desarrollo | Manual y documentado (por ejemplo `winget install Microsoft.SQLServer.2022.Express`), instancia `SQLEXPRESS`. Quien instala queda como `sysadmin` (necesario para restaurar: `RESTORE`, `ALTER DATABASE`, `DROP DATABASE`) |
+| A-2 | Cadena de conexión | `appsettings.json` y el valor por defecto de `Infrastructure/DependencyInjection.cs`: `Server=.\SQLEXPRESS;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true` (SqlClient cifra por defecto; el certificado local es autofirmado) |
+| A-3 | Tests de integración | Un helper único (por ejemplo `ServidorDePruebas.CadenaDeConexion(nombreBase)`) que lee el servidor de la variable `RETAIL_TEST_SQLSERVER`, por defecto `.\SQLEXPRESS`. Reemplaza las cadenas fijas de LocalDB de los tests (15 archivos en `main`; los de backup y restore, que solo existen en `feat/backup-restore`, se actualizan en el Paso B al integrar `main`, donde puede haber conflictos en los archivos que ambas ramas tocaron) |
+| A-4 | CI | `ci.yml` y `release.yml`: paso que instala SQL Server Express en `windows-latest` antes de los tests. Medir el tiempo agregado |
+| A-5 | Documentación | `SISTEMA_DE_PERSISTENCIA.md`, `SISTEMA_DE_CI_CD.md`, README (instalación del motor), ERS si menciona LocalDB como motor de desarrollo |
+| A-6 | Equipo | Avisar a Pablo: instalar Express antes de hacer `pull`; su base de LocalDB no se migra sola (puede respaldarla y restaurarla en Express o recrearla) |
+
+### Paso B — Fase 7 (en `feat/backup-restore`, después de integrar `main` con Express)
+
+| # | Tarea | Detalle |
+| :-: | :--- | :--- |
+| B-0 | **Hallazgo #1 de la revisión (Alta), todavía abierto** | Un registro `EnCurso` huérfano (corte de luz o PC apagada a mitad de la copia de las 21:00) bloquea para siempre copias y restores. Bajo el bloqueo exclusivo cualquier `EnCurso` de la vigente es huérfano: el restore lo cierra como "interrumpida" en lugar de rechazar, y cada copia se autorrepara con un nuevo `IBloqueoRestauracion.IntentarAdquirirExclusivoAsync` (si obtiene el exclusivo, nadie más está copiando ni restaurando). Transiciones con el agregado (Ley 8). Tests unitarios + integración con un huérfano real |
+| B-1 | Tests de backup y restore | Pasar las cadenas fijas al helper del Paso A (`ServidorDePruebas`). **Permisos de la carpeta de pruebas:** hoy los tests escriben los `.bak` en `%TEMP%` del usuario; con LocalDB funcionaba porque el motor corría como el usuario, pero en Express el `BACKUP`/`RESTORE` lo ejecuta `NT SERVICE\MSSQL$SQLEXPRESS`, que no tiene permiso sobre esa carpeta. Usar un directorio de pruebas con permisos para la cuenta del servicio (por ejemplo, una subcarpeta del directorio de respaldos por defecto del motor, `SERVERPROPERTY('InstanceDefaultBackupPath')`, o una carpeta a la que el test le otorgue permisos) tanto en la máquina local como en el CI |
+| B-2 | Permisos de la cuenta del servicio | `C:\RetailData\Backups` con permiso de modificación para `NT SERVICE\MSSQL$SQLEXPRESS` (escribe y lee los `.bak`) y para `SYSTEM` (manifiestos y retención) |
+| B-3 | Restore desde una ruta cualquiera | El `RESTORE` lo ejecuta la cuenta del servicio, que no puede leer, por ejemplo, la carpeta de Descargas del Gerente: si el `.bak` está fuera del directorio de respaldos, se copia (con su manifiesto) al directorio antes de restaurar |
+| B-4 | `scripts/registrar-tarea-backup.ps1` | Requiere administrador; idempotente. Crea el directorio y aplica B-2, crea el login `NT AUTHORITY\SYSTEM` con permisos mínimos (a verificar en la implementación: `db_backupoperator`, lectura y escritura sobre `RetailDb` para el historial, y el permiso que exija `RESTORE VERIFYONLY`), y registra la tarea diaria a las 21:00 como `SYSTEM` con "iniciar si se perdió". Parámetros `-Hora` y `-Desregistrar` |
+| B-5 | `Retail.Cli backup` | Sin cambios de lógica (ya registra la copia como `Automatico` y maneja Ctrl+C); revisar la ayuda y el log cuando corre sin consola interactiva |
+| B-6 | Documentación y defensa | MAPA, README (instalación de la tarea), riesgos (R-4 desaparece; una PC apagada recupera la copia al encender), preguntas de defensa (por qué una tarea del sistema y no un servicio en la app; por qué `SYSTEM` y no el usuario) |
+| B-7 | Verificación | Release con 0 advertencias, todos los tests, `dotnet format`, prueba manual de la tarea (ejecutarla a mano desde el Programador de tareas) y revisión independiente de solo lectura |
+
+**Zonas compartidas (Ley 10):** el Paso A cambia `appsettings.json`, la configuración de DI y los workflows de CI: coordinarlo con Pablo antes del merge. El Paso B ya no toca `App.xaml.cs` (no hay servicio en segundo plano).
+
+---
+
 ## 2. Decisiones Cerradas
 
 | # | Decisión | Fundamento |
@@ -187,8 +220,11 @@ vigente en un flujo normal. Correcciones aplicadas:
 | D-11 | Al arrancar, la app **verifica** y bloquea con un mensaje accionable: base sin conexión, migraciones pendientes, base más nueva que la app, sin Gerente activo | Falla temprana en lugar de efectos secundarios |
 | D-12 | Roles por **migración** (`InsertData`). Primer Gerente con `Retail.Cli inicializar` (interactivo, con email). `datos-demo` = **un proveedor + categorías + marcas**. Se eliminan `Admin123!` y los 20 artículos | Roles = datos de referencia del esquema. Usuarios = datos operativos con secretos. La demo ante la cátedra se hace importando un Excel |
 | D-13 | **Revisada.** La recuperación de contraseña es **exclusivamente por correo electrónico** (funcionalidad futura). Se eliminó `Retail.Cli blanquear-gerente` y **no se usan códigos de recuperación** | En un comercio el personal comparte la sesión de Windows: "acceso al equipo" no es un límite de confianza, y un cajero podía ejecutar el comando y tomar la cuenta del Gerente. Ningún comando de `Retail.Cli` otorga acceso a una cuenta existente |
-| D-14 | Backup periódico **híbrido**: `BackupAutomaticoHostedService` dentro de la app (con recuperación al arrancar si el último automático tiene más de 24 h) + Programador de tareas → `Retail.Cli backup --automatico` | SQL Express no trae SQL Agent. Un solo camino de código para las tres vías (UI, servicio, tarea programada) |
-| D-15 | **LocalDB** en desarrollo. Backups en un directorio dedicado configurable, por defecto `C:\RetailData\Backups` | Fuera del repo y del perfil de usuario: al pasar a SQL Server Express solo hay que darle permisos (ACL) a la cuenta del servicio |
+| D-14 | **Revisada por D-28.** ~~Backup periódico híbrido: `BackupAutomaticoHostedService` dentro de la app + Programador de tareas → `Retail.Cli backup --automatico`~~ | Se buscaba cubrir LocalDB, que solo existe con la sesión del usuario iniciada; con SQL Server Express (D-27) ya no hace falta |
+| D-15 | **Revisada por D-27** en cuanto al motor. Backups en un directorio dedicado configurable, por defecto `C:\RetailData\Backups` (se mantiene) | Fuera del repo y del perfil de usuario: con SQL Server Express hay que darle permisos (ACL) a la cuenta del servicio |
+| D-27 | **SQL Server Express en desarrollo y en producción** (instancia `.\SQLEXPRESS`), en lugar de LocalDB. La migración va en una **rama y un PR propios desde `main`** (`chore/sql-server-express`), que se integran antes de la Fase 7. El CI instala SQL Server Express y los tests de integración corren contra él | Producción usa Express: desarrollar sobre el mismo motor hace aparecer en desarrollo los problemas de permisos de la cuenta del servicio (copias, restores) y elimina configuraciones que solo tenían sentido para LocalDB (R-4). Afecta a todo el equipo, por eso va en un PR separado |
+| D-28 | **Backup automático solo por el Programador de tareas, todos los días a las 21:00** (`Retail.Cli backup`), con la opción "iniciar si se perdió": si la PC estaba apagada, la copia corre al encenderla. No hay servicio en segundo plano dentro de la app ni regla de "24 h" ni reintentos | La alternativa más simple: con Express el motor está siempre disponible y la tarea no depende de que la app o la sesión estén abiertas. La hora vive en la tarea (parámetro del script), no en `appsettings.json` |
+| D-29 | **La tarea corre como `SYSTEM`** con un login de SQL Server `NT AUTHORITY\SYSTEM` creado por el script de registro, con los permisos mínimos para copiar y registrar el historial | Corre sin sesión iniciada y sin guardar contraseñas de Windows (una contraseña guardada se rompe en silencio si cambia) |
 | D-17 | **Mecanismo de restore: base temporal + intercambio.** La copia se restaura con `WITH MOVE` a `RetailDb_Restaurando`; ahí se validan las credenciales, el esquema y se rehidrata el historial; recién entonces la base vigente se renombra a `RetailDb_Anterior_<fecha>` y la temporal pasa a ser `RetailDb` | Las validaciones ocurren antes de tocar la base en uso y la base anterior queda intacta como red de seguridad (reemplaza a la copia `PreRestauracion` como mecanismo principal). Costo aceptado: el doble de espacio en disco durante el restore |
 | D-18 | **`Retail.Cli restaurar` existe y exige credenciales de un Gerente verificadas *en la copia a restaurar*** (BCrypt contra la tabla `USUARIOS` de la base temporal) | Cubre el desastre más probable (PC nueva, base corrupta) sin códigos de recuperación (descartados) y cumple el pedido de la cátedra ("solo un Gerente con contraseña"). Quien restaura demuestra que era Gerente en esa copia; un cajero necesitaría la contraseña de un Gerente, igual que en la app |
 | D-19 | Se descartan: restore por consola sin autenticación (D-13), verificación contra la base vigente (falla en una PC nueva o con la base corrupta) y la recuperación solo por procedimiento manual con SSMS | Ver el análisis de opciones A a D de la sesión del 2026-10-13 |
