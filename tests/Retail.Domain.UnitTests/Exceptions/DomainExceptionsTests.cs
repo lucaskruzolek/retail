@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 using Xunit;
 
@@ -145,6 +146,25 @@ public class DomainExceptionsTests
 
         ex.UsuarioId.Should().Be(1);
         ex.Message.Should().Contain("1");
+        ex.Should().BeAssignableTo<DomainException>();
+    }
+
+    [Fact]
+    public void OperacionNoAutorizadaException_DebeConservarMensajeYSerDomainException()
+    {
+        var ex = new OperacionNoAutorizadaException("Sin permiso para gestionar Gerentes.");
+
+        ex.Message.Should().Be("Sin permiso para gestionar Gerentes.");
+        ex.Should().BeAssignableTo<DomainException>();
+    }
+
+    [Fact]
+    public void TransicionBackupInvalidaException_DebeRetenerEstadoYDescribirLaOperacion()
+    {
+        var ex = new TransicionBackupInvalidaException(EstadoBackupEnum.Fallido, "verificar");
+
+        ex.EstadoActual.Should().Be(EstadoBackupEnum.Fallido);
+        ex.Message.Should().Contain("verificar").And.Contain("Fallido");
         ex.Should().BeAssignableTo<DomainException>();
     }
 
