@@ -38,9 +38,11 @@ Antes de comenzar, asegúrate de contar con lo siguiente en tu equipo:
 
 1. **Windows 10 o Windows 11 (64 bits).**
 2. **[.NET 8.0 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)** (versión 8.0.x o superior).
-3. **Un motor de base de datos SQL Server.** Puedes usar cualquiera de estas dos opciones:
-   * **SQL Server Express LocalDB:** Muy liviano y recomendado para desarrollo (suele instalarse automáticamente con Visual Studio).
-   * **SQL Server Express:** La versión gratuita tradicional de SQL Server, ideal si quieres simular una instalación real de mostrador o en red local.
+3. **SQL Server Express con la instancia `SQLEXPRESS`.** Es el motor de desarrollo, de las pruebas de integración y del CI (el mismo que usará una instalación real de mostrador). Instalación rápida desde una terminal:
+   ```powershell
+   winget install Microsoft.SQLServer.2022.Express
+   ```
+   Durante la instalación conserva el nombre de instancia por defecto `SQLEXPRESS` (servicio `MSSQL$SQLEXPRESS`). El usuario de Windows con el que ejecutas la app debe poder crear bases de datos (lo habitual si instalaste con ese mismo usuario como administrador).
 
 ---
 
@@ -58,20 +60,20 @@ cd retail
 ### 2. Configurar la Base de Datos en `appsettings.json`
 Abre el archivo [`src/Retail.App/appsettings.json`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/appsettings.json) y define tu cadena de conexión en la propiedad `DefaultConnection`.
 
-#### Opción A: Usar LocalDB (Recomendado para desarrollo rápido)
-Es la opción más simple porque no requiere tener un servicio de SQL Server corriendo todo el tiempo:
+La cadena por defecto ya apunta a la instancia local `.\SQLEXPRESS`, por lo que normalmente no hace falta cambiar nada:
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=RetailDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
   }
 }
 ```
 
-#### Opción B: Usar SQL Server Express
-Si tienes instalado SQL Server Express en tu máquina:
+> **¿Vienes de LocalDB?** Las versiones anteriores usaban `(localdb)\mssqllocaldb`. Esa base **no se migra automáticamente** a Express. La aplicación ya no crea la base al arrancar: ejecuta `dotnet run --project src/Retail.Cli -- migrar` y después `dotnet run --project src/Retail.Cli -- inicializar` (primer Gerente) contra `.\SQLEXPRESS`. Los datos de prueba que tuvieras en LocalDB no se trasladan (puedes borrarlos con `sqllocaldb stop mssqllocaldb` y `sqllocaldb delete mssqllocaldb` si ya no los necesitas).
 
-* **Con tu usuario de Windows (Autenticación integrada):**
+Si tu instancia tiene otro nombre o usas autenticación de SQL Server, ajusta la cadena:
+
+* **Con tu usuario de Windows en otra instancia (Autenticación integrada):**
 ```json
 {
   "ConnectionStrings": {
@@ -133,7 +135,7 @@ La carpeta `publish/Retail-POS/` queda con `Retail.App.exe`, `Retail.Cli.exe` y 
 
 * **C# 12 / .NET 8 LTS**
 * **WPF** (Windows Presentation Foundation) con `CommunityToolkit.Mvvm`
-* **Entity Framework Core 8** (SQL Server / LocalDB)
+* **Entity Framework Core 8** (SQL Server Express)
 * **FluentValidation** para validación de datos
 * **MiniExcel** para importación ágil de listas de proveedores
 * **BCrypt.Net-Next** para encriptación de contraseñas

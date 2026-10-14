@@ -12,7 +12,7 @@ Para compilar, depurar y ejecutar las pruebas de Retail, tu máquina debe cumpli
 
 * **Sistema Operativo:** Windows 10 (versión 21H2+) o Windows 11 (x64 recomendado).
 * **SDK de .NET:** .NET 8.0 SDK (versión `8.0.x` LTS o superior). Verifica con `dotnet --version`.
-* **Motor de Base de Datos Local:** SQL Server LocalDB (`(localdb)\mssqllocaldb`), instalado automáticamente con Visual Studio o descargable con SQL Server Express.
+* **Motor de Base de Datos Local:** SQL Server Express, instancia `.\SQLEXPRESS` (el mismo motor que en producción). Se instala con `winget install Microsoft.SQLServer.2022.Express`; quien lo instala queda como `sysadmin`. Las pruebas de integración usan la misma instancia, o la que indique la variable de entorno `RETAIL_TEST_SQLSERVER`.
 * **Entornos de Desarrollo Recomendados:**
   * Visual Studio 2022 (v17.8+ con la carga de trabajo *"Desarrollo de escritorio de .NET"*).
   * JetBrains Rider 2023.3+ (con plugins de .NET y XAML).
@@ -50,15 +50,20 @@ Antes de ejecutar la interfaz gráfica, corre las pruebas unitarias y de integra
 dotnet test Retail.sln
 ```
 
-### Paso 5: Ejecutar la Aplicación de Escritorio
-Inicia el proyecto de presentación WPF:
+### Paso 5: Preparar la Base con `Retail.Cli`
+La aplicación **no crea ni migra la base al arrancar** (RF-23): si la base no está lista, muestra el comando a ejecutar y no abre el login. La primera vez:
+```powershell
+dotnet run --project src/Retail.Cli -- migrar        # crea RetailDb en .\SQLEXPRESS y aplica las migraciones
+dotnet run --project src/Retail.Cli -- inicializar   # primer Gerente (pide usuario, contraseña y email)
+dotnet run --project src/Retail.Cli -- datos-demo    # opcional: proveedor, categorías y marcas de ejemplo
+```
+Después de cada `git pull` que traiga migraciones, volver a ejecutar `migrar` (toma antes una copia de seguridad).
+
+### Paso 6: Ejecutar la Aplicación de Escritorio
 ```powershell
 dotnet run --project src/Retail.App
 ```
-Al iniciarse por primera vez:
-1. El inicializador de base de datos (`DbInitializer.cs`) detectará que la base LocalDB no existe y aplicará las migraciones de Entity Framework Core automáticamente.
-2. Se poblará el catálogo de prueba (roles, usuario `admin`, categorías y artículos con precios y stock inicial).
-3. Se abrirá la ventana principal de Retail lista para operar.
+Se abre el login: ingresar con el Gerente creado por `inicializar`.
 
 ---
 
@@ -69,7 +74,7 @@ El archivo de configuración local reside en [`src/Retail.App/appsettings.json`]
 ```json
 {
   "ConnectionStrings": {
-    "RetailDbConnection": "Server=(localdb)\\mssqllocaldb;Database=RetailDb;Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True"
+    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
   },
   "Fiscal": {
     "UseMockArca": true,

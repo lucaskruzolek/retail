@@ -17,13 +17,15 @@ graph TD
         CHK --> SDK["actions/setup-dotnet@v4 (.NET 8.0.x)"]
         SDK --> RESTORE["dotnet restore Retail.sln"]
         RESTORE --> BUILD["dotnet build -c Release --no-restore\n(TreatWarningsAsErrors)"]
-        BUILD --> TEST["dotnet test -c Release --no-build\n(4 Suites xUnit / TRX Logger)"]
+        BUILD --> SQL["Instalar SQL Server Express\n(choco, instancia SQLEXPRESS)"]
+        SQL --> TEST["dotnet test -c Release --no-build\n(4 Suites xUnit / TRX Logger)"]
         TEST --> FORMAT["dotnet format --verify-no-changes\n(Linter .editorconfig)"]
-        FORMAT --> GATE["✅ Merge Autorizado (< 2 min)"]
+        FORMAT --> GATE["✅ Merge Autorizado"]
     end
 
     subgraph "2. Pipeline de Entrega Continua (CD / Release - release.yml)"
-        TAG["Push Git Tag (v*)\n(ej: v1.0.0, v0.1.0-preview)"] --> VAL["dotnet test -c Release"]
+        TAG["Push Git Tag (v*)\n(ej: v1.0.0, v0.1.0-preview)"] --> SQLR["Instalar SQL Server Express\n(choco, instancia SQLEXPRESS)"]
+        SQLR --> VAL["dotnet test -c Release"]
         VAL --> PUB["dotnet publish src/Retail.App/Retail.App.csproj\n(-r win-x64 --self-contained -p:PublishSingleFile=true)"]
         PUB --> PUBCLI["dotnet publish src/Retail.Cli/Retail.Cli.csproj\n(misma carpeta: administración de la base, RF-23)"]
         PUBCLI --> ZIP["Comprimir Retail-POS-win-x64.zip\n(Retail.App.exe + Retail.Cli.exe + appsettings.json\n+ restore-retail.ps1)"]
@@ -59,6 +61,14 @@ graph TD
 ---
 
 ## ⚙️ Especificación Técnica de los Workflows
+
+### 0. SQL Server Express en los runners (ci.yml y release.yml)
+Las pruebas de integración de `Retail.Infrastructure.IntegrationTests` necesitan un SQL Server real. Ambos workflows incluyen, antes de `dotnet test`, el paso **"Instalar SQL Server Express (instancia SQLEXPRESS)"** (`shell: powershell`):
+1. Si el servicio `MSSQL$SQLEXPRESS` no existe en la imagen del runner, lo instala con `choco install sql-server-express -y --no-progress` (instancia por defecto `SQLEXPRESS`; el usuario del runner es administrador local y, por tanto, `sysadmin`).
+2. Inicia el servicio y espera a que quede `Running`.
+3. Reintenta hasta 12 veces (10 s entre intentos) abrir una conexión a `master`; si no lo logra, el job falla.
+
+El paso de tests declara explícitamente `env: RETAIL_TEST_SQLSERVER: .\SQLEXPRESS`, la variable que lee `ServidorDePruebas` (ver `docs/SISTEMA_DE_PERSISTENCIA.md`). **Costo esperado:** la instalación suma aproximadamente de 3 a 8 minutos por corrida a la primera ejecución del runner (la descarga y el setup dominan); por eso el objetivo de "< 2 min" del pipeline rápido pasa a ser una meta del build+tests sin contar la instalación del motor.
 
 ### 1. Workflow de CI: `.github/workflows/ci.yml`
 * **Ubicación:** [`.github/workflows/ci.yml`](file:///c:/Users/lucas/Proyectos/retail/.github/workflows/ci.yml)
@@ -158,4 +168,5 @@ git push origin v0.1.0-preview
 | `error CS8618: Non-nullable property...` | Advertencia de nulabilidad tratada como error por `Directory.Build.props`. | Inicializar con valor por defecto, marcar con `?` o usar `= null!;` si es inicializado por EF Core. |
 | `dotnet format --verify-no-changes failed` | Discrepancia de llaves Allman o espacios frente a `.editorconfig`. | Ejecutar `dotnet format Retail.sln` localmente y commitear los ajustes de estilo. |
 | Fallo en tests de `Retail.App.UnitTests` | Pruebas de UI invocadas fuera del hilo STA. | Asegurarse de usar decoradores de hilo STA en xUnit o aislar la lógica del Dispatcher. |
+| Tests de integración fallan con `A network-related or instance-specific error` | El paso de instalación de SQL Server Express no corrió o la instancia no se llama `SQLEXPRESS`. | Verificar el paso "Instalar SQL Server Express" y que `RETAIL_TEST_SQLSERVER` apunte a la instancia real. |
 | Runner Linux falla con error de SDK WPF | El workflow especifica `runs-on: ubuntu-latest`. | Cambiar inmediatamente a `runs-on: windows-latest` en el archivo `.yml`. |

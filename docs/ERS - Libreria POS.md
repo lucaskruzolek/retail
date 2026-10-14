@@ -42,7 +42,7 @@ El propósito del presente documento es especificar de manera formal y rigurosa 
 ## 1.2. Alcance del Producto {#12-alcance-del-producto}
 El sistema **"Retail"** está diseñado como una **aplicación monolítica de escritorio limpia (Clean Desktop Monolith)** en Windows (.NET 8 / WPF / C# 12).
 
-El producto unifica en un único proceso ejecutable la interfaz visual de mostrador, los servicios de orquestación de negocio y el acceso a datos sobre una base de datos relacional local (**Microsoft SQL Server Express / LocalDB**). Se integra en el entorno local con el microservicio `arcasdk` para la obtención de CAE y emisión fiscal ante ARCA (AFIP), incorporando además gestión de clientes con cobranzas multimedio de cuentas corrientes, recálculo automático de precios por compras y presupuestador independiente.
+El producto unifica en un único proceso ejecutable la interfaz visual de mostrador, los servicios de orquestación de negocio y el acceso a datos sobre una base de datos relacional local (**Microsoft SQL Server Express**). Se integra en el entorno local con el microservicio `arcasdk` para la obtención de CAE y emisión fiscal ante ARCA (AFIP), incorporando además gestión de clientes con cobranzas multimedio de cuentas corrientes, recálculo automático de precios por compras y presupuestador independiente.
 
 ## 1.3. Personal Involucrado {#13-personal-involucrado}
 
@@ -107,7 +107,7 @@ graph TD
     end
 
     subgraph "Entorno Local (127.0.0.1)"
-        DB[("Microsoft SQL Server Express / LocalDB\n(Motor Relacional Local)")]
+        DB[("Microsoft SQL Server Express\n(Motor Relacional Local)")]
         SDK["Microservicio Fiscal\n(arcasdk en localhost:8080)"]
     end
 
@@ -221,7 +221,7 @@ graph TD
 | ID | Nombre | Descripción |
 | :--- | :--- | :--- |
 | **IC-01** | **Comunicación en Memoria** | Llamadas asíncronas C# (`async/await`) en el mismo proceso de sistema operativo. |
-| **IC-02** | **Conexión TDS Local** | Conexión local a SQL Server Express / LocalDB vía memoria compartida o `127.0.0.1:1433`. |
+| **IC-02** | **Conexión TDS Local** | Conexión local a SQL Server Express (instancia `.\SQLEXPRESS`) vía memoria compartida o `127.0.0.1:1433`. |
 
 ---
 
