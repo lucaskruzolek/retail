@@ -166,6 +166,8 @@ graph TD
 | **`TURNOS_CAJA`** | `CK_TURNOS_CAJA_Saldos` | `[saldo_inicial] >= 0 AND [total_ventas_efectivo] >= 0 AND [total_ingresos_efectivo] >= 0 AND [total_egresos_efectivo] >= 0 AND [total_ventas_electronicas] >= 0 AND [monto_retenido_en_caja] >= 0` | Totales acumulativos no negativos en gaveta de efectivo. |
 | **`MOVIMIENTOS_CAJA`** | `CK_MOVIMIENTOS_CAJA_Monto` | `[monto] > 0` | Ingresos y retiros de efectivo estrictamente mayores a cero. |
 | **`COMPROBANTES_FISCALES`**| `CK_COMPROBANTES_FISCALES_Numeracion`| `[punto_venta] > 0 AND [numero_comprobante] >= 0` | Punto de venta mayor a cero y número de comprobante fiscal válido. |
+| **`REGISTROS_BACKUP`** | `CK_REGISTROS_BACKUP_Tamano` | `[tamano_bytes] IS NULL OR [tamano_bytes] > 0` | Una copia terminada nunca tiene tamaño cero (RF-22). |
+| **`REGISTROS_BACKUP`** | `CK_REGISTROS_BACKUP_Operador` | `([tipo] IN ('Manual','PreRestauracion') AND [id_usuario] IS NOT NULL AND [nombre_usuario] IS NOT NULL) OR ([tipo] IN ('Automatico','PreMigracion') AND [id_usuario] IS NULL AND [nombre_usuario] IS NULL)` | Un registro no miente sobre su origen: las copias pedidas por una persona tienen operador y las del sistema no. Complementado por el índice único filtrado `IX_REGISTROS_BACKUP_EnCurso` (un único backup en curso, R-12). |
 
 ---
 
@@ -185,10 +187,29 @@ Ubicada en [`src/Retail.App/appsettings.json`](file:///c:/Users/lucas/Proyectos/
 * **Arranque Bajo Demanda:** Windows inicia el proceso `sqlservr.exe` automáticamente ante la primera consulta de conexión y lo suspende al liberar la memoria.
 * **Archivos Físicos:** Se ubican en `C:\Users\<Usuario>\RetailDb.mdf` y `C:\Users\<Usuario>\RetailDb_log.ldf`.
 
-### Ciclo de Arranque y Auto-Migración
-Al iniciar la aplicación ([`App.xaml.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/App.xaml.cs)):
-1. `await dbContext.Database.MigrateAsync();`: Consulta la tabla `__EFMigrationsHistory`. Si faltan migraciones, aplica su método `Up()` de forma incremental. **No borra ni sobreescribe datos preexistentes**.
-2. `await DbInitializer.InitializeAsync(dbContext);`: Siembra roles base (`Gerente`, `Encargado`, `Cajero`), usuario `admin` (clave `Admin123!`), categorías, marcas y 20 artículos. Diseñado bajo el principio de **Idempotencia** (si la tabla ya tiene datos, se saltea).
+### Ciclo de Arranque: Verificar, no Migrar (RF-23)
+La aplicación **no modifica la base al arrancar**. [`App.xaml.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/App.xaml.cs) consulta `IEstadoSistemaService` y, si algo falla, muestra el comando a ejecutar y no abre el login:
+
+| Situación | Detectada por | Acción indicada |
+| :--- | :--- | :--- |
+| Sin conexión o base inexistente | `Database.CanConnectAsync` | `Retail.Cli migrar` y `Retail.Cli inicializar` |
+| Base más nueva que la app (migraciones aplicadas desconocidas) | `GetAppliedMigrations` vs. `GetMigrations` | Actualizar la aplicación (migrar no lo resuelve) |
+| Migraciones pendientes | `GetPendingMigrationsAsync` | `Retail.Cli migrar` |
+| Ningún Gerente activo | `IRepository<Usuario>` | `Retail.Cli inicializar` |
+| Gerentes sin email de recuperación | `IRepository<Usuario>` | Aviso no bloqueante: cargarlo desde Usuarios |
+
+**Por qué:** migrar al abrir la app daba a cada arranque un efecto secundario sobre el esquema, sin backup previo, y si una migración fallaba la app no abría (ver el `WITH NOCHECK` de `NormalizarCuitProveedoresYCheck`). Ahora la actualización es una decisión explícita (`Retail.Cli migrar`), a la que la Fase 4 del Track 6.3 suma un backup `PreMigracion`.
+
+### Copias de Seguridad (RF-22)
+* **Configuración:** sección `BackupSettings` de `appsettings.json` (`Directorio`, `CantidadMaximaCopias`, `EspacioLibreMinimoMb`). El directorio está fuera del repositorio y del perfil de usuario (D-15).
+* **Mecanismo:** `BACKUP DATABASE ... WITH FORMAT, INIT, CHECKSUM, STATS = 10` y `RESTORE VERIFYONLY ... WITH CHECKSUM` por ADO.NET en [`SqlServerEjecutorBackup`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Backups/SqlServerEjecutorBackup.cs). Es una excepción deliberada a "todo por EF Core": `BACKUP` no admite una transacción de usuario y EF no ofrece una API de copias. La ruta viaja como parámetro y el nombre de la base se delimita.
+* **Historial:** tabla `REGISTROS_BACKUP` (agregado `RegistroBackup`), con un único registro `EnCurso` a la vez garantizado por índice filtrado. Cada `.bak` tiene un manifiesto `.json` al lado, para reconstruir qué contiene aunque la base se pierda.
+* **SQL Server Express (futuro):** el motor escribe el `.bak` con la cuenta del servicio (`NT Service\MSSQL$SQLEXPRESS`); el directorio debe dar permisos de escritura a esa cuenta y de lectura al usuario de la aplicación (para calcular el SHA-256). Con LocalDB el motor corre como el propio usuario y no hace falta.
+
+### Siembra de Datos
+* **Roles** (`Cajero`, `Encargado`, `Gerente`, `Administrador`): los siembra la migración `AgregarRolAdministradorYCuentasDeUsuario`. Son datos de referencia del esquema y su `id_rol` debe ser el valor del enum (se insertan con `IDENTITY_INSERT` solo si no existen).
+* **Primer Gerente:** `Retail.Cli inicializar` (interactivo, con email obligatorio). Ya no existe un usuario `admin` con contraseña fija.
+* **Datos de demostración:** `Retail.Cli datos-demo` ejecuta [`SemilleroDatosDemo`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Initialization/SemilleroDatosDemo.cs): un proveedor, categorías y marcas, idempotente elemento por elemento. Sin artículos: la demostración los incorpora importando la planilla del proveedor.
 
 ### Comando Canónico para Generar Futuras Migraciones
 Cuando se añadan columnas o relaciones en etapas posteriores, ejecutar siempre desde la raíz de la solución especificando proyectos exactos para evitar colisiones con compilaciones intermedias de WPF:

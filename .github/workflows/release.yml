@@ -36,6 +36,22 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           --output ./publish/Retail-POS
 
+      - name: Publicar herramienta de administracion de la base (Retail.Cli win-x64)
+        # Misma carpeta que la aplicacion: comparten appsettings.json (archivo enlazado en el proyecto) y el
+        # operador ejecuta "Retail.Cli migrar" / "inicializar" desde ahi (RF-23).
+        run: >
+          dotnet publish src/Retail.Cli/Retail.Cli.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output ./publish/Retail-POS
+
+      - name: Incluir el script de recuperacion ante desastres (R-2)
+        # Busca Retail.Cli.exe en su misma carpeta: se copia junto a los ejecutables.
+        run: Copy-Item scripts/restore-retail.ps1 ./publish/Retail-POS/
+
       - name: Comprimir paquete distribuible en formato ZIP
         run: Compress-Archive -Path ./publish/Retail-POS/* -DestinationPath ./Retail-POS-win-x64.zip
 

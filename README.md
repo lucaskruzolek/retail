@@ -93,23 +93,27 @@ Si tienes instalado SQL Server Express en tu máquina:
 
 ---
 
-### 3. Ejecutar la Aplicación
-Compila y ejecuta la aplicación con el siguiente comando:
+### 3. Preparar la Base de Datos (`Retail.Cli`)
+La aplicación **no modifica la base al arrancar**: la crea y la actualiza la herramienta de comandos `Retail.Cli` (RF-23). La primera vez, desde la raíz del repositorio:
+
+```bash
+dotnet run --project src/Retail.Cli -- migrar        # crea la base y aplica las migraciones
+dotnet run --project src/Retail.Cli -- inicializar   # crea el primer Gerente (pide usuario, email y contraseña)
+dotnet run --project src/Retail.Cli -- datos-demo    # opcional: un proveedor, categorías y marcas de ejemplo
+```
+
+> **Copias de seguridad:** `dotnet run --project src/Retail.Cli -- backup` genera una copia completa y verificada en el directorio de `BackupSettings` (`C:\RetailData\Backups` por defecto, con un manifiesto `.json` por copia). `migrar` toma una copia previa automáticamente cuando la base ya tiene datos.
+
+> **Después de cada `git pull` que traiga migraciones**, vuelve a ejecutar `migrar`. Si te olvidas, la aplicación no abre el login y te indica el comando. `dotnet run --project src/Retail.Cli -- estado` muestra el diagnóstico completo.
+
+---
+
+### 4. Ejecutar la Aplicación e Iniciar Sesión
 ```bash
 dotnet run --project src/Retail.App/Retail.App.csproj
 ```
 
-> **¿Qué pasa en el primer arranque?**  
-> No necesitas crear tablas ni ejecutar scripts SQL manualmente. Al iniciar, el sistema detecta si la base de datos existe, aplica automáticamente todas las migraciones necesarias y carga datos iniciales de prueba (roles, categorías, artículos y un usuario administrador).
-
----
-
-### 4. Iniciar Sesión
-Al abrirse el sistema, verás la pantalla de inicio de sesión. Puedes ingresar con el usuario creado por defecto:
-
-* **Usuario:** `admin`
-* **Contraseña:** `Admin123!`
-* **Rol:** Gerente
+Ingresa con el Gerente que creaste con `inicializar`. No hay usuarios ni contraseñas por defecto: el resto de las cuentas se crea desde el módulo **Usuarios**.
 
 ---
 
@@ -117,11 +121,11 @@ Al abrirse el sistema, verás la pantalla de inicio de sesión. Puedes ingresar 
 Si quieres empaquetar el sistema para instalarlo en la computadora de la librería sin necesidad de instalar .NET SDK en esa máquina, puedes generar un ejecutable único y auto-contenido:
 
 ```bash
-dotnet publish src/Retail.App/Retail.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish src/Retail.App/Retail.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish/Retail-POS
+dotnet publish src/Retail.Cli/Retail.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish/Retail-POS
 ```
 
-El ejecutable listo para usar se generará en la carpeta:  
-`src/Retail.App/bin/Release/net8.0-windows/win-x64/publish/`
+La carpeta `publish/Retail-POS/` queda con `Retail.App.exe`, `Retail.Cli.exe` y el `appsettings.json` que comparten. En la PC de la librería se ejecuta `Retail.Cli.exe migrar` y `Retail.Cli.exe inicializar` antes del primer uso.
 
 ---
 

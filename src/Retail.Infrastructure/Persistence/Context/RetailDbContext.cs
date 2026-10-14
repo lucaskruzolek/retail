@@ -53,6 +53,10 @@ public class RetailDbContext : DbContext, IRetailDbContext
 
     public DbSet<DetalleCompra> DetallesCompra => Set<DetalleCompra>();
 
+    public DbSet<RegistroBackup> RegistrosBackup => Set<RegistroBackup>();
+
+    public DbSet<RegistroRestauracion> RegistrosRestauracion => Set<RegistroRestauracion>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

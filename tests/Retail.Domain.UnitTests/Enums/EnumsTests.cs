@@ -7,11 +7,43 @@ namespace Retail.Domain.UnitTests.Enums;
 public class EnumsTests
 {
     [Fact]
-    public void RolUsuarioEnum_DebeContenerLosTresRolesDefinidos()
+    public void RolUsuarioEnum_DebeContenerLosCuatroRolesDefinidos()
     {
+        // Los valores son los identificadores de la tabla de roles: renumerarlos cambiaría el rol de los usuarios guardados.
         ((int)RolUsuarioEnum.Cajero).Should().Be(1);
         ((int)RolUsuarioEnum.Encargado).Should().Be(2);
         ((int)RolUsuarioEnum.Gerente).Should().Be(3);
+        ((int)RolUsuarioEnum.Administrador).Should().Be(4);
+        Enum.GetValues<RolUsuarioEnum>().Should().HaveCount(4);
+    }
+
+    [Fact]
+    public void TipoBackupEnum_DebeContenerLosCuatroOrigenes()
+    {
+        ((int)TipoBackupEnum.Manual).Should().Be(1);
+        ((int)TipoBackupEnum.Automatico).Should().Be(2);
+        ((int)TipoBackupEnum.PreRestauracion).Should().Be(3);
+        ((int)TipoBackupEnum.PreMigracion).Should().Be(4);
+        Enum.GetValues<TipoBackupEnum>().Should().HaveCount(4);
+    }
+
+    [Fact]
+    public void OrigenRestauracionEnum_DebeContenerLaAplicacionYLaConsola()
+    {
+        ((int)OrigenRestauracionEnum.Aplicacion).Should().Be(1);
+        ((int)OrigenRestauracionEnum.Consola).Should().Be(2);
+        Enum.GetValues<OrigenRestauracionEnum>().Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void EstadoBackupEnum_DebeContenerElCicloDeVidaCompleto()
+    {
+        ((int)EstadoBackupEnum.EnCurso).Should().Be(1);
+        ((int)EstadoBackupEnum.Exitoso).Should().Be(2);
+        ((int)EstadoBackupEnum.Verificado).Should().Be(3);
+        ((int)EstadoBackupEnum.Fallido).Should().Be(4);
+        ((int)EstadoBackupEnum.ArchivoPurgado).Should().Be(5);
+        Enum.GetValues<EstadoBackupEnum>().Should().HaveCount(5);
     }
 
     [Fact]

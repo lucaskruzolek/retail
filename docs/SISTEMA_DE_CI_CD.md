@@ -25,7 +25,8 @@ graph TD
     subgraph "2. Pipeline de Entrega Continua (CD / Release - release.yml)"
         TAG["Push Git Tag (v*)\n(ej: v1.0.0, v0.1.0-preview)"] --> VAL["dotnet test -c Release"]
         VAL --> PUB["dotnet publish src/Retail.App/Retail.App.csproj\n(-r win-x64 --self-contained -p:PublishSingleFile=true)"]
-        PUB --> ZIP["Comprimir Retail-POS-win-x64.zip\n(Ejecutable + appsettings.json)"]
+        PUB --> PUBCLI["dotnet publish src/Retail.Cli/Retail.Cli.csproj\n(misma carpeta: administración de la base, RF-23)"]
+        PUBCLI --> ZIP["Comprimir Retail-POS-win-x64.zip\n(Retail.App.exe + Retail.Cli.exe + appsettings.json\n+ restore-retail.ps1)"]
         ZIP --> GH["softprops/action-gh-release@v2\n(Publicar Release Oficial con Binario)"]
     end
 ```
@@ -104,9 +105,12 @@ graph TD
     -p:IncludeNativeLibrariesForSelfExtract=true `
     --output ./publish/Retail-POS
   ```
+  El paso siguiente publica `src/Retail.Cli/Retail.Cli.csproj` con los mismos parámetros y la **misma carpeta de salida**.
 * **Contenido del Paquete ZIP (`Retail-POS-win-x64.zip`):**
   * `Retail.App.exe` (Binario compilado auto-contenido).
-  * `appsettings.json` (Configuración de base de datos local y endpoint fiscal).
+  * `Retail.Cli.exe` (Herramienta de administración de la base: `migrar`, `inicializar`, `datos-demo`, `backup`, `restaurar`, `estado`). La aplicación ya no migra al arrancar, así que sin este ejecutable una instalación nueva no podría crear su base.
+  * `appsettings.json` (Configuración de base de datos local y endpoint fiscal). Es un único archivo: `Retail.Cli` lo enlaza desde `Retail.App` en su `.csproj`.
+  * `restore-retail.ps1` (Recuperación ante desastres, R-2): envoltorio de `Retail.Cli restaurar <ruta.bak>`. Busca `Retail.Cli.exe` en su misma carpeta, por eso el workflow lo copia junto a los ejecutables.
 
 ---
 
@@ -131,6 +135,8 @@ Para verificar que el binario auto-contenido empaqueta correctamente sin errores
 
 ```powershell
 dotnet publish src/Retail.App/Retail.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./publish/test
+dotnet publish src/Retail.Cli/Retail.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish/test
+./publish/test/Retail.Cli.exe estado
 ```
 
 ### Publicación de una Nueva Versión (Git Tagging)
