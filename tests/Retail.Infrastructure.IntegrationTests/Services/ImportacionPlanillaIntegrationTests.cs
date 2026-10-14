@@ -17,7 +17,7 @@ namespace Retail.Infrastructure.IntegrationTests.Services;
 
 /// <summary>
 /// Pruebas de punta a punta del importador: ProveedorService armado con las piezas reales (repositorios,
-/// Unit of Work, query service y parser) contra LocalDB. Cubren H-14 y la medición de H-15 del handoff.
+/// Unit of Work, query service y parser) contra SQL Server Express. Cubren H-14 y la medición de H-15 del handoff.
 /// </summary>
 public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
 {
@@ -34,7 +34,7 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;
@@ -213,7 +213,7 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
     /// <summary>
     /// Medición de H-15: importa 5.000 filas (2.500 existentes con artículo vinculado y 2.500 nuevas) con
     /// 2.000 artículos de otro proveedor como ruido. Se afirma la memoria retenida (estable, ≈ 13 MB medidos)
-    /// contra RNF-03. El tiempo solo se informa en la salida: depende de LocalDB y del disco (se midieron
+    /// contra RNF-03. El tiempo solo se informa en la salida: depende de SQL Server Express y del disco (se midieron
     /// entre 3,9 s y 28,5 s sin cambios de código), y RNF-02 exige no bloquear la UI, no un tiempo fijo.
     /// El criterio de &lt; 3 s del roadmap aplica al parseo y lo cubre ExcelCatalogParserTests.
     /// </summary>

@@ -10,7 +10,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB que un guardado fallido deja el contexto limpio: como el contexto vive mientras dura la
+/// Verifica contra SQL Server Express que un guardado fallido deja el contexto limpio: como el contexto vive mientras dura la
 /// pantalla (H-19), los cambios rechazados no deben guardarse con la próxima operación exitosa.
 /// </summary>
 public class UnitOfWorkIntegrationTests : IAsyncLifetime, IDisposable
@@ -20,7 +20,7 @@ public class UnitOfWorkIntegrationTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;

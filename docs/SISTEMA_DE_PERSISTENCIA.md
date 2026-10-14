@@ -1,7 +1,7 @@
 # Sistema de Persistencia e Infraestructura de Base de Datos (Retail POS)
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
-**Plataforma:** .NET 8 LTS | C# 12 | Entity Framework Core 8.0.11 | SQL Server Express / LocalDB  
+**Plataforma:** .NET 8 LTS | C# 12 | Entity Framework Core 8.0.11 | SQL Server Express  
 **Propósito:** Guía técnica normativa y protocolo de contextualización rápida para **agentes de código (IA)** y desarrolladores. Define cómo se modelan las entidades bajo DDD, cómo se configuran las migraciones relacionales, cómo se ejecutan transacciones atómicas seguras y cómo se optimizan las consultas para no degradar la operación de mostrador.
 
 ---
@@ -48,8 +48,8 @@ graph TD
     end
 
     subgraph "Motor de Base de Datos"
-        LOCALDB["SQL Server Express LocalDB\n(Server=(localdb)\\mssqllocaldb;Database=RetailDb)"]
-        DBCONTEXT -->|"TCP / Named Pipe"| LOCALDB
+        SQLEXPRESS["SQL Server Express\n(Server=.\\SQLEXPRESS;Database=RetailDb)"]
+        DBCONTEXT -->|"TCP / Memoria compartida"| SQLEXPRESS
     end
 
     IREPO -.->|"Implementado por"| REPO_IMPL
@@ -91,12 +91,12 @@ graph TD
 
 ### 4. Evaluación en el Motor Relacional (*Push-Down to SQL*)
 * **Queda terminantemente prohibido** materializar tablas en memoria con `.ToList()` prematuro para luego filtrar, ordenar o calcular con LINQ to Objects en C#.
-* **Regla:** Las operaciones deben componerse sobre `IQueryable` para que SQL Server / LocalDB resuelva la consulta en servidor:
+* **Regla:** Las operaciones deben componerse sobre `IQueryable` para que SQL Server Express resuelva la consulta en servidor:
   * Utilizar `EF.Functions.Like` para búsquedas parciales (`%termino%`).
   * Utilizar `Skip()` y `Take()` para paginación nativa (`OFFSET ... ROWS FETCH NEXT ... ROWS ONLY`).
   * Delegar agregaciones numéricas al motor relacional (`CountAsync()`, `SumAsync()`).
 * **Listas en memoria dentro de un filtro (`lista.Contains(columna)`):** EF Core 8 las envía como **un único parámetro JSON** que SQL Server desarma con `OPENJSON`, por lo que el límite de 2.100 parámetros por consulta no aplica. Está verificado contra LocalDB con 3.000 códigos en [`CatalogoProveedorQueryServiceTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Infrastructure.IntegrationTests/Services/CatalogoProveedorQueryServiceTests.cs), que además protege ante un cambio de versión de EF Core que modifique esa traducción.
-  * **Supuesto de despliegue:** `OPENJSON` requiere que la base tenga **nivel de compatibilidad ≥ 130** (SQL Server 2016+). Una base restaurada desde una versión anterior con un nivel inferior hace fallar estas consultas, y el test contra LocalDB no lo detecta. Verificar con `SELECT compatibility_level FROM sys.databases WHERE name = DB_NAME();`.
+  * **Supuesto de despliegue:** `OPENJSON` requiere que la base tenga **nivel de compatibilidad ≥ 130** (SQL Server 2016+). Una base restaurada desde una versión anterior con un nivel inferior hace fallar estas consultas, y el test contra la base recién creada no lo detecta. Verificar con `SELECT compatibility_level FROM sys.databases WHERE name = DB_NAME();`.
 * **Búsqueda insensible a acentos (collation por columna):** la collation por defecto del servidor (`SQL_Latin1_General_CP1_CI_AS`) **distingue acentos**: "lapiz" no encuentra "Lápiz". Las columnas que el usuario busca por texto (`ARTICULOS.descripcion`, `CLIENTES.razon_social_o_nombre`, `CATALOGOS_PROVEEDORES.descripcion_proveedor`, `USUARIOS.nombre` y `USUARIOS.apellido`) declaran `UseCollation(Cotejamientos.BusquedaEnCastellano)` = **`Modern_Spanish_CI_AI`**: ignora mayúsculas y acentos pero **respeta la ñ** ("ano" no encuentra "año"; `Latin1_General_CI_AI` se descartó porque los iguala). Al estar en la columna, `LIKE`, `Contains` y `ORDER BY` la aplican solos, sin `EF.Functions.Collate` en cada consulta. Una columna nueva que se busque por texto debe declarar la misma collation. Cambiar la collation de una columna con índice obliga a recrear el índice en la migración.
 
 ### 5. Tipado Estricto de Moneda y Precisión Decimal Fiscal
@@ -123,7 +123,7 @@ graph TD
 * **Alcance de un `CHECK`:** solo ve la fila que se guarda. Las reglas entre filas se cubren con índices únicos filtrados (unicidad) o quedan en Dominio/Aplicación (por ejemplo, "un derivado no puede ser origen de otro"), porque expresarlas en la base requeriría funciones escalares, prohibidas por la Ley 6.
 
 ### 8. Un `DbContext` por Pantalla y Accesos Serializados (H-19)
-* El `RetailDbContext` es una *Unit of Work* **no segura para hilos**: EF Core no admite dos operaciones simultáneas sobre la misma instancia. Verificado contra LocalDB: la segunda consulta lanza `InvalidOperationException` aunque la primera ya esté cancelada, y una consulta cancelada termina en `SqlException` ("Operation cancelled by user"), no en `OperationCanceledException`.
+* El `RetailDbContext` es una *Unit of Work* **no segura para hilos**: EF Core no admite dos operaciones simultáneas sobre la misma instancia. Verificado contra SQL Server: la segunda consulta lanza `InvalidOperationException` aunque la primera ya esté cancelada, y una consulta cancelada termina en `SqlException` ("Operation cancelled by user"), no en `OperationCanceledException`.
 * **Ciclo de vida:** el contexto y los servicios de Application son `Scoped`. [`NavigationService`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Services/NavigationService.cs) crea **un scope de DI por pantalla** y descarta el de la anterior; los `*DialogService` son `Scoped`, así que un modal comparte el contexto de la pantalla que lo abre; el login tiene su propio scope. Es el equivalente de escritorio de "un contexto por request" en la web.
 * **Red de seguridad:** el Host activa `ValidateScopes` y `ValidateOnBuild`. **Queda prohibido** resolver servicios `Scoped` desde el proveedor raíz (por ejemplo, con `App.Services`): la app falla al arrancar y `InyeccionDependenciasTests` lo detecta.
 * **Dentro de una pantalla**, todo acceso a datos que pueda solaparse (búsquedas por tecla, filtros, paginación, cargas iniciales) pasa por [`CargaSerializada`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Helpers/CargaSerializada.cs): espera a que el acceso anterior libere el contexto, descarta respuestas obsoletas y cancela lo pendiente al salir de la pantalla (el ViewModel implementa `IDisposable` y el scope lo invoca).
@@ -169,21 +169,35 @@ graph TD
 
 ---
 
-## 💻 Entorno LocalDB, Conexión y Semillero
+## 💻 Entorno SQL Server Express, Conexión y Semillero
 
 ### Cadena de Conexión por Defecto
-Ubicada en [`src/Retail.App/appsettings.json`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/appsettings.json):
+Ubicada en [`src/Retail.App/appsettings.json`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/appsettings.json) (el mismo valor es el *fallback* de `AddInfrastructureServices` en `DependencyInjection.cs`):
 ```json
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=RetailDb;Trusted_Connection=True;MultipleActiveResultSets=true"
+    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true"
   }
 }
 ```
 
-* **Instancia LocalDB:** `(localdb)\mssqllocaldb` (SQL Server Express LocalDB 2022 preinstalado en Windows).
-* **Arranque Bajo Demanda:** Windows inicia el proceso `sqlservr.exe` automáticamente ante la primera consulta de conexión y lo suspende al liberar la memoria.
-* **Archivos Físicos:** Se ubican en `C:\Users\<Usuario>\RetailDb.mdf` y `C:\Users\<Usuario>\RetailDb_log.ldf`.
+* **Instancia:** `.\SQLEXPRESS` (SQL Server Express instalado como servicio de Windows `MSSQL$SQLEXPRESS`). Desarrollo, pruebas de integración y CI usan el mismo motor que producción, sin diferencias de comportamiento respecto de LocalDB.
+* **Instalación para desarrollo:** `winget install Microsoft.SQLServer.2022.Express` (o el instalador oficial) con el nombre de instancia por defecto `SQLEXPRESS`. El usuario de Windows que ejecuta la app necesita permisos para crear bases (por ejemplo, ser `sysadmin`, que es lo habitual al instalar con ese usuario).
+* **`TrustServerCertificate=True`:** `Microsoft.Data.SqlClient` cifra la conexión por defecto y el certificado de una instancia local es autofirmado; sin este parámetro la conexión falla con un error de cadena de confianza.
+* **Archivos Físicos:** el servicio los guarda de forma permanente en su carpeta de datos (`...\MSSQL\DATA\RetailDb.mdf` y `RetailDb_log.ldf`). A diferencia de LocalDB, las bases no desaparecen solas: hay que borrarlas explícitamente.
+* **Venir desde LocalDB:** la base `(localdb)\mssqllocaldb` anterior **no se migra automáticamente**. Al iniciar contra Express, la app crea `RetailDb` y le aplica las migraciones y el semillero; los datos de prueba de LocalDB se pierden (si se necesitan, usar *backup/restore* o exportarlos antes).
+
+### Servidor de las Pruebas de Integración
+Las pruebas de `Retail.Infrastructure.IntegrationTests` obtienen su cadena de conexión de un único helper, [`ServidorDePruebas.CadenaDeConexion(nombreBase)`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.Infrastructure.IntegrationTests/ServidorDePruebas.cs):
+
+| Elemento | Detalle |
+| :--- | :--- |
+| Servidor por defecto | `.\SQLEXPRESS` |
+| Servidor alternativo | Variable de entorno `RETAIL_TEST_SQLSERVER` (por ejemplo, `.\SQLEXPRESS` en CI o `localhost\OTRAINSTANCIA`) |
+| Autenticación | Windows (`Integrated Security`), `TrustServerCertificate=True`, `MultipleActiveResultSets=true` |
+
+* **Regla de limpieza:** todo test que cree una base (`RetailDb_Test_<Nombre>_<Guid>`) debe borrarla en `DisposeAsync` con `Database.EnsureDeletedAsync()`. Express conserva las bases en disco; una base huérfana ocupa espacio y se acumula entre corridas. Para auditar: `SELECT name FROM sys.databases WHERE name LIKE 'RetailDb_Test%'`.
+* Nunca hardcodear una cadena de conexión en un test: usar siempre el helper (no se agrega dependencia entre proyectos de test; `Retail.App.UnitTests` solo valida el contenedor de DI y no abre conexiones).
 
 ### Ciclo de Arranque y Auto-Migración
 Al iniciar la aplicación ([`App.xaml.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/App.xaml.cs)):

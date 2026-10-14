@@ -9,7 +9,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB la migración NormalizarCuitProveedoresYCheck: normaliza los CUIT existentes sin
+/// Verifica contra SQL Server Express la migración NormalizarCuitProveedoresYCheck: normaliza los CUIT existentes sin
 /// violar el índice único y, a partir de ahí, el CHECK rechaza cualquier CUIT que no sean 11 dígitos.
 /// </summary>
 public class MigracionNormalizarProveedoresTests : IAsyncLifetime, IDisposable
@@ -21,7 +21,7 @@ public class MigracionNormalizarProveedoresTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;

@@ -12,7 +12,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests.Services;
 
 /// <summary>
-/// Casos de uso de presentaciones (RF-21) con InventarioService armado con piezas reales contra LocalDB.
+/// Casos de uso de presentaciones (RF-21) con InventarioService armado con piezas reales contra SQL Server Express.
 /// Verifican lo que los tests unitarios no pueden: que las consultas se traduzcan a SQL y que los cambios persistan.
 /// </summary>
 public class InventarioPresentacionesIntegrationTests : IAsyncLifetime, IDisposable
@@ -23,7 +23,7 @@ public class InventarioPresentacionesIntegrationTests : IAsyncLifetime, IDisposa
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;

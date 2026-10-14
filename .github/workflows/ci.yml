@@ -27,8 +27,35 @@ jobs:
       - name: Compilar solucion en Release (Cero advertencias)
         run: dotnet build Retail.sln --configuration Release --no-restore
 
+      - name: Instalar SQL Server Express (instancia SQLEXPRESS)
+        shell: powershell
+        run: |
+          if (-not (Get-Service -Name 'MSSQL$SQLEXPRESS' -ErrorAction SilentlyContinue)) {
+            choco install sql-server-express -y --no-progress
+          }
+          Start-Service -Name 'MSSQL$SQLEXPRESS'
+          (Get-Service -Name 'MSSQL$SQLEXPRESS').WaitForStatus('Running', '00:02:00')
+          $cadena = 'Server=.\SQLEXPRESS;Database=master;Integrated Security=true;TrustServerCertificate=true'
+          for ($intento = 1; $intento -le 12; $intento++) {
+            try {
+              $conexion = New-Object System.Data.SqlClient.SqlConnection($cadena)
+              $conexion.Open()
+              $conexion.Close()
+              Write-Host "SQL Server Express listo (intento $intento)."
+              exit 0
+            }
+            catch {
+              Write-Host "Esperando a SQL Server Express (intento $intento): $($_.Exception.Message)"
+              Start-Sleep -Seconds 10
+            }
+          }
+          Write-Error 'SQL Server Express no acepto conexiones a tiempo.'
+          exit 1
+
       - name: Ejecutar suite completa de pruebas automatizadas
         run: dotnet test Retail.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test_results.trx"
+        env:
+          RETAIL_TEST_SQLSERVER: .\SQLEXPRESS
 
       - name: Verificar formato y estilo de codigo (.editorconfig)
         run: dotnet format Retail.sln --verify-no-changes
