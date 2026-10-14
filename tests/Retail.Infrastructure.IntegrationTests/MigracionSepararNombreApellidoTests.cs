@@ -8,7 +8,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB que la migración SepararNombreApellidoUsuarios conserva las filas existentes:
+/// Verifica contra SQL Server Express que la migración SepararNombreApellidoUsuarios conserva las filas existentes:
 /// el scaffold original de EF borraba nombre_completo antes de completar las columnas nuevas.
 /// </summary>
 public class MigracionSepararNombreApellidoTests : IAsyncLifetime, IDisposable
@@ -20,7 +20,7 @@ public class MigracionSepararNombreApellidoTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;

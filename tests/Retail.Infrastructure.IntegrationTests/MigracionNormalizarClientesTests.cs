@@ -8,7 +8,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB que la migración NormalizarDocumentosYContactoClientes lleva los datos existentes a la
+/// Verifica contra SQL Server Express que la migración NormalizarDocumentosYContactoClientes lleva los datos existentes a la
 /// forma canónica sin violar el índice único de documentos de clientes activos.
 /// </summary>
 public class MigracionNormalizarClientesTests : IAsyncLifetime, IDisposable
@@ -20,7 +20,7 @@ public class MigracionNormalizarClientesTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;

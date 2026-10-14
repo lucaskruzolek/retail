@@ -18,7 +18,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests.Services;
 
 /// <summary>
-/// Registro de ventas (RF-09, RF-10) con VentaService armado con piezas reales contra LocalDB.
+/// Registro de ventas (RF-09, RF-10) con VentaService armado con piezas reales contra SQL Server Express.
 /// Verifican lo que los tests unitarios no pueden: la persistencia en las tres tablas de la venta, la atomicidad
 /// de la transacción y el control de concurrencia optimista con rowversion (D-12).
 /// </summary>
@@ -33,7 +33,7 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        _connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        _connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         _context = CrearContexto();
         await _context.Database.MigrateAsync();
         _sut = CrearServicio(_context);

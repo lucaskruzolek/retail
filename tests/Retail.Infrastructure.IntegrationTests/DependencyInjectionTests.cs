@@ -91,7 +91,7 @@ public class DependencyInjectionTests
         // Arrange
         var inMemorySettings = new Dictionary<string, string?>
         {
-            ["ConnectionStrings:DefaultConnection"] = "Server=(localdb)\\mssqllocaldb;Database=RetailDb_DiTest;Trusted_Connection=True;MultipleActiveResultSets=true",
+            ["ConnectionStrings:DefaultConnection"] = ServidorDePruebas.CadenaDeConexion("RetailDb_DiTest"),
             ["ArcaSettings:UseMockArca"] = "true"
         };
 

@@ -7,7 +7,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Restricciones de base de datos de las presentaciones derivadas (RF-21) contra LocalDB.
+/// Restricciones de base de datos de las presentaciones derivadas (RF-21) contra SQL Server Express.
 /// Los tests de rechazo asignan las propiedades directamente y saltan el Dominio a propósito: simulan un script
 /// o una herramienta externa, que es lo que la defensa en profundidad del motor relacional debe atajar.
 /// </summary>
@@ -20,7 +20,7 @@ public class PresentacionesPersistenciaTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;
