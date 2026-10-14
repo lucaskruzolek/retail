@@ -32,6 +32,9 @@ public partial class MainViewModel : ObservableObject
     private bool _esCajero;
 
     [ObservableProperty]
+    private bool _esAdministrador;
+
+    [ObservableProperty]
     private string _tituloModuloActual = "Catálogo de Artículos y Control de Stock";
 
     [ObservableProperty]
@@ -40,7 +43,20 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _moduloActivo = "Articulos";
 
-    public bool MostrarCabeceraAdmin => IsSidebarExpanded && EsGerente;
+    /// <summary>
+    /// Gerente y Administrador gestionan cuentas (RF-03). Qué cuentas puede tocar cada uno lo decide
+    /// <c>UsuarioService</c>; acá solo se decide si el módulo se muestra.
+    /// </summary>
+    public bool PuedeGestionarUsuarios => EsGerente || EsAdministrador;
+
+    /// <summary>
+    /// El Administrador es soporte técnico: no opera el POS, la caja ni el inventario (RF-03, D-3).
+    /// </summary>
+    public bool PuedeOperarNegocio => !EsAdministrador;
+
+    public bool MostrarCabeceraAdmin => IsSidebarExpanded && PuedeGestionarUsuarios;
+
+    public bool MostrarCabecerasOperativas => IsSidebarExpanded && PuedeOperarNegocio;
 
     /// <summary>
     /// Evento invocado cuando el usuario solicita cambiar de operador desde la barra o sidebar.
@@ -55,7 +71,7 @@ public partial class MainViewModel : ObservableObject
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
 
-        _session.SessionChanged += ActualizarDatosOperador;
+        _session.SessionChanged += OnSessionChanged;
         _navigationService.Navigated += OnNavigated;
 
         ActualizarDatosOperador();
@@ -68,7 +84,41 @@ public partial class MainViewModel : ObservableObject
         EsGerente = _session.EsGerente;
         EsEncargado = _session.EsEncargado;
         EsCajero = _session.EsCajero;
+        EsAdministrador = _session.EsAdministrador;
+        OnPropertyChanged(nameof(PuedeGestionarUsuarios));
+        OnPropertyChanged(nameof(PuedeOperarNegocio));
         OnPropertyChanged(nameof(MostrarCabeceraAdmin));
+        OnPropertyChanged(nameof(MostrarCabecerasOperativas));
+    }
+
+    /// <summary>
+    /// Al cambiar de operador (RF-02) se vuelve al módulo inicial del nuevo rol: la página abierta por el
+    /// operador anterior puede no estar permitida para el nuevo (por ejemplo, el POS para un Administrador).
+    /// </summary>
+    private void OnSessionChanged()
+    {
+        ActualizarDatosOperador();
+
+        if (_session.EstaAutenticado)
+        {
+            NavegarModuloInicial();
+        }
+    }
+
+    /// <summary>
+    /// Primera página del Shell según el rol: el catálogo para quien opera el negocio y la gestión de usuarios
+    /// para el Administrador.
+    /// </summary>
+    public void NavegarModuloInicial()
+    {
+        if (PuedeOperarNegocio)
+        {
+            NavegarArticulos();
+        }
+        else
+        {
+            NavegarUsuarios();
+        }
     }
 
     private void OnNavigated(Type viewType)
@@ -128,11 +178,17 @@ public partial class MainViewModel : ObservableObject
     {
         IsSidebarExpanded = !IsSidebarExpanded;
         OnPropertyChanged(nameof(MostrarCabeceraAdmin));
+        OnPropertyChanged(nameof(MostrarCabecerasOperativas));
     }
 
     [RelayCommand]
     public void NavegarPos()
     {
+        if (!PuedeOperarNegocio)
+        {
+            return;
+        }
+
         ModuloActivo = "Pos";
         TituloModuloActual = "Punto de Venta (POS) y Cobro Multimedio";
         _navigationService.NavigateTo<PosView>();
@@ -141,6 +197,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NavegarArticulos()
     {
+        if (!PuedeOperarNegocio)
+        {
+            return;
+        }
+
         ModuloActivo = "Articulos";
         _navigationService.NavigateTo<ArticulosView>();
     }
@@ -148,6 +209,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NavegarClientes()
     {
+        if (!PuedeOperarNegocio)
+        {
+            return;
+        }
+
         ModuloActivo = "Clientes";
         _navigationService.NavigateTo<ClientesView>();
     }
@@ -155,6 +221,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NavegarCaja()
     {
+        if (!PuedeOperarNegocio)
+        {
+            return;
+        }
+
         ModuloActivo = "Caja";
         TituloModuloActual = "Turnos de Caja y Arqueo Ciego";
         _navigationService.NavigateTo<CajaView>();
@@ -163,6 +234,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NavegarPresupuestos()
     {
+        if (!PuedeOperarNegocio)
+        {
+            return;
+        }
+
         ModuloActivo = "Presupuestos";
         TituloModuloActual = "Presupuestador Comercial Independiente";
         _navigationService.NavigateTo<ModuloEnConstruccionView>(view =>
@@ -179,6 +255,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NavegarCompras()
     {
+        if (!PuedeOperarNegocio)
+        {
+            return;
+        }
+
         ModuloActivo = "Compras";
         TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
         _navigationService.NavigateTo<ComprasView>();
@@ -187,6 +268,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NavegarProveedores()
     {
+        if (!PuedeOperarNegocio)
+        {
+            return;
+        }
+
         ModuloActivo = "Proveedores";
         TituloModuloActual = "Padrón de Proveedores";
         _navigationService.NavigateTo<ProveedoresView>();
@@ -195,6 +281,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NavegarCatalogos()
     {
+        if (!PuedeOperarNegocio)
+        {
+            return;
+        }
+
         ModuloActivo = "Catalogos";
         TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
         _navigationService.NavigateTo<ImportadorCatalogosView>();
@@ -224,7 +315,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NavegarUsuarios()
     {
-        if (EsGerente)
+        if (PuedeGestionarUsuarios)
         {
             ModuloActivo = "Usuarios";
             _navigationService.NavigateTo<UsuariosView>();

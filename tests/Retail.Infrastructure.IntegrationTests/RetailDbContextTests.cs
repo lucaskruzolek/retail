@@ -229,7 +229,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         var repo = new Repository<Usuario>(_context);
         var uow = new UnitOfWork(_context);
 
-        var usuario = Usuario.Crear("operador.test", "Operador", "Prueba", "hash123", RolUsuarioEnum.Cajero);
+        var usuario = Usuario.Crear("operador.test", "Operador", "Prueba", "hash123", RolUsuarioEnum.Cajero, null);
 
         await repo.AddAsync(usuario);
         await uow.SaveChangesAsync();
@@ -257,7 +257,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             await _context.SaveChangesAsync();
         }
 
-        var usuario1 = Usuario.Crear("lucas.softdelete", "Lucas", "Anterior", "hash1", RolUsuarioEnum.Cajero);
+        var usuario1 = Usuario.Crear("lucas.softdelete", "Lucas", "Anterior", "hash1", RolUsuarioEnum.Cajero, null);
         await _context.Usuarios.AddAsync(usuario1);
         await _context.SaveChangesAsync();
 
@@ -266,7 +266,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         // Act: Insertar un segundo usuario independiente con el mismo nombre de usuario
-        var usuario2 = Usuario.Crear("lucas.softdelete", "Lucas", "Nuevo", "hash2", RolUsuarioEnum.Cajero);
+        var usuario2 = Usuario.Crear("lucas.softdelete", "Lucas", "Nuevo", "hash2", RolUsuarioEnum.Cajero, null);
         await _context.Usuarios.AddAsync(usuario2);
         await _context.SaveChangesAsync();
 
@@ -294,11 +294,11 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             await _context.SaveChangesAsync();
         }
 
-        var usuario1 = Usuario.Crear("operador.duplicado", "Operador", "Uno", "hash1", RolUsuarioEnum.Cajero);
+        var usuario1 = Usuario.Crear("operador.duplicado", "Operador", "Uno", "hash1", RolUsuarioEnum.Cajero, null);
         await _context.Usuarios.AddAsync(usuario1);
         await _context.SaveChangesAsync();
 
-        var usuario2 = Usuario.Crear("operador.duplicado", "Operador", "Dos", "hash2", RolUsuarioEnum.Cajero);
+        var usuario2 = Usuario.Crear("operador.duplicado", "Operador", "Dos", "hash2", RolUsuarioEnum.Cajero, null);
         await _context.Usuarios.AddAsync(usuario2);
 
         // Act
@@ -455,7 +455,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             await _context.SaveChangesAsync();
         }
 
-        var usuario = Usuario.Crear($"cajero.cobranza.{Guid.NewGuid():N}"[..20], "Cajero", "Test", "hash123", RolUsuarioEnum.Cajero);
+        var usuario = Usuario.Crear($"cajero.cobranza.{Guid.NewGuid():N}"[..20], "Cajero", "Test", "hash123", RolUsuarioEnum.Cajero, null);
         await _context.Usuarios.AddAsync(usuario);
         await _context.SaveChangesAsync();
 

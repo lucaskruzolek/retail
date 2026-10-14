@@ -29,6 +29,8 @@ public class CurrentUserSession : ICurrentUserSession
 
     public bool EsCajero => _usuarioActual?.Rol == RolUsuarioEnum.Cajero;
 
+    public bool EsAdministrador => _usuarioActual?.Rol == RolUsuarioEnum.Administrador;
+
     public event Action? SessionChanged;
 
     public void EstablecerSesion(LoginResultDto usuario)

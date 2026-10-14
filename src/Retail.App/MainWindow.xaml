@@ -123,10 +123,11 @@
                                        FontWeight="Bold"
                                        Margin="12,14,12,6"
                                        FontSize="10"
-                                       Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                       Visibility="{Binding MostrarCabecerasOperativas, Converter={StaticResource BoolToVisConverter}}" />
 
                             <!-- 1. Punto de Venta (POS) [F1] -->
-                            <Button Command="{Binding NavegarPosCommand}">
+                            <Button Command="{Binding NavegarPosCommand}"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
@@ -173,7 +174,8 @@
                             </Button>
 
                             <!-- 2. Catálogo de Artículos [F2] -->
-                            <Button Command="{Binding NavegarArticulosCommand}">
+                            <Button Command="{Binding NavegarArticulosCommand}"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
@@ -220,7 +222,8 @@
                             </Button>
 
                             <!-- 3. Clientes y Cuentas Corrientes [F4] -->
-                            <Button Command="{Binding NavegarClientesCommand}">
+                            <Button Command="{Binding NavegarClientesCommand}"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
@@ -267,7 +270,8 @@
                             </Button>
 
                             <!-- 4. Turnos de Caja [F5] -->
-                            <Button Command="{Binding NavegarCajaCommand}">
+                            <Button Command="{Binding NavegarCajaCommand}"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
@@ -314,7 +318,8 @@
                             </Button>
 
                             <!-- 5. Presupuestos [F6] -->
-                            <Button Command="{Binding NavegarPresupuestosCommand}">
+                            <Button Command="{Binding NavegarPresupuestosCommand}"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
@@ -360,11 +365,12 @@
                                 </Grid>
                             </Button>
 
-                            <!-- Divisor de Grupo: Mostrador a Gestión & Stock -->
+                            <!-- Divisor de Grupo: Mostrador a Gestión & Stock (oculto para el Administrador) -->
                             <Border Height="1"
                                     Background="{DynamicResource SurfaceBorderBrush}"
                                     Margin="10,10,10,8"
-                                    SnapsToDevicePixels="True" />
+                                    SnapsToDevicePixels="True"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}" />
 
                             <!-- SECCIÓN: GESTIÓN & STOCK -->
                             <TextBlock Text="GESTIÓN &amp; STOCK"
@@ -373,10 +379,11 @@
                                        FontWeight="Bold"
                                        Margin="12,14,12,6"
                                        FontSize="10"
-                                       Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                       Visibility="{Binding MostrarCabecerasOperativas, Converter={StaticResource BoolToVisConverter}}" />
 
                             <!-- 6. Compras a Distribuidores -->
-                            <Button Command="{Binding NavegarComprasCommand}">
+                            <Button Command="{Binding NavegarComprasCommand}"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
@@ -418,7 +425,8 @@
                             </Button>
 
                             <!-- 7. Proveedores -->
-                            <Button Command="{Binding NavegarProveedoresCommand}">
+                            <Button Command="{Binding NavegarProveedoresCommand}"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
@@ -460,7 +468,8 @@
                             </Button>
 
                             <!-- 8. Catálogos Mayoristas e Importador -->
-                            <Button Command="{Binding NavegarCatalogosCommand}">
+                            <Button Command="{Binding NavegarCatalogosCommand}"
+                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
@@ -501,14 +510,14 @@
                                 </Grid>
                             </Button>
 
-                            <!-- Divisor de Grupo: Gestión a Administración (Solo Gerente) -->
+                            <!-- Divisor de Grupo: Gestión a Administración (solo el Gerente ve ambos grupos) -->
                             <Border Height="1"
                                     Background="{DynamicResource SurfaceBorderBrush}"
                                     Margin="10,10,10,8"
                                     SnapsToDevicePixels="True"
                                     Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}" />
 
-                            <!-- SECCIÓN: ADMINISTRACIÓN (Solo visible si es Gerente y está expandido) -->
+                            <!-- SECCIÓN: ADMINISTRACIÓN (Gerente o Administrador, con el sidebar expandido) -->
                             <TextBlock Text="ADMINISTRACIÓN"
                                        Style="{StaticResource TextBlockCaption}"
                                        Foreground="{DynamicResource TextMutedBrush}"
@@ -565,9 +574,9 @@
                                 </Grid>
                             </Button>
 
-                            <!-- 9. Operadores y Roles [F10] (Solo Gerente) -->
+                            <!-- 9. Operadores y Roles [F10] (Gerente o Administrador) -->
                             <Button Command="{Binding NavegarUsuariosCommand}"
-                                    Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}">
+                                    Visibility="{Binding PuedeGestionarUsuarios, Converter={StaticResource BoolToVisConverter}}">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>

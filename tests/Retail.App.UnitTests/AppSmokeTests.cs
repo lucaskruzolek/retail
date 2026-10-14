@@ -328,7 +328,7 @@ public class AppSmokeTests
         {
             var usuarioServiceMock = Substitute.For<IUsuarioService>();
             var dialogServiceMock = Substitute.For<IUsuarioDialogService>();
-            var viewModel = new UsuariosViewModel(usuarioServiceMock, dialogServiceMock);
+            var viewModel = new UsuariosViewModel(usuarioServiceMock, dialogServiceMock, Substitute.For<ICurrentUserSession>());
 
             try
             {
@@ -369,7 +369,7 @@ public class AppSmokeTests
         WpfTestHelper.Run(() =>
         {
             var viewModel = new UsuarioFormViewModel();
-            viewModel.ConfigurarAlta();
+            viewModel.ConfigurarAlta(Enum.GetValues<RolUsuarioEnum>());
 
             try
             {
@@ -806,7 +806,7 @@ public class AppSmokeTests
             var authServiceMock = Substitute.For<IAuthService>();
             var sessionMock = Substitute.For<ICurrentUserSession>();
             var loggerMock = Substitute.For<ILogger<LoginViewModel>>();
-            var viewModel = new LoginViewModel(authServiceMock, sessionMock, loggerMock);
+            var viewModel = new LoginViewModel(authServiceMock, Substitute.For<IUsuarioService>(), Substitute.For<IUsuarioDialogService>(), sessionMock, loggerMock);
 
             try
             {

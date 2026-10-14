@@ -2,10 +2,17 @@ namespace Retail.Domain.Enums;
 
 /// <summary>
 /// Roles de acceso al sistema con permisos basados en RBAC.
+/// Los valores coinciden con los identificadores de la tabla de roles: no se renumeran, solo se agregan.
 /// </summary>
 public enum RolUsuarioEnum
 {
     Cajero = 1,
     Encargado = 2,
-    Gerente = 3
+    Gerente = 3,
+
+    /// <summary>
+    /// Soporte técnico opcional: gestiona Cajeros y Encargados, pero no opera el negocio ni accede a los
+    /// respaldos de la base (RF-03, RF-22).
+    /// </summary>
+    Administrador = 4
 }

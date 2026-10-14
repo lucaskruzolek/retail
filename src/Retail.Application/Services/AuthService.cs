@@ -61,7 +61,8 @@ public class AuthService : IAuthService
                 IdUsuario = usuarioActivo.Id,
                 NombreUsuario = usuarioActivo.NombreUsuario,
                 NombreCompleto = usuarioActivo.NombreCompleto,
-                Rol = (RolUsuarioEnum)usuarioActivo.IdRol
+                Rol = (RolUsuarioEnum)usuarioActivo.IdRol,
+                DebeCambiarPassword = usuarioActivo.DebeCambiarPassword
             };
         }
 
@@ -71,5 +72,22 @@ public class AuthService : IAuthService
         }
 
         throw new CredencialesInvalidasException();
+    }
+
+    public async Task VerificarCredencialAsync(int idUsuario, string password, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(password);
+
+        var usuario = idUsuario > 0
+            ? await _usuarioRepository.GetByIdAsync(idUsuario, includeDeleted: false, cancellationToken)
+            : null;
+
+        // Un usuario inexistente o dado de baja recibe la misma respuesta que una contraseña incorrecta: la
+        // reautenticación no debe revelar el estado de otras cuentas.
+        if (usuario == null || string.IsNullOrEmpty(password)
+            || !_passwordHasher.VerifyPassword(password, usuario.PasswordHash))
+        {
+            throw new CredencialesInvalidasException();
+        }
     }
 }

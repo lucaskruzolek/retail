@@ -27,6 +27,8 @@ public interface ICurrentUserSession
 
     bool EsCajero { get; }
 
+    bool EsAdministrador { get; }
+
     event Action? SessionChanged;
 
     void EstablecerSesion(LoginResultDto usuario);

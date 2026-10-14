@@ -313,4 +313,81 @@ public class MainViewModelTests
         // Assert
         eventoDisparado.Should().BeTrue();
     }
+
+    [Fact]
+    public void Administrador_GestionaUsuariosPeroNoOperaElNegocio()
+    {
+        // Arrange
+        _sessionMock.EsAdministrador.Returns(true);
+
+        // Act
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        vm.NavegarPosCommand.Execute(null);
+        vm.NavegarCajaCommand.Execute(null);
+        vm.NavegarUsuariosCommand.Execute(null);
+
+        // Assert: los módulos operativos se ignoran aunque se invoquen por atajo de teclado.
+        vm.PuedeOperarNegocio.Should().BeFalse();
+        vm.PuedeGestionarUsuarios.Should().BeTrue();
+        _navigationMock.DidNotReceive().NavigateTo<PosView>();
+        _navigationMock.DidNotReceive().NavigateTo<CajaView>();
+        _navigationMock.Received(1).NavigateTo<UsuariosView>();
+    }
+
+    [Theory]
+    [InlineData(RolUsuarioEnum.Gerente, true)]
+    [InlineData(RolUsuarioEnum.Administrador, true)]
+    [InlineData(RolUsuarioEnum.Encargado, false)]
+    [InlineData(RolUsuarioEnum.Cajero, false)]
+    public void PuedeGestionarUsuarios_SegunRol_HabilitaElModuloDeUsuarios(RolUsuarioEnum rol, bool esperado)
+    {
+        _sessionMock.EsGerente.Returns(rol == RolUsuarioEnum.Gerente);
+        _sessionMock.EsAdministrador.Returns(rol == RolUsuarioEnum.Administrador);
+
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+
+        vm.PuedeGestionarUsuarios.Should().Be(esperado);
+    }
+
+    [Theory]
+    [InlineData(false, typeof(ArticulosView))]
+    [InlineData(true, typeof(UsuariosView))]
+    public void NavegarModuloInicial_SegunRol_AbreLaPaginaPermitida(bool esAdministrador, Type paginaEsperada)
+    {
+        // Arrange
+        _sessionMock.EsAdministrador.Returns(esAdministrador);
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+
+        // Act
+        vm.NavegarModuloInicial();
+
+        // Assert
+        if (paginaEsperada == typeof(UsuariosView))
+        {
+            _navigationMock.Received(1).NavigateTo<UsuariosView>();
+            _navigationMock.DidNotReceive().NavigateTo<ArticulosView>();
+        }
+        else
+        {
+            _navigationMock.Received(1).NavigateTo<ArticulosView>();
+        }
+    }
+
+    [Fact]
+    public void SessionChanged_CambioAUnAdministrador_SaleDelModuloOperativoHaciaUsuarios()
+    {
+        // Arrange: el Gerente estaba en el POS y cambia de operador (RF-02).
+        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        vm.NavegarPosCommand.Execute(null);
+
+        _sessionMock.EstaAutenticado.Returns(true);
+        _sessionMock.EsAdministrador.Returns(true);
+
+        // Act
+        _sessionMock.SessionChanged += Raise.Event<Action>();
+
+        // Assert
+        _navigationMock.Received(1).NavigateTo<UsuariosView>();
+        vm.ModuloActivo.Should().Be("Usuarios");
+    }
 }

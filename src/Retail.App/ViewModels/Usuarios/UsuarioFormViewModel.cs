@@ -31,7 +31,18 @@ public partial class UsuarioFormViewModel : ObservableObject
     private string _confirmarPassword = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EtiquetaEmail))]
     private RolUsuarioEnum _rol = RolUsuarioEnum.Cajero;
+
+    /// <summary>
+    /// Roles que el operador de la sesión puede asignar, calculados por <c>UsuarioService</c> con la matriz del
+    /// Dominio. El formulario no decide permisos: solo evita ofrecer opciones que el servicio rechazaría.
+    /// </summary>
+    [ObservableProperty]
+    private IReadOnlyList<RolUsuarioEnum> _rolesDisponibles = [];
+
+    [ObservableProperty]
+    private string _emailRecuperacion = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EsAlta))]
@@ -56,7 +67,12 @@ public partial class UsuarioFormViewModel : ObservableObject
 
     public Func<Task>? OnGuardarAsync { get; set; }
 
-    public IReadOnlyList<RolUsuarioEnum> RolesDisponibles { get; } = Enum.GetValues<RolUsuarioEnum>();
+    /// <summary>
+    /// Anticipa la regla "un Gerente tiene email" en la etiqueta del campo; la valida el servicio.
+    /// </summary>
+    public string EtiquetaEmail => Rol == RolUsuarioEnum.Gerente
+        ? "Email de Recuperación (obligatorio para Gerente)"
+        : "Email de Recuperación (opcional)";
 
     partial void OnNombreUsuarioChanged(string value)
     {
@@ -66,8 +82,10 @@ public partial class UsuarioFormViewModel : ObservableObject
         }
     }
 
-    public void ConfigurarAlta()
+    public void ConfigurarAlta(IReadOnlyList<RolUsuarioEnum> rolesAsignables)
     {
+        ArgumentNullException.ThrowIfNull(rolesAsignables);
+        RolesDisponibles = rolesAsignables;
         EsModoEdicion = false;
         IdUsuario = 0;
         NombreUsuario = string.Empty;
@@ -75,15 +93,19 @@ public partial class UsuarioFormViewModel : ObservableObject
         Apellido = string.Empty;
         Password = string.Empty;
         ConfirmarPassword = string.Empty;
-        Rol = RolUsuarioEnum.Cajero;
+        // El rol con menos privilegios que el operador puede asignar: dar más poder debe ser una elección explícita.
+        Rol = rolesAsignables.Count > 0 ? rolesAsignables.Min() : RolUsuarioEnum.Cajero;
+        EmailRecuperacion = string.Empty;
         MensajeError = null;
         IsBusy = false;
         OnGuardarAsync = null;
     }
 
-    public void ConfigurarEdicion(UsuarioDto usuario)
+    public void ConfigurarEdicion(UsuarioDto usuario, IReadOnlyList<RolUsuarioEnum> rolesAsignables)
     {
         ArgumentNullException.ThrowIfNull(usuario);
+        ArgumentNullException.ThrowIfNull(rolesAsignables);
+        RolesDisponibles = rolesAsignables;
         EsModoEdicion = true;
         IdUsuario = usuario.IdUsuario;
         NombreUsuario = usuario.NombreUsuario;
@@ -92,6 +114,7 @@ public partial class UsuarioFormViewModel : ObservableObject
         Password = string.Empty;
         ConfirmarPassword = string.Empty;
         Rol = usuario.Rol;
+        EmailRecuperacion = usuario.EmailRecuperacion ?? string.Empty;
         MensajeError = null;
         IsBusy = false;
         OnGuardarAsync = null;
@@ -133,7 +156,8 @@ public partial class UsuarioFormViewModel : ObservableObject
         Nombre = Nombre,
         Apellido = Apellido,
         Password = Password,
-        Rol = Rol
+        Rol = Rol,
+        EmailRecuperacion = EmailRecuperacion
     };
 
     public ModificarUsuarioDto ObtenerModificarDto() => new()
@@ -141,6 +165,7 @@ public partial class UsuarioFormViewModel : ObservableObject
         IdUsuario = IdUsuario,
         Nombre = Nombre,
         Apellido = Apellido,
-        Rol = Rol
+        Rol = Rol,
+        EmailRecuperacion = EmailRecuperacion
     };
 }
