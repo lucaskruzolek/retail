@@ -99,6 +99,12 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.ViewModels.Usuarios.UsuariosViewModel>();
         services.AddTransient<Retail.App.Views.Pages.UsuariosView>();
 
+        // Respaldos y Restauración (Track 6.3)
+        services.AddScoped<Retail.App.Services.IBackupDialogService, Retail.App.Services.BackupDialogService>();
+        services.AddSingleton<Retail.App.Services.IReinicioAplicacion, Retail.App.Services.ReinicioAplicacion>();
+        services.AddTransient<Retail.App.ViewModels.Backups.BackupViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.BackupView>();
+
         // Artículos y Catálogo (Módulo 2.1)
         services.AddScoped<Retail.App.Services.IArticuloDialogService, Retail.App.Services.ArticuloDialogService>();
         services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();

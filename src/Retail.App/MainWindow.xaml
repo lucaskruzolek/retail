@@ -621,6 +621,54 @@
                                                Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
                                 </Grid>
                             </Button>
+
+                            <!-- 10. Respaldos [F11] (Gerente o Administrador; el Administrador solo consulta) -->
+                            <Button Command="{Binding NavegarRespaldosCommand}"
+                                    Visibility="{Binding PuedeGestionarUsuarios, Converter={StaticResource BoolToVisConverter}}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Respaldos">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Respaldos" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="F11" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidSave"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Respaldos"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
                         </StackPanel>
                     </ScrollViewer>
 
@@ -710,6 +758,7 @@
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -727,9 +776,32 @@
                          FontWeight="SemiBold"
                          Foreground="{DynamicResource TextSecondaryBrush}" />
 
-            <!-- 2.2 ÁREA DE CONTENIDO PRINCIPAL (Frame) -->
+            <!-- 2.2 AVISO NO BLOQUEANTE DE RESTAURACIÓN RECIENTE (Gerente / Administrador, R-20) -->
+            <Border Grid.Row="1"
+                    Background="{DynamicResource WarningBackgroundBrush}"
+                    BorderBrush="{DynamicResource WarningBorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    Padding="16,6"
+                    Visibility="{Binding MostrarAvisoRestauracion, Converter={StaticResource BoolToVisConverter}}">
+                <DockPanel LastChildFill="True">
+                    <Button Command="{Binding CerrarAvisoRestauracionCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            DockPanel.Dock="Right"
+                            Padding="8,2"
+                            Margin="12,0,0,0"
+                            Content="Entendido" />
+                    <TextBlock Text="{Binding AvisoRestauracion}"
+                               Foreground="{DynamicResource WarningForegroundBrush}"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+
+            <!-- 2.3 ÁREA DE CONTENIDO PRINCIPAL (Frame) -->
             <Frame x:Name="RootFrame"
-                   Grid.Row="1"
+                   Grid.Row="2"
                    NavigationUIVisibility="Hidden"
                    Background="{DynamicResource SurfaceBackgroundBrush}" />
         </Grid>

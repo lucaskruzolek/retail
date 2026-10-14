@@ -307,6 +307,60 @@ public class RestauradorIntegracionTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PromoverAVigenteAsync_FallaElSegundoRenombrado_RevierteElPrimeroYLaVigenteQuedaIntacta()
+    {
+        // Arrange: la temporal se pone OFFLINE justo antes del intercambio. El paso 1 (apartar la vigente) funciona y el
+        // paso 2 (renombrar la temporal) falla aun con reintentos: es la rama que evita quedarse sin base (M-2).
+        await AgregarYGuardarAsync(NuevoUsuario("gerente.reversion"));
+        var ruta = await CrearCopiaAsync();
+        await AgregarYGuardarAsync(NuevoUsuario("posterior.reversion", RolUsuarioEnum.Cajero));
+        var temporal = $"{_vigente}_Restaurando";
+
+        // Act
+        string? anterior;
+        Func<Task> act;
+        await using (var restaurada = await CrearSut().RestaurarEnBaseTemporalAsync(ruta, progreso: null))
+        {
+            anterior = restaurada.NombreBaseAnterior;
+            await EjecutarEnMasterAsync($"ALTER DATABASE [{temporal}] SET OFFLINE WITH ROLLBACK IMMEDIATE;");
+            act = () => restaurada.PromoverAVigenteAsync();
+
+            // Assert: falla con un mensaje que dice que la vigente no cambió.
+            await act.Should().ThrowAsync<Retail.Application.Exceptions.RestauracionFallidaException>()
+                .WithMessage("*se conservó sin cambios*");
+
+            // La temporal vuelve a estar en línea para que el descarte pueda borrar también sus archivos físicos.
+            await EjecutarEnMasterAsync($"ALTER DATABASE [{temporal}] SET ONLINE;");
+        }
+
+        // Assert: la vigente recuperó su nombre, su acceso multiusuario y todos sus datos; no quedó una "_Anterior_".
+        anterior.Should().NotBeNull();
+        (await ExisteAsync(anterior!)).Should().BeFalse();
+        (await AccesoDeUsuariosAsync(_vigente)).Should().Be("MULTI_USER");
+        (await NombresDeUsuariosAsync(_vigente)).Should().Contain("gerente.reversion").And.Contain("posterior.reversion");
+        (await ExisteAsync(temporal)).Should().BeFalse();
+    }
+
+    private static async Task EjecutarEnMasterAsync(string sentencia)
+    {
+        await using var master = new SqlConnection(CadenaDe("master"));
+        await master.OpenAsync();
+        await using var comando = master.CreateCommand();
+        comando.CommandText = sentencia;
+        await comando.ExecuteNonQueryAsync();
+    }
+
+    private static async Task<string> AccesoDeUsuariosAsync(string baseDeDatos)
+    {
+        await using var master = new SqlConnection(CadenaDe("master"));
+        await master.OpenAsync();
+        await using var comando = master.CreateCommand();
+        comando.CommandText = "SELECT user_access_desc FROM sys.databases WHERE name = @nombre;";
+        comando.Parameters.AddWithValue("@nombre", baseDeDatos);
+        return (string)(await comando.ExecuteScalarAsync())!;
+    }
+
+    [Fact]
     public async Task PromoverAVigenteAsync_DosCiclosSeguidos_FuncionanYSoloSeConservaLaUltimaAnterior()
     {
         // Arrange
@@ -491,30 +545,6 @@ public class RestauradorIntegracionTests : IAsyncLifetime
 
         // Act + Assert
         (await sut.HayTurnoDeCajaAbiertoEnBaseVigenteAsync()).Should().BeTrue();
-    }
-
-    // ───────────────────── Conexiones ajenas ─────────────────────
-
-    [Fact]
-    public async Task ObtenerConexionesAjenasABaseVigenteAsync_SoloEsteProcesoConectado_DevuelveVacio()
-    {
-        // Arrange: este proceso está conectado a la vigente a través de su pool; no cuenta como "ajeno".
-        (await _context.Usuarios.CountAsync()).Should().BeGreaterThanOrEqualTo(0);
-
-        // Act
-        var conexiones = await CrearSut().ObtenerConexionesAjenasABaseVigenteAsync();
-
-        // Assert
-        conexiones.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task ObtenerConexionesAjenasABaseVigenteAsync_BaseInexistente_DevuelveVacio()
-    {
-        await using var otro = ContextoDe(CadenaDe($"{_vigente}_Inexistente"));
-        var sut = new SqlServerRestauradorBaseDatos(otro, Options.Create(new BackupOptions()), NullLoggerFactory.Instance);
-
-        (await sut.ObtenerConexionesAjenasABaseVigenteAsync()).Should().BeEmpty();
     }
 
     // ───────────────────── Ayudas de esta sección ─────────────────────

@@ -40,10 +40,13 @@ public partial class MainWindow : FluentWindow
         PreviewKeyDown += MainWindow_PreviewKeyDown;
     }
 
-    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         // Página inicial según el rol: catálogo de artículos o, para el Administrador, gestión de usuarios.
         ViewModel.NavegarModuloInicial();
+
+        // El operador ya inició sesión antes de crear el Shell: el aviso de restauración reciente se consulta acá (R-20).
+        await ViewModel.CargarAvisoRestauracionAsync();
     }
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -91,6 +94,11 @@ public partial class MainWindow : FluentWindow
 
             case Key.F10 when ViewModel.PuedeGestionarUsuarios:
                 ViewModel.NavegarUsuarios();
+                e.Handled = true;
+                break;
+
+            case Key.F11 when ViewModel.PuedeGestionarUsuarios:
+                ViewModel.NavegarRespaldos();
                 e.Handled = true;
                 break;
         }

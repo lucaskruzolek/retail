@@ -30,4 +30,10 @@ public interface IRestauracionService
         string password,
         IProgress<int>? progreso = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Última restauración registrada, o <c>null</c> si nunca se restauró. Es de solo lectura y la consultan el Gerente
+    /// y el Administrador: la aplicación la muestra para que una restauración no pase inadvertida (R-20).
+    /// </summary>
+    Task<RegistroRestauracionDto?> ObtenerUltimaRestauracionAsync(int idActor, CancellationToken cancellationToken = default);
 }

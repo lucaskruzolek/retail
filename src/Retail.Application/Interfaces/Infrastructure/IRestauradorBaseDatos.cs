@@ -15,6 +15,13 @@ public interface IRestauradorBaseDatos
     Task<bool> ExisteBaseVigenteAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Indica si la base vigente tiene un turno de caja abierto (R-11). Usa SQL mínimo y no el modelo de EF: la vigente
+    /// puede tener un esquema más viejo que esta versión (D-26), y materializar la entidad completa fallaría por las
+    /// columnas agregadas después. Devuelve <c>false</c> si la base o la tabla no existen.
+    /// </summary>
+    Task<bool> HayTurnoDeCajaAbiertoEnBaseVigenteAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Restaura el archivo en una base temporal nueva. Verifica antes que haya espacio en disco (D-23) y descarta una
     /// base temporal que haya quedado de un corte anterior. Liberar la base devuelta sin promoverla la elimina.
     /// </summary>

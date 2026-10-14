@@ -12,14 +12,14 @@
 
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
-| 0 | Documentación: ERS (RF-22, RF-23, RNF-08, roles, IU-10, IS-04), roadmap, mapa | ✅ Hecha (sin commit) |
-| 1 | Roles y cuentas | ✅ Hecha (sin commit) — 1108 tests, Release 0 advertencias |
-| 2 | Herramienta `Retail.Cli` y arranque sin migración automática | ✅ Hecha (sin commit) |
-| 3 | Dominio `RegistroBackup` | ✅ Hecha (sin commit) |
-| 4 | Backup | ✅ Hecha (sin commit) |
-| 5 | Restore (opción C: base temporal + intercambio) | 🚧 Dominio, Aplicación (con C-1 a C-8), Infraestructura y `Retail.Cli restaurar` + `scripts/restore-retail.ps1` hechos — Release 0 advertencias, 1350 tests en verde, `dotnet format` sin cambios. Pendiente: la revisión independiente final |
-| 6 | UI (`BackupView`, `ConfirmarCredencialDialog`) | ⏳ |
-| 7 | Backup automático | ⏳ |
+| 0 | Documentación: ERS (RF-22, RF-23, RNF-08, roles, IU-10, IS-04), roadmap, mapa | ✅ Hecha (commit por fase) |
+| 1 | Roles y cuentas | ✅ Hecha (commit por fase) — 1108 tests, Release 0 advertencias |
+| 2 | Herramienta `Retail.Cli` y arranque sin migración automática | ✅ Hecha (commit por fase) |
+| 3 | Dominio `RegistroBackup` | ✅ Hecha (commit por fase) |
+| 4 | Backup | ✅ Hecha (commit por fase) |
+| 5 | Restore (opción C: base temporal + intercambio) | ✅ Hecha — commit `0bcbe88` más las correcciones de la revisión final (sección 1.3) |
+| 6 | UI (`BackupView`, `ConfirmarCredencialDialog`) | ✅ Hecha — 1395 tests, Release 0 advertencias. Pendiente: prueba manual en la app real (incluido el reinicio tras restaurar) |
+| 7 | Backup automático | ⏳ Siguiente (en secuencia, en el árbol principal) |
 
 **Forma de trabajo:** fase por fase y capa por capa (Dominio → Aplicación → Infraestructura → UI → Tests), con cada diff revisado por el estudiante. Desde el 2026-10-13, [`CLAUDE.md`](file:///c:/Users/lucas/Proyectos/retail/CLAUDE.md) §5 permite delegar código en subagentes cuando el estudiante lo pide: la sesión principal define los paquetes, revisa cada diff, corre la verificación y explica. Revisiones independientes de solo lectura en las Fases 1 (permisos) y 5 (restore). Commits y PR los pide el estudiante.
 
@@ -136,6 +136,37 @@ y cierre de copias `EnCurso` (R-18).
 ### Riesgos aceptados y documentados (sin corrección)
 * **R-19:** la consola no limita intentos y un usuario inexistente responde más rápido que una contraseña incorrecta; en una herramienta local, con un `RESTORE` completo por intento y los hashes ya presentes en el `.bak` (R-17), no justifica más código.
 * **R-20:** un atacante con una copia vieja y la contraseña de un ex-Gerente puede restaurar (D-18). Mitigación: D-24 (copias previas por 30 días), base `_Anterior_`, registro en `REGISTROS_RESTAURACION` que sobrevive a nuevos restores, y aviso visible en la app (Fase 6) del último restore realizado.
+
+
+---
+
+## 1.3. Revisión Final de la Fase 5 y Notas de la Fase 6
+
+**Commits:** las Fases 0 a 5 se commitearon una por fase (`813dce3` … `0bcbe88`). Cada archivo quedó en el commit de la
+última fase que lo modificó: los commits intermedios son agrupaciones lógicas y pueden no compilar solos; el estado
+verificado es el del último commit. La Fase 6 y las correcciones de esta sección van en un único commit.
+
+**Revisión final de la Fase 5 (subagente de solo lectura):** C-1 a C-7 confirmados en el código; sin caminos que dañen la
+vigente en un flujo normal. Correcciones aplicadas:
+
+| # | Hallazgo | Corrección |
+| :-: | :--- | :--- |
+| B-2 | El control de turno abierto usaba el modelo de EF contra la vigente: con un esquema viejo (el caso de D-26) la consulta fallaba y el restore se abortaba. El método con SQL mínimo existía pero nadie lo llamaba | `IRestauradorBaseDatos.HayTurnoDeCajaAbiertoEnBaseVigenteAsync` reemplaza al repositorio de EF; se eliminó `ObtenerConexionesAjenasABaseVigenteAsync`, sin uso |
+| M-1 | Otra conexión podía ocupar la base entre `SINGLE_USER` y `MODIFY NAME` | Reintento acotado (3 intentos) de cada renombrado |
+| M-2 | La reversión del intercambio no tenía test | Test de integración que pone la temporal `OFFLINE` antes del intercambio: la vigente queda intacta |
+| B-4 | El segundo Ctrl+C mataba el proceso, aun entre los dos renombrados | Ctrl+C nunca termina el proceso; las pulsaciones siguientes solo avisan |
+| B-6 | El pool se limpiaba solo si el intercambio salía bien | `ClearAllPools` en un `finally` |
+| B-1 | Mensajes al operador con texto crudo del motor | `DescripcionDeFalla`: los errores de disco y los propios se muestran; los del motor se reemplazan y el detalle va al log |
+| B-3 | Una ruta larga o relativa fallaba después de un restore completo | Se normaliza y se valida el largo al principio |
+| PS | Con `ErrorActionPreference = "Stop"`, PowerShell 5.1 podía convertir los avisos de stderr en errores | `"Continue"` antes de llamar a la herramienta |
+
+**Fase 6 (implementada por un subagente, revisada y verificada por la sesión principal):**
+* Un único diálogo de credencial para copia y restauración; en modo restauración exige escribir "RESTAURAR", muestra el aviso ARCA y usa el botón de peligro. El diálogo ejecuta la operación porque solo el servicio puede decir si la contraseña es correcta (D-8): ante una contraseña incorrecta queda abierto para reintentar.
+* El Administrador ve el historial en solo lectura; la autoridad sigue siendo el servicio (D-9).
+* Tras restaurar se muestran las advertencias y la aplicación se reinicia (`IReinicioAplicacion`): primero arranca la instancia nueva y después se cierra la actual.
+* `MainViewModel` (Singleton, Ley 10) abre un scope propio para consultar la última restauración y muestra el aviso de R-20 si ocurrió en los últimos 7 días. `IServiceScopeFactory` es obligatorio en su constructor.
+* `ObtenerUltimaRestauracionAsync` ordena en memoria: la tabla tiene pocas filas (las restauraciones son excepcionales). Excepción consciente a la Ley 8.
+* **Pendiente:** prueba manual en la aplicación real (login con cambio forzado, usuarios, copia, restauración y el reinicio, que nunca se ejecutó de verdad).
 
 ---
 

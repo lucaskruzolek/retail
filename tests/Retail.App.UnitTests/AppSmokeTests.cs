@@ -7,6 +7,7 @@ using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Auth;
+using Retail.App.ViewModels.Backups;
 using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Proveedores;
@@ -17,6 +18,7 @@ using Retail.App.Views.Dev;
 using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Backups;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
@@ -357,6 +359,95 @@ public class AppSmokeTests
         xamlException.Should().BeNull("el XAML de UsuariosView debe resolverse sin errores de recursos");
         view.Should().NotBeNull();
         view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void BackupView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        BackupView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var session = Substitute.For<ICurrentUserSession>();
+            session.EsGerente.Returns(true);
+            var viewModel = new BackupViewModel(
+                Substitute.For<IBackupService>(),
+                Substitute.For<IRestauracionService>(),
+                Substitute.For<IBackupDialogService>(),
+                session,
+                Substitute.For<IReinicioAplicacion>());
+
+            try
+            {
+                view = new BackupView(viewModel);
+                viewModel.UltimaRestauracionTexto = "Última restauración: 01/10/2026 10:00 por gerente (consola).";
+                foreach (var estado in Enum.GetValues<EstadoBackupEnum>())
+                {
+                    viewModel.Copias.Add(new RegistroBackupFila(new RegistroBackupDto
+                    {
+                        IdRegistroBackup = (int)estado,
+                        Referencia = Guid.NewGuid(),
+                        Tipo = TipoBackupEnum.Manual,
+                        Estado = estado,
+                        Operador = "gerente",
+                        FechaInicio = DateTime.UtcNow,
+                        RutaArchivo = @"C:\RetailData\Backups\copia.bak",
+                        TamanoBytes = 5L * 1024 * 1024,
+                        EsRestaurable = estado == EstadoBackupEnum.Verificado
+                    }));
+                }
+
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de BackupView debe resolverse sin errores de recursos");
+        view.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConfirmarCredencialDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool restauracion)
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ConfirmarCredencialDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            Func<string, IProgress<int>, Task> operacion = (_, _) => Task.CompletedTask;
+            var viewModel = restauracion
+                ? ConfirmarCredencialViewModel.ParaRestauracion(operacion, "01/10/2026 10:00", "Conciliar con ARCA.")
+                : ConfirmarCredencialViewModel.ParaBackupManual(operacion);
+            viewModel.MensajeError = "Contraseña incorrecta.";
+            viewModel.IsBusy = true;
+
+            try
+            {
+                dialog = new ConfirmarCredencialDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(500, 640));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 500, 640));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ConfirmarCredencialDialog debe resolverse sin errores de recursos");
+        dialog.Should().NotBeNull();
     }
 
     [Fact]

@@ -35,7 +35,7 @@ public class RestauracionServiceTests
     private readonly List<RegistroBackup> _copiasEnCursoEnLaCopia = [];
     private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
     private readonly IRepository<RegistroBackup> _registros = Substitute.For<IRepository<RegistroBackup>>();
-    private readonly IRepository<TurnoCaja> _turnos = Substitute.For<IRepository<TurnoCaja>>();
+    private readonly IRepository<RegistroRestauracion> _restauraciones = Substitute.For<IRepository<RegistroRestauracion>>();
     private readonly IAuthService _authService = Substitute.For<IAuthService>();
     private readonly IBackupService _backupService = Substitute.For<IBackupService>();
     private readonly IRestauradorBaseDatos _restaurador = Substitute.For<IRestauradorBaseDatos>();
@@ -52,8 +52,8 @@ public class RestauracionServiceTests
     {
         _registros.FindAsync(Arg.Any<Expression<Func<RegistroBackup, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(ci => _historial.Where(ci.Arg<Expression<Func<RegistroBackup, bool>>>().Compile()).ToList());
-        _turnos.FindAsync(Arg.Any<Expression<Func<TurnoCaja, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-            .Returns(_ => _turnosAbiertos.ToList());
+        _restaurador.HayTurnoDeCajaAbiertoEnBaseVigenteAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => _turnosAbiertos.Count > 0);
 
         RegistrarUsuario(IdGerente, "gerente", RolUsuarioEnum.Gerente);
         RegistrarUsuario(IdAdministrador, "soporte", RolUsuarioEnum.Administrador);
@@ -84,7 +84,7 @@ public class RestauracionServiceTests
         _temporal.AgregarRestauracionAsync(Arg.Do<RegistroRestauracion>(r => _restauracionRegistrada = r), Arg.Any<CancellationToken>());
 
         _sut = new RestauracionService(
-            _usuarios, _registros, _turnos, _authService, _backupService, _restaurador, _bloqueo, _archivos, _esquema, _passwordHasher);
+            _usuarios, _registros, _restauraciones, _authService, _backupService, _restaurador, _bloqueo, _archivos, _esquema, _passwordHasher);
     }
 
     private static EstadoEsquemaDto Esquema(
@@ -236,7 +236,7 @@ public class RestauracionServiceTests
         // Arrange
         var copia = CopiaEnHistorial();
         _bloqueo.AdquirirExclusivoAsync(Arg.Any<CancellationToken>())
-            .ThrowsAsync(new InvalidOperationException("Hay otra restauración o una copia en curso."));
+            .ThrowsAsync(new RestauracionFallidaException("Hay otra restauración o una copia en curso."));
 
         // Act
         var act = async () => await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
@@ -387,7 +387,7 @@ public class RestauracionServiceTests
         var resultado = await _sut.RestaurarDesdeArchivoAsync(RutaBak, "gerente", Password);
 
         // Assert
-        await _turnos.ReceivedWithAnyArgs().FindAsync(default!, default, default);
+        await _restaurador.Received().HayTurnoDeCajaAbiertoEnBaseVigenteAsync(Arg.Any<CancellationToken>());
         await _backupService.Received(1).CrearBackupPreRestauracionAsync(42, "gerente", Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>());
         await _temporal.DidNotReceiveWithAnyArgs().ImportarHistorialDeLaBaseVigenteAsync(default);
         resultado.ReferenciaCopiaPrevia.Should().Be(ReferenciaCopiaPrevia);
@@ -425,7 +425,7 @@ public class RestauracionServiceTests
 
         // Assert
         await _esquema.DidNotReceiveWithAnyArgs().ObtenerEstadoAsync(default);
-        await _turnos.DidNotReceiveWithAnyArgs().FindAsync(default!, default, default);
+        await _restaurador.DidNotReceive().HayTurnoDeCajaAbiertoEnBaseVigenteAsync(Arg.Any<CancellationToken>());
         await _backupService.DidNotReceiveWithAnyArgs().CrearBackupPreRestauracionAsync(default, default!);
         await _temporal.DidNotReceiveWithAnyArgs().ImportarHistorialDeLaBaseVigenteAsync(default);
         await _temporal.Received(1).PromoverAVigenteAsync(Arg.Any<CancellationToken>());
@@ -525,8 +525,11 @@ public class RestauracionServiceTests
         var act = async () => await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
 
         // Assert
-        (await act.Should().ThrowAsync<RestauracionFallidaException>().WithMessage($"*Falla simulada al {paso}*"))
-            .WithInnerException<InvalidOperationException>();
+        // B-1: el operador no ve el texto técnico del motor; el detalle viaja en la InnerException, que va al log.
+        var excepcion = (await act.Should().ThrowAsync<RestauracionFallidaException>().WithMessage("*La base vigente no cambió*")).Which;
+        excepcion.Message.Should().NotContain("Falla simulada");
+        excepcion.InnerException.Should().BeOfType<InvalidOperationException>()
+            .Which.Message.Should().Be($"Falla simulada al {paso}");
         await _restaurador.DidNotReceiveWithAnyArgs().EliminarBasesAnterioresAsync(default, default);
         await _exclusividad.Received(1).DisposeAsync();
 
@@ -568,7 +571,7 @@ public class RestauracionServiceTests
         });
 
         // Los controles de turno y copia en curso se hacen dos veces: al empezar y antes de la copia previa (C-2).
-        await _turnos.ReceivedWithAnyArgs(2).FindAsync(default!, default, default);
+        await _restaurador.Received(2).HayTurnoDeCajaAbiertoEnBaseVigenteAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -652,7 +655,9 @@ public class RestauracionServiceTests
 
         // Assert
         resultado.BaseAnterior.Should().Be(BaseAnterior);
-        resultado.Advertencias.Should().Contain(a => a.Contains("dejó de responder"));
+        // B-1: la advertencia no repite el texto técnico (que va al log), pero dice qué pasará.
+        resultado.Advertencias.Should().Contain(a => a.Contains("se reintentará en la próxima restauración"));
+        resultado.Advertencias.Should().NotContain(a => a.Contains("dejó de responder"));
     }
 
     [Fact]
@@ -830,5 +835,81 @@ public class RestauracionServiceTests
         // Assert
         await act.Should().ThrowAsync<RestauracionFallidaException>().WithMessage("*cambió*");
         await _restaurador.DidNotReceiveWithAnyArgs().RestaurarEnBaseTemporalAsync(default!, default);
+    }
+
+    // ───────────────────── Última restauración (R-20) ─────────────────────
+
+    private static RegistroRestauracion Restauracion(int id, string gerente, OrigenRestauracionEnum origen)
+    {
+        var registro = RegistroRestauracion.Registrar(
+            origen, IdGerente, gerente, Guid.NewGuid(), RutaBak, Migracion, ReferenciaCopiaPrevia, BaseAnterior);
+        registro.Id = id;
+        return registro;
+    }
+
+    [Theory]
+    [InlineData(IdGerente)]
+    [InlineData(IdAdministrador)]
+    public async Task ObtenerUltimaRestauracionAsync_GerenteOAdministrador_DevuelveLaMasReciente(int idActor)
+    {
+        // Arrange
+        var antigua = Restauracion(1, "gerente", OrigenRestauracionEnum.Consola);
+        var reciente = Restauracion(2, "otro.gerente", OrigenRestauracionEnum.Aplicacion);
+        _restauraciones.ListAllAsync(false, Arg.Any<CancellationToken>()).Returns([antigua, reciente]);
+
+        // Act
+        var ultima = await _sut.ObtenerUltimaRestauracionAsync(idActor);
+
+        // Assert
+        ultima.Should().NotBeNull();
+        ultima!.Referencia.Should().Be(reciente.Referencia);
+        ultima.NombreUsuario.Should().Be("otro.gerente");
+        ultima.Origen.Should().Be(OrigenRestauracionEnum.Aplicacion);
+        ultima.ReferenciaCopia.Should().Be(reciente.ReferenciaCopia);
+        ultima.RutaArchivo.Should().Be(RutaBak);
+        ultima.BaseAnterior.Should().Be(BaseAnterior);
+        ultima.Fecha.Should().Be(reciente.Fecha);
+    }
+
+    [Fact]
+    public async Task ObtenerUltimaRestauracionAsync_SinRestauraciones_DevuelveNulo()
+    {
+        // Arrange
+        _restauraciones.ListAllAsync(false, Arg.Any<CancellationToken>()).Returns([]);
+
+        // Act
+        var ultima = await _sut.ObtenerUltimaRestauracionAsync(IdGerente);
+
+        // Assert
+        ultima.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(IdCajero)]
+    [InlineData(999)]
+    [InlineData(0)]
+    public async Task ObtenerUltimaRestauracionAsync_ActorSinPermiso_LanzaOperacionNoAutorizadaSinLeer(int idActor)
+    {
+        // Act
+        var act = async () => await _sut.ObtenerUltimaRestauracionAsync(idActor);
+
+        // Assert
+        await act.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _restauraciones.DidNotReceiveWithAnyArgs().ListAllAsync(default, default);
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeArchivoAsync_RutaMasLargaQueLaColumna_LanzaRestauracionFallidaSinLeerNiRestaurar()
+    {
+        // Arrange: B-3, una ruta que no entraría en el registro de restauración se rechaza antes de cualquier trabajo.
+        var ruta = @"C:\" + new string('x', RegistroBackup.LongitudMaximaRuta) + ".bak";
+
+        // Act
+        var act = async () => await _sut.RestaurarDesdeArchivoAsync(ruta, "gerente", "Clave2026!");
+
+        // Assert
+        await act.Should().ThrowAsync<RestauracionFallidaException>().WithMessage($"*{RegistroBackup.LongitudMaximaRuta} caracteres*");
+        await _archivos.DidNotReceiveWithAnyArgs().LeerManifiestoAsync(default!, default);
+        await _restaurador.DidNotReceiveWithAnyArgs().RestaurarEnBaseTemporalAsync(default!, default, default);
     }
 }

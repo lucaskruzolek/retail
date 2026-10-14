@@ -98,35 +98,6 @@ public class SqlServerRestauradorBaseDatos : IRestauradorBaseDatos
         return Convert.ToInt32(await consulta.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 1;
     }
 
-    public async Task<IReadOnlyList<string>> ObtenerConexionesAjenasABaseVigenteAsync(CancellationToken cancellationToken = default)
-    {
-        await using var conexion = await AbrirMasterAsync(cancellationToken);
-
-        // Las conexiones de este mismo proceso (incluidas las del pool) se excluyen: el intercambio las corta de todos
-        // modos y no son "otra terminal". Si la base no existe, DB_ID es NULL y no hay sesiones que coincidan.
-        await using var comando = conexion.CreateCommand();
-        comando.CommandText =
-            "SELECT DISTINCT host_name, program_name FROM sys.dm_exec_sessions " +
-            "WHERE database_id = DB_ID(@vigente) AND session_id <> @@SPID AND is_user_process = 1 " +
-            "AND NOT (ISNULL(host_process_id, -1) = @pid AND ISNULL(host_name, N'') = @equipo);";
-        comando.Parameters.AddWithValue("@vigente", ObtenerNombreVigente());
-        comando.Parameters.AddWithValue("@pid", Environment.ProcessId);
-
-        // Un proceso de otra PC podría tener el mismo número de proceso: se compara también el nombre del equipo.
-        comando.Parameters.AddWithValue("@equipo", Environment.MachineName);
-
-        var descripciones = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-        await using var lector = await comando.ExecuteReaderAsync(cancellationToken);
-        while (await lector.ReadAsync(cancellationToken))
-        {
-            var equipo = lector.IsDBNull(0) ? "equipo desconocido" : lector.GetString(0);
-            var programa = lector.IsDBNull(1) ? "programa desconocido" : lector.GetString(1);
-            descripciones.Add($"{equipo} ({programa})");
-        }
-
-        return descripciones.ToList();
-    }
-
     public async Task<IBaseRestaurada> RestaurarEnBaseTemporalAsync(
         string rutaArchivo,
         IProgress<int>? progreso,

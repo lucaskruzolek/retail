@@ -25,6 +25,10 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
 {
     private readonly string _cadenaMaster;
     private readonly string _vigente;
+    private const int IntentosDeRenombrado = 3;
+
+    private static readonly TimeSpan PausaEntreIntentos = TimeSpan.FromMilliseconds(500);
+
     private readonly string _temporal;
     private readonly ILogger _logger;
     private readonly RetailDbContext _context;
@@ -111,6 +115,20 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
         await _context.DisposeAsync();
         ComandosSqlServer.LimpiarPool(_cadenaMaster, _temporal);
 
+        try
+        {
+            await IntercambiarAsync(cancellationToken);
+        }
+        finally
+        {
+            // Las conexiones que el intercambio cortó (ROLLBACK IMMEDIATE) quedan inservibles en el pool, salga bien o
+            // mal: se descartan siempre (B-6). Si salió bien, la aplicación además debe reiniciarse.
+            SqlConnection.ClearAllPools();
+        }
+    }
+
+    private async Task IntercambiarAsync(CancellationToken cancellationToken)
+    {
         await using var conexion = new SqlConnection(_cadenaMaster);
         await conexion.OpenAsync(cancellationToken);
 
@@ -125,8 +143,7 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
             // Paso 1: la vigente se aparta. SINGLE_USER con ROLLBACK IMMEDIATE corta a cualquier conexión que la use.
             try
             {
-                await EjecutarAsync(conexion, $"ALTER DATABASE {vigente} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;", cancellationToken);
-                await EjecutarAsync(conexion, $"ALTER DATABASE {vigente} MODIFY NAME = {anterior};", cancellationToken);
+                await RenombrarConReintentosAsync(conexion, vigente, anterior, cancellationToken);
             }
             catch (SqlException ex)
             {
@@ -142,8 +159,7 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
         // Paso 2: la temporal ocupa el nombre de la vigente.
         try
         {
-            await EjecutarAsync(conexion, $"ALTER DATABASE {temporal} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;", cancellationToken);
-            await EjecutarAsync(conexion, $"ALTER DATABASE {temporal} MODIFY NAME = {vigente};", cancellationToken);
+            await RenombrarConReintentosAsync(conexion, temporal, vigente, cancellationToken);
         }
         catch (SqlException ex)
         {
@@ -164,8 +180,6 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
             _logger.LogCritical("La base {Vigente} quedó restaurada pero en modo SINGLE_USER: ejecute ALTER DATABASE ... SET MULTI_USER.", _vigente);
         }
 
-        // El proceso deja de usar conexiones hacia la base reemplazada: la aplicación debe reiniciarse.
-        SqlConnection.ClearAllPools();
     }
 
     public async ValueTask DisposeAsync()
@@ -240,8 +254,7 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
         {
             var vigente = ComandosSqlServer.Delimitar(_vigente);
             var anterior = ComandosSqlServer.Delimitar(NombreBaseAnterior);
-            await EjecutarAsync(conexion, $"ALTER DATABASE {anterior} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;", CancellationToken.None);
-            await EjecutarAsync(conexion, $"ALTER DATABASE {anterior} MODIFY NAME = {vigente};", CancellationToken.None);
+            await RenombrarConReintentosAsync(conexion, anterior, vigente, CancellationToken.None);
             await IntentarAsync(conexion, $"ALTER DATABASE {vigente} SET MULTI_USER;");
             return true;
         }
@@ -257,6 +270,32 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
             }
 
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Aparta una base (SINGLE_USER con ROLLBACK IMMEDIATE) y la renombra. Entre las dos sentencias, otra conexión (otra
+    /// terminal, un pool que reconecta) puede ocupar la única plaza de la base y hacer fallar el renombrado: se reintenta
+    /// el par completo unas pocas veces antes de darlo por fallido (M-1).
+    /// </summary>
+    private static async Task RenombrarConReintentosAsync(
+        SqlConnection conexion,
+        string origenDelimitado,
+        string destinoDelimitado,
+        CancellationToken cancellationToken)
+    {
+        for (var intento = 1; ; intento++)
+        {
+            try
+            {
+                await EjecutarAsync(conexion, $"ALTER DATABASE {origenDelimitado} SET SINGLE_USER WITH ROLLBACK IMMEDIATE;", cancellationToken);
+                await EjecutarAsync(conexion, $"ALTER DATABASE {origenDelimitado} MODIFY NAME = {destinoDelimitado};", cancellationToken);
+                return;
+            }
+            catch (SqlException) when (intento < IntentosDeRenombrado)
+            {
+                await Task.Delay(PausaEntreIntentos, cancellationToken);
+            }
         }
     }
 

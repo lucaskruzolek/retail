@@ -1,8 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using Retail.App.Converters;
 using Retail.App.Services;
 using Retail.App.Views.Dev;
 using Retail.App.Views.Pages;
+using Retail.Application.Interfaces.Services;
 
 namespace Retail.App.ViewModels;
 
@@ -15,6 +20,13 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly ICurrentUserSession _session;
     private readonly INavigationService _navigationService;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<MainViewModel> _logger;
+
+    /// <summary>
+    /// Días durante los cuales una restauración se avisa al iniciar sesión (R-20).
+    /// </summary>
+    private const int DiasAvisoRestauracion = 7;
 
     [ObservableProperty]
     private string _operadorNombre = string.Empty;
@@ -59,17 +71,35 @@ public partial class MainViewModel : ObservableObject
     public bool MostrarCabecerasOperativas => IsSidebarExpanded && PuedeOperarNegocio;
 
     /// <summary>
+    /// Aviso no bloqueante de una restauración reciente, para Gerente y Administrador (R-20): un restore
+    /// equivocado o malicioso no debe pasar inadvertido.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarAvisoRestauracion))]
+    private string? _avisoRestauracion;
+
+    public bool MostrarAvisoRestauracion => !string.IsNullOrWhiteSpace(AvisoRestauracion);
+
+    /// <summary>
     /// Evento invocado cuando el usuario solicita cambiar de operador desde la barra o sidebar.
     /// Permite a MainWindow desplegar la ventana de login sin reiniciar el ejecutable (RF-02).
     /// </summary>
     public event Func<Task>? SolicitarCambioUsuario;
 
+    /// <remarks>
+    /// El Shell es Singleton (Ley 10) y <see cref="IRestauracionService"/> es Scoped: para consultar la última
+    /// restauración se abre un scope propio en lugar de inyectar el servicio. Sin fábrica de scopes no hay aviso.
+    /// </remarks>
     public MainViewModel(
         ICurrentUserSession session,
-        INavigationService navigationService)
+        INavigationService navigationService,
+        IServiceScopeFactory scopeFactory,
+        ILogger<MainViewModel>? logger = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+        _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
+        _logger = logger ?? NullLogger<MainViewModel>.Instance;
 
         _session.SessionChanged += OnSessionChanged;
         _navigationService.Navigated += OnNavigated;
@@ -103,6 +133,59 @@ public partial class MainViewModel : ObservableObject
         {
             NavegarModuloInicial();
         }
+
+        _ = CargarAvisoRestauracionAsync();
+    }
+
+    /// <summary>
+    /// Consulta la última restauración y, si ocurrió en los últimos días, arma el aviso para el Gerente o el
+    /// Administrador. Nunca lanza: un fallo al consultar no debe impedir trabajar (el aviso es informativo).
+    /// </summary>
+    public async Task CargarAvisoRestauracionAsync()
+    {
+        AvisoRestauracion = null;
+
+        if (!_session.EstaAutenticado || !PuedeGestionarUsuarios)
+        {
+            return;
+        }
+
+        var idActor = _session.IdUsuario ?? 0;
+
+        try
+        {
+            var ultima = await Task.Run(async () =>
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var servicio = scope.ServiceProvider.GetRequiredService<IRestauracionService>();
+                return await servicio.ObtenerUltimaRestauracionAsync(idActor);
+            });
+
+            if (ultima is null)
+            {
+                return;
+            }
+
+            var fechaUtc = DateTime.SpecifyKind(ultima.Fecha, DateTimeKind.Utc);
+            if (DateTime.UtcNow - fechaUtc > TimeSpan.FromDays(DiasAvisoRestauracion))
+            {
+                return;
+            }
+
+            AvisoRestauracion =
+                $"Se restauró la base el {fechaUtc.ToLocalTime():dd/MM/yyyy HH:mm} por {ultima.NombreUsuario} " +
+                $"({EnumATextoConverter.ATexto(ultima.Origen)}).";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo consultar la última restauración: {Mensaje}", ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    public void CerrarAvisoRestauracion()
+    {
+        AvisoRestauracion = null;
     }
 
     /// <summary>
@@ -142,6 +225,11 @@ public partial class MainViewModel : ObservableObject
         {
             ModuloActivo = "Usuarios";
             TituloModuloActual = "Administración de Operadores y Roles RBAC";
+        }
+        else if (viewType == typeof(BackupView))
+        {
+            ModuloActivo = "Respaldos";
+            TituloModuloActual = "Copias de Seguridad y Restauración";
         }
         else if (viewType == typeof(StyleGalleryView))
         {
@@ -319,6 +407,16 @@ public partial class MainViewModel : ObservableObject
         {
             ModuloActivo = "Usuarios";
             _navigationService.NavigateTo<UsuariosView>();
+        }
+    }
+
+    [RelayCommand]
+    public void NavegarRespaldos()
+    {
+        if (PuedeGestionarUsuarios)
+        {
+            ModuloActivo = "Respaldos";
+            _navigationService.NavigateTo<BackupView>();
         }
     }
 

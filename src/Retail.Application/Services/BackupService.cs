@@ -174,7 +174,7 @@ public class BackupService : IBackupService
                 throw;
             }
 
-            throw new BackupFallidoException($"No se pudo completar la copia de seguridad: {ex.Message}", ex);
+            throw new BackupFallidoException($"No se pudo completar la copia de seguridad: {DescripcionDeFalla.Para(ex)}", ex);
         }
 
         var (purgadas, errores) = await AplicarRetencionAsync(cancellationToken);
@@ -234,7 +234,7 @@ public class BackupService : IBackupService
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             EliminarSinPropagar(ruta);
-            throw new BackupFallidoException($"No se pudo completar la copia de seguridad: {ex.Message}", ex);
+            throw new BackupFallidoException($"No se pudo completar la copia de seguridad: {DescripcionDeFalla.Para(ex)}", ex);
         }
     }
 

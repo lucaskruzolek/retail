@@ -46,6 +46,10 @@ if (-not $RutaCli) {
     $RutaCli = $candidatos | Where-Object { Test-Path $_ } | Select-Object -First 1
 }
 
+# La herramienta escribe avisos en stderr (por ejemplo, "Cancelando..."). Con "Stop", PowerShell 5.1 los convierte en
+# errores terminantes si el host captura stderr: el resultado lo decide el código de salida, no stderr.
+$ErrorActionPreference = "Continue"
+
 if ($RutaCli) {
     & $RutaCli restaurar $Archivo
 }

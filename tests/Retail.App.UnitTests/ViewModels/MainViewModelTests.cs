@@ -1,9 +1,13 @@
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.App.ViewModels;
 using Retail.App.Views.Dev;
 using Retail.App.Views.Pages;
+using Retail.Application.DTOs.Backups;
+using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
 using Xunit;
 
@@ -13,11 +17,13 @@ public class MainViewModelTests
 {
     private readonly ICurrentUserSession _sessionMock;
     private readonly INavigationService _navigationMock;
+    private readonly IServiceScopeFactory _scopeFactoryMock;
 
     public MainViewModelTests()
     {
         _sessionMock = Substitute.For<ICurrentUserSession>();
         _navigationMock = Substitute.For<INavigationService>();
+        _scopeFactoryMock = Substitute.For<IServiceScopeFactory>();
     }
 
     [Fact]
@@ -31,7 +37,7 @@ public class MainViewModelTests
         _sessionMock.EsCajero.Returns(false);
 
         // Act
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Assert
         vm.OperadorNombre.Should().Be("Juan Pérez");
@@ -48,7 +54,7 @@ public class MainViewModelTests
     public void ToggleSidebarCommand_Ejecucion_DebeAlternarEstadoDeExpansion()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
         vm.IsSidebarExpanded.Should().BeFalse();
 
         // Act & Assert (primer toggle: expandir)
@@ -65,7 +71,7 @@ public class MainViewModelTests
     {
         // Arrange: Gerente
         _sessionMock.EsGerente.Returns(true);
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Colapsado: false
         vm.MostrarCabeceraAdmin.Should().BeFalse();
@@ -84,7 +90,7 @@ public class MainViewModelTests
     public void NavegarArticulosCommand_Ejecucion_DebeNavegarHaciaArticulosView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarArticulosCommand.Execute(null);
@@ -98,7 +104,7 @@ public class MainViewModelTests
     public void NavegarClientesCommand_Ejecucion_DebeNavegarHaciaClientesView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarClientesCommand.Execute(null);
@@ -113,7 +119,7 @@ public class MainViewModelTests
     {
         // Arrange
         _sessionMock.EsGerente.Returns(true);
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarUsuariosCommand.Execute(null);
@@ -128,7 +134,7 @@ public class MainViewModelTests
     {
         // Arrange
         _sessionMock.EsGerente.Returns(false);
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarUsuariosCommand.Execute(null);
@@ -141,7 +147,7 @@ public class MainViewModelTests
     public void NavegarGaleriaDevCommand_Ejecucion_DebeNavegarHaciaStyleGalleryView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarGaleriaDevCommand.Execute(null);
@@ -155,7 +161,7 @@ public class MainViewModelTests
     public void NavegarPosCommand_Ejecucion_DebeNavegarHaciaPosView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarPosCommand.Execute(null);
@@ -169,7 +175,7 @@ public class MainViewModelTests
     public void NavegarPresupuestosCommand_ModuloEnConstruccion_DebeInvocarModuloEnConstruccion()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarPresupuestosCommand.Execute(null);
@@ -183,7 +189,7 @@ public class MainViewModelTests
     public void NavegarCajaCommand_DebeNavegarHaciaCajaView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarCajaCommand.Execute(null);
@@ -198,7 +204,7 @@ public class MainViewModelTests
     public void NavegarComprasCommand_DebeNavegarHaciaComprasView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarComprasCommand.Execute(null);
@@ -213,7 +219,7 @@ public class MainViewModelTests
     public void OnNavigated_ConComprasView_DebeActualizarModuloActivoYTitulo()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(ComprasView));
@@ -227,7 +233,7 @@ public class MainViewModelTests
     public void NavegarProveedoresCommand_DebeNavegarHaciaProveedoresView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarProveedoresCommand.Execute(null);
@@ -241,7 +247,7 @@ public class MainViewModelTests
     public void NavegarCatalogosCommand_DebeNavegarHaciaImportadorCatalogosView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarCatalogosCommand.Execute(null);
@@ -256,7 +262,7 @@ public class MainViewModelTests
     public void OnNavigated_ConImportadorCatalogosView_DebeActualizarModuloActivoYTitulo()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(ImportadorCatalogosView));
@@ -271,7 +277,7 @@ public class MainViewModelTests
     {
         // Arrange
         _sessionMock.EsGerente.Returns(true);
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarConsolaFiscalCommand.Execute(null);
@@ -286,7 +292,7 @@ public class MainViewModelTests
     {
         // Arrange
         _sessionMock.EsGerente.Returns(false);
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarConsolaFiscalCommand.Execute(null);
@@ -299,7 +305,7 @@ public class MainViewModelTests
     public async Task CambiarUsuarioAsync_Invocacion_DebeDispararEvento()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
         var eventoDisparado = false;
         vm.SolicitarCambioUsuario += () =>
         {
@@ -321,7 +327,7 @@ public class MainViewModelTests
         _sessionMock.EsAdministrador.Returns(true);
 
         // Act
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
         vm.NavegarPosCommand.Execute(null);
         vm.NavegarCajaCommand.Execute(null);
         vm.NavegarUsuariosCommand.Execute(null);
@@ -344,7 +350,7 @@ public class MainViewModelTests
         _sessionMock.EsGerente.Returns(rol == RolUsuarioEnum.Gerente);
         _sessionMock.EsAdministrador.Returns(rol == RolUsuarioEnum.Administrador);
 
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         vm.PuedeGestionarUsuarios.Should().Be(esperado);
     }
@@ -356,7 +362,7 @@ public class MainViewModelTests
     {
         // Arrange
         _sessionMock.EsAdministrador.Returns(esAdministrador);
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         // Act
         vm.NavegarModuloInicial();
@@ -377,7 +383,7 @@ public class MainViewModelTests
     public void SessionChanged_CambioAUnAdministrador_SaleDelModuloOperativoHaciaUsuarios()
     {
         // Arrange: el Gerente estaba en el POS y cambia de operador (RF-02).
-        var vm = new MainViewModel(_sessionMock, _navigationMock);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
         vm.NavegarPosCommand.Execute(null);
 
         _sessionMock.EstaAutenticado.Returns(true);
@@ -389,5 +395,165 @@ public class MainViewModelTests
         // Assert
         _navigationMock.Received(1).NavigateTo<UsuariosView>();
         vm.ModuloActivo.Should().Be("Usuarios");
+    }
+
+    // ───────────────────── Respaldos (Track 6.3) ─────────────────────
+
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(false, false, false)]
+    public void NavegarRespaldosCommand_SegunElRol_SoloNavegaElGerenteOElAdministrador(bool esGerente, bool esAdministrador, bool debeNavegar)
+    {
+        // Arrange
+        _sessionMock.EsGerente.Returns(esGerente);
+        _sessionMock.EsAdministrador.Returns(esAdministrador);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+
+        // Act
+        vm.NavegarRespaldosCommand.Execute(null);
+
+        // Assert
+        if (debeNavegar)
+        {
+            _navigationMock.Received(1).NavigateTo<BackupView>();
+            vm.ModuloActivo.Should().Be("Respaldos");
+        }
+        else
+        {
+            _navigationMock.DidNotReceive().NavigateTo<BackupView>();
+        }
+    }
+
+    [Fact]
+    public void Navigated_HaciaRespaldos_ActualizaElModuloYElTitulo()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+
+        // Act
+        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(BackupView));
+
+        // Assert
+        vm.ModuloActivo.Should().Be("Respaldos");
+        vm.TituloModuloActual.Should().Contain("Copias de Seguridad");
+    }
+
+    private static RegistroRestauracionDto Restauracion(DateTime fechaUtc) => new()
+    {
+        Referencia = Guid.NewGuid(),
+        Fecha = fechaUtc,
+        Origen = OrigenRestauracionEnum.Consola,
+        NombreUsuario = "gerente",
+        ReferenciaCopia = Guid.NewGuid(),
+        RutaArchivo = @"C:\RetailData\Backups\copia.bak"
+    };
+
+    /// <summary>
+    /// Fábrica de scopes de prueba: el Shell es Singleton y resuelve <see cref="IRestauracionService"/> en un scope propio.
+    /// </summary>
+    private static IServiceScopeFactory FabricaConServicio(IRestauracionService servicio)
+    {
+        var proveedor = Substitute.For<IServiceProvider>();
+        proveedor.GetService(typeof(IRestauracionService)).Returns(servicio);
+
+        var scope = Substitute.For<IServiceScope>();
+        scope.ServiceProvider.Returns(proveedor);
+
+        var fabrica = Substitute.For<IServiceScopeFactory>();
+        fabrica.CreateScope().Returns(scope);
+        return fabrica;
+    }
+
+    private MainViewModel CrearConAvisoComoGerente(IRestauracionService servicio)
+    {
+        _sessionMock.EstaAutenticado.Returns(true);
+        _sessionMock.IdUsuario.Returns(5);
+        _sessionMock.EsGerente.Returns(true);
+        return new MainViewModel(_sessionMock, _navigationMock, FabricaConServicio(servicio));
+    }
+
+    [Fact]
+    public async Task CargarAvisoRestauracionAsync_RestauracionDeHaceDosDias_MuestraElAviso()
+    {
+        // Arrange
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>())
+            .Returns(Restauracion(DateTime.UtcNow.AddDays(-2)));
+        var vm = CrearConAvisoComoGerente(servicio);
+
+        // Act
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Assert
+        vm.MostrarAvisoRestauracion.Should().BeTrue();
+        vm.AvisoRestauracion.Should().Contain("Se restauró la base").And.Contain("gerente").And.Contain("consola");
+    }
+
+    [Fact]
+    public async Task CargarAvisoRestauracionAsync_RestauracionDeHaceDiezDias_NoMuestraAviso()
+    {
+        // Arrange
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>())
+            .Returns(Restauracion(DateTime.UtcNow.AddDays(-10)));
+        var vm = CrearConAvisoComoGerente(servicio);
+
+        // Act
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Assert
+        vm.MostrarAvisoRestauracion.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CargarAvisoRestauracionAsync_CajeroSinPermiso_NoConsultaElServicio()
+    {
+        // Arrange
+        var servicio = Substitute.For<IRestauracionService>();
+        _sessionMock.EstaAutenticado.Returns(true);
+        _sessionMock.EsCajero.Returns(true);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, FabricaConServicio(servicio));
+
+        // Act
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Assert
+        vm.MostrarAvisoRestauracion.Should().BeFalse();
+        await servicio.DidNotReceiveWithAnyArgs().ObtenerUltimaRestauracionAsync(default, default);
+    }
+
+    [Fact]
+    public async Task CargarAvisoRestauracionAsync_ElServicioFalla_NoPropagaLaExcepcionNiMuestraAviso()
+    {
+        // Arrange
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("sin conexión"));
+        var vm = CrearConAvisoComoGerente(servicio);
+
+        // Act
+        var act = async () => await vm.CargarAvisoRestauracionAsync();
+
+        // Assert
+        await act.Should().NotThrowAsync();
+        vm.MostrarAvisoRestauracion.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CerrarAvisoRestauracionCommand_ConAvisoVisible_LoOculta()
+    {
+        // Arrange
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>())
+            .Returns(Restauracion(DateTime.UtcNow));
+        var vm = CrearConAvisoComoGerente(servicio);
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Act
+        vm.CerrarAvisoRestauracionCommand.Execute(null);
+
+        // Assert
+        vm.MostrarAvisoRestauracion.Should().BeFalse();
     }
 }

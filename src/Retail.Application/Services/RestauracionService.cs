@@ -25,7 +25,7 @@ public class RestauracionService : IRestauracionService
 
     private readonly IRepository<Usuario> _usuarios;
     private readonly IRepository<RegistroBackup> _registros;
-    private readonly IRepository<TurnoCaja> _turnos;
+    private readonly IRepository<RegistroRestauracion> _restauraciones;
     private readonly IAuthService _authService;
     private readonly IBackupService _backupService;
     private readonly IRestauradorBaseDatos _restaurador;
@@ -37,7 +37,7 @@ public class RestauracionService : IRestauracionService
     public RestauracionService(
         IRepository<Usuario> usuarios,
         IRepository<RegistroBackup> registros,
-        IRepository<TurnoCaja> turnos,
+        IRepository<RegistroRestauracion> restauraciones,
         IAuthService authService,
         IBackupService backupService,
         IRestauradorBaseDatos restaurador,
@@ -48,7 +48,7 @@ public class RestauracionService : IRestauracionService
     {
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _registros = registros ?? throw new ArgumentNullException(nameof(registros));
-        _turnos = turnos ?? throw new ArgumentNullException(nameof(turnos));
+        _restauraciones = restauraciones ?? throw new ArgumentNullException(nameof(restauraciones));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
         _restaurador = restaurador ?? throw new ArgumentNullException(nameof(restaurador));
@@ -111,6 +111,10 @@ public class RestauracionService : IRestauracionService
         ArgumentNullException.ThrowIfNull(nombreUsuario);
         ArgumentNullException.ThrowIfNull(password);
 
+        // B-3: la ruta se normaliza y se valida antes de cualquier trabajo. Una ruta relativa quedaría registrada tal
+        // cual y una demasiado larga fallaría recién al guardar el registro, después de un restore completo.
+        rutaArchivo = NormalizarRutaDeCopia(rutaArchivo);
+
         ManifiestoBackupDto manifiesto;
         try
         {
@@ -118,7 +122,7 @@ public class RestauracionService : IRestauracionService
         }
         catch (Exception ex) when (DebeEnvolverse(ex))
         {
-            throw new RestauracionFallidaException($"No se pudo leer el manifiesto de la copia: {ex.Message}", ex);
+            throw new RestauracionFallidaException($"No se pudo leer el manifiesto de la copia: {DescripcionDeFalla.Para(ex)}", ex);
         }
 
         var copia = new CopiaARestaurar(
@@ -134,6 +138,36 @@ public class RestauracionService : IRestauracionService
             (temporal, ct) => VerificarCredencialEnLaCopiaAsync(temporal, nombreUsuario, password, ct),
             progreso,
             cancellationToken);
+    }
+
+    public async Task<RegistroRestauracionDto?> ObtenerUltimaRestauracionAsync(int idActor, CancellationToken cancellationToken = default)
+    {
+        var actor = idActor > 0
+            ? await _usuarios.GetByIdAsync(idActor, includeDeleted: false, cancellationToken)
+            : null;
+
+        if (actor is null || (!actor.EsGerente() && !actor.EsAdministrador()))
+        {
+            throw new OperacionNoAutorizadaException("Solo un Gerente o un Administrador puede consultar las restauraciones.");
+        }
+
+        // Las restauraciones son excepcionales (unas pocas en toda la vida del sistema): ordenar en memoria es barato.
+        var registros = await _restauraciones.ListAllAsync(includeDeleted: false, cancellationToken);
+
+        return registros
+            .OrderByDescending(r => r.Fecha)
+            .ThenByDescending(r => r.Id)
+            .Select(r => new RegistroRestauracionDto
+            {
+                Referencia = r.Referencia,
+                Fecha = r.Fecha,
+                Origen = r.Origen,
+                NombreUsuario = r.NombreUsuario,
+                ReferenciaCopia = r.ReferenciaCopia,
+                RutaArchivo = r.RutaArchivo,
+                BaseAnterior = r.BaseAnterior
+            })
+            .FirstOrDefault();
     }
 
     /// <summary>
@@ -154,7 +188,8 @@ public class RestauracionService : IRestauracionService
         }
         catch (Exception ex) when (DebeEnvolverse(ex))
         {
-            throw new RestauracionFallidaException($"No se pudo completar la restauración: {ex.Message}", ex);
+            throw new RestauracionFallidaException(
+                $"No se pudo completar la restauración: {DescripcionDeFalla.Para(ex)}. La base vigente no cambió.", ex);
         }
     }
 
@@ -330,7 +365,7 @@ public class RestauracionService : IRestauracionService
             // En una recuperación ante desastres la vigente puede estar dañada justamente por eso no se puede copiar.
             // La base anterior igual se conserva intacta (D-17). Desde la aplicación, en cambio, la vigente está sana y
             // una copia que falla indica un problema real (por ejemplo, el disco): se aborta.
-            advertencias.Add($"No se pudo tomar la copia previa de la base vigente: {ex.Message}");
+            advertencias.Add($"No se pudo tomar la copia previa de la base vigente: {DescripcionDeFalla.Para(ex)}");
             return null;
         }
     }
@@ -373,7 +408,7 @@ public class RestauracionService : IRestauracionService
         }
         catch (Exception ex)
         {
-            advertencias.Add($"No se pudieron eliminar las bases anteriores viejas ({ex.Message}); se reintentará en la próxima restauración.");
+            advertencias.Add($"No se pudieron eliminar las bases anteriores viejas ({DescripcionDeFalla.Para(ex)}); se reintentará en la próxima restauración.");
         }
     }
 
@@ -400,8 +435,8 @@ public class RestauracionService : IRestauracionService
     private async Task ExigirSinOperacionesEnCursoAsync(CancellationToken cancellationToken)
     {
         // R-11: restaurar con la caja abierta perdería los movimientos del turno y dejaría el arqueo inconsistente.
-        var abiertos = await _turnos.FindAsync(t => t.Estado == EstadoTurnoEnum.Abierto, includeDeleted: false, cancellationToken);
-        if (abiertos.Count > 0)
+        // Con SQL mínimo en el puerto: la vigente puede tener un esquema viejo que el modelo de EF no puede leer (D-26).
+        if (await _restaurador.HayTurnoDeCajaAbiertoEnBaseVigenteAsync(cancellationToken))
         {
             throw new RestauracionFallidaException("Hay un turno de caja abierto. Ciérrelo antes de restaurar una copia.");
         }
@@ -417,6 +452,28 @@ public class RestauracionService : IRestauracionService
         {
             throw new RestauracionFallidaException("Hay una copia de seguridad en curso. Espere a que termine antes de restaurar.");
         }
+    }
+
+    private static string NormalizarRutaDeCopia(string rutaArchivo)
+    {
+        string ruta;
+        try
+        {
+            ruta = Path.GetFullPath(rutaArchivo.Trim());
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new RestauracionFallidaException($"La ruta '{rutaArchivo}' no es una ruta de archivo válida.", ex);
+        }
+
+        if (ruta.Length > RegistroBackup.LongitudMaximaRuta)
+        {
+            throw new RestauracionFallidaException(
+                $"La ruta de la copia supera los {RegistroBackup.LongitudMaximaRuta} caracteres: muévala a una carpeta con " +
+                "una ruta más corta (por ejemplo, la carpeta de respaldos) y vuelva a intentar.");
+        }
+
+        return ruta;
     }
 
     private static bool DebeEnvolverse(Exception ex) =>
