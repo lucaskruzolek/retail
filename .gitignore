@@ -58,3 +58,6 @@ $RECYCLE.BIN/
 ## Obsidian (Vault workspace & local cache)
 .obsidian/
 wiki/.obsidian/
+
+## Salida de la impresora de tickets simulada (FileDebugTicketPrinterService, Ley 6)
+debug-tickets/

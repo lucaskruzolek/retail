@@ -45,10 +45,16 @@ decisión técnica. Un cambio correcto que el estudiante no entiende es un cambi
   pedido explícito.
 
 ### 5. Subagentes y trabajo en paralelo
-* **No usar subagentes ni hilos paralelos para escribir código.** Toda implementación ocurre
-  en la conversación principal, a la vista del usuario.
-* Se permiten subagentes solo para tareas de **lectura** (búsquedas amplias, auditorías),
-  y su resultado debe resumirse y explicarse en la conversación principal.
+* Se permite **delegar la escritura de código en subagentes solo cuando el estudiante lo pide**.
+  La conversación principal actúa como orquestadora y sigue siendo responsable del resultado:
+  * define antes cada paquete de trabajo (archivos, contratos, criterios de aceptación y tests);
+  * no asigna el mismo archivo a dos subagentes a la vez;
+  * revisa cada diff, ejecuta la compilación y los tests y corrige lo que haga falta;
+  * explica en la conversación principal qué se hizo y por qué, con el mismo nivel pedagógico
+    que exige §2, y espera la aprobación del estudiante antes de pasar a la siguiente capa (§3).
+* Los subagentes de **lectura** (búsquedas amplias, auditorías, revisiones independientes) se
+  permiten siempre, y su resultado se resume y explica en la conversación principal.
+* Las reglas de §4 (Git) valen también para los subagentes: no hacen commits, ramas ni PR.
 
 ### 6. Documentación de aprendizaje
 * Al terminar un módulo o una corrección relevante, proponer (no crear sin aprobación) una

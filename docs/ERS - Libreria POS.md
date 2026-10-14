@@ -165,7 +165,12 @@ graph TD
 | :--- | :--- | :--- |
 | **Cajero** | Acceso exclusivo al POS, cobros multimedio, búsqueda y alta rápida de clientes, emisión de presupuestos, cobranza de cuentas corrientes, apertura de turno y declaración del arqueo físico de efectivo. | No accede a costos de reposición, márgenes de ganancia, compras, importador masivo ni consola fiscal. |
 | **Encargado** | ABM de artículos, importación masiva de planillas, registro de compras y actualización automática de precios, apertura y cierre de caja, consulta de cuentas corrientes. | No puede administrar usuarios ni modificar configuraciones fiscales. |
-| **Gerente** | Administración integral de usuarios, asignación de roles, consola de reintentos fiscales ARCA, reportes de rentabilidad y límites de cuenta corriente. | Máxima autoridad del sistema. |
+| **Gerente** | Administración integral de usuarios y asignación de cualquier rol, consola de reintentos fiscales ARCA, reportes de rentabilidad, límites de cuenta corriente, **backup manual y restauración de la base de datos (con reautenticación)**. | Máxima autoridad del sistema y responsable de los datos personales que almacena (Ley 25.326). Debe existir al menos uno activo. |
+| **Administrador** *(opcional, delegado por el Gerente)* | Soporte técnico: alta, edición, baja y blanqueo de contraseña de Cajeros y Encargados; consulta del historial de backups y del estado del sistema. | No opera el POS ni la caja. Sin acceso a la consola fiscal ni a los reportes. No puede crear Gerentes ni Administradores, ni ejecutar backups manuales o restauraciones. El sistema puede operar sin ningún Administrador activo. |
+
+**Reglas generales de cuentas:**
+* Toda cuenta creada o cuya contraseña sea blanqueada por otro usuario deberá cambiar su contraseña en el primer inicio de sesión.
+* Cada usuario puede registrar un **email de recuperación**, obligatorio para el rol Gerente. La recuperación de contraseña de un Gerente se realiza **exclusivamente por correo electrónico** (funcionalidad futura); mientras tanto, un Gerente que olvida su contraseña puede ser blanqueado desde la aplicación por otro Gerente. No existe recuperación local por herramienta de comandos: cualquier persona con acceso al equipo podría usarla para tomar la cuenta.
 
 ---
 
@@ -194,8 +199,9 @@ graph TD
 | **IU-05** | **Proveedores e Importador** | Asistente para abrir archivos locales (.xlsx / .csv) con mapeo visual de columnas y barra de progreso en segundo plano. Incluye explorador y curaduría de catálogos de distribuidores con filtros por estado (sin vincular / ya en tienda) y acciones de incorporación rápida (individual y en lote) o vinculación a artículos existentes. |
 | **IU-06** | **Compras** | Registro de facturas de distribuidores con detalle de artículos, cantidades y costos unitarios, recalculando automáticamente los precios de venta de los artículos ingresados. |
 | **IU-07** | **Consola Fiscal** | Panel gerencial que lista ventas en `ERROR_FISCAL_REINTENTABLE` con fecha, comprobante interno y motivo de error (`motivo_error`), permitiendo reintento en lote hacia ARCA. |
-| **IU-08** | **Usuarios** | Panel gerencial para alta, baja lógica y asignación de roles (Cajero, Encargado, Gerente) y blanqueo de contraseñas. |
+| **IU-08** | **Usuarios** | Panel para alta, baja lógica, asignación de roles (Cajero, Encargado, Gerente, Administrador), email de recuperación y blanqueo de contraseñas. El Administrador solo gestiona Cajeros y Encargados. |
 | **IU-09** | **Clientes y Cuentas Corrientes** | Vista para gestión del padrón de clientes: CUIT/DNI, Razón Social, Condición IVA, domicilio, límite de crédito, consulta de saldo y botón modal para **Registrar Cobranza Multimedio** (efectivo, tarjeta, transferencia/QR) con emisión de recibo. |
+| **IU-10** | **Respaldo y Restauración** | Panel gerencial con el historial de copias de seguridad (fecha, tipo, usuario, tamaño, estado), botón de **backup manual** y asistente de **restauración** con confirmación explícita, ambos previa reautenticación del Gerente. El Administrador accede en modo de solo lectura. |
 
 ---
 
@@ -203,9 +209,10 @@ graph TD
 
 | ID | Nombre | Descripción |
 | :--- | :--- | :--- |
-| **IS-01** | **Servicios de Aplicación C#** | Contratos de interfaz tipados expuestos a los ViewModels (`IVentaService`, `IPresupuestoService`, `IClienteService`, `ICajaService`, `IInventarioService`, `ICompraService`, `IFiscalService`, `IAuthService`). |
+| **IS-01** | **Servicios de Aplicación C#** | Contratos de interfaz tipados expuestos a los ViewModels (`IVentaService`, `IPresupuestoService`, `IClienteService`, `ICajaService`, `IInventarioService`, `ICompraService`, `IFiscalService`, `IAuthService`, `IBackupService`). |
 | **IS-02** | **Acceso a Datos EF Core 8** | Interfaz `IRetailDbContext` e `IUnitOfWork` que coordina transacciones ACID en Microsoft SQL Server. |
 | **IS-03** | **Servicio Fiscal arcasdk** | Cliente HTTP tipado (`IArcaClient`) que despacha comprobantes a `http://localhost:8080` con timeout de 10s. |
+| **IS-04** | **Herramienta de Comandos `Retail.Cli`** | Ejecutable de consola que reutiliza los servicios de aplicación para administrar la base fuera de la interfaz gráfica: `migrar` (con backup previo), `inicializar` (primer Gerente), `datos-demo`, `backup`, `restaurar` y `estado`. Ningún comando otorga acceso a una cuenta existente. Invocable por el Programador de tareas de Windows mediante scripts PowerShell. |
 
 ---
 
@@ -224,7 +231,7 @@ graph TD
 | :--- | :--- | :--- |
 | **RF-01** | **Autenticación y Sesión** | El sistema debe validar usuario y contraseña contra el hash BCrypt/PBKDF2 en la base local, inicializando el contexto de usuario en memoria con sus permisos asignados. |
 | **RF-02** | **Gestión de Sesión Local** | El sistema debe permitir el cambio rápido de usuario o cierre de sesión desde la ventana principal sin reiniciar la aplicación. |
-| **RF-03** | **Administración de Usuarios** | El sistema debe permitir al Gerente crear, modificar, aplicar baja lógica y restablecer contraseñas de usuarios, asignando roles (Cajero, Encargado, Gerente). |
+| **RF-03** | **Administración de Usuarios** | El sistema debe permitir al Gerente crear, modificar, aplicar baja lógica y restablecer contraseñas de usuarios, asignando roles (Cajero, Encargado, Gerente, Administrador). El Administrador puede realizar las mismas operaciones solo sobre Cajeros y Encargados. Toda cuenta creada o blanqueada por otro usuario queda marcada para cambio obligatorio de contraseña en su próximo inicio de sesión. El email de recuperación es obligatorio para el rol Gerente. |
 | **RF-04** | **Mantenimiento de Artículos** | Registro y modificación de artículos propios y servicios (fotocopias, anillados), requiriendo: descripción, código de barras (opcional/nulable, admitiendo múltiples productos artesanales con `NULL` mediante índice filtrado), categoría, marca, stock actual, stock mínimo y precio de venta. |
 | **RF-05** | **Vinculación con Catálogos y Curaduría** | Enlace opcional de un artículo propio a un registro de `CATALOGOS_PROVEEDORES` con un *Markup %*. Al actualizarse el costo del distribuidor mediante planillas, recalcula automáticamente el precio de venta sugerido. Permite incorporar nuevos artículos a la tienda directamente desde el catálogo del proveedor (individualmente o en lote) o asociar ítems del proveedor a artículos propios preexistentes (con sugerencia automática por coincidencia de código de barras). Cada ítem del catálogo se vincula, como máximo, a un único artículo de compra; al actualizarse su costo, el nuevo valor se propaga también a las presentaciones derivadas de ese artículo (RF-21). |
 | **RF-06** | **Baja Lógica de Artículos** | Aplicar borrado lógico (`deleted_at IS NOT NULL`) para ocultar artículos en el POS conservando intacto su historial. |
@@ -243,6 +250,8 @@ graph TD
 | **RF-19** | **Registro de Compras y Recálculo Automático de Precios** | Registro de facturas de distribuidores incrementando el stock físico y actualizando el costo de reposición. **Requisito de negocio fundamental:** Si el costo unitario de compra se incrementa, el sistema recalculará automáticamente el `precio_venta` según la fórmula $\text{CostoReposicion} \times (1 + \frac{\text{Markup}}{100})$. El stock ingresado incrementa el artículo de compra; las presentaciones derivadas reciben unidades exclusivamente mediante fraccionamiento (RF-21). |
 | **RF-20** | **Gestión Integral de Clientes y Cobranza Multimedio** | ABM de clientes con CUIT/DNI, Razón Social, Condición IVA, límite de crédito comercial y registro de cobranzas de cuentas corrientes (`COBRANZAS_CLIENTES`) admitiendo pagos en efectivo (suman a la gaveta de caja) o electrónicos (transferencia/tarjeta), reduciendo la deuda y emitiendo recibo de pago. |
 | **RF-21** | **Presentaciones de Venta y Fraccionamiento** | Permitir definir una presentación derivada de un artículo de compra indicando las unidades que contiene cada origen (entero ≥ 1). Cada derivado tiene un único origen y la derivación es de un solo nivel: un derivado no puede ser origen de otro ni vincularse a un catálogo de proveedor. El costo de reposición del derivado es $\frac{\text{Costo del origen}}{\text{Unidades por origen}}$, redondeado a 2 decimales, y se recalcula cada vez que cambia el costo del origen (planilla o compra), aplicando el *markup* propio de cada presentación. Fraccionar $n$ unidades del origen resta $n$ de su stock y suma $n \times \text{Unidades por origen}$ al derivado en una única transacción ACID; la operación se rechaza si el origen no tiene stock suficiente. |
+| **RF-22** | **Respaldo y Restauración de la Base de Datos** | El sistema debe generar copias completas de la base (`.bak`) de forma manual, por decisión del Gerente previa reautenticación, y de forma automática y periódica. Cada operación queda registrada en la entidad `REGISTROS_BACKUP` con fecha, tipo (manual, automático, previo a restauración, previo a migración), usuario responsable, archivo, tamaño, hash SHA-256 y estado. Toda copia se verifica (`CHECKSUM` + `VERIFYONLY`). La restauración es exclusiva del Gerente, genera antes una copia de seguridad del estado actual, conserva el historial de respaldos y advierte sobre la conciliación de numeración fiscal con ARCA. |
+| **RF-23** | **Administración de la Base por Comandos** | La actualización del esquema (migraciones), la creación del primer Gerente (solo si no existe ninguno), la carga opcional de datos de demostración, los respaldos automáticos fuera de horario y la restauración ante desastres se ejecutan con una herramienta de línea de comandos independiente de la interfaz gráfica. Al iniciar, la aplicación verifica que el esquema esté al día y que exista al menos un Gerente; si no, bloquea el acceso con un mensaje accionable. |
 
 ---
 
@@ -255,7 +264,7 @@ graph TD
 * **RNF-05 (Seguridad de Persistencia):** Instancia local de SQL Server con permisos restringidos a nivel de sistema operativo.
 * **RNF-06 (Control de Acceso RBAC):** Restricción de vistas y acciones según el rol del usuario autenticado en memoria.
 * **RNF-07 (Tolerancia a Fallos Fiscales):** Continuidad operativa total de ventas ante cortes de Internet (Contingencia RF-17).
-* **RNF-08 (Integridad ACID y Respaldos):** Transacciones atómicas locales y soporte de copias de seguridad (.bak / .mdf).
+* **RNF-08 (Integridad ACID y Respaldos):** Transacciones atómicas locales. Respaldo completo diario automático y bajo demanda (RF-22), en un directorio dedicado fuera del perfil de usuario, con verificación de integridad y política de retención configurable.
 
 ---
 
@@ -283,3 +292,5 @@ graph TD
 | **RF-19** | `IU-06` (Compras) | `IS-01` (`ICompraService`) | `COMPRAS`, `DETALLE_COMPRAS`, `ARTICULOS`, `PROVEEDORES` |
 | **RF-20** | `IU-09` (Clientes y Cobranzas) | `IS-01` (`IClienteService`) | `CLIENTES`, `COBRANZAS_CLIENTES`, `TURNOS_CAJA` |
 | **RF-21** | `IU-04` (Catálogo Propio), `IU-02` (Punto de Venta) | `IS-01` (`IInventarioService`) | `ARTICULOS` |
+| **RF-22** | `IU-10` (Respaldo y Restauración) | `IS-01` (`IBackupService`), `IS-04` | `REGISTROS_BACKUP`, `USUARIOS` |
+| **RF-23** | — (línea de comandos) | `IS-04` | `__EFMigrationsHistory`, `USUARIOS`, `ROLES`, `CATEGORIAS`, `MARCAS`, `PROVEEDORES` |
