@@ -315,11 +315,51 @@ public class ArchivosBackup : IArchivosBackup
         }
     }
 
+    // Único punto por el que la aplicación borra copias, y corre con la cuenta SYSTEM en la tarea programada. La ruta sale
+    // de REGISTROS_BACKUP.ruta_archivo, un dato que alguien con acceso a la tabla podría alterar: por eso solo se borra un
+    // .bak que esté directamente en el directorio de respaldos configurado. Cualquier otra ruta se rechaza con
+    // UnauthorizedAccessException, que los llamadores ya toleran (la retención la informa entre sus errores y la limpieza
+    // de restos la ignora): un rechazo jamás aborta una copia.
     public void EliminarCopia(string rutaArchivo)
     {
+        var rutaBak = ValidarRutaEliminable(rutaArchivo);
+
         // File.Delete no falla si el archivo no existe: una copia que falló antes de crearse se "elimina" igual.
-        File.Delete(rutaArchivo);
-        File.Delete(RutaManifiesto(rutaArchivo));
+        File.Delete(rutaBak);
+        File.Delete(RutaManifiesto(rutaBak));
+    }
+
+    private string ValidarRutaEliminable(string rutaArchivo)
+    {
+        string ruta;
+        try
+        {
+            ruta = Path.GetFullPath(rutaArchivo);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            throw new UnauthorizedAccessException("La ruta de la copia no es válida: no se borra nada.", ex);
+        }
+
+        // Se compara la carpeta padre ya normalizada: descarta subcarpetas y recorridos con "..".
+        if (!EstaEnElDirectorio(ruta, Directorio))
+        {
+            throw new UnauthorizedAccessException(
+                $"Se rechazó borrar '{ruta}': la copia no está directamente en el directorio de respaldos '{Directorio}'.");
+        }
+
+        if (!string.Equals(Path.GetExtension(ruta), ".bak", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException($"Se rechazó borrar '{ruta}': no es un archivo de copia (.bak).");
+        }
+
+        // Un enlace simbólico o una unión podría apuntar a un archivo ajeno: no se sigue.
+        if (File.Exists(ruta) && File.GetAttributes(ruta).HasFlag(FileAttributes.ReparsePoint))
+        {
+            throw new UnauthorizedAccessException($"Se rechazó borrar '{ruta}': es un enlace simbólico, no una copia.");
+        }
+
+        return ruta;
     }
 
     public static string RutaManifiesto(string rutaArchivo) => Path.ChangeExtension(rutaArchivo, ".json");

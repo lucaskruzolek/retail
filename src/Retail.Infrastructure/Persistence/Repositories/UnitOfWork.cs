@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Retail.Application.Exceptions;
@@ -33,6 +34,13 @@ public class UnitOfWork : IUnitOfWork
                 "Otro usuario modificó los mismos datos mientras se procesaba la operación. Vuelva a intentarlo.",
                 ex);
         }
+        catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+        {
+            DescartarCambios();
+            throw new RestriccionDeUnicidadException(
+                "El guardado chocó con otra operación realizada al mismo tiempo (ya existe un dato equivalente).",
+                ex);
+        }
         catch
         {
             // La base revirtió la transacción, pero el contexto vive mientras dura la pantalla (H-19): sin limpiarlo,
@@ -40,6 +48,14 @@ public class UnitOfWork : IUnitOfWork
             DescartarCambios();
             throw;
         }
+    }
+
+    /// <summary>
+    /// 2601: índice único violado; 2627: restricción UNIQUE o PRIMARY KEY violada (códigos de error de SQL Server).
+    /// </summary>
+    private static bool EsViolacionDeUnicidad(DbUpdateException excepcion)
+    {
+        return excepcion.InnerException is SqlException { Number: 2601 or 2627 };
     }
 
     public void DescartarCambios()

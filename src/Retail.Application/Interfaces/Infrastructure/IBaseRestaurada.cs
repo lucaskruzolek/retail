@@ -60,7 +60,8 @@ public interface IBaseRestaurada : IAsyncDisposable
     /// <summary>
     /// Intercambio final: la vigente pasa a llamarse <see cref="NombreBaseAnterior"/> y la temporal ocupa su lugar. Si
     /// el segundo paso falla, revierte el primero. Cierra las conexiones abiertas contra la base vigente: la aplicación
-    /// debe reiniciarse.
+    /// debe reiniciarse. Devuelve las advertencias para el operador: problemas posteriores al intercambio que no lo
+    /// deshacen (por ejemplo, una base que no pudo volver a modo multiusuario).
     /// </summary>
-    Task PromoverAVigenteAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> PromoverAVigenteAsync(CancellationToken cancellationToken = default);
 }

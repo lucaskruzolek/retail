@@ -116,7 +116,7 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
         return _context.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task PromoverAVigenteAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> PromoverAVigenteAsync(CancellationToken cancellationToken = default)
     {
         if (_promovida || _liberada)
         {
@@ -129,7 +129,7 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
 
         try
         {
-            await IntercambiarAsync(cancellationToken);
+            return await IntercambiarAsync(cancellationToken);
         }
         finally
         {
@@ -139,8 +139,14 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
         }
     }
 
-    private async Task IntercambiarAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Devuelve las advertencias del intercambio: lo que falló después de que las bases ya cambiaron de nombre y, por eso,
+    /// no se deshace pero el operador debe conocer.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> IntercambiarAsync(CancellationToken cancellationToken)
     {
+        var advertencias = new List<string>();
+
         await using var conexion = new SqlConnection(_cadenaMaster);
         await conexion.OpenAsync(cancellationToken);
 
@@ -165,7 +171,13 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
                     "No se pudo apartar la base vigente para el intercambio: quedó sin cambios.", ex);
             }
 
-            await IntentarAsync(conexion, $"ALTER DATABASE {anterior} SET MULTI_USER;");
+            if (!await IntentarAsync(conexion, $"ALTER DATABASE {anterior} SET MULTI_USER;"))
+            {
+                // Es la base de respaldo del operador: si queda en SINGLE_USER, abrirla después le fallará sin explicación.
+                advertencias.Add(
+                    $"La base anterior '{NombreBaseAnterior}' quedó en modo SINGLE_USER: antes de consultarla ejecute " +
+                    $"ALTER DATABASE [{NombreBaseAnterior}] SET MULTI_USER (ver el log).");
+            }
         }
 
         // Paso 2: la temporal ocupa el nombre de la vigente.
@@ -187,11 +199,21 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
 
         // El intercambio ya ocurrió: si el acceso multiusuario no se puede restablecer, se registra pero no se deshace.
         _promovida = true;
-        if (!await IntentarAsync(conexion, $"ALTER DATABASE {vigente} SET MULTI_USER;") && _logger.IsEnabled(LogLevel.Critical))
+        if (!await IntentarAsync(conexion, $"ALTER DATABASE {vigente} SET MULTI_USER;"))
         {
-            _logger.LogCritical("La base {Vigente} quedó restaurada pero en modo SINGLE_USER: ejecute ALTER DATABASE ... SET MULTI_USER.", _vigente);
+            if (_logger.IsEnabled(LogLevel.Critical))
+            {
+                _logger.LogCritical("La base {Vigente} quedó restaurada pero en modo SINGLE_USER: ejecute ALTER DATABASE ... SET MULTI_USER.", _vigente);
+            }
+
+            // El log solo lo lee quien lo busca: el operador debe enterarse en el resultado, porque la aplicación no
+            // podrá abrir la base restaurada hasta que se la devuelva a modo multiusuario.
+            advertencias.Add(
+                $"La base '{_vigente}' quedó restaurada pero en modo SINGLE_USER: ejecute ALTER DATABASE [{_vigente}] " +
+                "SET MULTI_USER antes de abrir la aplicación (ver el log).");
         }
 
+        return advertencias;
     }
 
     public async ValueTask DisposeAsync()

@@ -219,7 +219,7 @@ public sealed class ScriptsDePermisosIntegracionTests : IDisposable
     [Fact]
     public void SetPermisoDeCarpeta_SinCuentasAdicionales_DejaSoloAdministradoresYSistema()
     {
-        // Arrange: es la carpeta de registros de la copia protegida de Retail.Cli.
+        // Arrange: una carpeta que hereda el acceso de "Usuarios autenticados" y debe quedar protegida sin cuentas adicionales.
         var carpeta = CrearHijaQueHeredaUsuariosAutenticados();
 
         // Act

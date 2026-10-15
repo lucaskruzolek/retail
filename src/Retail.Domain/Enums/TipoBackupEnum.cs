@@ -11,7 +11,7 @@ public enum TipoBackupEnum
     Manual = 1,
 
     /// <summary>
-    /// Periódico, ejecutado por el sistema (servicio en segundo plano o Programador de tareas).
+    /// Periódico, ejecutado por el sistema: la tarea del Programador de tareas de Windows (D-28).
     /// </summary>
     Automatico = 2,
 

@@ -317,7 +317,7 @@ public class RestauracionService : IRestauracionService
         await temporal.GuardarCambiosAsync(cancellationToken);
 
         // Punto de no retorno. Lo que sigue no se cancela: dejar el intercambio a medias sería peor que terminarlo.
-        await temporal.PromoverAVigenteAsync(CancellationToken.None);
+        advertencias.AddRange(await temporal.PromoverAVigenteAsync(CancellationToken.None));
 
         await EliminarBasesAnterioresSinPropagarAsync(temporal.NombreBaseAnterior, advertencias);
 

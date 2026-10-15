@@ -230,6 +230,22 @@ public class BackupServiceTests
         _archivos.DidNotReceiveWithAnyArgs().PrepararRutaNueva(default);
     }
 
+    [Fact]
+    public async Task CrearBackupManualAsync_ElIndiceUnicoRechazaElRegistro_LanzaDomainExceptionDeCopiaEnCurso()
+    {
+        // Arrange: otro proceso pasó el control de "copia en curso" a la vez y su insert llegó primero.
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new RestriccionDeUnicidadException());
+
+        // Act
+        var act = async () => await _sut.CrearBackupManualAsync(IdGerente, "Clave2026!");
+
+        // Assert: el operador ve el mismo mensaje que con el control previo, no un error crudo de la base.
+        var excepcion = (await act.Should().ThrowAsync<DomainException>().WithMessage("Ya hay una copia de seguridad en curso*")).Which;
+        excepcion.InnerException.Should().BeOfType<RestriccionDeUnicidadException>();
+        await _ejecutor.DidNotReceiveWithAnyArgs().CrearCopiaAsync(default!, default);
+    }
+
     // ───────────────────── Copias huérfanas (B-0) ─────────────────────
 
     private RegistroBackup CopiaEnCursoHuerfana()
@@ -573,6 +589,40 @@ public class BackupServiceTests
         resultado.ErroresDeRetencion.Should().ContainSingle().Which.Should().Contain("en uso");
         masVieja.Estado.Should().Be(EstadoBackupEnum.Verificado, "se reintenta en la próxima copia");
         _historial.Last().Estado.Should().Be(EstadoBackupEnum.Verificado);
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_RutaRechazadaPorElBorradoSeguro_LoInformaSinInvalidarLaCopiaNueva()
+    {
+        // Arrange: la ruta de un registro fue alterada para apuntar fuera del directorio de respaldos.
+        var adulterada = CopiaVerificadaPrevia(@"C:\Windows\System32\config\SAM");
+        CopiaVerificadaPrevia(@"C:\RetailData\Backups\anterior.bak");
+        _archivos.When(a => a.EliminarCopia(adulterada.RutaArchivo))
+            .Throw(new UnauthorizedAccessException("Se rechazó borrar la ruta"));
+
+        // Act
+        var resultado = await _sut.CrearBackupDelSistemaAsync(TipoBackupEnum.Automatico);
+
+        // Assert: se informa, el registro no se marca como purgado y la copia nueva queda verificada.
+        resultado.ErroresDeRetencion.Should().ContainSingle().Which.Should().Contain("Se rechazó borrar");
+        adulterada.Estado.Should().Be(EstadoBackupEnum.Verificado);
+        _historial.Last().Estado.Should().Be(EstadoBackupEnum.Verificado);
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_SinHistorialYCancelada_BorraElParcialYPropagaLaCancelacion()
+    {
+        // Arrange
+        _esquema.ExisteHistorialDeBackupsAsync(Arg.Any<CancellationToken>()).Returns(false);
+        _ejecutor.CrearCopiaAsync(Arg.Any<string>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new OperationCanceledException());
+
+        // Act
+        var act = async () => await _sut.CrearBackupDelSistemaAsync(TipoBackupEnum.PreMigracion);
+
+        // Assert: igual que en la copia con historial, no queda un .bak a medias.
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _archivos.Received(1).EliminarCopia(@"C:\RetailData\Backups\copia_1_PreMigracion.bak");
     }
 
     // ───────────────────── Historial ─────────────────────

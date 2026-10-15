@@ -9,7 +9,7 @@ using Retail.Domain.Enums;
 namespace Retail.Cli.Comandos;
 
 /// <summary>
-/// <c>backup</c>: copia completa de la base, registrada como automática (RF-22, D-14). La invoca el Programador de
+/// <c>backup</c>: copia completa de la base, registrada como automática (RF-22, D-28). La invoca el Programador de
 /// tareas; también se puede ejecutar a mano. No pide credenciales: una copia no da acceso a ninguna cuenta ni
 /// modifica datos (D-13). El contenido del archivo lo protegen los permisos de Windows del directorio (R-17). Si el
 /// motor todavía no acepta conexiones (la tarea pudo lanzarse al encender la PC), espera hasta 2 minutos; si la base no

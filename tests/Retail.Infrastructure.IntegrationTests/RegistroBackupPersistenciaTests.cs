@@ -1,8 +1,10 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Retail.Application.Exceptions;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
+using Retail.Infrastructure.Persistence.Repositories;
 using Xunit;
 
 namespace Retail.Infrastructure.IntegrationTests;
@@ -98,6 +100,26 @@ public class RegistroBackupPersistenciaTests : IAsyncLifetime, IDisposable
         (await act.Should().ThrowAsync<DbUpdateException>())
             .WithInnerException<Microsoft.Data.SqlClient.SqlException>()
             .WithMessage("*IX_REGISTROS_BACKUP_EnCurso*");
+    }
+
+    [Fact]
+    public async Task SaveChangesAsync_DosBackupsEnCursoSimultaneos_ElSegundoLanzaRestriccionDeUnicidadYDescartaSusCambios()
+    {
+        // Arrange: dos procesos pasaron a la vez el control de "copia en curso"; el primero guarda.
+        _context.RegistrosBackup.Add(Automatico("primero.bak"));
+        await new UnitOfWork(_context).SaveChangesAsync();
+
+        await using var otroProceso = CrearContexto();
+        var unidadDelOtroProceso = new UnitOfWork(otroProceso);
+        otroProceso.RegistrosBackup.Add(Automatico("segundo.bak"));
+
+        // Act
+        var act = () => unidadDelOtroProceso.SaveChangesAsync();
+
+        // Assert: la Aplicación recibe una excepción propia, sin el tipo de EF Core, y el contexto queda limpio.
+        (await act.Should().ThrowAsync<RestriccionDeUnicidadException>())
+            .WithInnerException<DbUpdateException>();
+        otroProceso.ChangeTracker.Entries().Should().BeEmpty();
     }
 
     [Fact]

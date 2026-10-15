@@ -30,8 +30,10 @@ public class SqlServerEjecutorBackup : IEjecutorBackupBaseDatos
         var cadena = ObtenerCadenaDeConexion();
         var baseDeDatos = new SqlConnectionStringBuilder(cadena).InitialCatalog;
 
-        await using (var conexion = new SqlConnection(cadena))
+        try
         {
+            await using var conexion = new SqlConnection(cadena);
+
             // Con STATS = 10 el motor informa el avance como mensajes de la conexión.
             ComandosSqlServer.SuscribirProgreso(conexion, progreso);
 
@@ -48,6 +50,16 @@ public class SqlServerEjecutorBackup : IEjecutorBackupBaseDatos
             comando.CommandTimeout = 0;
 
             await comando.ExecuteNonQueryAsync(cancellationToken);
+
+            // Una base chica puede terminar antes de que el motor atienda la cancelación: si el operador ya la pidió,
+            // se respeta (el servicio descarta el .bak) en lugar de seguir con una copia que quiso detener.
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+        catch (SqlException) when (cancellationToken.IsCancellationRequested)
+        {
+            // El driver informa la cancelación del comando como SqlException ("Operation cancelled by user"): se traduce
+            // para que el servicio la trate como una copia cancelada y no como una falla del motor.
+            throw new OperationCanceledException(cancellationToken);
         }
 
         return await HuellaArchivo.CalcularAsync(rutaArchivo, cancellationToken);
@@ -57,17 +69,25 @@ public class SqlServerEjecutorBackup : IEjecutorBackupBaseDatos
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(rutaArchivo);
 
-        await using var conexion = new SqlConnection(ObtenerCadenaDeConexion());
-        await conexion.OpenAsync(cancellationToken);
+        try
+        {
+            await using var conexion = new SqlConnection(ObtenerCadenaDeConexion());
+            await conexion.OpenAsync(cancellationToken);
 
-        await using var comando = conexion.CreateCommand();
+            await using var comando = conexion.CreateCommand();
 
-        // Lee el archivo completo y recalcula los checksums de página sin restaurar nada.
-        comando.CommandText = "RESTORE VERIFYONLY FROM DISK = @ruta WITH CHECKSUM;";
-        comando.Parameters.AddWithValue("@ruta", rutaArchivo);
-        comando.CommandTimeout = 0;
+            // Lee el archivo completo y recalcula los checksums de página sin restaurar nada.
+            comando.CommandText = "RESTORE VERIFYONLY FROM DISK = @ruta WITH CHECKSUM;";
+            comando.Parameters.AddWithValue("@ruta", rutaArchivo);
+            comando.CommandTimeout = 0;
 
-        await comando.ExecuteNonQueryAsync(cancellationToken);
+            await comando.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqlException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Misma traducción que en CrearCopiaAsync.
+            throw new OperationCanceledException(cancellationToken);
+        }
     }
 
     private string ObtenerCadenaDeConexion()
