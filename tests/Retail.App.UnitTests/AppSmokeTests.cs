@@ -1056,6 +1056,41 @@ public class AppSmokeTests
         dialog.Should().NotBeNull();
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void DiagnosticoArranqueDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(int cantidadComandos)
+    {
+        // Arrange
+        Exception? xamlException = null;
+        string[] argumentos = cantidadComandos == 1 ? ["migrar"] : ["migrar", "inicializar"];
+        var diagnostico = new DiagnosticoArranque(true, "La base no está lista.", argumentos);
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var dialog = new DiagnosticoArranqueDialog(diagnostico);
+                dialog.Measure(new System.Windows.Size(680, 520));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 680, 520));
+                dialog.UpdateLayout();
+
+                // Los objetos de WPF solo se pueden leer desde su hilo STA
+                dialog.MensajeMostrado.Should().Be("La base no está lista.");
+                dialog.LineasMostradas.Should().HaveCount(cantidadComandos);
+                dialog.CopiarTodosVisibility.Should().Be(
+                    cantidadComandos > 1 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed);
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de DiagnosticoArranqueDialog debe resolverse sin errores");
+    }
+
     [Fact]
     public void IncorporarArticulosModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {

@@ -173,7 +173,7 @@ public partial class App : System.Windows.Application
         if (diagnostico.Bloquea)
         {
             Log.Warning("Arranque bloqueado por el estado de la base: {Mensaje}", diagnostico.Mensaje);
-            MessageBox.Show(diagnostico.Mensaje, "Retail POS - Base de datos", MessageBoxButton.OK, MessageBoxImage.Warning);
+            new Retail.App.Views.Dialogs.DiagnosticoArranqueDialog(diagnostico).ShowDialog();
             Shutdown();
             return;
         }

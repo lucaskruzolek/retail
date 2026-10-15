@@ -25,25 +25,27 @@ public class MensajeEstadoSistemaTests
         };
 
     [Fact]
-    public void Describir_SinConexion_BloqueaEIndicaMigrarEInicializar()
+    public void Describir_SinConexion_BloqueaYPideMigrarYLuegoInicializar()
     {
         var diagnostico = MensajeEstadoSistema.Describir(Estado(conecta: false));
 
         diagnostico.Bloquea.Should().BeTrue();
-        diagnostico.Mensaje.Should().Contain("Retail.Cli migrar").And.Contain("Retail.Cli inicializar");
+        diagnostico.Mensaje.Should().Contain("No se pudo conectar").And.NotContain("dotnet run");
+        diagnostico.Argumentos.Should().Equal("migrar", "inicializar");
     }
 
     [Fact]
-    public void Describir_MigracionesPendientes_BloqueaEIndicaMigrar()
+    public void Describir_MigracionesPendientes_BloqueaYPideMigrar()
     {
         var diagnostico = MensajeEstadoSistema.Describir(Estado(pendientes: ["M1", "M2"]));
 
         diagnostico.Bloquea.Should().BeTrue();
-        diagnostico.Mensaje.Should().Contain("2 migraciones pendientes").And.Contain("Retail.Cli migrar");
+        diagnostico.Mensaje.Should().Contain("2 migraciones pendientes").And.NotContain("dotnet run");
+        diagnostico.Argumentos.Should().Equal("migrar");
     }
 
     [Fact]
-    public void Describir_BaseMasNuevaQueLaApp_BloqueaYPideActualizarLaAppNoMigrar()
+    public void Describir_BaseMasNuevaQueLaApp_BloqueaPideActualizarLaAppYNoOfreceComandos()
     {
         // Arrange: también hay pendientes, pero migrar no resolvería una base de una versión posterior.
         var diagnostico = MensajeEstadoSistema.Describir(Estado(pendientes: ["M1"], desconocidas: ["20991231_Futura"]));
@@ -51,24 +53,27 @@ public class MensajeEstadoSistemaTests
         // Assert
         diagnostico.Bloquea.Should().BeTrue();
         diagnostico.Mensaje.Should().Contain("más nueva").And.Contain("20991231_Futura").And.Contain("Actualice la aplicación");
+        diagnostico.Argumentos.Should().BeEmpty();
     }
 
     [Fact]
-    public void Describir_SinGerente_BloqueaEIndicaInicializar()
+    public void Describir_SinGerente_BloqueaYPideInicializar()
     {
         var diagnostico = MensajeEstadoSistema.Describir(Estado(hayGerente: false));
 
         diagnostico.Bloquea.Should().BeTrue();
-        diagnostico.Mensaje.Should().Contain("Retail.Cli inicializar");
+        diagnostico.Mensaje.Should().Contain("Gerente").And.NotContain("dotnet run");
+        diagnostico.Argumentos.Should().Equal("inicializar");
     }
 
     [Fact]
-    public void Describir_GerentesSinEmail_AvisaSinBloquear()
+    public void Describir_GerentesSinEmail_AvisaSinBloquearNiOfrecerComandos()
     {
         var diagnostico = MensajeEstadoSistema.Describir(Estado(sinEmail: ["admin"]));
 
         diagnostico.Bloquea.Should().BeFalse();
         diagnostico.Mensaje.Should().Contain("admin").And.Contain("Usuarios");
+        diagnostico.Argumentos.Should().BeEmpty();
     }
 
     [Fact]
@@ -76,6 +81,8 @@ public class MensajeEstadoSistemaTests
     {
         var diagnostico = MensajeEstadoSistema.Describir(Estado());
 
-        diagnostico.Should().Be(new DiagnosticoArranque(false, null));
+        diagnostico.Bloquea.Should().BeFalse();
+        diagnostico.Mensaje.Should().BeNull();
+        diagnostico.Argumentos.Should().BeEmpty();
     }
 }

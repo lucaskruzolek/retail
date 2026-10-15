@@ -202,7 +202,7 @@ Las pruebas de `Retail.Infrastructure.IntegrationTests` obtienen su cadena de co
 * Nunca hardcodear una cadena de conexión en un test: usar siempre el helper (no se agrega dependencia entre proyectos de test; `Retail.App.UnitTests` solo valida el contenedor de DI y no abre conexiones).
 
 ### Ciclo de Arranque: Verificar, no Migrar (RF-23)
-La aplicación **no modifica la base al arrancar**. [`App.xaml.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/App.xaml.cs) consulta `IEstadoSistemaService` y, si algo falla, muestra el comando a ejecutar y no abre el login:
+La aplicación **no modifica la base al arrancar**. [`App.xaml.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/App.xaml.cs) consulta `IEstadoSistemaService` y, si algo falla, abre [`DiagnosticoArranqueDialog`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dialogs/DiagnosticoArranqueDialog.xaml) con la explicación y los comandos listos para copiar (cada uno con su botón "Copiar" y un "Copiar todos"; la app nunca los ejecuta) y no abre el login. La línea la arma [`ComandoCli`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Helpers/ComandoCli.cs): `& "<carpeta de la app>\Retail.Cli.exe" migrar` si el ejecutable está junto a la app, o `dotnet run --project src/Retail.Cli -- migrar` en desarrollo (desde la raíz del repositorio):
 
 | Situación | Detectada por | Acción indicada |
 | :--- | :--- | :--- |
