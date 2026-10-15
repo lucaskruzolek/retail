@@ -127,6 +127,98 @@ public class BackupIntegracionTests : IAsyncLifetime, IDisposable
         await act.Should().ThrowAsync<SqlException>();
     }
 
+    private sealed class ProgresoQueCancela : IProgress<int>
+    {
+        private readonly CancellationTokenSource _fuente;
+
+        public ProgresoQueCancela(CancellationTokenSource fuente)
+        {
+            _fuente = fuente;
+        }
+
+        public void Report(int value) => _fuente.Cancel();
+    }
+
+    [Fact]
+    public async Task CrearCopiaAsync_CanceladaDuranteElBackup_LanzaOperationCanceledException()
+    {
+        // Arrange: se cancela en el primer aviso de avance del motor, con el BACKUP en marcha. El driver informa esa
+        // cancelación como SqlException: el ejecutor debe traducirla.
+        await _context.Database.MigrateAsync();
+        var sut = new SqlServerEjecutorBackup(_context);
+        using var fuente = new CancellationTokenSource();
+
+        // Act
+        var act = () => sut.CrearCopiaAsync(RutaNueva("cancelada.bak"), new ProgresoQueCancela(fuente), fuente.Token);
+
+        // Assert: nunca debe escapar la SqlException cruda del driver.
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_CanceladaDuranteLaCopia_QuedaFallidaComoCopiaCanceladaYSinArchivo()
+    {
+        // Arrange
+        await _context.Database.MigrateAsync();
+        await using var servicios = ConstruirServicios();
+        using var fuente = new CancellationTokenSource();
+
+        // Act
+        await using (var scope = servicios.CreateAsyncScope())
+        {
+            var servicio = scope.ServiceProvider.GetRequiredService<IBackupService>();
+            var act = () => servicio.CrearBackupDelSistemaAsync(TipoBackupEnum.Automatico, new ProgresoQueCancela(fuente), fuente.Token);
+            await act.Should().ThrowAsync<OperationCanceledException>();
+        }
+
+        // Assert: el historial lo muestra como cancelada (no como una falla del motor) y no queda un .bak a medias.
+        await using var lectura = new RetailDbContext(new DbContextOptionsBuilder<RetailDbContext>().UseSqlServer(_connectionString).Options);
+        var registro = await lectura.RegistrosBackup.AsNoTracking().SingleAsync();
+        registro.Estado.Should().Be(EstadoBackupEnum.Fallido);
+        registro.MensajeError.Should().Be("Copia cancelada.");
+        File.Exists(registro.RutaArchivo).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_RetencionConRutaAdulteradaFueraDelDirectorio_NoBorraElArchivoAjenoYLoInforma()
+    {
+        // Arrange: un registro viejo cuya ruta fue alterada para apuntar a un archivo ajeno al directorio de respaldos.
+        await _context.Database.MigrateAsync();
+        var carpetaAjena = Path.Combine(Path.GetTempPath(), $"RetailAjena_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(carpetaAjena);
+
+        try
+        {
+            var senuelo = Path.Combine(carpetaAjena, "importante.bak");
+            await File.WriteAllTextAsync(senuelo, "no debe borrarse");
+            var adulterado = RegistroBackup.Iniciar(
+                TipoBackupEnum.Automatico, null, null, senuelo, _context.Database.GetMigrations().Last(), "1.0.0");
+            adulterado.RegistrarExito(10, new string('a', 64));
+            adulterado.MarcarVerificado();
+            _context.RegistrosBackup.Add(adulterado);
+            await _context.SaveChangesAsync();
+            await using var servicios = ConstruirServicios(cantidadMaximaCopias: 1);
+
+            // Act: la copia nueva deja al adulterado fuera de la cantidad máxima, así que la retención intenta borrarlo.
+            ResultadoBackupDto resultado;
+            await using (var scope = servicios.CreateAsyncScope())
+            {
+                resultado = await scope.ServiceProvider.GetRequiredService<IBackupService>()
+                    .CrearBackupDelSistemaAsync(TipoBackupEnum.Automatico);
+            }
+
+            // Assert: el archivo ajeno sigue intacto, el rechazo se informa y la copia nueva quedó verificada.
+            File.Exists(senuelo).Should().BeTrue();
+            resultado.CopiasPurgadas.Should().BeEmpty();
+            resultado.ErroresDeRetencion.Should().ContainSingle().Which.Should().Contain("Se rechazó borrar");
+            File.Exists(resultado.RutaArchivo).Should().BeTrue();
+        }
+        finally
+        {
+            Directory.Delete(carpetaAjena, recursive: true);
+        }
+    }
+
     // ───────────────────── Esquema ─────────────────────
 
     [Fact]

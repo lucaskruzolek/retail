@@ -11,8 +11,8 @@ public enum RolUsuarioEnum
     Gerente = 3,
 
     /// <summary>
-    /// Soporte técnico opcional: gestiona Cajeros y Encargados, pero no opera el negocio ni accede a los
-    /// respaldos de la base (RF-03, RF-22).
+    /// Soporte técnico opcional: gestiona Cajeros y Encargados, pero no opera el negocio. En los respaldos solo puede
+    /// consultar el historial de copias y la última restauración: no genera ni restaura copias (RF-03, RF-22).
     /// </summary>
     Administrador = 4
 }

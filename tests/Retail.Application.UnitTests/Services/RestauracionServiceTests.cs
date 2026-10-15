@@ -82,6 +82,7 @@ public class RestauracionServiceTests
         _temporal.NombreBaseAnterior.Returns(BaseAnterior);
         _temporal.ObtenerEstadoEsquemaAsync(Arg.Any<CancellationToken>()).Returns(Esquema());
         _temporal.ExisteGerenteActivoAsync(Arg.Any<CancellationToken>()).Returns(true);
+        _temporal.PromoverAVigenteAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<string>>([]));
         _temporal.ObtenerCopiasEnCursoAsync(Arg.Any<CancellationToken>()).Returns(_ => _copiasEnCursoEnLaCopia.ToList());
         _temporal.AgregarRestauracionAsync(Arg.Do<RegistroRestauracion>(r => _restauracionRegistrada = r), Arg.Any<CancellationToken>());
 
@@ -683,6 +684,22 @@ public class RestauracionServiceTests
         // B-1: la advertencia no repite el texto técnico (que va al log), pero dice qué pasará.
         resultado.Advertencias.Should().Contain(a => a.Contains("se reintentará en la próxima restauración"));
         resultado.Advertencias.Should().NotContain(a => a.Contains("dejó de responder"));
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_ElIntercambioDevuelveAdvertencias_LasIncluyeEnElResultado()
+    {
+        // Arrange: el intercambio salió bien pero la base no pudo volver a MULTI_USER.
+        var copia = CopiaEnHistorial();
+        const string AvisoMultiUser = "La base 'RetailDb' quedó restaurada pero en modo SINGLE_USER.";
+        _temporal.PromoverAVigenteAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<string>>([AvisoMultiUser]));
+
+        // Act
+        var resultado = await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        // Assert: el operador lo ve en el resultado, no solo en el log.
+        resultado.Advertencias.Should().Contain(AvisoMultiUser);
     }
 
     [Fact]

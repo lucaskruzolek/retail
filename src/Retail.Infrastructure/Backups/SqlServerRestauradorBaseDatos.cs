@@ -187,7 +187,8 @@ public class SqlServerRestauradorBaseDatos : IRestauradorBaseDatos
             _logger.LogError(ex, "El motor no pudo restaurar {Ruta} en {Base}.", ruta, temporal);
             await DescartarTemporalAsync(cadenaMaster, temporal);
             throw new RestauracionFallidaException(
-                "El motor no pudo restaurar la copia: el archivo está dañado o no es una copia de esta base.", ex);
+                "El motor no pudo restaurar la copia en la base temporal (archivo dañado, espacio insuficiente u otro error " +
+                "del motor). El detalle técnico quedó registrado en el log.", ex);
         }
         catch
         {

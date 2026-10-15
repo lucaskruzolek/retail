@@ -208,8 +208,17 @@ public class BackupService : IBackupService
         var ruta = _archivos.PrepararRutaNueva(tipo);
         var registro = RegistroBackup.Iniciar(tipo, idUsuario, nombreUsuario, ruta, ultimaMigracion, _politica.VersionApp);
 
-        await _registros.AddAsync(registro, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _registros.AddAsync(registro, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            // Dos procesos pasaron a la vez el control de "copia en curso": el índice único de la base dejó pasar solo a uno.
+            // El único índice único que puede chocar acá es el de EnCurso (la Referencia es un GUID nuevo).
+            throw new DomainException("Ya hay una copia de seguridad en curso. Espere a que termine.", ex);
+        }
 
         try
         {
@@ -290,7 +299,13 @@ public class BackupService : IBackupService
                 RegistradaEnHistorial = false
             };
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (OperationCanceledException)
+        {
+            // Igual que en CopiarConHistorialAsync: una copia cancelada no deja su .bak parcial en el disco.
+            EliminarSinPropagar(ruta);
+            throw;
+        }
+        catch (Exception ex)
         {
             EliminarSinPropagar(ruta);
             throw new BackupFallidoException($"No se pudo completar la copia de seguridad: {DescripcionDeFalla.Para(ex)}", ex);
@@ -369,8 +384,8 @@ public class BackupService : IBackupService
         catch (Exception)
         {
             // Si tampoco se puede guardar el fallo (por ejemplo, el servidor dejó de responder), prevalece la
-            // excepción original, que es la que explica el problema. El registro queda EnCurso y la Fase 5 lo
-            // contempla al rehidratar el historial (R-18).
+            // excepción original, que es la que explica el problema. El registro queda EnCurso y la autorreparación
+            // de huérfanos (B-0) lo cierra en la próxima copia o restauración.
         }
     }
 

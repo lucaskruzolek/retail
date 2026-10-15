@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Las usa registrar-tarea-backup.ps1 (Fase 7) y las ejercita la prueba de integracion
-    PermisosCarpetaRespaldosIntegracionTests, que las importa en un powershell.exe real y lee despues la lista de acceso
+    ScriptsDePermisosIntegracionTests, que las importa en un powershell.exe real y lee despues la lista de acceso
     (ACL) resultante. Las cuentas conocidas se nombran por SID (no por nombre) para que funcionen igual en Windows en
     espanol que en ingles.
 #>

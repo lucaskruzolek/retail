@@ -26,7 +26,7 @@
     si no se encuentra, se ejecuta desde el codigo fuente con "dotnet run --project src/Retail.Cli".
 
 .EXAMPLE
-    .\restore-retail.ps1 -Archivo "D:\Respaldos\Retail_20261013_020000.bak"
+    .\restore-retail.ps1 -Archivo "D:\Respaldos\Retail_20261013_210000_Automatico.bak"
 #>
 [CmdletBinding()]
 param(
