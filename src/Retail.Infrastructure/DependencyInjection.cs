@@ -46,9 +46,9 @@ public static class DependencyInjection
         // 3. Seguridad y Criptografía (BCrypt)
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
-        // 4. Persistencia en Entity Framework Core 8 (SQL Server / LocalDB)
+        // 4. Persistencia en Entity Framework Core 8 (SQL Server Express)
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Server=(localdb)\\mssqllocaldb;Database=RetailDb;Trusted_Connection=True;MultipleActiveResultSets=true";
+            ?? @"Server=.\SQLEXPRESS;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 
         services.AddDbContext<RetailDbContext>(options =>
         {

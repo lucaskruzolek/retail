@@ -75,7 +75,7 @@ public class InyeccionDependenciasTests
         var configuracion = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = @"Server=(localdb)\mssqllocaldb;Database=RetailDb_DiApp;Trusted_Connection=True;MultipleActiveResultSets=true",
+                ["ConnectionStrings:DefaultConnection"] = @"Server=.\SQLEXPRESS;Database=RetailDb_DiApp;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true",
                 ["ArcaSettings:UseMockArca"] = "true"
             })
             .Build();

@@ -1,7 +1,7 @@
 # Instrucciones y Barandillas para Agentes de Código (AGENTS.md)
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
-**Plataforma:** .NET 8 LTS | C# 12 | WPF (Windows) | Entity Framework Core 8 | SQL Server Express / LocalDB  
+**Plataforma:** .NET 8 LTS | C# 12 | WPF (Windows) | Entity Framework Core 8 | SQL Server Express (desarrollo, pruebas y producción)  
 **Arquitectura:** Clean Desktop Monolith con DDD (Domain-Driven Design) y MVVM  
 **Contexto:** Proyecto de cátedra universitaria. El código debe ser pedagógico, riguroso, fuertemente tipado y sin atajos técnicos.
 
@@ -75,7 +75,7 @@ Para optimizar el consumo de contexto, evitar sobrecarga de tokens y prevenir el
 * Nomenclatura BDD para pruebas unitarias: `Metodo_Condicion_ResultadoEsperado` (permitido mediante exención en `Directory.Build.props`).
 
 ### 8. Optimización de Persistencia y Delegación al Motor Relacional (Push-down to SQL)
-* **Evaluación en Servidor:** Las consultas de búsqueda, filtrado, ordenamiento y agregación deben componerse sobre `IQueryable` para ejecutarse en SQL Server / LocalDB. Queda estrictamente prohibido materializar tablas en memoria con `.ToList()` prematuro para luego filtrar con LINQ to Objects en el cliente.
+* **Evaluación en Servidor:** Las consultas de búsqueda, filtrado, ordenamiento y agregación deben componerse sobre `IQueryable` para ejecutarse en SQL Server. Queda estrictamente prohibido materializar tablas en memoria con `.ToList()` prematuro para luego filtrar con LINQ to Objects en el cliente.
 * **Proyecciones y No-Tracking:** Para consultas de solo lectura en grillas y catálogos, utilizar siempre `.AsNoTracking()` y proyectar directamente a DTOs (`.Select(x => new ...)`), evitando el overhead del Change Tracker de EF Core y manteniendo la RAM $\le 300\text{ MB}$ (`RNF-03`).
 * **Traducción Nativa de Funciones:** Utilizar funciones traducibles de EF Core (`EF.Functions.Like`, cotejos de intercalación *collation* insensibles a tildes/mayúsculas) y agregaciones nativas (`SumAsync`, `CountAsync`) antes que implementar comparaciones de texto o cálculos de balance en C#.
 * **Frontera Inviolable con el Dominio (CQRS / DDD):** Esta optimización aplica exclusivamente a la capa de persistencia y consultas (lado Lectura). La lógica mutacional de negocio, recálculo de precios por markup, descuento de stock e invariantes de estado pertenecen con exclusividad a las Raíces de Agregado en `Retail.Domain`. Queda prohibido trasladar reglas de negocio a *Stored Procedures*, *Triggers* o funciones escalares de base de datos.
@@ -166,7 +166,7 @@ Si la tarea agregó, renombró o eliminó archivos estructurales (entidades, enu
 | **Runtime & SDK** | .NET 8 LTS / C# 12 | 8.0.x / SDK 10+ |
 | **Frontend de Escritorio** | WPF con CommunityToolkit.Mvvm | 8.3.2 |
 | **Inyección de Dependencias** | Microsoft.Extensions.Hosting | 8.0.1 |
-| **ORM & Base de Datos** | Entity Framework Core (SQL Server / LocalDB) | 8.0.11 |
+| **ORM & Base de Datos** | Entity Framework Core (SQL Server Express) | 8.0.11 |
 | **Validaciones** | FluentValidation | 11.11.0 |
 | **Planillas de Distribuidores**| MiniExcel (Streaming de bajo consumo) | 1.34.2 |
 | **Criptografía** | BCrypt.Net-Next | 4.0.3 |

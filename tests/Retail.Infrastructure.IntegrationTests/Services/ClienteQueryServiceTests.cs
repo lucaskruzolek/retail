@@ -18,7 +18,7 @@ public class ClienteQueryServiceTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;
