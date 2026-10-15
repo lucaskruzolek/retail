@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<IProveedorService, ProveedorService>();
         services.AddScoped<IEstadoSistemaService, EstadoSistemaService>();
         services.AddScoped<IBackupService, BackupService>();
+        services.AddScoped<IExportacionReportesService, ExportacionReportesService>();
 
         // La aplicación y Retail.Cli comparten el mecanismo (D-21). No requiere ser una operación privilegiada: toda
         // restauración exige la contraseña de un Gerente.

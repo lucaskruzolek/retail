@@ -96,7 +96,10 @@ public static class DependencyInjection
         // 6. Procesamiento Streaming de Planillas Excel (MiniExcel)
         services.AddSingleton<IExcelCatalogParser, Retail.Infrastructure.ExternalServices.Excel.ExcelCatalogParser>();
 
-        // 7. Reemplazamos el doble de prueba por la implementación real de CajaService.
+        // 7. Exportación de reportes (RF-26): no tiene estado, así que una única instancia sirve a toda la aplicación.
+        services.AddSingleton<IExportadorReportes, Retail.Infrastructure.Reportes.ExportadorReportes>();
+
+        // 8. Reemplazamos el doble de prueba por la implementación real de CajaService.
         services.AddScoped<Retail.Application.Interfaces.Services.ICajaService, Retail.Application.Services.CajaService>();
         return services;
     }

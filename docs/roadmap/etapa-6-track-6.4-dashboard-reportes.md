@@ -16,7 +16,7 @@
 | 1 | Dominio: costo histórico en `DetalleVenta`, con su columna, `CHECK` y migración (adelantadas de la Fase 3) | ✅ Commit `93b187c` |
 | 2 | Aplicación: contratos, DTOs, validadores, `ReporteService` y `ExportacionReportesService` (D-14 a D-18) | ✅ Commit `bc8c80c` |
 | 3 | Infraestructura: índice `IX_VENTAS_fecha_hora` y `ReporteQueryService` (D-19, D-20) | ✅ Implementada por subagente y revisada; pendiente de commit. RNF-09 medido una vez (sección 7.1); el test de rendimiento se eliminó (R-10) |
-| 4 | Exportación: Excel (MiniExcel) y PDF (QuestPDF + gráficos) | ⏳ |
+| 4 | Exportación: Excel (MiniExcel) y PDF (QuestPDF + gráficos LiveCharts2) (D-21 a D-23) | ✅ Implementada por subagente; PDF revisado visualmente; pendiente de commit |
 | 5 | UI: `DashboardView` con LiveCharts2 | ⏳ |
 | 6 | Verificación integral, mapa, DER y nota de wiki | ⏳ |
 
@@ -47,6 +47,9 @@
 | D-18 | Los importes se redondean de a uno y el margen es la resta de valores ya redondeados. Los totales suman filas crudas y redondean al final. La variación de un porcentaje se informa en **puntos porcentuales**, no como variación relativa. | Cerrada (Fase 2) | Así lo que se muestra cierra visualmente, sin error de redondeo acumulado. Ir de 20 % a 25 % es +5 puntos, no +25 %. |
 | D-19 | `IgnoreQueryFilters()` afecta a **toda** la consulta: toda consulta de reportes que lo use, aunque sea en un `join` o una subconsulta, filtra a mano `DeletedAt == null` en cada tabla que sí deba excluir las bajas (por ejemplo, `Articulos` en "menos vendidos" y en inventario). | Cerrada (Fase 3) | Detectado por el test de R-1: el artículo dado de baja reaparecía en "menos vendidos". Documentado en la Ley 2 de `SISTEMA_DE_PERSISTENCIA.md`. |
 | D-20 | "Menos vendidos" y "sin movimiento" usan `LEFT JOIN` + un único `GROUP BY` (con `HAVING` para el corte), no subconsultas correlacionadas por artículo. | Cerrada (Fase 3) | Medido con 50.000 ventas: 5,5 s a 588 ms y 2,1 s a 197 ms. La subconsulta correlacionada recorre los ítems una vez por artículo. |
+| D-21 | Excel sin formato de celda: los números se guardan como números (RF-26) y los porcentajes en unidades de porcentaje (25,5), con "%" en el encabezado. | Cerrada (Fase 4) | MiniExcel 1.34.2 solo aplica un formato convirtiendo el valor a texto, y la vía `DataTable` + formato genera un `<col min="0">` inválido. Entre "número sin formato" y "texto con formato", RF-26 exige número. Guardar 0,255 sin el formato de porcentaje confundiría al gerente. |
+| D-22 | Gráficos: las barras arrancan en 0 (si hay negativos, el 0 queda dentro del rango) y las líneas no se suavizan (`LineSmoothness = 0`). | Cerrada (Fase 4) | En una barra, la longitud es el dato: un eje que empieza en 70 hacía que 100 pareciera la cuarta parte de 250. La curva suavizada inventaba valores entre puntos. Ambos defectos se detectaron mirando el PDF, no con los tests. |
+| D-23 | PDF: el título de cada tabla no se separa de su comienzo (`EnsureSpace`); el de cada gráfico, tampoco de su imagen (`ShowEntire`). La cultura es-AR está fija en el exportador. | Cerrada (Fase 4) | Un título huérfano al pie de la página es un error de maquetación. Con la cultura fija, el formato no depende de la configuración regional del equipo. |
 
 ---
 
@@ -216,6 +219,7 @@ Versiones verificadas en el índice oficial de NuGet (`api.nuget.org`) el 2026-1
 | R-2 | Fechas en UTC agrupadas por día UTC: una venta de las 22:00 cae en el día siguiente. | D-9 + test en el borde. Si Argentina vuelve a aplicar horario de verano, pasar a `AT TIME ZONE` (`EF.Functions.AtTimeZone`). |
 | R-3 | Sin índice sobre `VENTAS.fecha_hora`, cada reporte recorre la tabla completa. | Índice de la Fase 3. |
 | R-4 | ~~LiveCharts2 para WPF solo en versión preliminar.~~ **Resuelto:** la 2.0.5 es estable (sección 6). | — |
+| R-11 | Una tabla de Excel sin filas conserva sus encabezados, pero el gerente podría esperar un mensaje "sin datos". | Fase 5: la UI deshabilita exportar si el reporte está vacío, o se acepta la hoja vacía con encabezados. |
 | R-5 | SkiaSharp y QuestPDF traen bibliotecas nativas. | `release.yml` ya las embebe. Igual hay que confirmarlo en la Fase 4: publicar en Release y generar un PDF desde el ejecutable único, en una carpeta sin SDK. |
 | R-9 | Los filtros del documento exportado muestran categoría, marca y cajero como `#<id>`, no por nombre (RF-26 pide los filtros aplicados de forma legible). | Fase 5: la UI conoce los nombres de los combos. Se agregan al filtro como etiquetas de presentación, o el servicio los resuelve. A decidir al diseñar la UI. |
 | R-8 | Dos versiones de SkiaSharp según el proyecto (2.88.9 y 3.119.0). | D-13: referencia explícita a 3.119.0 en Infrastructure. Un test de integración renderiza un gráfico a PNG y verifica la versión cargada. |
