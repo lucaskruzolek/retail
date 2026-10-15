@@ -203,7 +203,8 @@ public class VentaService : IVentaService
                     $"El precio de '{articulo.Descripcion}' cambió de {item.PrecioUnitario:C} a {articulo.PrecioVenta:C}. Vuelva a cargar el artículo en el ticket.");
             }
 
-            venta.AgregarItem(articulo.Id, item.Cantidad, articulo.PrecioVenta);
+            // La foto del costo de reposición se toma en el mismo momento que la del precio (RF-25).
+            venta.AgregarItem(articulo.Id, item.Cantidad, articulo.PrecioVenta, articulo.CostoReposicion);
         }
 
         venta.AplicarDescuento(dto.Descuento);

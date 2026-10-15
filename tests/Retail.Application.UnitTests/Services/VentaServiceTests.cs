@@ -91,6 +91,34 @@ public class VentaServiceTests
     }
 
     [Fact]
+    public async Task RegistrarVentaAsync_ArticuloConCosto_ConservaCostoDeReposicionEnElDetalle()
+    {
+        // Arrange
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
+        cuaderno.CostoReposicion = 700m;
+        var lapiz = CrearArticulo(11, "Lápiz", precio: 300m, stock: 20);
+        lapiz.CostoReposicion = 120m;
+        ConfigurarArticulos(cuaderno, lapiz);
+
+        Venta? ventaPersistida = null;
+        await _ventaRepository.AddAsync(
+            Arg.Do<Venta>(v => ventaPersistida = v),
+            Arg.Any<CancellationToken>());
+
+        var dto = CrearDto(
+            [Item(cuaderno, 2), Item(lapiz, 5)],
+            [Pago(MedioPagoEnum.Efectivo, 4500m)]);
+
+        // Act
+        await _sut.RegistrarVentaAsync(dto);
+
+        // Assert
+        ventaPersistida.Should().NotBeNull();
+        ventaPersistida!.Detalles.Single(d => d.IdArticulo == 10).CostoUnitario.Should().Be(700m);
+        ventaPersistida.Detalles.Single(d => d.IdArticulo == 11).CostoUnitario.Should().Be(120m);
+    }
+
+    [Fact]
     public async Task VerificarTicketAsync_PreciosYStockVigentes_NoInformaNada()
     {
         // Arrange

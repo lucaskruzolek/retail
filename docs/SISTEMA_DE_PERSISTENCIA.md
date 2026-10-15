@@ -157,7 +157,7 @@ graph TD
 | **`PROVEEDORES`** | `CK_PROVEEDORES_Cuit` | `LEN([cuit]) = 11 AND [cuit] NOT LIKE '%[^0-9]%'` | CUIT en forma canónica: 11 dígitos sin guiones, que es lo que permite al índice único filtrado detectar duplicados. El dígito verificador lo valida el Dominio (`ReglasDocumento`): calcularlo en SQL sería lógica de negocio en la base (Ley 6). Se creó `WITH NOCHECK` para no impedir el arranque si quedara una fila histórica sin normalizar; valida todo INSERT y UPDATE nuevo. |
 | **`COBRANZAS_CLIENTES`** | `CK_COBRANZAS_CLIENTES_Monto` | `[monto] > 0` | Cancelación de deuda mayor a cero. |
 | **`VENTAS`** | `CK_VENTAS_Totales` | `[subtotal] >= 0 AND [descuento] >= 0 AND [total] >= 0` | Totales consolidados de mostrador no negativos. |
-| **`DETALLE_VENTAS`** | `CK_DETALLE_VENTAS_Valores` | `[cantidad] > 0 AND [precio_unitario] >= 0 AND [subtotal_item] >= 0` | Cantidad vendida mayor a cero y precios no negativos. |
+| **`DETALLE_VENTAS`** | `CK_DETALLE_VENTAS_Valores` | `[cantidad] > 0 AND [precio_unitario] >= 0 AND [costo_unitario] >= 0 AND [subtotal_item] >= 0` | Cantidad vendida mayor a cero; precio y costo histórico (RF-25) no negativos. |
 | **`PAGOS_VENTA`** | `CK_PAGOS_VENTA_Monto` | `[monto] > 0` | Medios de pago imputados mayores a cero. |
 | **`PRESUPUESTOS`** | `CK_PRESUPUESTOS_Totales` | `[subtotal] >= 0 AND [descuento] >= 0 AND [total] >= 0` | Totales de cotización no negativos. |
 | **`DETALLE_PRESUPUESTOS`**| `CK_DETALLE_PRESUPUESTOS_Valores`| `[cantidad] > 0 AND [precio_unitario_pactado] >= 0 AND [subtotal_item] >= 0` | Cantidad presupuestada mayor a cero y precios pactados válidos. |

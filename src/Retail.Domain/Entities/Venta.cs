@@ -97,8 +97,10 @@ public class Venta : BaseEntity, IAggregateRoot
 
     /// <summary>
     /// Agrega un artículo al ticket. Si el artículo ya figura, suma la cantidad a la misma línea.
+    /// El costo unitario es una foto del costo de reposición al momento de vender (RF-25): una línea
+    /// no mezcla precios ni costos distintos.
     /// </summary>
-    public void AgregarItem(int idArticulo, int cantidad, decimal precioUnitario)
+    public void AgregarItem(int idArticulo, int cantidad, decimal precioUnitario, decimal costoUnitario)
     {
         var existente = _detalles.FirstOrDefault(d => d.IdArticulo == idArticulo);
         if (existente != null)
@@ -108,11 +110,16 @@ public class Venta : BaseEntity, IAggregateRoot
                 throw new DomainException($"El artículo ID {idArticulo} ya figura en la venta con otro precio unitario.");
             }
 
+            if (existente.CostoUnitario != costoUnitario)
+            {
+                throw new DomainException($"El artículo ID {idArticulo} ya figura en la venta con otro costo unitario.");
+            }
+
             existente.SumarCantidad(cantidad);
         }
         else
         {
-            _detalles.Add(new DetalleVenta(idArticulo, cantidad, precioUnitario));
+            _detalles.Add(new DetalleVenta(idArticulo, cantidad, precioUnitario, costoUnitario));
         }
 
         RecalcularTotales();

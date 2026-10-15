@@ -13,9 +13,9 @@
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
 | 0 | ERS v3.3 (RF-24 a RF-26, IU-11, IS-05, RNF-09) y este plan | ✅ ERS (commit `f5f87e8`) y plan aprobado |
-| 1 | Dominio: costo histórico en `DetalleVenta` | ⏳ |
+| 1 | Dominio: costo histórico en `DetalleVenta`, con su columna, `CHECK` y migración (adelantadas de la Fase 3) | ✅ Implementada por subagente y revisada; pendiente de commit |
 | 2 | Aplicación: contratos, DTOs, validadores y `ReporteService` | ⏳ |
-| 3 | Infraestructura: migración, índice y `ReporteQueryService` | ⏳ |
+| 3 | Infraestructura: índice `IX_VENTAS_fecha_hora` y `ReporteQueryService` | ⏳ |
 | 4 | Exportación: Excel (MiniExcel) y PDF (QuestPDF + gráficos) | ⏳ |
 | 5 | UI: `DashboardView` con LiveCharts2 | ⏳ |
 | 6 | Verificación integral, mapa, DER y nota de wiki | ⏳ |
@@ -126,6 +126,9 @@ sequenceDiagram
 ## 5. Plan por Capas
 
 ### Fase 1 — Dominio (`Retail.Domain`)
+
+> **Ajuste de alcance (2026-10-15):** la columna, el `CHECK` y la migración `AgregarCostoUnitarioDetalleVenta` se adelantaron a esta fase. `RegistrarVentaIntegrationTests` crea la base con `MigrateAsync`: una propiedad del Dominio sin columna hace fallar el `INSERT`, y la rama habría quedado con tests en rojo entre fases. También se adelantó la línea de `VentaService` que pasa el costo, porque sin ella no compila.
+
 | Archivo | Cambio |
 | :--- | :--- |
 | [`DetalleVenta.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/DetalleVenta.cs) | Propiedad `CostoUnitario` (`private set`), recibida en el constructor `internal` y validada `>= 0`. |
@@ -150,9 +153,9 @@ sequenceDiagram
 ### Fase 3 — Infraestructura: persistencia
 | Componente | Contenido |
 | :--- | :--- |
-| [`DetalleVentaConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/DetalleVentaConfiguration.cs) | Columna `costo_unitario decimal(18,2) NOT NULL`. `CK_DETALLE_VENTAS_Valores` suma `[costo_unitario] >= 0`. |
+| ~~`DetalleVentaConfiguration.cs`~~ | **Hecho en la Fase 1:** columna `costo_unitario decimal(18,2) NOT NULL` y `CHECK` ampliado. |
 | [`VentaConfiguration.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Configurations/VentaConfiguration.cs) | `IX_VENTAS_fecha_hora` con `INCLUDE (subtotal, descuento, total, id_usuario)`, filtrado por `deleted_at IS NULL`. |
-| Migración `AgregarCostoUnitarioEIndiceDeReportes` | Generada con el comando canónico. Hay que revisar que el `CHECK` se recree bien. |
+| Migración `AgregarIndiceReportesVentas` | Solo el índice. La columna ya la agregó `AgregarCostoUnitarioDetalleVenta` (Fase 1). |
 | `Persistence/Services/ReporteQueryService.cs` | Vista en C# `ItemsVendidos(filtro)` (D-7, D-8) + R1, R2, R3, R7, R8 y los indicadores del tablero, todo con `AsNoTracking` y proyección a DTO. |
 | `DependencyInjection.cs` (Infrastructure) | Registro `Scoped` del query service. |
 
@@ -192,7 +195,7 @@ Versiones verificadas en el índice oficial de NuGet (`api.nuget.org`) el 2026-1
 | `SkiaSharp` + `SkiaSharp.HarfBuzz` | **3.119.0** (referencia explícita) | `Retail.Infrastructure` | MIT | Fija la misma versión que usa la App (D-13). |
 | `QuestPDF` | **2026.9.1** | `Retail.Infrastructure` | Community MIT | Gratuita para proyectos educativos y para empresas con facturación anual bruta menor a USD 1.000.000. Trae su propio motor Skia nativo (`QuestPdfSkia.dll`, `qpdf.dll`): **no comparte SkiaSharp con LiveCharts**, así que no hay conflicto de versiones. Exige declarar `QuestPDF.Settings.License = LicenseType.Community` antes del primer documento; sin esa línea lanza una excepción. |
 
-* **D-13 (Propuesta, surgida de la investigación de dependencias):** una sola versión de SkiaSharp en toda la solución. Sin la referencia explícita, NuGet resolvería **3.119.0 en la App y 2.88.9 en `Retail.Cli` y en los tests de Infrastructure** (en cada proyecto gana la versión más alta de su propio grafo). El mismo código de render correría con dos motores distintos según desde dónde se invoque.
+* **D-13 (Cerrada, 2026-10-15):** una sola versión de SkiaSharp en toda la solución. Sin la referencia explícita, NuGet resolvería **3.119.0 en la App y 2.88.9 en `Retail.Cli` y en los tests de Infrastructure** (en cada proyecto gana la versión más alta de su propio grafo). El mismo código de render correría con dos motores distintos según desde dónde se invoque.
 * **Licencia de QuestPDF:** al publicar, se agrega al `README` una sección de licencias de terceros. Si la librería superara el umbral de facturación, la licencia Professional cuesta USD 999 (pago único). La alternativa sin umbral es **PDFsharp/MigraDoc 6.5** (MIT, código administrado sin bibliotecas nativas), con una API más verbosa: queda como plan B documentado.
 * **Empaquetado:** [`release.yml`](file:///c:/Users/lucas/Proyectos/retail/.github/workflows/release.yml) ya publica con `IncludeNativeLibrariesForSelfExtract=true`, que embebe `libSkiaSharp.dll`, `QuestPdfSkia.dll` y `qpdf.dll` en el ejecutable único. El binario crece unos 20 MB.
 
