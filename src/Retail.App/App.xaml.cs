@@ -2,17 +2,16 @@ using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Threading;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.Views.Dialogs;
 using Retail.Application;
-using Retail.Application.Interfaces.Infrastructure;
+using Retail.Application.DTOs.Sistema;
+using Retail.Application.Interfaces.Services;
 using Retail.Infrastructure;
-using Retail.Infrastructure.Persistence.Context;
-using Retail.Infrastructure.Persistence.Initialization;
 using Serilog;
 
 namespace Retail.App;
@@ -100,6 +99,12 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.ViewModels.Usuarios.UsuariosViewModel>();
         services.AddTransient<Retail.App.Views.Pages.UsuariosView>();
 
+        // Respaldos y Restauración (Track 6.3)
+        services.AddScoped<Retail.App.Services.IBackupDialogService, Retail.App.Services.BackupDialogService>();
+        services.AddSingleton<Retail.App.Services.IReinicioAplicacion, Retail.App.Services.ReinicioAplicacion>();
+        services.AddTransient<Retail.App.ViewModels.Backups.BackupViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.BackupView>();
+
         // Artículos y Catálogo (Módulo 2.1)
         services.AddScoped<Retail.App.Services.IArticuloDialogService, Retail.App.Services.ArticuloDialogService>();
         services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();
@@ -156,14 +161,26 @@ public partial class App : System.Windows.Application
 
         await _host.StartAsync();
 
-        // Inicialización y semillero de Base de Datos (Etapa 0.7)
+        // Verificación de la base (RF-23): la aplicación ya no migra ni siembra datos al arrancar. Si el esquema
+        // no está al día o no hay un Gerente, informa qué comando de Retail.Cli ejecutar y no abre el login.
+        EstadoSistemaDto estadoSistema;
         using (var scope = _host.Services.CreateScope())
         {
-            var dbContext = scope.ServiceProvider.GetRequiredService<RetailDbContext>();
-            await dbContext.Database.MigrateAsync();
+            estadoSistema = await scope.ServiceProvider.GetRequiredService<IEstadoSistemaService>().ObtenerEstadoAsync();
+        }
 
-            var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
-            await DbInitializer.InitializeAsync(dbContext, passwordHasher);
+        var diagnostico = MensajeEstadoSistema.Describir(estadoSistema);
+        if (diagnostico.Bloquea)
+        {
+            Log.Warning("Arranque bloqueado por el estado de la base: {Mensaje}", diagnostico.Mensaje);
+            new Retail.App.Views.Dialogs.DiagnosticoArranqueDialog(diagnostico).ShowDialog();
+            Shutdown();
+            return;
+        }
+
+        if (diagnostico.Mensaje is not null)
+        {
+            MessageBox.Show(diagnostico.Mensaje, "Retail POS - Aviso", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         // Flujo de autenticación obligatorio de inicio (RF-01)

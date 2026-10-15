@@ -1,6 +1,6 @@
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Windows;
+using Retail.App.Helpers;
 using Wpf.Ui.Controls;
 
 namespace Retail.App.Views.Dialogs;
@@ -70,17 +70,10 @@ public partial class UnhandledExceptionDialog : FluentWindow
 
     private void BtnCopiarDetalles_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            var contenidoParaCopiar = ObtenerReporteDiagnostico();
-            Clipboard.SetText(contenidoParaCopiar);
-            TxtBtnCopiar.Text = "¡Detalle Copiado!";
-        }
-        catch (ExternalException)
-        {
-            // En entornos bloqueados de portapapeles, evitar lanzar excepción secundaria
-            TxtBtnCopiar.Text = "No se pudo acceder al portapapeles";
-        }
+        // Con el portapapeles bloqueado no se lanza una excepción secundaria: se informa en el botón
+        TxtBtnCopiar.Text = PortapapelesSeguro.TryCopiar(ObtenerReporteDiagnostico())
+            ? "¡Detalle Copiado!"
+            : "No se pudo acceder al portapapeles";
     }
 
     private void BtnContinuar_Click(object sender, RoutedEventArgs e)

@@ -43,7 +43,7 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         // Base nueva: el primer rol recibe el Id 1, que coincide con RolUsuarioEnum.Cajero.
-        var usuario = Usuario.Crear("cajero1", "Cajero", "Uno", "hash", RolUsuarioEnum.Cajero);
+        var usuario = Usuario.Crear("cajero1", "Cajero", "Uno", "hash", RolUsuarioEnum.Cajero, null);
         _context.Usuarios.Add(usuario);
         await _context.SaveChangesAsync();
 

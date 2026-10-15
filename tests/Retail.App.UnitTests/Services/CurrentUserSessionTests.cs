@@ -74,6 +74,29 @@ public class CurrentUserSessionTests
         _sut.EsGerente.Should().BeFalse();
         _sut.EsEncargado.Should().BeFalse();
         _sut.EsCajero.Should().BeTrue();
+        _sut.EsAdministrador.Should().BeFalse();
+    }
+
+    [Fact]
+    public void EstablecerSesion_RolAdministrador_SoloActivaElFlagDeAdministrador()
+    {
+        // Arrange
+        var usuario = new LoginResultDto
+        {
+            IdUsuario = 4,
+            NombreUsuario = "soporte",
+            NombreCompleto = "Soporte Técnico",
+            Rol = RolUsuarioEnum.Administrador
+        };
+
+        // Act
+        _sut.EstablecerSesion(usuario);
+
+        // Assert: el Administrador no hereda los permisos del Gerente.
+        _sut.EsAdministrador.Should().BeTrue();
+        _sut.EsGerente.Should().BeFalse();
+        _sut.EsEncargado.Should().BeFalse();
+        _sut.EsCajero.Should().BeFalse();
     }
 
     [Fact]

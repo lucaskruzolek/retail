@@ -39,6 +39,8 @@ erDiagram
         string password_hash
         string nombre
         string apellido
+        string email_recuperacion
+        bool debe_cambiar_password
         int id_rol FK
         datetime deleted_at
         datetime created_at
@@ -241,4 +243,23 @@ erDiagram
         int cantidad
         decimal costo_unitario
         decimal subtotal_item
+    }
+
+    REGISTROS_BACKUP {
+        int id_registro_backup PK
+        guid referencia UK "identidad estable entre bases (R-1)"
+        string tipo "Manual | Automatico | PreRestauracion | PreMigracion"
+        string estado "EnCurso | Exitoso | Verificado | Fallido | ArchivoPurgado"
+        int id_usuario "foto del operador, sin FK"
+        string nombre_usuario
+        datetime fecha_inicio
+        datetime fecha_fin
+        string ruta_archivo
+        bigint tamano_bytes
+        string hash_sha256
+        string ultima_migracion
+        string version_app
+        string mensaje_error
+        datetime created_at
+        datetime deleted_at
     }

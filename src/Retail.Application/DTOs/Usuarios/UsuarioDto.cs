@@ -14,6 +14,10 @@ public record class UsuarioDto : BaseDto
     public required string Apellido { get; init; }
     public string NombreCompleto => $"{Nombre} {Apellido}";
     public required RolUsuarioEnum Rol { get; init; }
+
+    public string? EmailRecuperacion { get; init; }
+
+    public bool DebeCambiarPassword { get; init; }
     public required bool Activo { get; init; }
     public required DateTime CreatedAt { get; init; }
 }

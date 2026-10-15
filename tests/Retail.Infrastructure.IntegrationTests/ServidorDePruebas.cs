@@ -1,3 +1,5 @@
+using System.Security.AccessControl;
+using System.Security.Principal;
 using Microsoft.Data.SqlClient;
 
 namespace Retail.Infrastructure.IntegrationTests;
@@ -32,5 +34,65 @@ internal static class ServidorDePruebas
         };
 
         return builder.ConnectionString;
+    }
+
+    /// <summary>
+    /// Crea una carpeta temporal única donde el motor puede escribir y leer archivos <c>.bak</c>, y el proceso de pruebas
+    /// también. En SQL Server Express, <c>BACKUP</c> y <c>RESTORE</c> los ejecuta la cuenta del servicio
+    /// (por ejemplo, <c>NT Service\MSSQL$SQLEXPRESS</c>), que no tiene permiso sobre el <c>%TEMP%</c> del usuario
+    /// (error 5, acceso denegado). Se le otorga Modify con herencia sobre la carpeta; las carpetas padre no necesitan
+    /// permisos porque Windows omite la verificación de recorrido por defecto.
+    /// </summary>
+    /// <param name="prefijo">Prefijo del nombre de la carpeta, para reconocerla si una prueba la deja huérfana.</param>
+    /// <returns>Ruta de la carpeta creada. Quien la pide debe borrarla al terminar.</returns>
+    public static string CrearCarpetaAccesibleParaElMotor(string prefijo)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            throw new PlatformNotSupportedException("Los permisos de la carpeta de pruebas se otorgan con ACL de Windows.");
+        }
+
+        var cuentaDelMotor = ObtenerCuentaDelServicioDelMotor();
+
+        var ruta = Path.Combine(Path.GetTempPath(), $"{prefijo}_{Guid.NewGuid():N}");
+        var carpeta = Directory.CreateDirectory(ruta);
+
+        var seguridad = carpeta.GetAccessControl();
+        seguridad.AddAccessRule(new FileSystemAccessRule(
+            new NTAccount(cuentaDelMotor),
+            FileSystemRights.Modify,
+            InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+            PropagationFlags.None,
+            AccessControlType.Allow));
+        carpeta.SetAccessControl(seguridad);
+
+        return ruta;
+    }
+
+    /// <summary>
+    /// Lee de <c>sys.dm_server_services</c> la cuenta con la que corre el servicio del motor. Si no se puede obtener,
+    /// falla con un mensaje claro: seguir sin permisos produciría errores de acceso denegado difíciles de rastrear.
+    /// </summary>
+    internal static string ObtenerCuentaDelServicioDelMotor()
+    {
+        try
+        {
+            using var conexion = new SqlConnection(CadenaDeConexion("master"));
+            conexion.Open();
+
+            using var comando = conexion.CreateCommand();
+            comando.CommandText = "SELECT TOP (1) service_account FROM sys.dm_server_services WHERE servicename LIKE 'SQL Server (%';";
+
+            var cuenta = comando.ExecuteScalar() as string;
+            return string.IsNullOrWhiteSpace(cuenta)
+                ? throw new InvalidOperationException("sys.dm_server_services no devolvió la cuenta del servicio de SQL Server.")
+                : cuenta;
+        }
+        catch (SqlException ex)
+        {
+            throw new InvalidOperationException(
+                "No se pudo leer la cuenta del servicio de SQL Server (sys.dm_server_services requiere VIEW SERVER STATE). " +
+                "Sin ella no se pueden dar permisos de escritura a las pruebas de copias de seguridad.", ex);
+        }
     }
 }

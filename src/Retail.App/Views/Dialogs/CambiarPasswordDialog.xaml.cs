@@ -17,6 +17,14 @@ public partial class CambiarPasswordDialog : Wpf.Ui.Controls.FluentWindow
         MaxWidth = SystemParameters.WorkArea.Width;
     }
 
+    private void TxtPasswordActual_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is Wpf.Ui.Controls.PasswordBox pb)
+        {
+            ViewModel.PasswordActual = pb.Password;
+        }
+    }
+
     private void TxtNuevaPassword_PasswordChanged(object sender, RoutedEventArgs e)
     {
         if (sender is Wpf.Ui.Controls.PasswordBox pb)
@@ -52,7 +60,7 @@ public partial class CambiarPasswordDialog : Wpf.Ui.Controls.FluentWindow
             }
             catch (Exception ex)
             {
-                ViewModel.MensajeError = ex.Message;
+                ViewModel.InformarError(ex);
             }
             finally
             {

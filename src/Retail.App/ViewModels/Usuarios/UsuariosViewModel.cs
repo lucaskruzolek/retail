@@ -7,6 +7,7 @@ using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Usuarios;
@@ -21,8 +22,12 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
 
     private readonly IUsuarioService _usuarioService;
     private readonly IUsuarioDialogService _dialogService;
+    private readonly ICurrentUserSession _session;
     private readonly ILogger<UsuariosViewModel> _logger;
     private List<UsuarioDto> _cacheUsuarios = new();
+
+    // Roles que el operador de la sesión puede gestionar. Los calcula el servicio con la matriz del Dominio.
+    private IReadOnlyList<RolUsuarioEnum> _rolesAsignables = [];
 
     public ObservableCollection<UsuarioDto> Usuarios { get; } = new();
 
@@ -66,11 +71,57 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
     public UsuariosViewModel(
         IUsuarioService usuarioService,
         IUsuarioDialogService dialogService,
+        ICurrentUserSession session,
         ILogger<UsuariosViewModel>? logger = null)
     {
         _usuarioService = usuarioService ?? throw new ArgumentNullException(nameof(usuarioService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _session = session ?? throw new ArgumentNullException(nameof(session));
         _logger = logger ?? NullLogger<UsuariosViewModel>.Instance;
+    }
+
+    /// <summary>
+    /// Usuario que ejecuta cada operación. Sin sesión se envía 0 y el servicio rechaza la operación: la UI no
+    /// decide permisos, solo informa quién actúa.
+    /// </summary>
+    private int IdActor => _session.IdUsuario ?? 0;
+
+    private void CambiarPasswordPropia(UsuarioDto cuentaPropia)
+    {
+        try
+        {
+            var cambiada = _dialogService.MostrarDialogoCambioPropio(
+                cuentaPropia,
+                passDto => _usuarioService.CambiarPasswordAsync(IdActor, passDto));
+
+            if (cambiada)
+            {
+                _dialogService.MostrarInformacion("Contraseña Actualizada", "Su contraseña fue cambiada correctamente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cambiar la contraseña propia del operador {IdUsuario}: {Mensaje}", IdActor, ex.Message);
+            MensajeError = ex.Message;
+            _dialogService.MostrarError("Error al Cambiar Contraseña", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Aviso anticipado: evita abrir un diálogo cuya operación el servicio va a rechazar. No reemplaza la
+    /// autorización de <c>UsuarioService</c>, que es la que decide.
+    /// </summary>
+    private bool PuedeGestionar(UsuarioDto usuario)
+    {
+        if (_rolesAsignables.Contains(usuario.Rol))
+        {
+            return true;
+        }
+
+        _dialogService.MostrarError(
+            "Operación no permitida",
+            $"Su rol no tiene autoridad para gestionar la cuenta de '{usuario.NombreCompleto}' ({usuario.Rol}).");
+        return false;
     }
 
     partial void OnFiltroBusquedaChanged(string value)
@@ -93,9 +144,19 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
         MensajeEstado = "Cargando operadores...";
 
         await _cargaUsuarios.EjecutarAsync(
-            token => Task.Run(() => _usuarioService.ListarUsuariosAsync(token), token),
-            lista =>
+            token => Task.Run(
+                async () =>
+                {
+                    // Secuencial a propósito: ambas consultas comparten el DbContext de la pantalla.
+                    var roles = await _usuarioService.ObtenerRolesAsignablesAsync(IdActor, token);
+                    var usuarios = await _usuarioService.ListarUsuariosAsync(IdActor, token);
+                    return (Usuarios: usuarios, Roles: roles);
+                },
+                token),
+            resultado =>
             {
+                var lista = resultado.Usuarios;
+                _rolesAsignables = resultado.Roles;
                 _cacheUsuarios = lista.ToList();
 
                 PaginaActual = 1;
@@ -118,10 +179,16 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
     {
         try
         {
-            UsuarioDto? nuevo = null;
-            var dto = _dialogService.MostrarDialogoCrear(async nuevoDto =>
+            if (_rolesAsignables.Count == 0)
             {
-                nuevo = await _usuarioService.RegistrarUsuarioAsync(nuevoDto);
+                _dialogService.MostrarError("Operación no permitida", "Su rol no puede dar de alta operadores.");
+                return;
+            }
+
+            UsuarioDto? nuevo = null;
+            var dto = _dialogService.MostrarDialogoCrear(_rolesAsignables, async nuevoDto =>
+            {
+                nuevo = await _usuarioService.RegistrarUsuarioAsync(IdActor, nuevoDto);
             });
 
             if (dto == null)
@@ -158,12 +225,17 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (!PuedeGestionar(target))
+        {
+            return;
+        }
+
         try
         {
             UsuarioDto? actualizado = null;
-            var dto = _dialogService.MostrarDialogoModificar(target, async modDto =>
+            var dto = _dialogService.MostrarDialogoModificar(target, _rolesAsignables, async modDto =>
             {
-                actualizado = await _usuarioService.ModificarUsuarioAsync(modDto);
+                actualizado = await _usuarioService.ModificarUsuarioAsync(IdActor, modDto);
             });
 
             if (dto == null)
@@ -212,6 +284,11 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (!PuedeGestionar(target))
+        {
+            return;
+        }
+
         var confirmar = _dialogService.Confirmar(
             "Confirmar Baja de Operador",
             $"¿Está seguro de que desea dar de baja al operador '{target.NombreCompleto}' ({target.NombreUsuario})?\n\nEsta acción aplicará un borrado lógico preservando el historial contable.");
@@ -226,7 +303,7 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
             IsBusy = true;
             MensajeError = null;
 
-            await _usuarioService.BajaUsuarioAsync(target.IdUsuario);
+            await _usuarioService.BajaUsuarioAsync(IdActor, target.IdUsuario);
             _dialogService.MostrarInformacion("Baja Aplicada", $"El operador '{target.NombreCompleto}' fue dado de baja correctamente.");
 
             await CargarUsuariosAsync();
@@ -261,11 +338,23 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // La propia cuenta no se blanquea: se cambia pidiendo la contraseña actual (el servicio lo exige).
+        if (target.IdUsuario == IdActor)
+        {
+            CambiarPasswordPropia(target);
+            return;
+        }
+
+        if (!PuedeGestionar(target))
+        {
+            return;
+        }
+
         try
         {
             var dto = _dialogService.MostrarDialogoCambiarPassword(target, async passDto =>
             {
-                await _usuarioService.CambiarPasswordAsync(passDto);
+                await _usuarioService.CambiarPasswordAsync(IdActor, passDto);
             });
 
             if (dto == null)

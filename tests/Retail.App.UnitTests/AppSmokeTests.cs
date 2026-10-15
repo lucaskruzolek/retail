@@ -7,6 +7,7 @@ using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Auth;
+using Retail.App.ViewModels.Backups;
 using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Proveedores;
@@ -17,6 +18,7 @@ using Retail.App.Views.Dev;
 using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Backups;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
@@ -328,7 +330,7 @@ public class AppSmokeTests
         {
             var usuarioServiceMock = Substitute.For<IUsuarioService>();
             var dialogServiceMock = Substitute.For<IUsuarioDialogService>();
-            var viewModel = new UsuariosViewModel(usuarioServiceMock, dialogServiceMock);
+            var viewModel = new UsuariosViewModel(usuarioServiceMock, dialogServiceMock, Substitute.For<ICurrentUserSession>());
 
             try
             {
@@ -360,6 +362,95 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void BackupView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        BackupView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var session = Substitute.For<ICurrentUserSession>();
+            session.EsGerente.Returns(true);
+            var viewModel = new BackupViewModel(
+                Substitute.For<IBackupService>(),
+                Substitute.For<IRestauracionService>(),
+                Substitute.For<IBackupDialogService>(),
+                session,
+                Substitute.For<IReinicioAplicacion>());
+
+            try
+            {
+                view = new BackupView(viewModel);
+                viewModel.UltimaRestauracionTexto = "Última restauración: 01/10/2026 10:00 por gerente (consola).";
+                foreach (var estado in Enum.GetValues<EstadoBackupEnum>())
+                {
+                    viewModel.Copias.Add(new RegistroBackupFila(new RegistroBackupDto
+                    {
+                        IdRegistroBackup = (int)estado,
+                        Referencia = Guid.NewGuid(),
+                        Tipo = TipoBackupEnum.Manual,
+                        Estado = estado,
+                        Operador = "gerente",
+                        FechaInicio = DateTime.UtcNow,
+                        RutaArchivo = @"C:\RetailData\Backups\copia.bak",
+                        TamanoBytes = 5L * 1024 * 1024,
+                        EsRestaurable = estado == EstadoBackupEnum.Verificado
+                    }));
+                }
+
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de BackupView debe resolverse sin errores de recursos");
+        view.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ConfirmarCredencialDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool restauracion)
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ConfirmarCredencialDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            Func<string, IProgress<int>, Task> operacion = (_, _) => Task.CompletedTask;
+            var viewModel = restauracion
+                ? ConfirmarCredencialViewModel.ParaRestauracion(operacion, "01/10/2026 10:00", "Conciliar con ARCA.")
+                : ConfirmarCredencialViewModel.ParaBackupManual(operacion);
+            viewModel.MensajeError = "Contraseña incorrecta.";
+            viewModel.IsBusy = true;
+
+            try
+            {
+                dialog = new ConfirmarCredencialDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(500, 640));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 500, 640));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ConfirmarCredencialDialog debe resolverse sin errores de recursos");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
     public void UsuarioFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
@@ -369,7 +460,7 @@ public class AppSmokeTests
         WpfTestHelper.Run(() =>
         {
             var viewModel = new UsuarioFormViewModel();
-            viewModel.ConfigurarAlta();
+            viewModel.ConfigurarAlta(Enum.GetValues<RolUsuarioEnum>());
 
             try
             {
@@ -806,7 +897,7 @@ public class AppSmokeTests
             var authServiceMock = Substitute.For<IAuthService>();
             var sessionMock = Substitute.For<ICurrentUserSession>();
             var loggerMock = Substitute.For<ILogger<LoginViewModel>>();
-            var viewModel = new LoginViewModel(authServiceMock, sessionMock, loggerMock);
+            var viewModel = new LoginViewModel(authServiceMock, Substitute.For<IUsuarioService>(), Substitute.For<IUsuarioDialogService>(), sessionMock, loggerMock);
 
             try
             {
@@ -963,6 +1054,41 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull($"el XAML de {nombreDialogo} debe resolver todos sus recursos");
         dialog.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void DiagnosticoArranqueDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(int cantidadComandos)
+    {
+        // Arrange
+        Exception? xamlException = null;
+        string[] argumentos = cantidadComandos == 1 ? ["migrar"] : ["migrar", "inicializar"];
+        var diagnostico = new DiagnosticoArranque(true, "La base no está lista.", argumentos);
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var dialog = new DiagnosticoArranqueDialog(diagnostico);
+                dialog.Measure(new System.Windows.Size(680, 520));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 680, 520));
+                dialog.UpdateLayout();
+
+                // Los objetos de WPF solo se pueden leer desde su hilo STA
+                dialog.MensajeMostrado.Should().Be("La base no está lista.");
+                dialog.LineasMostradas.Should().HaveCount(cantidadComandos);
+                dialog.CopiarTodosVisibility.Should().Be(
+                    cantidadComandos > 1 ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed);
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de DiagnosticoArranqueDialog debe resolverse sin errores");
     }
 
     [Fact]

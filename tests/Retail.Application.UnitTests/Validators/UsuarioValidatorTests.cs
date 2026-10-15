@@ -18,7 +18,8 @@ public class UsuarioValidatorTests
         Nombre = "Juan",
         Apellido = "Pérez",
         Password = "Clave2026!",
-        Rol = RolUsuarioEnum.Cajero
+        Rol = RolUsuarioEnum.Cajero,
+        EmailRecuperacion = null
     };
 
     private static readonly ModificarUsuarioDto ModificacionValida = new()
@@ -26,7 +27,8 @@ public class UsuarioValidatorTests
         IdUsuario = 1,
         Nombre = "Juan",
         Apellido = "Pérez",
-        Rol = RolUsuarioEnum.Encargado
+        Rol = RolUsuarioEnum.Encargado,
+        EmailRecuperacion = null
     };
 
     [Fact]
@@ -179,5 +181,50 @@ public class UsuarioValidatorTests
         var dto = new CambiarPasswordDto { IdUsuario = 1, NuevaPassword = "Clave2026!" };
 
         _cambiarPasswordValidator.Validate(dto).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void CrearUsuarioValidator_GerenteSinEmail_DebeFallarEnEmailRecuperacion(string? email)
+    {
+        var result = _crearValidator.Validate(AltaValida with { Rol = RolUsuarioEnum.Gerente, EmailRecuperacion = email });
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(CrearUsuarioDto.EmailRecuperacion))
+            .Which.ErrorMessage.Should().Contain("Gerente");
+    }
+
+    [Fact]
+    public void CrearUsuarioValidator_GerenteConEmail_DebePasarValidacion()
+    {
+        var dto = AltaValida with { Rol = RolUsuarioEnum.Gerente, EmailRecuperacion = "gerente@libreria.com" };
+
+        _crearValidator.Validate(dto).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(RolUsuarioEnum.Cajero)]
+    [InlineData(RolUsuarioEnum.Encargado)]
+    [InlineData(RolUsuarioEnum.Administrador)]
+    public void CrearUsuarioValidator_RolNoGerenteSinEmail_DebePasarValidacion(RolUsuarioEnum rol)
+    {
+        _crearValidator.Validate(AltaValida with { Rol = rol, EmailRecuperacion = null }).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CrearUsuarioValidator_EmailMalFormado_DebeFallarEnEmailRecuperacion()
+    {
+        var result = _crearValidator.Validate(AltaValida with { EmailRecuperacion = "sin-arroba" });
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(CrearUsuarioDto.EmailRecuperacion));
+    }
+
+    [Fact]
+    public void ModificarUsuarioValidator_AscensoAGerenteSinEmail_DebeFallarEnEmailRecuperacion()
+    {
+        var result = _modificarValidator.Validate(ModificacionValida with { Rol = RolUsuarioEnum.Gerente });
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(ModificarUsuarioDto.EmailRecuperacion));
     }
 }

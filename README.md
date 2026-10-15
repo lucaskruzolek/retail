@@ -69,7 +69,7 @@ La cadena por defecto ya apunta a la instancia local `.\SQLEXPRESS`, por lo que 
 }
 ```
 
-> **¿Vienes de LocalDB?** Las versiones anteriores usaban `(localdb)\mssqllocaldb`. Esa base **no se migra automáticamente** a Express: en el primer arranque la aplicación crea `RetailDb` en `.\SQLEXPRESS`, le aplica las migraciones y carga el semillero. Los datos de prueba que tuvieras en LocalDB no se trasladan (puedes borrarlos con `sqllocaldb stop mssqllocaldb` y `sqllocaldb delete mssqllocaldb` si ya no los necesitas).
+> **¿Vienes de LocalDB?** Las versiones anteriores usaban `(localdb)\mssqllocaldb`. Esa base **no se migra automáticamente** a Express. La aplicación ya no crea la base al arrancar: ejecuta `dotnet run --project src/Retail.Cli -- migrar` y después `dotnet run --project src/Retail.Cli -- inicializar` (primer Gerente) contra `.\SQLEXPRESS`. Los datos de prueba que tuvieras en LocalDB no se trasladan (puedes borrarlos con `sqllocaldb stop mssqllocaldb` y `sqllocaldb delete mssqllocaldb` si ya no los necesitas).
 
 Si tu instancia tiene otro nombre o usas autenticación de SQL Server, ajusta la cadena:
 
@@ -95,23 +95,33 @@ Si tu instancia tiene otro nombre o usas autenticación de SQL Server, ajusta la
 
 ---
 
-### 3. Ejecutar la Aplicación
-Compila y ejecuta la aplicación con el siguiente comando:
+### 3. Preparar la Base de Datos (`Retail.Cli`)
+La aplicación **no modifica la base al arrancar**: la crea y la actualiza la herramienta de comandos `Retail.Cli` (RF-23). La primera vez, desde la raíz del repositorio:
+
+```bash
+dotnet run --project src/Retail.Cli -- migrar        # crea la base y aplica las migraciones
+dotnet run --project src/Retail.Cli -- inicializar   # crea el primer Gerente (pide usuario, email y contraseña)
+dotnet run --project src/Retail.Cli -- datos-demo    # opcional: un proveedor, categorías y marcas de ejemplo
+```
+
+> **Copias de seguridad:** `dotnet run --project src/Retail.Cli -- backup` genera una copia completa y verificada en el directorio de `BackupSettings` (`C:\RetailData\Backups` por defecto, con un manifiesto `.json` por copia). `migrar` toma una copia previa automáticamente cuando la base ya tiene datos.
+
+> **Copia automática diaria (instalación en la PC de la librería):** después de instalar y de ejecutar `Retail.Cli.exe migrar`, abre PowerShell **como administrador** y ejecuta una sola vez `.\registrar-tarea-backup.ps1` (viene en el ZIP, junto a `Retail.Cli.exe`). Registra la tarea programada «Retail POS - Copia de seguridad diaria», que corre `Retail.Cli.exe backup` todos los días a las 21:00 como `SYSTEM` (con `-Hora "22:30"` cambias la hora) y, si la PC estaba apagada a esa hora, hace la copia al encenderla (y espera hasta 2 minutos a que SQL Server termine de arrancar). El script también crea la carpeta de respaldos accesible solo para Administradores, `SYSTEM`, el servicio de SQL Server y la cuenta de la aplicación (sin «Usuarios» ni «Usuarios autenticados»), y le da al login `NT AUTHORITY\SYSTEM` los permisos mínimos en SQL Server (sin acceso a usuarios ni contraseñas). Instancia, base y carpeta salen del `appsettings.json` junto a `Retail.Cli.exe` (se pueden forzar con `-Instancia`, `-BaseDeDatos` y `-Directorio`). Si lo ejecutas con una cuenta de administrador distinta a la que usa Retail POS, indica esta última con `-UsuarioApp "EQUIPO\usuario"`.
+>
+> **La tarea no ejecuta el `Retail.Cli.exe` del ZIP, sino una copia protegida en `C:\Program Files\Retail POS\Cli`.** Corre como `SYSTEM`: si apuntara a una carpeta donde un usuario común puede escribir (Descargas, tu perfil), cualquiera podría reemplazar el ejecutable y ejecutar código con esos privilegios. El script copia ahí toda la carpeta (ejecutable, bibliotecas y `appsettings.json`), deja allí los logs (`C:\Program Files\Retail POS\Cli\logs`, solo para administradores) y se niega a continuar si esa carpeta quedara escribible por usuarios sin privilegios. **Vuelve a ejecutar `.\registrar-tarea-backup.ps1` después de actualizar la aplicación** (para refrescar esa copia), **después de restaurar una copia de seguridad** (los permisos de la tarea viven dentro de la base: una copia anterior al script no los tiene; la restauración te avisa) y después de migraciones que agreguen tablas usadas por la copia.
+>
+> Para verificar: `Start-ScheduledTask -TaskName "Retail POS - Copia de seguridad diaria"` y revisa la pantalla **Respaldos** (la copia figura como *Automática*) o los logs en `C:\Program Files\Retail POS\Cli\logs`. Para quitarla: `.\registrar-tarea-backup.ps1 -Desregistrar` (conserva las copias, el login y la copia de la herramienta; con `-RevocarPermisos` ofrece además quitar el permiso `CREATE ANY DATABASE` si el script lo había concedido). Con `-WhatIf` ves qué haría sin cambiar nada.
+
+> **Después de cada `git pull` que traiga migraciones**, vuelve a ejecutar `migrar`. Si te olvidas, la aplicación no abre el login y te indica el comando. `dotnet run --project src/Retail.Cli -- estado` muestra el diagnóstico completo.
+
+---
+
+### 4. Ejecutar la Aplicación e Iniciar Sesión
 ```bash
 dotnet run --project src/Retail.App/Retail.App.csproj
 ```
 
-> **¿Qué pasa en el primer arranque?**  
-> No necesitas crear tablas ni ejecutar scripts SQL manualmente. Al iniciar, el sistema detecta si la base de datos existe, aplica automáticamente todas las migraciones necesarias y carga datos iniciales de prueba (roles, categorías, artículos y un usuario administrador).
-
----
-
-### 4. Iniciar Sesión
-Al abrirse el sistema, verás la pantalla de inicio de sesión. Puedes ingresar con el usuario creado por defecto:
-
-* **Usuario:** `admin`
-* **Contraseña:** `Admin123!`
-* **Rol:** Gerente
+Ingresa con el Gerente que creaste con `inicializar`. No hay usuarios ni contraseñas por defecto: el resto de las cuentas se crea desde el módulo **Usuarios**.
 
 ---
 
@@ -119,11 +129,11 @@ Al abrirse el sistema, verás la pantalla de inicio de sesión. Puedes ingresar 
 Si quieres empaquetar el sistema para instalarlo en la computadora de la librería sin necesidad de instalar .NET SDK en esa máquina, puedes generar un ejecutable único y auto-contenido:
 
 ```bash
-dotnet publish src/Retail.App/Retail.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+dotnet publish src/Retail.App/Retail.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish/Retail-POS
+dotnet publish src/Retail.Cli/Retail.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish/Retail-POS
 ```
 
-El ejecutable listo para usar se generará en la carpeta:  
-`src/Retail.App/bin/Release/net8.0-windows/win-x64/publish/`
+La carpeta `publish/Retail-POS/` queda con `Retail.App.exe`, `Retail.Cli.exe` y el `appsettings.json` que comparten. En la PC de la librería se ejecuta `Retail.Cli.exe migrar` y `Retail.Cli.exe inicializar` antes del primer uso.
 
 ---
 

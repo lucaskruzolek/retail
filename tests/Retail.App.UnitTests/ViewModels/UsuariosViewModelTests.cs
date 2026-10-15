@@ -15,7 +15,10 @@ namespace Retail.App.UnitTests.ViewModels;
 public class UsuariosViewModelTests : IDisposable
 {
     private readonly IUsuarioService _usuarioService;
+    private const int IdActor = 100;
+
     private readonly IUsuarioDialogService _dialogService;
+    private readonly ICurrentUserSession _session;
     private readonly UsuariosViewModel _sut;
 
     public UsuariosViewModelTests()
@@ -23,7 +26,14 @@ public class UsuariosViewModelTests : IDisposable
         _usuarioService = Substitute.For<IUsuarioService>();
         _dialogService = Substitute.For<IUsuarioDialogService>();
 
-        _sut = new UsuariosViewModel(_usuarioService, _dialogService);
+        _session = Substitute.For<ICurrentUserSession>();
+        _session.IdUsuario.Returns(IdActor);
+        _usuarioService.ObtenerRolesAsignablesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Enum.GetValues<RolUsuarioEnum>());
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new List<UsuarioDto>());
+
+        _sut = new UsuariosViewModel(_usuarioService, _dialogService, _session);
     }
 
     [Fact]
@@ -36,7 +46,7 @@ public class UsuariosViewModelTests : IDisposable
             new() { IdUsuario = 2, NombreUsuario = "cajero", Nombre = "Juan", Apellido = "Cajero", Rol = RolUsuarioEnum.Cajero, Activo = true, CreatedAt = DateTime.UtcNow }
         };
 
-        _usuarioService.ListarUsuariosAsync(Arg.Any<CancellationToken>())
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(lista);
 
         // Act
@@ -53,7 +63,7 @@ public class UsuariosViewModelTests : IDisposable
     public async Task CargarUsuariosAsync_Error_FijaMensajeYDisparaAlerta()
     {
         // Arrange
-        _usuarioService.ListarUsuariosAsync(Arg.Any<CancellationToken>())
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new InvalidOperationException("Fallo en la conexión"));
 
         // Act
@@ -76,7 +86,7 @@ public class UsuariosViewModelTests : IDisposable
             new() { IdUsuario = 2, NombreUsuario = "cajero", Nombre = "Juan", Apellido = "Perez", Rol = RolUsuarioEnum.Cajero, Activo = true, CreatedAt = DateTime.UtcNow }
         };
 
-        _usuarioService.ListarUsuariosAsync(Arg.Any<CancellationToken>())
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(lista);
 
         await _sut.CargarUsuariosCommand.ExecuteAsync(null);
@@ -106,13 +116,17 @@ public class UsuariosViewModelTests : IDisposable
     public async Task NuevoUsuarioAsync_DialogoConfirmado_RegistraUsuarioYRecarga()
     {
         // Arrange
+        // La pantalla carga la lista y los roles asignables al abrirse.
+        await _sut.CargarUsuariosCommand.ExecuteAsync(null);
+
         var dto = new CrearUsuarioDto
         {
             NombreUsuario = "nuevo",
             Nombre = "Nuevo",
             Apellido = "Operador",
             Password = "Password123!",
-            Rol = RolUsuarioEnum.Cajero
+            Rol = RolUsuarioEnum.Cajero,
+            EmailRecuperacion = null
         };
 
         var nuevo = new UsuarioDto
@@ -126,22 +140,22 @@ public class UsuariosViewModelTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        _dialogService.MostrarDialogoCrear(Arg.Any<Func<CrearUsuarioDto, Task>>())
+        _dialogService.MostrarDialogoCrear(Arg.Any<IReadOnlyList<RolUsuarioEnum>>(), Arg.Any<Func<CrearUsuarioDto, Task>>())
             .Returns(callInfo =>
             {
                 var callback = callInfo.Arg<Func<CrearUsuarioDto, Task>?>();
                 callback?.Invoke(dto).GetAwaiter().GetResult();
                 return dto;
             });
-        _usuarioService.RegistrarUsuarioAsync(dto, Arg.Any<CancellationToken>()).Returns(nuevo);
-        _usuarioService.ListarUsuariosAsync(Arg.Any<CancellationToken>())
+        _usuarioService.RegistrarUsuarioAsync(Arg.Any<int>(), dto, Arg.Any<CancellationToken>()).Returns(nuevo);
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new List<UsuarioDto> { nuevo });
 
         // Act
         await _sut.NuevoUsuarioCommand.ExecuteAsync(null);
 
         // Assert
-        await _usuarioService.Received(1).RegistrarUsuarioAsync(dto, Arg.Any<CancellationToken>());
+        await _usuarioService.Received(1).RegistrarUsuarioAsync(IdActor, dto, Arg.Any<CancellationToken>());
         _dialogService.Received(1).MostrarInformacion("Operación Exitosa", Arg.Is<string>(s => s.Contains("nuevo")));
         _sut.Usuarios.Should().Contain(u => u.IdUsuario == 5);
     }
@@ -150,13 +164,13 @@ public class UsuariosViewModelTests : IDisposable
     public async Task NuevoUsuarioAsync_DialogoCancelado_NoLlamaAlServicio()
     {
         // Arrange
-        _dialogService.MostrarDialogoCrear(Arg.Any<Func<CrearUsuarioDto, Task>>()).Returns((CrearUsuarioDto?)null);
+        _dialogService.MostrarDialogoCrear(Arg.Any<IReadOnlyList<RolUsuarioEnum>>(), Arg.Any<Func<CrearUsuarioDto, Task>>()).Returns((CrearUsuarioDto?)null);
 
         // Act
         await _sut.NuevoUsuarioCommand.ExecuteAsync(null);
 
         // Assert
-        await _usuarioService.DidNotReceive().RegistrarUsuarioAsync(Arg.Any<CrearUsuarioDto>(), Arg.Any<CancellationToken>());
+        await _usuarioService.DidNotReceive().RegistrarUsuarioAsync(Arg.Any<int>(), Arg.Any<CrearUsuarioDto>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -170,13 +184,16 @@ public class UsuariosViewModelTests : IDisposable
 
         // Assert
         _dialogService.Received(1).MostrarError("Selección Requerida", Arg.Any<string>());
-        _dialogService.DidNotReceive().MostrarDialogoModificar(Arg.Any<UsuarioDto>(), Arg.Any<Func<ModificarUsuarioDto, Task>>());
+        _dialogService.DidNotReceive().MostrarDialogoModificar(Arg.Any<UsuarioDto>(), Arg.Any<IReadOnlyList<RolUsuarioEnum>>(), Arg.Any<Func<ModificarUsuarioDto, Task>>());
     }
 
     [Fact]
     public async Task EditarUsuarioAsync_ConUsuario_ActualizaYRecarga()
     {
         // Arrange
+        // La pantalla carga la lista y los roles asignables al abrirse.
+        await _sut.CargarUsuariosCommand.ExecuteAsync(null);
+
         var usuario = new UsuarioDto
         {
             IdUsuario = 2,
@@ -193,7 +210,8 @@ public class UsuariosViewModelTests : IDisposable
             IdUsuario = 2,
             Nombre = "Juan",
             Apellido = "Modificado",
-            Rol = RolUsuarioEnum.Encargado
+            Rol = RolUsuarioEnum.Encargado,
+            EmailRecuperacion = null
         };
 
         var usuarioActualizado = new UsuarioDto
@@ -207,22 +225,22 @@ public class UsuariosViewModelTests : IDisposable
             CreatedAt = DateTime.UtcNow
         };
 
-        _dialogService.MostrarDialogoModificar(usuario, Arg.Any<Func<ModificarUsuarioDto, Task>>())
+        _dialogService.MostrarDialogoModificar(usuario, Arg.Any<IReadOnlyList<RolUsuarioEnum>>(), Arg.Any<Func<ModificarUsuarioDto, Task>>())
             .Returns(callInfo =>
             {
                 var callback = callInfo.Arg<Func<ModificarUsuarioDto, Task>?>();
                 callback?.Invoke(modDto).GetAwaiter().GetResult();
                 return modDto;
             });
-        _usuarioService.ModificarUsuarioAsync(modDto, Arg.Any<CancellationToken>()).Returns(usuarioActualizado);
-        _usuarioService.ListarUsuariosAsync(Arg.Any<CancellationToken>())
+        _usuarioService.ModificarUsuarioAsync(Arg.Any<int>(), modDto, Arg.Any<CancellationToken>()).Returns(usuarioActualizado);
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new List<UsuarioDto> { usuarioActualizado });
 
         // Act
         await _sut.EditarUsuarioCommand.ExecuteAsync(usuario);
 
         // Assert
-        await _usuarioService.Received(1).ModificarUsuarioAsync(modDto, Arg.Any<CancellationToken>());
+        await _usuarioService.Received(1).ModificarUsuarioAsync(IdActor, modDto, Arg.Any<CancellationToken>());
         _dialogService.Received(1).MostrarInformacion("Operación Exitosa", Arg.Is<string>(s => s.Contains("Juan Modificado")));
     }
 
@@ -230,6 +248,9 @@ public class UsuariosViewModelTests : IDisposable
     public async Task BajaUsuarioAsync_EsUltimoGerente_CapturaUltimoGerenteExceptionYNotifica()
     {
         // Arrange
+        // La pantalla carga la lista y los roles asignables al abrirse.
+        await _sut.CargarUsuariosCommand.ExecuteAsync(null);
+
         var gerente = new UsuarioDto
         {
             IdUsuario = 1,
@@ -242,7 +263,7 @@ public class UsuariosViewModelTests : IDisposable
         };
 
         _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
-        _usuarioService.BajaUsuarioAsync(1, Arg.Any<CancellationToken>())
+        _usuarioService.BajaUsuarioAsync(Arg.Any<int>(), 1, Arg.Any<CancellationToken>())
             .ThrowsAsync(new UltimoGerenteException(1));
 
         // Act
@@ -274,7 +295,7 @@ public class UsuariosViewModelTests : IDisposable
         await _sut.BajaUsuarioCommand.ExecuteAsync(usuario);
 
         // Assert
-        await _usuarioService.DidNotReceive().BajaUsuarioAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _usuarioService.DidNotReceive().BajaUsuarioAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -298,13 +319,16 @@ public class UsuariosViewModelTests : IDisposable
         // Assert
         _dialogService.Received(1).MostrarInformacion("Aviso", Arg.Is<string>(s => s.Contains("ya se encuentra dado de baja")));
         _dialogService.DidNotReceive().Confirmar(Arg.Any<string>(), Arg.Any<string>());
-        await _usuarioService.DidNotReceive().BajaUsuarioAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _usuarioService.DidNotReceive().BajaUsuarioAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task RestablecerPasswordAsync_DialogoConfirmado_InvocaServicio()
     {
         // Arrange
+        // La pantalla carga la lista y los roles asignables al abrirse.
+        await _sut.CargarUsuariosCommand.ExecuteAsync(null);
+
         var usuario = new UsuarioDto
         {
             IdUsuario = 2,
@@ -334,7 +358,7 @@ public class UsuariosViewModelTests : IDisposable
         await _sut.RestablecerPasswordCommand.ExecuteAsync(usuario);
 
         // Assert
-        await _usuarioService.Received(1).CambiarPasswordAsync(dto, Arg.Any<CancellationToken>());
+        await _usuarioService.Received(1).CambiarPasswordAsync(Arg.Any<int>(), dto, Arg.Any<CancellationToken>());
         _dialogService.Received(1).MostrarInformacion("Contraseña Actualizada", Arg.Is<string>(s => s.Contains("cajero")));
     }
 
@@ -363,5 +387,74 @@ public class UsuariosViewModelTests : IDisposable
     {
         _sut.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    [Fact]
+    public async Task EditarUsuarioAsync_RolFueraDeLosAsignables_AvisaSinAbrirElDialogo()
+    {
+        // Arrange: un Administrador solo gestiona Cajeros y Encargados.
+        _usuarioService.ObtenerRolesAsignablesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new[] { RolUsuarioEnum.Cajero, RolUsuarioEnum.Encargado });
+        await _sut.CargarUsuariosCommand.ExecuteAsync(null);
+
+        var gerente = new UsuarioDto
+        {
+            IdUsuario = 1,
+            NombreUsuario = "gerente",
+            Nombre = "Ana",
+            Apellido = "Gómez",
+            Rol = RolUsuarioEnum.Gerente,
+            Activo = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Act
+        await _sut.EditarUsuarioCommand.ExecuteAsync(gerente);
+
+        // Assert
+        _dialogService.Received(1).MostrarError("Operación no permitida", Arg.Is<string>(m => m.Contains("Ana Gómez")));
+        _dialogService.DidNotReceive().MostrarDialogoModificar(
+            Arg.Any<UsuarioDto>(), Arg.Any<IReadOnlyList<RolUsuarioEnum>>(), Arg.Any<Func<ModificarUsuarioDto, Task>>());
+    }
+
+    [Fact]
+    public async Task NuevoUsuarioAsync_PasaAlDialogoLosRolesAsignablesDelActor()
+    {
+        // Arrange
+        var rolesAdministrador = new[] { RolUsuarioEnum.Cajero, RolUsuarioEnum.Encargado };
+        _usuarioService.ObtenerRolesAsignablesAsync(IdActor, Arg.Any<CancellationToken>()).Returns(rolesAdministrador);
+        await _sut.CargarUsuariosCommand.ExecuteAsync(null);
+
+        // Act
+        await _sut.NuevoUsuarioCommand.ExecuteAsync(null);
+
+        // Assert: el combo del formulario solo ofrece lo que el servicio permitiría.
+        _dialogService.Received(1).MostrarDialogoCrear(
+            Arg.Is<IReadOnlyList<RolUsuarioEnum>>(r => r.SequenceEqual(rolesAdministrador)),
+            Arg.Any<Func<CrearUsuarioDto, Task>>());
+    }
+
+    [Fact]
+    public async Task RestablecerPasswordAsync_FilaPropia_AbreElCambioPropioEnLugarDelBlanqueo()
+    {
+        // Arrange
+        await _sut.CargarUsuariosCommand.ExecuteAsync(null);
+        var cuentaPropia = new UsuarioDto
+        {
+            IdUsuario = IdActor,
+            NombreUsuario = "gerente",
+            Nombre = "Ana",
+            Apellido = "Gómez",
+            Rol = RolUsuarioEnum.Gerente,
+            Activo = true,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        // Act
+        await _sut.RestablecerPasswordCommand.ExecuteAsync(cuentaPropia);
+
+        // Assert: blanquear la propia cuenta no pediría la contraseña actual.
+        _dialogService.Received(1).MostrarDialogoCambioPropio(cuentaPropia, Arg.Any<Func<CambiarPasswordDto, Task>>());
+        _dialogService.DidNotReceive().MostrarDialogoCambiarPassword(Arg.Any<UsuarioDto>(), Arg.Any<Func<CambiarPasswordDto, Task>>());
     }
 }

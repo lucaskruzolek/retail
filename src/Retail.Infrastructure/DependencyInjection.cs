@@ -1,10 +1,13 @@
+using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Retail.Application.DTOs.Backups;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
+using Retail.Infrastructure.Backups;
 using Retail.Infrastructure.ExternalServices.ArcaSdk;
 using Retail.Infrastructure.Hardware;
 using Retail.Infrastructure.Persistence.Context;
@@ -61,12 +64,55 @@ public static class DependencyInjection
         services.AddScoped<ICatalogoProveedorQueryService, Retail.Infrastructure.Persistence.Services.CatalogoProveedorQueryService>();
         services.AddScoped<IArticuloQueryService, Retail.Infrastructure.Persistence.Services.ArticuloQueryService>();
         services.AddScoped<IClienteQueryService, Retail.Infrastructure.Persistence.Services.ClienteQueryService>();
+        services.AddScoped<IEsquemaBaseDatos, Retail.Infrastructure.Persistence.Services.EsquemaBaseDatos>();
 
-        // 5. Procesamiento Streaming de Planillas Excel (MiniExcel)
+        // 5. Copias de seguridad (RF-22): directorio dedicado, motor SQL Server y política de retención.
+        services.Configure<BackupOptions>(configuration.GetSection(BackupOptions.SectionName));
+        services.AddSingleton<IArchivosBackup, ArchivosBackup>();
+        services.AddScoped<IEjecutorBackupBaseDatos, SqlServerEjecutorBackup>();
+
+        // Restauración (D-17): bloqueo entre restores y copias (sp_getapplock sobre master).
+        services.AddScoped<IBloqueoRestauracion, SqlServerBloqueoRestauracion>();
+        services.AddScoped<IRestauradorBaseDatos, SqlServerRestauradorBaseDatos>();
+        services.AddSingleton(serviceProvider =>
+        {
+            var opciones = serviceProvider.GetRequiredService<IOptions<BackupOptions>>().Value;
+            if (opciones.CantidadMaximaCopias < 1)
+            {
+                throw new InvalidOperationException(
+                    $"{BackupOptions.SectionName}:CantidadMaximaCopias debe ser al menos 1: si no, la retención borraría la copia recién hecha.");
+            }
+
+            if (opciones.DiasRetencionPreRestauracion < 1)
+            {
+                throw new InvalidOperationException(
+                    $"{BackupOptions.SectionName}:DiasRetencionPreRestauracion debe ser al menos 1: la copia previa a restaurar es la red de seguridad de los datos reemplazados.");
+            }
+
+            return new PoliticaBackup(opciones.CantidadMaximaCopias, ObtenerVersionAplicacion(), opciones.DiasRetencionPreRestauracion);
+        });
+
+        // 6. Procesamiento Streaming de Planillas Excel (MiniExcel)
         services.AddSingleton<IExcelCatalogParser, Retail.Infrastructure.ExternalServices.Excel.ExcelCatalogParser>();
 
-        // 6. Reemplazamos el doble de prueba por la implementación real de CajaService.
+        // 7. Reemplazamos el doble de prueba por la implementación real de CajaService.
         services.AddScoped<Retail.Application.Interfaces.Services.ICajaService, Retail.Application.Services.CajaService>();
         return services;
+    }
+
+    /// <summary>
+    /// Versión que se registra en cada copia: la del ejecutable que la pide (Retail.App o Retail.Cli comparten la
+    /// versión de <c>Directory.Build.props</c>).
+    /// </summary>
+    private static string ObtenerVersionAplicacion()
+    {
+        var ensamblado = Assembly.GetEntryAssembly() ?? typeof(DependencyInjection).Assembly;
+        var version = ensamblado.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+            ?? ensamblado.GetName().Version?.ToString()
+            ?? "desconocida";
+
+        // Se descarta el sufijo "+<commit>" que agrega el SDK: alcanza con la versión del producto.
+        var corte = version.IndexOf('+', StringComparison.Ordinal);
+        return corte > 0 ? version[..corte] : version;
     }
 }
