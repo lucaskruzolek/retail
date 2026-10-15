@@ -572,7 +572,7 @@
                         </Border>
                     </DockPanel>
 
-                    <TextBlock Text="Los siguientes botones provocan deliberadamente excepciones no controladas para comprobar que el sistema no aborta el proceso, asienta el diagnóstico en logs/retail-.log y presenta el diálogo amigable de mostrador al operador."
+                    <TextBlock Text="Los siguientes botones provocan deliberadamente excepciones no controladas para comprobar que el sistema no aborta el proceso, asienta el diagnóstico en %LOCALAPPDATA%\Retail POS\logs\retail-.log y presenta el diálogo amigable de mostrador al operador."
                                Style="{StaticResource TextBlockBodySecondary}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,16" />

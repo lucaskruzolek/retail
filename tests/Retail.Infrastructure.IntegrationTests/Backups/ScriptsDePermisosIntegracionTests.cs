@@ -291,6 +291,91 @@ public sealed class ScriptsDePermisosIntegracionTests : IDisposable
         conExtra.Should().Contain(SidDeLaApp);
     }
 
+    /// <summary>
+    /// Instalación de prueba: <c>_raiz\instalacion\app</c> protegida (herencia cortada; solo Administradores, SYSTEM y la cuenta
+    /// de las pruebas, que no es administradora y no figura como sospechosa salvo que se pase como cuenta extra) con un
+    /// <c>Retail.Cli.exe</c> adentro. Toda la cadena bajo <c>_raiz</c> queda protegida.
+    /// </summary>
+    private string CrearInstalacionProtegida()
+    {
+        var superior = Directory.CreateDirectory(Path.Combine(_raiz, "instalacion")).FullName;
+        EjecutarConElModulo($"Set-PermisoDeCarpeta -Ruta {Literal(superior)} -CuentasModificar @({Literal(CuentaDeLaApp)})");
+
+        var instalacion = Directory.CreateDirectory(Path.Combine(superior, "app")).FullName;
+        File.WriteAllText(Path.Combine(instalacion, "Retail.Cli.exe"), "x");
+        return instalacion;
+    }
+
+    [Fact]
+    public void GetEscrituraEnInstalacion_CarpetaSuperiorEscribiblePorUsuariosAutenticados_InformaLaCarpetaSuperior()
+    {
+        // Arrange: la carpeta de la instalación está protegida, pero su padre da Modificar a "Usuarios autenticados": quien puede
+        // renombrar el padre puede poner otra carpeta con otro ejecutable que la tarea (SYSTEM) ejecutaría.
+        var instalacion = CrearHijaQueHeredaUsuariosAutenticados();
+        File.WriteAllText(Path.Combine(instalacion, "Retail.Cli.exe"), "x");
+        EjecutarConElModulo($"Set-PermisoDeCarpeta -Ruta {Literal(instalacion)} -CuentasModificar @({Literal(CuentaDeLaApp)})");
+        var padre = Path.GetDirectoryName(instalacion)!;
+
+        // Act
+        var hallazgos = EjecutarConElModulo($"Get-EscrituraEnInstalacion -Ruta {Literal(instalacion)}");
+
+        // Assert
+        hallazgos.Should().Contain($"{padre}: {SidUsuariosAutenticados}");
+        hallazgos.Should().NotContain($"{instalacion}:", "la propia carpeta sí está protegida: el problema es solo la superior");
+    }
+
+    [Fact]
+    public void GetEscrituraEnInstalacion_CadenaProtegida_NoInformaNadaBajoLaRaizDeLaPrueba()
+    {
+        // Arrange
+        var instalacion = CrearInstalacionProtegida();
+
+        // Act
+        var hallazgos = EjecutarConElModulo($"Get-EscrituraEnInstalacion -Ruta {Literal(instalacion)}");
+
+        // Assert: las carpetas por encima de la raíz temporal dependen de la PC que corre la prueba y no se evalúan.
+        hallazgos.Should().NotContain(_raiz);
+    }
+
+    [Fact]
+    public void GetEscrituraEnInstalacion_CuentaDeLaAppConModificarEnLaInstalacion_InformaElHallazgo()
+    {
+        // Arrange: la cuenta con la que se usa Retail POS no debe poder modificar el ejecutable.
+        var instalacion = CrearInstalacionProtegida();
+
+        // Act
+        var hallazgos = EjecutarConElModulo(
+            $"Get-EscrituraEnInstalacion -Ruta {Literal(instalacion)} -CuentasExtra @({Literal(CuentaDeLaApp)})");
+
+        // Assert: la regla de la cuenta está en la carpeta superior (heredada por la instalación y por el ejecutable).
+        hallazgos.Should().Contain(SidDeLaApp).And.Contain("Retail.Cli.exe");
+    }
+
+    [Fact]
+    public void GetEscrituraEnInstalacion_CarpetaLogsEscribibleParaUsuarios_LaInforma()
+    {
+        // Arrange: instalación protegida cuya subcarpeta logs es la única escribible por un grupo amplio. Los registros ya no
+        // viven en la instalación (van a %LOCALAPPDATA%), así que "logs" no tiene ninguna excepción: SYSTEM no debe escribir
+        // donde un usuario sin privilegios puede redirigir las escrituras.
+        var instalacion = CrearInstalacionProtegida();
+        var logs = Directory.CreateDirectory(Path.Combine(instalacion, "logs")).FullName;
+        var seguridad = new DirectoryInfo(logs).GetAccessControl();
+        seguridad.AddAccessRule(new FileSystemAccessRule(
+            new SecurityIdentifier(SidUsuarios),
+            FileSystemRights.Modify,
+            InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+            PropagationFlags.None,
+            AccessControlType.Allow));
+        new DirectoryInfo(logs).SetAccessControl(seguridad);
+        File.WriteAllText(Path.Combine(logs, "retail-cli.log"), "x");
+
+        // Act
+        var hallazgos = EjecutarConElModulo($"Get-EscrituraEnInstalacion -Ruta {Literal(instalacion)}");
+
+        // Assert
+        hallazgos.Should().Contain($"{logs}: {SidUsuarios}").And.Contain("retail-cli.log");
+    }
+
     [Fact]
     public void ReadConfiguracionDeCli_ConAppsettings_DevuelveInstanciaBaseYDirectorioExpandido()
     {

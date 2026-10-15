@@ -12,6 +12,7 @@ using Retail.Application;
 using Retail.Application.DTOs.Sistema;
 using Retail.Application.Interfaces.Services;
 using Retail.Infrastructure;
+using Retail.Infrastructure.Logging;
 using Serilog;
 
 namespace Retail.App;
@@ -28,8 +29,8 @@ public partial class App : System.Windows.Application
     public App()
     {
         // 1. Inicialización temprana de Serilog (Bootstrap Logger)
-        var logDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-        var logFilePath = Path.Combine(logDirectory, "retail-.log");
+        // Los registros van a %LOCALAPPDATA%\Retail POS\logs (nunca junto al ejecutable en Program Files).
+        var logFilePath = Path.Combine(UbicacionDeLogs.Directorio(), "retail-.log");
 
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Information()
@@ -276,7 +277,7 @@ public partial class App : System.Windows.Application
         {
             _isShowingExceptionDialog = true;
 
-            var logFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", $"retail-{DateTime.Now:yyyyMMdd}.log");
+            var logFile = Path.Combine(UbicacionDeLogs.Directorio(), $"retail-{DateTime.Now:yyyyMMdd}.log");
             var dialog = new UnhandledExceptionDialog(ex, isFatal, logFile);
 
             if (MainWindow is { IsVisible: true })
@@ -293,7 +294,7 @@ public partial class App : System.Windows.Application
             try
             {
                 System.Windows.MessageBox.Show(
-                    $"Ocurrió un error inesperado:\n\n{ex.Message}\n\nConsulte el archivo de registro en logs/retail-.log",
+                    $"Ocurrió un error inesperado:\n\n{ex.Message}\n\nConsulte el archivo de registro en {UbicacionDeLogs.Directorio()}",
                     "Error en Retail POS",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);

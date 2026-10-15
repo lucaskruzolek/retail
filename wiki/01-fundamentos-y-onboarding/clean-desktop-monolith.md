@@ -119,7 +119,7 @@ flowchart TB
 
     subgraph OS["Servicios del Sistema Operativo Windows"]
         DB[("SQL Server LocalDB\n(mssqllocaldb)")]
-        FS["Sistema de Archivos\n(logs/retail-.log)"]
+        FS["Sistema de Archivos\n(%LOCALAPPDATA%/Retail POS/logs/retail-.log)"]
         PRN["Hardware / Emulador de Tickets\n(tickets/ticket-*.txt)"]
         
         EF -->|Conexión Local IPC / Shmem| DB
