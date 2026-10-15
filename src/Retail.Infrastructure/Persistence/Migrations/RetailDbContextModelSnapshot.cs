@@ -1349,6 +1349,12 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("FechaHora")
+                        .HasDatabaseName("IX_VENTAS_fecha_hora")
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("FechaHora"), new[] { "Subtotal", "Descuento", "Total", "IdUsuario" });
+
                     b.HasIndex("IdCliente");
 
                     b.HasIndex("IdPresupuestoOrigen");

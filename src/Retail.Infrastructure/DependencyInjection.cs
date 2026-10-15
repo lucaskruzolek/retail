@@ -64,6 +64,7 @@ public static class DependencyInjection
         services.AddScoped<ICatalogoProveedorQueryService, Retail.Infrastructure.Persistence.Services.CatalogoProveedorQueryService>();
         services.AddScoped<IArticuloQueryService, Retail.Infrastructure.Persistence.Services.ArticuloQueryService>();
         services.AddScoped<IClienteQueryService, Retail.Infrastructure.Persistence.Services.ClienteQueryService>();
+        services.AddScoped<IReporteQueryService, Retail.Infrastructure.Persistence.Services.ReporteQueryService>();
         services.AddScoped<IEsquemaBaseDatos, Retail.Infrastructure.Persistence.Services.EsquemaBaseDatos>();
 
         // 5. Copias de seguridad (RF-22): directorio dedicado, motor SQL Server y política de retención.

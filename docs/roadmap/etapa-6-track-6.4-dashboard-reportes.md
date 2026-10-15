@@ -14,8 +14,8 @@
 | :--- | :--- | :---: |
 | 0 | ERS v3.3 (RF-24 a RF-26, IU-11, IS-05, RNF-09) y este plan | ✅ ERS (commit `f5f87e8`) y plan aprobado |
 | 1 | Dominio: costo histórico en `DetalleVenta`, con su columna, `CHECK` y migración (adelantadas de la Fase 3) | ✅ Commit `93b187c` |
-| 2 | Aplicación: contratos, DTOs, validadores, `ReporteService` y `ExportacionReportesService` (D-14 a D-18) | ✅ Implementada por subagente y revisada; pendiente de commit |
-| 3 | Infraestructura: índice `IX_VENTAS_fecha_hora` y `ReporteQueryService` | ⏳ |
+| 2 | Aplicación: contratos, DTOs, validadores, `ReporteService` y `ExportacionReportesService` (D-14 a D-18) | ✅ Commit `bc8c80c` |
+| 3 | Infraestructura: índice `IX_VENTAS_fecha_hora` y `ReporteQueryService` (D-19, D-20) | ✅ Implementada por subagente y revisada; pendiente de commit. RNF-09 medido una vez (sección 7.1); el test de rendimiento se eliminó (R-10) |
 | 4 | Exportación: Excel (MiniExcel) y PDF (QuestPDF + gráficos) | ⏳ |
 | 5 | UI: `DashboardView` con LiveCharts2 | ⏳ |
 | 6 | Verificación integral, mapa, DER y nota de wiki | ⏳ |
@@ -45,6 +45,8 @@
 | D-16 | Reloj inyectado: `TimeProvider` de .NET 8 (biblioteca estándar, sin NuGet). En los tests, `RelojDePrueba` fija el instante y la zona (UTC−3). | Cerrada (Fase 2) | "Hoy" y la zona horaria se pueden probar sin depender de la máquina. |
 | D-17 | `ReglasMonetarias.Redondear` en `Retail.Domain/Common` es el único punto de redondeo monetario; `Articulo` delega en él. | Cerrada (Fase 2) | D-06 exigía un criterio único; antes estaba privado en `Articulo` y los reportes lo habrían duplicado. |
 | D-18 | Los importes se redondean de a uno y el margen es la resta de valores ya redondeados. Los totales suman filas crudas y redondean al final. La variación de un porcentaje se informa en **puntos porcentuales**, no como variación relativa. | Cerrada (Fase 2) | Así lo que se muestra cierra visualmente, sin error de redondeo acumulado. Ir de 20 % a 25 % es +5 puntos, no +25 %. |
+| D-19 | `IgnoreQueryFilters()` afecta a **toda** la consulta: toda consulta de reportes que lo use, aunque sea en un `join` o una subconsulta, filtra a mano `DeletedAt == null` en cada tabla que sí deba excluir las bajas (por ejemplo, `Articulos` en "menos vendidos" y en inventario). | Cerrada (Fase 3) | Detectado por el test de R-1: el artículo dado de baja reaparecía en "menos vendidos". Documentado en la Ley 2 de `SISTEMA_DE_PERSISTENCIA.md`. |
+| D-20 | "Menos vendidos" y "sin movimiento" usan `LEFT JOIN` + un único `GROUP BY` (con `HAVING` para el corte), no subconsultas correlacionadas por artículo. | Cerrada (Fase 3) | Medido con 50.000 ventas: 5,5 s a 588 ms y 2,1 s a 197 ms. La subconsulta correlacionada recorre los ítems una vez por artículo. |
 
 ---
 
@@ -218,6 +220,27 @@ Versiones verificadas en el índice oficial de NuGet (`api.nuget.org`) el 2026-1
 | R-9 | Los filtros del documento exportado muestran categoría, marca y cajero como `#<id>`, no por nombre (RF-26 pide los filtros aplicados de forma legible). | Fase 5: la UI conoce los nombres de los combos. Se agregan al filtro como etiquetas de presentación, o el servicio los resuelve. A decidir al diseñar la UI. |
 | R-8 | Dos versiones de SkiaSharp según el proyecto (2.88.9 y 3.119.0). | D-13: referencia explícita a 3.119.0 en Infrastructure. Un test de integración renderiza un gráfico a PNG y verifica la versión cargada. |
 | R-6 | `MainViewModel` es una zona compartida (Ley 10). | Cambio mínimo y avisar a Pablo en el PR. |
+
+---
+
+### 7.1. Medición de RNF-09 (2026-10-15)
+
+Medición única: un test temporal sembró con SQL de conjunto **50.000 ventas, 200.000 ítems y 200 artículos en un año**, y midió la segunda ejecución de cada método (la primera incluye compilar el modelo). Todos quedaron por debajo de 2 s.
+
+| Método | Tiempo | Método | Tiempo |
+| :--- | ---: | :--- | ---: |
+| Resumen de ventas | 230 ms | Rentabilidad por categoría | 381 ms |
+| Ventas por día | 48 ms | Rentabilidad por marca | 377 ms |
+| Ventas por semana | 54 ms | Rentabilidad por artículo | 390 ms |
+| Ventas por mes | 63 ms | Resumen de inventario | 1 ms |
+| Más vendidos (100, por importe) | 318 ms | Stock crítico | 1 ms |
+| Menos vendidos | 588 ms | Sin movimiento | 197 ms |
+
+El tablero hace cinco consultas en secuencia (dos resúmenes, evolución, rentabilidad e inventario), con un costo estimado de alrededor de 1 s.
+
+**Por qué el test se eliminó (decisión del estudiante, 2026-10-15):** en una segunda corrida, el `INSERT` del sembrado se colgó 5 minutos. El diagnóstico con `sys.dm_exec_requests` mostró la espera `RESOURCE_SEMAPHORE`: el equipo tenía 474 MB libres de 8 GB, SQL Server había reducido su memoria objetivo a 263 MB y solo le quedaban **6 MB** para memoria de consultas, contra los 7 MB que pedía el `INSERT`. El resultado dependía del estado de la máquina y no del código, así que no podía quedar en la suite por defecto.
+
+**Riesgo asociado (R-10):** las consultas de reportes también necesitan memoria de trabajo (`GROUP BY`, ordenamientos). En un equipo de mostrador con poca RAM libre, un reporte podría esperar memoria del mismo modo. Mitigación de despliegue: equipo con RAM suficiente y, si hace falta, fijar `min server memory` en la instancia. Revisarlo en el Track 6.2 (rendimiento y empaquetado).
 
 ---
 
