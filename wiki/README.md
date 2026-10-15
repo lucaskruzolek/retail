@@ -88,7 +88,7 @@ graph TD
 ### [04. ⚙️ Sistemas Transversales](04-sistemas-transversales/sistema-de-persistencia.md)
 * [**Sistema de Persistencia:**](04-sistemas-transversales/sistema-de-persistencia.md) LocalDB, convenciones Fluent API, estrategia de índices filtrados para códigos de barra nulables y evaluación en servidor (Push-down to SQL).
 * [**Sistema de Diseño UI:**](04-sistemas-transversales/sistema-de-diseno-ui.md) Identidad visual Windows 11 Fluent, paleta Borravino (#9D0F33), tipografía dual (`Cascadia Code` / `Segoe UI Variable`) y keycaps F1-F12.
-* [**Sistema de Logging y Resiliencia:**](04-sistemas-transversales/sistema-de-logging-y-errores.md) Serilog rotativo (`logs/retail-.log`), trampas globales en hilo STA y diálogo amigable `UnhandledExceptionDialog`.
+* [**Sistema de Logging y Resiliencia:**](04-sistemas-transversales/sistema-de-logging-y-errores.md) Serilog rotativo (`%LOCALAPPDATA%/Retail POS/logs/retail-.log`), trampas globales en hilo STA y diálogo amigable `UnhandledExceptionDialog`.
 * [**Sistema de CI/CD y Empaquetado:**](04-sistemas-transversales/sistema-de-ci-cd.md) Workflows de GitHub Actions, Quality Gates de Release y empaquetado auto-contenido win-x64.
 
 ### [05. 🔄 Casos de Uso y Flujos de Punta a Punta](05-casos-de-uso-y-flujos/flujo-venta-y-descuento-stock.md)

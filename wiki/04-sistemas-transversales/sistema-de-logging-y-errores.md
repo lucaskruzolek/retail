@@ -35,7 +35,8 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .WriteTo.Console()
     .WriteTo.File(
-        path: "logs/retail-.log",
+        // %LOCALAPPDATA%\Retail POS\logs: nunca dentro de Program Files (ver docs/SISTEMA_DE_LOGGING.md)
+        path: Path.Combine(UbicacionDeLogs.Directorio(), "retail-.log"),
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 31,     // Conserva un mes de historial (RNF-03)
         fileSizeLimitBytes: 10_485_760, // 10 MB por archivo
@@ -96,7 +97,7 @@ sequenceDiagram
     actor Cajero as Cajero
     participant UI as Ventana de Mostrador (WPF)
     participant Host as App.xaml.cs (Dispatcher Trap)
-    participant Log as Serilog (logs/retail-*.log)
+    participant Log as Serilog (%LOCALAPPDATA%/Retail POS/logs)
     participant Dlg as UnhandledExceptionDialog (Mica)
 
     UI->>UI: Ocurre fallo inesperado (ej. NullReference o falla de driver)

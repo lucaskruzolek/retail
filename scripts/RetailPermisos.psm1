@@ -165,6 +165,105 @@ function Get-EscrituraDeNoAdministradores
     }
 }
 
+function Get-EscrituraEnInstalacion
+{
+    <#
+    .SYNOPSIS
+        Lista quien sin privilegios podria reemplazar el ejecutable de la tarea: la carpeta de instalacion, su contenido
+        y TODAS las carpetas que la contienen hasta la raiz del disco.
+
+    .DESCRIPTION
+        La tarea programada corre Retail.Cli.exe como SYSTEM directamente desde la carpeta donde esta instalada la
+        aplicacion (no hay una copia aparte). Para que eso no sea una escalada de privilegios:
+
+          1. Nadie sin privilegios debe poder escribir en la carpeta, ni en su contenido (se revisa todo lo que contiene).
+          2. Tampoco en NINGUNA carpeta superior: quien pueda borrar, renombrar o cambiar los permisos de "Retail POS"
+             (o de "Program Files", o del disco) puede mover la carpeta original y poner otra con su propio
+             ejecutable. En las carpetas superiores solo cuentan los derechos que lo permiten (Eliminar, Eliminar
+             subcarpetas y archivos, Cambiar permisos, Tomar posesion) y solo las reglas que se aplican a ESA carpeta:
+             "crear carpetas" en la raiz del disco, que Windows da a "Usuarios" por defecto, no permite reemplazar nada
+             que ya exista, y las reglas "solo subcarpetas y archivos" de la raiz no alcanzan a "Program Files", que
+             no hereda de ella.
+
+        No hay excepciones: ninguna subcarpeta de la instalacion (tampoco "logs") debe ser escribible por no
+        administradores, porque los registros de la aplicacion y de la herramienta van a %LOCALAPPDATA%\Retail POS\logs
+        de cada cuenta, no a la instalacion. Cuentan como "no administradores" los grupos amplios (Todos, Usuarios
+        autenticados, Usuarios) y las cuentas de -CuentasExtra (por ejemplo, la cuenta con la que se usa Retail POS).
+        Devuelve texto legible, uno por hallazgo; una lista vacia significa que la cadena completa esta protegida.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)][string]$Ruta,
+        [string[]]$CuentasExtra = @()
+    )
+
+    $carpeta = [System.IO.Path]::GetFullPath($Ruta).TrimEnd('\')
+
+    $sospechosos = @($script:SidsAmplios)
+    foreach ($cuenta in $CuentasExtra)
+    {
+        $sospechosos += (Get-SidDeCuenta $cuenta).Value
+    }
+
+    # 1. La carpeta y todo lo que contiene, sin excepciones.
+    $elementos = @(Get-Item -LiteralPath $carpeta -Force) + @(Get-ChildItem -LiteralPath $carpeta -Recurse -Force)
+    foreach ($elemento in $elementos)
+    {
+        Get-ReglasDeEscrituraAjena $elemento $sospechosos $script:DerechosDeEscritura $false
+    }
+
+    # 2. Cada carpeta superior, hasta la raiz del disco.
+    $derechosSobreSuperiores =
+        [System.Security.AccessControl.FileSystemRights]::Delete -bor
+        [System.Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor
+        [System.Security.AccessControl.FileSystemRights]::ChangePermissions -bor
+        [System.Security.AccessControl.FileSystemRights]::TakeOwnership
+
+    for ($superior = [System.IO.Path]::GetDirectoryName($carpeta); $superior; $superior = [System.IO.Path]::GetDirectoryName($superior))
+    {
+        Get-ReglasDeEscrituraAjena (Get-Item -LiteralPath $superior -Force) $sospechosos $derechosSobreSuperiores $true
+    }
+}
+
+function Get-ReglasDeEscrituraAjena
+{
+    # Auxiliar de Get-EscrituraEnInstalacion: una linea por cada regla "Permitir" de un sospechoso que incluya alguno de los derechos.
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]$Elemento,
+        [Parameter(Mandatory = $true)][string[]]$Sospechosos,
+        [Parameter(Mandatory = $true)][System.Security.AccessControl.FileSystemRights]$Derechos,
+        [Parameter(Mandatory = $true)][bool]$SoloLasQueAplicanAlElemento
+    )
+
+    $acl = $Elemento.GetAccessControl([System.Security.AccessControl.AccessControlSections]::Access)
+    foreach ($regla in $acl.GetAccessRules($true, $true, [System.Security.Principal.SecurityIdentifier]))
+    {
+        if ($regla.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow)
+        {
+            continue
+        }
+
+        if ($Sospechosos -notcontains $regla.IdentityReference.Value)
+        {
+            continue
+        }
+
+        # Una regla "InheritOnly" afecta a lo que hay debajo, no a la propia carpeta (esas carpetas se revisan por separado).
+        if ($SoloLasQueAplicanAlElemento -and ($regla.PropagationFlags -band [System.Security.AccessControl.PropagationFlags]::InheritOnly))
+        {
+            continue
+        }
+
+        if (([int]$regla.FileSystemRights -band [int]$Derechos) -ne 0)
+        {
+            "$($Elemento.FullName): $($regla.IdentityReference.Value) tiene $($regla.FileSystemRights)"
+        }
+    }
+}
+
 function Read-ConfiguracionDeCli
 {
     <#
@@ -222,4 +321,4 @@ function Test-InstanciaValida
     return [bool]($Instancia -match '^[A-Za-z0-9_.\-\\,:()]+$')
 }
 
-Export-ModuleMember -Function Get-SidDeCuenta, Set-PermisoDeCarpeta, Get-EscrituraDeNoAdministradores, Read-ConfiguracionDeCli, Test-InstanciaValida
+Export-ModuleMember -Function Get-SidDeCuenta, Set-PermisoDeCarpeta, Get-EscrituraDeNoAdministradores, Get-EscrituraEnInstalacion, Read-ConfiguracionDeCli, Test-InstanciaValida

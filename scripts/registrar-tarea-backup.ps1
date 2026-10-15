@@ -5,11 +5,20 @@
 .DESCRIPTION
     Prepara todo lo necesario para que "Retail.Cli backup" corra solo, todos los dias, sin que nadie inicie sesion:
 
-      1. Copia la carpeta de Retail.Cli (ejecutable, bibliotecas y appsettings.json) a "Program Files\Retail POS\Cli" y
-         registra la tarea con ESA copia. La tarea corre como SYSTEM: si apuntara a una carpeta que un usuario comun puede
-         modificar (el perfil, Descargas, la carpeta de publicacion), cualquier usuario podria reemplazar el ejecutable y
-         ejecutar codigo como SYSTEM. Si la carpeta de destino resulta escribible por un usuario sin privilegios, el
-         script se niega a continuar. Volver a ejecutar el script despues de actualizar la aplicacion refresca esa copia.
+      1. Registra la tarea contra el Retail.Cli.exe de la aplicacion INSTALADA (la carpeta donde esta este script; no hace
+         ninguna copia aparte). Asi, al actualizar la aplicacion (reemplazar los archivos de esa carpeta como administrador)
+         la tarea ejecuta automaticamente el Retail.Cli nuevo y no hace falta volver a registrarla. La aplicacion se instala
+         descomprimiendo el ZIP de la version como administrador en una carpeta que solo los administradores puedan
+         modificar, por ejemplo C:\Program Files\Retail POS. La tarea corre como SYSTEM: si el ejecutable estuviera en una
+         carpeta que un usuario comun puede modificar (el perfil, Descargas), cualquiera podria reemplazarlo y ejecutar
+         codigo como SYSTEM. Por eso el script se niega a continuar si la carpeta, su contenido O CUALQUIER CARPETA
+         SUPERIOR hasta la raiz del disco puede ser modificada por Todos, Usuarios autenticados, Usuarios o la cuenta de
+         la aplicacion (quien pudiera renombrar una carpeta superior pondria otro ejecutable en su lugar). No hay
+         excepciones: ninguna subcarpeta de la instalacion debe ser escribible por no administradores. Los registros
+         NO se escriben en la instalacion: la aplicacion y la herramienta usan %LOCALAPPDATA%\Retail POS\logs de la
+         cuenta que las ejecuta (para la tarea, que corre como SYSTEM, es
+         C:\Windows\System32\config\systemprofile\AppData\Local\Retail POS\logs, legible por administradores). Si existe
+         la copia que creaba una version anterior de este script ("Program Files\Retail POS\Cli"), ofrece eliminarla.
       2. Crea la carpeta de respaldos y la deja accesible SOLO para Administradores y SYSTEM (control total) y, con permiso
          de modificacion, para el servicio de SQL Server (escribe los .bak), SYSTEM (la tarea escribe manifiestos y aplica
          la retencion) y la cuenta que usa Retail POS (las copias manuales desde la aplicacion calculan el SHA-256 y
@@ -35,8 +44,9 @@
     Hora diaria de la copia, en formato HH:mm de 24 horas. Por defecto 21:00.
 
 .PARAMETER RutaCli
-    Ruta de Retail.Cli.exe. Por defecto se busca junto al script o en su carpeta padre (instalacion publicada). La tarea
-    necesita el ejecutable publicado: no sirve "dotnet run". Se copia TODA su carpeta a "Program Files\Retail POS\Cli".
+    Ruta de Retail.Cli.exe de la aplicacion instalada. Por defecto se busca junto al script o en su carpeta padre. La
+    tarea necesita el ejecutable publicado: no sirve "dotnet run". La tarea apunta directamente a este archivo (no se
+    copia), asi que su carpeta debe estar protegida: solo administradores pueden modificarla ni ninguna carpeta superior.
 
 .PARAMETER Instancia
     Instancia de SQL Server. Por defecto sale de ConnectionStrings:DefaultConnection del appsettings.json que acompana a
@@ -56,8 +66,8 @@
     copias manuales desde la aplicacion fallarian por falta de permiso en la carpeta.
 
 .PARAMETER Desregistrar
-    Elimina la tarea programada. No borra la carpeta de respaldos ni sus copias, ni el login de SQL Server, ni la copia
-    de la herramienta en Program Files.
+    Elimina la tarea programada. No borra la carpeta de respaldos ni sus copias, ni el login de SQL Server, ni la
+    aplicacion instalada.
 
 .PARAMETER RevocarPermisos
     Solo junto con -Desregistrar. Ademas de eliminar la tarea, ofrece (con confirmacion) quitar el permiso de servidor
@@ -107,7 +117,8 @@ Import-Module (Join-Path $PSScriptRoot "RetailPermisos.psm1") -Force
 
 $NombreTarea = "Retail POS - Copia de seguridad diaria"
 $CuentaSistema = "NT AUTHORITY\SYSTEM"
-$DestinoCli = Join-Path $env:ProgramFiles "Retail POS\Cli"
+# Carpeta "Cli" que creaba la version anterior de este script (copia del CLI): hoy se ofrece eliminarla.
+$CopiaAnteriorCli = Join-Path $env:ProgramFiles "Retail POS\Cli"
 # Texto que la tarea registrada lleva en su descripcion cuando ESTE script fue quien concedio CREATE ANY DATABASE.
 $MarcaPermisoDeServidor = "[permiso-de-servidor-concedido-por-el-script]"
 
@@ -194,6 +205,21 @@ function Test-MismaRuta([string]$A, [string]$B)
     return [IO.Path]::GetFullPath($A).TrimEnd('\') -ieq [IO.Path]::GetFullPath($B).TrimEnd('\')
 }
 
+function Test-EstaDentroDe([string]$Ruta, [string]$Carpeta)
+{
+    $carpetaCompleta = [IO.Path]::GetFullPath($Carpeta).TrimEnd('\') + "\"
+    return [IO.Path]::GetFullPath($Ruta).TrimEnd('\').StartsWith($carpetaCompleta, [StringComparison]::OrdinalIgnoreCase)
+}
+
+function Find-RutaCli
+{
+    $candidatos = @(
+        (Join-Path $PSScriptRoot "Retail.Cli.exe"),
+        (Join-Path (Split-Path $PSScriptRoot -Parent) "Retail.Cli.exe")
+    )
+    return $candidatos | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+}
+
 # --- Requisitos -----------------------------------------------------------------------------------------------------
 
 $vistaPrevia = [bool]$WhatIfPreference
@@ -216,8 +242,9 @@ $tareaActual = Get-ScheduledTask -TaskName $NombreTarea -ErrorAction SilentlyCon
 
 if ($Desregistrar)
 {
-    # La configuracion se busca en la copia instalada por este script: la carpeta original puede no existir mas.
-    Resolve-Configuracion $(if ($RutaCli) { Split-Path $RutaCli -Parent } elseif (Test-Path -LiteralPath $DestinoCli) { $DestinoCli } else { $null })
+    # La configuracion se busca junto al Retail.Cli.exe instalado (el indicado o el que acompana al script).
+    $rutaCliDesregistro = if ($RutaCli) { $RutaCli } else { Find-RutaCli }
+    Resolve-Configuracion $(if ($rutaCliDesregistro) { Split-Path $rutaCliDesregistro -Parent } else { $null })
 
     if ($RevocarPermisos)
     {
@@ -249,17 +276,13 @@ if ($Desregistrar)
         Write-Host "La tarea '$NombreTarea' no estaba registrada: no hay nada que eliminar."
     }
 
-    Write-Host "No se tocaron la carpeta de respaldos ($Directorio), sus copias, el login de SQL Server ($CuentaSistema) ni la copia de la herramienta ($DestinoCli)."
+    Write-Host "No se tocaron la carpeta de respaldos ($Directorio), sus copias, el login de SQL Server ($CuentaSistema) ni la aplicacion instalada."
     return
 }
 
 if (-not $RutaCli)
 {
-    $candidatos = @(
-        (Join-Path $PSScriptRoot "Retail.Cli.exe"),
-        (Join-Path (Split-Path $PSScriptRoot -Parent) "Retail.Cli.exe")
-    )
-    $RutaCli = $candidatos | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    $RutaCli = Find-RutaCli
 }
 
 if (-not $RutaCli -or -not (Test-Path -LiteralPath $RutaCli -PathType Leaf))
@@ -271,8 +294,9 @@ $RutaCli = (Resolve-Path -LiteralPath $RutaCli).Path
 $CarpetaCli = Split-Path $RutaCli -Parent
 Resolve-Configuracion $CarpetaCli
 
-# Lo que la tarea ejecuta de verdad es la copia protegida, no el original.
-$RutaCliTarea = Join-Path $DestinoCli (Split-Path $RutaCli -Leaf)
+# La tarea ejecuta directamente el Retail.Cli.exe de la aplicacion instalada (sin copia aparte).
+$RutaCliTarea = $RutaCli
+$CarpetaLogsTarea = Join-Path $env:SystemRoot "System32\config\systemprofile\AppData\Local\Retail POS\logs"
 $Directorio = [System.IO.Path]::GetFullPath($Directorio).TrimEnd('\')
 
 # Se cambian los permisos de la carpeta: nunca de la raiz de un disco.
@@ -288,6 +312,18 @@ try
 catch
 {
     throw "La cuenta de Windows '$UsuarioApp' no existe en este equipo. Indique una cuenta valida con -UsuarioApp (formato EQUIPO\usuario)."
+}
+
+# --- Proteccion de la instalacion (escalada de privilegios) ----------------------------------------------------------------
+# La tarea corre como SYSTEM directamente desde esta carpeta: si alguien sin privilegios puede modificar el ejecutable, su
+# contenido o cualquier carpeta superior (renombrarla y poner otra con su propio ejecutable), obtiene SYSTEM. Se comprueba
+# tambien en -WhatIf, antes de consultar SQL Server. No hay excepciones: los registros van a %LOCALAPPDATA%, no a la instalacion.
+$escribibles = @(Get-EscrituraEnInstalacion -Ruta $CarpetaCli -CuentasExtra @($UsuarioApp))
+if ($escribibles.Count -gt 0)
+{
+    $detalle = ($escribibles | Select-Object -First 5) -join [Environment]::NewLine
+    throw ("Instale Retail POS en una carpeta que solo puedan modificar los administradores, por ejemplo C:\Program Files\Retail POS (descomprima el ZIP ahi como administrador), y vuelva a ejecutar el script desde esa carpeta." +
+        "$([Environment]::NewLine)La carpeta '$CarpetaCli' (o su contenido, o una carpeta superior) puede ser modificada por usuarios sin privilegios y la tarea corre como SYSTEM; esos usuarios podrian reemplazar el ejecutable y obtener SYSTEM. Hallazgos:$([Environment]::NewLine)$detalle")
 }
 
 # --- Instancia de SQL Server ----------------------------------------------------------------------------------------
@@ -327,56 +363,13 @@ Write-Host "Instancia:          $Instancia (servicio: $cuentaMotor)"
 Write-Host "Base:               $BaseDeDatos"
 Write-Host "Carpeta:            $Directorio"
 Write-Host "Cuenta de la app:   $UsuarioApp"
-Write-Host "Origen del CLI:     $CarpetaCli"
-Write-Host "Ejecutable (copia): $RutaCliTarea"
+Write-Host "Instalacion:        $CarpetaCli"
+Write-Host "Ejecutable (tarea): $RutaCliTarea"
+Write-Host "Registros (tarea):  $CarpetaLogsTarea"
 Write-Host "Hora:               $Hora todos los dias"
 Write-Host ""
 
-# --- 1. Copia protegida de la herramienta ---------------------------------------------------------------------------
-
-$RaizCli = Split-Path $DestinoCli -Parent
-
-if (Test-MismaRuta $CarpetaCli $DestinoCli)
-{
-    Write-Host "Retail.Cli ya se ejecuta desde ${DestinoCli}: no hace falta copiarlo."
-}
-elseif ($PSCmdlet.ShouldProcess($DestinoCli, "Copiar TODA la carpeta '$CarpetaCli' (ejecutable, bibliotecas y appsettings.json; sin los registros) para que la tarea no ejecute como SYSTEM un archivo que un usuario comun pueda reemplazar"))
-{
-    if (-not (Test-Path -LiteralPath $DestinoCli))
-    {
-        [void](New-Item -ItemType Directory -Path $DestinoCli -Force)
-    }
-
-    # Se vacia la copia anterior (salvo sus registros) para no arrastrar bibliotecas que la version nueva ya no usa.
-    Get-ChildItem -LiteralPath $DestinoCli -Force | Where-Object { $_.Name -ne "logs" } | Remove-Item -Recurse -Force
-    Get-ChildItem -LiteralPath $CarpetaCli -Force | Where-Object { $_.Name -ne "logs" } | Copy-Item -Destination $DestinoCli -Recurse -Force
-    Write-Host "Retail.Cli copiado a $DestinoCli."
-}
-
-if ($PSCmdlet.ShouldProcess((Join-Path $DestinoCli "logs"), "Crear la carpeta de registros con control total solo para Administradores y SYSTEM"))
-{
-    $carpetaLogs = Join-Path $DestinoCli "logs"
-    if (-not (Test-Path -LiteralPath $carpetaLogs))
-    {
-        [void](New-Item -ItemType Directory -Path $carpetaLogs -Force)
-    }
-
-    Set-PermisoDeCarpeta -Ruta $carpetaLogs -CuentasModificar @()
-}
-
-# Si alguien sin privilegios pudiera modificar la copia (permisos heredados raros, una carpeta preexistente), la tarea
-# seria una escalada de privilegios: se aborta antes de registrarla.
-if (Test-Path -LiteralPath $RaizCli)
-{
-    $escribibles = @(Get-EscrituraDeNoAdministradores -Ruta $RaizCli -CuentasExtra @($UsuarioApp))
-    if ($escribibles.Count -gt 0)
-    {
-        $detalle = ($escribibles | Select-Object -First 5) -join [Environment]::NewLine
-        throw "La carpeta de la herramienta ($RaizCli) puede ser modificada por usuarios sin privilegios y la tarea corre como SYSTEM. Corrija sus permisos (solo Administradores y SYSTEM deben poder escribir) y vuelva a ejecutar el script:$([Environment]::NewLine)$detalle"
-    }
-}
-
-# --- 2. Carpeta de respaldos y permisos -----------------------------------------------------------------------------
+# --- 1. Carpeta de respaldos y permisos -----------------------------------------------------------------------------
 
 if ($PSCmdlet.ShouldProcess($Directorio, "Crear la carpeta si falta y dejarla solo para Administradores y SYSTEM (control total) y Modificar a: $cuentaMotor, $CuentaSistema, $UsuarioApp (sin herencia ni grupos amplios)"))
 {
@@ -389,7 +382,7 @@ if ($PSCmdlet.ShouldProcess($Directorio, "Crear la carpeta si falta y dejarla so
     Write-Host "Carpeta de respaldos lista."
 }
 
-# --- 3. Login y permisos de SQL Server ------------------------------------------------------------------------------
+# --- 2. Login y permisos de SQL Server ------------------------------------------------------------------------------
 
 $cuentaSql = Get-Delimitado $CuentaSistema
 
@@ -414,7 +407,7 @@ foreach ($permiso in $Permisos)
     }
 }
 
-# --- 4. Tarea programada --------------------------------------------------------------------------------------------
+# --- 3. Tarea programada --------------------------------------------------------------------------------------------
 
 if ($PSCmdlet.ShouldProcess($NombreTarea, "Registrar (o actualizar) la tarea: '$RutaCliTarea backup' como $CuentaSistema a las $Hora, iniciar si se perdio"))
 {
@@ -426,7 +419,7 @@ if ($PSCmdlet.ShouldProcess($NombreTarea, "Registrar (o actualizar) la tarea: '$
         $descripcion = "$descripcion $MarcaPermisoDeServidor"
     }
 
-    $accion = New-ScheduledTaskAction -Execute $RutaCliTarea -Argument "backup" -WorkingDirectory $DestinoCli
+    $accion = New-ScheduledTaskAction -Execute $RutaCliTarea -Argument "backup" -WorkingDirectory $CarpetaCli
     $disparador = New-ScheduledTaskTrigger -Daily -At $horaDelDia
     $principal = New-ScheduledTaskPrincipal -UserId $CuentaSistema -LogonType ServiceAccount -RunLevel Highest
     $configuracion = New-ScheduledTaskSettingsSet `
@@ -448,6 +441,22 @@ if ($PSCmdlet.ShouldProcess($NombreTarea, "Registrar (o actualizar) la tarea: '$
     Write-Host "Tarea '$NombreTarea' registrada."
 }
 
+# --- 4. Migracion desde la version anterior del script ----------------------------------------------------------------
+# La version anterior copiaba el CLI a "Program Files\Retail POS\Cli" y registraba la tarea con esa copia, que quedaba
+# desactualizada al actualizar la aplicacion. La tarea ya apunta a la instalacion (arriba), asi que la copia sobra.
+# Se elimina despues de registrar la tarea para que nunca quede una tarea apuntando a una carpeta borrada.
+
+$copiaAnteriorEliminada = $false
+if ((Test-Path -LiteralPath $CopiaAnteriorCli) -and -not (Test-MismaRuta $CarpetaCli $CopiaAnteriorCli) -and -not (Test-EstaDentroDe $CarpetaCli $CopiaAnteriorCli))
+{
+    if ($PSCmdlet.ShouldProcess($CopiaAnteriorCli, "Eliminar la copia del CLI que creaba la version anterior de este script (sus registros incluidos): la tarea ya usa la instalacion"))
+    {
+        Remove-Item -LiteralPath $CopiaAnteriorCli -Recurse -Force
+        $copiaAnteriorEliminada = $true
+        Write-Host "Copia anterior eliminada: $CopiaAnteriorCli."
+    }
+}
+
 # --- Resumen --------------------------------------------------------------------------------------------------------
 
 if ($vistaPrevia)
@@ -462,15 +471,26 @@ Write-Host "Resumen"
 Write-Host "  - Todos los dias a las $Hora corre: $RutaCliTarea backup (como $CuentaSistema)."
 Write-Host "  - Si la PC estaba apagada a esa hora, la copia corre al encenderla (y espera hasta 2 minutos a que SQL Server este listo)."
 Write-Host "  - Las copias se guardan en $Directorio (la cantidad que se conserva sale de BackupSettings en appsettings.json)."
-Write-Host "  - La tarea usa la copia protegida de Retail.Cli en $DestinoCli. Despues de actualizar la aplicacion, o de restaurar"
-Write-Host "    una copia de seguridad o migrar la base, vuelva a ejecutar este script como administrador."
+Write-Host "  - La tarea usa el Retail.Cli de la aplicacion instalada ($CarpetaCli): al actualizar la aplicacion (reemplazando los"
+Write-Host "    archivos de esa carpeta como administrador) la tarea ejecuta el CLI nuevo sin volver a registrarla."
+Write-Host "  - Si restaura una copia de seguridad tomada antes de este script, o una migracion agrega tablas que usa la copia,"
+Write-Host "    vuelva a ejecutar este script como administrador (los permisos de SQL Server viven dentro de la base)."
+if ($copiaAnteriorEliminada)
+{
+    Write-Host "  - Se elimino la copia del CLI que creaba la version anterior del script: $CopiaAnteriorCli."
+}
+elseif ((Test-Path -LiteralPath $CopiaAnteriorCli) -and -not (Test-MismaRuta $CarpetaCli $CopiaAnteriorCli))
+{
+    Write-Host "  - Queda la copia antigua del CLI en ${CopiaAnteriorCli}: ya no se usa; puede eliminarla."
+}
 Write-Host ""
 Write-Host "Para probarla ahora:"
 Write-Host "  Start-ScheduledTask -TaskName `"$NombreTarea`""
 Write-Host "  Get-ScheduledTaskInfo -TaskName `"$NombreTarea`"   (LastTaskResult 0 = exito)"
 Write-Host ""
 Write-Host "Donde mirar el resultado:"
-Write-Host "  - Registro de la herramienta (solo Administradores): $(Join-Path $DestinoCli 'logs')"
+Write-Host "  - Registros de la tarea (como SYSTEM, legibles por administradores): $CarpetaLogsTarea"
+Write-Host "  - Registros de la aplicacion de cada usuario: %LOCALAPPDATA%\Retail POS\logs"
 Write-Host "  - Historial de copias en Retail POS (pantalla de Respaldos): la copia figura como Automatica."
 Write-Host ""
 Write-Host "Para quitarla: .\registrar-tarea-backup.ps1 -Desregistrar   (agregue -RevocarPermisos para quitar tambien CREATE ANY DATABASE)"

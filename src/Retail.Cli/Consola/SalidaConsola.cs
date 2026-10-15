@@ -1,6 +1,7 @@
 using FluentValidation;
 using Retail.Application.Exceptions;
 using Retail.Domain.Exceptions;
+using Retail.Infrastructure.Logging;
 
 namespace Retail.Cli.Consola;
 
@@ -32,7 +33,7 @@ internal static class SalidaConsola
 
             default:
                 Console.Error.WriteLine($"Error inesperado ({ex.GetType().Name}): {ex.Message}");
-                Console.Error.WriteLine("El detalle completo quedó registrado en logs/retail-cli-*.log.");
+                Console.Error.WriteLine($"El detalle completo quedó registrado en {Path.Combine(UbicacionDeLogs.Directorio(), "retail-cli-*.log")}.");
                 break;
         }
     }

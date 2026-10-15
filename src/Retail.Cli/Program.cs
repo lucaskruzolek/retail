@@ -8,6 +8,7 @@ using Retail.Cli.Comandos;
 using Retail.Cli.Consola;
 using Retail.Domain.Exceptions;
 using Retail.Infrastructure;
+using Retail.Infrastructure.Logging;
 using Serilog;
 using Serilog.Events;
 
@@ -51,7 +52,7 @@ internal static class Program
             .Enrich.FromLogContext()
             // Solo a archivo: la consola es del operador y la escriben los comandos (SalidaConsola).
             .WriteTo.File(
-                path: Path.Combine(AppContext.BaseDirectory, "logs", "retail-cli-.log"),
+                path: Path.Combine(UbicacionDeLogs.Directorio(), "retail-cli-.log"),
                 rollingInterval: RollingInterval.Day,
                 retainedFileCountLimit: 31,
                 formatProvider: CultureInfo.InvariantCulture,
