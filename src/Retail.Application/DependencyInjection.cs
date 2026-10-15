@@ -1,5 +1,6 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Retail.Application.Interfaces.Services;
 using Retail.Application.Services;
 
@@ -9,6 +10,8 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
+        // Los validadores de reportes calculan "hoy" con el reloj inyectado (D-9). Se registra solo si el Host no puso otro.
+        services.TryAddSingleton(TimeProvider.System);
         services.AddValidatorsFromAssemblyContaining<UsuarioService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUsuarioService, UsuarioService>();

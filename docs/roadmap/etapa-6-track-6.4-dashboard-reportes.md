@@ -13,8 +13,8 @@
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
 | 0 | ERS v3.3 (RF-24 a RF-26, IU-11, IS-05, RNF-09) y este plan | ✅ ERS (commit `f5f87e8`) y plan aprobado |
-| 1 | Dominio: costo histórico en `DetalleVenta`, con su columna, `CHECK` y migración (adelantadas de la Fase 3) | ✅ Implementada por subagente y revisada; pendiente de commit |
-| 2 | Aplicación: contratos, DTOs, validadores y `ReporteService` | ⏳ |
+| 1 | Dominio: costo histórico en `DetalleVenta`, con su columna, `CHECK` y migración (adelantadas de la Fase 3) | ✅ Commit `93b187c` |
+| 2 | Aplicación: contratos, DTOs, validadores, `ReporteService` y `ExportacionReportesService` (D-14 a D-18) | ✅ Implementada por subagente y revisada; pendiente de commit |
 | 3 | Infraestructura: índice `IX_VENTAS_fecha_hora` y `ReporteQueryService` | ⏳ |
 | 4 | Exportación: Excel (MiniExcel) y PDF (QuestPDF + gráficos) | ⏳ |
 | 5 | UI: `DashboardView` con LiveCharts2 | ⏳ |
@@ -40,6 +40,11 @@
 | D-10 | La semana empieza el lunes. Se agrupa con `DATEDIFF(day, lunesAncla, fecha) / 7`, que no depende de `SET DATEFIRST`. | Cerrada | `DATEPART(week)` cambia según la configuración regional del servidor. |
 | D-11 | Autorización en el servicio de Aplicación (actor Gerente), además del menú. | Cerrada | Mismo patrón que `BackupService` (`OperacionNoAutorizadaException`). Ocultar el botón no es control de acceso (RNF-06). |
 | D-12 | La exportación recibe un modelo neutro (`DocumentoReporte`: título, filtros, tablas tipadas y series), no los DTOs de pantalla. | Cerrada | Un exportador por formato y no uno por reporte (5 reportes × 2 formatos). Application no conoce MiniExcel ni QuestPDF (IS-05). |
+| D-14 | Dos servicios: `IReporteService` (consultas) e `IExportacionReportesService` (exportación). | Cerrada (Fase 2) | Responsabilidad única. Cada uno se registra en la inyección de dependencias cuando existe su puerto (Fases 3 y 4); el Host tiene `ValidateOnBuild` y fallaría con un puerto sin implementar. |
+| D-15 | Un filtro por reporte (`FiltroPeriodoDto` y sus derivados, `FiltroInventarioDto`, `FiltroSinMovimientoDto`) en lugar de un único `FiltroReporteDto`. | Cerrada (Fase 2) | Cada reporte expone solo los filtros que usa, y cada uno tiene su validador. La base genérica `FiltroPeriodoValidatorBase<T>` evita repetir las reglas de fechas. |
+| D-16 | Reloj inyectado: `TimeProvider` de .NET 8 (biblioteca estándar, sin NuGet). En los tests, `RelojDePrueba` fija el instante y la zona (UTC−3). | Cerrada (Fase 2) | "Hoy" y la zona horaria se pueden probar sin depender de la máquina. |
+| D-17 | `ReglasMonetarias.Redondear` en `Retail.Domain/Common` es el único punto de redondeo monetario; `Articulo` delega en él. | Cerrada (Fase 2) | D-06 exigía un criterio único; antes estaba privado en `Articulo` y los reportes lo habrían duplicado. |
+| D-18 | Los importes se redondean de a uno y el margen es la resta de valores ya redondeados. Los totales suman filas crudas y redondean al final. La variación de un porcentaje se informa en **puntos porcentuales**, no como variación relativa. | Cerrada (Fase 2) | Así lo que se muestra cierra visualmente, sin error de redondeo acumulado. Ir de 20 % a 25 % es +5 puntos, no +25 %. |
 
 ---
 
@@ -210,6 +215,7 @@ Versiones verificadas en el índice oficial de NuGet (`api.nuget.org`) el 2026-1
 | R-3 | Sin índice sobre `VENTAS.fecha_hora`, cada reporte recorre la tabla completa. | Índice de la Fase 3. |
 | R-4 | ~~LiveCharts2 para WPF solo en versión preliminar.~~ **Resuelto:** la 2.0.5 es estable (sección 6). | — |
 | R-5 | SkiaSharp y QuestPDF traen bibliotecas nativas. | `release.yml` ya las embebe. Igual hay que confirmarlo en la Fase 4: publicar en Release y generar un PDF desde el ejecutable único, en una carpeta sin SDK. |
+| R-9 | Los filtros del documento exportado muestran categoría, marca y cajero como `#<id>`, no por nombre (RF-26 pide los filtros aplicados de forma legible). | Fase 5: la UI conoce los nombres de los combos. Se agregan al filtro como etiquetas de presentación, o el servicio los resuelve. A decidir al diseñar la UI. |
 | R-8 | Dos versiones de SkiaSharp según el proyecto (2.88.9 y 3.119.0). | D-13: referencia explícita a 3.119.0 en Infrastructure. Un test de integración renderiza un gráfico a PNG y verifica la versión cargada. |
 | R-6 | `MainViewModel` es una zona compartida (Ley 10). | Cambio mínimo y avisar a Pablo en el PR. |
 

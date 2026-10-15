@@ -281,6 +281,6 @@ public class Articulo : BaseEntity, IAggregateRoot
     /// </summary>
     private static decimal RedondearMoneda(decimal importe)
     {
-        return Math.Round(importe, 2, MidpointRounding.AwayFromZero);
+        return ReglasMonetarias.Redondear(importe);
     }
 }
