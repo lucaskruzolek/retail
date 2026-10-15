@@ -49,5 +49,17 @@
 
 ---
 
+### Track 6.4: Tablero Gerencial y Reportes Exportables
+**Responsable:** Lucas Kruzolek | **Rama:** `feat/dashboard-reportes` | **Requisitos:** `RF-24`, `RF-25`, `RF-26`, `RNF-09`  
+**Plan de diseño, decisiones y avance:** [`etapa-6-track-6.4-dashboard-reportes.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.4-dashboard-reportes.md)
+
+* **Fase 1 — Dominio:** costo histórico `DetalleVenta.CostoUnitario`, tomado en `Venta.AgregarItem`.
+* **Fase 2 — Aplicación:** `IReporteService` (Gerente, filtros validados, rango local → UTC), DTOs de reportes y puertos de lectura y exportación.
+* **Fase 3 — Persistencia:** migración del costo e índice `IX_VENTAS_fecha_hora`; `ReporteQueryService` en LINQ con push-down (sin vistas ni procedimientos almacenados, ver sección 3 del plan).
+* **Fase 4 — Exportación:** Excel con MiniExcel y PDF con QuestPDF, con gráficos renderizados fuera de pantalla.
+* **Fase 5 — UI:** `DashboardView` (IU-11) con LiveCharts2, visible solo para el Gerente.
+
+---
+
 ## Criterio de Aceptación Final
 La solución compila en modo Release con cero advertencias (`TreatWarningsAsErrors`); la suite de pruebas unitarias e integración se ejecuta al 100% en verde; el sistema opera en mostrador con teclado y scanner a $< 15\text{ ms}$; y se genera el archivo ZIP de release auto-contenido listo para su defensa y entrega.
