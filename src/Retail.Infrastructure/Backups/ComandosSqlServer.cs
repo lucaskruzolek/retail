@@ -12,6 +12,12 @@ namespace Retail.Infrastructure.Backups;
 internal static partial class ComandosSqlServer
 {
     /// <summary>
+    /// Cuenta de Windows con la que corre la tarea programada de la copia diaria (<c>scripts/registrar-tarea-backup.ps1</c>).
+    /// Su usuario y sus permisos viven dentro de la base de datos.
+    /// </summary>
+    public const string CuentaDeLaTareaProgramada = @"NT AUTHORITY\SYSTEM";
+
+    /// <summary>
     /// Encierra el nombre entre corchetes (duplicando los <c>]</c>): los identificadores no pueden viajar como
     /// parámetros, así que se delimitan para que un nombre nunca pueda salirse de su lugar en la sentencia.
     /// </summary>

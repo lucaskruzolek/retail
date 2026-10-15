@@ -11,6 +11,7 @@ using Retail.Application;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Infrastructure.Backups;
 using Retail.Infrastructure.Persistence.Context;
@@ -20,7 +21,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests.Backups;
 
 /// <summary>
-/// Copias reales contra LocalDB (RF-22): el motor escribe el archivo, se verifica su huella y su legibilidad, y se
+/// Copias reales contra SQL Server Express (RF-22): el motor escribe el archivo, se verifica su huella y su legibilidad, y se
 /// recorre <c>migrar</c> de punta a punta con la inyección de dependencias de producción.
 /// </summary>
 public class BackupIntegracionTests : IAsyncLifetime, IDisposable
@@ -28,13 +29,13 @@ public class BackupIntegracionTests : IAsyncLifetime, IDisposable
     private const string MigracionAnteriorAlHistorial = "20261013071257_AgregarRolAdministradorYCuentasDeUsuario";
 
     private readonly string _dbName = $"RetailDb_Test_Copias_{Guid.NewGuid():N}";
-    private readonly string _directorio = Path.Combine(Path.GetTempPath(), $"RetailBackupTests_{Guid.NewGuid():N}");
+    private readonly string _directorio = ServidorDePruebas.CrearCarpetaAccesibleParaElMotor("RetailBackupTests");
     private string _connectionString = string.Empty;
     private RetailDbContext _context = null!;
 
     public Task InitializeAsync()
     {
-        _connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        _connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         _context = new RetailDbContext(new DbContextOptionsBuilder<RetailDbContext>().UseSqlServer(_connectionString).Options);
         return Task.CompletedTask;
     }
@@ -228,5 +229,32 @@ public class BackupIntegracionTests : IAsyncLifetime, IDisposable
         await using var lectura = new RetailDbContext(new DbContextOptionsBuilder<RetailDbContext>().UseSqlServer(_connectionString).Options);
         var estados = await lectura.RegistrosBackup.OrderBy(r => r.Id).Select(r => r.Estado).ToListAsync();
         estados.Should().Equal(EstadoBackupEnum.ArchivoPurgado, EstadoBackupEnum.Verificado);
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_ConUnaCopiaHuerfana_LaCierraComoFallidaYCopia()
+    {
+        // Arrange: una copia que quedó EnCurso porque su proceso murió; nadie sostiene el bloqueo compartido.
+        await _context.Database.MigrateAsync();
+        var huerfana = RegistroBackup.Iniciar(
+            TipoBackupEnum.Automatico, null, null, RutaNueva("huerfana.bak"), _context.Database.GetMigrations().Last(), "1.0.0");
+        _context.RegistrosBackup.Add(huerfana);
+        await _context.SaveChangesAsync();
+        await using var servicios = ConstruirServicios();
+
+        // Act
+        ResultadoBackupDto resultado;
+        await using (var scope = servicios.CreateAsyncScope())
+        {
+            resultado = await scope.ServiceProvider.GetRequiredService<IBackupService>().CrearBackupDelSistemaAsync(TipoBackupEnum.Automatico);
+        }
+
+        // Assert: sin B-0 la copia habría sido rechazada ("ya hay una copia en curso") para siempre.
+        await using var lectura = new RetailDbContext(new DbContextOptionsBuilder<RetailDbContext>().UseSqlServer(_connectionString).Options);
+        var registros = await lectura.RegistrosBackup.AsNoTracking().ToListAsync();
+        var cerrada = registros.Single(r => r.Referencia == huerfana.Referencia);
+        cerrada.Estado.Should().Be(EstadoBackupEnum.Fallido);
+        cerrada.MensajeError.Should().Be(RegistroBackup.MensajeCopiaHuerfana);
+        registros.Single(r => r.Referencia == resultado.Referencia).Estado.Should().Be(EstadoBackupEnum.Verificado);
     }
 }

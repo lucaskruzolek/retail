@@ -23,6 +23,12 @@ public partial class RegistroBackup : BaseEntity, IAggregateRoot
     public const int LongitudMaximaMensajeError = 1000;
     public const int LongitudHashSha256 = 64;
 
+    /// <summary>
+    /// Motivo con el que se cierra una copia que quedó <c>EnCurso</c> porque su proceso murió (corte de luz, PC apagada)
+    /// sin llegar a registrar el fallo (B-0).
+    /// </summary>
+    public const string MensajeCopiaHuerfana = "Copia interrumpida: el proceso terminó antes de completarla.";
+
     // Lo usa EF Core para materializar la entidad desde la base; el código de negocio usa Iniciar.
     private RegistroBackup()
     {

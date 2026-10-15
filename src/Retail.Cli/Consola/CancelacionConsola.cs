@@ -9,17 +9,30 @@ namespace Retail.Cli.Consola;
 internal sealed class CancelacionConsola : IDisposable
 {
     private readonly CancellationTokenSource _fuente = new();
+    private readonly bool _suscripto;
 
     public CancelacionConsola()
     {
-        Console.CancelKeyPress += AlPresionarCtrlC;
+        // Sin consola (Programador de tareas, B-5) no hay Ctrl+C que escuchar: la operación corre sin esa cancelación.
+        try
+        {
+            Console.CancelKeyPress += AlPresionarCtrlC;
+            _suscripto = true;
+        }
+        catch (Exception ex) when (ex is IOException or PlatformNotSupportedException)
+        {
+        }
     }
 
     public CancellationToken Token => _fuente.Token;
 
     public void Dispose()
     {
-        Console.CancelKeyPress -= AlPresionarCtrlC;
+        if (_suscripto)
+        {
+            Console.CancelKeyPress -= AlPresionarCtrlC;
+        }
+
         _fuente.Dispose();
     }
 

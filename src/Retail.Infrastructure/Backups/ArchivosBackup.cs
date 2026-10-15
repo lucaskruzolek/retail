@@ -13,6 +13,8 @@ namespace Retail.Infrastructure.Backups;
 /// </summary>
 public class ArchivosBackup : IArchivosBackup
 {
+    private const long BytesPorMegabyte = 1024L * 1024L;
+
     private static readonly JsonSerializerOptions OpcionesJson = new() { WriteIndented = true };
 
     // UTF-8 sin BOM: el manifiesto lo pueden leer otras herramientas (un script, un editor) sin sorpresas.
@@ -165,6 +167,152 @@ public class ArchivosBackup : IArchivosBackup
     public Task<ArchivoBackupDto> CalcularHuellaAsync(string rutaArchivo, CancellationToken cancellationToken = default)
     {
         return HuellaArchivo.CalcularAsync(RutaCopiaBackup.Normalizar(rutaArchivo), cancellationToken);
+    }
+
+    public async Task<string> PrepararParaRestaurarAsync(string rutaArchivo, CancellationToken cancellationToken = default)
+    {
+        var origen = RutaCopiaBackup.Normalizar(rutaArchivo);
+        var directorio = Directorio;
+
+        if (EstaEnElDirectorio(origen, directorio))
+        {
+            return origen;
+        }
+
+        try
+        {
+            if (!File.Exists(origen))
+            {
+                throw new RestauracionFallidaException("No se encontró el archivo de la copia (.bak) en la ruta indicada.");
+            }
+
+            // Se lee (y valida) el manifiesto de origen antes de copiar nada: sin él la copia no es restaurable.
+            var manifiesto = await LeerManifiestoAsync(origen, cancellationToken);
+
+            Directory.CreateDirectory(directorio);
+            var huellaOrigen = await HuellaArchivo.CalcularAsync(origen, cancellationToken);
+            var nombreBase = Path.GetFileNameWithoutExtension(origen);
+
+            for (var intento = 1; ; intento++)
+            {
+                var nombre = intento == 1 ? nombreBase : $"{nombreBase}_{intento}";
+                var destino = Path.Combine(directorio, $"{nombre}.bak");
+
+                if (!File.Exists(destino) && !File.Exists(RutaManifiesto(destino)))
+                {
+                    ExigirEspacioParaCopiar(directorio, new FileInfo(origen).Length);
+                    await CopiarAsync(origen, destino, manifiesto, cancellationToken);
+                    return destino;
+                }
+
+                if (File.Exists(destino) && await TieneLaMismaHuellaAsync(destino, huellaOrigen, cancellationToken))
+                {
+                    // Ya se había copiado antes (por ejemplo, un intento anterior de restaurar el mismo archivo).
+                    if (!File.Exists(RutaManifiesto(destino)))
+                    {
+                        await EscribirManifiestoAsync(destino, manifiesto with { ArchivoBak = Path.GetFileName(destino) }, cancellationToken);
+                    }
+
+                    return destino;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new RestauracionFallidaException(
+                $"No se pudo copiar la copia al directorio de respaldos '{directorio}': {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Falla antes de empezar a copiar si el disco del directorio de respaldos no alcanza para el archivo más el margen
+    /// mínimo (<see cref="BackupOptions.EspacioLibreMinimoMb"/>): un disco lleno a mitad de la copia dejaría una falla
+    /// confusa y, además, sin espacio para que el motor restaure.
+    /// </summary>
+    private void ExigirEspacioParaCopiar(string directorio, long tamanoBytes)
+    {
+        var disco = new DriveInfo(Path.GetPathRoot(directorio)!);
+        var necesarios = tamanoBytes + (_opciones.EspacioLibreMinimoMb * BytesPorMegabyte);
+
+        if (disco.AvailableFreeSpace < necesarios)
+        {
+            throw new RestauracionFallidaException(
+                $"Espacio insuficiente en {disco.Name} para traer la copia al directorio de respaldos: hay " +
+                $"{disco.AvailableFreeSpace / BytesPorMegabyte} MB libres y se requieren {necesarios / BytesPorMegabyte} MB " +
+                $"(el archivo más un margen de {_opciones.EspacioLibreMinimoMb} MB).");
+        }
+    }
+
+    private static bool EstaEnElDirectorio(string ruta, string directorio)
+    {
+        var carpeta = Path.GetDirectoryName(ruta);
+        return carpeta is not null && string.Equals(
+            carpeta.TrimEnd(Path.DirectorySeparatorChar),
+            directorio.TrimEnd(Path.DirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<bool> TieneLaMismaHuellaAsync(string ruta, ArchivoBackupDto huellaOrigen, CancellationToken cancellationToken)
+    {
+        if (new FileInfo(ruta).Length != huellaOrigen.TamanoBytes)
+        {
+            return false;
+        }
+
+        var huella = await HuellaArchivo.CalcularAsync(ruta, cancellationToken);
+        return string.Equals(huella.HashSha256, huellaOrigen.HashSha256, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Copia el <c>.bak</c> a un nombre temporal y recién entonces lo renombra: un corte a mitad de camino no deja un
+    /// <c>.bak</c> truncado con un nombre que parezca una copia válida. El manifiesto copiado nombra al archivo nuevo.
+    /// </summary>
+    private async Task CopiarAsync(string origen, string destino, ManifiestoBackupDto manifiesto, CancellationToken cancellationToken)
+    {
+        var temporal = $"{destino}.copiando";
+
+        // Solo se borra lo que esta operación creó. Antes de mover el temporal, "destino" puede ser de otro (por ejemplo,
+        // otro proceso lo creó entre la comprobación de que no existía y el Move): no es nuestro y no se toca.
+        var destinoCreado = false;
+
+        try
+        {
+            await using (var entrada = new FileStream(origen, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, useAsync: true))
+            await using (var salida = new FileStream(temporal, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+            {
+                await entrada.CopyToAsync(salida, cancellationToken);
+            }
+
+            File.Move(temporal, destino);
+            destinoCreado = true;
+
+            await EscribirManifiestoAsync(destino, manifiesto with { ArchivoBak = Path.GetFileName(destino) }, cancellationToken);
+        }
+        catch
+        {
+            // No se deja una copia a medias: el próximo intento empieza limpio. La limpieza no puede ocultar la causa
+            // original: sus propios errores de E/S se ignoran y la excepción original sigue su camino.
+            EliminarSinPropagar(temporal);
+            if (destinoCreado)
+            {
+                EliminarSinPropagar(destino);
+                EliminarSinPropagar(RutaManifiesto(destino));
+            }
+
+            throw;
+        }
+    }
+
+    private static void EliminarSinPropagar(string ruta)
+    {
+        try
+        {
+            File.Delete(ruta);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Un resto que no se pudo borrar no es restaurable (no tiene su manifiesto o su huella no coincide).
+        }
     }
 
     public void EliminarCopia(string rutaArchivo)

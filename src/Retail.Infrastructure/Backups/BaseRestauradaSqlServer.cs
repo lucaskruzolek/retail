@@ -72,6 +72,18 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
         return _context.Usuarios.AnyAsync(u => u.IdRol == (int)RolUsuarioEnum.Gerente, cancellationToken);
     }
 
+    public async Task<bool> TieneUsuarioDeLaTareaProgramadaAsync(CancellationToken cancellationToken = default)
+    {
+        // Consulta de catálogo sobre la propia temporal; la cuenta viaja como parámetro.
+        var cuenta = new SqlParameter("@cuenta", ComandosSqlServer.CuentaDeLaTareaProgramada);
+
+        var cantidad = await _context.Database
+            .SqlQueryRaw<int>("SELECT COUNT(*) AS [Value] FROM sys.database_principals WHERE name = @cuenta", cuenta)
+            .SingleAsync(cancellationToken);
+
+        return cantidad > 0;
+    }
+
     /// <summary>
     /// Copia el historial de la vigente a la temporal: primero borra de la temporal los registros cuya
     /// <c>Referencia</c> también está en la vigente (la vigente es la versión más reciente de ese hecho, R-18) y luego

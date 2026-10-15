@@ -87,6 +87,8 @@ public class BackupService : IBackupService
         // Reautenticación (D-8): una sesión abierta en el mostrador no alcanza.
         await _authService.VerificarCredencialAsync(idActor, password, cancellationToken);
 
+        await CerrarCopiasInterrumpidasAsync(cancellationToken);
+
         await using var bloqueo = await _bloqueo.AdquirirCompartidoAsync(cancellationToken);
         return await CopiarConHistorialAsync(TipoBackupEnum.Manual, actor.Id, actor.NombreUsuario, progreso, cancellationToken);
     }
@@ -100,6 +102,8 @@ public class BackupService : IBackupService
         {
             throw new DomainException($"Una copia de tipo {tipo} no la dispara el sistema.");
         }
+
+        await CerrarCopiasInterrumpidasAsync(cancellationToken);
 
         // Ninguna copia corre mientras una restauración reemplaza la base (C-2).
         await using var bloqueo = await _bloqueo.AdquirirCompartidoAsync(cancellationToken);
@@ -129,6 +133,61 @@ public class BackupService : IBackupService
         }
 
         return await CopiarConHistorialAsync(TipoBackupEnum.PreRestauracion, idUsuario, nombreUsuario, progreso, cancellationToken);
+    }
+
+    /// <summary>
+    /// B-0: autorrepara los registros huérfanos. Una copia real sostiene el bloqueo compartido mientras corre (incluida su
+    /// verificación), y es el motor quien lo suelta si su proceso muere. Por lo tanto, si se obtiene el exclusivo, ninguna
+    /// copia ni restauración está corriendo y todo registro <c>EnCurso</c> o <c>Exitoso</c> (el proceso murió verificando)
+    /// quedó huérfano: es un hecho garantizado por el motor, no una heurística de tiempo. Si no se obtiene, hay una copia o
+    /// una restauración en marcha y su registro es legítimo. De cada huérfano se borra además el <c>.bak</c> y el
+    /// manifiesto parciales.
+    /// </summary>
+    /// <remarks>
+    /// El exclusivo se libera antes de tomar el compartido. El hueco entre ambos es inofensivo: una copia que arranque en
+    /// ese instante es legítima y la rechaza el control de "copia en curso" de <c>CopiarConHistorialAsync</c>; una
+    /// restauración que arranque en ese instante hace fallar la toma del compartido. No se usa en la copia previa a
+    /// restaurar, que corre bajo el exclusivo de su restauración y esa ya cerró los huérfanos.
+    /// </remarks>
+    private async Task CerrarCopiasInterrumpidasAsync(CancellationToken cancellationToken)
+    {
+        await using var exclusivo = await _bloqueo.IntentarAdquirirExclusivoAsync(cancellationToken);
+        if (exclusivo is null)
+        {
+            return;
+        }
+
+        // Una base de una versión anterior al historial no tiene registros que puedan estar en curso.
+        if (!await _esquema.ExisteHistorialDeBackupsAsync(cancellationToken))
+        {
+            return;
+        }
+
+        var huerfanos = await _registros.FindAsync(
+            r => r.Estado == EstadoBackupEnum.EnCurso || r.Estado == EstadoBackupEnum.Exitoso,
+            includeDeleted: false,
+            cancellationToken);
+        if (huerfanos.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var registro in huerfanos)
+        {
+            registro.RegistrarFallo(RegistroBackup.MensajeCopiaHuerfana);
+            await _registros.UpdateAsync(registro, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Recién con el registro ya cerrado se borran los restos: el archivo parcial no es restaurable y, como el registro
+        // pasó a Fallido, la retención (que solo mira Exitoso y Verificado) ya no lo vería nunca. Un archivo que no se pueda
+        // borrar ahora (el motor puede conservarlo abierto unos instantes tras la caída del proceso) queda como residuo en
+        // el directorio: no es restaurable y no ocupa un lugar de la retención; se limpia a mano.
+        foreach (var registro in huerfanos)
+        {
+            EliminarSinPropagar(registro.RutaArchivo);
+        }
     }
 
     private async Task<ResultadoBackupDto> CopiarConHistorialAsync(

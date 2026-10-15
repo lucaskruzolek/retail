@@ -75,9 +75,10 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           --output ./publish/Retail-POS
 
-      - name: Incluir el script de recuperacion ante desastres (R-2)
-        # Busca Retail.Cli.exe en su misma carpeta: se copia junto a los ejecutables.
-        run: Copy-Item scripts/restore-retail.ps1 ./publish/Retail-POS/
+      - name: Incluir los scripts de recuperacion (R-2) y de copia automatica (Fase 7)
+        # Ambos buscan Retail.Cli.exe en su misma carpeta: se copian junto a los ejecutables.
+        # registrar-tarea-backup.ps1 importa RetailPermisos.psm1 desde su misma carpeta.
+        run: Copy-Item scripts/restore-retail.ps1, scripts/registrar-tarea-backup.ps1, scripts/RetailPermisos.psm1 ./publish/Retail-POS/
 
       - name: Comprimir paquete distribuible en formato ZIP
         run: Compress-Archive -Path ./publish/Retail-POS/* -DestinationPath ./Retail-POS-win-x64.zip

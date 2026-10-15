@@ -15,7 +15,8 @@ internal static class Ayuda
               migrar        Actualiza el esquema de la base (la crea si no existe), con copia previa.
               inicializar   Crea la cuenta del primer Gerente (solo si no hay ninguno).
               datos-demo    Carga un proveedor, categorías y marcas de demostración.
-              backup        Copia completa y verificada de la base (la usa el Programador de tareas).
+              backup        Copia completa y verificada de la base. La tarea programada diaria (21:00, como SYSTEM)
+                            la ejecuta; se registra con scripts\registrar-tarea-backup.ps1 como administrador.
               restaurar <ruta.bak>
                             Reemplaza la base por una copia; exige usuario y contraseña de un Gerente de esa copia.
               ayuda         Muestra este mensaje.

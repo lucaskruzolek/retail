@@ -23,9 +23,16 @@ public class RestauracionService : IRestauracionService
     private const string MensajeCopiaInterrumpida =
         "Copia interrumpida: quedó en curso dentro de la copia restaurada.";
 
+    /// <summary>
+    /// Advertencia cuando la vigente tenía el usuario de la tarea programada y la copia restaurada no.
+    /// </summary>
+    public const string AvisoPermisosDeLaCopiaAutomatica =
+        @"La copia restaurada no tiene los permisos de la copia automática diaria: vuelva a ejecutar scripts\registrar-tarea-backup.ps1 como administrador.";
+
     private readonly IRepository<Usuario> _usuarios;
     private readonly IRepository<RegistroBackup> _registros;
     private readonly IRepository<RegistroRestauracion> _restauraciones;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IAuthService _authService;
     private readonly IBackupService _backupService;
     private readonly IRestauradorBaseDatos _restaurador;
@@ -38,6 +45,7 @@ public class RestauracionService : IRestauracionService
         IRepository<Usuario> usuarios,
         IRepository<RegistroBackup> registros,
         IRepository<RegistroRestauracion> restauraciones,
+        IUnitOfWork unitOfWork,
         IAuthService authService,
         IBackupService backupService,
         IRestauradorBaseDatos restaurador,
@@ -49,6 +57,7 @@ public class RestauracionService : IRestauracionService
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _registros = registros ?? throw new ArgumentNullException(nameof(registros));
         _restauraciones = restauraciones ?? throw new ArgumentNullException(nameof(restauraciones));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
         _restaurador = restaurador ?? throw new ArgumentNullException(nameof(restaurador));
@@ -111,9 +120,25 @@ public class RestauracionService : IRestauracionService
         ArgumentNullException.ThrowIfNull(nombreUsuario);
         ArgumentNullException.ThrowIfNull(password);
 
-        // B-3: la ruta se normaliza y se valida antes de cualquier trabajo. Una ruta relativa quedaría registrada tal
-        // cual y una demasiado larga fallaría recién al guardar el registro, después de un restore completo.
-        rutaArchivo = NormalizarRutaDeCopia(rutaArchivo);
+        // B-3: la ruta se normaliza antes de cualquier trabajo. Una ruta relativa quedaría registrada tal cual, y una
+        // demasiado larga fallaría recién al guardar el registro, después de un restore completo.
+        // La longitud se controla solo sobre la ruta preparada (la que se registra): una ruta de origen larga es justamente
+        // lo que PrepararParaRestaurarAsync resuelve al traer la copia a una carpeta corta.
+        rutaArchivo = NormalizarRutaDeCopia(rutaArchivo, validarLongitud: false);
+
+        // Con SQL Server Express el motor corre con otra cuenta de Windows y no puede leer, por ejemplo, la carpeta
+        // Descargas del Gerente: la copia se trae primero al directorio de respaldos y desde ahí se usa para todo,
+        // incluido el registro de auditoría. La longitud se controla sobre el resultado: el nombre puede haber ganado un sufijo.
+        try
+        {
+            rutaArchivo = NormalizarRutaDeCopia(
+                await _archivos.PrepararParaRestaurarAsync(rutaArchivo, cancellationToken), validarLongitud: true);
+        }
+        catch (Exception ex) when (DebeEnvolverse(ex))
+        {
+            throw new RestauracionFallidaException(
+                $"No se pudo preparar la copia en el directorio de respaldos: {DescripcionDeFalla.Para(ex)}", ex);
+        }
 
         ManifiestoBackupDto manifiesto;
         try
@@ -211,7 +236,16 @@ public class RestauracionService : IRestauracionService
         var vigente = await EvaluarBaseVigenteAsync(cancellationToken);
         if (vigente.Existe)
         {
-            await ExigirSinOperacionesEnCursoAsync(cancellationToken);
+            await ExigirSinTurnoDeCajaAbiertoAsync(cancellationToken);
+
+            // B-0: con el exclusivo tomado ninguna copia corre, así que las EnCurso de la vigente son huérfanas.
+            var cerradas = await CerrarCopiasInterrumpidasEnLaVigenteAsync(cancellationToken);
+            if (cerradas > 0)
+            {
+                advertencias.Add(cerradas == 1
+                    ? "Se cerró 1 copia de seguridad interrumpida en la base vigente."
+                    : $"Se cerraron {cerradas} copias de seguridad interrumpidas en la base vigente.");
+            }
         }
         else
         {
@@ -241,6 +275,15 @@ public class RestauracionService : IRestauracionService
         // Una copia vieja se pone al día antes de leer sus datos: el modelo actual no podría leer un esquema anterior.
         await temporal.AplicarMigracionesPendientesAsync(cancellationToken);
 
+        // Los permisos de la copia automática diaria viven dentro de la base: una copia tomada antes de registrar la tarea
+        // programada no los tiene y la tarea de esta noche fallaría.
+        if (vigente.Existe
+            && await _restaurador.VigenteTieneUsuarioDeLaTareaProgramadaAsync(cancellationToken)
+            && !await temporal.TieneUsuarioDeLaTareaProgramadaAsync(cancellationToken))
+        {
+            advertencias.Add(AvisoPermisosDeLaCopiaAutomatica);
+        }
+
         var gerente = await autorizarEnLaCopia(temporal, cancellationToken);
 
         Guid? referenciaCopiaPrevia = null;
@@ -248,7 +291,7 @@ public class RestauracionService : IRestauracionService
         {
             // El restore puede llevar minutos: los controles se repiten justo antes de la copia previa, que es la
             // última foto de los datos reales (TOCTOU).
-            await ExigirSinOperacionesEnCursoAsync(cancellationToken);
+            await ExigirSinTurnoDeCajaAbiertoAsync(cancellationToken);
             referenciaCopiaPrevia = await TomarCopiaPreviaAsync(origen, gerente, advertencias, cancellationToken);
         }
 
@@ -432,7 +475,7 @@ public class RestauracionService : IRestauracionService
         }
     }
 
-    private async Task ExigirSinOperacionesEnCursoAsync(CancellationToken cancellationToken)
+    private async Task ExigirSinTurnoDeCajaAbiertoAsync(CancellationToken cancellationToken)
     {
         // R-11: restaurar con la caja abierta perdería los movimientos del turno y dejaría el arqueo inconsistente.
         // Con SQL mínimo en el puerto: la vigente puede tener un esquema viejo que el modelo de EF no puede leer (D-26).
@@ -440,21 +483,56 @@ public class RestauracionService : IRestauracionService
         {
             throw new RestauracionFallidaException("Hay un turno de caja abierto. Ciérrelo antes de restaurar una copia.");
         }
+    }
 
+    /// <summary>
+    /// B-0: una copia real sostiene el bloqueo compartido mientras corre y la restauración ya tiene el exclusivo, así que
+    /// toda copia <c>EnCurso</c> de la base vigente es huérfana (su proceso murió). Se la cierra como fallida, antes de la
+    /// copia previa, que de lo contrario chocaría con el índice de copia única en curso (R-12). Devuelve cuántas cerró.
+    /// </summary>
+    private async Task<int> CerrarCopiasInterrumpidasEnLaVigenteAsync(CancellationToken cancellationToken)
+    {
         // Una base de una versión anterior al historial no tiene copias registradas que puedan estar en curso.
         if (!await _esquema.ExisteHistorialDeBackupsAsync(cancellationToken))
         {
-            return;
+            return 0;
         }
 
-        var enCurso = await _registros.FindAsync(r => r.Estado == EstadoBackupEnum.EnCurso, includeDeleted: false, cancellationToken);
-        if (enCurso.Count > 0)
+        // También las Exitoso: el proceso pudo morir durante la verificación, y esa copia no está verificada ni es restaurable.
+        var huerfanas = await _registros.FindAsync(
+            r => r.Estado == EstadoBackupEnum.EnCurso || r.Estado == EstadoBackupEnum.Exitoso,
+            includeDeleted: false,
+            cancellationToken);
+        if (huerfanas.Count == 0)
         {
-            throw new RestauracionFallidaException("Hay una copia de seguridad en curso. Espere a que termine antes de restaurar.");
+            return 0;
         }
+
+        foreach (var registro in huerfanas)
+        {
+            registro.RegistrarFallo(RegistroBackup.MensajeCopiaHuerfana);
+            await _registros.UpdateAsync(registro, cancellationToken);
+        }
+
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Con el registro ya cerrado se borran los restos parciales (ver BackupService.CerrarCopiasInterrumpidasAsync).
+        foreach (var registro in huerfanas)
+        {
+            try
+            {
+                _archivos.EliminarCopia(registro.RutaArchivo);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Residuo no restaurable: no justifica abortar la restauración.
+            }
+        }
+
+        return huerfanas.Count;
     }
 
-    private static string NormalizarRutaDeCopia(string rutaArchivo)
+    private static string NormalizarRutaDeCopia(string rutaArchivo, bool validarLongitud)
     {
         string ruta;
         try
@@ -466,7 +544,7 @@ public class RestauracionService : IRestauracionService
             throw new RestauracionFallidaException($"La ruta '{rutaArchivo}' no es una ruta de archivo válida.", ex);
         }
 
-        if (ruta.Length > RegistroBackup.LongitudMaximaRuta)
+        if (validarLongitud && ruta.Length > RegistroBackup.LongitudMaximaRuta)
         {
             throw new RestauracionFallidaException(
                 $"La ruta de la copia supera los {RegistroBackup.LongitudMaximaRuta} caracteres: muévala a una carpeta con " +

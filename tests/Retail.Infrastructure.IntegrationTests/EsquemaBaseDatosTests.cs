@@ -7,7 +7,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB el diagnóstico de esquema que reemplaza al MigrateAsync del arranque (RF-23).
+/// Verifica contra SQL Server Express el diagnóstico de esquema que reemplaza al MigrateAsync del arranque (RF-23).
 /// </summary>
 public class EsquemaBaseDatosTests : IAsyncLifetime, IDisposable
 {
@@ -17,7 +17,7 @@ public class EsquemaBaseDatosTests : IAsyncLifetime, IDisposable
 
     public Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;

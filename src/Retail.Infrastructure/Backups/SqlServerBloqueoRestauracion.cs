@@ -26,33 +26,48 @@ public class SqlServerBloqueoRestauracion : IBloqueoRestauracion
 {
     private const string PrefijoRecurso = "Retail.Restauracion.";
 
-    private readonly RetailDbContext _context;
+    /// <summary>
+    /// Espera de las copias por el bloqueo compartido. Es corta a propósito: cubre el instante en que otra copia, al
+    /// iniciar, toma el exclusivo para cerrar huérfanos (B-0), pero no hace esperar a una copia detrás de una restauración
+    /// (que dura minutos): esa se rechaza.
+    /// </summary>
+    public static readonly TimeSpan EsperaCompartidoPorDefecto = TimeSpan.FromSeconds(10);
 
-    public SqlServerBloqueoRestauracion(RetailDbContext context)
+    private readonly RetailDbContext _context;
+    private readonly TimeSpan _esperaCompartido;
+
+    public SqlServerBloqueoRestauracion(RetailDbContext context, TimeSpan? esperaCompartido = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _esperaCompartido = esperaCompartido ?? EsperaCompartidoPorDefecto;
     }
 
     public async Task<IAsyncDisposable> AdquirirExclusivoAsync(CancellationToken cancellationToken = default)
     {
-        var bloqueo = await TomarAsync("Exclusive", cancellationToken);
+        var bloqueo = await IntentarAdquirirExclusivoAsync(cancellationToken);
         return bloqueo
             ?? throw new RestauracionFallidaException(
                 "Hay otra restauración o una copia de seguridad en curso. Espere a que termine e intente de nuevo.");
     }
 
+    public async Task<IAsyncDisposable?> IntentarAdquirirExclusivoAsync(CancellationToken cancellationToken = default)
+    {
+        return await TomarAsync("Exclusive", TimeSpan.Zero, cancellationToken);
+    }
+
     public async Task<IAsyncDisposable> AdquirirCompartidoAsync(CancellationToken cancellationToken = default)
     {
-        var bloqueo = await TomarAsync("Shared", cancellationToken);
+        var bloqueo = await TomarAsync("Shared", _esperaCompartido, cancellationToken);
         return bloqueo
             ?? throw new BackupFallidoException(
-                "Hay una restauración de la base en curso. Intente la copia cuando termine.");
+                "Hay una restauración de la base u otra copia iniciándose en este momento. Intente de nuevo en unos segundos.");
     }
 
     /// <summary>
-    /// Intenta tomar el bloqueo sin esperar. Devuelve <c>null</c> si no está disponible.
+    /// Intenta tomar el bloqueo esperando como máximo <paramref name="espera"/> (cero: no espera). Devuelve <c>null</c> si
+    /// no está disponible.
     /// </summary>
-    private async Task<BloqueoAplicacion?> TomarAsync(string modo, CancellationToken cancellationToken)
+    private async Task<BloqueoAplicacion?> TomarAsync(string modo, TimeSpan espera, CancellationToken cancellationToken)
     {
         var cadena = _context.Database.GetConnectionString()
             ?? throw new InvalidOperationException("No hay una cadena de conexión configurada para la base.");
@@ -70,10 +85,12 @@ public class SqlServerBloqueoRestauracion : IBloqueoRestauracion
             await using var comando = conexion.CreateCommand();
             comando.CommandText =
                 "DECLARE @r int; " +
-                "EXEC @r = sp_getapplock @Resource = @recurso, @LockMode = @modo, @LockOwner = 'Session', @LockTimeout = 0; " +
+                "EXEC @r = sp_getapplock @Resource = @recurso, @LockMode = @modo, @LockOwner = 'Session', @LockTimeout = @espera; " +
                 "SELECT @r;";
             comando.Parameters.AddWithValue("@recurso", recurso);
             comando.Parameters.AddWithValue("@modo", modo);
+            comando.Parameters.AddWithValue("@espera", (int)espera.TotalMilliseconds);
+            comando.CommandTimeout = Math.Max(30, (int)espera.TotalSeconds + 30);
 
             var resultado = (int)(await comando.ExecuteScalarAsync(cancellationToken))!;
             if (resultado < 0)

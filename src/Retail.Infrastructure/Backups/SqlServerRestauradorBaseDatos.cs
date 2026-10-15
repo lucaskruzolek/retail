@@ -98,6 +98,38 @@ public class SqlServerRestauradorBaseDatos : IRestauradorBaseDatos
         return Convert.ToInt32(await consulta.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 1;
     }
 
+    /// <remarks>
+    /// Consulta de catálogo con nombre de tres partes desde <c>master</c>: no depende del esquema de la vigente. Es un dato
+    /// de aviso, no una condición de la restauración: si no se puede consultar (por ejemplo, falta de permiso de
+    /// metadatos) se asume que no hay nada que advertir y se registra, en lugar de impedir restaurar.
+    /// </remarks>
+    public async Task<bool> VigenteTieneUsuarioDeLaTareaProgramadaAsync(CancellationToken cancellationToken = default)
+    {
+        var vigente = ObtenerNombreVigente();
+
+        try
+        {
+            await using var conexion = await AbrirMasterAsync(cancellationToken);
+            if (!await ExisteBaseAsync(conexion, vigente, cancellationToken))
+            {
+                return false;
+            }
+
+            await using var consulta = conexion.CreateCommand();
+            consulta.CommandText =
+                $"SELECT CASE WHEN EXISTS (SELECT 1 FROM {ComandosSqlServer.Delimitar(vigente)}.sys.database_principals " +
+                "WHERE name = @cuenta) THEN 1 ELSE 0 END;";
+            consulta.Parameters.AddWithValue("@cuenta", ComandosSqlServer.CuentaDeLaTareaProgramada);
+
+            return Convert.ToInt32(await consulta.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) == 1;
+        }
+        catch (SqlException ex)
+        {
+            _logger.LogWarning(ex, "No se pudo comprobar si la base vigente tiene el usuario de la copia automática.");
+            return false;
+        }
+    }
+
     public async Task<IBaseRestaurada> RestaurarEnBaseTemporalAsync(
         string rutaArchivo,
         IProgress<int>? progreso,

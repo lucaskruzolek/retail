@@ -9,6 +9,7 @@ using Retail.Cli.Consola;
 using Retail.Domain.Exceptions;
 using Retail.Infrastructure;
 using Serilog;
+using Serilog.Events;
 
 namespace Retail.Cli;
 
@@ -23,8 +24,16 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
-        // La consola de Windows usa por defecto una página de códigos que corrompe los acentos.
-        Console.OutputEncoding = System.Text.Encoding.UTF8;
+        // La consola de Windows usa por defecto una página de códigos que corrompe los acentos. El Programador de tareas
+        // (B-5) puede ejecutar la herramienta sin consola o con la salida cerrada: sin consola no hay nada que
+        // configurar, y no es motivo para no hacer la copia.
+        try
+        {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+        }
+        catch (IOException)
+        {
+        }
 
         if (args.Length == 0 || args[0] is "ayuda" or "-h" or "--help")
         {
@@ -34,6 +43,11 @@ internal static class Program
 
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Information()
+            // Los propios registros de la herramienta se conservan en Information; el ruido de las bibliotecas no. EF Core
+            // escribe cada sentencia SQL ("Executed DbCommand") en Information: una copia dejaba 19 entradas con el SQL completo.
+            // Los errores y advertencias de EF Core (por ejemplo, un comando que falla) siguen apareciendo.
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
             .Enrich.FromLogContext()
             // Solo a archivo: la consola es del operador y la escriben los comandos (SalidaConsola).
             .WriteTo.File(

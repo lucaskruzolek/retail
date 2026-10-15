@@ -28,7 +28,7 @@ graph TD
         SQLR --> VAL["dotnet test -c Release"]
         VAL --> PUB["dotnet publish src/Retail.App/Retail.App.csproj\n(-r win-x64 --self-contained -p:PublishSingleFile=true)"]
         PUB --> PUBCLI["dotnet publish src/Retail.Cli/Retail.Cli.csproj\n(misma carpeta: administración de la base, RF-23)"]
-        PUBCLI --> ZIP["Comprimir Retail-POS-win-x64.zip\n(Retail.App.exe + Retail.Cli.exe + appsettings.json\n+ restore-retail.ps1)"]
+        PUBCLI --> ZIP["Comprimir Retail-POS-win-x64.zip\n(Retail.App.exe + Retail.Cli.exe + appsettings.json\n+ restore-retail.ps1 + registrar-tarea-backup.ps1\n+ RetailPermisos.psm1)"]
         ZIP --> GH["softprops/action-gh-release@v2\n(Publicar Release Oficial con Binario)"]
     end
 ```
@@ -121,6 +121,7 @@ El paso de tests declara explícitamente `env: RETAIL_TEST_SQLSERVER: .\SQLEXPRE
   * `Retail.Cli.exe` (Herramienta de administración de la base: `migrar`, `inicializar`, `datos-demo`, `backup`, `restaurar`, `estado`). La aplicación ya no migra al arrancar, así que sin este ejecutable una instalación nueva no podría crear su base.
   * `appsettings.json` (Configuración de base de datos local y endpoint fiscal). Es un único archivo: `Retail.Cli` lo enlaza desde `Retail.App` en su `.csproj`.
   * `restore-retail.ps1` (Recuperación ante desastres, R-2): envoltorio de `Retail.Cli restaurar <ruta.bak>`. Busca `Retail.Cli.exe` en su misma carpeta, por eso el workflow lo copia junto a los ejecutables.
+  * `registrar-tarea-backup.ps1` (Copia automática, Fase 7): se ejecuta una vez como administrador en la PC de la librería; registra la tarea programada diaria de `Retail.Cli.exe backup`. También busca `Retail.Cli.exe` en su misma carpeta, e importa `RetailPermisos.psm1` (funciones de permisos y de lectura de configuración), que el workflow copia junto a él. Copia la carpeta de `Retail.Cli` a `Program Files\Retail POS\Cli` y registra la tarea con esa copia (la tarea corre como `SYSTEM`).
 
 ---
 

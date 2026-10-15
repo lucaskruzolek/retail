@@ -8,7 +8,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB el mapeo de REGISTROS_BACKUP y las restricciones que la base garantiza además del
+/// Verifica contra SQL Server Express el mapeo de REGISTROS_BACKUP y las restricciones que la base garantiza además del
 /// agregado: un único backup en curso, referencia única y coherencia entre tipo y operador.
 /// </summary>
 public class RegistroBackupPersistenciaTests : IAsyncLifetime, IDisposable
@@ -21,7 +21,7 @@ public class RegistroBackupPersistenciaTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        _connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        _connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         _context = CrearContexto();
         await _context.Database.MigrateAsync();
     }

@@ -19,7 +19,7 @@
 | 4 | Backup | ✅ Hecha (commit por fase) |
 | 5 | Restore (opción C: base temporal + intercambio) | ✅ Hecha — commit `0bcbe88` más las correcciones de la revisión final (sección 1.3) |
 | 6 | UI (`BackupView`, `ConfirmarCredencialDialog`) | ✅ Hecha — 1395 tests, Release 0 advertencias. Pendiente: prueba manual en la app real (incluido el reinicio tras restaurar) |
-| 7 | Backup automático | ⏳ Rediseñada (D-27 a D-29, sección 1.4). Prerrequisito: migración a SQL Server Express en un PR propio |
+| 7 | Backup automático | 🚧 B-0 a B-6 implementados y revisión independiente aplicada (sección 1.4): Release 0 advertencias, 1479 tests. Primera prueba manual como `SYSTEM` exitosa (2026-10-14). Pendiente: repetir la prueba manual con el script corregido (copia a Program Files y ACL) |
 
 **Forma de trabajo:** fase por fase y capa por capa (Dominio → Aplicación → Infraestructura → UI → Tests), con cada diff revisado por el estudiante. Desde el 2026-10-13, [`CLAUDE.md`](file:///c:/Users/lucas/Proyectos/retail/CLAUDE.md) §5 permite delegar código en subagentes cuando el estudiante lo pide: la sesión principal define los paquetes, revisa cada diff, corre la verificación y explica. Revisiones independientes de solo lectura en las Fases 1 (permisos) y 5 (restore). Commits y PR los pide el estudiante.
 
@@ -198,6 +198,25 @@ vigente en un flujo normal. Correcciones aplicadas:
 | B-5 | `Retail.Cli backup` | Sin cambios de lógica (ya registra la copia como `Automatico` y maneja Ctrl+C); revisar la ayuda y el log cuando corre sin consola interactiva |
 | B-6 | Documentación y defensa | MAPA, README (instalación de la tarea), riesgos (R-4 desaparece; una PC apagada recupera la copia al encender), preguntas de defensa (por qué una tarea del sistema y no un servicio en la app; por qué `SYSTEM` y no el usuario) |
 | B-7 | Verificación | Release con 0 advertencias, todos los tests, `dotnet format`, prueba manual de la tarea (ejecutarla a mano desde el Programador de tareas) y revisión independiente de solo lectura |
+
+**Estado (2026-10-14):** Paso A integrado (PR #22). B-0 a B-6 implementados. Notas de la implementación:
+* **Permisos de `SYSTEM`, verificados con `EXECUTE AS LOGIN` en tests de integración** que leen la lista `$Permisos` del propio script: `CREATE ANY DATABASE` (lo exige `RESTORE VERIFYONLY`), `db_backupoperator`, `SELECT` sobre `__EFMigrationsHistory` y `USUARIOS`, y `SELECT/INSERT/UPDATE` sobre `REGISTROS_BACKUP`. `sp_getapplock` no necesita permiso propio. Se probó además que la cuenta no puede leer `VENTAS`, modificar `USUARIOS` ni borrar del historial.
+* **El script corta la herencia de permisos** de la carpeta de respaldos y quita "Todos", "Usuarios autenticados" y "Usuarios" (los `.bak` tienen datos personales, R-6). Se niega a operar sobre la raíz de un disco.
+* **Restore desde cualquier ruta (B-3):** el `.bak` y su manifiesto se copian al directorio de respaldos antes de restaurar. Riesgo menor: esas copias no tienen registro en el historial y no entran en la retención.
+* **Prueba manual (2026-10-14):** el script registró la tarea y `Start-ScheduledTask` produjo una copia `Automatico · Verificado · Sistema` en `C:\RetailData\Backups`. Esa misma prueba mostró los hallazgos #1 y #2 de abajo sobre la máquina real.
+* **Falla intermitente** de `PermisosTareaProgramadaIntegracionTests` (dos tests fallaron juntos 1 vez en 5 corridas): no se pudo reproducir en 11 corridas más. Endurecimiento **por descarte**, no causa probada: la clase corre en una colección de xUnit sin paralelismo (`PermisosTareaProgramadaColeccion`). Si reaparece, capturar el error con `--logger trx`.
+* **Revisión independiente de la Fase 7 (16 hallazgos, todos aplicados):**
+
+| # | Sev. | Hallazgo | Corrección |
+| :-: | :-: | :--- | :--- |
+| 1 | Alta | Tras `SetAccessRuleProtection($true,$true)` las reglas heredadas siguen marcadas como heredadas y `RemoveAccessRule` las ignora: en la **primera** ejecución "Usuarios autentificados (M)" y "Usuarios (RX)" quedaban en la carpeta de respaldos (confirmado con `icacls` en la máquina real) | `scripts/RetailPermisos.psm1`: se corta la herencia **sin copiar** reglas y se agregan explícitamente Administradores, `SYSTEM` (por SID), el motor y la app; test que aplica el módulo sobre una carpeta que hereda permisos amplios |
+| 2 | Alta | La tarea ejecutaba como `SYSTEM` un `.exe` que el usuario podía reemplazar (escalada de privilegios) | El script copia la CLI a `%ProgramFiles%\Retail POS\Cli`, registra esa ruta y se niega si un no administrador puede escribir ahí |
+| 3, 7 | Media | `backup` fallaba sin dejar motivo en el log; al encender la PC la tarea podía correr antes de que SQL Server aceptara conexiones | Log con el estado completo y mensajes distintos; espera a la conexión hasta 2 min (no es un reintento de la copia: D-28 se mantiene) |
+| 4 | Media | El usuario de base `SYSTEM` vive dentro de la base: al restaurar una copia anterior al script, la tarea fallaba | Advertencia en el restore si la vigente lo tenía y la copia no; documentar volver a correr el script |
+| 5, 6 | Media | B-0 no cerraba copias muertas durante la verificación (`Exitoso`) ni borraba el `.bak` parcial | B-0 cierra `EnCurso` y `Exitoso` y borra sus archivos (tolerando errores de disco) |
+| 8–14 | Baja | Mensaje engañoso con dos copias simultáneas; sin control de espacio al copiar un `.bak` externo; limpieza frágil; largo de ruta; `SELECT` sobre `USUARIOS` (hashes); defaults del script | Compartido con espera de 10 s; control de espacio; limpieza con marca; `ComandoBackup` ya no lee `USUARIOS` y el permiso se eliminó; defaults desde `appsettings.json` y validación de `-Instancia`; `-RevocarPermisos` |
+| 15 | Baja | Faltaban pruebas de las garantías centrales | Test con `KILL` de la sesión que tiene el compartido (prueba real de B-0), copia viva intocable, limpieza, ACL. El **control negativo** de B-3 destapó un test que pasaba en falso: `File.Move` conservaba la ACL del archivo y el motor sí podía leer la "carpeta externa"; ahora se copia y el motor da "error 5" |
+| 16, — | Baja | Documentación falsa tras #1; "Se cerraron 1 copias"; 19 consultas de EF en el log por copia | Docs corregidas; singular/plural; EF Core a `Warning` en la CLI |
 
 **Zonas compartidas (Ley 10):** el Paso A cambia `appsettings.json`, la configuración de DI y los workflows de CI: coordinarlo con Pablo antes del merge. El Paso B ya no toca `App.xaml.cs` (no hay servicio en segundo plano).
 

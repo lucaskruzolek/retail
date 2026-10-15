@@ -64,6 +64,9 @@ public class BackupServiceTests
 
         _bloqueo.AdquirirCompartidoAsync(Arg.Any<CancellationToken>()).Returns(_ => Substitute.For<IAsyncDisposable>());
 
+        // Por defecto el exclusivo no está disponible (hay otra operación en marcha): los EnCurso se respetan (B-0).
+        _bloqueo.IntentarAdquirirExclusivoAsync(Arg.Any<CancellationToken>()).Returns((IAsyncDisposable?)null);
+
         _sut = new BackupService(
             _registros, _usuarios, _unitOfWork, _authService, _ejecutor, _archivos, _esquema, _bloqueo,
             new PoliticaBackup(CantidadMaximaCopias: 2, VersionApp: "1.0.0"));
@@ -225,6 +228,147 @@ public class BackupServiceTests
         // Assert
         await act.Should().ThrowAsync<DomainException>().WithMessage("*en curso*");
         _archivos.DidNotReceiveWithAnyArgs().PrepararRutaNueva(default);
+    }
+
+    // ───────────────────── Copias huérfanas (B-0) ─────────────────────
+
+    private RegistroBackup CopiaEnCursoHuerfana()
+    {
+        var huerfana = RegistroBackup.Iniciar(TipoBackupEnum.Automatico, null, null, @"C:\huerfana.bak", Migracion, "1.0.0");
+        huerfana.Id = _historial.Count + 1;
+        _historial.Add(huerfana);
+        return huerfana;
+    }
+
+    [Fact]
+    public async Task CrearBackupManualAsync_HuerfanaYExclusivoDisponible_LaCierraYCopia()
+    {
+        // Arrange: el exclusivo se obtiene, así que ninguna copia corre y la EnCurso es de un proceso muerto.
+        var huerfana = CopiaEnCursoHuerfana();
+        var exclusivo = Substitute.For<IAsyncDisposable>();
+        _bloqueo.IntentarAdquirirExclusivoAsync(Arg.Any<CancellationToken>()).Returns(exclusivo);
+
+        // Act
+        var resultado = await _sut.CrearBackupManualAsync(IdGerente, "Clave2026!");
+
+        // Assert
+        huerfana.Estado.Should().Be(EstadoBackupEnum.Fallido);
+        huerfana.MensajeError.Should().Be(RegistroBackup.MensajeCopiaHuerfana);
+        resultado.RegistradaEnHistorial.Should().BeTrue();
+        await exclusivo.Received(1).DisposeAsync();
+        Received.InOrder(() =>
+        {
+            _ = _bloqueo.IntentarAdquirirExclusivoAsync(Arg.Any<CancellationToken>());
+            _ = _bloqueo.AdquirirCompartidoAsync(Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Theory]
+    [InlineData(TipoBackupEnum.Automatico)]
+    [InlineData(TipoBackupEnum.PreMigracion)]
+    public async Task CrearBackupDelSistemaAsync_HuerfanaYExclusivoDisponible_LaCierraYCopia(TipoBackupEnum tipo)
+    {
+        // Arrange
+        var huerfana = CopiaEnCursoHuerfana();
+        _bloqueo.IntentarAdquirirExclusivoAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
+
+        // Act
+        var resultado = await _sut.CrearBackupDelSistemaAsync(tipo);
+
+        // Assert
+        huerfana.Estado.Should().Be(EstadoBackupEnum.Fallido);
+        resultado.RegistradaEnHistorial.Should().BeTrue();
+        await _ejecutor.Received(1).CrearCopiaAsync(Arg.Any<string>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_CopiaExitosaSinVerificarYExclusivoDisponible_LaCierraYBorraSusRestos()
+    {
+        // Arrange: el proceso murió durante la verificación; el registro quedó Exitoso y ocuparía un lugar de la retención
+        // para siempre. Con el exclusivo tomado, ninguna copia corre: es huérfana.
+        var huerfana = CopiaEnCursoHuerfana();
+        huerfana.RegistrarExito(1024, Hash);
+        var verificada = CopiaVerificadaPrevia(@"C:\RetailData\Backups\buena.bak");
+        _bloqueo.IntentarAdquirirExclusivoAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
+
+        // Act
+        var resultado = await _sut.CrearBackupDelSistemaAsync(TipoBackupEnum.Automatico);
+
+        // Assert
+        huerfana.Estado.Should().Be(EstadoBackupEnum.Fallido);
+        huerfana.MensajeError.Should().Be(RegistroBackup.MensajeCopiaHuerfana);
+        verificada.Estado.Should().Be(EstadoBackupEnum.Verificado, "una copia verificada nunca es huérfana");
+        _archivos.Received(1).EliminarCopia(@"C:\huerfana.bak");
+        resultado.RegistradaEnHistorial.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_CopiaExitosaSinVerificarYExclusivoNoDisponible_NoLaToca()
+    {
+        // Arrange: otra copia que está verificando sostiene el compartido: su registro Exitoso es legítimo.
+        var enVerificacion = CopiaEnCursoHuerfana();
+        enVerificacion.RegistrarExito(1024, Hash);
+
+        // Act
+        var act = async () => await _sut.CrearBackupDelSistemaAsync(TipoBackupEnum.Automatico);
+
+        // Assert: no hay otra EnCurso, así que la copia nueva sigue; el registro ajeno no se cierra ni se borra su archivo.
+        await act.Should().NotThrowAsync();
+        enVerificacion.Estado.Should().Be(EstadoBackupEnum.Exitoso);
+        _archivos.DidNotReceive().EliminarCopia(@"C:\huerfana.bak");
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_NoSePuedeBorrarElRestoDeLaHuerfana_IgualCopia()
+    {
+        // Arrange: el archivo parcial sigue abierto por el motor tras la caída del proceso.
+        CopiaEnCursoHuerfana();
+        _bloqueo.IntentarAdquirirExclusivoAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
+        _archivos.When(a => a.EliminarCopia(@"C:\huerfana.bak")).Do(_ => throw new IOException("en uso"));
+
+        // Act
+        var resultado = await _sut.CrearBackupDelSistemaAsync(TipoBackupEnum.Automatico);
+
+        // Assert
+        resultado.RegistradaEnHistorial.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CrearBackupManualAsync_EnCursoYExclusivoNoDisponible_NoTocaElRegistroYRechaza()
+    {
+        // Arrange: otra copia o una restauración tiene el bloqueo; su EnCurso es legítimo.
+        var enCurso = CopiaEnCursoHuerfana();
+
+        // Act
+        var act = async () => await _sut.CrearBackupManualAsync(IdGerente, "Clave2026!");
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*en curso*");
+        enCurso.Estado.Should().Be(EstadoBackupEnum.EnCurso);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Fact]
+    public async Task CrearBackupDelSistemaAsync_ExclusivoDisponibleSinTablaDeHistorial_NoConsultaRegistros()
+    {
+        // Arrange
+        _bloqueo.IntentarAdquirirExclusivoAsync(Arg.Any<CancellationToken>()).Returns(Substitute.For<IAsyncDisposable>());
+        _esquema.ExisteHistorialDeBackupsAsync(Arg.Any<CancellationToken>()).Returns(false);
+
+        // Act
+        await _sut.CrearBackupDelSistemaAsync(TipoBackupEnum.PreMigracion);
+
+        // Assert
+        await _registros.DidNotReceiveWithAnyArgs().FindAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task CrearBackupPreRestauracionAsync_NuncaIntentaElExclusivo()
+    {
+        // Corre bajo el exclusivo de su restauración, que ya cerró los huérfanos.
+        await _sut.CrearBackupPreRestauracionAsync(42, "gerente");
+
+        await _bloqueo.DidNotReceiveWithAnyArgs().IntentarAdquirirExclusivoAsync(default);
     }
 
     // ───────────────────── Copias del sistema ─────────────────────

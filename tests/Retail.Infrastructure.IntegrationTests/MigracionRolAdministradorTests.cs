@@ -9,7 +9,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB la migración AgregarRolAdministradorYCuentasDeUsuario en los dos escenarios que debe
+/// Verifica contra SQL Server Express la migración AgregarRolAdministradorYCuentasDeUsuario en los dos escenarios que debe
 /// cubrir: una base existente (sembrada por el seeder anterior con Cajero, Encargado y Gerente) y una base vacía.
 /// </summary>
 public class MigracionRolAdministradorTests : IAsyncLifetime, IDisposable
@@ -21,7 +21,7 @@ public class MigracionRolAdministradorTests : IAsyncLifetime, IDisposable
 
     public Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;

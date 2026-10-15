@@ -36,6 +36,7 @@ public class RestauracionServiceTests
     private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
     private readonly IRepository<RegistroBackup> _registros = Substitute.For<IRepository<RegistroBackup>>();
     private readonly IRepository<RegistroRestauracion> _restauraciones = Substitute.For<IRepository<RegistroRestauracion>>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
     private readonly IAuthService _authService = Substitute.For<IAuthService>();
     private readonly IBackupService _backupService = Substitute.For<IBackupService>();
     private readonly IRestauradorBaseDatos _restaurador = Substitute.For<IRestauradorBaseDatos>();
@@ -59,6 +60,7 @@ public class RestauracionServiceTests
         RegistrarUsuario(IdAdministrador, "soporte", RolUsuarioEnum.Administrador);
         RegistrarUsuario(IdCajero, "cajero", RolUsuarioEnum.Cajero);
 
+        _archivos.PrepararParaRestaurarAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<string>());
         _archivos.CalcularHuellaAsync(RutaBak, Arg.Any<CancellationToken>()).Returns(new ArchivoBackupDto(Tamano, Hash));
         _esquema.ObtenerEstadoAsync(Arg.Any<CancellationToken>()).Returns(Esquema());
         _esquema.ExisteHistorialDeBackupsAsync(Arg.Any<CancellationToken>()).Returns(true);
@@ -84,7 +86,7 @@ public class RestauracionServiceTests
         _temporal.AgregarRestauracionAsync(Arg.Do<RegistroRestauracion>(r => _restauracionRegistrada = r), Arg.Any<CancellationToken>());
 
         _sut = new RestauracionService(
-            _usuarios, _registros, _restauraciones, _authService, _backupService, _restaurador, _bloqueo, _archivos, _esquema, _passwordHasher);
+            _usuarios, _registros, _restauraciones, _unitOfWork, _authService, _backupService, _restaurador, _bloqueo, _archivos, _esquema, _passwordHasher);
     }
 
     private static EstadoEsquemaDto Esquema(
@@ -321,18 +323,41 @@ public class RestauracionServiceTests
     }
 
     [Fact]
-    public async Task RestaurarDesdeHistorialAsync_CopiaDeSeguridadEnCurso_LanzaRestauracionFallidaSinRestaurar()
+    public async Task RestaurarDesdeHistorialAsync_CopiaEnCursoHuerfanaEnLaVigente_LaCierraComoFallidaYContinua()
     {
-        // Arrange (R-12)
+        // Arrange (B-0): el proceso murió a mitad de la copia; con el exclusivo tomado nadie más puede estar copiando.
         var copia = CopiaEnHistorial();
-        _historial.Add(RegistroBackup.Iniciar(TipoBackupEnum.Automatico, null, null, @"C:\otra.bak", Migracion, "1.0.0"));
+        var huerfana = RegistroBackup.Iniciar(TipoBackupEnum.Automatico, null, null, @"C:\otra.bak", Migracion, "1.0.0");
+        _historial.Add(huerfana);
 
         // Act
-        var act = async () => await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+        var resultado = await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        // Assert: se cierra y se guarda antes de la copia previa, que de lo contrario chocaría con la copia en curso.
+        huerfana.Estado.Should().Be(EstadoBackupEnum.Fallido);
+        huerfana.MensajeError.Should().Be(RegistroBackup.MensajeCopiaHuerfana);
+        await _registros.Received(1).UpdateAsync(huerfana, Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _ = _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+            _ = _backupService.CrearBackupPreRestauracionAsync(IdGerente, "gerente", Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>());
+        });
+        resultado.Advertencias.Should().Contain("Se cerró 1 copia de seguridad interrumpida en la base vigente.");
+        await _temporal.Received(1).PromoverAVigenteAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_SinCopiasEnCurso_NoGuardaNiAdvierte()
+    {
+        // Arrange
+        var copia = CopiaEnHistorial();
+
+        // Act
+        var resultado = await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
 
         // Assert
-        await act.Should().ThrowAsync<RestauracionFallidaException>().WithMessage("*en curso*");
-        await _restaurador.DidNotReceiveWithAnyArgs().RestaurarEnBaseTemporalAsync(default!, default);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+        resultado.Advertencias.Should().NotContain(a => a.Contains("interrumpidas"));
     }
 
     [Fact]
@@ -809,6 +834,87 @@ public class RestauracionServiceTests
     }
 
     [Fact]
+    public async Task RestaurarDesdeArchivoAsync_ArchivoFueraDelDirectorio_UsaLaRutaPreparadaParaTodo()
+    {
+        // Arrange (B-3): el .bak estaba en Descargas; el puerto lo trajo al directorio de respaldos con otro nombre.
+        const string rutaOriginal = @"C:\Users\gerente\Downloads\Retail_20261013_210000_Manual.bak";
+        const string rutaCopiada = @"C:\RetailData\Backups\Retail_20261013_210000_Manual_2.bak";
+        GerenteEnLaCopia();
+        _archivos.PrepararParaRestaurarAsync(rutaOriginal, Arg.Any<CancellationToken>()).Returns(rutaCopiada);
+        _archivos.LeerManifiestoAsync(rutaCopiada, Arg.Any<CancellationToken>()).Returns(new ManifiestoBackupDto
+        {
+            Referencia = Guid.NewGuid(),
+            Tipo = nameof(TipoBackupEnum.Manual),
+            FechaInicioUtc = DateTime.UtcNow,
+            Operador = "gerente",
+            ArchivoBak = Path.GetFileName(rutaCopiada),
+            TamanoBytes = Tamano,
+            HashSha256 = Hash,
+            UltimaMigracion = Migracion,
+            VersionApp = "1.0.0",
+            RegistradaEnHistorial = true
+        });
+        _archivos.CalcularHuellaAsync(rutaCopiada, Arg.Any<CancellationToken>()).Returns(new ArchivoBackupDto(Tamano, Hash));
+        _restaurador.RestaurarEnBaseTemporalAsync(rutaCopiada, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>()).Returns(_temporal);
+
+        // Act
+        await _sut.RestaurarDesdeArchivoAsync(rutaOriginal, "gerente", Password);
+
+        // Assert: el motor, el manifiesto y la auditoría usan la copia, no el original que el motor no puede leer.
+        await _restaurador.Received(1).RestaurarEnBaseTemporalAsync(rutaCopiada, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>());
+        await _restaurador.DidNotReceive().RestaurarEnBaseTemporalAsync(rutaOriginal, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>());
+        await _archivos.DidNotReceive().LeerManifiestoAsync(rutaOriginal, Arg.Any<CancellationToken>());
+        _restauracionRegistrada!.RutaArchivo.Should().Be(rutaCopiada);
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeArchivoAsync_FallaLaPreparacionPorEntradaSalida_LanzaRestauracionFallidaConLaCausa()
+    {
+        // Arrange
+        var causa = new IOException("disco lleno");
+        _archivos.PrepararParaRestaurarAsync(RutaBak, Arg.Any<CancellationToken>()).ThrowsAsync(causa);
+
+        // Act
+        var act = async () => await _sut.RestaurarDesdeArchivoAsync(RutaBak, "gerente", Password);
+
+        // Assert
+        var excepcion = await act.Should().ThrowAsync<RestauracionFallidaException>();
+        excepcion.Which.Message.Should().Contain("preparar la copia").And.Contain("disco lleno");
+        excepcion.Which.InnerException.Should().BeSameAs(causa);
+        await _bloqueo.DidNotReceiveWithAnyArgs().AdquirirExclusivoAsync(default);
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeArchivoAsync_FallaInesperadaAlPrepararLaCopia_OcultaElDetalleTecnicoYConservaLaCausa()
+    {
+        // Arrange (D-25)
+        var causa = new InvalidOperationException("detalle interno");
+        _archivos.PrepararParaRestaurarAsync(RutaBak, Arg.Any<CancellationToken>()).ThrowsAsync(causa);
+
+        // Act
+        var act = async () => await _sut.RestaurarDesdeArchivoAsync(RutaBak, "gerente", Password);
+
+        // Assert
+        var excepcion = await act.Should().ThrowAsync<RestauracionFallidaException>();
+        excepcion.Which.Message.Should().Contain("preparar la copia").And.NotContain("detalle interno");
+        excepcion.Which.InnerException.Should().BeSameAs(causa);
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeArchivoAsync_ElPuertoRechazaLaCopia_PropagaSuMensajeSinEnvolver()
+    {
+        // Arrange
+        var rechazo = new RestauracionFallidaException("El manifiesto .json pertenece a otra copia.");
+        _archivos.PrepararParaRestaurarAsync(RutaBak, Arg.Any<CancellationToken>()).ThrowsAsync(rechazo);
+
+        // Act
+        var act = async () => await _sut.RestaurarDesdeArchivoAsync(RutaBak, "gerente", Password);
+
+        // Assert
+        (await act.Should().ThrowAsync<RestauracionFallidaException>()).Which.Should().BeSameAs(rechazo);
+    }
+
+    [Fact]
     public async Task RestaurarDesdeArchivoAsync_ManifiestoIlegible_LanzaRestauracionFallida()
     {
         // Arrange
@@ -911,5 +1017,131 @@ public class RestauracionServiceTests
         await act.Should().ThrowAsync<RestauracionFallidaException>().WithMessage($"*{RegistroBackup.LongitudMaximaRuta} caracteres*");
         await _archivos.DidNotReceiveWithAnyArgs().LeerManifiestoAsync(default!, default);
         await _restaurador.DidNotReceiveWithAnyArgs().RestaurarEnBaseTemporalAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeArchivoAsync_OrigenMuyLargoPeroPreparadoCorto_RestauraDesdeLaRutaPreparada()
+    {
+        // Arrange: la ruta de origen supera la columna, pero PrepararParaRestaurarAsync la trae a una carpeta corta: eso es
+        // justamente lo que resuelve, así que el límite de longitud se aplica sobre la ruta preparada y no sobre el origen.
+        var rutaOriginal = @"C:\" + new string('x', RegistroBackup.LongitudMaximaRuta) + ".bak";
+        const string rutaCopiada = @"C:\RetailData\Backups\Retail_20261013_210000_Manual.bak";
+        GerenteEnLaCopia();
+        _archivos.PrepararParaRestaurarAsync(rutaOriginal, Arg.Any<CancellationToken>()).Returns(rutaCopiada);
+        _archivos.LeerManifiestoAsync(rutaCopiada, Arg.Any<CancellationToken>()).Returns(new ManifiestoBackupDto
+        {
+            Referencia = Guid.NewGuid(),
+            Tipo = nameof(TipoBackupEnum.Manual),
+            FechaInicioUtc = DateTime.UtcNow,
+            Operador = "gerente",
+            ArchivoBak = Path.GetFileName(rutaCopiada),
+            TamanoBytes = Tamano,
+            HashSha256 = Hash,
+            UltimaMigracion = Migracion,
+            VersionApp = "1.0.0",
+            RegistradaEnHistorial = true
+        });
+        _archivos.CalcularHuellaAsync(rutaCopiada, Arg.Any<CancellationToken>()).Returns(new ArchivoBackupDto(Tamano, Hash));
+        _restaurador.RestaurarEnBaseTemporalAsync(rutaCopiada, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>()).Returns(_temporal);
+
+        // Act
+        await _sut.RestaurarDesdeArchivoAsync(rutaOriginal, "gerente", Password);
+
+        // Assert
+        _restauracionRegistrada!.RutaArchivo.Should().Be(rutaCopiada);
+        await _temporal.Received(1).PromoverAVigenteAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_CopiaExitosaSinVerificarEnLaVigente_LaCierraComoFallidaYBorraSusRestos()
+    {
+        // Arrange (B-0): el proceso murió verificando; el registro quedó Exitoso, no EnCurso, y ocuparía un lugar de la retención.
+        var copia = CopiaEnHistorial();
+        var huerfana = CopiaEnHistorial(verificada: false);
+        const string rutaHuerfana = @"C:\RetailData\Backups\parcial.bak";
+        typeof(RegistroBackup).GetProperty(nameof(RegistroBackup.RutaArchivo))!.SetValue(huerfana, rutaHuerfana);
+
+        // Act
+        var resultado = await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        // Assert
+        huerfana.Estado.Should().Be(EstadoBackupEnum.Fallido);
+        huerfana.MensajeError.Should().Be(RegistroBackup.MensajeCopiaHuerfana);
+        copia.Estado.Should().Be(EstadoBackupEnum.Verificado, "una copia verificada nunca es huérfana");
+        _archivos.Received(1).EliminarCopia(rutaHuerfana);
+        resultado.Advertencias.Should().Contain("Se cerró 1 copia de seguridad interrumpida en la base vigente.");
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_VariasCopiasHuerfanasEnLaVigente_AdvierteEnPlural()
+    {
+        // Arrange
+        var copia = CopiaEnHistorial();
+        _historial.Add(RegistroBackup.Iniciar(TipoBackupEnum.Automatico, null, null, @"C:\a.bak", Migracion, "1.0.0"));
+        _historial.Add(RegistroBackup.Iniciar(TipoBackupEnum.Manual, IdGerente, "gerente", @"C:\b.bak", Migracion, "1.0.0"));
+
+        // Act
+        var resultado = await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        // Assert
+        resultado.Advertencias.Should().Contain("Se cerraron 2 copias de seguridad interrumpidas en la base vigente.");
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_NoSePuedeBorrarElRestoDeUnaHuerfana_IgualRestaura()
+    {
+        // Arrange: el archivo parcial sigue abierto por el motor; no es motivo para abortar la restauración.
+        var copia = CopiaEnHistorial();
+        _historial.Add(RegistroBackup.Iniciar(TipoBackupEnum.Automatico, null, null, @"C:\a.bak", Migracion, "1.0.0"));
+        _archivos.When(a => a.EliminarCopia(@"C:\a.bak")).Do(_ => throw new IOException("en uso"));
+
+        // Act
+        await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        // Assert
+        await _temporal.Received(1).PromoverAVigenteAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    public async Task RestaurarDesdeHistorialAsync_UsuarioDeLaTareaProgramada_AdvierteSoloSiLaVigenteLoTeniaYLaCopiaNo(
+        bool vigenteLoTiene, bool copiaLoTiene, bool debeAdvertir)
+    {
+        // Arrange: el usuario de base de datos de la copia automática y sus permisos viven dentro de la base.
+        var copia = CopiaEnHistorial();
+        _restaurador.VigenteTieneUsuarioDeLaTareaProgramadaAsync(Arg.Any<CancellationToken>()).Returns(vigenteLoTiene);
+        _temporal.TieneUsuarioDeLaTareaProgramadaAsync(Arg.Any<CancellationToken>()).Returns(copiaLoTiene);
+
+        // Act
+        var resultado = await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        // Assert
+        if (debeAdvertir)
+        {
+            resultado.Advertencias.Should().Contain(RestauracionService.AvisoPermisosDeLaCopiaAutomatica);
+            RestauracionService.AvisoPermisosDeLaCopiaAutomatica.Should().Contain(@"scripts\registrar-tarea-backup.ps1");
+        }
+        else
+        {
+            resultado.Advertencias.Should().NotContain(RestauracionService.AvisoPermisosDeLaCopiaAutomatica);
+        }
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_SinBaseVigente_NoConsultaElUsuarioDeLaTareaProgramada()
+    {
+        // Arrange: PC nueva, no hay nada que comparar.
+        var copia = CopiaEnHistorial();
+        _restaurador.ExisteBaseVigenteAsync(Arg.Any<CancellationToken>()).Returns(false);
+
+        // Act
+        var resultado = await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        // Assert
+        resultado.Advertencias.Should().NotContain(RestauracionService.AvisoPermisosDeLaCopiaAutomatica);
+        await _restaurador.DidNotReceiveWithAnyArgs().VigenteTieneUsuarioDeLaTareaProgramadaAsync(default);
     }
 }

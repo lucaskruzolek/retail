@@ -8,7 +8,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB el mapeo de REGISTROS_RESTAURACION y las restricciones que la base garantiza además del
+/// Verifica contra SQL Server Express el mapeo de REGISTROS_RESTAURACION y las restricciones que la base garantiza además del
 /// agregado: referencia única y operador identificado (D-22).
 /// </summary>
 public class RegistroRestauracionPersistenciaTests : IAsyncLifetime, IDisposable
@@ -21,7 +21,7 @@ public class RegistroRestauracionPersistenciaTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        _connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        _connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         _context = CrearContexto();
         await _context.Database.MigrateAsync();
     }

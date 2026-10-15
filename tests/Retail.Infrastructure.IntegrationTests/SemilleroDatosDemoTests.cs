@@ -8,7 +8,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra LocalDB los datos de <c>Retail.Cli datos-demo</c>: proveedor, categorías y marcas, sin
+/// Verifica contra SQL Server Express los datos de <c>Retail.Cli datos-demo</c>: proveedor, categorías y marcas, sin
 /// usuarios ni artículos, e idempotente elemento por elemento.
 /// </summary>
 public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
@@ -18,7 +18,7 @@ public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
 
     public async Task InitializeAsync()
     {
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={_dbName};Trusted_Connection=True;MultipleActiveResultSets=true";
+        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;

@@ -34,6 +34,13 @@ public interface IBaseRestaurada : IAsyncDisposable
     Task<bool> ExisteGerenteActivoAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Indica si la copia tiene el usuario de base de datos con el que corre la copia automática diaria. Ese usuario y sus
+    /// permisos viven dentro de la base: una copia tomada antes de registrar la tarea programada no los tiene, y la tarea
+    /// fallaría después de restaurarla.
+    /// </summary>
+    Task<bool> TieneUsuarioDeLaTareaProgramadaAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Copia en la base temporal el historial de copias y de restauraciones de la base vigente (R-1). Ante un registro
     /// con la misma <c>Referencia</c>, prevalece el de la vigente, que es la versión más reciente de ese hecho (R-18).
     /// Exige que ambas bases tengan el mismo esquema.

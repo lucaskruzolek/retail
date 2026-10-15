@@ -15,19 +15,17 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests.Backups;
 
 /// <summary>
-/// Restauración real contra LocalDB (RF-22, D-17): restore a una base temporal, descarte ante fallas, espacio en disco,
+/// Restauración real contra SQL Server Express (RF-22, D-17): restore a una base temporal, descarte ante fallas, espacio en disco,
 /// intercambio con la vigente e importación del historial. Cada prueba usa su propia base vigente y limpia todas las
 /// bases derivadas (<c>_Restaurando</c>, <c>_Anterior_*</c>) aunque falle.
 /// </summary>
 public class RestauradorIntegracionTests : IAsyncLifetime
 {
-    private const string Servidor = "Server=(localdb)\\mssqllocaldb;Trusted_Connection=True;MultipleActiveResultSets=true";
-
     private readonly string _vigente = $"RetailDb_Test_Restaurador_{Guid.NewGuid():N}";
-    private readonly string _directorio = Path.Combine(Path.GetTempPath(), $"RetailRestauradorTests_{Guid.NewGuid():N}");
+    private readonly string _directorio = ServidorDePruebas.CrearCarpetaAccesibleParaElMotor("RetailRestauradorTests");
     private RetailDbContext _context = null!;
 
-    private static string CadenaDe(string baseDeDatos) => $"{Servidor};Database={baseDeDatos}";
+    private static string CadenaDe(string baseDeDatos) => ServidorDePruebas.CadenaDeConexion(baseDeDatos);
 
     private static RetailDbContext ContextoDe(string cadena)
     {
@@ -188,6 +186,84 @@ public class RestauradorIntegracionTests : IAsyncLifetime
         archivosTemporal.Should().OnlyContain(a => Path.GetFileName(a).StartsWith(_vigente, StringComparison.Ordinal));
 
         restaurada.NombreBaseAnterior.Should().StartWith($"{_vigente}_Anterior_");
+    }
+
+    /// <summary>
+    /// Crea en la base indicada el usuario de la copia automática SIN login: así la prueba no toca el login real
+    /// <c>NT AUTHORITY\SYSTEM</c> de la instancia y el usuario igual figura en el catálogo de la base.
+    /// </summary>
+    private static async Task CrearUsuarioDeLaTareaProgramadaAsync(string baseDeDatos)
+    {
+        await using var conexion = new SqlConnection(CadenaDe(baseDeDatos));
+        await conexion.OpenAsync();
+        await using var comando = conexion.CreateCommand();
+        comando.CommandText = "CREATE USER [NT AUTHORITY\\SYSTEM] WITHOUT LOGIN;";
+        await comando.ExecuteNonQueryAsync();
+    }
+
+    [Fact]
+    public async Task VigenteTieneUsuarioDeLaTareaProgramadaAsync_SegunLaBase_ReflejaSiElUsuarioExiste()
+    {
+        // Arrange
+        var sut = CrearSut();
+        var antes = await sut.VigenteTieneUsuarioDeLaTareaProgramadaAsync();
+
+        // Act
+        await CrearUsuarioDeLaTareaProgramadaAsync(_vigente);
+        var despues = await sut.VigenteTieneUsuarioDeLaTareaProgramadaAsync();
+
+        // Assert
+        antes.Should().BeFalse();
+        despues.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task TieneUsuarioDeLaTareaProgramadaAsync_CopiaTomadaConYSinElUsuario_DistingueUnaDeOtra()
+    {
+        // Arrange: la copia "vieja" se toma antes de registrar la tarea programada; la "nueva", después.
+        var rutaSinUsuario = await CrearCopiaAsync("sin-usuario.bak");
+        await CrearUsuarioDeLaTareaProgramadaAsync(_vigente);
+        var rutaConUsuario = await CrearCopiaAsync("con-usuario.bak");
+
+        // Act
+        bool sinUsuario;
+        await using (var restaurada = await CrearSut().RestaurarEnBaseTemporalAsync(rutaSinUsuario, progreso: null))
+        {
+            sinUsuario = await restaurada.TieneUsuarioDeLaTareaProgramadaAsync();
+        }
+
+        bool conUsuario;
+        await using (var restaurada = await CrearSut().RestaurarEnBaseTemporalAsync(rutaConUsuario, progreso: null))
+        {
+            conUsuario = await restaurada.TieneUsuarioDeLaTareaProgramadaAsync();
+        }
+
+        // Assert
+        sinUsuario.Should().BeFalse();
+        conUsuario.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task VigenteTieneUsuarioDeLaTareaProgramadaAsync_BaseInexistente_DevuelveFalso()
+    {
+        // Arrange: PC nueva, la vigente todavía no existe.
+        await _context.DisposeAsync();
+        SqlConnection.ClearAllPools();
+        await using (var master = new SqlConnection(CadenaDe("master")))
+        {
+            await master.OpenAsync();
+            await using var comando = master.CreateCommand();
+            comando.CommandText = $"ALTER DATABASE [{_vigente}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{_vigente}];";
+            await comando.ExecuteNonQueryAsync();
+        }
+
+        _context = ContextoDe(CadenaDe(_vigente));
+
+        // Act
+        var resultado = await CrearSut().VigenteTieneUsuarioDeLaTareaProgramadaAsync();
+
+        // Assert
+        resultado.Should().BeFalse();
     }
 
     [Fact]

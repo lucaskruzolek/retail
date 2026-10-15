@@ -22,6 +22,13 @@ public interface IRestauradorBaseDatos
     Task<bool> HayTurnoDeCajaAbiertoEnBaseVigenteAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Indica si la base vigente tiene el usuario de base de datos de la copia automática diaria (ver
+    /// <see cref="IBaseRestaurada.TieneUsuarioDeLaTareaProgramadaAsync"/>). Es una consulta de catálogo mínima, válida
+    /// con cualquier esquema; devuelve <c>false</c> si la base no existe o no se puede consultar.
+    /// </summary>
+    Task<bool> VigenteTieneUsuarioDeLaTareaProgramadaAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Restaura el archivo en una base temporal nueva. Verifica antes que haya espacio en disco (D-23) y descarta una
     /// base temporal que haya quedado de un corte anterior. Liberar la base devuelta sin promoverla la elimina.
     /// </summary>
