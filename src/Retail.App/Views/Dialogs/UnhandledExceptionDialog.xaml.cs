@@ -1,6 +1,7 @@
 using System.IO;
-using System.Runtime.InteropServices;
 using System.Windows;
+using Retail.App.Helpers;
+using Retail.Infrastructure.Logging;
 using Wpf.Ui.Controls;
 
 namespace Retail.App.Views.Dialogs;
@@ -27,7 +28,7 @@ public partial class UnhandledExceptionDialog : FluentWindow
         InitializeComponent();
 
         _exception = exception;
-        _logFilePath = logFilePath ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", $"retail-{DateTime.Now:yyyyMMdd}.log");
+        _logFilePath = logFilePath ?? Path.Combine(UbicacionDeLogs.Directorio(), $"retail-{DateTime.Now:yyyyMMdd}.log");
 
         // Salvaguarda de pantalla para monitores de baja resolución o DPI escalado (SISTEMA_DE_DISENO.md)
         MaxHeight = SystemParameters.WorkArea.Height;
@@ -70,17 +71,10 @@ public partial class UnhandledExceptionDialog : FluentWindow
 
     private void BtnCopiarDetalles_Click(object sender, RoutedEventArgs e)
     {
-        try
-        {
-            var contenidoParaCopiar = ObtenerReporteDiagnostico();
-            Clipboard.SetText(contenidoParaCopiar);
-            TxtBtnCopiar.Text = "¡Detalle Copiado!";
-        }
-        catch (ExternalException)
-        {
-            // En entornos bloqueados de portapapeles, evitar lanzar excepción secundaria
-            TxtBtnCopiar.Text = "No se pudo acceder al portapapeles";
-        }
+        // Con el portapapeles bloqueado no se lanza una excepción secundaria: se informa en el botón
+        TxtBtnCopiar.Text = PortapapelesSeguro.TryCopiar(ObtenerReporteDiagnostico())
+            ? "¡Detalle Copiado!"
+            : "No se pudo acceder al portapapeles";
     }
 
     private void BtnContinuar_Click(object sender, RoutedEventArgs e)

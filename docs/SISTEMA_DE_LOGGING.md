@@ -29,7 +29,7 @@ graph TD
 
     subgraph "Motor de Persistencia y Salida (Serilog)"
         SERILOG["Motor Serilog\n(Serilog.Sinks.File + Console)"]
-        ROTATIVE["Archivo Rotativo Local\nlogs/retail-YYYYMMDD.log (Retención 31d)"]
+        ROTATIVE["Archivo Rotativo Local\n%LOCALAPPDATA%/Retail POS/logs/retail-YYYYMMDD.log (Retención 31d)"]
         CONSOLE["Consola CLI / StdOut\n(Desarrollo Local)"]
         
         SERILOG --> ROTATIVE
@@ -101,8 +101,8 @@ graph TD
 
 ## 📁 Especificación del Archivo de Log
 
-* **Ubicación Física:** `<DirectorioDeEjecución>/logs/`
-* **Patrón de Nombre:** `retail-YYYYMMDD.log` (ejemplo: `logs/retail-20260909.log`)
+* **Ubicación Física:** `%LOCALAPPDATA%\Retail POS\logs\` de la cuenta que ejecuta el proceso. La regla vive en un único lugar, [`UbicacionDeLogs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Logging/UbicacionDeLogs.cs), que usan tanto `Retail.App` como `Retail.Cli` (si `LocalApplicationData` viniera vacío, se usa la carpeta temporal del sistema).
+* **Patrón de Nombre:** `retail-YYYYMMDD.log` para la aplicación y `retail-cli-YYYYMMDD.log` para `Retail.Cli` (ejemplo: `retail-20260909.log`)
 * **Rotación:** Diaria automática (`RollingInterval.Day`).
 * **Retención:** 31 archivos históricos (`retainedFileCountLimit: 31`).
 * **Plantilla de Salida (Output Template):**
@@ -118,6 +118,22 @@ graph TD
      at Retail.App.Views.Dev.StyleGalleryView.BtnTestDispatcherException_Click(Object sender, RoutedEventArgs e)
   ```
 
+### Por qué `%LOCALAPPDATA%` y no la carpeta de instalación (seguridad)
+
+* **Program Files es solo para binarios.** Los programas instalados no escriben datos en su carpeta de instalación (guías de Windows): un usuario común no puede hacerlo, y habilitarlo con permisos especiales debilita la protección del ejecutable.
+* **Un proceso privilegiado nunca debe escribir donde un usuario sin privilegios controla la carpeta.** La tarea programada de copia corre `Retail.Cli.exe backup` como `SYSTEM`. Si el log estuviera en una carpeta escribible por el usuario, éste podría convertir la carpeta vacía en un punto de montaje (*mount point* / *junction*) y redirigir las escrituras de `SYSTEM` a otro destino: es un patrón conocido de escalada de privilegios.
+* **Una sola regla para todos, sin detectar identidades ni tocar permisos.** `Environment.SpecialFolder.LocalApplicationData` se resuelve contra la cuenta que ejecuta el proceso:
+
+| Proceso | Carpeta de registros | Quién puede escribirla |
+| :--- | :--- | :--- |
+| `Retail.App.exe` (cada usuario) | `C:\Users\<usuario>\AppData\Local\Retail POS\logs` | Ese usuario |
+| `Retail.Cli.exe` ejecutado por una persona | La misma del usuario que lo ejecuta | Ese usuario |
+| Tarea programada (`SYSTEM`) | `C:\Windows\System32\config\systemprofile\AppData\Local\Retail POS\logs` | Solo `SYSTEM` y administradores |
+
+* **No se usa `%ProgramData%`** porque allí cualquier usuario puede crear carpetas de antemano (*squatting*) y volver a plantear el mismo riesgo.
+* Consecuencia: el script `registrar-tarea-backup.ps1` ya no crea ni da permisos a ninguna carpeta `logs` en la instalación, y `Get-EscrituraEnInstalacion` no admite excepciones: toda la instalación debe ser no escribible por no administradores.
+* **Desarrollo:** `dotnet run --project src/Retail.App` y `dotnet run --project src/Retail.Cli -- ...` siguen funcionando igual; solo cambia dónde queda el log (ya no en `bin\...\logs`).
+
 ---
 
 ## 🖥️ Diálogo Modal de Incidencia (`UnhandledExceptionDialog`)
@@ -125,7 +141,7 @@ graph TD
 Cuando ocurre una excepción no controlada en mostrador:
 1. **Contenedor Visual:** `ui:FluentWindow` con efecto Mica y tokens semánticos definidos en [`src/Retail.App/Styles/Colors.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Colors.xaml) (`DangerBackgroundBrush`, `DangerForegroundBrush`, `DangerBorderBrush`).
 2. **Mensaje Amigable:** Diseñado para operadores de caja, explicando que la aplicación permanecerá abierta para continuar trabajando.
-3. **Ruta al Log en Cascadia Code:** Informa con precisión la ruta al archivo `logs/retail-YYYYMMDD.log` para facilitar la asistencia remota del soporte técnico.
+3. **Ruta al Log en Cascadia Code:** Informa con precisión la ruta completa al archivo `%LOCALAPPDATA%\Retail POS\logs\retail-YYYYMMDD.log` para facilitar la asistencia remota del soporte técnico.
 4. **Copiado al Portapapeles:** Botón `[Copiar Detalle Técnico]` que genera un reporte estructurado con fecha, tipo de excepción, mensaje y stack trace para ser enviado por mensaje o ticket de soporte.
 5. **Salvaguarda de Pantalla:** Cumple la directiva de pantalla segura de [`docs/SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) ajustando `MaxHeight` y `MaxWidth` a `SystemParameters.WorkArea`.
 

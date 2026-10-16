@@ -5,6 +5,7 @@ using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.App.ViewModels.Auth;
 using Retail.Application.DTOs.Auth;
+using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
@@ -15,6 +16,8 @@ namespace Retail.App.UnitTests.ViewModels;
 public class LoginViewModelTests
 {
     private readonly IAuthService _authService;
+    private readonly IUsuarioService _usuarioService;
+    private readonly IUsuarioDialogService _dialogService;
     private readonly ICurrentUserSession _session;
     private readonly ILogger<LoginViewModel> _logger;
     private readonly LoginViewModel _sut;
@@ -22,10 +25,12 @@ public class LoginViewModelTests
     public LoginViewModelTests()
     {
         _authService = Substitute.For<IAuthService>();
+        _usuarioService = Substitute.For<IUsuarioService>();
+        _dialogService = Substitute.For<IUsuarioDialogService>();
         _session = Substitute.For<ICurrentUserSession>();
         _logger = Substitute.For<ILogger<LoginViewModel>>();
 
-        _sut = new LoginViewModel(_authService, _session, _logger);
+        _sut = new LoginViewModel(_authService, _usuarioService, _dialogService, _session, _logger);
     }
 
     [Fact]
@@ -149,5 +154,78 @@ public class LoginViewModelTests
 
         // Assert: El servicio de autenticación solo debe haberse invocado exactamente 1 vez
         await _authService.Received(1).LoginAsync(Arg.Any<LoginRequestDto>());
+    }
+
+    private static LoginResultDto CuentaConCambioObligatorio() => new()
+    {
+        IdUsuario = 7,
+        NombreUsuario = "cajero",
+        NombreCompleto = "Carla Díaz",
+        Rol = RolUsuarioEnum.Cajero,
+        DebeCambiarPassword = true
+    };
+
+    [Fact]
+    public async Task IniciarSesionCommand_CuentaConCambioObligatorioYCambioRealizado_CambiaComoTitularYEstableceSesion()
+    {
+        // Arrange
+        _sut.NombreUsuario = "cajero";
+        _authService.LoginAsync(Arg.Any<LoginRequestDto>(), Arg.Any<CancellationToken>()).Returns(CuentaConCambioObligatorio());
+
+        Func<CambiarPasswordDto, Task>? guardar = null;
+        _dialogService.MostrarDialogoCambioObligatorio(7, "cajero", "Carla Díaz", Arg.Do<Func<CambiarPasswordDto, Task>>(cb => guardar = cb))
+            .Returns(true);
+
+        // Act
+        await _sut.IniciarSesionCommand.ExecuteAsync("Temporal2026!");
+        await guardar!(new CambiarPasswordDto { IdUsuario = 7, NuevaPassword = "MiClave2026!" });
+
+        // Assert: el actor del cambio es el propio titular (cambio propio, no blanqueo).
+        // La contraseña actual que valida el servicio es la que el titular acaba de escribir en el login.
+        await _usuarioService.Received(1).CambiarPasswordAsync(
+            7,
+            Arg.Is<CambiarPasswordDto>(d => d.IdUsuario == 7 && d.PasswordActual == "Temporal2026!"),
+            Arg.Any<CancellationToken>());
+        _session.Received(1).EstablecerSesion(Arg.Is<LoginResultDto>(r => r.IdUsuario == 7 && !r.DebeCambiarPassword));
+        _sut.TieneError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task IniciarSesionCommand_CuentaConCambioObligatorioYCambioCancelado_NoEstableceSesion()
+    {
+        // Arrange
+        _sut.NombreUsuario = "cajero";
+        _authService.LoginAsync(Arg.Any<LoginRequestDto>(), Arg.Any<CancellationToken>()).Returns(CuentaConCambioObligatorio());
+        _dialogService.MostrarDialogoCambioObligatorio(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<Func<CambiarPasswordDto, Task>>())
+            .Returns(false);
+
+        var eventoDisparado = false;
+        _sut.LoginExitoso += () => eventoDisparado = true;
+
+        // Act
+        await _sut.IniciarSesionCommand.ExecuteAsync("Temporal2026!");
+
+        // Assert
+        _session.DidNotReceive().EstablecerSesion(Arg.Any<LoginResultDto>());
+        eventoDisparado.Should().BeFalse();
+        _sut.TieneError.Should().BeTrue();
+        _sut.MensajeError.Should().Contain("nueva contraseña");
+        _sut.EstaCargando.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task IniciarSesionCommand_CuentaSinCambioObligatorio_NoMuestraElDialogo()
+    {
+        // Arrange
+        _sut.NombreUsuario = "cajero";
+        _authService.LoginAsync(Arg.Any<LoginRequestDto>(), Arg.Any<CancellationToken>())
+            .Returns(CuentaConCambioObligatorio() with { DebeCambiarPassword = false });
+
+        // Act
+        await _sut.IniciarSesionCommand.ExecuteAsync("MiClave2026!");
+
+        // Assert
+        _dialogService.DidNotReceiveWithAnyArgs().MostrarDialogoCambioObligatorio(default, default!, default!, default!);
+        _session.Received(1).EstablecerSesion(Arg.Any<LoginResultDto>());
     }
 }

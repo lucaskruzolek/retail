@@ -4,7 +4,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Retail.App.Services;
 using Retail.App.ViewModels;
 using Retail.App.Views.Auth;
-using Retail.App.Views.Pages;
 using Wpf.Ui.Controls;
 
 namespace Retail.App;
@@ -41,10 +40,13 @@ public partial class MainWindow : FluentWindow
         PreviewKeyDown += MainWindow_PreviewKeyDown;
     }
 
-    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        // Navegación predeterminada al módulo de catálogo de artículos
-        _navigationService.NavigateTo<ArticulosView>();
+        // Página inicial según el rol: catálogo de artículos o, para el Administrador, gestión de usuarios.
+        ViewModel.NavegarModuloInicial();
+
+        // El operador ya inició sesión antes de crear el Shell: el aviso de restauración reciente se consulta acá (R-20).
+        await ViewModel.CargarAvisoRestauracionAsync();
     }
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -90,8 +92,13 @@ public partial class MainWindow : FluentWindow
                 e.Handled = true;
                 break;
 
-            case Key.F10 when ViewModel.EsGerente:
+            case Key.F10 when ViewModel.PuedeGestionarUsuarios:
                 ViewModel.NavegarUsuarios();
+                e.Handled = true;
+                break;
+
+            case Key.F11 when ViewModel.PuedeGestionarUsuarios:
+                ViewModel.NavegarRespaldos();
                 e.Handled = true;
                 break;
         }

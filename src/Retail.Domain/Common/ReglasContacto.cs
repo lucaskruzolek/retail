@@ -5,7 +5,8 @@ using Retail.Domain.Exceptions;
 namespace Retail.Domain.Common;
 
 /// <summary>
-/// Reglas de normalización y formato de los datos de contacto (email y teléfono) de clientes y proveedores.
+/// Reglas de normalización y formato de los datos de contacto (email y teléfono) de clientes, proveedores y
+/// usuarios (email de recuperación).
 /// Ambos son opcionales: un texto vacío se guarda como <c>null</c> y uno con contenido debe ser válido.
 /// </summary>
 public static partial class ReglasContacto

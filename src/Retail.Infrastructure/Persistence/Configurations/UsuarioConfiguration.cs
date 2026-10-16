@@ -45,6 +45,16 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         // Derivado de Nombre y Apellido: persistirlo duplicaría datos (3FN).
         builder.Ignore(u => u.NombreCompleto);
 
+        // Sin índice único: el flujo de recuperación pide el nombre de usuario, así que dos cuentas pueden
+        // compartir el mismo email (por ejemplo, el del local).
+        builder.Property(u => u.EmailRecuperacion)
+            .HasColumnName("email_recuperacion")
+            .HasMaxLength(ReglasContacto.LongitudMaximaEmail);
+
+        builder.Property(u => u.DebeCambiarPassword)
+            .HasColumnName("debe_cambiar_password")
+            .IsRequired();
+
         builder.Property(u => u.IdRol)
             .HasColumnName("id_rol")
             .IsRequired();

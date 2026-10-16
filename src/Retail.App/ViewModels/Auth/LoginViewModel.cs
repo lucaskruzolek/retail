@@ -17,6 +17,8 @@ namespace Retail.App.ViewModels.Auth;
 public partial class LoginViewModel : ObservableObject
 {
     private readonly IAuthService _authService;
+    private readonly IUsuarioService _usuarioService;
+    private readonly IUsuarioDialogService _dialogService;
     private readonly ICurrentUserSession _session;
     private readonly ILogger<LoginViewModel> _logger;
 
@@ -39,10 +41,14 @@ public partial class LoginViewModel : ObservableObject
 
     public LoginViewModel(
         IAuthService authService,
+        IUsuarioService usuarioService,
+        IUsuarioDialogService dialogService,
         ICurrentUserSession session,
         ILogger<LoginViewModel> logger)
     {
         _authService = authService ?? throw new ArgumentNullException(nameof(authService));
+        _usuarioService = usuarioService ?? throw new ArgumentNullException(nameof(usuarioService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -83,6 +89,28 @@ public partial class LoginViewModel : ObservableObject
             if (_logger.IsEnabled(LogLevel.Information))
             {
                 _logger.LogInformation("Inicio de sesión exitoso para el operador '{Usuario}' (Rol: {Rol})", resultado.NombreUsuario, resultado.Rol);
+            }
+
+            // D-6: si la contraseña la eligió otra persona (alta o blanqueo), el titular la reemplaza antes de
+            // entrar. La sesión se establece recién después: cancelar el cambio equivale a no iniciar sesión.
+            if (resultado.DebeCambiarPassword)
+            {
+                var idUsuario = resultado.IdUsuario;
+                var cambiada = _dialogService.MostrarDialogoCambioObligatorio(
+                    idUsuario,
+                    resultado.NombreUsuario,
+                    resultado.NombreCompleto,
+                    // La contraseña actual es la que el titular acaba de escribir: no se la vuelve a pedir.
+                    dto => _usuarioService.CambiarPasswordAsync(idUsuario, dto with { PasswordActual = password }));
+
+                if (!cambiada)
+                {
+                    TieneError = true;
+                    MensajeError = "Debe elegir una nueva contraseña para ingresar al sistema.";
+                    return;
+                }
+
+                resultado = resultado with { DebeCambiarPassword = false };
             }
 
             _session.EstablecerSesion(resultado);

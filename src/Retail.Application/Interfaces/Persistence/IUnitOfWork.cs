@@ -8,6 +8,8 @@ public interface IUnitOfWork : IDisposable
     /// <summary>
     /// Confirma los cambios pendientes en una única transacción.
     /// Lanza <see cref="Exceptions.ConflictoDeConcurrenciaException"/> si otro usuario modificó los mismos datos.
+    /// Lanza <see cref="Exceptions.RestriccionDeUnicidadException"/> si otro proceso insertó antes un dato que viola un
+    /// índice único.
     /// Si el guardado falla por cualquier motivo, descarta los cambios pendientes antes de relanzar el error: el
     /// llamador no necesita invocar <see cref="DescartarCambios"/> para ese caso.
     /// </summary>

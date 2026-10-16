@@ -58,3 +58,9 @@ $RECYCLE.BIN/
 ## Obsidian (Vault workspace & local cache)
 .obsidian/
 wiki/.obsidian/
+
+## Salida de la impresora de tickets simulada (FileDebugTicketPrinterService, Ley 6)
+debug-tickets/
+
+# Salida de dotnet publish (prueba local de Retail.Cli y la tarea programada)
+publish/

@@ -1,6 +1,7 @@
 using FluentValidation;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Validators.Common;
+using Retail.Domain.Enums;
 
 namespace Retail.Application.Validators.Usuarios;
 
@@ -24,5 +25,14 @@ public class ModificarUsuarioValidator : AbstractValidator<ModificarUsuarioDto>
 
         RuleFor(x => x.Rol)
             .IsInEnum().WithMessage("El rol de usuario especificado no es válido.");
+
+        RuleFor(x => x.EmailRecuperacion)
+            .EmailOpcional();
+
+        // Misma invariante que Usuario.ActualizarDatos: se valida acá para mostrarla junto a los demás errores.
+        RuleFor(x => x.EmailRecuperacion)
+            .NotEmpty()
+            .When(x => x.Rol == RolUsuarioEnum.Gerente)
+            .WithMessage("El email de recuperación es obligatorio para el rol Gerente.");
     }
 }

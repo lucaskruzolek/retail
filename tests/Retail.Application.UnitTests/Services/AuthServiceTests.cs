@@ -56,7 +56,9 @@ public class AuthServiceTests
         string passwordHash,
         RolUsuarioEnum rol)
     {
-        var usuario = Usuario.Crear(nombreUsuario, nombre, apellido, passwordHash, rol);
+        // Un Gerente necesita email de recuperación; para el resto de los roles es opcional.
+        var email = rol == RolUsuarioEnum.Gerente ? $"{nombreUsuario}@libreria.com" : null;
+        var usuario = Usuario.Crear(nombreUsuario, nombre, apellido, passwordHash, rol, email);
         usuario.Id = id;
         return usuario;
     }
@@ -326,5 +328,74 @@ public class AuthServiceTests
         var ex = await act.Should().ThrowAsync<CuentaBloqueadaException>();
         ex.Which.BloqueadoHastaUtc.Should().Be(desbloqueoUtc);
     }
-}
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LoginAsync_CredencialesValidas_InformaSiDebeCambiarPassword(bool cambioPropioRealizado)
+    {
+        // Arrange
+        var usuario = CrearUsuario(7, "cajero", "Carla", "Díaz", "hash_temporal", RolUsuarioEnum.Cajero);
+        if (cambioPropioRealizado)
+        {
+            usuario.CambiarPasswordPropia("hash_elegido");
+        }
+
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: true, Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { usuario });
+        _passwordHasher.VerifyPassword(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+
+        // Act
+        var result = await _sut.LoginAsync(new LoginRequestDto { NombreUsuario = "cajero", Password = "Clave2026!" });
+
+        // Assert: una cuenta recién creada o blanqueada debe cambiar la contraseña antes de operar.
+        result.DebeCambiarPassword.Should().Be(!cambioPropioRealizado);
+    }
+
+    [Fact]
+    public async Task VerificarCredencialAsync_PasswordCorrecta_NoLanzaExcepcion()
+    {
+        // Arrange
+        var gerente = CrearUsuario(1, "gerente", "Ana", "Gómez", "hash_gerente", RolUsuarioEnum.Gerente);
+        _usuarioRepository.GetByIdAsync(1, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(gerente);
+        _passwordHasher.VerifyPassword("Clave2026!", "hash_gerente").Returns(true);
+
+        // Act
+        var act = async () => await _sut.VerificarCredencialAsync(1, "Clave2026!");
+
+        // Assert
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task VerificarCredencialAsync_PasswordIncorrecta_LanzaCredencialesInvalidasException()
+    {
+        // Arrange
+        var gerente = CrearUsuario(1, "gerente", "Ana", "Gómez", "hash_gerente", RolUsuarioEnum.Gerente);
+        _usuarioRepository.GetByIdAsync(1, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(gerente);
+        _passwordHasher.VerifyPassword("otra", "hash_gerente").Returns(false);
+
+        // Act
+        var act = async () => await _sut.VerificarCredencialAsync(1, "otra");
+
+        // Assert
+        await act.Should().ThrowAsync<CredencialesInvalidasException>();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(99)]
+    public async Task VerificarCredencialAsync_UsuarioInexistenteOInactivo_LanzaCredencialesInvalidasSinConsultarElHash(int idUsuario)
+    {
+        // Arrange: el repositorio no devuelve usuarios dados de baja (includeDeleted: false).
+        _usuarioRepository.GetByIdAsync(idUsuario, includeDeleted: false, Arg.Any<CancellationToken>())
+            .Returns((Usuario?)null);
+
+        // Act
+        var act = async () => await _sut.VerificarCredencialAsync(idUsuario, "Clave2026!");
+
+        // Assert: misma respuesta que una contraseña incorrecta, para no revelar el estado de la cuenta.
+        await act.Should().ThrowAsync<CredencialesInvalidasException>();
+        _passwordHasher.DidNotReceive().VerifyPassword(Arg.Any<string>(), Arg.Any<string>());
+    }
+}

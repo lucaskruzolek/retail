@@ -12,4 +12,10 @@ public record class CrearUsuarioDto
     public required string Nombre { get; init; }
     public required string Apellido { get; init; }
     public required RolUsuarioEnum Rol { get; init; }
+
+    /// <summary>
+    /// Obligatorio para el rol Gerente. Es <c>required</c> aunque admita <c>null</c>: quien construye el DTO
+    /// debe decidir el valor, porque omitirlo en una edición borraría el email guardado.
+    /// </summary>
+    public required string? EmailRecuperacion { get; init; }
 }

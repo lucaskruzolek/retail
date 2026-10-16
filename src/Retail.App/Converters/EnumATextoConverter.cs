@@ -41,6 +41,17 @@ public class EnumATextoConverter : IValueConverter
             CondicionIvaEnum.ResponsableInscripto => "Responsable inscripto",
             CondicionIvaEnum.Monotributo => "Monotributo",
             CondicionIvaEnum.Exento => "Exento",
+            TipoBackupEnum.Manual => "Manual",
+            TipoBackupEnum.Automatico => "Automática",
+            TipoBackupEnum.PreRestauracion => "Previa a restauración",
+            TipoBackupEnum.PreMigracion => "Previa a migración",
+            EstadoBackupEnum.EnCurso => "En curso",
+            EstadoBackupEnum.Exitoso => "Exitoso",
+            EstadoBackupEnum.Verificado => "Verificado",
+            EstadoBackupEnum.Fallido => "Fallido",
+            EstadoBackupEnum.ArchivoPurgado => "Archivo purgado",
+            OrigenRestauracionEnum.Aplicacion => "aplicación",
+            OrigenRestauracionEnum.Consola => "consola",
             _ => valor.ToString()
         };
     }
