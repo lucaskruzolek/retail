@@ -29,6 +29,20 @@ public class ExportadorPdfTests
     }
 
     [Fact]
+    public void Exportar_ConfiguracionDeFuentes_NoDependeDelArchivoDeLatoJuntoAlEjecutable()
+    {
+        // Arrange + Act: el constructor estático del exportador fija la configuración global de QuestPDF.
+        Generar(DocumentoReportePrueba.SinGraficosNiFiltros());
+
+        // Assert (R-12): Segoe UI del sistema y sin detener el PDF por la familia de respaldo (Lato) faltante. La prueba
+        // de punta a punta, con el ejecutable único publicado y sin QuestPDF.Fonts.Lato.br, está en el plan (R-5, R-12).
+        ExportadorPdf.FuenteDelDocumento.Should().Be("Segoe UI");
+        QuestPDF.Settings.UseSystemFonts.Should().BeTrue();
+        QuestPDF.Settings.ThrowOnMissingFontFamilies.Should().BeFalse();
+        QuestPDF.Settings.ThrowOnMissingTextGlyphs.Should().BeTrue("un carácter que ninguna fuente puede dibujar debe seguir deteniendo el PDF");
+    }
+
+    [Fact]
     public void Exportar_DocumentoCompleto_GeneraPdfValido()
     {
         var pdf = Generar(DocumentoReportePrueba.Completo());

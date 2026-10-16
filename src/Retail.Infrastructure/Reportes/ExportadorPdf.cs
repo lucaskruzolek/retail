@@ -19,11 +19,29 @@ internal static class ExportadorPdf
     // Desde esta cantidad de columnas el documento sale apaisado y la tabla usa letra chica (D-34).
     private const int ColumnasParaApaisar = 8;
 
+    /// <summary>
+    /// Fuente del documento: la misma que la interfaz (sistema de diseño), instalada en Windows 10 y 11. R-12: la fuente
+    /// por defecto de QuestPDF (Lato) se distribuye como un archivo suelto que el ejecutable único no embebe, y desde
+    /// QuestPDF 2026.9.0 una fuente faltante detiene la generación del PDF en lugar de reemplazarse.
+    /// </summary>
+    internal const string FuenteDelDocumento = "Segoe UI";
+
     static ExportadorPdf()
     {
         // Licencia Community de QuestPDF (MIT): gratuita para uso educativo y para empresas con facturación anual
         // bruta menor a USD 1 M. Sin esta línea, QuestPDF lanza una excepción al generar el primer documento.
         QuestPDF.Settings.License = LicenseType.Community;
+
+        // R-12: se usan las fuentes instaladas en Windows (Segoe UI) en lugar de depender de un archivo junto al .exe.
+        QuestPDF.Settings.UseSystemFonts = true;
+
+        // QuestPDF agrega Lato como familia de respaldo después de la elegida ("Segoe UI", "Lato"), y con este control
+        // habilitado (valor por defecto desde 2026.9.0) detiene el PDF si falta CUALQUIER familia de la lista, aunque la
+        // primera esté disponible: el .exe copiado sin QuestPDF.Fonts.Lato.br fallaba siempre (verificado en la prueba
+        // R-5). Deshabilitado, usa la primera familia disponible; Segoe UI viene con Windows y Lato viaja en el ZIP de la
+        // release. ThrowOnMissingTextGlyphs queda habilitado: un carácter que ninguna fuente puede dibujar sigue
+        // deteniendo la generación en lugar de imprimirse mal.
+        QuestPDF.Settings.ThrowOnMissingFontFamilies = false;
     }
 
     public static void Exportar(DocumentoReporte documento, Stream destino)
@@ -47,7 +65,7 @@ internal static class ExportadorPdf
             {
                 pagina.Size(apaisado ? PageSizes.A4.Landscape() : PageSizes.A4);
                 pagina.Margin(1.5f, Unit.Centimetre);
-                pagina.DefaultTextStyle(t => t.FontSize(9));
+                pagina.DefaultTextStyle(t => t.FontFamily(FuenteDelDocumento).FontSize(9));
 
                 pagina.Header().Element(c => ComponerEncabezado(c, documento));
                 pagina.Content().PaddingVertical(8).Column(columna =>
