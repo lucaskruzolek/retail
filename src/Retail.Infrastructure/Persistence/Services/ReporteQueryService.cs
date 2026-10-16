@@ -3,6 +3,7 @@ using Retail.Application.DTOs.Reportes;
 using Retail.Application.DTOs.Reportes.Consultas;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 
 namespace Retail.Infrastructure.Persistence.Services;
@@ -51,6 +52,14 @@ public class ReporteQueryService : IReporteQueryService
         public decimal Costo { get; init; }
     }
 
+    public async Task<DateTime?> ObtenerFechaPrimeraVentaAsync(CancellationToken cancellationToken = default)
+    {
+        // El filtro global excluye las ventas dadas de baja. MIN sobre IX_VENTAS_fecha_hora es una búsqueda por índice.
+        return await _context.Ventas
+            .AsNoTracking()
+            .MinAsync(v => (DateTime?)v.FechaHora, cancellationToken);
+    }
+
     public async Task<ResumenVentasFila> ObtenerResumenVentasAsync(RangoUtcDto rango, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(rango);
@@ -74,6 +83,7 @@ public class ReporteQueryService : IReporteQueryService
         RangoUtcDto rango,
         AgrupacionTemporalEnum agrupacion,
         int? idUsuario,
+        bool incluirMediosDePago,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(rango);
@@ -84,12 +94,115 @@ public class ReporteQueryService : IReporteQueryService
             ventas = ventas.Where(v => v.IdUsuario == idUsuario.Value);
         }
 
-        return agrupacion switch
+        IReadOnlyList<VentasPeriodoFila> filas = agrupacion switch
         {
             AgrupacionTemporalEnum.Dia => await AgruparPorDiaAsync(ventas, rango.DesfaseMinutos, cancellationToken),
             AgrupacionTemporalEnum.Semana => await AgruparPorSemanaAsync(ventas, rango.DesfaseMinutos, cancellationToken),
             AgrupacionTemporalEnum.Mes => await AgruparPorMesAsync(ventas, rango.DesfaseMinutos, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(agrupacion), agrupacion, "La agrupación temporal no es válida.")
+        };
+
+        if (!incluirMediosDePago)
+        {
+            return filas;
+        }
+
+        // Desglose por medio de pago (D-34): segunda consulta agregada, aparte. Unir pagos con ventas en la consulta que
+        // cuenta ventas y suma Total multiplicaría las filas (una venta con dos pagos se contaría dos veces). Se combinan
+        // por clave de período en memoria: son a lo sumo unas 366 filas ya agregadas por SQL, no tablas.
+        var pagos = await PagosPorPeriodo(ventas, agrupacion, rango.DesfaseMinutos)
+            .ToListAsync(cancellationToken);
+        var porInicio = pagos.ToDictionary(p => InicioDelPeriodo(p.Clave, agrupacion));
+
+        return filas
+            .Select(f => porInicio.TryGetValue(f.InicioPeriodo, out var p)
+                ? f with
+                {
+                    Efectivo = p.Efectivo,
+                    TarjetaDebito = p.TarjetaDebito,
+                    TarjetaCredito = p.TarjetaCredito,
+                    TransferenciaQr = p.TransferenciaQr,
+                    CuentaCorriente = p.CuentaCorriente
+                }
+                : f)
+            .ToList();
+    }
+
+    /// <summary>Un pago con la fecha de su venta, para agrupar el desglose por medio de pago.</summary>
+    internal sealed record PagoDeVenta
+    {
+        public DateTime FechaHora { get; init; }
+
+        public MedioPagoEnum MedioPago { get; init; }
+
+        public decimal Monto { get; init; }
+    }
+
+    /// <summary>Importes por medio de pago de un período; <see cref="Clave"/> es un número de período (ver <see cref="PagosPorPeriodo"/>).</summary>
+    internal sealed record PagosPeriodo
+    {
+        public int Clave { get; init; }
+
+        public decimal Efectivo { get; init; }
+
+        public decimal TarjetaDebito { get; init; }
+
+        public decimal TarjetaCredito { get; init; }
+
+        public decimal TransferenciaQr { get; init; }
+
+        public decimal CuentaCorriente { get; init; }
+    }
+
+    /// <summary>
+    /// Importes por medio de pago agrupados por período, en un único SELECT con GROUP BY. Los pagos se unen a las
+    /// <paramref name="ventas"/> ya filtradas (misma baja lógica, mismo rango y mismo cajero que la consulta de ventas).
+    /// La clave numérica refleja la misma partición que la de ventas: día local (DATEDIFF de días desde el ancla),
+    /// semana que empieza el lunes (ese número entre 7) o año * 12 + mes.
+    /// </summary>
+    internal IQueryable<PagosPeriodo> PagosPorPeriodo(IQueryable<Venta> ventas, AgrupacionTemporalEnum agrupacion, int desfaseMinutos)
+    {
+        DateTime ancla = AnclaLunes;
+
+        var pagos = from p in _context.PagosVenta.IgnoreQueryFilters().AsNoTracking()
+                    where p.DeletedAt == null
+                    join v in ventas on p.IdVenta equals v.Id
+                    select new PagoDeVenta { FechaHora = v.FechaHora, MedioPago = p.MedioPago, Monto = p.Monto };
+
+        return agrupacion switch
+        {
+            AgrupacionTemporalEnum.Dia => SumarPorMedio(
+                pagos.GroupBy(p => EF.Functions.DateDiffDay(ancla, p.FechaHora.AddMinutes(desfaseMinutos)))),
+            AgrupacionTemporalEnum.Semana => SumarPorMedio(
+                pagos.GroupBy(p => EF.Functions.DateDiffDay(ancla, p.FechaHora.AddMinutes(desfaseMinutos)) / 7)),
+            AgrupacionTemporalEnum.Mes => SumarPorMedio(
+                pagos.GroupBy(p => p.FechaHora.AddMinutes(desfaseMinutos).Year * 12 + p.FechaHora.AddMinutes(desfaseMinutos).Month - 1)),
+            _ => throw new ArgumentOutOfRangeException(nameof(agrupacion), agrupacion, "La agrupación temporal no es válida.")
+        };
+    }
+
+    private static IQueryable<PagosPeriodo> SumarPorMedio(IQueryable<IGrouping<int, PagoDeVenta>> grupos)
+    {
+        return grupos
+            .Select(g => new PagosPeriodo
+            {
+                Clave = g.Key,
+                Efectivo = g.Sum(p => p.MedioPago == MedioPagoEnum.Efectivo ? p.Monto : 0m),
+                TarjetaDebito = g.Sum(p => p.MedioPago == MedioPagoEnum.TarjetaDebito ? p.Monto : 0m),
+                TarjetaCredito = g.Sum(p => p.MedioPago == MedioPagoEnum.TarjetaCredito ? p.Monto : 0m),
+                TransferenciaQr = g.Sum(p => p.MedioPago == MedioPagoEnum.TransferenciaQr ? p.Monto : 0m),
+                CuentaCorriente = g.Sum(p => p.MedioPago == MedioPagoEnum.CuentaCorriente ? p.Monto : 0m)
+            });
+    }
+
+    /// <summary>Convierte la clave numérica de un período en su fecha de inicio (se aplica sobre filas ya agregadas).</summary>
+    private static DateOnly InicioDelPeriodo(int clave, AgrupacionTemporalEnum agrupacion)
+    {
+        return agrupacion switch
+        {
+            AgrupacionTemporalEnum.Dia => DateOnly.FromDateTime(AnclaLunes.AddDays(clave)),
+            AgrupacionTemporalEnum.Semana => DateOnly.FromDateTime(AnclaLunes.AddDays(clave * 7)),
+            _ => new DateOnly(clave / 12, clave % 12 + 1, 1)
         };
     }
 

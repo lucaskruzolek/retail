@@ -20,6 +20,9 @@ public class ReporteServiceTests
     private const int IdCajero = 2;
     private const int IdInexistente = 99;
 
+    // Una primera venta muy antigua para que el límite inferior (D-32) no interfiera con las pruebas que no lo tratan.
+    private static readonly DateTime? PrimeraVentaPorDefecto = new DateTime(2020, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+
     private readonly IReporteQueryService _consultas = Substitute.For<IReporteQueryService>();
     private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
 
@@ -29,9 +32,10 @@ public class ReporteServiceTests
         RegistrarUsuario(IdCajero, RolUsuarioEnum.Cajero);
 
         // Respuestas vacías por defecto: cada prueba pisa solo lo que le interesa.
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns(PrimeraVentaPorDefecto);
         _consultas.ObtenerResumenVentasAsync(Arg.Any<RangoUtcDto>(), Arg.Any<CancellationToken>())
             .Returns(new ResumenVentasFila(0, 0m, 0m, 0m));
-        _consultas.ObtenerVentasPorPeriodoAsync(Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+        _consultas.ObtenerVentasPorPeriodoAsync(Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(new List<VentasPeriodoFila>());
         _consultas.ObtenerMasVendidosAsync(Arg.Any<RangoUtcDto>(), Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>())
             .Returns(new List<RankingFila>());
@@ -147,23 +151,46 @@ public class ReporteServiceTests
                 r.DesfaseMinutos == -180),
             AgrupacionTemporalEnum.Dia,
             null,
+            true,
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_PideElDesglosePorMedioDePago()
+    {
+        await CrearServicio().ObtenerVentasPorPeriodoAsync(
+            IdGerente, new FiltroVentasPorPeriodoDto { Desde = Dia(2026, 10, 10), Hasta = Dia(2026, 10, 12), IdUsuario = 2 });
+
+        await _consultas.Received(1).ObtenerVentasPorPeriodoAsync(
+            Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), 2, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ObtenerTablero_NoPideElDesglosePorMedioDePago()
+    {
+        await CrearServicio().ObtenerTableroAsync(
+            IdGerente, new FiltroPeriodoDto { Desde = Dia(2026, 10, 1), Hasta = Dia(2026, 10, 15) });
+
+        await _consultas.Received(1).ObtenerVentasPorPeriodoAsync(
+            Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), null, false, Arg.Any<CancellationToken>());
+        await _consultas.DidNotReceive().ObtenerVentasPorPeriodoAsync(
+            Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), true, Arg.Any<CancellationToken>());
     }
 
     // ---------- Tablero ----------
 
     [Fact]
-    public async Task ObtenerTablero_ConUnMesDe31Dias_ConsultaElPeriodoAnteriorDeIgualDuracion()
+    public async Task ObtenerTablero_ConOctubreCompleto_ConsultaSeptiembreCompletoComoPeriodoAnterior()
     {
         var servicio = CrearServicio(new DateTimeOffset(2026, 11, 2, 15, 0, 0, TimeSpan.Zero));
 
         var tablero = await servicio.ObtenerTableroAsync(
             IdGerente, new FiltroPeriodoDto { Desde = Dia(2026, 10, 1), Hasta = Dia(2026, 10, 31) });
 
-        tablero.DesdeAnterior.Should().Be(Dia(2026, 8, 31));
+        tablero.DesdeAnterior.Should().Be(Dia(2026, 9, 1));
         tablero.HastaAnterior.Should().Be(Dia(2026, 9, 30));
         await _consultas.Received(1).ObtenerResumenVentasAsync(
-            Arg.Is<RangoUtcDto>(r => r.DesdeUtc == Utc(2026, 8, 31, 3) && r.HastaExclusivoUtc == Utc(2026, 10, 1, 3)),
+            Arg.Is<RangoUtcDto>(r => r.DesdeUtc == Utc(2026, 9, 1, 3) && r.HastaExclusivoUtc == Utc(2026, 10, 1, 3)),
             Arg.Any<CancellationToken>());
     }
 
@@ -227,7 +254,7 @@ public class ReporteServiceTests
 
         tablero.AgrupacionEvolucion.Should().Be(esperada);
         await _consultas.Received(1).ObtenerVentasPorPeriodoAsync(
-            Arg.Any<RangoUtcDto>(), esperada, null, Arg.Any<CancellationToken>());
+            Arg.Any<RangoUtcDto>(), esperada, null, false, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -259,7 +286,7 @@ public class ReporteServiceTests
     [Fact]
     public async Task ObtenerVentasPorPeriodo_PorDiaConHuecos_CompletaConCeros()
     {
-        _consultas.ObtenerVentasPorPeriodoAsync(Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+        _consultas.ObtenerVentasPorPeriodoAsync(Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(new List<VentasPeriodoFila>
             {
                 new(Dia(2026, 10, 11), 2, 300.005m, 10m),
@@ -275,6 +302,74 @@ public class ReporteServiceTests
         resultado.CantidadVentas.Should().Be(3);
         resultado.TotalVendido.Should().Be(400.01m);
         resultado.Descuentos.Should().Be(10m);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_ConDesglosePorMedio_RedondeaCadaImporteYLaSumaCoincideConElTotal()
+    {
+        // 300,00 = 100,004 + 100,004 + 50 + 25 + 24,992 (cada medio se redondea solo; los totales suman crudo y redondean al final)
+        _consultas.ObtenerVentasPorPeriodoAsync(Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new List<VentasPeriodoFila>
+            {
+                new(Dia(2026, 10, 11), 2, 300m, 0m, Efectivo: 100.004m, TarjetaDebito: 100.004m, TarjetaCredito: 50m, TransferenciaQr: 25m, CuentaCorriente: 24.992m),
+                new(Dia(2026, 10, 12), 1, 100.01m, 0m, Efectivo: 100.01m)
+            });
+
+        var resultado = await CrearServicio().ObtenerVentasPorPeriodoAsync(
+            IdGerente, new FiltroVentasPorPeriodoDto { Desde = Dia(2026, 10, 10), Hasta = Dia(2026, 10, 13) });
+
+        var punto = resultado.Puntos[1];
+        punto.Efectivo.Should().Be(100m);
+        punto.TarjetaDebito.Should().Be(100m);
+        punto.TarjetaCredito.Should().Be(50m);
+        punto.TransferenciaQr.Should().Be(25m);
+        punto.CuentaCorriente.Should().Be(24.99m);
+        resultado.Puntos[2].Efectivo.Should().Be(100.01m);
+        resultado.Efectivo.Should().Be(200.01m, "suma cruda 200,014 y recién después redondeo");
+        resultado.TarjetaDebito.Should().Be(100m);
+        resultado.TarjetaCredito.Should().Be(50m);
+        resultado.TransferenciaQr.Should().Be(25m);
+        resultado.CuentaCorriente.Should().Be(24.99m);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_ConDatosCoherentes_LaSumaDeLosMediosEsElTotalEnCadaPuntoYEnLosTotales()
+    {
+        _consultas.ObtenerVentasPorPeriodoAsync(Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new List<VentasPeriodoFila>
+            {
+                new(Dia(2026, 10, 11), 2, 1500m, 0m, Efectivo: 600m, TarjetaDebito: 400m, TarjetaCredito: 500m),
+                new(Dia(2026, 10, 13), 1, 800m, 0m, TransferenciaQr: 300m, CuentaCorriente: 500m)
+            });
+
+        var resultado = await CrearServicio().ObtenerVentasPorPeriodoAsync(
+            IdGerente, new FiltroVentasPorPeriodoDto { Desde = Dia(2026, 10, 10), Hasta = Dia(2026, 10, 14) });
+
+        foreach (var p in resultado.Puntos)
+        {
+            (p.Efectivo + p.TarjetaDebito + p.TarjetaCredito + p.TransferenciaQr + p.CuentaCorriente).Should().Be(p.TotalVendido);
+        }
+
+        (resultado.Efectivo + resultado.TarjetaDebito + resultado.TarjetaCredito + resultado.TransferenciaQr + resultado.CuentaCorriente)
+            .Should().Be(resultado.TotalVendido).And.Be(2300m);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_ConPeriodosSinVentas_RellenaLosMediosConCero()
+    {
+        _consultas.ObtenerVentasPorPeriodoAsync(Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new List<VentasPeriodoFila> { new(Dia(2026, 10, 11), 1, 100m, 0m, Efectivo: 100m) });
+
+        var resultado = await CrearServicio().ObtenerVentasPorPeriodoAsync(
+            IdGerente, new FiltroVentasPorPeriodoDto { Desde = Dia(2026, 10, 10), Hasta = Dia(2026, 10, 12) });
+
+        var vacio = resultado.Puntos[0];
+        vacio.Efectivo.Should().Be(0m);
+        vacio.TarjetaDebito.Should().Be(0m);
+        vacio.TarjetaCredito.Should().Be(0m);
+        vacio.TransferenciaQr.Should().Be(0m);
+        vacio.CuentaCorriente.Should().Be(0m);
+        resultado.Puntos[2].Efectivo.Should().Be(0m);
     }
 
     [Fact]
@@ -471,5 +566,151 @@ public class ReporteServiceTests
         resultado.Filas[1].UltimaVenta.Should().Be(new DateTime(2026, 5, 9, 23, 0, 0));
         resultado.Filas[1].CapitalInmovilizado.Should().Be(42m);
         resultado.CapitalInmovilizadoTotal.Should().Be(2042m);
+    }
+
+    // ---------- Período de comparación calendario (D-31, RF-24) ----------
+
+    [Theory]
+    [InlineData(2026, 10, 1, 2026, 10, 15, 2026, 9, 1, 2026, 9, 15)]    // tramo de un mes
+    [InlineData(2026, 9, 1, 2026, 9, 30, 2026, 8, 1, 2026, 8, 31)]      // mes completo de 30 vs. 31 días
+    [InlineData(2026, 3, 1, 2026, 3, 31, 2026, 2, 1, 2026, 2, 28)]      // marzo vs. febrero
+    [InlineData(2028, 3, 1, 2028, 3, 31, 2028, 2, 1, 2028, 2, 29)]      // marzo vs. febrero bisiesto
+    [InlineData(2026, 3, 1, 2026, 3, 30, 2026, 2, 1, 2026, 2, 28)]      // 30/03 - 1 mes se recorta a 28/02
+    [InlineData(2028, 3, 1, 2028, 3, 30, 2028, 2, 1, 2028, 2, 29)]      // ... y a 29/02 si es bisiesto
+    [InlineData(2026, 1, 1, 2026, 1, 31, 2025, 12, 1, 2025, 12, 31)]    // enero es regla (a): contra diciembre
+    [InlineData(2026, 1, 1, 2026, 10, 15, 2025, 1, 1, 2025, 10, 15)]    // año hasta la fecha, interanual
+    [InlineData(2026, 1, 1, 2026, 12, 31, 2025, 1, 1, 2025, 12, 31)]    // año completo
+    [InlineData(2028, 1, 1, 2028, 2, 29, 2027, 1, 1, 2027, 2, 28)]      // 29/02 - 1 año se recorta a 28/02
+    [InlineData(2026, 9, 2, 2026, 10, 10, 2026, 7, 25, 2026, 9, 1)]     // cruza meses y no empieza el 1: igual duración
+    [InlineData(2026, 10, 10, 2026, 10, 15, 2026, 10, 4, 2026, 10, 9)]  // dentro de un mes pero no desde el día 1
+    public void CalcularPeriodoAnterior_SegunLasReglasCalendario_DevuelveElPeriodoEsperado(
+        int aD, int mD, int dD, int aH, int mH, int dH, int aAD, int mAD, int dAD, int aAH, int mAH, int dAH)
+    {
+        var (desde, hasta) = ReporteService.CalcularPeriodoAnterior(Dia(aD, mD, dD), Dia(aH, mH, dH));
+
+        desde.Should().Be(Dia(aAD, mAD, dAD));
+        hasta.Should().Be(Dia(aAH, mAH, dAH));
+    }
+
+    [Fact]
+    public async Task ObtenerTablero_ConMesCompleto_UsaElPeriodoCalendarioAnteriorEnElDtoYEnLaConsulta()
+    {
+        var resultado = await CrearServicio().ObtenerTableroAsync(
+            IdGerente, new FiltroPeriodoDto { Desde = Dia(2026, 9, 1), Hasta = Dia(2026, 9, 30) });
+
+        resultado.DesdeAnterior.Should().Be(Dia(2026, 8, 1));
+        resultado.HastaAnterior.Should().Be(Dia(2026, 8, 31));
+        await _consultas.Received(1).ObtenerResumenVentasAsync(
+            Arg.Is<RangoUtcDto>(r => r.DesdeUtc == Utc(2026, 8, 1, 3) && r.HastaExclusivoUtc == Utc(2026, 9, 1, 3)),
+            Arg.Any<CancellationToken>());
+    }
+
+    // ---------- Límites del período (D-32) ----------
+
+    [Fact]
+    public async Task ObtenerFechaMinima_ConVentas_DevuelveElDiaLocalDeLaPrimeraVenta()
+    {
+        // 02:00 UTC del 10/03 son las 23:00 del 09/03 en Argentina.
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns(Utc(2026, 3, 10, 2));
+
+        var minima = await CrearServicio().ObtenerFechaMinimaAsync(IdGerente);
+
+        minima.Should().Be(Dia(2026, 3, 9));
+    }
+
+    [Fact]
+    public async Task ObtenerFechaMinima_SinVentas_DevuelveElDiaUnoDelMesEnCurso()
+    {
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns((DateTime?)null);
+
+        var minima = await CrearServicio().ObtenerFechaMinimaAsync(IdGerente);
+
+        minima.Should().Be(Dia(2026, 10, 1));
+    }
+
+    [Fact]
+    public async Task ObtenerFechaMinima_ConActorCajero_LanzaOperacionNoAutorizadaYNoConsulta()
+    {
+        var accion = () => CrearServicio().ObtenerFechaMinimaAsync(IdCajero);
+
+        await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        _consultas.ReceivedCalls().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ObtenerTablero_ConDesdeAnteriorALaPrimeraVenta_LanzaValidationExceptionYNoConsultaDatos()
+    {
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns(Utc(2026, 9, 10, 15));
+
+        var accion = () => CrearServicio().ObtenerTableroAsync(
+            IdGerente, new FiltroPeriodoDto { Desde = Dia(2026, 9, 9), Hasta = Dia(2026, 10, 15) });
+
+        await accion.Should().ThrowAsync<ValidationException>()
+            .WithMessage("*La fecha desde no puede ser anterior al 10/09/2026, la primera venta registrada.*");
+        await _consultas.DidNotReceive().ObtenerResumenVentasAsync(Arg.Any<RangoUtcDto>(), Arg.Any<CancellationToken>());
+        await _consultas.Received(1).ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ObtenerTablero_ConDesdeIgualALaPrimeraVenta_NoLanza()
+    {
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns(Utc(2026, 9, 10, 15));
+
+        var accion = () => CrearServicio().ObtenerTableroAsync(
+            IdGerente, new FiltroPeriodoDto { Desde = Dia(2026, 9, 10), Hasta = Dia(2026, 10, 15) });
+
+        await accion.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_ConDesdeAnteriorALaPrimeraVenta_LanzaValidationExceptionYNoConsultaDatos()
+    {
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns(Utc(2026, 9, 10, 15));
+
+        var accion = () => CrearServicio().ObtenerVentasPorPeriodoAsync(
+            IdGerente, new FiltroVentasPorPeriodoDto { Desde = Dia(2026, 9, 1), Hasta = Dia(2026, 9, 30) });
+
+        await accion.Should().ThrowAsync<ValidationException>();
+        await _consultas.DidNotReceive().ObtenerVentasPorPeriodoAsync(
+            Arg.Any<RangoUtcDto>(), Arg.Any<AgrupacionTemporalEnum>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ObtenerRanking_ConDesdeAnteriorALaPrimeraVenta_LanzaValidationExceptionYNoConsultaDatos()
+    {
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns(Utc(2026, 9, 10, 15));
+
+        var accion = () => CrearServicio().ObtenerRankingAsync(
+            IdGerente, new FiltroRankingDto { Desde = Dia(2026, 9, 1), Hasta = Dia(2026, 9, 30) });
+
+        await accion.Should().ThrowAsync<ValidationException>();
+        await _consultas.DidNotReceive().ObtenerMasVendidosAsync(
+            Arg.Any<RangoUtcDto>(), Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ObtenerRentabilidad_ConDesdeAnteriorALaPrimeraVenta_LanzaValidationExceptionYNoConsultaDatos()
+    {
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns(Utc(2026, 9, 10, 15));
+
+        var accion = () => CrearServicio().ObtenerRentabilidadAsync(
+            IdGerente, new FiltroRentabilidadDto { Desde = Dia(2026, 9, 1), Hasta = Dia(2026, 9, 30) });
+
+        await accion.Should().ThrowAsync<ValidationException>();
+        await _consultas.DidNotReceive().ObtenerRentabilidadAsync(
+            Arg.Any<RangoUtcDto>(), Arg.Any<FiltroRentabilidadDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ObtenerRanking_SinVentasYDesdeAnteriorAlMesEnCurso_LanzaConMensajeSinReferenciaAVentas()
+    {
+        _consultas.ObtenerFechaPrimeraVentaAsync(Arg.Any<CancellationToken>()).Returns((DateTime?)null);
+
+        var accion = () => CrearServicio().ObtenerRankingAsync(
+            IdGerente, new FiltroRankingDto { Desde = Dia(2026, 9, 30), Hasta = Dia(2026, 10, 15) });
+
+        var excepcion = await accion.Should().ThrowAsync<ValidationException>();
+        excepcion.Which.Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Be("La fecha desde no puede ser anterior al 01/10/2026.");
     }
 }

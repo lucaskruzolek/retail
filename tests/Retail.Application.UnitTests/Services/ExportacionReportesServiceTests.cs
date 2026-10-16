@@ -22,21 +22,35 @@ public class ExportacionReportesServiceTests
 
     private readonly IExportadorReportes _exportador = Substitute.For<IExportadorReportes>();
     private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
+    private readonly IRepository<Categoria> _categorias = Substitute.For<IRepository<Categoria>>();
+    private readonly IRepository<Marca> _marcas = Substitute.For<IRepository<Marca>>();
     private readonly ExportacionReportesService _sut;
 
     public ExportacionReportesServiceTests()
     {
         RegistrarUsuario(IdGerente, "gerente", RolUsuarioEnum.Gerente);
         RegistrarUsuario(IdCajero, "cajero", RolUsuarioEnum.Cajero);
-        _sut = new ExportacionReportesService(_exportador, _usuarios);
+        _sut = new ExportacionReportesService(_exportador, _usuarios, _categorias, _marcas);
     }
 
-    private void RegistrarUsuario(int id, string nombreUsuario, RolUsuarioEnum rol)
+    private void RegistrarUsuario(int id, string nombreUsuario, RolUsuarioEnum rol, string nombre = "Juan", string apellido = "Pérez", bool includeDeleted = false)
     {
         var email = rol == RolUsuarioEnum.Gerente ? $"{nombreUsuario}@libreria.com" : null;
-        var usuario = Usuario.Crear(nombreUsuario, "Juan", "Pérez", "hash", rol, email);
+        var usuario = Usuario.Crear(nombreUsuario, nombre, apellido, "hash", rol, email);
         usuario.Id = id;
-        _usuarios.GetByIdAsync(id, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(usuario);
+        _usuarios.GetByIdAsync(id, includeDeleted, Arg.Any<CancellationToken>()).Returns(usuario);
+    }
+
+    private void RegistrarCategoria(int id, string nombre)
+    {
+        _categorias.GetByIdAsync(id, includeDeleted: true, Arg.Any<CancellationToken>())
+            .Returns(new Categoria { Id = id, NombreCategoria = nombre });
+    }
+
+    private void RegistrarMarca(int id, string nombre)
+    {
+        _marcas.GetByIdAsync(id, includeDeleted: true, Arg.Any<CancellationToken>())
+            .Returns(new Marca { Id = id, NombreMarca = nombre });
     }
 
     /// <summary>Exporta como Gerente y devuelve el documento que recibió el exportador.</summary>
@@ -137,7 +151,7 @@ public class ExportacionReportesServiceTests
         var evolucion = documento.Tablas.Single(t => t.Titulo == "Evolución de ventas");
         CeldasDe(evolucion, 0).Should().Equal(Desde, 2, 300m, 5m);
 
-        documento.Graficos.Select(g => g.Tipo).Should().Equal(TipoGraficoEnum.Lineas, TipoGraficoEnum.Barras);
+        documento.Graficos.Select(g => g.Tipo).Should().Equal(TipoGraficoEnum.Lineas, TipoGraficoEnum.BarrasHorizontales);
         documento.Graficos[0].Series.Single().Valores.Should().Equal(300m);
         documento.Graficos[1].Etiquetas.Should().Equal("Libros");
     }
@@ -149,19 +163,43 @@ public class ExportacionReportesServiceTests
         {
             GeneradoEl = Generado,
             Filtro = new FiltroVentasPorPeriodoDto { Desde = Desde, Hasta = Hasta, Agrupacion = AgrupacionTemporalEnum.Semana, IdUsuario = 7 },
-            Puntos = [new PuntoVentasDto { InicioPeriodo = new DateOnly(2026, 9, 28), CantidadVentas = 3, TotalVendido = 450.5m, Descuentos = 0m }],
+            Puntos =
+            [
+                new PuntoVentasDto
+                {
+                    InicioPeriodo = new DateOnly(2026, 9, 28), CantidadVentas = 3, TotalVendido = 450.5m, Descuentos = 5m,
+                    Efectivo = 200m, TarjetaDebito = 100.5m, TarjetaCredito = 50m, TransferenciaQr = 40m, CuentaCorriente = 60m
+                }
+            ],
             TotalVendido = 450.5m,
             CantidadVentas = 3,
-            Descuentos = 0m
+            Descuentos = 5m,
+            Efectivo = 200m,
+            TarjetaDebito = 100.5m,
+            TarjetaCredito = 50m,
+            TransferenciaQr = 40m,
+            CuentaCorriente = 60m
         };
+
+        RegistrarUsuario(7, "mgomez", RolUsuarioEnum.Cajero, "María", "Gómez", includeDeleted: true);
 
         var documento = await ExportarComoGerenteAsync(resultado);
 
         documento.Titulo.Should().Be("Ventas por período");
         documento.Filtros.Should().Contain(new FiltroAplicado("Agrupación", "Semana"));
-        documento.Filtros.Should().Contain(new FiltroAplicado("Cajero", "#7"));
+        documento.Filtros.Should().Contain(new FiltroAplicado("Cajero", "María Gómez"));
         var puntos = documento.Tablas.Single(t => t.Titulo == "Ventas por período");
-        CeldasDe(puntos, 0).Should().Equal(new DateOnly(2026, 9, 28), 3, 450.5m, 0m);
+        CeldasDe(puntos, 0).Should().Equal(new DateOnly(2026, 9, 28), 3, 450.5m, 200m, 100.5m, 50m, 40m, 60m, 5m);
+        puntos.Columnas.Select(c => c.Encabezado).Should().Equal(
+            "Período", "Ventas", "Total vendido", "Efectivo", "Débito", "Crédito", "Transf./QR", "Cta. cte.", "Descuentos");
+        puntos.Columnas.Select(c => c.Tipo).Should().Equal(
+            TipoColumnaEnum.Fecha, TipoColumnaEnum.Entero, TipoColumnaEnum.Moneda, TipoColumnaEnum.Moneda, TipoColumnaEnum.Moneda,
+            TipoColumnaEnum.Moneda, TipoColumnaEnum.Moneda, TipoColumnaEnum.Moneda, TipoColumnaEnum.Moneda);
+
+        var totales = documento.Tablas.Single(t => t.Titulo == "Totales del período");
+        totales.Columnas.Select(c => c.Encabezado).Should().Equal(
+            "Ventas", "Total vendido", "Efectivo", "Débito", "Crédito", "Transf./QR", "Cta. cte.", "Descuentos");
+        CeldasDe(totales, 0).Should().Equal(3, 450.5m, 200m, 100.5m, 50m, 40m, 60m, 5m);
         documento.Graficos.Should().ContainSingle().Which.Tipo.Should().Be(TipoGraficoEnum.Lineas);
     }
 
@@ -183,7 +221,7 @@ public class ExportacionReportesServiceTests
         documento.Tablas.Select(t => t.Titulo).Should().Equal("Más vendidos", "Menos vendidos");
         CeldasDe(documento.Tablas[0], 0).Should().Equal(new object?[] { "Cuaderno", null, null, null, 30, 1500m });
         var grafico = documento.Graficos.Should().ContainSingle().Subject;
-        grafico.Tipo.Should().Be(TipoGraficoEnum.Barras);
+        grafico.Tipo.Should().Be(TipoGraficoEnum.BarrasHorizontales);
         grafico.Series.Single().Valores.Should().Equal(1500m);
     }
 
@@ -198,14 +236,16 @@ public class ExportacionReportesServiceTests
             Total = new RentabilidadFilaDto { Grupo = "Total", Unidades = 4, IngresoNeto = 100m, Costo = 60m, MargenBruto = 40m, MargenPorcentual = 40m }
         };
 
+        RegistrarCategoria(3, "Librería escolar");
+
         var documento = await ExportarComoGerenteAsync(resultado);
 
         documento.Titulo.Should().Be("Rentabilidad");
-        documento.Filtros.Should().Contain(new FiltroAplicado("Categoría", "#3"));
+        documento.Filtros.Should().Contain(new FiltroAplicado("Categoría", "Librería escolar"));
         var tabla = documento.Tablas.Should().ContainSingle().Subject;
         tabla.Filas.Should().HaveCount(2);
         CeldasDe(tabla, 1).Should().Equal("Total", 4, 100m, 60m, 40m, 40m);
-        documento.Graficos.Should().ContainSingle().Which.Tipo.Should().Be(TipoGraficoEnum.Barras);
+        documento.Graficos.Should().ContainSingle().Which.Tipo.Should().Be(TipoGraficoEnum.BarrasHorizontales);
     }
 
     [Fact]
@@ -247,15 +287,138 @@ public class ExportacionReportesServiceTests
             CapitalInmovilizadoTotal = 2042m
         };
 
+        RegistrarMarca(5, "Faber-Castell");
+
         var documento = await ExportarComoGerenteAsync(resultado);
 
         documento.Titulo.Should().Be("Artículos sin movimiento");
-        documento.Filtros.Should().Contain(new FiltroAplicado("Marca", "#5"));
+        documento.Filtros.Should().Contain(new FiltroAplicado("Marca", "Faber-Castell"));
         documento.Filtros.Should().Contain(new FiltroAplicado("Sin ventas desde", "17/07/2026"));
         documento.Graficos.Should().BeEmpty();
         var filas = documento.Tablas.Single(t => t.Titulo == "Artículos sin movimiento");
         CeldasDe(filas, 0).Should().Equal(new object?[] { "Agenda", null, null, null, 4, 10.5m, new DateOnly(2026, 5, 9), 42m });
         CeldasDe(filas, 1)[6].Should().BeNull();
+    }
+
+    private static RankingArticulosDto CrearRanking(int cantidad, int? idCategoria = null, int? idMarca = null)
+    {
+        return new RankingArticulosDto
+        {
+            GeneradoEl = Generado,
+            Filtro = new FiltroRankingDto { Desde = Desde, Hasta = Hasta, Cantidad = cantidad, IdCategoria = idCategoria, IdMarca = idMarca },
+            MasVendidos = Enumerable.Range(1, cantidad)
+                .Select(i => new RankingArticuloDto { IdArticulo = i, Descripcion = $"Artículo {i}", Unidades = i, IngresoNeto = i * 10m })
+                .ToList(),
+            MenosVendidos = []
+        };
+    }
+
+    [Fact]
+    public async Task Exportar_RankingConMasDeQuinceFilas_RecortaElGraficoAQuinceYLaTablaConservaTodas()
+    {
+        var documento = await ExportarComoGerenteAsync(CrearRanking(20));
+
+        var grafico = documento.Graficos.Should().ContainSingle().Subject;
+        grafico.Titulo.Should().Be("Artículos más vendidos (primeros 15)");
+        grafico.Etiquetas.Should().HaveCount(15).And.StartWith("Artículo 1");
+        grafico.Series.Single().Valores.Should().HaveCount(15);
+        documento.Tablas[0].Filas.Should().HaveCount(20);
+    }
+
+    [Fact]
+    public async Task Exportar_RankingConQuinceFilas_NoRecortaNiAgregaSufijo()
+    {
+        var documento = await ExportarComoGerenteAsync(CrearRanking(15));
+
+        var grafico = documento.Graficos.Should().ContainSingle().Subject;
+        grafico.Titulo.Should().Be("Artículos más vendidos");
+        grafico.Etiquetas.Should().HaveCount(15);
+    }
+
+    [Fact]
+    public async Task Exportar_RentabilidadConMasDeQuinceFilas_RecortaElGraficoYLaTablaConservaTodas()
+    {
+        var filas = Enumerable.Range(1, 18)
+            .Select(i => new RentabilidadFilaDto { IdGrupo = i, Grupo = $"Grupo {i}", Unidades = 1, IngresoNeto = 10m, Costo = 5m, MargenBruto = 5m, MargenPorcentual = 50m })
+            .ToList();
+        var resultado = new RentabilidadDto
+        {
+            GeneradoEl = Generado,
+            Filtro = new FiltroRentabilidadDto { Desde = Desde, Hasta = Hasta },
+            Filas = filas,
+            Total = new RentabilidadFilaDto { Grupo = "Total" }
+        };
+
+        var documento = await ExportarComoGerenteAsync(resultado);
+
+        var grafico = documento.Graficos.Should().ContainSingle().Subject;
+        grafico.Titulo.Should().Be("Margen bruto (primeros 15)");
+        grafico.Etiquetas.Should().HaveCount(15);
+        documento.Tablas.Single().Filas.Should().HaveCount(19);
+    }
+
+    [Fact]
+    public async Task Exportar_ConIdsPresentes_MuestraLosNombresResueltosYBuscaIncluyendoBajas()
+    {
+        RegistrarCategoria(3, "Librería escolar");
+        RegistrarMarca(4, "Ñandú");
+
+        var documento = await ExportarComoGerenteAsync(CrearRanking(1, idCategoria: 3, idMarca: 4));
+
+        documento.Filtros.Should().Contain(new FiltroAplicado("Categoría", "Librería escolar"));
+        documento.Filtros.Should().Contain(new FiltroAplicado("Marca", "Ñandú"));
+        await _categorias.Received(1).GetByIdAsync(3, true, Arg.Any<CancellationToken>());
+        await _marcas.Received(1).GetByIdAsync(4, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Exportar_ConCajeroEnElFiltro_BuscaIncluyendoBajas()
+    {
+        RegistrarUsuario(7, "mgomez", RolUsuarioEnum.Cajero, "María", "Gómez", includeDeleted: true);
+        var resultado = new VentasPorPeriodoDto
+        {
+            GeneradoEl = Generado,
+            Filtro = new FiltroVentasPorPeriodoDto { Desde = Desde, Hasta = Hasta, IdUsuario = 7 }
+        };
+
+        var documento = await ExportarComoGerenteAsync(resultado);
+
+        documento.Filtros.Should().Contain(new FiltroAplicado("Cajero", "María Gómez"));
+        await _usuarios.Received(1).GetByIdAsync(7, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Exportar_ConIdsInexistentes_MuestraNumeralYElId()
+    {
+        var documento = await ExportarComoGerenteAsync(CrearRanking(1, idCategoria: 99, idMarca: 98));
+
+        documento.Filtros.Should().Contain(new FiltroAplicado("Categoría", "#99"));
+        documento.Filtros.Should().Contain(new FiltroAplicado("Marca", "#98"));
+    }
+
+    [Fact]
+    public async Task Exportar_SinIdsEnElFiltro_MuestraTodasYNoConsultaNada()
+    {
+        var documento = await ExportarComoGerenteAsync(CrearRanking(1));
+
+        documento.Filtros.Should().Contain(new FiltroAplicado("Categoría", "Todas"));
+        documento.Filtros.Should().Contain(new FiltroAplicado("Marca", "Todas"));
+        _categorias.ReceivedCalls().Should().BeEmpty();
+        _marcas.ReceivedCalls().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Exportar_VentasSinCajero_MuestraTodos()
+    {
+        var resultado = new VentasPorPeriodoDto
+        {
+            GeneradoEl = Generado,
+            Filtro = new FiltroVentasPorPeriodoDto { Desde = Desde, Hasta = Hasta }
+        };
+
+        var documento = await ExportarComoGerenteAsync(resultado);
+
+        documento.Filtros.Should().Contain(new FiltroAplicado("Cajero", "Todos"));
     }
 
     private sealed record class ReporteDesconocidoDto : ResultadoReporteDto

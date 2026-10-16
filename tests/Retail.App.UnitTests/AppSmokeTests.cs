@@ -11,6 +11,7 @@ using Retail.App.ViewModels.Backups;
 using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Proveedores;
+using Retail.App.ViewModels.Reportes;
 using Retail.App.ViewModels.Usuarios;
 using Retail.App.ViewModels.Ventas;
 using Retail.App.Views.Auth;
@@ -20,6 +21,7 @@ using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Reportes;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -412,6 +414,125 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de BackupView debe resolverse sin errores de recursos");
         view.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task DashboardView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange: el ViewModel consulta y recibe un resultado de cada reporte ANTES de crear la vista, en el hilo de la
+        // prueba, para que las tarjetas, las grillas y los gráficos también resuelvan sus recursos al dibujarse.
+        var viewModel = await CrearDashboardConResultadosAsync();
+
+        Exception? xamlException = null;
+        DashboardView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                view = new DashboardView(viewModel);
+                view.Measure(new System.Windows.Size(960, 600));
+                view.Arrange(new System.Windows.Rect(0, 0, 960, 600));
+                view.UpdateLayout();
+
+                foreach (var tipo in Enum.GetValues<TipoReporteEnum>())
+                {
+                    viewModel.ReporteSeleccionado = tipo;
+                    view.Measure(new System.Windows.Size(960, 600));
+                    view.Arrange(new System.Windows.Rect(0, 0, 960, 600));
+                    view.UpdateLayout();
+                }
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de DashboardView debe resolverse sin errores de recursos");
+        view.Should().NotBeNull();
+    }
+
+    private static async Task<DashboardViewModel> CrearDashboardConResultadosAsync()
+    {
+        var session = Substitute.For<ICurrentUserSession>();
+        session.IdUsuario.Returns(1);
+        session.EsGerente.Returns(true);
+
+        var desde = new DateOnly(2026, 10, 1);
+        var hasta = new DateOnly(2026, 10, 15);
+        var fila = new RentabilidadFilaDto { Grupo = "Libros", Unidades = 4, IngresoNeto = 4000m, Costo = 2800m, MargenBruto = 1200m, MargenPorcentual = 30m };
+
+        var reportes = Substitute.For<IReporteService>();
+        reportes.ObtenerTableroAsync(1, Arg.Any<FiltroPeriodoDto>(), Arg.Any<CancellationToken>()).Returns(new TableroDto
+        {
+            Filtro = new FiltroPeriodoDto { Desde = desde, Hasta = hasta },
+            TotalVendido = new IndicadorDto { Valor = 4000m, ValorAnterior = 3000m, VariacionPorcentual = 33.3m },
+            CantidadVentas = new IndicadorDto { Valor = 12m, ValorAnterior = 15m, VariacionPorcentual = -20m },
+            MargenBruto = new IndicadorDto { Valor = 1200m },
+            MargenPorcentual = 30m,
+            VariacionMargenPuntos = 1.5m,
+            ArticulosBajoStockMinimo = 2,
+            ValorizacionInventarioCosto = 90000m,
+            EvolucionVentas = [new PuntoVentasDto { InicioPeriodo = desde, CantidadVentas = 3, TotalVendido = 1000m }, new PuntoVentasDto { InicioPeriodo = hasta, CantidadVentas = 9, TotalVendido = 3000m }],
+            MargenPorCategoria = [fila]
+        });
+        reportes.ObtenerVentasPorPeriodoAsync(1, Arg.Any<FiltroVentasPorPeriodoDto>(), Arg.Any<CancellationToken>()).Returns(new VentasPorPeriodoDto
+        {
+            Filtro = new FiltroVentasPorPeriodoDto { Desde = desde, Hasta = hasta },
+            Puntos = [new PuntoVentasDto { InicioPeriodo = desde, CantidadVentas = 3, TotalVendido = 1000m }],
+            TotalVendido = 1000m,
+            CantidadVentas = 3
+        });
+        reportes.ObtenerRankingAsync(1, Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>()).Returns(new RankingArticulosDto
+        {
+            Filtro = new FiltroRankingDto { Desde = desde, Hasta = hasta },
+            MasVendidos = [new RankingArticuloDto { IdArticulo = 1, Descripcion = "El Principito", CodigoBarras = "9789500762885", Unidades = 9, IngresoNeto = 900m }],
+            MenosVendidos = [new RankingArticuloDto { IdArticulo = 2, Descripcion = "Atlas", Unidades = 0 }]
+        });
+        reportes.ObtenerRentabilidadAsync(1, Arg.Any<FiltroRentabilidadDto>(), Arg.Any<CancellationToken>()).Returns(new RentabilidadDto
+        {
+            Filtro = new FiltroRentabilidadDto { Desde = desde, Hasta = hasta },
+            Filas = [fila],
+            Total = fila
+        });
+        reportes.ObtenerStockCriticoAsync(1, Arg.Any<FiltroInventarioDto>(), Arg.Any<CancellationToken>()).Returns(new StockCriticoDto
+        {
+            Filtro = new FiltroInventarioDto(),
+            Filas = [new StockCriticoFilaDto { IdArticulo = 1, Descripcion = "Lapicera", CodigoBarras = "7790001", StockActual = 1, StockMinimo = 5, Faltante = 4, CostoReposicion = 50m, PrecioVenta = 100m }],
+            ArticulosConsiderados = 10
+        });
+        reportes.ObtenerSinMovimientoAsync(1, Arg.Any<FiltroSinMovimientoDto>(), Arg.Any<CancellationToken>()).Returns(new SinMovimientoDto
+        {
+            Filtro = new FiltroSinMovimientoDto(),
+            Filas = [new ArticuloSinMovimientoDto { IdArticulo = 3, Descripcion = "Atlas", StockActual = 2, CostoReposicion = 500m, CapitalInmovilizado = 1000m }]
+        });
+
+        var inventario = Substitute.For<IInventarioService>();
+        inventario.ListarCategoriasAsync(Arg.Any<CancellationToken>()).Returns(new List<CategoriaDto>());
+        inventario.ListarMarcasAsync(Arg.Any<CancellationToken>()).Returns(new List<MarcaDto>());
+        var usuarios = Substitute.For<IUsuarioService>();
+        usuarios.ListarUsuariosAsync(1, Arg.Any<CancellationToken>()).Returns(new List<UsuarioDto>());
+
+        var viewModel = new DashboardViewModel(
+            reportes,
+            Substitute.For<IExportacionReportesService>(),
+            inventario,
+            usuarios,
+            session,
+            Substitute.For<IReporteDialogService>(),
+            TimeProvider.System);
+
+        await viewModel.CargarAsync();
+        foreach (var tipo in Enum.GetValues<TipoReporteEnum>().Where(t => t != TipoReporteEnum.Tablero))
+        {
+            viewModel.ReporteSeleccionado = tipo;
+            await viewModel.EsperarConsultaAutomaticaAsync();
+        }
+
+        viewModel.ReporteSeleccionado = TipoReporteEnum.Tablero;
+        return viewModel;
     }
 
     [Theory]

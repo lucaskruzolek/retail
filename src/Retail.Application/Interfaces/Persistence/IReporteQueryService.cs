@@ -13,14 +13,26 @@ namespace Retail.Application.Interfaces.Persistence;
 /// </remarks>
 public interface IReporteQueryService
 {
+    /// <summary>
+    /// Fecha y hora UTC de la venta más antigua (sin contar las dadas de baja), o <c>null</c> si no hay ventas. Fija el
+    /// límite inferior de los períodos (D-32).
+    /// </summary>
+    Task<DateTime?> ObtenerFechaPrimeraVentaAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Totales de ventas y costo del rango.</summary>
     Task<ResumenVentasFila> ObtenerResumenVentasAsync(RangoUtcDto rango, CancellationToken cancellationToken = default);
 
     /// <summary>Ventas agrupadas por día, semana (lunes) o mes locales. Solo devuelve los períodos con ventas.</summary>
+    /// <param name="incluirMediosDePago">
+    /// <c>true</c> agrega el desglose del total por medio de pago (D-34), con una segunda consulta agregada sobre los
+    /// pagos. Con <c>false</c> esa consulta no se ejecuta y los cinco importes por medio vienen en 0. Cada llamador
+    /// decide: el tablero solo grafica el total y no los necesita.
+    /// </param>
     Task<IReadOnlyList<VentasPeriodoFila>> ObtenerVentasPorPeriodoAsync(
         RangoUtcDto rango,
         AgrupacionTemporalEnum agrupacion,
         int? idUsuario,
+        bool incluirMediosDePago,
         CancellationToken cancellationToken = default);
 
     /// <summary>Los artículos más vendidos según el criterio y la cantidad del filtro.</summary>

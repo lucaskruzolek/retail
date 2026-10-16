@@ -8,6 +8,11 @@ namespace Retail.Application.Interfaces.Services;
 /// </summary>
 public interface IReporteService
 {
+    /// <summary>
+    /// Fecha mínima que admite un período (D-32): el día local de la primera venta o, sin ventas, el día 1 del mes en curso.
+    /// </summary>
+    Task<DateOnly> ObtenerFechaMinimaAsync(int idActor, CancellationToken cancellationToken = default);
+
     /// <summary>Tablero con los indicadores del período y su comparación con el período anterior.</summary>
     Task<TableroDto> ObtenerTableroAsync(int idActor, FiltroPeriodoDto filtro, CancellationToken cancellationToken = default);
 

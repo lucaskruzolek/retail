@@ -42,8 +42,17 @@ internal static class DocumentoReportePrueba
             ],
             [
                 new GraficoReporte("Ventas por día", TipoGraficoEnum.Barras, ["Lun", "Mar", "Miércoles"], [new SerieGrafico("Importe", [100m, 250.5m, 80m])]),
+                new GraficoReporte("Artículos más vendidos (primeros 15)", TipoGraficoEnum.BarrasHorizontales, NombresLargos(), [new SerieGrafico("Ingreso neto", NombresLargos().Select((_, i) => 5000m - (i * 300m)).ToList())]),
                 new GraficoReporte("Tendencia", TipoGraficoEnum.Lineas, ["Ene", "Feb", "Mar"], [new SerieGrafico("Año", [1m, 3m, 2m]), new SerieGrafico("Anterior", [2m, 2m, 1m])])
             ]);
+    }
+
+    /// <summary>Dieciséis nombres largos con tildes: el caso que obliga a usar barras horizontales (D-26).</summary>
+    private static List<string> NombresLargos()
+    {
+        return Enumerable.Range(1, 16)
+            .Select(i => $"Diccionario enciclopédico ilustrado de la lengua castellana, tomo {i}")
+            .ToList();
     }
 
     public static DocumentoReporte SinGraficosNiFiltros()

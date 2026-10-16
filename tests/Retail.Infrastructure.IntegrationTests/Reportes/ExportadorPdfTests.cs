@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using FluentAssertions;
+using QuestPDF.Fluent;
 using Retail.Application.DTOs.Reportes.Exportacion;
 using Retail.Infrastructure.Reportes;
 using Xunit;
@@ -72,5 +73,33 @@ public class ExportadorPdfTests
     {
         ExportadorPdf.Formatear(TipoColumnaEnum.Moneda, null).Should().Be("—");
         ExportadorPdf.Formatear(TipoColumnaEnum.Fecha, new DateOnly(2026, 10, 1)).Should().Be("01/10/2026");
+    }
+
+    [Fact]
+    public void CrearDocumento_ConUnaTablaDeNueveColumnas_SaleApaisado()
+    {
+        // Arrange: el desglose por medio de pago de Ventas por período (D-34) no entra en A4 vertical con importes de 9 cifras
+        var columnas = Enumerable.Range(1, 9).Select(i => new ColumnaReporte($"Col {i}", TipoColumnaEnum.Moneda)).ToArray();
+        var fila = Enumerable.Repeat((object?)987_654_321.55m, 9).ToArray();
+        var documento = new DocumentoReporte(
+            "Ventas por período", [], new DateTime(2026, 10, 15), "Gerente", [new TablaReporte("Ventas", columnas, [fila])], []);
+
+        // Act
+        var imagenes = ExportadorPdf.CrearDocumento(documento).GenerateImages().ToList();
+
+        // Assert: la primera página es más ancha que alta
+        using var bitmap = SkiaSharp.SKBitmap.Decode(imagenes[0]);
+        bitmap.Width.Should().BeGreaterThan(bitmap.Height);
+    }
+
+    [Fact]
+    public void CrearDocumento_ConTablasDeCincoColumnas_SigueVertical()
+    {
+        // Act
+        var imagenes = ExportadorPdf.CrearDocumento(DocumentoReportePrueba.Completo()).GenerateImages().ToList();
+
+        // Assert
+        using var bitmap = SkiaSharp.SKBitmap.Decode(imagenes[0]);
+        bitmap.Height.Should().BeGreaterThan(bitmap.Width);
     }
 }

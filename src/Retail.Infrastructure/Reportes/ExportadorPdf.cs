@@ -16,6 +16,9 @@ internal static class ExportadorPdf
     private const string SinDato = "—";
     private const float MinimoParaIniciarTabla = 100;
 
+    // Desde esta cantidad de columnas el documento sale apaisado y la tabla usa letra chica (D-34).
+    private const int ColumnasParaApaisar = 8;
+
     static ExportadorPdf()
     {
         // Licencia Community de QuestPDF (MIT): gratuita para uso educativo y para empresas con facturación anual
@@ -25,14 +28,24 @@ internal static class ExportadorPdf
 
     public static void Exportar(DocumentoReporte documento, Stream destino)
     {
+        CrearDocumento(documento).GeneratePdf(destino);
+    }
+
+    /// <summary>Arma el documento QuestPDF sin escribirlo; los tests lo usan para inspeccionar las páginas como imágenes.</summary>
+    internal static Document CrearDocumento(DocumentoReporte documento)
+    {
         // Los gráficos se renderizan antes de armar el documento: QuestPDF puede componer el contenido más de una vez.
         var imagenes = documento.Graficos.Select(g => (Grafico: g, Png: RenderizadorGraficos.RenderizarPng(g))).ToList();
 
-        Document.Create(contenedor =>
+        // Una tabla de 8 o más columnas (el desglose por medio de pago de Ventas por período, D-34) no entra en A4 vertical
+        // con importes de 9 cifras: todo el documento sale en A4 horizontal.
+        var apaisado = documento.Tablas.Any(t => t.Columnas.Count >= ColumnasParaApaisar);
+
+        return Document.Create(contenedor =>
         {
             contenedor.Page(pagina =>
             {
-                pagina.Size(PageSizes.A4);
+                pagina.Size(apaisado ? PageSizes.A4.Landscape() : PageSizes.A4);
                 pagina.Margin(1.5f, Unit.Centimetre);
                 pagina.DefaultTextStyle(t => t.FontSize(9));
 
@@ -60,7 +73,7 @@ internal static class ExportadorPdf
                     texto.TotalPages();
                 });
             });
-        }).GeneratePdf(destino);
+        });
     }
 
     private static void ComponerEncabezado(IContainer contenedor, DocumentoReporte documento)
@@ -118,7 +131,10 @@ internal static class ExportadorPdf
                 return;
             }
 
-            columna.Item().Table(t =>
+            // Con muchas columnas la letra baja a 8 pt para que los importes de 9 cifras no se partan en dos renglones.
+            var tamanioLetra = tabla.Columnas.Count >= ColumnasParaApaisar ? 8 : 9;
+
+            columna.Item().DefaultTextStyle(x => x.FontSize(tamanioLetra)).Table(t =>
             {
                 t.ColumnsDefinition(c =>
                 {

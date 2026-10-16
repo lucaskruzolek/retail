@@ -159,4 +159,99 @@ public class FiltrosReporteValidatorTests
 
         resultado.IsValid.Should().BeFalse();
     }
+
+    // ---------- Largo máximo del período (D-32) ----------
+
+    [Fact]
+    public void FiltroPeriodo_ConDiezAniosExactos_EsValido()
+    {
+        var resultado = new FiltroPeriodoValidator(_reloj).Validate(
+            new FiltroPeriodoDto { Desde = new DateOnly(2016, 10, 16), Hasta = Hoy });
+
+        resultado.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FiltroPeriodo_ConUnDiaMasQueDiezAnios_FallaConMensajeClaro()
+    {
+        var resultado = new FiltroPeriodoValidator(_reloj).Validate(
+            new FiltroPeriodoDto { Desde = new DateOnly(2016, 10, 15), Hasta = Hoy });
+
+        resultado.Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Be("El período no puede superar los 10 años.");
+    }
+
+    [Fact]
+    public void FiltroRanking_ConMasDeDiezAnios_Falla()
+    {
+        var resultado = new FiltroRankingValidator(_reloj).Validate(
+            new FiltroRankingDto { Desde = new DateOnly(2000, 1, 1), Hasta = Hoy });
+
+        resultado.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void FiltroRentabilidad_ConMasDeDiezAnios_Falla()
+    {
+        var resultado = new FiltroRentabilidadValidator(_reloj).Validate(
+            new FiltroRentabilidadDto { Desde = new DateOnly(2000, 1, 1), Hasta = Hoy });
+
+        resultado.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void FiltroPeriodo_ConDesdeEnElAnioUno_FallaSinDesbordar()
+    {
+        var resultado = new FiltroPeriodoValidator(_reloj).Validate(
+            new FiltroPeriodoDto { Desde = new DateOnly(1, 1, 1), Hasta = Hoy });
+
+        resultado.IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void FiltroVentasPorPeriodo_PorDiaConTrescientosSesentaYSeisDias_EsValido()
+    {
+        var resultado = new FiltroVentasPorPeriodoValidator(_reloj).Validate(
+            new FiltroVentasPorPeriodoDto { Desde = Hoy.AddDays(-365), Hasta = Hoy, Agrupacion = AgrupacionTemporalEnum.Dia });
+
+        resultado.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FiltroVentasPorPeriodo_PorDiaConTrescientosSesentaYSieteDias_Falla()
+    {
+        var resultado = new FiltroVentasPorPeriodoValidator(_reloj).Validate(
+            new FiltroVentasPorPeriodoDto { Desde = Hoy.AddDays(-366), Hasta = Hoy, Agrupacion = AgrupacionTemporalEnum.Dia });
+
+        resultado.Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Be("Agrupado por día, el período no puede superar los 366 días.");
+    }
+
+    [Fact]
+    public void FiltroVentasPorPeriodo_PorSemanaConCincoAniosExactos_EsValido()
+    {
+        var resultado = new FiltroVentasPorPeriodoValidator(_reloj).Validate(
+            new FiltroVentasPorPeriodoDto { Desde = new DateOnly(2021, 10, 16), Hasta = Hoy, Agrupacion = AgrupacionTemporalEnum.Semana });
+
+        resultado.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FiltroVentasPorPeriodo_PorSemanaConUnDiaMasQueCincoAnios_Falla()
+    {
+        var resultado = new FiltroVentasPorPeriodoValidator(_reloj).Validate(
+            new FiltroVentasPorPeriodoDto { Desde = new DateOnly(2021, 10, 15), Hasta = Hoy, Agrupacion = AgrupacionTemporalEnum.Semana });
+
+        resultado.Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Be("Agrupado por semana, el período no puede superar los 5 años.");
+    }
+
+    [Fact]
+    public void FiltroVentasPorPeriodo_PorMesConDiezAnios_EsValido()
+    {
+        var resultado = new FiltroVentasPorPeriodoValidator(_reloj).Validate(
+            new FiltroVentasPorPeriodoDto { Desde = new DateOnly(2016, 10, 16), Hasta = Hoy, Agrupacion = AgrupacionTemporalEnum.Mes });
+
+        resultado.IsValid.Should().BeTrue();
+    }
 }

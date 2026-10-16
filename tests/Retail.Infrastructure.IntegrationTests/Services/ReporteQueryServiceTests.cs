@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Retail.Application.DTOs.Reportes;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
 using Xunit;
@@ -130,7 +131,7 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
 
         // Act
         var resumen = await _sut.ObtenerResumenVentasAsync(rango);
-        var periodo = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null);
+        var periodo = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null, incluirMediosDePago: true);
         var ranking = await _sut.ObtenerMasVendidosAsync(rango, new FiltroRankingDto());
         var rentabilidad = await _sut.ObtenerRentabilidadAsync(rango, FiltroRent(AgrupacionRentabilidadEnum.Articulo));
 
@@ -152,7 +153,7 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
 
         // Act
         var dia15 = await _sut.ObtenerVentasPorPeriodoAsync(
-            RangoLocal(new DateOnly(2026, 10, 15), new DateOnly(2026, 10, 15)), AgrupacionTemporalEnum.Dia, null);
+            RangoLocal(new DateOnly(2026, 10, 15), new DateOnly(2026, 10, 15)), AgrupacionTemporalEnum.Dia, null, incluirMediosDePago: true);
         var resumen16 = await _sut.ObtenerResumenVentasAsync(
             RangoLocal(new DateOnly(2026, 10, 16), new DateOnly(2026, 10, 16)));
 
@@ -173,8 +174,8 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
         var rango = RangoLocal(new DateOnly(2026, 10, 1), new DateOnly(2026, 11, 30));
 
         // Act
-        var semanas = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Semana, null);
-        var meses = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Mes, null);
+        var semanas = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Semana, null, incluirMediosDePago: true);
+        var meses = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Mes, null, incluirMediosDePago: true);
 
         // Assert (D-10: la semana empieza el lunes)
         semanas.Select(s => s.InicioPeriodo).Should().Equal(
@@ -194,8 +195,8 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
         var rango = RangoLocal(new DateOnly(2026, 10, 14), new DateOnly(2026, 10, 14));
 
         // Act
-        var delCajero2 = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, _idCajero2);
-        var todos = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null);
+        var delCajero2 = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, _idCajero2, incluirMediosDePago: true);
+        var todos = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null, incluirMediosDePago: true);
 
         // Assert
         delCajero2.Single().CantidadVentas.Should().Be(1);
@@ -339,7 +340,7 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
 
         // Act
         var resumen = await _sut.ObtenerResumenVentasAsync(rango);
-        var periodos = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Semana, null);
+        var periodos = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Semana, null, incluirMediosDePago: true);
         var mas = await _sut.ObtenerMasVendidosAsync(rango, new FiltroRankingDto());
         var rentabilidad = await _sut.ObtenerRentabilidadAsync(rango, FiltroRent(AgrupacionRentabilidadEnum.Categoria));
         var inventarioVacio = await _sut.ObtenerResumenInventarioAsync(new FiltroInventarioDto { IdCategoria = 999 });
@@ -461,6 +462,227 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
         }
 
         venta.ImputarPago(MedioPagoEnum.Efectivo, venta.Total);
+        _context.Ventas.Add(venta);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        await _context.Database.ExecuteSqlRawAsync(
+            "UPDATE VENTAS SET fecha_hora = {0} WHERE id_venta = {1}", fechaUtc, venta.Id);
+        return venta.Id;
+    }
+
+    [Fact]
+    public async Task ObtenerFechaPrimeraVenta_SinVentas_DevuelveNull()
+    {
+        var primera = await _sut.ObtenerFechaPrimeraVentaAsync();
+
+        primera.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerFechaPrimeraVenta_ConDosVentas_DevuelveLaMasAntigua()
+    {
+        var a = await ArticuloAsync("Cuaderno", precio: 150m, costo: 100m);
+        await VenderAsync(Utc(2026, 10, 14, 15), _idCajero1, [(a, 1)]);
+        await VenderAsync(Utc(2026, 9, 2, 13), _idCajero1, [(a, 1)]);
+
+        var primera = await _sut.ObtenerFechaPrimeraVentaAsync();
+
+        primera.Should().Be(Utc(2026, 9, 2, 13));
+    }
+
+    [Fact]
+    public async Task ObtenerFechaPrimeraVenta_ConVentaMasAntiguaDadaDeBaja_NoLaCuenta()
+    {
+        var a = await ArticuloAsync("Cuaderno", precio: 150m, costo: 100m);
+        int idBorrada = await VenderAsync(Utc(2026, 8, 1, 13), _idCajero1, [(a, 1)]);
+        await VenderAsync(Utc(2026, 10, 14, 15), _idCajero1, [(a, 1)]);
+        await DarDeBajaVentaAsync(idBorrada);
+
+        var primera = await _sut.ObtenerFechaPrimeraVentaAsync();
+
+        primera.Should().Be(Utc(2026, 10, 14, 15));
+    }
+
+    // ---------- Desglose por medio de pago (D-34) ----------
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_ConPagoMixto_RepartePorMedioYLaSumaCoincideConElTotal()
+    {
+        // Arrange: una venta de 1000 pagada 600 en efectivo y 400 con débito, y otra de 500 con crédito
+        var a = await ArticuloAsync("Agenda", precio: 1000m, costo: 600m);
+        var b = await ArticuloAsync("Lapicera", precio: 500m, costo: 200m);
+        await VenderConPagosAsync(Utc(2026, 10, 14, 15), _idCajero1, null, [(a, 1)], [(MedioPagoEnum.Efectivo, 600m), (MedioPagoEnum.TarjetaDebito, 400m)]);
+        await VenderConPagosAsync(Utc(2026, 10, 14, 16), _idCajero1, null, [(b, 1)], [(MedioPagoEnum.TarjetaCredito, 500m)]);
+        var rango = RangoLocal(new DateOnly(2026, 10, 14), new DateOnly(2026, 10, 14));
+
+        // Act
+        var filas = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null, incluirMediosDePago: true);
+
+        // Assert
+        var dia = filas.Should().ContainSingle().Subject;
+        dia.CantidadVentas.Should().Be(2, "los pagos no multiplican las ventas");
+        dia.TotalVendido.Should().Be(1500m);
+        dia.Efectivo.Should().Be(600m);
+        dia.TarjetaDebito.Should().Be(400m);
+        dia.TarjetaCredito.Should().Be(500m);
+        dia.TransferenciaQr.Should().Be(0m);
+        dia.CuentaCorriente.Should().Be(0m);
+        (dia.Efectivo + dia.TarjetaDebito + dia.TarjetaCredito + dia.TransferenciaQr + dia.CuentaCorriente)
+            .Should().Be(dia.TotalVendido);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_SinPedirMedios_DejaLosImportesPorMedioEnCeroYConservaElTotal()
+    {
+        // Arrange
+        var a = await ArticuloAsync("Agenda", precio: 1000m, costo: 600m);
+        await VenderConPagosAsync(Utc(2026, 10, 14, 15), _idCajero1, null, [(a, 1)], [(MedioPagoEnum.Efectivo, 600m), (MedioPagoEnum.TarjetaDebito, 400m)]);
+        var rango = RangoLocal(new DateOnly(2026, 10, 14), new DateOnly(2026, 10, 14));
+
+        // Act
+        var sin = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null, incluirMediosDePago: false);
+        var con = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null, incluirMediosDePago: true);
+
+        // Assert
+        var fila = sin.Should().ContainSingle().Subject;
+        fila.TotalVendido.Should().Be(1000m);
+        fila.CantidadVentas.Should().Be(1);
+        (fila.Efectivo + fila.TarjetaDebito + fila.TarjetaCredito + fila.TransferenciaQr + fila.CuentaCorriente).Should().Be(0m);
+        con.Single().Efectivo.Should().Be(600m);
+        con.Single().TarjetaDebito.Should().Be(400m);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_ConVentaDadaDeBaja_NoSumaSusPagos()
+    {
+        // Arrange
+        var a = await ArticuloAsync("Agenda", precio: 1000m, costo: 600m);
+        await VenderConPagosAsync(Utc(2026, 10, 14, 15), _idCajero1, null, [(a, 1)], [(MedioPagoEnum.Efectivo, 1000m)]);
+        int idBorrada = await VenderConPagosAsync(Utc(2026, 10, 14, 16), _idCajero1, null, [(a, 3)], [(MedioPagoEnum.TransferenciaQr, 3000m)]);
+        await DarDeBajaVentaAsync(idBorrada);
+        var rango = RangoLocal(new DateOnly(2026, 10, 14), new DateOnly(2026, 10, 14));
+
+        // Act
+        var filas = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null, incluirMediosDePago: true);
+
+        // Assert
+        var dia = filas.Should().ContainSingle().Subject;
+        dia.TotalVendido.Should().Be(1000m);
+        dia.Efectivo.Should().Be(1000m);
+        dia.TransferenciaQr.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_ConCuentaCorriente_VaEnSuPropiaColumna()
+    {
+        // Arrange
+        var cliente = ClientesDePrueba.Crear(tieneCuentaCorriente: true, limiteCredito: 100_000m);
+        _context.Clientes.Add(cliente);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        var a = await ArticuloAsync("Agenda", precio: 1000m, costo: 600m);
+        await VenderConPagosAsync(Utc(2026, 10, 14, 15), _idCajero1, cliente.Id, [(a, 2)], [(MedioPagoEnum.CuentaCorriente, 1500m), (MedioPagoEnum.Efectivo, 500m)]);
+        var rango = RangoLocal(new DateOnly(2026, 10, 14), new DateOnly(2026, 10, 14));
+
+        // Act
+        var filas = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, null, incluirMediosDePago: true);
+
+        // Assert
+        var dia = filas.Should().ContainSingle().Subject;
+        dia.CuentaCorriente.Should().Be(1500m);
+        dia.Efectivo.Should().Be(500m);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_ConFiltroDeCajero_DesglosaSoloSusPagos()
+    {
+        // Arrange
+        var a = await ArticuloAsync("Agenda", precio: 1000m, costo: 600m);
+        await VenderConPagosAsync(Utc(2026, 10, 14, 15), _idCajero1, null, [(a, 1)], [(MedioPagoEnum.Efectivo, 1000m)]);
+        await VenderConPagosAsync(Utc(2026, 10, 14, 16), _idCajero2, null, [(a, 1)], [(MedioPagoEnum.TarjetaDebito, 1000m)]);
+        var rango = RangoLocal(new DateOnly(2026, 10, 14), new DateOnly(2026, 10, 14));
+
+        // Act
+        var filas = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Dia, _idCajero2, incluirMediosDePago: true);
+
+        // Assert
+        var dia = filas.Should().ContainSingle().Subject;
+        dia.TotalVendido.Should().Be(1000m);
+        dia.TarjetaDebito.Should().Be(1000m);
+        dia.Efectivo.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task ObtenerVentasPorPeriodo_AgrupadoPorSemanaYMes_ElDesgloseCoincideConLaClaveDeLasVentas()
+    {
+        // Arrange: lunes 05/10 y miércoles 07/10 (misma semana), y 14/09 (otra semana y otro mes)
+        var a = await ArticuloAsync("Agenda", precio: 1000m, costo: 600m);
+        await VenderConPagosAsync(Utc(2026, 10, 5, 15), _idCajero1, null, [(a, 1)], [(MedioPagoEnum.Efectivo, 1000m)]);
+        await VenderConPagosAsync(Utc(2026, 10, 7, 15), _idCajero1, null, [(a, 1)], [(MedioPagoEnum.TarjetaDebito, 400m), (MedioPagoEnum.TransferenciaQr, 600m)]);
+        await VenderConPagosAsync(Utc(2026, 9, 14, 15), _idCajero1, null, [(a, 1)], [(MedioPagoEnum.TarjetaCredito, 1000m)]);
+        var rango = RangoLocal(new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 31));
+
+        // Act
+        var semanas = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Semana, null, incluirMediosDePago: true);
+        var meses = await _sut.ObtenerVentasPorPeriodoAsync(rango, AgrupacionTemporalEnum.Mes, null, incluirMediosDePago: true);
+
+        // Assert: cada período trae su desglose y Σ medios = total
+        semanas.Select(f => f.InicioPeriodo).Should().Equal(new DateOnly(2026, 9, 14), new DateOnly(2026, 10, 5));
+        semanas[0].TarjetaCredito.Should().Be(1000m);
+        semanas[1].CantidadVentas.Should().Be(2);
+        semanas[1].Efectivo.Should().Be(1000m);
+        semanas[1].TarjetaDebito.Should().Be(400m);
+        semanas[1].TransferenciaQr.Should().Be(600m);
+        meses.Select(f => f.InicioPeriodo).Should().Equal(new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1));
+        meses[1].TotalVendido.Should().Be(2000m);
+        meses[1].Efectivo.Should().Be(1000m);
+        foreach (var fila in semanas.Concat(meses))
+        {
+            (fila.Efectivo + fila.TarjetaDebito + fila.TarjetaCredito + fila.TransferenciaQr + fila.CuentaCorriente)
+                .Should().Be(fila.TotalVendido);
+        }
+    }
+
+    [Fact]
+    public async Task PagosPorPeriodo_EsUnaSolaConsultaConGroupByYSumasCondicionales()
+    {
+        // Arrange
+        var rango = RangoLocal(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31));
+
+        // Act
+        foreach (var agrupacion in Enum.GetValues<AgrupacionTemporalEnum>())
+        {
+            string sql = _sut.PagosPorPeriodo(_sut.VentasDelRango(rango), agrupacion, DesfaseArgentina).ToQueryString();
+            _salida.WriteLine($"--- PAGOS POR {agrupacion} ---");
+            _salida.WriteLine(sql);
+
+            // Assert
+            // EF envuelve la clave calculada en una tabla derivada (igual que la consulta de ventas por semana): un solo GROUP BY.
+            sql.Split("GROUP BY", StringSplitOptions.None).Length.Should().Be(2, "un único GROUP BY");
+            sql.Should().Contain("GROUP BY").And.Contain("SUM(CASE").And.Contain("PAGOS_VENTA");
+        }
+    }
+
+    private async Task<int> VenderConPagosAsync(
+        DateTime fechaUtc,
+        int idUsuario,
+        int? idCliente,
+        (Articulo Articulo, int Cantidad)[] items,
+        (MedioPagoEnum Medio, decimal Monto)[] pagos)
+    {
+        var venta = Venta.Registrar(_idTurno, idUsuario, idCliente);
+        foreach (var (articulo, cantidad) in items)
+        {
+            venta.AgregarItem(articulo.Id, cantidad, articulo.PrecioVenta, articulo.CostoReposicion);
+        }
+
+        foreach (var (medio, monto) in pagos)
+        {
+            venta.ImputarPago(medio, monto);
+        }
+
+        venta.ValidarCierre();
         _context.Ventas.Add(venta);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();

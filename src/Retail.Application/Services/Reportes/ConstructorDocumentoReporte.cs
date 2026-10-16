@@ -16,20 +16,27 @@ internal static class ConstructorDocumentoReporte
     private const string TodasLasMarcas = "Todas";
     private const string TodosLosCajeros = "Todos";
 
+    /// <summary>
+    /// Máximo de barras de un gráfico horizontal (D-26): con más, las etiquetas se amontonan y dejan de leerse. La tabla
+    /// del documento conserva todas las filas.
+    /// </summary>
+    private const int MaximoBarrasHorizontales = 15;
+
     /// <summary>Arma el documento que corresponde al tipo concreto de <paramref name="resultado"/>.</summary>
     /// <exception cref="ArgumentException">El tipo de resultado no tiene un documento definido.</exception>
-    public static DocumentoReporte Crear(ResultadoReporteDto resultado, string generadoPor)
+    public static DocumentoReporte Crear(ResultadoReporteDto resultado, string generadoPor, NombresFiltro nombres)
     {
         ArgumentNullException.ThrowIfNull(resultado);
+        ArgumentNullException.ThrowIfNull(nombres);
 
         var (filtros, tablas, graficos) = resultado switch
         {
             TableroDto tablero => ArmarTablero(tablero),
-            VentasPorPeriodoDto ventas => ArmarVentasPorPeriodo(ventas),
-            RankingArticulosDto ranking => ArmarRanking(ranking),
-            RentabilidadDto rentabilidad => ArmarRentabilidad(rentabilidad),
-            StockCriticoDto stock => ArmarStockCritico(stock),
-            SinMovimientoDto sinMovimiento => ArmarSinMovimiento(sinMovimiento),
+            VentasPorPeriodoDto ventas => ArmarVentasPorPeriodo(ventas, nombres),
+            RankingArticulosDto ranking => ArmarRanking(ranking, nombres),
+            RentabilidadDto rentabilidad => ArmarRentabilidad(rentabilidad, nombres),
+            StockCriticoDto stock => ArmarStockCritico(stock, nombres),
+            SinMovimientoDto sinMovimiento => ArmarSinMovimiento(sinMovimiento, nombres),
             _ => throw new ArgumentException(
                 $"No hay un documento definido para el reporte '{resultado.GetType().Name}'.",
                 nameof(resultado))
@@ -85,19 +92,19 @@ internal static class ConstructorDocumentoReporte
         return new Armado(filtros, [pesos, actividad, margen, evolucion, porCategoria], graficos);
     }
 
-    private static Armado ArmarVentasPorPeriodo(VentasPorPeriodoDto v)
+    private static Armado ArmarVentasPorPeriodo(VentasPorPeriodoDto v, NombresFiltro nombres)
     {
         var filtros = new List<FiltroAplicado>
         {
             new("Período", Periodo(v.Filtro.Desde, v.Filtro.Hasta)),
             new("Agrupación", NombreAgrupacion(v.Filtro.Agrupacion)),
-            new("Cajero", v.Filtro.IdUsuario is { } id ? $"#{id}" : TodosLosCajeros)
+            new("Cajero", nombres.Cajero ?? TodosLosCajeros)
         };
 
         var resumen = Tabla(
             "Totales del período",
-            [Col("Ventas", TipoColumnaEnum.Entero), Col("Total vendido", TipoColumnaEnum.Moneda), Col("Descuentos", TipoColumnaEnum.Moneda)],
-            [Fila(v.CantidadVentas, v.TotalVendido, v.Descuentos)]);
+            [Col("Ventas", TipoColumnaEnum.Entero), Col("Total vendido", TipoColumnaEnum.Moneda), .. ColumnasMedios(), Col("Descuentos", TipoColumnaEnum.Moneda)],
+            [Fila(v.CantidadVentas, v.TotalVendido, v.Efectivo, v.TarjetaDebito, v.TarjetaCredito, v.TransferenciaQr, v.CuentaCorriente, v.Descuentos)]);
 
         var graficos = new List<GraficoReporte>();
         if (v.Puntos.Count > 0)
@@ -105,16 +112,16 @@ internal static class ConstructorDocumentoReporte
             graficos.Add(GraficoEvolucion("Ventas por período", v.Puntos, v.Filtro.Agrupacion));
         }
 
-        return new Armado(filtros, [resumen, TablaPuntos("Ventas por período", v.Puntos)], graficos);
+        return new Armado(filtros, [resumen, TablaPuntosPorMedio("Ventas por período", v.Puntos)], graficos);
     }
 
-    private static Armado ArmarRanking(RankingArticulosDto r)
+    private static Armado ArmarRanking(RankingArticulosDto r, NombresFiltro nombres)
     {
         var filtros = new List<FiltroAplicado>
         {
             new("Período", Periodo(r.Filtro.Desde, r.Filtro.Hasta)),
-            new("Categoría", Opcional(r.Filtro.IdCategoria, TodasLasCategorias)),
-            new("Marca", Opcional(r.Filtro.IdMarca, TodasLasMarcas)),
+            new("Categoría", nombres.Categoria ?? TodasLasCategorias),
+            new("Marca", nombres.Marca ?? TodasLasMarcas),
             new("Criterio", r.Filtro.Criterio == CriterioRankingEnum.Unidades ? "Unidades" : "Importe"),
             new("Cantidad", r.Filtro.Cantidad.ToString(CultureInfo.InvariantCulture))
         };
@@ -123,14 +130,15 @@ internal static class ConstructorDocumentoReporte
         if (r.MasVendidos.Count > 0)
         {
             var porUnidades = r.Filtro.Criterio == CriterioRankingEnum.Unidades;
-            var valores = r.MasVendidos
+            var visibles = r.MasVendidos.Take(MaximoBarrasHorizontales).ToList();
+            var valores = visibles
                 .Select(a => porUnidades ? a.Unidades : a.IngresoNeto)
                 .ToList();
 
             graficos.Add(new GraficoReporte(
-                "Artículos más vendidos",
-                TipoGraficoEnum.Barras,
-                r.MasVendidos.Select(a => a.Descripcion).ToList(),
+                TituloRecortado("Artículos más vendidos", r.MasVendidos.Count),
+                TipoGraficoEnum.BarrasHorizontales,
+                visibles.Select(a => a.Descripcion).ToList(),
                 [new SerieGrafico(porUnidades ? "Unidades" : "Ingreso neto", valores)]));
         }
 
@@ -140,13 +148,13 @@ internal static class ConstructorDocumentoReporte
             graficos);
     }
 
-    private static Armado ArmarRentabilidad(RentabilidadDto r)
+    private static Armado ArmarRentabilidad(RentabilidadDto r, NombresFiltro nombres)
     {
         var filtros = new List<FiltroAplicado>
         {
             new("Período", Periodo(r.Filtro.Desde, r.Filtro.Hasta)),
-            new("Categoría", Opcional(r.Filtro.IdCategoria, TodasLasCategorias)),
-            new("Marca", Opcional(r.Filtro.IdMarca, TodasLasMarcas)),
+            new("Categoría", nombres.Categoria ?? TodasLasCategorias),
+            new("Marca", nombres.Marca ?? TodasLasMarcas),
             new("Agrupado por", r.Filtro.AgruparPor.ToString())
         };
 
@@ -159,9 +167,9 @@ internal static class ConstructorDocumentoReporte
         return new Armado(filtros, [TablaRentabilidad("Rentabilidad", r.Filas, r.Total)], graficos);
     }
 
-    private static Armado ArmarStockCritico(StockCriticoDto s)
+    private static Armado ArmarStockCritico(StockCriticoDto s, NombresFiltro nombres)
     {
-        var filtros = FiltrosInventario(s.Filtro);
+        var filtros = FiltrosInventario(nombres);
 
         var valorizacion = Tabla(
             "Valorización del inventario",
@@ -184,9 +192,9 @@ internal static class ConstructorDocumentoReporte
         return new Armado(filtros, [valorizacion, filas], []);
     }
 
-    private static Armado ArmarSinMovimiento(SinMovimientoDto s)
+    private static Armado ArmarSinMovimiento(SinMovimientoDto s, NombresFiltro nombres)
     {
-        var filtros = FiltrosInventario(s.Filtro);
+        var filtros = FiltrosInventario(nombres);
         filtros.Add(new FiltroAplicado("Días sin ventas", s.Filtro.Dias.ToString(CultureInfo.InvariantCulture)));
         filtros.Add(new FiltroAplicado("Sin ventas desde", Fecha(s.SinVentasDesde)));
 
@@ -210,12 +218,12 @@ internal static class ConstructorDocumentoReporte
         return new Armado(filtros, [resumen, filas], []);
     }
 
-    private static List<FiltroAplicado> FiltrosInventario(FiltroInventarioDto filtro)
+    private static List<FiltroAplicado> FiltrosInventario(NombresFiltro nombres)
     {
         return
         [
-            new FiltroAplicado("Categoría", Opcional(filtro.IdCategoria, TodasLasCategorias)),
-            new FiltroAplicado("Marca", Opcional(filtro.IdMarca, TodasLasMarcas))
+            new FiltroAplicado("Categoría", nombres.Categoria ?? TodasLasCategorias),
+            new FiltroAplicado("Marca", nombres.Marca ?? TodasLasMarcas)
         ];
     }
 
@@ -225,6 +233,28 @@ internal static class ConstructorDocumentoReporte
             titulo,
             [Col("Período", TipoColumnaEnum.Fecha), Col("Ventas", TipoColumnaEnum.Entero), Col("Total vendido", TipoColumnaEnum.Moneda), Col("Descuentos", TipoColumnaEnum.Moneda)],
             puntos.Select(p => Fila(p.InicioPeriodo, p.CantidadVentas, p.TotalVendido, p.Descuentos)).ToList());
+    }
+
+    /// <summary>Las cinco columnas del desglose por medio de pago (D-34), con títulos cortos para que entren en el PDF.</summary>
+    private static ColumnaReporte[] ColumnasMedios()
+    {
+        return
+        [
+            Col("Efectivo", TipoColumnaEnum.Moneda), Col("Débito", TipoColumnaEnum.Moneda), Col("Crédito", TipoColumnaEnum.Moneda),
+            Col("Transf./QR", TipoColumnaEnum.Moneda), Col("Cta. cte.", TipoColumnaEnum.Moneda)
+        ];
+    }
+
+    private static TablaReporte TablaPuntosPorMedio(string titulo, IReadOnlyList<PuntoVentasDto> puntos)
+    {
+        return Tabla(
+            titulo,
+            [Col("Período", TipoColumnaEnum.Fecha), Col("Ventas", TipoColumnaEnum.Entero), Col("Total vendido", TipoColumnaEnum.Moneda), .. ColumnasMedios(), Col("Descuentos", TipoColumnaEnum.Moneda)],
+            puntos
+                .Select(p => Fila(
+                    p.InicioPeriodo, p.CantidadVentas, p.TotalVendido, p.Efectivo, p.TarjetaDebito, p.TarjetaCredito,
+                    p.TransferenciaQr, p.CuentaCorriente, p.Descuentos))
+                .ToList());
     }
 
     private static TablaReporte TablaRanking(string titulo, IReadOnlyList<RankingArticuloDto> articulos)
@@ -281,11 +311,20 @@ internal static class ConstructorDocumentoReporte
 
     private static GraficoReporte GraficoMargen(string titulo, IReadOnlyList<RentabilidadFilaDto> filas)
     {
+        var visibles = filas.Take(MaximoBarrasHorizontales).ToList();
+
         return new GraficoReporte(
-            titulo,
-            TipoGraficoEnum.Barras,
-            filas.Select(f => f.Grupo).ToList(),
-            [new SerieGrafico("Margen bruto", filas.Select(f => f.MargenBruto).ToList())]);
+            TituloRecortado(titulo, filas.Count),
+            TipoGraficoEnum.BarrasHorizontales,
+            visibles.Select(f => f.Grupo).ToList(),
+            [new SerieGrafico("Margen bruto", visibles.Select(f => f.MargenBruto).ToList())]);
+    }
+
+    private static string TituloRecortado(string titulo, int cantidadTotal)
+    {
+        return cantidadTotal > MaximoBarrasHorizontales
+            ? $"{titulo} (primeros {MaximoBarrasHorizontales})"
+            : titulo;
     }
 
     private static TablaReporte Tabla(string titulo, ColumnaReporte[] columnas, IReadOnlyList<IReadOnlyList<object?>> filas)
@@ -311,12 +350,6 @@ internal static class ConstructorDocumentoReporte
     private static string Fecha(DateOnly fecha)
     {
         return fecha.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
-    }
-
-    // Los nombres de categoría, marca y cajero llegan en la Fase 5; por ahora se informa el identificador.
-    private static string Opcional(int? id, string textoSinFiltro)
-    {
-        return id is { } valor ? $"#{valor}" : textoSinFiltro;
     }
 
     private static string NombreAgrupacion(AgrupacionTemporalEnum agrupacion)

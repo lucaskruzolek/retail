@@ -1,4 +1,5 @@
 using FluentValidation;
+using FluentValidation.Results;
 using Retail.Application.DTOs.Reportes;
 using Retail.Application.DTOs.Reportes.Consultas;
 using Retail.Application.Interfaces.Persistence;
@@ -56,6 +57,13 @@ public class ReporteService : IReporteService
         _validadorSinMovimiento = validadorSinMovimiento ?? throw new ArgumentNullException(nameof(validadorSinMovimiento));
     }
 
+    public async Task<DateOnly> ObtenerFechaMinimaAsync(int idActor, CancellationToken cancellationToken = default)
+    {
+        await AutorizarGerenteAsync(idActor, cancellationToken);
+
+        return (await CalcularFechaMinimaAsync(cancellationToken)).Minima;
+    }
+
     public async Task<TableroDto> ObtenerTableroAsync(
         int idActor,
         FiltroPeriodoDto filtro,
@@ -63,10 +71,10 @@ public class ReporteService : IReporteService
     {
         await AutorizarGerenteAsync(idActor, cancellationToken);
         await _validadorPeriodo.ValidateAndThrowAsync(filtro, cancellationToken);
+        await ValidarLimiteInferiorAsync(filtro.Desde, cancellationToken);
 
         var dias = filtro.Hasta.DayNumber - filtro.Desde.DayNumber + 1;
-        var hastaAnterior = filtro.Desde.AddDays(-1);
-        var desdeAnterior = filtro.Desde.AddDays(-dias);
+        var (desdeAnterior, hastaAnterior) = CalcularPeriodoAnterior(filtro.Desde, filtro.Hasta);
         var agrupacion = ElegirAgrupacionDeEvolucion(dias);
 
         var rango = CrearRango(filtro.Desde, filtro.Hasta);
@@ -75,7 +83,8 @@ public class ReporteService : IReporteService
         // En secuencia: comparten el DbContext (ver el comentario de la clase).
         var actual = await _consultas.ObtenerResumenVentasAsync(rango, cancellationToken);
         var anterior = await _consultas.ObtenerResumenVentasAsync(rangoAnterior, cancellationToken);
-        var evolucion = await _consultas.ObtenerVentasPorPeriodoAsync(rango, agrupacion, null, cancellationToken);
+        // La evolución del tablero grafica solo el total: no pide el desglose por medio de pago (D-34).
+        var evolucion = await _consultas.ObtenerVentasPorPeriodoAsync(rango, agrupacion, null, incluirMediosDePago: false, cancellationToken);
         var porCategoria = await _consultas.ObtenerRentabilidadAsync(
             rango,
             new FiltroRentabilidadDto
@@ -123,9 +132,11 @@ public class ReporteService : IReporteService
     {
         await AutorizarGerenteAsync(idActor, cancellationToken);
         await _validadorVentas.ValidateAndThrowAsync(filtro, cancellationToken);
+        await ValidarLimiteInferiorAsync(filtro.Desde, cancellationToken);
 
         var rango = CrearRango(filtro.Desde, filtro.Hasta);
-        var filas = await _consultas.ObtenerVentasPorPeriodoAsync(rango, filtro.Agrupacion, filtro.IdUsuario, cancellationToken);
+        var filas = await _consultas.ObtenerVentasPorPeriodoAsync(
+            rango, filtro.Agrupacion, filtro.IdUsuario, incluirMediosDePago: true, cancellationToken);
 
         return new VentasPorPeriodoDto
         {
@@ -134,7 +145,12 @@ public class ReporteService : IReporteService
             Puntos = CompletarPeriodos(filas, filtro.Desde, filtro.Hasta, filtro.Agrupacion),
             TotalVendido = ReglasMonetarias.Redondear(filas.Sum(f => f.TotalVendido)),
             CantidadVentas = filas.Sum(f => f.CantidadVentas),
-            Descuentos = ReglasMonetarias.Redondear(filas.Sum(f => f.Descuentos))
+            Descuentos = ReglasMonetarias.Redondear(filas.Sum(f => f.Descuentos)),
+            Efectivo = ReglasMonetarias.Redondear(filas.Sum(f => f.Efectivo)),
+            TarjetaDebito = ReglasMonetarias.Redondear(filas.Sum(f => f.TarjetaDebito)),
+            TarjetaCredito = ReglasMonetarias.Redondear(filas.Sum(f => f.TarjetaCredito)),
+            TransferenciaQr = ReglasMonetarias.Redondear(filas.Sum(f => f.TransferenciaQr)),
+            CuentaCorriente = ReglasMonetarias.Redondear(filas.Sum(f => f.CuentaCorriente))
         };
     }
 
@@ -145,6 +161,7 @@ public class ReporteService : IReporteService
     {
         await AutorizarGerenteAsync(idActor, cancellationToken);
         await _validadorRanking.ValidateAndThrowAsync(filtro, cancellationToken);
+        await ValidarLimiteInferiorAsync(filtro.Desde, cancellationToken);
 
         var rango = CrearRango(filtro.Desde, filtro.Hasta);
 
@@ -168,6 +185,7 @@ public class ReporteService : IReporteService
     {
         await AutorizarGerenteAsync(idActor, cancellationToken);
         await _validadorRentabilidad.ValidateAndThrowAsync(filtro, cancellationToken);
+        await ValidarLimiteInferiorAsync(filtro.Desde, cancellationToken);
 
         var rango = CrearRango(filtro.Desde, filtro.Hasta);
         var filas = await _consultas.ObtenerRentabilidadAsync(rango, filtro, cancellationToken);
@@ -269,6 +287,79 @@ public class ReporteService : IReporteService
         };
     }
 
+    /// <summary>
+    /// Período de comparación del tablero (D-31, RF-24). Es calendario, no de "igual duración": un comercio compara
+    /// octubre con septiembre y el año con el año anterior. Reglas, en este orden:
+    /// (a) un rango dentro de un mes que empieza el día 1 se compara con el mismo tramo del mes anterior (el mes
+    /// completo si termina el último día); (b) uno que empieza el 01/01 y abarca más de un mes, con el mismo tramo del
+    /// año anterior; (c) cualquier otro, con el período inmediato anterior de igual duración.
+    /// </summary>
+    /// <remarks>
+    /// <c>AddMonths</c> y <c>AddYears</c> recortan el día al fin de mes (31/03 - 1 mes = 28/02), por eso el resultado
+    /// nunca supera el último día del mes anterior. Exige fechas posteriores al año 1: lo garantiza D-32.
+    /// </remarks>
+    internal static (DateOnly Desde, DateOnly Hasta) CalcularPeriodoAnterior(DateOnly desde, DateOnly hasta)
+    {
+        var dentroDeUnMes = desde.Year == hasta.Year && desde.Month == hasta.Month;
+
+        if (dentroDeUnMes && desde.Day == 1)
+        {
+            var terminaElUltimoDia = hasta.Day == DateTime.DaysInMonth(hasta.Year, hasta.Month);
+
+            return (desde.AddMonths(-1), terminaElUltimoDia ? desde.AddDays(-1) : hasta.AddMonths(-1));
+        }
+
+        if (desde.Month == 1 && desde.Day == 1 && hasta.Year == desde.Year && hasta.Month > 1)
+        {
+            return (desde.AddYears(-1), hasta.AddYears(-1));
+        }
+
+        var dias = hasta.DayNumber - desde.DayNumber + 1;
+
+        return (desde.AddDays(-dias), desde.AddDays(-1));
+    }
+
+    /// <summary>
+    /// Día local de la primera venta o, sin ventas, el día 1 del mes en curso (D-32). Una sola consulta por llamada.
+    /// </summary>
+    private async Task<(DateOnly Minima, bool HayVentas)> CalcularFechaMinimaAsync(CancellationToken cancellationToken)
+    {
+        var primeraVentaUtc = await _consultas.ObtenerFechaPrimeraVentaAsync(cancellationToken);
+
+        if (primeraVentaUtc is null)
+        {
+            var hoy = _reloj.HoyLocal();
+
+            return (new DateOnly(hoy.Year, hoy.Month, 1), false);
+        }
+
+        var local = TimeZoneInfo.ConvertTimeFromUtc(
+            DateTime.SpecifyKind(primeraVentaUtc.Value, DateTimeKind.Utc),
+            _reloj.LocalTimeZone);
+
+        return (DateOnly.FromDateTime(local), true);
+    }
+
+    /// <summary>
+    /// D-32: <c>Desde</c> no puede ser anterior a la primera venta. Se invoca DESPUÉS de autorizar y de validar el
+    /// filtro y ANTES de consultar los datos del reporte.
+    /// </summary>
+    private async Task ValidarLimiteInferiorAsync(DateOnly desde, CancellationToken cancellationToken)
+    {
+        var (minima, hayVentas) = await CalcularFechaMinimaAsync(cancellationToken);
+
+        if (desde >= minima)
+        {
+            return;
+        }
+
+        var mensaje = hayVentas
+            ? $"La fecha desde no puede ser anterior al {minima:dd/MM/yyyy}, la primera venta registrada."
+            : $"La fecha desde no puede ser anterior al {minima:dd/MM/yyyy}.";
+
+        throw new ValidationException([new ValidationFailure(nameof(FiltroPeriodoDto.Desde), mensaje)]);
+    }
+
     private async Task AutorizarGerenteAsync(int idActor, CancellationToken cancellationToken)
     {
         var actor = idActor > 0
@@ -358,7 +449,12 @@ public class ReporteService : IReporteService
                 InicioPeriodo = inicio,
                 CantidadVentas = fila?.CantidadVentas ?? 0,
                 TotalVendido = ReglasMonetarias.Redondear(fila?.TotalVendido ?? 0m),
-                Descuentos = ReglasMonetarias.Redondear(fila?.Descuentos ?? 0m)
+                Descuentos = ReglasMonetarias.Redondear(fila?.Descuentos ?? 0m),
+                Efectivo = ReglasMonetarias.Redondear(fila?.Efectivo ?? 0m),
+                TarjetaDebito = ReglasMonetarias.Redondear(fila?.TarjetaDebito ?? 0m),
+                TarjetaCredito = ReglasMonetarias.Redondear(fila?.TarjetaCredito ?? 0m),
+                TransferenciaQr = ReglasMonetarias.Redondear(fila?.TransferenciaQr ?? 0m),
+                CuentaCorriente = ReglasMonetarias.Redondear(fila?.CuentaCorriente ?? 0m)
             });
         }
 
