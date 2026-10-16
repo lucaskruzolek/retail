@@ -10,7 +10,7 @@ public class DetalleVentaConfiguration : IEntityTypeConfiguration<DetalleVenta>
     {
         builder.ToTable("DETALLE_VENTAS", t =>
         {
-            t.HasCheckConstraint("CK_DETALLE_VENTAS_Valores", "[cantidad] > 0 AND [precio_unitario] >= 0 AND [subtotal_item] >= 0");
+            t.HasCheckConstraint("CK_DETALLE_VENTAS_Valores", "[cantidad] > 0 AND [precio_unitario] >= 0 AND [costo_unitario] >= 0 AND [subtotal_item] >= 0");
         });
 
         builder.HasKey(dv => dv.Id);
@@ -32,6 +32,11 @@ public class DetalleVentaConfiguration : IEntityTypeConfiguration<DetalleVenta>
 
         builder.Property(dv => dv.PrecioUnitario)
             .HasColumnName("precio_unitario")
+            .HasPrecision(18, 2)
+            .IsRequired();
+
+        builder.Property(dv => dv.CostoUnitario)
+            .HasColumnName("costo_unitario")
             .HasPrecision(18, 2)
             .IsRequired();
 

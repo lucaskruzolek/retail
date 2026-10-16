@@ -106,6 +106,11 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.ViewModels.Backups.BackupViewModel>();
         services.AddTransient<Retail.App.Views.Pages.BackupView>();
 
+        // Tablero Gerencial y Reportes (Track 6.4)
+        services.AddScoped<Retail.App.Services.IReporteDialogService, Retail.App.Services.ReporteDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Reportes.DashboardViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.DashboardView>();
+
         // Artículos y Catálogo (Módulo 2.1)
         services.AddScoped<Retail.App.Services.IArticuloDialogService, Retail.App.Services.ArticuloDialogService>();
         services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();

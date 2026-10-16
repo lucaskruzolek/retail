@@ -20,11 +20,16 @@ public class DetalleVenta : BaseEntity
 
     public decimal PrecioUnitario { get; private set; }
 
+    /// <summary>
+    /// Foto del costo de reposición del artículo al momento de vender (RF-25).
+    /// </summary>
+    public decimal CostoUnitario { get; private set; }
+
     public decimal SubtotalItem { get; private set; }
 
     protected DetalleVenta() { }
 
-    internal DetalleVenta(int idArticulo, int cantidad, decimal precioUnitario)
+    internal DetalleVenta(int idArticulo, int cantidad, decimal precioUnitario, decimal costoUnitario)
     {
         if (idArticulo <= 0)
         {
@@ -36,10 +41,16 @@ public class DetalleVenta : BaseEntity
             throw new ArgumentOutOfRangeException(nameof(precioUnitario), "El precio unitario no puede ser negativo.");
         }
 
+        if (costoUnitario < 0m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(costoUnitario), "El costo unitario no puede ser negativo.");
+        }
+
         ValidarCantidad(cantidad);
 
         IdArticulo = idArticulo;
         PrecioUnitario = precioUnitario;
+        CostoUnitario = costoUnitario;
         Cantidad = cantidad;
         SubtotalItem = Cantidad * PrecioUnitario;
     }
