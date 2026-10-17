@@ -41,6 +41,11 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
             .UseCollation(Cotejamientos.BusquedaEnCastellano)
             .IsRequired();
 
+        // Índice de paginación: entrega las filas del proveedor ya ordenadas por descripción, de modo que la página del
+        // catálogo no ordena en memoria (sin Sort ni memory grant). Respeta el borrado lógico (Ley 8, RNF-02).
+        builder.HasIndex(cp => new { cp.IdProveedor, cp.DescripcionProveedor })
+            .HasFilter("[deleted_at] IS NULL");
+
         builder.Property(cp => cp.CostoReposicion)
             .HasColumnName("precio_costo")
             .HasPrecision(18, 2)
