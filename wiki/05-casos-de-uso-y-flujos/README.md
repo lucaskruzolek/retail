@@ -14,6 +14,7 @@ Este módulo documenta el recorrido transversal de las operaciones comerciales d
 | **Apertura de Caja y Arqueo Ciego** | `RF-13`, `RF-14`, `RF-15` | Custodia de gaveta de efectivo, retiros y gastos justificados, balance teórico y arqueo ciego anti-fraude sin sesgos. | [Ver Artículo](flujo-caja-y-arqueo-ciego.md) |
 | **Importación Masiva de Listas de Precios** | `RF-05`, `RF-07` | Las dos libretas (catálogo del proveedor y tienda), consultas Q1/Q2 sin N+1, guardado atómico, reporte de errores por fila real y recálculo por markup en el Dominio. | [Ver Artículo](flujo-importador-excel.md) |
 | **Tablero Gerencial y Reportes Exportables** | `RF-24`, `RF-25`, `RF-26`, `RNF-09` | Costo histórico y prorrateo del descuento, reglas de fechas (UTC, semana, comparación calendario, límites), consultas agregadas en SQL sin vistas ni procedimientos, desglose por medio de pago y exportación a Excel y PDF. | [Ver Artículo](flujo-tablero-gerencial-y-reportes.md) |
+| **Respaldo y Restauración de la Base** | `RF-22`, `RF-23`, `RNF-08`, `RF-03` | Copias completas verificadas (`CHECKSUM` + `RESTORE VERIFYONLY`), tarea programada diaria, restauración sobre una base temporal con copia previa de seguridad (la vigente sigue en pie si algo falla), `Retail.Cli` para operar sin la app, escenarios de corrupción y permisos. | [Ver Guía](respaldo-y-restauracion/README.md) |
 
 ---
 
