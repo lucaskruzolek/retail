@@ -41,7 +41,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
     // Todos los accesos a datos del mostrador (búsqueda predictiva, artículo escaneado y estado de la caja)
     // pasan por esta fila: nunca usan el DbContext de la pantalla al mismo tiempo y se cancelan al salir (H-19).
-    private readonly CargaSerializada _accesoDatos = new();
+    private readonly CargaSerializada _accesoDatos;
 
     [ObservableProperty]
     private string _textoBusqueda = string.Empty;
@@ -124,6 +124,10 @@ public partial class PosViewModel : ObservableObject, IDisposable
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? NullLogger<PosViewModel>.Instance;
+
+        // Se crea antes de CargarEstadoCajaAsync, que ya la usa. Con el logger, una búsqueda lenta que se descarta
+        // deja una advertencia en el log en lugar de desaparecer sin rastro.
+        _accesoDatos = new CargaSerializada(_logger);
 
         Items.CollectionChanged += OnItemsCollectionChanged;
 
