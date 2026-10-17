@@ -4,6 +4,7 @@ Solo usa la biblioteca estándar de Python: no hace falta instalar paquetes.
 """
 
 import csv
+import os
 import re
 
 
@@ -54,3 +55,15 @@ def normalizar_ean(codigo_interno, ean):
     if len(valor) == 13 and valor[0] == "2":
         return None, "uso_interno_prefijo_2"
     return valor, "valido"
+
+
+def escribir_csv(ruta, encabezado, filas):
+    """Escribe un CSV ';' en UTF-8 con BOM (para que Excel respete tildes y eñes) y crea la carpeta si falta.
+
+    Los scripts de ml/ que lean de nuevo estos archivos deben abrirlos con encoding="utf-8-sig".
+    """
+    os.makedirs(os.path.dirname(os.path.abspath(ruta)), exist_ok=True)
+    with open(ruta, "w", encoding="utf-8-sig", newline="") as archivo:
+        escritor = csv.writer(archivo, delimiter=";")
+        escritor.writerow(encabezado)
+        escritor.writerows(filas)
