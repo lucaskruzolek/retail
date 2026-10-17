@@ -2,7 +2,7 @@
 
 > **Para el agente que lea esto:** este archivo es el punto de entrada para retomar, en una sesión nueva y sin contexto previo, la línea de trabajo de clasificación de artículos: el CRUD de Rubros, Categorías y Marcas (Track 6.5) y el motor de sugerencia de categoría y marca (Track 6.6). Resume el estado, las reglas acordadas con el estudiante y el flujo de trabajo paso a paso. **El diseño completo vive en los documentos de cada track; este archivo no lo repite.**
 >
-> **Estado al 17 de octubre de 2026:** ambos tracks están **cerrados en lo conceptual y sin implementar**. Nada está commiteado todavía (sección 2). El próximo paso es el **Paso 0** de la sección 4.
+> **Estado al 17 de octubre de 2026:** ambos tracks están **cerrados en lo conceptual y sin implementar**. Pasos 0 y 1 hechos en la rama `docs/clasificacion-catalogacion` (sección 2). El próximo paso es el **Paso 2** de la sección 4.
 >
 > **Cómo usarlo:** leer la sección 1 (reglas) y la sección 4 (flujo), ubicar el primer paso sin marcar y cargar **solo** el documento del track que ese paso indica. Al cerrar cada sesión, aplicar el protocolo de la sección 6.
 
@@ -19,7 +19,7 @@ Además de `AGENTS.md` y `CLAUDE.md`, que se cargan solos:
 5. **Las decisiones cerradas no se reabren** sin un motivo nuevo. Si aparece uno, se presenta al estudiante antes de cambiar nada.
 6. **La lista del distribuidor nunca entra al contexto.** Se analiza solo con scripts que imprimen resultados agregados (`ml/scripts/`). Es un dato comercial de un tercero y no se versiona (`ml/datos/` está en `.gitignore`).
 7. **No guardar la lista como CSV desde Excel:** destruye los códigos de barras (notación científica). Se exporta solo con `ml/scripts/exportar_lista_xls.ps1`.
-8. **Propiedad del código:** el importador, `Proveedor`, `CatalogoProveedor` y Compras son de **Pablo**. El Track 6.6 los modifica (secciones 4.1, 8.1 y 9 de su documento): esos cambios se **coordinan con él** antes de implementarlos.
+8. **Propiedad del código:** el importador, `Proveedor`, `CatalogoProveedor` y Compras son de **Pablo**. El Track 6.6 los modifica (secciones 4.1, 8.1 y 9 de su documento). **Coordinado el 2026-10-17:** Pablo está al tanto y el estudiante autorizó modificar ese código desde estos tracks. La revisión cruzada del PR sigue siendo con él.
 9. **Migraciones de EF Core:** una sola rama genera migraciones a la vez. La del 6.6 se crea después de que la del 6.5 esté en `main`.
 10. **Archivos nuevos en CRLF:** `dotnet format` falla con `ENDOFLINE` si un `.cs` queda en LF (verificar si ya existe `.gitattributes`).
 
@@ -27,11 +27,14 @@ Además de `AGENTS.md` y `CLAUDE.md`, que se cargan solos:
 
 ## 2. Estado del Repositorio (17 de octubre de 2026)
 
-* Rama: `main`, último commit `dfba9c6` (merge del PR #26, Track 6.4).
-* **Sin commitear** (creado en la sesión de diseño del 2026-10-17):
+* `main` en `f0f488d` (merge del PR #29).
+* Rama **`docs/clasificacion-catalogacion`** (creada desde `main`, sin push):
+  * `c4ac594`: diseño de los Tracks 6.5 y 6.6, este handoff, scripts de `ml/` y `.gitignore` (Paso 0).
+  * Commit siguiente: Paso 1 (ERS, roadmap de la Etapa 6, mapa semántico, estado de los dos tracks y este archivo).
+* `wiki/.obsidian/workspace.json` aparece modificado, pero es estado local de Obsidian y no forma parte de este trabajo.
+* Datos locales, no versionados: `ml/datos/lista-mayo-2025.csv`, exportado de `C:\Users\lucas\Proyectos\LISTA MAYO 2025.xls` (14.876 artículos, un solo distribuidor, sin precios).
 
-| Archivo | Contenido |
-| :--- | :--- |
+--- | :--- |
 | `docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md` | Plan del Track 6.5 (decisiones D-1 a D-18) |
 | `docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md` | Diseño del Track 6.6 (decisiones M-1 a M-16, experimentos E-1 a E-4) |
 | `docs/auditorias/handoff-clasificacion-y-catalogacion.md` | Este archivo |
@@ -71,16 +74,17 @@ flowchart TD
 
 ### Paso 0 — Commit de lo pendiente
 
-* [ ] El estudiante revisa los archivos de la sección 2 y decide rama y mensaje. El agente puede proponer el mensaje.
+* [x] Commit `c4ac594` en la rama `docs/clasificacion-catalogacion`, a pedido del estudiante (2026-10-17).
 
 ### Paso 1 — Fase 0 compartida (solo documentación; sin bucle de compilación)
 
 Se hace una vez, antes de cualquier rama de código, para no editar la ERS en dos lugares.
 
-* [ ] `docs/roadmap/etapa-6-estabilizacion-release.md`: dar de alta los Tracks 6.5 y 6.6 con el formato de los tracks existentes, y quitar "CRUD propio de Categorías y Marcas" de las mejoras futuras.
-* [ ] ERS: ampliar `RF-04` (administración de rubros, categorías y marcas), agregar `RF-27` (texto propuesto en la sección 15 del Track 6.6) y actualizar la matriz de trazabilidad (tabla `RUBROS`).
-* [ ] Verificar si `MAPA_DEL_PROYECTO.md` indexa los documentos de track y, si lo hace, agregar los dos nuevos.
-* [ ] Mostrar cada texto al estudiante antes de editar.
+* [x] `docs/roadmap/etapa-6-estabilizacion-release.md`: dar de alta los Tracks 6.5 y 6.6 con el formato de los tracks existentes, y quitar "CRUD propio de Categorías y Marcas" de las mejoras futuras.
+* [x] ERS: ampliar `RF-04` (administración de rubros, categorías y marcas), agregar `RF-27` (texto propuesto en la sección 15 del Track 6.6) y actualizar la matriz de trazabilidad (tabla `RUBROS`).
+* [x] Verificar si `MAPA_DEL_PROYECTO.md` indexa los documentos de track y, si lo hace, agregar los dos nuevos.
+* [x] Mostrar cada texto al estudiante antes de editar.
+* **Hecho el 2026-10-17.** Además de lo previsto: `RF-27` dice "umbral que el sistema calibra en cada entrenamiento" (M-10, M-11) en lugar de "umbral configurado"; se ajustaron `RF-05`, `RF-07`, `RF-23`, `IU-04`, `IU-05`, el Módulo I y el glosario ("Rubro"); la matriz no incluye todavía las tablas de diccionarios del 6.6 (se agregan con su migración). El mapa indexa ahora los planes de los Tracks 6.4, 6.5 y 6.6. D-5 quedó verificada (sección 3 del Track 6.5).
 
 ### Paso 2 — Track 6.5, Fases 1 a 5
 
@@ -115,7 +119,7 @@ Formatos tentativos de los archivos que completa el estudiante (se confirman al 
 
 ### Paso 5 — Track 6.6, Fases 3 a 7
 
-* [ ] **Coordinar con Pablo** los cambios en `Proveedor`, `CatalogoProveedor`, `MapeoColumnasDto` e `IncorporarCatalogoArticulosDto` (regla 8).
+* [x] **Coordinar con Pablo** (hecho el 2026-10-17, regla 8) los cambios en `Proveedor`, `CatalogoProveedor`, `MapeoColumnasDto` e `IncorporarCatalogoArticulosDto` (regla 8).
 * [ ] Fases 3 a 7 según el documento del track, con la misma forma de trabajo del Paso 2.
 
 ---

@@ -1,8 +1,8 @@
 # Track 6.5: Plan de Diseño — CRUD de Rubros, Categorías y Marcas
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
-**Etapa:** [`etapa-6-estabilizacion-release.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-estabilizacion-release.md) (Track 6.5, propuesto) | **Responsable:** Lucas Kruzolek | **Rama sugerida:** `feat/crud-categorias-marcas` (la crea el estudiante)  
-**Requisitos:** `RF-04` (hoy menciona categoría y marca solo como campos del artículo; hay que ampliarlo o crear un RF nuevo) en [`ERS - Libreria POS.md`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md)
+**Etapa:** [`etapa-6-estabilizacion-release.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-estabilizacion-release.md) (Track 6.5) | **Responsable:** Lucas Kruzolek | **Rama sugerida:** `feat/crud-categorias-marcas` (la crea el estudiante)  
+**Requisitos:** `RF-04` (ampliado el 2026-10-17 con la administración de la clasificación) en [`ERS - Libreria POS.md`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md)
 
 > **Propósito de este documento:** conservar las decisiones de diseño, sus fundamentos y el estado de avance del track, para retomar el trabajo en una sesión nueva sin rehacer el análisis. Todas las decisiones fueron aprobadas por el estudiante el 2026-10-17.
 >
@@ -16,7 +16,7 @@
 
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
-| 0 | Alta en el roadmap, ampliación de `RF-04` en la ERS y cierre de decisiones | ⏳ Diseño cerrado (2026-10-17); falta editar roadmap y ERS |
+| 0 | Alta en el roadmap, ampliación de `RF-04` en la ERS y cierre de decisiones | ✅ Diseño cerrado; track dado de alta en el roadmap y `RF-04` ampliado en la ERS (2026-10-17) |
 | 1 | Dominio: `Crear`/`Renombrar`, regla de texto y excepción | ⏳ |
 | 2 | Aplicación: contratos, DTOs, validadores y servicios | ⏳ |
 | 3 | Infraestructura: índices únicos filtrados, migración y conteos | ⏳ |
@@ -49,7 +49,7 @@
 | D-2 | El acceso es un **diálogo** lanzado desde el catálogo de artículos, no una página nueva del menú lateral. | Cerrada | Una página nueva obliga a tocar `MainWindow.xaml` y `MainViewModel`, zona compartida (Ley 10). |
 | D-3 | `Categoria` y `Marca` se encapsulan con `Crear(nombre)` y `Renombrar(nombre)` y setters privados. | Cerrada | Consistencia con `Proveedor`, `Cliente` y `Usuario`. Obliga a corregir el semillero y algunos tests que usan inicializadores de objeto. |
 | D-4 | El nombre es **único entre registros activos**, sin distinguir mayúsculas ni acentos, mediante índice filtrado por `deleted_at IS NULL`. | Cerrada | Mismo patrón que `Proveedores.Cuit`. Evita duplicados desde el origen. |
-| D-5 | Pueden administrar categorías y marcas el **Gerente y el Encargado**; el Cajero no. La autorización se valida en el servicio, no solo en la UI. | Cerrada (rol por verificar) | Patrón D-11 del Track 6.4 (`OperacionNoAutorizadaException`). Antes de implementar se verifica cómo restringe hoy el catálogo de artículos. |
+| D-5 | Pueden administrar categorías y marcas el **Gerente y el Encargado**; el Cajero no. La autorización se valida en el servicio, no solo en la UI. | Cerrada (rol verificado 2026-10-17) | Patrón D-11 del Track 6.4 (`OperacionNoAutorizadaException`). Verificación: hoy el catálogo de artículos solo se oculta al Administrador (`PuedeOperarNegocio` en `MainWindow.xaml`) y ni `ArticulosViewModel` ni el servicio controlan el rol, así que el Cajero puede editar artículos. D-5 es más estricta y no lo contradice: el diálogo se abre desde `ArticulosView`, pero el servicio rechaza al Cajero y la UI oculta el acceso. La falta de control de rol sobre los artículos queda fuera de este track. |
 | D-6 | Alias de marca y tabla de prefijos EAN → marca **se difieren** a la etapa de ML. | Cerrada | Son migraciones aditivas y baratas; no se construyen sin el consumidor (YAGNI). |
 | D-7 | La fusión de categorías duplicadas **se difiere**. | Cerrada (revisar) | Operación delicada que reasigna artículos. Probablemente se vuelva necesaria tras el primer arranque del ML (sección 8). |
 | D-8 | Renombrar es libre, porque todo se referencia por `Id`. | Cerrada | Renombrar no rompe artículos, reportes ni un futuro modelo. |

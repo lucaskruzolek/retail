@@ -1,8 +1,8 @@
 # Track 6.6: Plan de Diseño — Catalogación Inteligente (Sugerencia de Categoría y Marca)
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
-**Etapa:** [`etapa-6-estabilizacion-release.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-estabilizacion-release.md) (Track 6.6, propuesto) | **Responsable:** Lucas Kruzolek | **Depende de:** [Track 6.5](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md) (CRUD de Rubros, Categorías y Marcas)  
-**Requisitos:** `RF-27` propuesto (sección 15) en [`ERS - Libreria POS.md`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md); respeta `RNF-02`, `RNF-03` y `RNF-07`.  
+**Etapa:** [`etapa-6-estabilizacion-release.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-estabilizacion-release.md) (Track 6.6) | **Responsable:** Lucas Kruzolek | **Depende de:** [Track 6.5](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md) (CRUD de Rubros, Categorías y Marcas)  
+**Requisitos:** `RF-27` (incorporado a la ERS el 2026-10-17; sección 15) en [`ERS - Libreria POS.md`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md); respeta `RNF-02`, `RNF-03` y `RNF-07`.  
 **Scripts de exploración:** [`ml/`](file:///c:/Users/lucas/Proyectos/retail/ml/README.md), fuera de `Retail.sln`.
 
 > **Propósito de este documento:** conservar las decisiones de diseño del motor de catalogación, la evidencia que las sustenta y los experimentos pendientes, para retomar el trabajo sin rehacer el análisis.
@@ -17,7 +17,7 @@
 
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
-| 0 | Exploración de datos (`ml/scripts/`) y este documento | ✅ Diseño cerrado (2026-10-17). Falta dar de alta el track en el roadmap y `RF-27` en la ERS |
+| 0 | Exploración de datos (`ml/scripts/`) y este documento | ✅ Diseño cerrado; track dado de alta en el roadmap y `RF-27` incorporado a la ERS (2026-10-17) |
 | 1 | Arranque: diccionarios revisados por el estudiante y conjunto de oro | ⏳ |
 | 2 | Experimentos E-1 a E-4 en Python (selección del clasificador y umbrales) | ⏳ |
 | 3 | Dominio: entidades hijas de `Categoria` y `Marca`, origen de la clasificación, regla de EAN | ⏳ |
@@ -362,7 +362,7 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 | R-5 | Divergencia entre Python y C# en el vectorizador. | Tests de paridad (sección 10). |
 | R-6 | Truncado a 45 caracteres: palabras cortadas. | Los n-gramas de caracteres son robustos a esto; se mide en E-2. |
 | R-7 | Cambio del contrato de incorporación (lote → por ítem) afecta pantallas y tests existentes. | Se planifica como paso propio en la Fase 4, con sus tests. |
-| R-8 | El importador, `Proveedor` y `CatalogoProveedor` son código de **Pablo** (propiedad acordada en el roadmap), y este track los modifica (M-12, M-13, contrato de incorporación). | Coordinar con él antes de la Fase 3: alcance, rama y quién revisa. |
+| R-8 | El importador, `Proveedor` y `CatalogoProveedor` son código de **Pablo** (propiedad acordada en el roadmap), y este track los modifica (M-12, M-13, contrato de incorporación). | ✅ Coordinado (2026-10-17): Pablo está al tanto y el estudiante autorizó modificar ese código desde este track. La revisión cruzada del PR sigue siendo con él. |
 
 ---
 
@@ -379,9 +379,11 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 
 ---
 
-## 15. Requisito Propuesto para la ERS
+## 15. Requisito Incorporado a la ERS
 
-> **RF-27 (Sugerencia de Clasificación):** Al incorporar artículos del catálogo de un proveedor, el sistema sugiere para cada uno una categoría y una marca a partir de la descripción y del código de barras, indicando el motivo y la confianza de la sugerencia. El sistema se abstiene cuando la confianza no alcanza el umbral configurado. Ninguna sugerencia se aplica sin confirmación del usuario. El modelo de categorías se reentrena localmente con los artículos confirmados, sin conexión a Internet.
+> **RF-27 (Sugerencia de Clasificación):** Al incorporar artículos del catálogo de un proveedor, el sistema sugiere para cada uno una categoría y una marca a partir de la descripción y del código de barras, indicando el motivo y la confianza de la sugerencia. El sistema se abstiene cuando la confianza no alcanza el umbral que el sistema calibra en cada entrenamiento. Ninguna sugerencia se aplica sin confirmación del usuario. El modelo de categorías se reentrena localmente con los artículos confirmados, sin conexión a Internet.
+
+Al incorporarlo (2026-10-17) se cambió "el umbral configurado" por "el umbral que el sistema calibra en cada entrenamiento", para alinearlo con M-10 (recalibración automática de `τ`) y M-11 (sin configuración de negocio). También se ajustaron `RF-05`, `RF-07`, `RF-23`, `IU-04` e `IU-05` y la matriz de trazabilidad. Las tablas de los diccionarios se agregan a la matriz cuando exista su migración (Fase 5).
 
 ---
 
