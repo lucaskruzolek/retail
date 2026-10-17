@@ -34,7 +34,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
     // Búsqueda, filtros y paginación comparten esta carga: nunca usan el DbContext de la pantalla al mismo
     // tiempo, solo la vigente actualiza la grilla y al salir de la pantalla se cancela (H-19).
-    private readonly CargaSerializada _cargaArticulos = new();
+    private readonly CargaSerializada _cargaArticulos;
 
     public ObservableCollection<ArticuloDto> Articulos { get; } = new();
 
@@ -126,6 +126,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _proveedorService = proveedorService;
         _logger = logger ?? NullLogger<ArticulosViewModel>.Instance;
+        _cargaArticulos = new CargaSerializada(_logger);
 
         InicializarOpcionesFiltroEstaticas();
     }

@@ -97,6 +97,8 @@ graph TD
 | **`Error`** | Fallo en una operación o caso de uso que no detiene el sistema. | Consola y Archivo `.log` | `"Error de contingencia fiscal al despachar comprobante {VentaId}. Motivo: {Motivo}"` |
 | **`Critical` / `Fatal`** | Fallo no controlado a nivel de proceso o Dispatcher que pone en riesgo el flujo. | Archivo `.log` y Diálogo UI | `"Excepción no controlada capturada en el Dispatcher de UI"` |
 
+**Advertencia de carga lenta cancelada (`CargaSerializada`).** Cuando una carga de pantalla se cancela (el usuario navega o llega otra carga) después de llevar al menos 5 s consultando, `CargaSerializada` registra un `Warning`: *"Carga descartada tras {Segundos:N1} s sin llegar a la pantalla (motivo: {Motivo}); la consulta pudo estar esperando recursos de SQL Server (memoria o bloqueos)."*. También se registra si la consulta lenta terminó pero ya había sido reemplazada. EF Core solo emite "Executed DbCommand" al terminar la consulta, así que sin esta traza una consulta cancelada no dejaría rastro. Las cancelaciones rápidas siguen siendo silenciosas.
+
 ---
 
 ## 📁 Especificación del Archivo de Log

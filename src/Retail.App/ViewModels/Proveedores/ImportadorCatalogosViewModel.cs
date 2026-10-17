@@ -28,7 +28,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
 
     // Serializa las cargas del catálogo sobre el DbContext de esta pantalla y las cancela al salir de ella (H-18, H-19).
-    private readonly CargaSerializada _cargaCatalogo = new();
+    private readonly CargaSerializada _cargaCatalogo;
 
     // ------------------------------------------------------------------ //
     // Proveedor activo y selección                                       //
@@ -130,6 +130,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _cargaCatalogo = new CargaSerializada(_logger);
     }
 
     public async Task CargarProveedoresDisponiblesAsync(int? idProveedorSeleccionar = null)
