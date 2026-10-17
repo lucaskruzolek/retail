@@ -72,4 +72,13 @@ public class EnumsTests
         ((int)CondicionIvaEnum.Monotributo).Should().Be(3);
         ((int)CondicionIvaEnum.Exento).Should().Be(4);
     }
+
+    [Fact]
+    public void FiltroStockArticuloEnum_DebeContenerLosTresCriteriosDeInventario()
+    {
+        ((int)FiltroStockArticuloEnum.Todos).Should().Be(0);
+        ((int)FiltroStockArticuloEnum.StockCritico).Should().Be(1);
+        ((int)FiltroStockArticuloEnum.SinStock).Should().Be(2);
+        Enum.GetValues<FiltroStockArticuloEnum>().Should().HaveCount(3);
+    }
 }

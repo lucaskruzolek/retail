@@ -16,7 +16,6 @@
 
     <UserControl.InputBindings>
         <KeyBinding Key="F2" Command="{Binding NuevoArticuloCommand}" />
-        <KeyBinding Key="F3" Command="{Binding AlternarSoloStockCriticoCommand}" />
         <KeyBinding Key="F5" Command="{Binding CargarArticulosCommand}" />
     </UserControl.InputBindings>
 
@@ -92,13 +91,15 @@
                 <!-- ========================================================= -->
                 <!-- 2.1 BARRA DE HERRAMIENTAS Y FILTROS                       -->
                 <!-- ========================================================= -->
-                <DockPanel Grid.Row="0" LastChildFill="True" Margin="16,14,16,12">
+                <WrapPanel Grid.Row="0"
+                           Orientation="Horizontal"
+                           Margin="16,14,16,8"
+                           VerticalAlignment="Center">
                     <!-- Búsqueda rápida por texto o código de barras -->
-                    <ui:TextBox DockPanel.Dock="Left"
-                                Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="Buscar por código de barras, descripción o marca..."
-                                Width="360"
-                                Margin="0,0,16,0"
+                    <ui:TextBox Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="Buscar por código, descripción o marca..."
+                                Width="260"
+                                Margin="0,0,12,6"
                                 VerticalAlignment="Center">
                         <ui:TextBox.Icon>
                             <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
@@ -108,41 +109,93 @@
                     </ui:TextBox>
 
                     <!-- Filtro por Categoría -->
-                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
                         <TextBlock Text="Categoría:"
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    VerticalAlignment="Center"
-                                   Margin="0,0,8,0" />
+                                   Margin="0,0,6,0" />
                         <ComboBox ItemsSource="{Binding CategoriasFiltro}"
                                   SelectedValue="{Binding IdCategoriaFiltro}"
                                   SelectedValuePath="IdCategoria"
                                   DisplayMemberPath="NombreCategoria"
-                                  Width="180"
+                                  Width="150"
                                   Height="35"
                                   VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <!-- ToggleButton para Alertas de Stock Mínimo -->
-                    <ToggleButton DockPanel.Dock="Left"
-                                  IsChecked="{Binding SoloStockCritico}"
-                                  Style="{StaticResource KeycapToggleButtonStyle}"
-                                  Padding="10,6"
-                                  VerticalAlignment="Center">
+                    <!-- Filtro por Marca -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
+                        <TextBlock Text="Marca:"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,6,0" />
+                        <ComboBox ItemsSource="{Binding MarcasFiltro}"
+                                  SelectedValue="{Binding IdMarcaFiltro}"
+                                  SelectedValuePath="IdMarca"
+                                  DisplayMemberPath="NombreMarca"
+                                  Width="140"
+                                  Height="35"
+                                  VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Filtro por Distribuidor -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
+                        <TextBlock Text="Distribuidor:"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,6,0" />
+                        <ComboBox ItemsSource="{Binding DistribuidoresFiltro}"
+                                  SelectedValue="{Binding IdDistribuidorFiltro}"
+                                  SelectedValuePath="IdProveedor"
+                                  DisplayMemberPath="Nombre"
+                                  Width="160"
+                                  Height="35"
+                                  VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Filtro por Stock -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
+                        <TextBlock Text="Stock:"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,6,0" />
+                        <ComboBox ItemsSource="{Binding OpcionesStockFiltro}"
+                                  SelectedValue="{Binding FiltroStock}"
+                                  SelectedValuePath="Valor"
+                                  DisplayMemberPath="Descripcion"
+                                  Width="130"
+                                  Height="35"
+                                  VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Botón Limpiar Filtros -->
+                    <Button Command="{Binding LimpiarFiltrosCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Height="35"
+                            Padding="12,0"
+                            Margin="0,0,12,6"
+                            VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="⚠ " Foreground="{DynamicResource WarningForegroundBrush}" FontWeight="Bold" VerticalAlignment="Center" />
-                            <TextBlock Text="Solo Stock Crítico" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <iconPacks:PackIconBoxIcons Kind="RegularEraser"
+                                                        Width="14"
+                                                        Height="14"
+                                                        Margin="0,0,6,0"
+                                                        VerticalAlignment="Center" />
+                            <TextBlock Text="Limpiar"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
                         </StackPanel>
-                    </ToggleButton>
+                    </Button>
 
                     <!-- Indicador de Carga Asíncrona -->
                     <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Right"
                                 VerticalAlignment="Center"
+                                Margin="4,0,0,6"
                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
                         <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
                         <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
                     </StackPanel>
-                </DockPanel>
+                </WrapPanel>
 
                 <!-- ========================================================= -->
                 <!-- 2.2 GRILLA PRINCIPAL DE ARTÍCULOS                         -->

@@ -20,10 +20,6 @@ public partial class ArticulosView : UserControl
             {
                 binding.Command = ViewModel.NuevoArticuloCommand;
             }
-            else if (binding.Key == System.Windows.Input.Key.F3)
-            {
-                binding.Command = ViewModel.AlternarSoloStockCriticoCommand;
-            }
             else if (binding.Key == System.Windows.Input.Key.F5)
             {
                 binding.Command = ViewModel.CargarArticulosCommand;

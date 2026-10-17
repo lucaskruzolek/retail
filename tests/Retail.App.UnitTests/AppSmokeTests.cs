@@ -185,18 +185,14 @@ public class AppSmokeTests
             var view = new ArticulosView(viewModel);
 
             // Assert
-            view.InputBindings.Count.Should().Be(3);
+            view.InputBindings.Count.Should().Be(2, "los filtros no tienen atajo de teclado");
 
             var keyBindings = view.InputBindings.OfType<System.Windows.Input.KeyBinding>().ToList();
-            keyBindings.Should().HaveCount(3);
+            keyBindings.Should().HaveCount(2);
 
             var bindingF2 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F2);
             bindingF2.Should().NotBeNull();
             bindingF2!.Command.Should().Be(viewModel.NuevoArticuloCommand);
-
-            var bindingF3 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F3);
-            bindingF3.Should().NotBeNull();
-            bindingF3!.Command.Should().Be(viewModel.AlternarSoloStockCriticoCommand);
 
             var bindingF5 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F5);
             bindingF5.Should().NotBeNull();

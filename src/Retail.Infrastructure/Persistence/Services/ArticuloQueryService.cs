@@ -3,6 +3,7 @@ using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 
 namespace Retail.Infrastructure.Persistence.Services;
@@ -51,14 +52,40 @@ public class ArticuloQueryService : IArticuloQueryService
             query = query.Where(a => a.IdCategoria == consulta.IdCategoria.Value);
         }
 
-        if (consulta.SoloStockCritico)
+        if (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0)
+        {
+            query = query.Where(a => a.IdMarca == consulta.IdMarca.Value);
+        }
+
+        if (consulta.IdProveedor == -1)
+        {
+            // Ninguno (o manual): ni el artículo ni su artículo origen tienen proveedor asignado
+            query = query.Where(a =>
+                (a.IdArticuloOrigen == null && a.IdCatalogoProveedor == null) ||
+                (a.IdArticuloOrigen != null && a.ArticuloOrigen!.IdCatalogoProveedor == null));
+        }
+        else if (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value > 0)
+        {
+            int idProv = consulta.IdProveedor.Value;
+            query = query.Where(a =>
+                (a.CatalogoProveedor != null && a.CatalogoProveedor.IdProveedor == idProv) ||
+                (a.ArticuloOrigen != null && a.ArticuloOrigen.CatalogoProveedor != null && a.ArticuloOrigen.CatalogoProveedor.IdProveedor == idProv));
+        }
+
+        if (consulta.FiltroStock == FiltroStockArticuloEnum.StockCritico)
         {
             query = query.Where(a => !a.EsServicio && a.StockActual <= a.StockMinimo);
+        }
+        else if (consulta.FiltroStock == FiltroStockArticuloEnum.SinStock)
+        {
+            query = query.Where(a => !a.EsServicio && a.StockActual <= 0);
         }
 
         bool esConsultaFiltrada = !string.IsNullOrWhiteSpace(consulta.TerminoBusqueda) ||
             (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0) ||
-            consulta.SoloStockCritico;
+            (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0) ||
+            (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value != 0) ||
+            consulta.FiltroStock != FiltroStockArticuloEnum.Todos;
 
         // 3. Conteo de registros coincidentes (evita consulta COUNT duplicada si no hay filtros)
         int totalRegistros = esConsultaFiltrada

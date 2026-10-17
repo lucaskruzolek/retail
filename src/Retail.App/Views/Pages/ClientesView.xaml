@@ -16,7 +16,6 @@
 
     <UserControl.InputBindings>
         <KeyBinding Key="F2" Command="{Binding NuevoClienteCommand}" />
-        <KeyBinding Key="F3" Command="{Binding AlternarSoloConDeudaCommand}" />
         <KeyBinding Key="F4" Command="{Binding CobrarCuentaCorrienteCommand}" />
         <KeyBinding Key="F5" Command="{Binding CargarClientesCommand}" />
     </UserControl.InputBindings>
@@ -118,7 +117,7 @@
                               Margin="0,0,14,0"
                               VerticalAlignment="Center" />
 
-                    <!-- Toggle Solo con Deuda (F3) con KeycapToggleButtonStyle -->
+                    <!-- Toggle Solo con Deuda con KeycapToggleButtonStyle -->
                     <ToggleButton DockPanel.Dock="Left"
                                   IsChecked="{Binding SoloConDeuda, Mode=TwoWay}"
                                   Style="{StaticResource KeycapToggleButtonStyle}"

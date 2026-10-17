@@ -19,10 +19,6 @@ public partial class ClientesView : UserControl
             {
                 binding.Command = ViewModel.NuevoClienteCommand;
             }
-            else if (binding.Key == System.Windows.Input.Key.F3)
-            {
-                binding.Command = ViewModel.AlternarSoloConDeudaCommand;
-            }
             else if (binding.Key == System.Windows.Input.Key.F5)
             {
                 binding.Command = ViewModel.CargarClientesCommand;
