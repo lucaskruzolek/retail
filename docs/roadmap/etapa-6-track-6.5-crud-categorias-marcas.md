@@ -17,7 +17,7 @@
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
 | 0 | Alta en el roadmap, ampliación de `RF-04` en la ERS y cierre de decisiones | ✅ Diseño cerrado; track dado de alta en el roadmap y `RF-04` ampliado en la ERS (2026-10-17) |
-| 1 | Dominio: `Crear`/`Renombrar`, regla de texto y excepción | ⏳ |
+| 1 | Dominio: `Crear`/`Renombrar`, regla de texto y excepción | ✅ 2026-10-17: `Rubro`, `Categoria` y `Marca` encapsuladas, regla de nombre en `ReglasTexto`, `ClasificacionEnUsoException` y 49 usos migrados a `Crear`; Release, 1.875 tests y `dotnet format` en verde. `IdRubro` pasa a la Fase 3 (D-19) |
 | 2 | Aplicación: contratos, DTOs, validadores y servicios | ⏳ |
 | 3 | Infraestructura: índices únicos filtrados, migración y conteos | ⏳ |
 | 4 | UI: diálogos de administración desde el catálogo de artículos | ⏳ |
@@ -63,6 +63,7 @@
 | D-16 | **Sin migración de datos:** `CATEGORIAS.id_rubro` nace obligatorio. `SemilleroDatosDemo` crea rubros y les cuelga sus categorías. Las bases de desarrollo que ya tengan categorías de `datos-demo` se recrean. | Cerrada | El proyecto está en desarrollo y no tiene categorías cargadas en ninguna instalación real (estudiante, 2026-10-17). |
 | D-17 | Los reportes del Track 6.4 **no** incorporan filtros ni agrupación por rubro en este track. | Cerrada | Fuera de alcance; se evalúa como mejora posterior. |
 | D-18 | **"Sin marca" es `IdMarca = null`**, no una fila "Sin marca" en `MARCAS`. Los reportes y la UI lo muestran con ese texto. Para distinguir "sin marca confirmada" de "todavía no clasificado" se usa el origen de la clasificación del Track 6.6. | Cerrada | Una marca ficticia aparecería como marca real en combos, filtros y rankings, y habría que impedir que se renombre o elimine. El valor nulo ya existe y es válido. |
+| D-19 | **`Categoria.IdRubro` y `MoverARubro` se incorporan en la Fase 3**, junto con su mapeo, la migración de `RUBROS` y el semillero, no en la Fase 1. `Rubro` nace en la Fase 1 sin `DbSet` ni relación. | Cerrada (2026-10-17) | EF Core mapearía `IdRubro` por convención como columna obligatoria, y las bases de los tests de integración no la tienen hasta la migración: la suite quedaría en rojo entre fases. Agregar la invariante junto con su persistencia la hace verificable de punta a punta. Solo cambia el orden; D-13 y D-16 siguen igual. |
 
 ---
 
@@ -101,11 +102,12 @@ sequenceDiagram
 | Archivo | Cambio |
 | :--- | :--- |
 | `Entities/Rubro.cs` (nueva) | Raíz de agregado con `Crear(nombre)` y `Renombrar(nombre)` (D-13). |
-| `Entities/Categoria.cs`, `Entities/Marca.cs` | Setters privados, fábrica `Crear(...)` y `Renombrar(nombre)`. `Categoria` recibe además `IdRubro` y `MoverARubro(idRubro)`. |
+| `Entities/Categoria.cs`, `Entities/Marca.cs` | Setters privados, fábrica `Crear(nombre)` y `Renombrar(nombre)`. `IdRubro` y `MoverARubro` se agregan en la Fase 3 (D-19). |
 | `Common/ReglasTexto.cs` | Regla única para nombres de clasificación: normaliza espacios, obligatorio, máximo 100 caracteres. Expone `Normalizar*`, `Es*Valido` y `Exigir*`. |
 | `Exceptions/ClasificacionEnUsoException.cs` (nueva) | Baja rechazada por tener artículos asignados. |
+| Usos existentes (semillero, `InventarioService`, ViewModels de artículos y tests) | Pasan de inicializadores de objeto a `Crear(...)`, para que la solución siga compilando (D-3). |
 
-**Tests:** `CategoriaDomainTests`, `MarcaDomainTests` (modelo: `ProveedorDomainTests`).
+**Tests:** `RubroDomainTests`, `CategoriaDomainTests`, `MarcaDomainTests` (modelo: `ProveedorDomainTests`).
 
 ### Fase 2 — Aplicación (`Retail.Application`)
 
@@ -125,10 +127,11 @@ sequenceDiagram
 | Archivo | Cambio |
 | :--- | :--- |
 | `Persistence/Configurations/CategoriaConfiguration.cs`, `MarcaConfiguration.cs` | Índice único sobre el nombre, filtrado por `deleted_at IS NULL`. |
+| `Entities/Categoria.cs` (Dominio) | `IdRubro` obligatorio en `Crear(nombre, idRubro)` y `MoverARubro(idRubro)` (D-19). |
 | `Persistence/Configurations/RubroConfiguration.cs` (nueva) | Tabla `RUBROS`, índice único filtrado por nombre; FK `CATEGORIAS.id_rubro` obligatoria. |
 | Migración nueva | Crea `RUBROS` y la FK obligatoria (D-16, sin migración de datos). Crea los índices. **Antes** detecta duplicados existentes y falla con un mensaje claro (precedente: `NormalizarCuitProveedoresYCheck`). Actualiza el snapshot. |
 | `Persistence/Services/ArticuloQueryService.cs` | Conteos con `CountAsync` en SQL, sin tracking; filtro de texto para el listado. |
-| `Persistence/Initialization/SemilleroDatosDemo.cs` | Usa `Crear` en lugar de inicializadores de objeto. |
+| `Persistence/Initialization/SemilleroDatosDemo.cs` | Crea rubros y les cuelga sus categorías (D-16). |
 
 **Tests de integración:** índice único filtrado, conteos, y que la colación de las columnas sea insensible a acentos y mayúsculas (R-3).
 

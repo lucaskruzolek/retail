@@ -50,7 +50,7 @@ public static class SemilleroDatosDemo
             .ToListAsync(cancellationToken);
         var nuevasCategorias = Categorias
             .Except(categoriasExistentes, StringComparer.OrdinalIgnoreCase)
-            .Select(nombre => new Categoria { NombreCategoria = nombre })
+            .Select(nombre => Categoria.Crear(nombre))
             .ToList();
 
         var marcasExistentes = await context.Marcas
@@ -58,7 +58,7 @@ public static class SemilleroDatosDemo
             .ToListAsync(cancellationToken);
         var nuevasMarcas = Marcas
             .Except(marcasExistentes, StringComparer.OrdinalIgnoreCase)
-            .Select(nombre => new Marca { NombreMarca = nombre })
+            .Select(nombre => Marca.Crear(nombre))
             .ToList();
 
         await context.Categorias.AddRangeAsync(nuevasCategorias, cancellationToken);

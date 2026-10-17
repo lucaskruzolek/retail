@@ -2,7 +2,7 @@
 
 > **Para el agente que lea esto:** este archivo es el punto de entrada para retomar, en una sesión nueva y sin contexto previo, la línea de trabajo de clasificación de artículos: el CRUD de Rubros, Categorías y Marcas (Track 6.5) y el motor de sugerencia de categoría y marca (Track 6.6). Resume el estado, las reglas acordadas con el estudiante y el flujo de trabajo paso a paso. **El diseño completo vive en los documentos de cada track; este archivo no lo repite.**
 >
-> **Estado al 17 de octubre de 2026:** ambos tracks están **cerrados en lo conceptual y sin implementar**. Pasos 0 y 1 hechos en la rama `docs/clasificacion-catalogacion` (sección 2). El próximo paso es el **Paso 2** de la sección 4.
+> **Estado al 17 de octubre de 2026:** ambos tracks están **cerrados en lo conceptual y sin implementar**. Pasos 0 y 1 hechos en la rama `docs/clasificacion-catalogacion` (sección 2). El próximo paso es la **Fase 2 del Paso 2** de la sección 4.
 >
 > **Cómo usarlo:** leer la sección 1 (reglas) y la sección 4 (flujo), ubicar el primer paso sin marcar y cargar **solo** el documento del track que ese paso indica. Al cerrar cada sesión, aplicar el protocolo de la sección 6.
 
@@ -30,7 +30,8 @@ Además de `AGENTS.md` y `CLAUDE.md`, que se cargan solos:
 * `main` en `f0f488d` (merge del PR #29).
 * Rama **`docs/clasificacion-catalogacion`** (creada desde `main`, sin push):
   * `c4ac594`: diseño de los Tracks 6.5 y 6.6, este handoff, scripts de `ml/` y `.gitignore` (Paso 0).
-  * Commit siguiente: Paso 1 (ERS, roadmap de la Etapa 6, mapa semántico, estado de los dos tracks y este archivo).
+  * `5403a2e`: Paso 1 (ERS, roadmap de la Etapa 6, mapa semántico, estado de los dos tracks y este archivo).
+* Rama **`feat/crud-categorias-marcas`** (apilada sobre la anterior, sin push): Fase 1 del 6.5 y scripts del Paso 2b, sin commitear.
 * `wiki/.obsidian/workspace.json` aparece modificado, pero es estado local de Obsidian y no forma parte de este trabajo.
 * Datos locales, no versionados: `ml/datos/lista-mayo-2025.csv`, exportado de `C:\Users\lucas\Proyectos\LISTA MAYO 2025.xls` (14.876 artículos, un solo distribuidor, sin precios).
 
@@ -90,7 +91,7 @@ Se hace una vez, antes de cualquier rama de código, para no editar la ERS en do
 
 Rama sugerida `feat/crud-categorias-marcas` (la crea el estudiante). Plan por capas en la sección 5 de su documento.
 
-* [ ] Fase 1 — Dominio
+* [x] Fase 1 — Dominio (2026-10-17, sin commitear en `feat/crud-categorias-marcas`; D-19 mueve `IdRubro` a la Fase 3)
 * [ ] Fase 2 — Aplicación (antes: verificar el rol que restringe hoy el catálogo de artículos, D-5)
 * [ ] Fase 3 — Infraestructura (antes: verificar R-1, artículos dados de baja en reportes, y R-3, colación)
 * [ ] Fase 4 — UI (antes: leer `SISTEMA_DE_DISENO.md` y `StyleGalleryView.xaml`)
@@ -100,7 +101,7 @@ Rama sugerida `feat/crud-categorias-marcas` (la crea el estudiante). Plan por ca
 
 Es sobre todo trabajo del estudiante, en `ml/datos/`. No toca `src/` ni genera commits del CRUD. Detalle en la sección 6.1 del Track 6.6.
 
-* [ ] Escribir los scripts de arranque (pendientes): listado de términos con frecuencia y ejemplos, y candidatos de marcas, alias y prefijos.
+* [x] Escribir los scripts de arranque: `ml/scripts/listar_terminos.py` y `candidatos_marcas.py` (2026-10-17). Generan `terminos-candidatos.csv`, `marcas-candidatas.csv` y `prefijos-candidatos.csv` en `ml/datos/` para completar (ver `ml/README.md`).
 * [ ] El estudiante arma la taxonomía (rubros y categorías) y asigna los ~300 términos más frecuentes, marcando los ambiguos.
 * [ ] El estudiante aprueba marcas, alias y prefijos.
 * [ ] El estudiante etiqueta una muestra de los términos ambiguos y el conjunto de oro (400 filas, muestreo agrupado por familia).

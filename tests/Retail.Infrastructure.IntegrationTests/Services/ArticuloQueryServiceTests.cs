@@ -43,8 +43,8 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
     public async Task ObtenerArticulosPaginadosAsync_ConPaginacion_RetornaCantidadSolicitadaYTotalesGlobales()
     {
         // Arrange
-        var cat1 = new Categoria { NombreCategoria = "Librería" };
-        var cat2 = new Categoria { NombreCategoria = "Tecnología" };
+        var cat1 = Categoria.Crear("Librería");
+        var cat2 = Categoria.Crear("Tecnología");
         _context.Categorias.AddRange(cat1, cat2);
         await _context.SaveChangesAsync();
 
@@ -274,8 +274,8 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
     public async Task ObtenerArticulosPaginadosAsync_ConCategoriaMarcaYProveedor_ProyectaLosNombres()
     {
         // Arrange
-        var categoria = new Categoria { NombreCategoria = "Papelería" };
-        var marca = new Marca { NombreMarca = "Rivadavia" };
+        var categoria = Categoria.Crear("Papelería");
+        var marca = Marca.Crear("Rivadavia");
         var proveedor = Proveedor.Crear("Distribuidora Sur", "30-12345678-1");
         _context.AddRange(categoria, marca, proveedor);
         await _context.SaveChangesAsync();

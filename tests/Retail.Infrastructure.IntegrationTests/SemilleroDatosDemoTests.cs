@@ -66,8 +66,8 @@ public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
     {
         // Arrange: el usuario ya cargó una de las categorías (con otras mayúsculas) y una propia.
         await _context.Categorias.AddRangeAsync(
-            new Categoria { NombreCategoria = "ESCOLAR" },
-            new Categoria { NombreCategoria = "Papelería Fina" });
+            Categoria.Crear("ESCOLAR"),
+            Categoria.Crear("Papelería Fina"));
         await _context.SaveChangesAsync();
 
         // Act

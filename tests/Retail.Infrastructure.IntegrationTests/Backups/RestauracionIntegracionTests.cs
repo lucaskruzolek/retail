@@ -211,7 +211,7 @@ public class RestauracionIntegracionTests : IAsyncLifetime
     private static async Task AgregarCategoriaAsync(string cadena, string nombre)
     {
         await using var contexto = ContextoDe(cadena);
-        contexto.Categorias.Add(new Categoria { NombreCategoria = nombre });
+        contexto.Categorias.Add(Categoria.Crear(nombre));
         await contexto.SaveChangesAsync();
     }
 

@@ -44,13 +44,13 @@ public class ExportacionReportesServiceTests
     private void RegistrarCategoria(int id, string nombre)
     {
         _categorias.GetByIdAsync(id, includeDeleted: true, Arg.Any<CancellationToken>())
-            .Returns(new Categoria { Id = id, NombreCategoria = nombre });
+            .Returns(CategoriaConId(id, nombre));
     }
 
     private void RegistrarMarca(int id, string nombre)
     {
         _marcas.GetByIdAsync(id, includeDeleted: true, Arg.Any<CancellationToken>())
-            .Returns(new Marca { Id = id, NombreMarca = nombre });
+            .Returns(MarcaConId(id, nombre));
     }
 
     /// <summary>Exporta como Gerente y devuelve el documento que recibió el exportador.</summary>
@@ -424,5 +424,19 @@ public class ExportacionReportesServiceTests
     private sealed record class ReporteDesconocidoDto : ResultadoReporteDto
     {
         public override string Titulo => "Desconocido";
+    }
+
+    private static Categoria CategoriaConId(int id, string nombre)
+    {
+        var categoria = Categoria.Crear(nombre);
+        categoria.Id = id;
+        return categoria;
+    }
+
+    private static Marca MarcaConId(int id, string nombre)
+    {
+        var marca = Marca.Crear(nombre);
+        marca.Id = id;
+        return marca;
     }
 }
