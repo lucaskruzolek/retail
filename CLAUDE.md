@@ -39,8 +39,9 @@ decisión técnica. Un cambio correcto que el estudiante no entiende es un cambi
 
 ### 4. Control de versiones: el estudiante decide
 * **Prohibido** crear commits, ramas, pushes o Pull Requests sin un pedido explícito.
-* Los PR son la instancia de **revisión cruzada entre compañeros** (ver Roadmap); los abre
-  el estudiante, no el agente.
+* Los PR son la instancia de **revisión cruzada entre compañeros** (ver Roadmap). El agente
+  puede abrirlos cuando el estudiante lo pide explícitamente; la revisión y el merge siguen
+  siendo del estudiante y su compañero.
 * No modificar historia de Git (rebase, reset, force push) bajo ninguna circunstancia sin
   pedido explícito.
 
