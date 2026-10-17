@@ -726,7 +726,7 @@ public class InventarioServiceTests
 
     private static Categoria CategoriaConId(int id, string nombre)
     {
-        var categoria = Categoria.Crear(nombre);
+        var categoria = Categoria.Crear(nombre, 1);
         categoria.Id = id;
         return categoria;
     }

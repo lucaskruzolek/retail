@@ -15,5 +15,8 @@ public class CrearCategoriaValidator : AbstractValidator<CrearCategoriaDto>
 
         RuleFor(x => x.Nombre)
             .NombreClasificacion("el nombre de la categoría");
+
+        RuleFor(x => x.IdRubro)
+            .GreaterThan(0).WithMessage("Seleccione el rubro de la categoría.");
     }
 }

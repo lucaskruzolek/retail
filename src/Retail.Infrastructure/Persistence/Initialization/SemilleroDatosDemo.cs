@@ -5,25 +5,36 @@ using Retail.Infrastructure.Persistence.Context;
 namespace Retail.Infrastructure.Persistence.Initialization;
 
 /// <summary>
-/// Datos de demostración que carga <c>Retail.Cli datos-demo</c> (RF-23): un proveedor, categorías y marcas.
+/// Datos de demostración que carga <c>Retail.Cli datos-demo</c> (RF-23): un proveedor, rubros con sus categorías y marcas.
 /// No crea usuarios (el primer Gerente lo crea <c>Retail.Cli inicializar</c>) ni artículos (la demostración los
 /// incorpora importando la planilla del proveedor).
 /// </summary>
 /// <remarks>
-/// Categorías y marcas se cargan acá porque todavía no tienen un ABM propio; cuando exista, este semillero deja de
-/// ser necesario para ellas. Es idempotente elemento por elemento: se puede ejecutar varias veces y solo agrega lo
-/// que falta, sin duplicar ni modificar lo que el usuario ya cargó.
+/// Rubros, categorías y marcas se cargan acá para tener un catálogo de demostración (la taxonomía completa la
+/// carga el comando del Track 6.6). Es idempotente elemento por elemento: se puede ejecutar varias veces y solo
+/// agrega lo que falta, sin duplicar ni modificar lo que el usuario ya cargó. Primero crea y guarda los rubros que
+/// falten para tener su Id, y recién después cuelga de cada uno las categorías que falten (D-16, D-25).
 /// </remarks>
 public static class SemilleroDatosDemo
 {
-    public static readonly IReadOnlyList<string> Categorias =
+    /// <summary>
+    /// Cada rubro con las categorías que se le cuelgan (D-25).
+    /// </summary>
+    public static readonly IReadOnlyList<(string Rubro, IReadOnlyList<string> Categorias)> RubrosConCategorias =
     [
-        "Escolar",
-        "Oficina y Comercial",
-        "Artística y Dibujo",
-        "Textos y Literatura",
-        "Regalería y Artesanías"
+        ("Librería", ["Cuadernos y Blocks", "Escritura", "Oficina"]),
+        ("Arte y Manualidades", ["Pinturas", "Pinceles y Herramientas"]),
+        ("Marroquinería", ["Mochilas", "Cartucheras"]),
+        ("Bazar", ["Viandas y Botellas"]),
+        ("Juguetería", ["Juegos de Mesa y Encastre", "Muñecas y Peluches"]),
+        ("Cotillón", ["Globos"]),
+        ("Electrónica", ["Audio"])
     ];
+
+    /// <summary>
+    /// Nombres de todas las categorías de demostración, sin su rubro.
+    /// </summary>
+    public static IEnumerable<string> Categorias => RubrosConCategorias.SelectMany(r => r.Categorias);
 
     public static readonly IReadOnlyList<string> Marcas =
     [
@@ -45,12 +56,28 @@ public static class SemilleroDatosDemo
     {
         ArgumentNullException.ThrowIfNull(context);
 
+        var rubrosExistentes = await context.Rubros
+            .Select(r => r.NombreRubro)
+            .ToListAsync(cancellationToken);
+        var nuevosRubros = RubrosConCategorias
+            .Select(r => r.Rubro)
+            .Except(rubrosExistentes, StringComparer.OrdinalIgnoreCase)
+            .Select(nombre => Rubro.Crear(nombre))
+            .ToList();
+
+        // Se guardan primero para que tengan Id: las categorías lo necesitan para referenciar a su rubro.
+        await context.Rubros.AddRangeAsync(nuevosRubros, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
+
+        var idsDeRubros = await context.Rubros
+            .ToDictionaryAsync(r => r.NombreRubro, r => r.Id, StringComparer.OrdinalIgnoreCase, cancellationToken);
         var categoriasExistentes = await context.Categorias
             .Select(c => c.NombreCategoria)
             .ToListAsync(cancellationToken);
-        var nuevasCategorias = Categorias
-            .Except(categoriasExistentes, StringComparer.OrdinalIgnoreCase)
-            .Select(nombre => Categoria.Crear(nombre))
+        var nuevasCategorias = RubrosConCategorias
+            .SelectMany(r => r.Categorias.Select(nombre => (Nombre: nombre, IdRubro: idsDeRubros[r.Rubro])))
+            .Where(c => !categoriasExistentes.Contains(c.Nombre, StringComparer.OrdinalIgnoreCase))
+            .Select(c => Categoria.Crear(c.Nombre, c.IdRubro))
             .ToList();
 
         var marcasExistentes = await context.Marcas
@@ -64,7 +91,7 @@ public static class SemilleroDatosDemo
         await context.Categorias.AddRangeAsync(nuevasCategorias, cancellationToken);
         await context.Marcas.AddRangeAsync(nuevasMarcas, cancellationToken);
 
-        var agregados = nuevasCategorias.Count + nuevasMarcas.Count;
+        var agregados = nuevosRubros.Count + nuevasCategorias.Count + nuevasMarcas.Count;
 
         if (!await context.Proveedores.AnyAsync(p => p.Cuit == CuitProveedorDemo, cancellationToken))
         {

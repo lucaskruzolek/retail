@@ -14,6 +14,7 @@ erDiagram
     TURNOS_CAJA ||--o{ VENTAS : "recauda"
     TURNOS_CAJA ||--o{ COBRANZAS_CLIENTES : "ingresa_fondos"
 
+    RUBROS ||--o{ CATEGORIAS : "agrupa"
     CATEGORIAS ||--o{ ARTICULOS : "clasifica"
     MARCAS ||--o{ ARTICULOS : "agrupa"
     PROVEEDORES ||--o{ CATALOGOS_PROVEEDORES : "suministra"
@@ -106,15 +107,22 @@ erDiagram
         datetime fecha_hora
     }
 
+    RUBROS {
+        int id_rubro PK
+        string nombre_rubro "UK filtrado, Modern_Spanish_CI_AI"
+        datetime deleted_at
+    }
+
     CATEGORIAS {
         int id_categoria PK
-        string nombre_categoria
+        int id_rubro FK
+        string nombre_categoria "UK filtrado, Modern_Spanish_CI_AI"
         datetime deleted_at
     }
 
     MARCAS {
         int id_marca PK
-        string nombre_marca
+        string nombre_marca "UK filtrado, Modern_Spanish_CI_AI"
         datetime deleted_at
     }
 

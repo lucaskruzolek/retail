@@ -5,11 +5,11 @@ using Retail.Application.Validators.Common;
 namespace Retail.Application.Validators.Articulos;
 
 /// <summary>
-/// Validador declarativo para el cambio de nombre de la categoría. Usa las mismas reglas que el alta.
+/// Validador declarativo para la actualización de la categoría (nombre y rubro). Usa las mismas reglas que el alta.
 /// </summary>
-public class RenombrarCategoriaValidator : AbstractValidator<RenombrarCategoriaDto>
+public class ActualizarCategoriaValidator : AbstractValidator<ActualizarCategoriaDto>
 {
-    public RenombrarCategoriaValidator()
+    public ActualizarCategoriaValidator()
     {
         RuleLevelCascadeMode = CascadeMode.Stop;
 
@@ -18,5 +18,8 @@ public class RenombrarCategoriaValidator : AbstractValidator<RenombrarCategoriaD
 
         RuleFor(x => x.Nombre)
             .NombreClasificacion("el nombre de la categoría");
+
+        RuleFor(x => x.IdRubro)
+            .GreaterThan(0).WithMessage("Seleccione el rubro de la categoría.");
     }
 }

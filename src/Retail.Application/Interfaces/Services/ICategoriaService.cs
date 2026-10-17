@@ -18,15 +18,15 @@ public interface ICategoriaService
 
     /// <summary>
     /// Da de alta un elemento. Lanza <see cref="OperacionNoAutorizadaException"/> si el actor no tiene
-    /// autoridad y <see cref="DomainException"/> si el nombre ya existe.
+    /// autoridad y <see cref="DomainException"/> si el nombre ya existe o el rubro no existe (D-23).
     /// </summary>
     Task<CategoriaDto> CrearAsync(int idActor, CrearCategoriaDto dto, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Cambia el nombre. Lanza <see cref="OperacionNoAutorizadaException"/> si el actor no tiene autoridad y
-    /// <see cref="DomainException"/> si el elemento no existe o el nombre está duplicado.
+    /// Cambia el nombre y el rubro (D-23). Lanza <see cref="OperacionNoAutorizadaException"/> si el actor no tiene
+    /// autoridad y <see cref="DomainException"/> si el elemento o el rubro no existen, o el nombre está duplicado.
     /// </summary>
-    Task RenombrarAsync(int idActor, RenombrarCategoriaDto dto, CancellationToken cancellationToken = default);
+    Task ActualizarAsync(int idActor, ActualizarCategoriaDto dto, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Baja lógica. Lanza <see cref="OperacionNoAutorizadaException"/> si el actor no tiene autoridad,

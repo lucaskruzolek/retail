@@ -8,7 +8,7 @@ using Xunit;
 namespace Retail.Infrastructure.IntegrationTests;
 
 /// <summary>
-/// Verifica contra SQL Server Express los datos de <c>Retail.Cli datos-demo</c>: proveedor, categorías y marcas, sin
+/// Verifica contra SQL Server Express los datos de <c>Retail.Cli datos-demo</c>: proveedor, rubros con sus categorías y marcas, sin
 /// usuarios ni artículos, e idempotente elemento por elemento.
 /// </summary>
 public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
@@ -40,15 +40,29 @@ public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task CargarAsync_BaseRecienMigrada_CargaProveedorCategoriasYMarcasSinUsuariosNiArticulos()
+    public async Task CargarAsync_BaseRecienMigrada_CargaProveedorRubrosCategoriasYMarcasSinUsuariosNiArticulos()
     {
         // Act
         var agregados = await SemilleroDatosDemo.CargarAsync(_context);
 
         // Assert
-        agregados.Should().Be(SemilleroDatosDemo.Categorias.Count + SemilleroDatosDemo.Marcas.Count + 1);
+        agregados.Should().Be(
+            SemilleroDatosDemo.RubrosConCategorias.Count
+            + SemilleroDatosDemo.Categorias.Count()
+            + SemilleroDatosDemo.Marcas.Count
+            + 1);
+        (await _context.Rubros.Select(r => r.NombreRubro).ToListAsync())
+            .Should().BeEquivalentTo(SemilleroDatosDemo.RubrosConCategorias.Select(r => r.Rubro));
         (await _context.Categorias.Select(c => c.NombreCategoria).ToListAsync())
             .Should().BeEquivalentTo(SemilleroDatosDemo.Categorias);
+
+        // Cada categoría cuelga del rubro que le corresponde (D-25).
+        var rubroPorCategoria = await _context.Categorias
+            .Join(_context.Rubros, c => c.IdRubro, r => r.Id, (c, r) => new { c.NombreCategoria, r.NombreRubro })
+            .ToDictionaryAsync(x => x.NombreCategoria, x => x.NombreRubro);
+        rubroPorCategoria.Should().BeEquivalentTo(
+            SemilleroDatosDemo.RubrosConCategorias
+                .SelectMany(r => r.Categorias.Select(c => new KeyValuePair<string, string>(c, r.Rubro))));
         (await _context.Marcas.Select(m => m.NombreMarca).ToListAsync())
             .Should().BeEquivalentTo(SemilleroDatosDemo.Marcas);
 
@@ -64,10 +78,13 @@ public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
     [Fact]
     public async Task CargarAsync_EjecucionRepetidaConDatosDelUsuario_SoloAgregaLoQueFaltaSinDuplicar()
     {
-        // Arrange: el usuario ya cargó una de las categorías (con otras mayúsculas) y una propia.
+        // Arrange: el usuario ya cargó uno de los rubros y una de las categorías (con otras mayúsculas), y una propia.
+        var rubro = Rubro.Crear("LIBRERÍA");
+        await _context.Rubros.AddAsync(rubro);
+        await _context.SaveChangesAsync();
         await _context.Categorias.AddRangeAsync(
-            Categoria.Crear("ESCOLAR"),
-            Categoria.Crear("Papelería Fina"));
+            Categoria.Crear("ESCRITURA", rubro.Id),
+            Categoria.Crear("Papelería Fina", rubro.Id));
         await _context.SaveChangesAsync();
 
         // Act
@@ -76,7 +93,8 @@ public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
 
         // Assert
         segundaEjecucion.Should().Be(0);
-        (await _context.Categorias.CountAsync()).Should().Be(SemilleroDatosDemo.Categorias.Count + 1);
+        (await _context.Rubros.CountAsync()).Should().Be(SemilleroDatosDemo.RubrosConCategorias.Count);
+        (await _context.Categorias.CountAsync()).Should().Be(SemilleroDatosDemo.Categorias.Count() + 1);
         (await _context.Proveedores.CountAsync()).Should().Be(1);
     }
 }

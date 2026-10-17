@@ -21,8 +21,11 @@ public class CategoriaServiceTests
     private const int IdAdministrador = 4;
     private const int IdInexistente = 99;
     private const int IdCategoriaExistente = 7;
+    private const int IdRubroExistente = 3;
+    private const int IdRubroInexistente = 55;
 
     private readonly IRepository<Categoria> _repository = Substitute.For<IRepository<Categoria>>();
+    private readonly IRepository<Rubro> _rubros = Substitute.For<IRepository<Rubro>>();
     private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
     private readonly IClasificacionQueryService _consultas = Substitute.For<IClasificacionQueryService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
@@ -36,14 +39,16 @@ public class CategoriaServiceTests
         RegistrarUsuario(IdAdministrador, RolUsuarioEnum.Administrador);
 
         ConfigurarDuplicados();
+        ConfigurarRubro(IdRubroExistente, "Librería");
 
         _servicio = new CategoriaService(
             _repository,
+            _rubros,
             _usuarios,
             _consultas,
             _unitOfWork,
             new CrearCategoriaValidator(),
-            new RenombrarCategoriaValidator());
+            new ActualizarCategoriaValidator());
     }
 
     private void RegistrarUsuario(int id, RolUsuarioEnum rol)
@@ -60,9 +65,16 @@ public class CategoriaServiceTests
         _repository.FindAsync(Arg.Any<Expression<Func<Categoria, bool>>>(), false, Arg.Any<CancellationToken>()).Returns(lista);
     }
 
+    private void ConfigurarRubro(int id, string nombre)
+    {
+        var rubro = Rubro.Crear(nombre);
+        rubro.Id = id;
+        _rubros.GetByIdAsync(id, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(rubro);
+    }
+
     private static Categoria CrearCategoriaConId(int id, string nombre)
     {
-        var entidad = Categoria.Crear(nombre);
+        var entidad = Categoria.Crear(nombre, IdRubroExistente);
         entidad.Id = id;
         return entidad;
     }
@@ -98,7 +110,7 @@ public class CategoriaServiceTests
     [InlineData(0)]
     public async Task Crear_ConActorSinAutoridad_LanzaOperacionNoAutorizadaYNoAgrega(int idActor)
     {
-        var accion = () => _servicio.CrearAsync(idActor, new CrearCategoriaDto { Nombre = "Nuevo" });
+        var accion = () => _servicio.CrearAsync(idActor, new CrearCategoriaDto { Nombre = "Nuevo", IdRubro = IdRubroExistente });
 
         await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
         await _repository.DidNotReceive().AddAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>());
@@ -108,7 +120,7 @@ public class CategoriaServiceTests
     [Fact]
     public async Task Crear_ConActorSinAutoridadYNombreInvalido_LanzaOperacionNoAutorizadaAntesQueValidar()
     {
-        var accion = () => _servicio.CrearAsync(IdCajero, new CrearCategoriaDto { Nombre = "" });
+        var accion = () => _servicio.CrearAsync(IdCajero, new CrearCategoriaDto { Nombre = "", IdRubro = IdRubroExistente });
 
         await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
     }
@@ -118,12 +130,14 @@ public class CategoriaServiceTests
     [InlineData(IdEncargado)]
     public async Task Crear_ConGerenteOEncargado_CreaConNombreNormalizadoYGuardaUnaVez(int idActor)
     {
-        var resultado = await _servicio.CrearAsync(idActor, new CrearCategoriaDto { Nombre = "  Nombre   compuesto " });
+        var resultado = await _servicio.CrearAsync(idActor, new CrearCategoriaDto { Nombre = "  Nombre   compuesto ", IdRubro = IdRubroExistente });
 
         resultado.NombreCategoria.Should().Be("Nombre compuesto");
+        resultado.IdRubro.Should().Be(IdRubroExistente);
+        resultado.NombreRubro.Should().Be("Librería");
         resultado.CantidadEnUso.Should().Be(0);
         await _repository.Received(1).AddAsync(
-            Arg.Is<Categoria>(x => x.NombreCategoria == "Nombre compuesto"),
+            Arg.Is<Categoria>(x => x.NombreCategoria == "Nombre compuesto" && x.IdRubro == IdRubroExistente),
             Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
@@ -131,7 +145,26 @@ public class CategoriaServiceTests
     [Fact]
     public async Task Crear_ConNombreInvalido_LanzaValidationExceptionYNoAgrega()
     {
-        var accion = () => _servicio.CrearAsync(IdGerente, new CrearCategoriaDto { Nombre = "   " });
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearCategoriaDto { Nombre = "   ", IdRubro = IdRubroExistente });
+
+        await accion.Should().ThrowAsync<ValidationException>();
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Crear_ConRubroInexistente_LanzaDomainExceptionYNoAgrega()
+    {
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearCategoriaDto { Nombre = "Nuevo", IdRubro = IdRubroInexistente });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("No se encontró el rubro con ID 55.");
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Crear_ConRubroNoPositivo_LanzaValidationExceptionYNoAgrega()
+    {
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearCategoriaDto { Nombre = "Nuevo", IdRubro = 0 });
 
         await accion.Should().ThrowAsync<ValidationException>();
         await _repository.DidNotReceive().AddAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>());
@@ -142,52 +175,52 @@ public class CategoriaServiceTests
     {
         ConfigurarDuplicados(CrearCategoriaConId(IdCategoriaExistente, "Repetido"));
 
-        var accion = () => _servicio.CrearAsync(IdGerente, new CrearCategoriaDto { Nombre = "Repetido" });
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearCategoriaDto { Nombre = "Repetido", IdRubro = IdRubroExistente });
 
         await accion.Should().ThrowAsync<DomainException>().WithMessage("Ya existe una categoría activa con el nombre 'Repetido'.");
         await _repository.DidNotReceive().AddAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>());
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
-    // ---------- Renombrar ----------
+    // ---------- Actualizar ----------
 
     [Theory]
     [InlineData(IdCajero)]
     [InlineData(IdAdministrador)]
     [InlineData(IdInexistente)]
     [InlineData(0)]
-    public async Task Renombrar_ConActorSinAutoridad_LanzaOperacionNoAutorizadaYNoGuarda(int idActor)
+    public async Task Actualizar_ConActorSinAutoridad_LanzaOperacionNoAutorizadaYNoGuarda(int idActor)
     {
-        var accion = () => _servicio.RenombrarAsync(idActor, new RenombrarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Otro" });
+        var accion = () => _servicio.ActualizarAsync(idActor, new ActualizarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Otro", IdRubro = IdRubroExistente });
 
         await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Renombrar_ConNombreInvalido_LanzaValidationException()
+    public async Task Actualizar_ConNombreInvalido_LanzaValidationException()
     {
-        var accion = () => _servicio.RenombrarAsync(IdGerente, new RenombrarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "" });
+        var accion = () => _servicio.ActualizarAsync(IdGerente, new ActualizarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "", IdRubro = IdRubroExistente });
 
         await accion.Should().ThrowAsync<ValidationException>();
     }
 
     [Fact]
-    public async Task Renombrar_ConElementoInexistente_LanzaDomainException()
+    public async Task Actualizar_ConElementoInexistente_LanzaDomainException()
     {
-        var accion = () => _servicio.RenombrarAsync(IdGerente, new RenombrarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Otro" });
+        var accion = () => _servicio.ActualizarAsync(IdGerente, new ActualizarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Otro", IdRubro = IdRubroExistente });
 
         await accion.Should().ThrowAsync<DomainException>().WithMessage("No se encontró la categoría con ID 7.");
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Renombrar_ConNombreDeOtroElemento_LanzaDomainExceptionYNoGuarda()
+    public async Task Actualizar_ConNombreDeOtroElemento_LanzaDomainExceptionYNoGuarda()
     {
         ConfigurarExistente(CrearCategoriaConId(IdCategoriaExistente, "Original"));
         ConfigurarDuplicados(CrearCategoriaConId(8, "Ocupado"));
 
-        var accion = () => _servicio.RenombrarAsync(IdGerente, new RenombrarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Ocupado" });
+        var accion = () => _servicio.ActualizarAsync(IdGerente, new ActualizarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Ocupado", IdRubro = IdRubroExistente });
 
         await accion.Should().ThrowAsync<DomainException>().WithMessage("Ya existe una categoría activa con el nombre 'Ocupado'.");
         await _repository.DidNotReceive().UpdateAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>());
@@ -195,7 +228,7 @@ public class CategoriaServiceTests
     }
 
     [Fact]
-    public async Task Renombrar_AlBuscarDuplicados_ExcluyeAlPropioElementoPorId()
+    public async Task Actualizar_AlBuscarDuplicados_ExcluyeAlPropioElementoPorId()
     {
         ConfigurarExistente(CrearCategoriaConId(IdCategoriaExistente, "Original"));
         Expression<Func<Categoria, bool>>? predicado = null;
@@ -205,7 +238,7 @@ public class CategoriaServiceTests
                 Arg.Any<CancellationToken>())
             .Returns(new List<Categoria>());
 
-        await _servicio.RenombrarAsync(IdGerente, new RenombrarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Original" });
+        await _servicio.ActualizarAsync(IdGerente, new ActualizarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Original", IdRubro = IdRubroExistente });
 
         predicado.Should().NotBeNull();
         var evaluar = predicado!.Compile();
@@ -216,14 +249,47 @@ public class CategoriaServiceTests
     [Theory]
     [InlineData(IdGerente)]
     [InlineData(IdEncargado)]
-    public async Task Renombrar_ConDatosValidos_CambiaElNombreYGuarda(int idActor)
+    public async Task Actualizar_ConDatosValidos_CambiaElNombreYGuarda(int idActor)
     {
         var entidad = CrearCategoriaConId(IdCategoriaExistente, "Original");
         ConfigurarExistente(entidad);
 
-        await _servicio.RenombrarAsync(idActor, new RenombrarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "  Nuevo   nombre " });
+        await _servicio.ActualizarAsync(idActor, new ActualizarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "  Nuevo   nombre ", IdRubro = IdRubroExistente });
 
         entidad.NombreCategoria.Should().Be("Nuevo nombre");
+        await _repository.Received(1).UpdateAsync(entidad, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Actualizar_ConRubroInexistente_LanzaDomainExceptionYNoGuarda()
+    {
+        var entidad = CrearCategoriaConId(IdCategoriaExistente, "Original");
+        ConfigurarExistente(entidad);
+
+        var accion = () => _servicio.ActualizarAsync(
+            IdGerente,
+            new ActualizarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Original", IdRubro = IdRubroInexistente });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("No se encontró el rubro con ID 55.");
+        entidad.IdRubro.Should().Be(IdRubroExistente);
+        await _repository.DidNotReceive().UpdateAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Actualizar_ConOtroRubro_MueveLaCategoriaYGuarda()
+    {
+        const int idRubroDestino = 9;
+        ConfigurarRubro(idRubroDestino, "Bazar");
+        var entidad = CrearCategoriaConId(IdCategoriaExistente, "Original");
+        ConfigurarExistente(entidad);
+
+        await _servicio.ActualizarAsync(
+            IdGerente,
+            new ActualizarCategoriaDto { IdCategoria = IdCategoriaExistente, Nombre = "Original", IdRubro = idRubroDestino });
+
+        entidad.IdRubro.Should().Be(idRubroDestino);
         await _repository.Received(1).UpdateAsync(entidad, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }

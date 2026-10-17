@@ -6,4 +6,5 @@ namespace Retail.Application.DTOs.Articulos;
 public record class CrearCategoriaDto
 {
     public required string Nombre { get; init; }
+    public required int IdRubro { get; init; }
 }

@@ -83,13 +83,13 @@ public class ClasificacionValidatorTests
     [InlineData("  Útiles   y   papelería  ")]
     public void CrearCategoriaValidator_NombreValido_DebePasarValidacion(string nombre)
     {
-        new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = nombre }).IsValid.Should().BeTrue();
+        new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = nombre, IdRubro = 1 }).IsValid.Should().BeTrue();
     }
 
     [Fact]
     public void CrearCategoriaValidator_NombreEnElLimite_DebePasarValidacion()
     {
-        new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = NombreEnElLimite }).IsValid.Should().BeTrue();
+        new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = NombreEnElLimite, IdRubro = 1 }).IsValid.Should().BeTrue();
     }
 
     [Theory]
@@ -97,7 +97,7 @@ public class ClasificacionValidatorTests
     [InlineData("   ")]
     public void CrearCategoriaValidator_NombreVacio_DebeFallar(string nombre)
     {
-        var result = new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = nombre });
+        var result = new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = nombre, IdRubro = 1 });
 
         result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(CrearCategoriaDto.Nombre));
     }
@@ -105,42 +105,64 @@ public class ClasificacionValidatorTests
     [Fact]
     public void CrearCategoriaValidator_NombreMasLargoQueElMaximo_DebeFallarCitandoElLimite()
     {
-        var result = new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = NombreLargo });
+        var result = new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = NombreLargo, IdRubro = 1 });
 
         result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(CrearCategoriaDto.Nombre))
             .Which.ErrorMessage.Should().Contain("100");
     }
 
-    [Fact]
-    public void RenombrarCategoriaValidator_DatosValidos_DebePasarValidacion()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void CrearCategoriaValidator_RubroNoPositivo_DebeFallarConMensajeClaro(int idRubro)
     {
-        new RenombrarCategoriaValidator().Validate(new RenombrarCategoriaDto { IdCategoria = 1, Nombre = "Escolar" }).IsValid.Should().BeTrue();
+        var result = new CrearCategoriaValidator().Validate(new CrearCategoriaDto { Nombre = "Escolar", IdRubro = idRubro });
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(CrearCategoriaDto.IdRubro))
+            .Which.ErrorMessage.Should().Be("Seleccione el rubro de la categoría.");
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void RenombrarCategoriaValidator_IdNoPositivo_DebeFallar(int id)
+    public void ActualizarCategoriaValidator_RubroNoPositivo_DebeFallarConMensajeClaro(int idRubro)
     {
-        var result = new RenombrarCategoriaValidator().Validate(new RenombrarCategoriaDto { IdCategoria = id, Nombre = "Escolar" });
+        var result = new ActualizarCategoriaValidator().Validate(new ActualizarCategoriaDto { IdCategoria = 1, Nombre = "Escolar", IdRubro = idRubro });
 
-        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(RenombrarCategoriaDto.IdCategoria));
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(ActualizarCategoriaDto.IdRubro))
+            .Which.ErrorMessage.Should().Be("Seleccione el rubro de la categoría.");
     }
 
     [Fact]
-    public void RenombrarCategoriaValidator_NombreVacio_DebeFallar()
+    public void ActualizarCategoriaValidator_DatosValidos_DebePasarValidacion()
     {
-        var result = new RenombrarCategoriaValidator().Validate(new RenombrarCategoriaDto { IdCategoria = 1, Nombre = "" });
+        new ActualizarCategoriaValidator().Validate(new ActualizarCategoriaDto { IdCategoria = 1, Nombre = "Escolar", IdRubro = 1 }).IsValid.Should().BeTrue();
+    }
 
-        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(RenombrarCategoriaDto.Nombre));
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void ActualizarCategoriaValidator_IdNoPositivo_DebeFallar(int id)
+    {
+        var result = new ActualizarCategoriaValidator().Validate(new ActualizarCategoriaDto { IdCategoria = id, Nombre = "Escolar", IdRubro = 1 });
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(ActualizarCategoriaDto.IdCategoria));
     }
 
     [Fact]
-    public void RenombrarCategoriaValidator_NombreMasLargoQueElMaximo_DebeFallar()
+    public void ActualizarCategoriaValidator_NombreVacio_DebeFallar()
     {
-        var result = new RenombrarCategoriaValidator().Validate(new RenombrarCategoriaDto { IdCategoria = 1, Nombre = NombreLargo });
+        var result = new ActualizarCategoriaValidator().Validate(new ActualizarCategoriaDto { IdCategoria = 1, Nombre = "", IdRubro = 1 });
 
-        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(RenombrarCategoriaDto.Nombre));
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(ActualizarCategoriaDto.Nombre));
+    }
+
+    [Fact]
+    public void ActualizarCategoriaValidator_NombreMasLargoQueElMaximo_DebeFallar()
+    {
+        var result = new ActualizarCategoriaValidator().Validate(new ActualizarCategoriaDto { IdCategoria = 1, Nombre = NombreLargo, IdRubro = 1 });
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(ActualizarCategoriaDto.Nombre));
     }
 
     [Theory]

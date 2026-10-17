@@ -15,26 +15,29 @@ namespace Retail.Application.Services;
 public class CategoriaService : ICategoriaService
 {
     private readonly IRepository<Categoria> _repository;
+    private readonly IRepository<Rubro> _rubros;
     private readonly IRepository<Usuario> _usuarios;
     private readonly IClasificacionQueryService _consultas;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<CrearCategoriaDto> _crearValidator;
-    private readonly IValidator<RenombrarCategoriaDto> _renombrarValidator;
+    private readonly IValidator<ActualizarCategoriaDto> _actualizarValidator;
 
     public CategoriaService(
         IRepository<Categoria> repository,
+        IRepository<Rubro> rubros,
         IRepository<Usuario> usuarios,
         IClasificacionQueryService consultas,
         IUnitOfWork unitOfWork,
         IValidator<CrearCategoriaDto> crearValidator,
-        IValidator<RenombrarCategoriaDto> renombrarValidator)
+        IValidator<ActualizarCategoriaDto> actualizarValidator)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _rubros = rubros ?? throw new ArgumentNullException(nameof(rubros));
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _consultas = consultas ?? throw new ArgumentNullException(nameof(consultas));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _crearValidator = crearValidator ?? throw new ArgumentNullException(nameof(crearValidator));
-        _renombrarValidator = renombrarValidator ?? throw new ArgumentNullException(nameof(renombrarValidator));
+        _actualizarValidator = actualizarValidator ?? throw new ArgumentNullException(nameof(actualizarValidator));
     }
 
     public async Task<IReadOnlyList<CategoriaDto>> ListarAsync(string? filtro, CancellationToken cancellationToken = default)
@@ -47,6 +50,8 @@ public class CategoriaService : ICategoriaService
         // Primero la autorización: quien no tiene permiso no recibe detalles de validación.
         await AutorizacionClasificacion.ExigirAsync(_usuarios, idActor, cancellationToken);
         await _crearValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        var rubro = await ObtenerRubroActivoAsync(dto.IdRubro, cancellationToken);
 
         // La comparación sin distinguir mayúsculas ni acentos la resuelve la colación de SQL Server (R-3) y el
         // índice único filtrado es la garantía final ante dos altas simultáneas (D-4).
@@ -61,7 +66,7 @@ public class CategoriaService : ICategoriaService
             throw new DomainException($"Ya existe una categoría activa con el nombre '{nombre}'.");
         }
 
-        var entidad = Categoria.Crear(nombre);
+        var entidad = Categoria.Crear(nombre, rubro.Id);
 
         await _repository.AddAsync(entidad, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -70,20 +75,24 @@ public class CategoriaService : ICategoriaService
         {
             IdCategoria = entidad.Id,
             NombreCategoria = entidad.NombreCategoria,
+            IdRubro = rubro.Id,
+            NombreRubro = rubro.NombreRubro,
             CantidadEnUso = 0
         };
     }
 
-    public async Task RenombrarAsync(int idActor, RenombrarCategoriaDto dto, CancellationToken cancellationToken = default)
+    public async Task ActualizarAsync(int idActor, ActualizarCategoriaDto dto, CancellationToken cancellationToken = default)
     {
         await AutorizacionClasificacion.ExigirAsync(_usuarios, idActor, cancellationToken);
-        await _renombrarValidator.ValidateAndThrowAsync(dto, cancellationToken);
+        await _actualizarValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
         var entidad = await _repository.GetByIdAsync(dto.IdCategoria, includeDeleted: false, cancellationToken);
         if (entidad == null)
         {
             throw new DomainException($"No se encontró la categoría con ID {dto.IdCategoria}.");
         }
+
+        var rubro = await ObtenerRubroActivoAsync(dto.IdRubro, cancellationToken);
 
         // Se excluye el propio registro: renombrar al mismo nombre, o cambiar solo mayúsculas o acentos del
         // propio nombre, está permitido (D-8). El índice único filtrado respalda la regla (D-4).
@@ -99,9 +108,23 @@ public class CategoriaService : ICategoriaService
         }
 
         entidad.Renombrar(nombre);
+        entidad.MoverARubro(rubro.Id);
 
         await _repository.UpdateAsync(entidad, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    // D-23: el rubro de destino debe existir y estar activo; la FK de la base es la garantía final, pero este
+    // chequeo da un mensaje claro en lugar de un error de integridad referencial.
+    private async Task<Rubro> ObtenerRubroActivoAsync(int idRubro, CancellationToken cancellationToken)
+    {
+        var rubro = await _rubros.GetByIdAsync(idRubro, includeDeleted: false, cancellationToken);
+        if (rubro == null)
+        {
+            throw new DomainException($"No se encontró el rubro con ID {idRubro}.");
+        }
+
+        return rubro;
     }
 
     public async Task BajaAsync(int idActor, int idCategoria, CancellationToken cancellationToken = default)
