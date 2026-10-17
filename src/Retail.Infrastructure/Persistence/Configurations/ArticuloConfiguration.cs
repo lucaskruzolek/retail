@@ -45,6 +45,11 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
             .UseCollation(Cotejamientos.BusquedaEnCastellano)
             .IsRequired();
 
+        // Índice de paginación: entrega los artículos activos ya ordenados por descripción, sin ordenar en memoria
+        // (sin Sort ni memory grant) al paginar el catálogo (Ley 8, RNF-02).
+        builder.HasIndex(a => a.Descripcion)
+            .HasFilter("[deleted_at] IS NULL");
+
         builder.Property(a => a.IdCategoria)
             .HasColumnName("id_categoria")
             .IsRequired(false);

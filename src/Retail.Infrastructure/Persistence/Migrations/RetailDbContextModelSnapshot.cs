@@ -110,6 +110,9 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[codigo_barras] IS NOT NULL AND [deleted_at] IS NULL");
 
+                    b.HasIndex("Descripcion")
+                        .HasFilter("[deleted_at] IS NULL");
+
                     b.HasIndex("IdArticuloOrigen");
 
                     b.HasIndex("IdCatalogoProveedor")
@@ -184,6 +187,9 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdProveedor", "CodigoProveedor")
                         .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.HasIndex("IdProveedor", "DescripcionProveedor")
                         .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("CATALOGOS_PROVEEDORES", null, t =>

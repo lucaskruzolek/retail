@@ -162,4 +162,140 @@ public class ImportarPlanillaViewModelTests
         await _proveedorService.DidNotReceiveWithAnyArgs().ImportarPlanillaProveedorAsync(
             default!, default!, default, default);
     }
+
+    private static ResultadoImportacionDto CrearResultado(int filasConError)
+    {
+        return new ResultadoImportacionDto
+        {
+            TotalFilasProcesadas = 10,
+            NuevosRegistros = 7,
+            PreciosActualizados = 3,
+            FilasConError = filasConError,
+            ErroresDetalle = filasConError > 0 ? new List<string> { "Fila 5: precio inválido." } : new List<string>(),
+            TiempoTranscurrido = TimeSpan.FromSeconds(2.5)
+        };
+    }
+
+    private async Task ImportarConResultadoAsync(ResultadoImportacionDto resultado, string ruta)
+    {
+        _sut.Inicializar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" });
+        _sut.RutaArchivo = ruta;
+
+        _proveedorService.ImportarPlanillaProveedorAsync(
+                Arg.Any<Stream>(), Arg.Any<MapeoColumnasDto>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .Returns(resultado);
+
+        await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConExito_MarcaCompletadaYBloqueaReimportacion()
+    {
+        var ruta = Path.GetTempFileName();
+        try
+        {
+            await ImportarConResultadoAsync(CrearResultado(0), ruta);
+
+            _sut.ImportacionCompletada.Should().BeTrue();
+            _sut.ImportacionConObservaciones.Should().BeFalse();
+            _sut.PuedeImportar.Should().BeFalse();
+            _sut.TextoBotonCerrar.Should().Be("Cerrar y ver catálogo");
+            _sut.DialogResult.Should().BeTrue();
+            _sut.MensajeExito.Should().Contain("7 artículos nuevos").And.Contain("3 precios");
+            _sut.MensajeExito.Should().NotContain("omitieron");
+        }
+        finally
+        {
+            File.Delete(ruta);
+        }
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConFilasConError_MarcaCompletadaConObservaciones()
+    {
+        var ruta = Path.GetTempFileName();
+        try
+        {
+            await ImportarConResultadoAsync(CrearResultado(2), ruta);
+
+            _sut.ImportacionCompletada.Should().BeTrue();
+            _sut.ImportacionConObservaciones.Should().BeTrue();
+            _sut.MensajeExito.Should().Contain("Se omitieron 2 filas con error");
+            _sut.TieneErroresDetalle.Should().BeTrue();
+        }
+        finally
+        {
+            File.Delete(ruta);
+        }
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConErrorDelServicio_NoMarcaCompletada()
+    {
+        var ruta = Path.GetTempFileName();
+        try
+        {
+            _sut.Inicializar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" });
+            _sut.RutaArchivo = ruta;
+            _proveedorService.ImportarPlanillaProveedorAsync(
+                    Arg.Any<Stream>(), Arg.Any<MapeoColumnasDto>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+                .Returns<ResultadoImportacionDto>(_ => throw new InvalidOperationException("falla"));
+
+            await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+            _sut.ImportacionCompletada.Should().BeFalse();
+            _sut.MensajeExito.Should().BeNull();
+            _sut.PuedeImportar.Should().BeTrue();
+            _sut.TextoBotonCerrar.Should().Be("Cerrar");
+        }
+        finally
+        {
+            File.Delete(ruta);
+        }
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConCancelacion_NoMarcaCompletada()
+    {
+        var ruta = Path.GetTempFileName();
+        try
+        {
+            _sut.Inicializar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" });
+            _sut.RutaArchivo = ruta;
+            _proveedorService.ImportarPlanillaProveedorAsync(
+                    Arg.Any<Stream>(), Arg.Any<MapeoColumnasDto>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+                .Returns<ResultadoImportacionDto>(_ => throw new OperationCanceledException());
+
+            await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+            _sut.ImportacionCompletada.Should().BeFalse();
+            _sut.MensajeEstado.Should().Be("Importación cancelada.");
+        }
+        finally
+        {
+            File.Delete(ruta);
+        }
+    }
+
+    [Fact]
+    public async Task RutaArchivo_CambiaTrasExito_ReseteaElResultadoYPermiteReimportar()
+    {
+        var ruta = Path.GetTempFileName();
+        try
+        {
+            await ImportarConResultadoAsync(CrearResultado(1), ruta);
+
+            _sut.RutaArchivo = @"C:\dummy\otro.xlsx";
+
+            _sut.ImportacionCompletada.Should().BeFalse();
+            _sut.UltimoResultado.Should().BeNull();
+            _sut.MensajeExito.Should().BeNull();
+            _sut.TieneResultado.Should().BeFalse();
+            _sut.PuedeImportar.Should().BeTrue();
+        }
+        finally
+        {
+            File.Delete(ruta);
+        }
+    }
 }

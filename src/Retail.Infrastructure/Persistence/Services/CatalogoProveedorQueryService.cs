@@ -23,9 +23,7 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
         ConsultaCatalogoProveedorDto consulta,
         CancellationToken cancellationToken = default)
     {
-        IQueryable<CatalogoProveedor> query = _context.CatalogosProveedores
-            .Include(c => c.Proveedor)
-            .AsNoTracking();
+        IQueryable<CatalogoProveedor> query = _context.CatalogosProveedores.AsNoTracking();
 
         if (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value > 0)
         {
@@ -41,45 +39,15 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
                 (c.CodigoBarras != null && EF.Functions.Like(c.CodigoBarras, $"%{term}%")));
         }
 
-        // Recuperar artículos vinculados de forma proyectada y ligera para enriquecer la grilla
-        var articulosVinculados = await _context.Articulos
-            .AsNoTracking()
-            .Where(a => a.IdCatalogoProveedor != null)
-            .Select(a => new
-            {
-                a.Id,
-                IdCatalogoProveedor = a.IdCatalogoProveedor!.Value,
-                a.Descripcion,
-                a.PrecioVenta,
-                a.StockActual
-            })
-            .ToListAsync(cancellationToken);
-
-        // El índice único filtrado en id_catalogo_proveedor garantiza un solo artículo activo por ítem (H-13):
-        // si la invariante se rompiera, ToDictionary falla de forma visible en lugar de elegir uno al azar.
-        var articulosMap = articulosVinculados.ToDictionary(a => a.IdCatalogoProveedor);
-
-        // Recuperar códigos de barra de artículos propios no vinculados para detección inteligente (RF-05)
-        var codigosBarrasTiendaLista = await _context.Articulos
-            .AsNoTracking()
-            .Where(a => a.CodigoBarras != null && a.CodigoBarras != "" && a.IdCatalogoProveedor == null)
-            .Select(a => a.CodigoBarras!)
-            .ToListAsync(cancellationToken);
-
-        var codigosBarrasTienda = codigosBarrasTiendaLista
-            .Where(cb => !string.IsNullOrWhiteSpace(cb))
-            .Select(cb => cb.Trim())
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
+        // La vinculación se resuelve en SQL con subconsultas correlacionadas (Ley 8): el costo depende de la página,
+        // no del tamaño de la tienda. El filtro global de borrado lógico excluye los artículos dados de baja.
         if (consulta.EstadoVinculacion == EstadoVinculacionCatalogoEnum.SinIncorporar)
         {
-            var vinculadosIds = articulosVinculados.Select(a => a.IdCatalogoProveedor).ToHashSet();
-            query = query.Where(c => !vinculadosIds.Contains(c.Id));
+            query = query.Where(c => !_context.Articulos.Any(a => a.IdCatalogoProveedor == c.Id));
         }
         else if (consulta.EstadoVinculacion == EstadoVinculacionCatalogoEnum.YaEnTienda)
         {
-            var vinculadosIds = articulosVinculados.Select(a => a.IdCatalogoProveedor).ToHashSet();
-            query = query.Where(c => vinculadosIds.Contains(c.Id));
+            query = query.Where(c => _context.Articulos.Any(a => a.IdCatalogoProveedor == c.Id));
         }
 
         int totalRegistros = await query.CountAsync(cancellationToken);
@@ -87,37 +55,52 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
         int tamanoPagina = Math.Max(1, consulta.TamañoPagina);
         int pagina = Math.Max(1, consulta.Pagina);
 
-        var entidades = await query
+        // OFFSET/FETCH se aplica sobre CATALOGOS_PROVEEDORES antes de proyectar, así las subconsultas correlacionadas
+        // se evalúan solo para las filas de la página.
+        // El índice único filtrado en id_catalogo_proveedor garantiza un solo artículo activo por ítem, por lo que
+        // FirstOrDefault nunca elige entre varios candidatos.
+        // Coincidencia por código de barras (RF-05): igualdad en SQL en lugar de Trim + OrdinalIgnoreCase en memoria.
+        // Es equivalente porque la importación guarda los códigos ya recortados (ProveedorService.FiltrarFilasValidas)
+        // y las columnas codigo_barras usan la intercalación por defecto de la base, insensible a mayúsculas.
+        var dtos = await query
             .OrderBy(c => c.DescripcionProveedor)
+            .ThenBy(c => c.Id)
             .Skip((pagina - 1) * tamanoPagina)
             .Take(tamanoPagina)
-            .ToListAsync(cancellationToken);
-
-        var dtos = entidades.Select(c =>
-        {
-            var estaVinculado = articulosMap.TryGetValue(c.Id, out var art);
-            var coincidePorCodigoBarras = !estaVinculado &&
-                !string.IsNullOrWhiteSpace(c.CodigoBarras) &&
-                codigosBarrasTienda.Contains(c.CodigoBarras.Trim());
-
-            return new CatalogoProveedorDto
+            .Select(c => new CatalogoProveedorDto
             {
                 Id = c.Id,
                 IdProveedor = c.IdProveedor,
-                ProveedorRazonSocial = c.Proveedor?.RazonSocial ?? string.Empty,
+                ProveedorRazonSocial = c.Proveedor != null ? c.Proveedor.RazonSocial : string.Empty,
                 CodigoProveedor = c.CodigoProveedor,
                 CodigoBarras = c.CodigoBarras,
                 DescripcionProveedor = c.DescripcionProveedor,
                 CostoReposicion = c.CostoReposicion,
                 FechaActualizacion = c.FechaActualizacion,
-                EstaVinculado = estaVinculado,
-                CoincideConArticuloTienda = coincidePorCodigoBarras,
-                IdArticuloVinculado = art?.Id,
-                NombreArticuloTienda = art?.Descripcion,
-                PrecioVentaTienda = art?.PrecioVenta,
-                StockActualTienda = art?.StockActual
-            };
-        }).ToList();
+                EstaVinculado = _context.Articulos.Any(a => a.IdCatalogoProveedor == c.Id),
+                CoincideConArticuloTienda =
+                    !_context.Articulos.Any(a => a.IdCatalogoProveedor == c.Id) &&
+                    c.CodigoBarras != null &&
+                    c.CodigoBarras != "" &&
+                    _context.Articulos.Any(a => a.IdCatalogoProveedor == null && a.CodigoBarras == c.CodigoBarras),
+                IdArticuloVinculado = _context.Articulos
+                    .Where(a => a.IdCatalogoProveedor == c.Id)
+                    .Select(a => (int?)a.Id)
+                    .FirstOrDefault(),
+                NombreArticuloTienda = _context.Articulos
+                    .Where(a => a.IdCatalogoProveedor == c.Id)
+                    .Select(a => a.Descripcion)
+                    .FirstOrDefault(),
+                PrecioVentaTienda = _context.Articulos
+                    .Where(a => a.IdCatalogoProveedor == c.Id)
+                    .Select(a => (decimal?)a.PrecioVenta)
+                    .FirstOrDefault(),
+                StockActualTienda = _context.Articulos
+                    .Where(a => a.IdCatalogoProveedor == c.Id)
+                    .Select(a => (int?)a.StockActual)
+                    .FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
 
         return new CatalogoPaginadoDto
         {

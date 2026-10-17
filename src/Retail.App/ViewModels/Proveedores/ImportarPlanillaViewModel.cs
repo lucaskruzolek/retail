@@ -50,6 +50,20 @@ public partial class ImportarPlanillaViewModel : ObservableObject
     private bool _isBusy;
 
     /// <summary>
+    /// Verdadero cuando la importación terminó sin error ni cancelación. Separa el estado final
+    /// del estado de progreso (<see cref="IsBusy"/>) y bloquea la reimportación del mismo archivo.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PuedeImportar))]
+    [NotifyPropertyChangedFor(nameof(ImportacionConObservaciones))]
+    [NotifyPropertyChangedFor(nameof(TextoBotonCerrar))]
+    private bool _importacionCompletada;
+
+    /// <summary>Resumen de la importación exitosa que se muestra en el aviso de confirmación.</summary>
+    [ObservableProperty]
+    private string? _mensajeExito;
+
+    /// <summary>
     /// Filas leídas hasta el momento. Con lectura streaming no se conoce el total por adelantado,
     /// por eso la barra es indeterminada y el avance se informa como cantidad de filas (H-04).
     /// </summary>
@@ -67,6 +81,7 @@ public partial class ImportarPlanillaViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneResultado))]
     [NotifyPropertyChangedFor(nameof(TieneErroresDetalle))]
+    [NotifyPropertyChangedFor(nameof(ImportacionConObservaciones))]
     private ResultadoImportacionDto? _ultimoResultado;
 
     public bool HayArchivoSeleccionado => !string.IsNullOrWhiteSpace(RutaArchivo);
@@ -74,11 +89,17 @@ public partial class ImportarPlanillaViewModel : ObservableObject
     public bool TieneMensajeError => !string.IsNullOrWhiteSpace(MensajeError);
     public bool TieneResultado => UltimoResultado != null;
 
+    /// <summary>Importación terminada pero con filas omitidas por error (variante de advertencia del aviso).</summary>
+    public bool ImportacionConObservaciones => ImportacionCompletada && UltimoResultado is { FilasConError: > 0 };
+
+    public string TextoBotonCerrar => ImportacionCompletada ? "Cerrar y ver catálogo" : "Cerrar";
+
     /// <summary>Indica si hay filas con error para mostrar su detalle en el diálogo (H-01).</summary>
     public bool TieneErroresDetalle => UltimoResultado is { ErroresDetalle.Count: > 0 };
 
     public bool PuedeImportar =>
         !IsBusy &&
+        !ImportacionCompletada &&
         Proveedor != null &&
         HayArchivoSeleccionado &&
         FilaEncabezado >= 1 &&
@@ -96,6 +117,16 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    /// <summary>Al elegir otro archivo se descarta el resultado anterior y se habilita una nueva importación.</summary>
+    partial void OnRutaArchivoChanged(string? value)
+    {
+        UltimoResultado = null;
+        ImportacionCompletada = false;
+        MensajeExito = null;
+        MensajeError = null;
+        MensajeEstado = null;
+    }
+
     public void Inicializar(ProveedorDto proveedor)
     {
         Proveedor = proveedor ?? throw new ArgumentNullException(nameof(proveedor));
@@ -110,6 +141,8 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         MensajeEstado = null;
         MensajeError = null;
         UltimoResultado = null;
+        ImportacionCompletada = false;
+        MensajeExito = null;
         DialogResult = false;
     }
 
@@ -169,6 +202,8 @@ public partial class ImportarPlanillaViewModel : ObservableObject
                 cancellationToken);
 
             MensajeEstado = $"Importación finalizada con éxito en {UltimoResultado.TiempoTranscurrido.TotalSeconds:N1}s.";
+            MensajeExito = ConstruirMensajeExito(UltimoResultado);
+            ImportacionCompletada = true;
             DialogResult = true;
         }
         catch (OperationCanceledException)
@@ -197,6 +232,16 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    private static string ConstruirMensajeExito(ResultadoImportacionDto resultado)
+    {
+        var resumen = $"Se importaron {resultado.NuevosRegistros:N0} artículos nuevos y se actualizaron " +
+                      $"{resultado.PreciosActualizados:N0} precios en {resultado.TiempoTranscurrido.TotalSeconds:N1}s.";
+
+        return resultado.FilasConError > 0
+            ? $"{resumen} Se omitieron {resultado.FilasConError:N0} filas con error."
+            : resumen;
     }
 
     [RelayCommand]
