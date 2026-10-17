@@ -64,3 +64,8 @@ debug-tickets/
 
 # Salida de dotnet publish (prueba local de Retail.Cli y la tarea programada)
 publish/
+
+# Catalogación inteligente (Track 6.6): listas de distribuidores, conjuntos etiquetados y caché de Python.
+# Son datos comerciales de terceros y no se versionan; solo los scripts viven en el repositorio.
+ml/datos/
+__pycache__/

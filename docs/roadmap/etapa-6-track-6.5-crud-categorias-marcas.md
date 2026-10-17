@@ -1,0 +1,198 @@
+# Track 6.5: Plan de Diseño — CRUD de Rubros, Categorías y Marcas
+
+### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
+**Etapa:** [`etapa-6-estabilizacion-release.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-estabilizacion-release.md) (Track 6.5, propuesto) | **Responsable:** Lucas Kruzolek | **Rama sugerida:** `feat/crud-categorias-marcas` (la crea el estudiante)  
+**Requisitos:** `RF-04` (hoy menciona categoría y marca solo como campos del artículo; hay que ampliarlo o crear un RF nuevo) en [`ERS - Libreria POS.md`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md)
+
+> **Propósito de este documento:** conservar las decisiones de diseño, sus fundamentos y el estado de avance del track, para retomar el trabajo en una sesión nueva sin rehacer el análisis. Todas las decisiones fueron aprobadas por el estudiante el 2026-10-17.
+>
+> **Estado: CERRADO EN LO CONCEPTUAL, SIN IMPLEMENTAR (2026-10-17).** El diseño del motor de catalogación, [Track 6.6](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md), también quedó cerrado y no exige cambios en este plan (Track 6.6, sección 16). Este track se implementa primero.
+>
+> **Flujo de trabajo entre sesiones:** [`handoff-clasificacion-y-catalogacion.md`](file:///c:/Users/lucas/Proyectos/retail/docs/auditorias/handoff-clasificacion-y-catalogacion.md). Implementación secuencial: 6.5 completo y después 6.6.
+
+---
+
+## 1. Estado de Avance
+
+| Fase | Contenido | Estado |
+| :--- | :--- | :---: |
+| 0 | Alta en el roadmap, ampliación de `RF-04` en la ERS y cierre de decisiones | ⏳ Diseño cerrado (2026-10-17); falta editar roadmap y ERS |
+| 1 | Dominio: `Crear`/`Renombrar`, regla de texto y excepción | ⏳ |
+| 2 | Aplicación: contratos, DTOs, validadores y servicios | ⏳ |
+| 3 | Infraestructura: índices únicos filtrados, migración y conteos | ⏳ |
+| 4 | UI: diálogos de administración desde el catálogo de artículos | ⏳ |
+| 5 | Cierre: verificación Release, mapa semántico y propuesta de nota para `wiki/` | ⏳ |
+
+**Forma de trabajo:** fase por fase y capa por capa, con cada diff revisado por el estudiante (CLAUDE.md §3). Commits y PR los pide el estudiante (§4).
+
+---
+
+## 2. Hallazgos del Estado Actual
+
+| Hallazgo | Consecuencia |
+| :--- | :--- |
+| El roadmap de la Etapa 6 lista el "CRUD propio de Categorías y Marcas" como mejora futura fuera de alcance. Hoy solo se cargan con `datos-demo`. | Hay que dar de alta este track en el roadmap. |
+| [`Categoria`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/Categoria.cs) y [`Marca`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Domain/Entities/Marca.cs) tienen setters públicos y ninguna validación. | A diferencia de `Proveedor`, `Cliente` y `Usuario`, no están encapsuladas. |
+| Ni `CATEGORIAS` ni `MARCAS` tienen índice único por nombre. | Se pueden crear duplicados. |
+| `IInventarioService` solo expone `ListarCategoriasAsync` y `ListarMarcasAsync`. | No hay alta, edición ni baja. |
+| `Articulo.IdCategoria` e `IdMarca` son `int?`. | Un artículo sin categoría o sin marca es válido. |
+| El patrón a imitar es [`ProveedorService`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Application/Services/ProveedorService.cs): fábrica `Crear`, `ActualizarDatos`, validadores, chequeo de duplicados y `MarkAsDeleted`. | Se reutiliza la forma, no se inventa una nueva. |
+| Las categorías se asignan hoy al **incorporar** artículos del catálogo de un proveedor a la tienda (`IncorporarArticulosATiendaAsync`). | Es el punto natural donde, más adelante, se integrarán las sugerencias del ML. |
+
+---
+
+## 3. Decisiones
+
+| ID | Decisión | Estado | Fundamento |
+| :--- | :--- | :---: | :--- |
+| D-1 | La baja de una categoría con artículos asignados se **bloquea**. Se aplica igual a las marcas. El conteo incluye los artículos dados de baja, sujeto a la verificación R-1. | Cerrada | Elección del estudiante para categorías; coherencia para marcas. Los reportes históricos agrupan por categoría y marca. |
+| D-2 | El acceso es un **diálogo** lanzado desde el catálogo de artículos, no una página nueva del menú lateral. | Cerrada | Una página nueva obliga a tocar `MainWindow.xaml` y `MainViewModel`, zona compartida (Ley 10). |
+| D-3 | `Categoria` y `Marca` se encapsulan con `Crear(nombre)` y `Renombrar(nombre)` y setters privados. | Cerrada | Consistencia con `Proveedor`, `Cliente` y `Usuario`. Obliga a corregir el semillero y algunos tests que usan inicializadores de objeto. |
+| D-4 | El nombre es **único entre registros activos**, sin distinguir mayúsculas ni acentos, mediante índice filtrado por `deleted_at IS NULL`. | Cerrada | Mismo patrón que `Proveedores.Cuit`. Evita duplicados desde el origen. |
+| D-5 | Pueden administrar categorías y marcas el **Gerente y el Encargado**; el Cajero no. La autorización se valida en el servicio, no solo en la UI. | Cerrada (rol por verificar) | Patrón D-11 del Track 6.4 (`OperacionNoAutorizadaException`). Antes de implementar se verifica cómo restringe hoy el catálogo de artículos. |
+| D-6 | Alias de marca y tabla de prefijos EAN → marca **se difieren** a la etapa de ML. | Cerrada | Son migraciones aditivas y baratas; no se construyen sin el consumidor (YAGNI). |
+| D-7 | La fusión de categorías duplicadas **se difiere**. | Cerrada (revisar) | Operación delicada que reasigna artículos. Probablemente se vuelva necesaria tras el primer arranque del ML (sección 8). |
+| D-8 | Renombrar es libre, porque todo se referencia por `Id`. | Cerrada | Renombrar no rompe artículos, reportes ni un futuro modelo. |
+| D-9 | `Listar` acepta un filtro de texto opcional que se ejecuta en SQL (`EF.Functions.Like`) y devuelve la cantidad de artículos de cada ítem. | Cerrada | Tras el arranque del ML podría haber cientos de marcas; la grilla debe ser filtrable. La cantidad indica cuáles se pueden eliminar (D-1). |
+| D-10 | Servicios paralelos por entidad (`IRubroService`, `ICategoriaService`, `IMarcaService`), sin abstracción genérica. | Cerrada | No se justifica una base genérica (Principio de Simplicidad Pragmática). |
+| D-11 | **Clasificación en dos niveles: Rubro → Categoría.** | Cerrada (2026-10-17) | El análisis de la lista real (14.876 artículos) mostró un catálogo multirrubro: librería, marroquinería, juguetería, arte, cotillón, bazar y electrónica. |
+| D-12 | Las licencias de personajes (Spiderman, Mickey, clubes) **no se registran**; quedan como texto de la descripción. | Cerrada (2026-10-17) | Decisión del estudiante (YAGNI). |
+| D-13 | El nivel superior es una **entidad propia `Rubro`** (raíz de agregado), y `Categoria` pasa a tener `IdRubro` obligatorio. No se usa una categoría autorreferenciada (`IdCategoriaPadre`). | Cerrada | Con profundidad fija de dos niveles, dos entidades hacen explícitas las invariantes ("el artículo se asigna a una categoría, nunca a un rubro"; "no hay tercer nivel"). Un árbol genérico obliga a validarlas a mano y anticipa una profundidad que nadie pidió. |
+| D-14 | El artículo referencia **solo la categoría**; el rubro se deriva a través de ella. `ARTICULOS` no tiene `id_rubro`. | Cerrada | Tercera forma normal: guardar el rubro en el artículo crearía una dependencia transitiva que podría contradecirse con el de su categoría. |
+| D-15 | La baja de un rubro se bloquea si tiene categorías activas (misma regla que D-1, un nivel más arriba). | Cerrada | Coherencia con D-1. |
+| D-16 | **Sin migración de datos:** `CATEGORIAS.id_rubro` nace obligatorio. `SemilleroDatosDemo` crea rubros y les cuelga sus categorías. Las bases de desarrollo que ya tengan categorías de `datos-demo` se recrean. | Cerrada | El proyecto está en desarrollo y no tiene categorías cargadas en ninguna instalación real (estudiante, 2026-10-17). |
+| D-17 | Los reportes del Track 6.4 **no** incorporan filtros ni agrupación por rubro en este track. | Cerrada | Fuera de alcance; se evalúa como mejora posterior. |
+| D-18 | **"Sin marca" es `IdMarca = null`**, no una fila "Sin marca" en `MARCAS`. Los reportes y la UI lo muestran con ese texto. Para distinguir "sin marca confirmada" de "todavía no clasificado" se usa el origen de la clasificación del Track 6.6. | Cerrada | Una marca ficticia aparecería como marca real en combos, filtros y rankings, y habría que impedir que se renombre o elimine. El valor nulo ya existe y es válido. |
+
+---
+
+## 4. Diseño de la Baja Bloqueada
+
+La invariante "no se elimina lo que está en uso" involucra a dos agregados (`Categoria` y `Articulo`). La entidad no conoce a sus artículos, así que el chequeo vive en el servicio de aplicación, con un conteo ejecutado en SQL (Ley 8).
+
+```mermaid
+sequenceDiagram
+    participant VM as ViewModel
+    participant S as CategoriaService
+    participant Q as IArticuloQueryService
+    participant R as IRepository~Categoria~
+    participant U as IUnitOfWork
+    VM->>S: BajaCategoriaAsync(id)
+    S->>R: GetByIdAsync(id)
+    R-->>S: Categoria (o null → DomainException)
+    S->>Q: ContarPorCategoriaAsync(id)
+    Q-->>S: n (SELECT COUNT en SQL)
+    alt n > 0
+        S-->>VM: ClasificacionEnUsoException
+    else n = 0
+        S->>R: MarkAsDeleted + UpdateAsync
+        S->>U: SaveChangesAsync
+    end
+```
+
+**Teoría:** invariante entre agregados resuelta en un servicio de aplicación (DDD); consulta de solo lectura con push-down a SQL (Ley 8).
+
+---
+
+## 5. Plan por Capas
+
+### Fase 1 — Dominio (`Retail.Domain`)
+
+| Archivo | Cambio |
+| :--- | :--- |
+| `Entities/Rubro.cs` (nueva) | Raíz de agregado con `Crear(nombre)` y `Renombrar(nombre)` (D-13). |
+| `Entities/Categoria.cs`, `Entities/Marca.cs` | Setters privados, fábrica `Crear(...)` y `Renombrar(nombre)`. `Categoria` recibe además `IdRubro` y `MoverARubro(idRubro)`. |
+| `Common/ReglasTexto.cs` | Regla única para nombres de clasificación: normaliza espacios, obligatorio, máximo 100 caracteres. Expone `Normalizar*`, `Es*Valido` y `Exigir*`. |
+| `Exceptions/ClasificacionEnUsoException.cs` (nueva) | Baja rechazada por tener artículos asignados. |
+
+**Tests:** `CategoriaDomainTests`, `MarcaDomainTests` (modelo: `ProveedorDomainTests`).
+
+### Fase 2 — Aplicación (`Retail.Application`)
+
+| Archivo | Cambio |
+| :--- | :--- |
+| `Interfaces/Services/ICategoriaService.cs`, `IMarcaService.cs` | `Listar`, `ObtenerPorId`, `Crear`, `Actualizar`, `Baja`. |
+| `Services/CategoriaService.cs`, `MarcaService.cs` | Casos de uso; chequeo de duplicados excluyendo el propio Id; autorización por rol. |
+| `DTOs/Articulos/` | `CrearCategoriaDto`, `ActualizarCategoriaDto` y equivalentes de marca; `CantidadArticulos` en `CategoriaDto` y `MarcaDto` (D-9). |
+| `Validators/Articulos/` | Cuatro validadores FluentValidation que reutilizan el predicado de `ReglasTexto`. |
+| `Interfaces/Persistence/IArticuloQueryService.cs` | Conteos por categoría y por marca. |
+| `DependencyInjection.cs` | Registro de los servicios cuando existe su puerto (el Host valida el contenedor al arrancar). |
+
+**Tests:** `CategoriaServiceTests`, `MarcaServiceTests` (duplicado, renombrar al mismo nombre, no encontrado, baja bloqueada, baja permitida, rol no autorizado) y tests de validadores.
+
+### Fase 3 — Infraestructura (`Retail.Infrastructure`)
+
+| Archivo | Cambio |
+| :--- | :--- |
+| `Persistence/Configurations/CategoriaConfiguration.cs`, `MarcaConfiguration.cs` | Índice único sobre el nombre, filtrado por `deleted_at IS NULL`. |
+| `Persistence/Configurations/RubroConfiguration.cs` (nueva) | Tabla `RUBROS`, índice único filtrado por nombre; FK `CATEGORIAS.id_rubro` obligatoria. |
+| Migración nueva | Crea `RUBROS` y la FK obligatoria (D-16, sin migración de datos). Crea los índices. **Antes** detecta duplicados existentes y falla con un mensaje claro (precedente: `NormalizarCuitProveedoresYCheck`). Actualiza el snapshot. |
+| `Persistence/Services/ArticuloQueryService.cs` | Conteos con `CountAsync` en SQL, sin tracking; filtro de texto para el listado. |
+| `Persistence/Initialization/SemilleroDatosDemo.cs` | Usa `Crear` en lugar de inicializadores de objeto. |
+
+**Tests de integración:** índice único filtrado, conteos, y que la colación de las columnas sea insensible a acentos y mayúsculas (R-3).
+
+### Fase 4 — UI (`Retail.App`)
+
+Antes de empezar: leer [`SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) y [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml).
+
+| Archivo | Cambio |
+| :--- | :--- |
+| `Views/Dialogs/AdministrarClasificacionDialog.xaml` | Diálogo con pestañas Rubros y categorías, y Marcas, con grilla, filtro y acciones. Las categorías se muestran agrupadas por rubro. |
+| `Views/Dialogs/ClasificacionFormDialog.xaml` | Alta y edición de un nombre. |
+| ViewModels e `IClasificacionDialogService` | Siguen el patrón de `ProveedorDialogService`. |
+| `Views/Pages/ArticulosView.xaml` | Botón de acceso; al cerrar el diálogo se recargan los combos. |
+
+**Tests:** ViewModels y pruebas de humo STA en `AppSmokeTests.cs`. Ejecutar `scripts/audit-xaml.ps1`.
+
+### Fase 5 — Cierre
+
+Verificación Release completa de `AGENTS.md` (auditoría XAML, build, tests, `dotnet format`), actualización de [`MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md) y propuesta de nota para `wiki/`.
+
+---
+
+## 6. Riesgos
+
+| ID | Riesgo | Tratamiento |
+| :--- | :--- | :--- |
+| R-1 | Los artículos dados de baja quedan ocultos por el filtro global y los reportes históricos agrupan por categoría y marca. Una categoría con solo artículos dados de baja podría eliminarse y degradar reportes. | Contar con `IgnoreQueryFilters`. Test que reproduzca el reporte antes de fijar el criterio. |
+| R-2 | La migración falla si ya existen nombres duplicados. | Detección previa con mensaje claro. |
+| R-3 | La colación de las columnas puede distinguir acentos o mayúsculas, y entonces "Husares" y "HUSARES" no colisionarían. | Verificar en integración; si hace falta, fijar la colación en la configuración. |
+| R-4 | Encapsular las entidades rompe inicializadores de objeto en semillero y tests. | Se detectan por error de compilación y se corrigen en la misma fase. |
+| R-5 | Carrera entre la verificación y la baja si otro operador asigna la categoría en ese instante. | Aceptado: monolito local de un solo puesto; el conteo y la baja ocurren en la misma unidad de trabajo. |
+
+---
+
+## 7. Alternativas Descartadas
+
+| Alternativa | Motivo |
+| :--- | :--- |
+| `enum` para categorías | No admite categorías definidas por el comercio; cada alta exigiría recompilar. |
+| Reasignar artículos al eliminar | Descartada por decisión del estudiante: la baja se bloquea. |
+| Servicio genérico `IClasificacionService<T>` | Abstracción no solicitada con solo dos usos. |
+| Página nueva en el menú lateral | Toca zona compartida del Shell (Ley 10). |
+
+---
+
+## 8. Relación con el Diseño del ML (Track 6.6)
+
+El Track 6.6 quedó cerrado sin exigir cambios en este plan. Sus piezas se agregan encima de este CRUD:
+
+| Tema | Posible impacto en este plan |
+| :--- | :--- |
+| Alta masiva de categorías y marcas al arrancar el sistema (propuesta de categorías agrupadas por patrón) | Podría requerir una operación de alta en lote en una sola transacción. Hoy se difiere. |
+| Fusión de categorías (D-7) | Es probable que sea necesaria apenas se creen categorías en bloque. |
+| Alias de marca y prefijos EAN (D-6) | Tablas hijas de `Marca`; migración aditiva, no condiciona este plan. |
+| Origen de la clasificación del artículo (manual, sugerida, confirmada) | Campo en `Articulo`; pertenece al track de ML. |
+| Planillas con o sin columnas de marca y categoría | Afecta a `MapeoColumnasDto` y al importador, no al CRUD. |
+| Prefijo EAN → marca | El análisis mostró que el prefijo identifica al **titular** del código (fabricante o importador), no siempre a la marca: un mismo prefijo puede abarcar varias marcas y una marca puede tener varios prefijos. La tabla de prefijos (D-6) debe ser muchos a muchos con `Marca`. Sigue siendo aditiva y no condiciona este plan. |
+
+---
+
+## 9. Preguntas de Defensa
+
+* ¿Por qué la invariante "no eliminar con artículos" vive en el servicio y no en la entidad?
+* ¿Qué pasa con las ventas históricas si se elimina una categoría, y cómo lo evita D-1?
+* ¿Por qué el índice único es filtrado por `deleted_at`?
+* ¿Por qué las categorías son una tabla y no un `enum`?
+* ¿Por qué todo se referencia por `Id` y no por nombre?
