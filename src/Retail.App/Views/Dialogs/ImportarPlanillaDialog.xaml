@@ -60,7 +60,7 @@
         </Grid>
 
         <!-- Contenido Central -->
-        <Grid Grid.Row="1" Margin="24,12">
+        <ScrollViewer Grid.Row="1" Margin="0,12" Padding="24,0" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <!-- Alerta de Validación / Error -->
                 <Border Background="{DynamicResource DangerBackgroundBrush}"
@@ -224,6 +224,65 @@
                                      Background="{DynamicResource SurfaceBorderBrush}" />
                     </StackPanel>
 
+                    <!-- Aviso de importación completada (verde) o con observaciones (ámbar) -->
+                    <Border CornerRadius="6"
+                            BorderThickness="1"
+                            Padding="12,10"
+                            Margin="0,0,0,4"
+                            Visibility="{Binding ImportacionCompletada, Converter={StaticResource BoolToVisConverter}}">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="{DynamicResource SuccessBackgroundBrush}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource SuccessBorderBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ImportacionConObservaciones}" Value="True">
+                                        <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource WarningBorderBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <DockPanel LastChildFill="True">
+                            <iconPacks:PackIconBoxIcons Width="20" Height="20"
+                                                        DockPanel.Dock="Left"
+                                                        VerticalAlignment="Top"
+                                                        Margin="0,1,10,0">
+                                <iconPacks:PackIconBoxIcons.Style>
+                                    <Style TargetType="iconPacks:PackIconBoxIcons">
+                                        <Setter Property="Kind" Value="SolidCheckCircle" />
+                                        <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ImportacionConObservaciones}" Value="True">
+                                                <Setter Property="Kind" Value="SolidAlertTriangle" />
+                                                <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </iconPacks:PackIconBoxIcons.Style>
+                            </iconPacks:PackIconBoxIcons>
+                            <StackPanel>
+                                <TextBlock FontSize="13" FontWeight="Bold" Margin="0,0,0,2">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="Importación completada" />
+                                            <Setter Property="Foreground" Value="{DynamicResource SuccessForegroundBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ImportacionConObservaciones}" Value="True">
+                                                    <Setter Property="Text" Value="Importación completada con observaciones" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="{Binding MensajeExito}"
+                                           FontSize="12"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
                     <StackPanel Orientation="Horizontal"
                                 Visibility="{Binding TieneResultado, Converter={StaticResource BoolToVisConverter}}"
                                 Margin="0,4,0,0">
@@ -275,7 +334,7 @@
                 </StackPanel>
 
             </StackPanel>
-        </Grid>
+        </ScrollViewer>
 
         <!-- Barra Inferior de Acciones -->
         <Border Grid.Row="2"
@@ -291,7 +350,7 @@
                         IsCancel="True">
                     <StackPanel Orientation="Horizontal">
                         
-                        <TextBlock Text="Cerrar" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding TextoBotonCerrar}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
