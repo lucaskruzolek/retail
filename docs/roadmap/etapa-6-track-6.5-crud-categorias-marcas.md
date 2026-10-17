@@ -18,7 +18,7 @@
 | :--- | :--- | :---: |
 | 0 | Alta en el roadmap, ampliación de `RF-04` en la ERS y cierre de decisiones | ✅ Diseño cerrado; track dado de alta en el roadmap y `RF-04` ampliado en la ERS (2026-10-17) |
 | 1 | Dominio: `Crear`/`Renombrar`, regla de texto y excepción | ✅ 2026-10-17: `Rubro`, `Categoria` y `Marca` encapsuladas, regla de nombre en `ReglasTexto`, `ClasificacionEnUsoException` y 49 usos migrados a `Crear`; Release, 1.875 tests y `dotnet format` en verde. `IdRubro` pasa a la Fase 3 (D-19) |
-| 2 | Aplicación: contratos, DTOs, validadores y servicios | ⏳ |
+| 2 | Aplicación: contratos, DTOs, validadores y servicios | ✅ 2026-10-17: `IRubroService`, `ICategoriaService`, `IMarcaService` y sus servicios, puerto `IClasificacionQueryService` (D-20), autorización en `Usuario.PuedeAdministrarClasificacion` (D-21), 6 validadores y 84 tests de servicios. Registro en DI e `IdRubro` en Fase 3 |
 | 3 | Infraestructura: índices únicos filtrados, migración y conteos | ⏳ |
 | 4 | UI: diálogos de administración desde el catálogo de artículos | ⏳ |
 | 5 | Cierre: verificación Release, mapa semántico y propuesta de nota para `wiki/` | ⏳ |
@@ -64,6 +64,8 @@
 | D-17 | Los reportes del Track 6.4 **no** incorporan filtros ni agrupación por rubro en este track. | Cerrada | Fuera de alcance; se evalúa como mejora posterior. |
 | D-18 | **"Sin marca" es `IdMarca = null`**, no una fila "Sin marca" en `MARCAS`. Los reportes y la UI lo muestran con ese texto. Para distinguir "sin marca confirmada" de "todavía no clasificado" se usa el origen de la clasificación del Track 6.6. | Cerrada | Una marca ficticia aparecería como marca real en combos, filtros y rankings, y habría que impedir que se renombre o elimine. El valor nulo ya existe y es válido. |
 | D-19 | **`Categoria.IdRubro` y `MoverARubro` se incorporan en la Fase 3**, junto con su mapeo, la migración de `RUBROS` y el semillero, no en la Fase 1. `Rubro` nace en la Fase 1 sin `DbSet` ni relación. | Cerrada (2026-10-17) | EF Core mapearía `IdRubro` por convención como columna obligatoria, y las bases de los tests de integración no la tienen hasta la migración: la suite quedaría en rojo entre fases. Agregar la invariante junto con su persistencia la hace verificable de punta a punta. Solo cambia el orden; D-13 y D-16 siguen igual. |
+| D-20 | **Puerto `IClasificacionQueryService`** (Aplicación) para los listados con filtro y conteo de rubros, categorías y marcas (D-9) y los conteos que bloquean la baja (D-1, D-15). Reemplaza la ampliación de `IArticuloQueryService` prevista en la Fase 2. | Cerrada (2026-10-17) | Listar la clasificación no es una consulta de artículos; un puerto cohesivo concentra las seis consultas y su implementación de la Fase 3. |
+| D-21 | Solo **crear, renombrar y dar de baja** exigen Gerente o Encargado (`Usuario.PuedeAdministrarClasificacion()`); el listado no exige rol, como los combos actuales. D-19 se extiende a la Aplicación: `IdRubro` en los DTOs de categoría y la validación de rubro existente llegan en la Fase 3. | Cerrada (2026-10-17) | La lectura no modifica nada y ya es pública en los combos; la regla de rol vive en el Dominio y se aplica en el servicio (D-5). |
 
 ---
 

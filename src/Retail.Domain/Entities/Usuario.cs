@@ -135,6 +135,15 @@ public class Usuario : BaseEntity, IAggregateRoot
     public bool EsAdministrador() => IdRol == (int)RolUsuarioEnum.Administrador;
 
     /// <summary>
+    /// Autoridad para administrar rubros, categorías y marcas (Track 6.5, D-5): solo el Gerente y el Encargado.
+    /// El Administrador, que gestiona cuentas, no decide sobre el catálogo comercial; el Cajero solo lo consulta.
+    /// </summary>
+    public bool PuedeAdministrarClasificacion()
+    {
+        return IdRol == (int)RolUsuarioEnum.Gerente || IdRol == (int)RolUsuarioEnum.Encargado;
+    }
+
+    /// <summary>
     /// Matriz de autoridad sobre cuentas (RF-03): el Gerente gestiona cualquier rol; el Administrador solo
     /// Cajeros y Encargados, para que no pueda otorgarse a sí mismo ni a otros un rol con más poder que el suyo.
     /// </summary>
