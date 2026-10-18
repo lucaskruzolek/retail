@@ -234,12 +234,12 @@ vigente en un flujo normal. Correcciones aplicadas:
 | :--- | :--- | :--- |
 | D-1 | Se **agrega** `RolUsuarioEnum.Administrador = 4`; no se renombra Gerente | Cambio aditivo (Open/Closed): `IdRol = 3` conserva su significado y no se tocan los `EsGerente` existentes |
 | D-2 | El **Gerente tiene todos los permisos**, incluido el ABM de usuarios de cualquier rol | En un negocio chico el Gerente es el dueño; no puede depender de otro para dar de alta a un cajero |
-| D-3 | El **Administrador** es un rol **opcional** de soporte técnico con un **subconjunto** de permisos: ABM y blanqueo de Cajeros y Encargados; lectura del historial de backups | Mínimo privilegio. El backup es la base completa (datos personales, Ley 25.326): solo el responsable de los datos (Gerente) puede generarlo o restaurarlo |
+| D-3 | **Revisada por D-30 ([Track 6.3.1](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.3.1-control-dual-restore.md)).** El **Administrador** es un rol **opcional** de soporte técnico con un **subconjunto** de permisos: ABM y blanqueo de Cajeros y Encargados; lectura del historial de backups; ~~sin backup ni restore~~ desde el Track 6.3.1, backup manual con su propia contraseña (D-32) y restore con la autorización de un Gerente (D-30) | Mínimo privilegio. El backup es la base completa (datos personales, Ley 25.326): ~~solo el responsable de los datos (Gerente) puede generarlo o restaurarlo~~ la copia queda en el directorio protegido por ACL, y ninguna restauración ocurre sin la contraseña de un Gerente |
 | D-4 | Solo un Gerente crea Gerentes o Administradores | Evita la escalada de privilegios |
 | D-5 | **No** se siembra un Administrador ni existe la invariante "último Administrador". Se mantiene `UltimoGerenteException` | El Gerente es la raíz de autoridad: sin Gerentes el sistema queda sin gobierno; sin Administradores sigue operando |
 | D-6 | `DebeCambiarPassword`: toda cuenta creada o blanqueada por otro usuario cambia la contraseña en el primer login | Evita la suplantación (quien crea la cuenta conoce la contraseña inicial) |
 | D-7 | `EmailRecuperacion` en `Usuario`: **obligatorio para Gerente**, opcional para el resto, **no único** | El dato se carga ahora; el envío de correos es futuro. El flujo futuro pide nombre de usuario, por eso no hace falta unicidad |
-| D-8 | Backup manual y restore: **reautenticación** del Gerente logueado (vuelve a escribir su contraseña) | *Step-up authentication*: protege ante una sesión que quedó abierta en el mostrador |
+| D-8 | **Revisada por D-30 ([Track 6.3.1](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.3.1-control-dual-restore.md)).** Backup manual y restore: **reautenticación** del usuario logueado (vuelve a escribir su contraseña). Se mantiene para el Gerente y, en el backup, también para el Administrador; en el restore del Administrador, la autorización la da un Gerente con su usuario y contraseña (control dual) | *Step-up authentication*: protege ante una sesión que quedó abierta en el mostrador |
 | D-9 | La autorización por rol se valida **en Application**, no solo en la UI | Defensa en profundidad. Hoy los permisos se controlan solo en `MainViewModel` |
 | D-10 | Migraciones y seed salen de `OnStartup` y pasan a la herramienta **`Retail.Cli`** (proyecto consola) | Arrancar la app no debe modificar el esquema. Permite el backup previo a migrar, la recuperación ante desastres sin login y reutiliza los servicios de Application (los scripts `.ps1` son envoltorios finos) |
 | D-11 | Al arrancar, la app **verifica** y bloquea con un mensaje accionable: base sin conexión, migraciones pendientes, base más nueva que la app, sin Gerente activo | Falla temprana en lugar de efectos secundarios |
@@ -272,7 +272,9 @@ vigente en un flujo normal. Correcciones aplicadas:
 | Consola fiscal ARCA, reportes, límites de crédito | ❌ | ❌ | ✅ | ❌ |
 | ABM y blanqueo de Cajeros y Encargados | ❌ | ❌ | ✅ | ✅ |
 | ABM de Gerentes y Administradores | ❌ | ❌ | ✅ | ❌ |
-| Backup manual y restore (con reautenticación) | ❌ | ❌ | ✅ | ❌ |
+| Backup manual (con reautenticación propia) | ❌ | ❌ | ✅ | ✅ (D-32) |
+| Restore desde el historial | ❌ | ❌ | ✅ (su contraseña) | ✅ con usuario y contraseña de un Gerente (D-30) |
+| Desbloquear cuenta de Administrador (D-31) | ❌ | ❌ | ✅ | ❌ |
 | Historial y estado de backups (lectura) | ❌ | ❌ | ✅ | ✅ |
 
 ---
@@ -434,6 +436,7 @@ sequenceDiagram
 * ¿Qué pasa con la facturación electrónica después de un restore? → R-3.
 * ¿Por qué no alcanza con ocultar el botón para quien no es Gerente? → D-9.
 * ¿Para qué sirve un Administrador si el Gerente puede todo? → D-3 (mínimo privilegio y responsabilidad sobre los datos).
+* ¿Puede el Administrador restaurar? → Sí, desde el Track 6.3.1, con la autorización de un Gerente (D-30); ver el [plan](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.3.1-control-dual-restore.md).
 * ¿Por qué protegen al último Gerente y no al último Administrador? → D-5.
 * ¿Por qué la aplicación ya no migra la base al arrancar? → D-10 y D-11.
 * ¿Por qué los roles van en una migración y los usuarios en un comando? → D-12.
