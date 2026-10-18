@@ -14,18 +14,18 @@ namespace Retail.Infrastructure.IntegrationTests;
 public class RetailDbContextTests : IAsyncLifetime, IDisposable
 {
     private readonly string _dbName = $"RetailDb_Test_Ctx_{Guid.NewGuid():N}";
+    private string _connectionString = string.Empty;
     private RetailDbContext _context = null!;
 
     public async Task InitializeAsync()
     {
-        var connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
-        var options = new DbContextOptionsBuilder<RetailDbContext>()
-            .UseSqlServer(connectionString)
-            .Options;
-
-        _context = new RetailDbContext(options);
+        _connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
+        _context = CrearContexto();
         await _context.Database.MigrateAsync();
     }
+
+    private RetailDbContext CrearContexto() =>
+        new(new DbContextOptionsBuilder<RetailDbContext>().UseSqlServer(_connectionString).Options);
 
     public async Task DisposeAsync()
     {
@@ -37,6 +37,82 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     {
         _context?.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    [Fact]
+    public async Task Usuario_IntentosDeAutorizacion_PersistenEntreContextos()
+    {
+        // Arrange
+        var administrador = Usuario.Crear("admin.intentos", "Ana", "Perez", "hash-de-prueba", RolUsuarioEnum.Administrador, null);
+        _context.Usuarios.Add(administrador);
+        administrador.RegistrarIntentoDeAutorizacion();
+        administrador.RegistrarIntentoDeAutorizacion();
+        await _context.SaveChangesAsync();
+
+        // Act: un contexto nuevo equivale a cerrar y reabrir la aplicación.
+        await using var primeraLectura = CrearContexto();
+        var tras2Intentos = await primeraLectura.Usuarios.SingleAsync(u => u.Id == administrador.Id);
+        var bloqueadaTras2 = tras2Intentos.EstaBloqueada;
+        tras2Intentos.RegistrarIntentoDeAutorizacion();
+        await primeraLectura.SaveChangesAsync();
+
+        await using var segundaLectura = CrearContexto();
+        var tras3Intentos = await segundaLectura.Usuarios.AsNoTracking().SingleAsync(u => u.Id == administrador.Id);
+
+        // Assert
+        tras2Intentos.IntentosAutorizacionFallidos.Should().Be(3);
+        bloqueadaTras2.Should().BeFalse();
+        tras3Intentos.IntentosAutorizacionFallidos.Should().Be(3);
+        tras3Intentos.EstaBloqueada.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Usuario_DosIntentosDeAutorizacion_PersistenYSiguenDesbloqueadosTrasReabrir()
+    {
+        // Arrange
+        var administrador = Usuario.Crear("admin.dos", "Ana", "Perez", "hash-de-prueba", RolUsuarioEnum.Administrador, null);
+        _context.Usuarios.Add(administrador);
+        administrador.RegistrarIntentoDeAutorizacion();
+        administrador.RegistrarIntentoDeAutorizacion();
+        await _context.SaveChangesAsync();
+
+        // Act
+        await using var lectura = CrearContexto();
+        var guardado = await lectura.Usuarios.AsNoTracking().SingleAsync(u => u.Id == administrador.Id);
+
+        // Assert
+        guardado.IntentosAutorizacionFallidos.Should().Be(2);
+        guardado.EstaBloqueada.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Usuario_Desbloquear_PersisteContadorEnCero()
+    {
+        // Arrange: una cuenta bloqueada y guardada.
+        var administrador = Usuario.Crear("admin.bloqueado", "Ana", "Perez", "hash-de-prueba", RolUsuarioEnum.Administrador, null);
+        _context.Usuarios.Add(administrador);
+        for (var i = 0; i < Usuario.MaximoIntentosAutorizacion; i++)
+        {
+            administrador.RegistrarIntentoDeAutorizacion();
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Act: otro contexto la desbloquea; un tercero lee lo que quedó en la base.
+        await using (var desbloqueo = CrearContexto())
+        {
+            var bloqueada = await desbloqueo.Usuarios.SingleAsync(u => u.Id == administrador.Id);
+            bloqueada.EstaBloqueada.Should().BeTrue();
+            bloqueada.Desbloquear();
+            await desbloqueo.SaveChangesAsync();
+        }
+
+        await using var lectura = CrearContexto();
+        var guardado = await lectura.Usuarios.AsNoTracking().SingleAsync(u => u.Id == administrador.Id);
+
+        // Assert
+        guardado.IntentosAutorizacionFallidos.Should().Be(0);
+        guardado.EstaBloqueada.Should().BeFalse();
     }
 
     [Fact]
