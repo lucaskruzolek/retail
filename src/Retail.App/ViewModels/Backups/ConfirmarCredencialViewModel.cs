@@ -1,11 +1,13 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Retail.Application.DTOs.Backups;
 using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Backups;
 
 /// <summary>
-/// ViewModel del diálogo que pide la contraseña del Gerente antes de una operación sensible sobre la base (D-8). Sirve
-/// a las dos: la copia manual (solo contraseña) y la restauración (aviso destacado + palabra de confirmación).
+/// ViewModel del diálogo que pide una credencial antes de una operación sensible sobre la base (D-8). Sirve a tres
+/// casos: la copia manual (solo la contraseña propia), la restauración (aviso destacado + palabra de confirmación) y la
+/// restauración que un Administrador ejecuta con la autorización de un Gerente (usuario y contraseña de ese Gerente, D-30).
 /// </summary>
 /// <remarks>
 /// El diálogo ejecuta la operación en lugar de solo devolver la contraseña porque quien la valida es el servicio de
@@ -19,7 +21,7 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
     /// </summary>
     public const string FraseRestauracion = "RESTAURAR";
 
-    private readonly Func<string, IProgress<int>, Task> _operacion;
+    private readonly Func<CredencialAutorizanteDto, IProgress<int>, Task> _operacion;
 
     public ConfirmarCredencialViewModel(
         Func<string, IProgress<int>, Task> operacion,
@@ -28,6 +30,18 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
         string textoBoton,
         string? aviso = null,
         bool exigeFrase = false)
+        : this(SoloPassword(operacion), titulo, mensaje, textoBoton, aviso, exigeFrase, pideUsuarioAutorizante: false)
+    {
+    }
+
+    private ConfirmarCredencialViewModel(
+        Func<CredencialAutorizanteDto, IProgress<int>, Task> operacion,
+        string titulo,
+        string mensaje,
+        string textoBoton,
+        string? aviso,
+        bool exigeFrase,
+        bool pideUsuarioAutorizante)
     {
         _operacion = operacion ?? throw new ArgumentNullException(nameof(operacion));
         Titulo = titulo;
@@ -35,6 +49,7 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
         TextoBoton = textoBoton;
         Aviso = aviso;
         ExigeFrase = exigeFrase;
+        PideUsuarioAutorizante = pideUsuarioAutorizante;
     }
 
     public string Titulo { get; }
@@ -58,6 +73,21 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
     public bool EsDestructiva => ExigeFrase;
 
     public bool NoEsDestructiva => !ExigeFrase;
+
+    /// <summary>
+    /// El diálogo pide además el usuario del Gerente que autoriza (restauración ejecutada por un Administrador, D-30).
+    /// </summary>
+    public bool PideUsuarioAutorizante { get; }
+
+    /// <summary>
+    /// Etiqueta del campo de contraseña: en el modo autorizado es la del Gerente; en los otros, la de quien opera.
+    /// </summary>
+    public string EtiquetaPassword => PideUsuarioAutorizante ? "Contraseña del Gerente" : "Contraseña";
+
+    public string PlaceholderPassword => PideUsuarioAutorizante ? "Contraseña del Gerente" : "Su contraseña";
+
+    [ObservableProperty]
+    private string _nombreUsuarioAutorizante = string.Empty;
 
     [ObservableProperty]
     private string _frase = string.Empty;
@@ -103,9 +133,15 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
             return false;
         }
 
+        if (PideUsuarioAutorizante && string.IsNullOrWhiteSpace(NombreUsuarioAutorizante))
+        {
+            MensajeError = "Ingrese el usuario del Gerente que autoriza.";
+            return false;
+        }
+
         if (string.IsNullOrEmpty(Password))
         {
-            MensajeError = "Ingrese su contraseña.";
+            MensajeError = PideUsuarioAutorizante ? "Ingrese la contraseña del Gerente." : "Ingrese su contraseña.";
             return false;
         }
 
@@ -113,7 +149,7 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Ejecuta la operación con la contraseña ingresada. Devuelve <c>true</c> si el diálogo debe cerrarse (la operación
+    /// Ejecuta la operación con la credencial ingresada. Devuelve <c>true</c> si el diálogo debe cerrarse (la operación
     /// terminó, bien o mal) y <c>false</c> si debe quedar abierto para corregir algo: un dato faltante o una contraseña
     /// incorrecta.
     /// </summary>
@@ -129,13 +165,13 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
 
         try
         {
-            await _operacion(Password, new Progress<int>(valor => Progreso = Math.Clamp(valor, 0, 100)));
+            await _operacion(new CredencialAutorizanteDto(NombreUsuarioAutorizante.Trim(), Password), new Progress<int>(valor => Progreso = Math.Clamp(valor, 0, 100)));
             Completada = true;
             return true;
         }
         catch (CredencialesInvalidasException ex)
         {
-            // La contraseña se corrige en el mismo diálogo; la operación no empezó.
+            // La contraseña se corrige en el mismo diálogo (el usuario se conserva); la operación no empezó.
             MensajeError = ex.Message;
             Password = string.Empty;
             return false;
@@ -159,7 +195,7 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
         return new ConfirmarCredencialViewModel(
             operacion,
             titulo: "Crear copia de seguridad",
-            mensaje: "Se generará una copia completa de la base de datos. Por seguridad, confirme su contraseña de Gerente.",
+            mensaje: "Se generará una copia completa de la base de datos. Por seguridad, confirme su contraseña.",
             textoBoton: "Crear copia");
     }
 
@@ -180,5 +216,33 @@ public partial class ConfirmarCredencialViewModel : ObservableObject
             textoBoton: "Restaurar",
             aviso: avisoConciliacionArca,
             exigeFrase: true);
+    }
+
+    /// <summary>
+    /// Diálogo de la restauración que ejecuta un Administrador: igual a <see cref="ParaRestauracion"/>, pero además pide
+    /// el usuario y la contraseña de un Gerente que la autorice (control dual, D-30).
+    /// </summary>
+    public static ConfirmarCredencialViewModel ParaRestauracionAutorizada(
+        Func<CredencialAutorizanteDto, IProgress<int>, Task> operacion,
+        string fechaCopia,
+        string avisoConciliacionArca)
+    {
+        return new ConfirmarCredencialViewModel(
+            operacion,
+            titulo: "Restaurar copia de seguridad",
+            mensaje: $"Se reemplazarán TODOS los datos actuales por los de la copia del {fechaCopia}. Todo lo registrado " +
+                "después de esa fecha (ventas, compras, movimientos de caja, cambios de stock y de usuarios) dejará de " +
+                "estar en el sistema. Antes de reemplazar se toma una copia de la base actual y la aplicación se reiniciará.\n\n" +
+                "Un Gerente debe ingresar SU usuario y SU contraseña para autorizar esta restauración.",
+            textoBoton: "Restaurar",
+            aviso: avisoConciliacionArca,
+            exigeFrase: true,
+            pideUsuarioAutorizante: true);
+    }
+
+    private static Func<CredencialAutorizanteDto, IProgress<int>, Task> SoloPassword(Func<string, IProgress<int>, Task> operacion)
+    {
+        ArgumentNullException.ThrowIfNull(operacion);
+        return (credencial, progreso) => operacion(credencial.Password, progreso);
     }
 }

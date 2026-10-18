@@ -5,7 +5,7 @@ using Retail.App.ViewModels.Backups;
 namespace Retail.App.Views.Dialogs;
 
 /// <summary>
-/// Pide la contraseña del Gerente y ejecuta la operación sensible (copia o restauración) con su progreso (D-8).
+/// Pide la credencial (la contraseña propia o el usuario y la contraseña del Gerente que autoriza) y ejecuta la operación sensible (copia o restauración) con su progreso (D-8).
 /// </summary>
 public partial class ConfirmarCredencialDialog : Wpf.Ui.Controls.FluentWindow
 {
@@ -22,6 +22,13 @@ public partial class ConfirmarCredencialDialog : Wpf.Ui.Controls.FluentWindow
         {
             Height = 640;
             MinHeight = 560;
+        }
+
+        // El modo autorizado suma el campo del usuario del Gerente y un párrafo más.
+        if (ViewModel.PideUsuarioAutorizante)
+        {
+            Height = 760;
+            MinHeight = 680;
         }
 
         MaxHeight = SystemParameters.WorkArea.Height;

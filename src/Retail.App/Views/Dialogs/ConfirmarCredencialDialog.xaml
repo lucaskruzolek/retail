@@ -95,15 +95,28 @@
                     <TextBlock Text="Escriba RESTAURAR para confirmar" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
                     <ui:TextBox Text="{Binding Frase, UpdateSourceTrigger=PropertyChanged}"
                                 PlaceholderText="RESTAURAR"
+                                TabIndex="0"
                                 IsEnabled="{Binding IsNotBusy}"
                                 Margin="0,0,0,14" />
                 </StackPanel>
 
-                <!-- Contraseña del Gerente -->
-                <TextBlock Text="Contraseña" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                <!-- Usuario del Gerente que autoriza (solo restauración ejecutada por un Administrador, D-30) -->
+                <StackPanel Visibility="{Binding PideUsuarioAutorizante, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="Usuario del Gerente que autoriza" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                    <ui:TextBox x:Name="TxtUsuarioAutorizante"
+                                Text="{Binding NombreUsuarioAutorizante, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="Usuario del Gerente"
+                                TabIndex="1"
+                                IsEnabled="{Binding IsNotBusy}"
+                                Margin="0,0,0,14" />
+                </StackPanel>
+
+                <!-- Contraseña (propia, o la del Gerente que autoriza) -->
+                <TextBlock Text="{Binding EtiquetaPassword}" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
                 <ui:PasswordBox x:Name="TxtPassword"
                                 PasswordChanged="TxtPassword_PasswordChanged"
-                                PlaceholderText="Su contraseña de Gerente"
+                                PlaceholderText="{Binding PlaceholderPassword}"
+                                TabIndex="2"
                                 IsEnabled="{Binding IsNotBusy}"
                                 Margin="0,0,0,14" />
 

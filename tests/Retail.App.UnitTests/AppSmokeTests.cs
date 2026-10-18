@@ -532,9 +532,10 @@ public class AppSmokeTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ConfirmarCredencialDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool restauracion)
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void ConfirmarCredencialDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(int modo)
     {
         // Arrange
         Exception? xamlException = null;
@@ -543,9 +544,15 @@ public class AppSmokeTests
         WpfTestHelper.Run(() =>
         {
             Func<string, IProgress<int>, Task> operacion = (_, _) => Task.CompletedTask;
-            var viewModel = restauracion
-                ? ConfirmarCredencialViewModel.ParaRestauracion(operacion, "01/10/2026 10:00", "Conciliar con ARCA.")
-                : ConfirmarCredencialViewModel.ParaBackupManual(operacion);
+            Func<Retail.Application.DTOs.Backups.CredencialAutorizanteDto, IProgress<int>, Task> operacionAutorizada = (_, _) => Task.CompletedTask;
+
+            // 0 = copia manual, 1 = restauración del Gerente, 2 = restauración autorizada (Administrador, D-30).
+            var viewModel = modo switch
+            {
+                1 => ConfirmarCredencialViewModel.ParaRestauracion(operacion, "01/10/2026 10:00", "Conciliar con ARCA."),
+                2 => ConfirmarCredencialViewModel.ParaRestauracionAutorizada(operacionAutorizada, "01/10/2026 10:00", "Conciliar con ARCA."),
+                _ => ConfirmarCredencialViewModel.ParaBackupManual(operacion)
+            };
             viewModel.MensajeError = "Contraseña incorrecta.";
             viewModel.IsBusy = true;
 

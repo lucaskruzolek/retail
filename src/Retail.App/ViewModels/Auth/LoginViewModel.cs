@@ -121,6 +121,12 @@ public partial class LoginViewModel : ObservableObject
             TieneError = true;
             MensajeError = ex.Message;
         }
+        catch (CuentaBloqueadaException ex)
+        {
+            _logger.LogWarning("Intento de inicio de sesión con la cuenta bloqueada '{Usuario}'", NombreUsuario);
+            TieneError = true;
+            MensajeError = ex.Message;
+        }
         catch (UsuarioInactivoException ex)
         {
             TieneError = true;

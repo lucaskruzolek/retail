@@ -10,12 +10,14 @@ using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Backups;
 
 /// <summary>
 /// ViewModel de la pantalla de respaldos (RF-22, IU-10): historial de copias, copia manual y restauración. El
-/// Administrador ve el historial pero no puede operar (D-3); la autoridad real es de los servicios de Aplicación.
+/// Gerente opera con su contraseña; el Administrador también, pero restaura solo con la autorización de un Gerente
+/// (D-30, D-32). La autoridad real es de los servicios de Aplicación.
 /// </summary>
 public partial class BackupViewModel : ObservableObject, IDisposable
 {
@@ -72,9 +74,10 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     public bool TieneUltimaRestauracion => !string.IsNullOrWhiteSpace(UltimaRestauracionTexto);
 
     /// <summary>
-    /// Solo el Gerente ve los botones de operar. Al Administrador se le oculta lo que el servicio le rechazaría (D-3).
+    /// Gerente y Administrador ven los botones de operar (D-30, D-32); a cualquier otro rol se le oculta lo que el
+    /// servicio le rechazaría.
     /// </summary>
-    public bool PuedeOperar => _session.EsGerente;
+    public bool PuedeOperar => _session.EsGerente || _session.EsAdministrador;
 
     public bool EsSoloLectura => !PuedeOperar;
 
@@ -123,7 +126,7 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     {
         if (!PuedeOperar)
         {
-            _dialogService.MostrarError("Operación no permitida", "Solo un Gerente puede crear copias de seguridad.");
+            _dialogService.MostrarError("Operación no permitida", "Solo un Gerente o un Administrador pueden crear copias de seguridad.");
             return;
         }
 
@@ -180,7 +183,7 @@ public partial class BackupViewModel : ObservableObject, IDisposable
         {
             _dialogService.MostrarError(
                 "Restauración no disponible",
-                "Seleccione una copia verificada, cuyo archivo se conserve, y use una cuenta de Gerente.");
+                "Seleccione una copia verificada, cuyo archivo se conserve, y use una cuenta de Gerente o de Administrador.");
             return;
         }
 
@@ -193,16 +196,48 @@ public partial class BackupViewModel : ObservableObject, IDisposable
 
         try
         {
-            var vm = ConfirmarCredencialViewModel.ParaRestauracion(
-                async (password, progreso) =>
-                {
-                    restaurada = await Task.Run(() =>
-                        _restauracionService.RestaurarDesdeHistorialAsync(idActor, password, copia.Referencia, progreso));
-                },
-                copia.FechaLocal.ToString("dd/MM/yyyy HH:mm", CultureInfo.CurrentCulture),
-                ResultadoRestauracionDto.AvisoConciliacionArca);
+            var fechaCopia = copia.FechaLocal.ToString("dd/MM/yyyy HH:mm", CultureInfo.CurrentCulture);
+
+            // El Gerente se reautentica con su propia contraseña; el Administrador necesita la autorización de un Gerente.
+            var vm = _session.EsGerente
+                ? ConfirmarCredencialViewModel.ParaRestauracion(
+                    async (password, progreso) =>
+                    {
+                        restaurada = await Task.Run(() =>
+                            _restauracionService.RestaurarDesdeHistorialAsync(idActor, password, copia.Referencia, progreso));
+                    },
+                    fechaCopia,
+                    ResultadoRestauracionDto.AvisoConciliacionArca)
+                : ConfirmarCredencialViewModel.ParaRestauracionAutorizada(
+                    async (credencial, progreso) =>
+                    {
+                        try
+                        {
+                            restaurada = await Task.Run(() =>
+                                _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
+                                    idActor, credencial, copia.Referencia, progreso));
+                        }
+                        catch (CredencialesInvalidasException)
+                        {
+                            // Nunca se registra la contraseña, solo quién intentó y con qué usuario.
+                            _logger.LogWarning(
+                                "Autorización de restauración rechazada: el actor {IdActor} probó con el usuario '{UsuarioAutorizante}'",
+                                idActor,
+                                credencial.NombreUsuario);
+                            throw;
+                        }
+                    },
+                    fechaCopia,
+                    ResultadoRestauracionDto.AvisoConciliacionArca);
 
             var resultado = _dialogService.SolicitarCredencial(vm);
+
+            if (resultado.Error is CuentaBloqueadaException bloqueo)
+            {
+                // Opción C (D-31): la cuenta quedó bloqueada; reiniciar cierra de verdad la sesión abierta.
+                ReiniciarPorCuentaBloqueada(idActor, bloqueo);
+                return;
+            }
 
             if (resultado.Error is not null)
             {
@@ -267,6 +302,28 @@ public partial class BackupViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// La cuenta del Administrador se bloqueó por autorizaciones fallidas: se informa y se reinicia la aplicación, el único
+    /// modo de cerrar la sesión abierta sin tocar el Shell. No se recarga nada: la pantalla queda ocupada hasta el reinicio.
+    /// </summary>
+    private void ReiniciarPorCuentaBloqueada(int idActor, CuentaBloqueadaException bloqueo)
+    {
+        _logger.LogWarning("La cuenta del actor {IdActor} quedó bloqueada por autorizaciones de restauración fallidas", idActor);
+        _dialogService.MostrarError("Cuenta bloqueada", bloqueo.Message + " La aplicación se reiniciará.");
+
+        try
+        {
+            _reinicio.Reiniciar();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "No se pudo reiniciar la aplicación tras el bloqueo de la cuenta: {Mensaje}", ex.Message);
+            _dialogService.MostrarError(
+                "Reinicio manual necesario",
+                "No se pudo reiniciar la aplicación. Ciérrela y vuelva a abrirla antes de seguir trabajando.");
+        }
+    }
+
     private void InformarFallo(string titulo, Exception ex)
     {
         _logger.LogError(ex, "{Titulo}: {Mensaje}", titulo, ex.Message);
@@ -280,6 +337,11 @@ public partial class BackupViewModel : ObservableObject, IDisposable
         var origen = EnumATextoConverter.ATexto(restauracion.Origen);
         var archivo = Path.GetFileName(restauracion.RutaArchivo);
 
-        return $"Última restauración: {fecha:dd/MM/yyyy HH:mm} por {restauracion.NombreUsuario} ({origen}), copia {archivo}.";
+        // Con operador, la ejecutó un Administrador y NombreUsuario es el Gerente que la autorizó (D-30).
+        var responsables = restauracion.NombreOperador is null
+            ? $"por {restauracion.NombreUsuario}"
+            : $"ejecutada por {restauracion.NombreOperador}, autorizada por {restauracion.NombreUsuario}";
+
+        return $"Última restauración: {fecha:dd/MM/yyyy HH:mm} {responsables} ({origen}), copia {archivo}.";
     }
 }

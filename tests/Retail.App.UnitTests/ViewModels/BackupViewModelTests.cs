@@ -16,6 +16,7 @@ public class BackupViewModelTests : IDisposable
 {
     private const int IdActor = 7;
     private const string Password = "Clave2026!";
+    private const string UsuarioGerente = "gerente";
 
     private readonly IBackupService _backupService = Substitute.For<IBackupService>();
     private readonly IRestauracionService _restauracionService = Substitute.For<IRestauracionService>();
@@ -66,6 +67,28 @@ public class BackupViewModelTests : IDisposable
         _dialogService.SolicitarCredencial(Arg.Any<ConfirmarCredencialViewModel>()).Returns(ci =>
         {
             var vm = ci.Arg<ConfirmarCredencialViewModel>();
+            vm.Password = password;
+            vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
+            vm.EjecutarAsync().GetAwaiter().GetResult();
+            return new ResultadoCredencial(vm.Completada, vm.FalloOperacion);
+        });
+    }
+
+    private void ComoAdministrador()
+    {
+        _session.EsGerente.Returns(false);
+        _session.EsAdministrador.Returns(true);
+    }
+
+    /// <summary>
+    /// Simula al Administrador en el diálogo: el usuario y la contraseña del Gerente que autoriza, y la palabra de confirmación.
+    /// </summary>
+    private void AdministradorConfirmaConAutorizacion(string usuario = UsuarioGerente, string password = Password)
+    {
+        _dialogService.SolicitarCredencial(Arg.Any<ConfirmarCredencialViewModel>()).Returns(ci =>
+        {
+            var vm = ci.Arg<ConfirmarCredencialViewModel>();
+            vm.NombreUsuarioAutorizante = usuario;
             vm.Password = password;
             vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
             vm.EjecutarAsync().GetAwaiter().GetResult();
@@ -180,22 +203,60 @@ public class BackupViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task CrearBackupManualAsync_Administrador_NoAbreElDialogoNiLlamaAlServicio()
+    public void PuedeOperar_Administrador_HabilitaLosBotones()
+    {
+        // Arrange
+        ComoAdministrador();
+
+        // Assert
+        _sut.PuedeOperar.Should().BeTrue();
+        _sut.EsSoloLectura.Should().BeFalse();
+        _sut.CrearBackupManualCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void PuedeOperar_RolSinAutoridad_EsSoloLectura()
     {
         // Arrange
         _session.EsGerente.Returns(false);
-        _session.EsAdministrador.Returns(true);
-
-        // Act
-        await _sut.CrearBackupManualCommand.ExecuteAsync(null);
+        _session.EsAdministrador.Returns(false);
 
         // Assert
         _sut.PuedeOperar.Should().BeFalse();
         _sut.EsSoloLectura.Should().BeTrue();
         _sut.CrearBackupManualCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CrearBackupManualAsync_RolSinAutoridad_NoAbreElDialogoNiLlamaAlServicio()
+    {
+        // Arrange
+        _session.EsGerente.Returns(false);
+        _session.EsAdministrador.Returns(false);
+
+        // Act
+        await _sut.CrearBackupManualCommand.ExecuteAsync(null);
+
+        // Assert
         _dialogService.DidNotReceiveWithAnyArgs().SolicitarCredencial(default!);
         await _backupService.DidNotReceiveWithAnyArgs()
             .CrearBackupManualAsync(default, default!, default, default);
+    }
+
+    [Fact]
+    public async Task CrearBackupManualAsync_AdministradorConSuPassword_CreaLaCopia()
+    {
+        // Arrange
+        ComoAdministrador();
+        GerenteConfirmaEnElDialogo();
+        _backupService.CrearBackupManualAsync(IdActor, Password, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .Returns(Creada());
+
+        // Act
+        await _sut.CrearBackupManualCommand.ExecuteAsync(null);
+
+        // Assert
+        await _backupService.Received(1).CrearBackupManualAsync(IdActor, Password, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -379,5 +440,126 @@ public class BackupViewModelTests : IDisposable
 
         // Assert
         _dialogService.Received(1).MostrarError("Reinicio manual necesario", Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task RestaurarCopiaAsync_Administrador_UsaLaAutorizacionDeGerenteYNuncaElCaminoDelGerente()
+    {
+        // Arrange
+        ComoAdministrador();
+        await SeleccionarCopiaRestaurableAsync();
+        var referencia = _sut.CopiaSeleccionada!.Referencia;
+        AdministradorConfirmaConAutorizacion();
+        _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
+                IdActor, Arg.Any<CredencialAutorizanteDto>(), referencia, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .Returns(Restaurada());
+
+        // Act
+        await _sut.RestaurarCopiaCommand.ExecuteAsync(null);
+
+        // Assert
+        await _restauracionService.Received(1).RestaurarConAutorizacionDeGerenteAsync(
+            IdActor,
+            Arg.Is<CredencialAutorizanteDto>(c => c.NombreUsuario == UsuarioGerente && c.Password == Password),
+            referencia,
+            Arg.Any<IProgress<int>?>(),
+            Arg.Any<CancellationToken>());
+        await _restauracionService.DidNotReceiveWithAnyArgs()
+            .RestaurarDesdeHistorialAsync(default, default!, default, default, default);
+        _reinicio.Received(1).Reiniciar();
+    }
+
+    [Fact]
+    public async Task RestaurarCopiaAsync_Gerente_SigueUsandoRestaurarDesdeHistorial()
+    {
+        // Arrange
+        await SeleccionarCopiaRestaurableAsync();
+        GerenteConfirmaEnElDialogo();
+        _restauracionService.RestaurarDesdeHistorialAsync(IdActor, Password, Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .Returns(Restaurada());
+
+        // Act
+        await _sut.RestaurarCopiaCommand.ExecuteAsync(null);
+
+        // Assert
+        await _restauracionService.Received(1)
+            .RestaurarDesdeHistorialAsync(IdActor, Password, Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>());
+        await _restauracionService.DidNotReceiveWithAnyArgs()
+            .RestaurarConAutorizacionDeGerenteAsync(default, default!, default, default, default);
+    }
+
+    [Fact]
+    public async Task RestaurarCopiaAsync_AdministradorConCuentaBloqueada_InformaReiniciaYNoRecarga()
+    {
+        // Arrange
+        ComoAdministrador();
+        await SeleccionarCopiaRestaurableAsync();
+        AdministradorConfirmaConAutorizacion();
+        _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
+                IdActor, Arg.Any<CredencialAutorizanteDto>(), Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new CuentaBloqueadaException());
+
+        // Act
+        await _sut.RestaurarCopiaCommand.ExecuteAsync(null);
+
+        // Assert
+        _dialogService.Received(1).MostrarError("Cuenta bloqueada", Arg.Is<string>(m => m.Contains("bloqueada") && m.Contains("reiniciará")));
+        _reinicio.Received(1).Reiniciar();
+        await _backupService.DidNotReceiveWithAnyArgs().ListarAsync(default, default);
+    }
+
+    [Fact]
+    public async Task RestaurarCopiaAsync_AdministradorConGerenteIncorrecto_QuedaAbiertoSinReiniciar()
+    {
+        // Arrange: el diálogo queda abierto ante la credencial inválida y el operador cancela.
+        ComoAdministrador();
+        await SeleccionarCopiaRestaurableAsync();
+        _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
+                IdActor, Arg.Any<CredencialAutorizanteDto>(), Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new CredencialesInvalidasException());
+        var quedoAbierto = false;
+        _dialogService.SolicitarCredencial(Arg.Any<ConfirmarCredencialViewModel>()).Returns(ci =>
+        {
+            var vm = ci.Arg<ConfirmarCredencialViewModel>();
+            vm.NombreUsuarioAutorizante = UsuarioGerente;
+            vm.Password = "incorrecta";
+            vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
+            quedoAbierto = !vm.EjecutarAsync().GetAwaiter().GetResult();
+            return new ResultadoCredencial(false, null);
+        });
+
+        // Act
+        await _sut.RestaurarCopiaCommand.ExecuteAsync(null);
+
+        // Assert
+        quedoAbierto.Should().BeTrue();
+        _reinicio.DidNotReceive().Reiniciar();
+    }
+
+    // ───────────────────────────── Última restauración ─────────────────────────────
+
+    [Theory]
+    [InlineData(null, "por gerente (")]
+    [InlineData("admin", "ejecutada por admin, autorizada por gerente")]
+    public async Task CargarAsync_UltimaRestauracion_DescribeAlOperadorSoloSiLoHay(string? operador, string esperado)
+    {
+        // Arrange
+        _restauracionService.ObtenerUltimaRestauracionAsync(IdActor, Arg.Any<CancellationToken>())
+            .Returns(new RegistroRestauracionDto
+            {
+                Referencia = Guid.NewGuid(),
+                Fecha = DateTime.UtcNow,
+                Origen = OrigenRestauracionEnum.Aplicacion,
+                NombreUsuario = UsuarioGerente,
+                NombreOperador = operador,
+                ReferenciaCopia = Guid.NewGuid(),
+                RutaArchivo = @"C:\RetailData\Backups\vieja.bak"
+            });
+
+        // Act
+        await _sut.CargarCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.UltimaRestauracionTexto.Should().Contain(esperado);
     }
 }

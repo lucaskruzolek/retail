@@ -32,12 +32,14 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
     public ObservableCollection<UsuarioDto> Usuarios { get; } = new();
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DesbloquearCommand))]
     private UsuarioDto? _usuarioSeleccionado;
 
     [ObservableProperty]
     private string _filtroBusqueda = string.Empty;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(DesbloquearCommand))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -65,6 +67,11 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
     public string InformacionPaginacion => TotalRegistrosFiltrados == 0
         ? "Sin operadores registrados"
         : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistrosFiltrados)} de {TotalRegistrosFiltrados} operadores";
+
+    /// <summary>
+    /// Solo el Gerente ve el botón de desbloqueo (D-31); la autoridad real la decide <c>UsuarioService</c>.
+    /// </summary>
+    public bool PuedeDesbloquear => _session.EsGerente;
 
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
 
@@ -319,6 +326,52 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
             _logger.LogError(ex, "Error al dar de baja al operador {IdUsuario}: {Mensaje}", target.IdUsuario, ex.Message);
             MensajeError = ex.Message;
             _dialogService.MostrarError("Error al Dar de Baja", ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    private bool PuedeDesbloquearSeleccionada() => PuedeDesbloquear && !IsBusy && UsuarioSeleccionado?.EstaBloqueada == true;
+
+    /// <summary>
+    /// Levanta el bloqueo de la cuenta de Administrador seleccionada (D-31). No cambia su contraseña.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(PuedeDesbloquearSeleccionada))]
+    public async Task DesbloquearAsync()
+    {
+        var target = UsuarioSeleccionado;
+        if (target is null || !target.EstaBloqueada)
+        {
+            return;
+        }
+
+        var confirmar = _dialogService.Confirmar(
+            "Confirmar Desbloqueo",
+            $"¿Desea desbloquear la cuenta de '{target.NombreCompleto}' ({target.NombreUsuario})?\n\nLa cuenta fue bloqueada por intentos de autorización fallidos. Su contraseña no se modifica.");
+
+        if (!confirmar)
+        {
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            MensajeError = null;
+
+            // Ley 4: la escritura en la base no corre en el hilo de la UI.
+            await Task.Run(() => _usuarioService.DesbloquearUsuarioAsync(IdActor, target.IdUsuario));
+            _dialogService.MostrarInformacion("Cuenta Desbloqueada", $"La cuenta de '{target.NombreCompleto}' fue desbloqueada correctamente.");
+
+            await CargarUsuariosAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al desbloquear al operador {IdUsuario}: {Mensaje}", target.IdUsuario, ex.Message);
+            MensajeError = ex.Message;
+            _dialogService.MostrarError("Error al Desbloquear", ex.Message);
         }
         finally
         {

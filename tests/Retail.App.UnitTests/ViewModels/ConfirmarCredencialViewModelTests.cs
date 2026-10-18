@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Retail.App.ViewModels.Backups;
+using Retail.Application.DTOs.Backups;
 using Retail.Domain.Exceptions;
 using Xunit;
 
@@ -16,6 +17,8 @@ public class ConfirmarCredencialViewModelTests
     {
         public string? PasswordRecibida { get; private set; }
 
+        public CredencialAutorizanteDto? CredencialRecibida { get; set; }
+
         public int Llamadas { get; private set; }
 
         public Exception? Falla { get; set; }
@@ -27,6 +30,16 @@ public class ConfirmarCredencialViewModelTests
             return Falla is null ? Task.CompletedTask : Task.FromException(Falla);
         }
     }
+
+    private static ConfirmarCredencialViewModel CrearAutorizada(OperacionDePrueba operacion) =>
+        ConfirmarCredencialViewModel.ParaRestauracionAutorizada(
+            (credencial, progreso) =>
+            {
+                operacion.CredencialRecibida = credencial;
+                return operacion.EjecutarAsync(credencial.Password, progreso);
+            },
+            "01/10/2026 10:00",
+            AvisoArca);
 
     private static ConfirmarCredencialViewModel CrearBackup(OperacionDePrueba operacion) =>
         ConfirmarCredencialViewModel.ParaBackupManual(operacion.EjecutarAsync);
@@ -163,5 +176,108 @@ public class ConfirmarCredencialViewModelTests
         vm.Completada.Should().BeFalse();
         vm.FalloOperacion.Should().BeSameAs(falla);
         vm.IsBusy.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ParaBackupManual_Mensaje_NoMencionaAlGerente()
+    {
+        // Act
+        var vm = CrearBackup(new OperacionDePrueba());
+
+        // Assert: lo usan también los Administradores (D-32)
+        vm.Mensaje.Should().NotContain("Gerente");
+        vm.PideUsuarioAutorizante.Should().BeFalse();
+        vm.PlaceholderPassword.Should().Be("Su contraseña");
+    }
+
+    [Fact]
+    public void ParaRestauracionAutorizada_Configuracion_PideUsuarioYExplicaLaAutorizacion()
+    {
+        // Act
+        var vm = CrearAutorizada(new OperacionDePrueba());
+
+        // Assert
+        vm.PideUsuarioAutorizante.Should().BeTrue();
+        vm.ExigeFrase.Should().BeTrue();
+        vm.TieneAviso.Should().BeTrue();
+        vm.Mensaje.Should().Contain("01/10/2026 10:00").And.Contain("Un Gerente debe ingresar SU usuario");
+        vm.EtiquetaPassword.Should().Be("Contraseña del Gerente");
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_ModoAutorizadoSinUsuario_NoEjecutaLaOperacion()
+    {
+        // Arrange
+        var operacion = new OperacionDePrueba();
+        var vm = CrearAutorizada(operacion);
+        vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
+        vm.Password = "Clave2026!";
+
+        // Act
+        var debeCerrar = await vm.EjecutarAsync();
+
+        // Assert
+        debeCerrar.Should().BeFalse();
+        operacion.Llamadas.Should().Be(0);
+        vm.MensajeError.Should().Be("Ingrese el usuario del Gerente que autoriza.");
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_ModoAutorizadoCompleto_LaOperacionRecibeUsuarioYPassword()
+    {
+        // Arrange
+        var operacion = new OperacionDePrueba();
+        var vm = CrearAutorizada(operacion);
+        vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
+        vm.NombreUsuarioAutorizante = " gerente ";
+        vm.Password = "Clave2026!";
+
+        // Act
+        var debeCerrar = await vm.EjecutarAsync();
+
+        // Assert
+        debeCerrar.Should().BeTrue();
+        vm.Completada.Should().BeTrue();
+        operacion.CredencialRecibida.Should().Be(new CredencialAutorizanteDto("gerente", "Clave2026!"));
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_ModoAutorizadoCredencialInvalida_ConservaElUsuarioYLimpiaLaPassword()
+    {
+        // Arrange
+        var operacion = new OperacionDePrueba { Falla = new CredencialesInvalidasException() };
+        var vm = CrearAutorizada(operacion);
+        vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
+        vm.NombreUsuarioAutorizante = "gerente";
+        vm.Password = "incorrecta";
+
+        // Act
+        var debeCerrar = await vm.EjecutarAsync();
+
+        // Assert
+        debeCerrar.Should().BeFalse();
+        vm.NombreUsuarioAutorizante.Should().Be("gerente");
+        vm.Password.Should().BeEmpty();
+        vm.TieneError.Should().BeTrue();
+        vm.FalloOperacion.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_ModoAutorizadoCuentaBloqueada_CierraElDialogoConLaExcepcion()
+    {
+        // Arrange
+        var bloqueo = new CuentaBloqueadaException();
+        var operacion = new OperacionDePrueba { Falla = bloqueo };
+        var vm = CrearAutorizada(operacion);
+        vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
+        vm.NombreUsuarioAutorizante = "gerente";
+        vm.Password = "Clave2026!";
+
+        // Act
+        var debeCerrar = await vm.EjecutarAsync();
+
+        // Assert
+        debeCerrar.Should().BeTrue();
+        vm.FalloOperacion.Should().BeSameAs(bloqueo);
     }
 }

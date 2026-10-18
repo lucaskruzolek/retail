@@ -22,7 +22,7 @@
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO Y ACCIONES (solo el Gerente opera, D-3)         -->
+        <!-- 1. ENCABEZADO Y ACCIONES (Gerente y Administrador operan, D-30 y D-32)         -->
         <!-- ============================================================= -->
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
@@ -35,7 +35,7 @@
                     <TextBlock Text="Historial de copias completas de la base de datos y restauración desde una copia verificada (RF-22)"
                                Style="{StaticResource TextBlockBodySecondary}"
                                Margin="0,4,0,0" />
-                    <TextBlock Text="Modo solo lectura: únicamente un Gerente puede crear o restaurar copias."
+                    <TextBlock Text="Modo solo lectura: únicamente un Gerente o un Administrador pueden crear o restaurar copias."
                                Style="{StaticResource TextBlockBodyMuted}"
                                Margin="0,4,0,0"
                                Visibility="{Binding EsSoloLectura, Converter={StaticResource BoolToVisConverter}}" />

@@ -90,6 +90,24 @@ public class LoginViewModelTests
     }
 
     [Fact]
+    public async Task IniciarSesionCommand_CuentaBloqueada_MuestraElMensajeDelBloqueo()
+    {
+        // Arrange
+        _sut.NombreUsuario = "admin";
+        var excepcion = new CuentaBloqueadaException();
+        _authService.LoginAsync(Arg.Any<LoginRequestDto>()).ThrowsAsync(excepcion);
+
+        // Act
+        await _sut.IniciarSesionCommand.ExecuteAsync("Password123!");
+
+        // Assert
+        _sut.TieneError.Should().BeTrue();
+        _sut.MensajeError.Should().Be(excepcion.Message);
+        _sut.EstaCargando.Should().BeFalse();
+        _session.DidNotReceive().EstablecerSesion(Arg.Any<LoginResultDto>());
+    }
+
+    [Fact]
     public async Task IniciarSesionCommand_UsuarioInactivo_ActivaTieneErrorConMensaje()
     {
         // Arrange
