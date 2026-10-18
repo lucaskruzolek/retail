@@ -31,4 +31,10 @@ public interface IUsuarioService
     /// Si es otro usuario, blanquea la contraseña y el titular deberá cambiarla en su próximo inicio de sesión.
     /// </summary>
     Task CambiarPasswordAsync(int idActor, CambiarPasswordDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Levanta el bloqueo de una cuenta de Administrador por intentos de autorización fallidos (D-31). Solo lo puede
+    /// hacer quien tiene autoridad sobre cuentas de Administrador, en la práctica el Gerente (D-4).
+    /// </summary>
+    Task DesbloquearUsuarioAsync(int idActor, int idUsuario, CancellationToken cancellationToken = default);
 }

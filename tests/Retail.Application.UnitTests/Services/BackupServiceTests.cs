@@ -20,6 +20,7 @@ public class BackupServiceTests
     private const int IdGerente = 1;
     private const int IdAdministrador = 2;
     private const int IdCajero = 3;
+    private const int IdEncargado = 4;
     private const string Migracion = "20261013083426_AgregarRegistrosBackup";
     private static readonly string Hash = new('c', 64);
 
@@ -54,6 +55,7 @@ public class BackupServiceTests
         RegistrarUsuario(IdGerente, "gerente", RolUsuarioEnum.Gerente);
         RegistrarUsuario(IdAdministrador, "soporte", RolUsuarioEnum.Administrador);
         RegistrarUsuario(IdCajero, "cajero", RolUsuarioEnum.Cajero);
+        RegistrarUsuario(IdEncargado, "encargado", RolUsuarioEnum.Encargado);
 
         _esquema.ExisteHistorialDeBackupsAsync(Arg.Any<CancellationToken>()).Returns(true);
         _esquema.ObtenerUltimaMigracionAplicadaAsync(Arg.Any<CancellationToken>()).Returns(Migracion);
@@ -109,18 +111,32 @@ public class BackupServiceTests
     // ───────────────────── Autorización ─────────────────────
 
     [Theory]
-    [InlineData(IdAdministrador)]
+    [InlineData(IdEncargado)]
     [InlineData(IdCajero)]
     [InlineData(999)]
-    public async Task CrearBackupManualAsync_ActorQueNoEsGerente_LanzaOperacionNoAutorizadaSinCopiar(int idActor)
+    public async Task CrearBackupManualAsync_Encargado_LanzaOperacionNoAutorizada(int idActor)
     {
         // Act
         var act = async () => await _sut.CrearBackupManualAsync(idActor, "Clave2026!");
 
-        // Assert: la copia contiene la base completa; solo la pide su responsable (D-3).
+        // Assert: la copia contiene la base completa; solo la piden el Gerente o el Administrador (D-32).
         await act.Should().ThrowAsync<OperacionNoAutorizadaException>();
         _historial.Should().BeEmpty();
         await _ejecutor.DidNotReceiveWithAnyArgs().CrearCopiaAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task CrearBackupManualAsync_AdministradorConSuPassword_RegistraAlAdministradorComoOperador()
+    {
+        // Act
+        await _sut.CrearBackupManualAsync(IdAdministrador, "Clave2026!");
+
+        // Assert: se reautentica con su propia credencial (D-8) y queda como operador de la copia.
+        await _authService.Received(1).VerificarCredencialAsync(IdAdministrador, "Clave2026!", Arg.Any<CancellationToken>());
+        var registro = _historial.Should().ContainSingle().Subject;
+        registro.Tipo.Should().Be(TipoBackupEnum.Manual);
+        registro.NombreUsuario.Should().Be("soporte");
+        registro.IdUsuario.Should().Be(IdAdministrador);
     }
 
     [Fact]

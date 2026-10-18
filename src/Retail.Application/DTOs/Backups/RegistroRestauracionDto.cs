@@ -22,6 +22,12 @@ public sealed record RegistroRestauracionDto
     /// </summary>
     public required string NombreUsuario { get; init; }
 
+    /// <summary>
+    /// Administrador que ejecutó la restauración cuando no fue el Gerente que la autorizó (control dual, D-30);
+    /// <c>null</c> si la ejecutó el mismo Gerente o la consola.
+    /// </summary>
+    public string? NombreOperador { get; init; }
+
     public required Guid ReferenciaCopia { get; init; }
 
     public required string RutaArchivo { get; init; }

@@ -3,8 +3,8 @@ using Retail.Application.DTOs.Backups;
 namespace Retail.Application.Interfaces.Services;
 
 /// <summary>
-/// Restauración de una copia completa de la base (RF-22, RF-23). Las dos entradas comparten un único mecanismo (base
-/// temporal + intercambio, D-17 y D-21) y difieren solo en cómo se autoriza al Gerente.
+/// Restauración de una copia completa de la base (RF-22, RF-23). Las tres entradas comparten un único mecanismo (base
+/// temporal + intercambio, D-17 y D-21) y difieren solo en cómo se autoriza la operación.
 /// </summary>
 public interface IRestauracionService
 {
@@ -15,6 +15,18 @@ public interface IRestauracionService
     Task<ResultadoRestauracionDto> RestaurarDesdeHistorialAsync(
         int idActor,
         string password,
+        Guid referenciaCopia,
+        IProgress<int>? progreso = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Control dual (D-30): un Administrador ejecuta la restauración y un Gerente activo, sin cambio de contraseña
+    /// pendiente, la autoriza con su credencial, que se verifica contra la base vigente. Cada intento del Administrador
+    /// se cuenta antes de verificar y la cuenta se bloquea al agotarlos (D-31).
+    /// </summary>
+    Task<ResultadoRestauracionDto> RestaurarConAutorizacionDeGerenteAsync(
+        int idActor,
+        CredencialAutorizanteDto autorizante,
         Guid referenciaCopia,
         IProgress<int>? progreso = null,
         CancellationToken cancellationToken = default);

@@ -122,6 +122,7 @@ public class AdministracionSistemaService : IAdministracionSistemaService
             Rol = RolUsuarioEnum.Gerente,
             EmailRecuperacion = gerente.EmailRecuperacion,
             DebeCambiarPassword = gerente.DebeCambiarPassword,
+            EstaBloqueada = gerente.EstaBloqueada,
             Activo = true,
             CreatedAt = gerente.CreatedAt
         };

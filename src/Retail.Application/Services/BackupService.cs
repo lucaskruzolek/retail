@@ -78,10 +78,11 @@ public class BackupService : IBackupService
     {
         var actor = await ObtenerActorAsync(idActor, cancellationToken);
 
-        // La copia contiene la base completa (datos personales, Ley 25.326): solo la pide su responsable (D-3).
-        if (!actor.EsGerente())
+        // La copia contiene la base completa (datos personales, Ley 25.326): la piden el Gerente o el Administrador
+        // (D-32), cada uno con su propia contraseña. Copiar no restaura ni modifica datos.
+        if (!actor.EsGerente() && !actor.EsAdministrador())
         {
-            throw new OperacionNoAutorizadaException("Solo un Gerente puede generar una copia de seguridad manual.");
+            throw new OperacionNoAutorizadaException("Solo un Gerente o un Administrador puede generar una copia de seguridad manual.");
         }
 
         // Reautenticación (D-8): una sesión abierta en el mostrador no alcanza.

@@ -56,6 +56,13 @@ public class AuthService : IAuthService
                 throw new CredencialesInvalidasException();
             }
 
+            // El bloqueo se informa recién con la contraseña correcta: quien no la conoce recibe siempre la misma
+            // respuesta genérica y no puede averiguar qué cuentas están bloqueadas (D-31).
+            if (usuarioActivo.EstaBloqueada)
+            {
+                throw new CuentaBloqueadaException();
+            }
+
             return new LoginResultDto
             {
                 IdUsuario = usuarioActivo.Id,
@@ -88,6 +95,12 @@ public class AuthService : IAuthService
             || !_passwordHasher.VerifyPassword(password, usuario.PasswordHash))
         {
             throw new CredencialesInvalidasException();
+        }
+
+        // Mismo orden que en el login: el bloqueo solo se revela a quien demostró conocer la contraseña (D-31).
+        if (usuario.EstaBloqueada)
+        {
+            throw new CuentaBloqueadaException();
         }
     }
 }

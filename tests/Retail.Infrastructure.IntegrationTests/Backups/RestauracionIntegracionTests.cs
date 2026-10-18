@@ -356,6 +356,71 @@ public class RestauracionIntegracionTests : IAsyncLifetime
         registro.BaseAnterior.Should().Be(resultado.BaseAnterior);
     }
 
+    // ───────────────────── Control dual (D-30, D-31) ─────────────────────
+
+    private const string NombreAdministrador = "soporte";
+
+    /// <summary>
+    /// Da de alta en la vigente un Administrador con contraseña propia y hash BCrypt real.
+    /// </summary>
+    private async Task<int> CrearAdministradorAsync()
+    {
+        await using var scope = _servicios.CreateAsyncScope();
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+        await using var contexto = ContextoDe(CadenaVigente);
+        var administrador = Usuario.Crear(
+            NombreAdministrador, "Sara", "Ruiz", hasher.HashPassword("provisoria"), RolUsuarioEnum.Administrador, null);
+        administrador.CambiarPasswordPropia(hasher.HashPassword("ClaveAdmin2026!"));
+        contexto.Usuarios.Add(administrador);
+        await contexto.SaveChangesAsync();
+        return administrador.Id;
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_PasswordIncorrecta_PersisteElIntentoEnLaBase()
+    {
+        // Arrange
+        await PrepararBaseConGerenteAsync();
+        var idAdministrador = await CrearAdministradorAsync();
+        var copia = await CrearBackupManualAsync();
+
+        // Act
+        var act = () => EnScopeAsync(sp => sp.GetRequiredService<IRestauracionService>()
+            .RestaurarConAutorizacionDeGerenteAsync(
+                idAdministrador, new CredencialAutorizanteDto(NombreGerente, "ClaveIncorrecta1!"), copia.Referencia));
+
+        // Assert: con un contexto nuevo se comprueba que el contador quedó guardado en la base, no solo en memoria.
+        await act.Should().ThrowAsync<CredencialesInvalidasException>();
+        await using var contexto = ContextoDe(CadenaVigente);
+        var administrador = await contexto.Usuarios.AsNoTracking().SingleAsync(u => u.Id == idAdministrador);
+        administrador.IntentosAutorizacionFallidos.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_CredencialValida_RegistraOperadorYAutorizante()
+    {
+        // Arrange
+        await PrepararBaseConGerenteAsync();
+        var idAdministrador = await CrearAdministradorAsync();
+        var copia = await CrearBackupManualAsync();
+        await AgregarCategoriaAsync(CadenaVigente, "Datos B");
+
+        // Act
+        var resultado = await EnScopeAsync(sp => sp.GetRequiredService<IRestauracionService>()
+            .RestaurarConAutorizacionDeGerenteAsync(
+                idAdministrador, new CredencialAutorizanteDto(NombreGerente, ClaveGerente), copia.Referencia));
+
+        // Assert: en la base restaurada queda el Gerente que autorizó y el Administrador que ejecutó.
+        await using var contexto = ContextoDe(CadenaVigente);
+        var registro = await contexto.RegistrosRestauracion.AsNoTracking()
+            .SingleAsync(r => r.Referencia == resultado.ReferenciaRestauracion);
+        registro.IdUsuario.Should().Be(_idGerente);
+        registro.NombreUsuario.Should().Be(NombreGerente);
+        registro.IdOperador.Should().Be(idAdministrador);
+        registro.NombreOperador.Should().Be(NombreAdministrador);
+    }
+
     // ───────────────────── B-3: copias fuera del directorio de respaldos ─────────────────────
 
     /// <summary>

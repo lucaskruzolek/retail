@@ -242,6 +242,33 @@ public class UsuarioService : IUsuarioService
     }
 
     /// <summary>
+    /// Levanta el bloqueo de una cuenta (D-31). El Administrador bloqueado no puede desbloquearse a sí mismo: la
+    /// autoridad se exige sobre el rol Administrador, que solo tiene el Gerente (D-4). Se verifica antes de buscar
+    /// al objetivo para que un rol sin autoridad no averigüe qué cuentas existen.
+    /// </summary>
+    public async Task DesbloquearUsuarioAsync(int idActor, int idUsuario, CancellationToken cancellationToken = default)
+    {
+        if (idUsuario <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idUsuario), "El identificador del usuario debe ser mayor a cero.");
+        }
+
+        var actor = await ObtenerActorAsync(idActor, cancellationToken);
+        if (!actor.PuedeGestionarCuentasDeRol(RolUsuarioEnum.Administrador))
+        {
+            throw new OperacionNoAutorizadaException("Solo un Gerente puede desbloquear una cuenta.");
+        }
+
+        var usuario = await _usuarioRepository.GetByIdAsync(idUsuario, includeDeleted: false, cancellationToken)
+            ?? throw new DomainException($"No se encontró ningún usuario activo con el ID {idUsuario}.");
+
+        usuario.Desbloquear();
+
+        await _usuarioRepository.UpdateAsync(usuario, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
     /// El actor se lee de la base en cada operación: si fue dado de baja o cambió de rol mientras tenía la sesión
     /// abierta, la autorización usa su estado actual y no el que tenía al iniciar sesión.
     /// </summary>
@@ -333,6 +360,7 @@ public class UsuarioService : IUsuarioService
                 ? usuario.EmailRecuperacion
                 : null,
             DebeCambiarPassword = usuario.DebeCambiarPassword,
+            EstaBloqueada = usuario.EstaBloqueada,
             Activo = !usuario.IsDeleted,
             CreatedAt = usuario.CreatedAt
         };
