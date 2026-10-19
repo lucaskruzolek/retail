@@ -20,8 +20,9 @@ namespace Retail.Infrastructure.Persistence.Context
                 .AddJsonFile("appsettings.Development.json", optional: true)
                 .Build();
 
-            var connectionString = configuration.GetConnectionString("RetailDatabase")
-                ?? "Server=(localdb)\\mssqllocaldb;Database=RetailDb;Trusted_Connection=True;MultipleActiveResultSets=true";
+            var connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? configuration.GetConnectionString("RetailDatabase")
+                ?? "Server=.;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 
             var optionsBuilder = new DbContextOptionsBuilder<RetailDbContext>();
             optionsBuilder.UseSqlServer(connectionString);

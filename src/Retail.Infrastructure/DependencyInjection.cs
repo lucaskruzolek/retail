@@ -51,7 +51,8 @@ public static class DependencyInjection
 
         // 4. Persistencia en Entity Framework Core 8 (SQL Server Express)
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? @"Server=.\SQLEXPRESS;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+            ?? configuration.GetConnectionString("RetailDatabase")
+            ?? @"Server=.;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 
         services.AddDbContext<RetailDbContext>(options =>
         {

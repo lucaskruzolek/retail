@@ -8,5 +8,5 @@ public class PoliticaBloqueoOptions
     public const string SectionName = "PoliticaBloqueo";
 
     public int MaxIntentosFallidos { get; set; } = 5;
-    public int MinutosBloqueo { get; set; } = 15;
+    public int MinutosBloqueo { get; set; } = 1;
 }
