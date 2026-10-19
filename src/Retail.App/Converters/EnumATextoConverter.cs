@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Data;
+using Retail.Application.DTOs.Reportes;
 using Retail.Domain.Enums;
 
 namespace Retail.App.Converters;
@@ -52,6 +53,14 @@ public class EnumATextoConverter : IValueConverter
             EstadoBackupEnum.ArchivoPurgado => "Archivo purgado",
             OrigenRestauracionEnum.Aplicacion => "aplicación",
             OrigenRestauracionEnum.Consola => "consola",
+            AgrupacionTemporalEnum.Dia => "Día",
+            AgrupacionTemporalEnum.Semana => "Semana",
+            AgrupacionTemporalEnum.Mes => "Mes",
+            CriterioRankingEnum.Unidades => "Unidades",
+            CriterioRankingEnum.Importe => "Importe",
+            AgrupacionRentabilidadEnum.Categoria => "Categoría",
+            AgrupacionRentabilidadEnum.Marca => "Marca",
+            AgrupacionRentabilidadEnum.Articulo => "Artículo",
             _ => valor.ToString()
         };
     }

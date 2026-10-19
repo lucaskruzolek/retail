@@ -3,7 +3,9 @@ using NSubstitute;
 using Retail.App.Services;
 using Retail.App.ViewModels.Articulos;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Enums;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
@@ -11,8 +13,15 @@ namespace Retail.App.UnitTests.ViewModels;
 public class ArticulosViewModelTests : IDisposable
 {
     private readonly IInventarioService _inventarioService;
+    private readonly IProveedorService _proveedorService;
     private readonly IArticuloDialogService _dialogService;
     private readonly ArticulosViewModel _sut;
+
+    private readonly List<ProveedorDto> _proveedoresEjemplo =
+    [
+        new() { IdProveedor = 1, RazonSocial = "Distribuidora Papelera", Cuit = "30111111118" },
+        new() { IdProveedor = 2, RazonSocial = "Librería Mayorista", Cuit = "30222222224" }
+    ];
 
     private readonly List<ArticuloDto> _articulosEjemplo =
     [
@@ -83,6 +92,10 @@ public class ArticulosViewModelTests : IDisposable
     {
         _inventarioService = Substitute.For<IInventarioService>();
         _dialogService = Substitute.For<IArticuloDialogService>();
+        _proveedorService = Substitute.For<IProveedorService>();
+
+        _proveedorService.ListarProveedoresAsync(Arg.Any<CancellationToken>())
+            .Returns(_proveedoresEjemplo);
 
         _inventarioService.ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
@@ -123,7 +136,7 @@ public class ArticulosViewModelTests : IDisposable
         _inventarioService.ListarMarcasAsync(Arg.Any<CancellationToken>())
             .Returns(_marcasEjemplo);
 
-        _sut = new ArticulosViewModel(_inventarioService, _dialogService);
+        _sut = new ArticulosViewModel(_inventarioService, _dialogService, _proveedorService);
     }
 
     [Fact]
@@ -137,6 +150,35 @@ public class ArticulosViewModelTests : IDisposable
         _sut.TotalArticulos.Should().Be(3);
         _sut.TotalAlertasStock.Should().Be(1);
         _sut.CategoriasFiltro.Should().HaveCount(3); // "Todas" + 2 categorías
+        _sut.MarcasFiltro.Should().HaveCount(4); // "Todas" + 3 marcas
+        _sut.DistribuidoresFiltro.Should().HaveCount(4); // "Todos", "Ninguno" + 2 proveedores
+        _sut.OpcionesStockFiltro.Should().HaveCount(3); // "Todos", "Stock crítico", "Sin stock"
+    }
+
+    [Fact]
+    public void LimpiarFiltros_DebeRestablecerFiltrosYDispararRecarga()
+    {
+        // Arrange
+        _sut.TextoBusqueda = "Cuaderno";
+        _sut.IdCategoriaFiltro = 1;
+        _sut.IdMarcaFiltro = 2;
+        _sut.IdDistribuidorFiltro = 1;
+        _sut.FiltroStock = FiltroStockArticuloEnum.StockCritico;
+
+        _sut.HayFiltrosActivos.Should().BeTrue();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeTrue();
+
+        // Act
+        _sut.LimpiarFiltrosCommand.Execute(null);
+
+        // Assert
+        _sut.TextoBusqueda.Should().BeEmpty();
+        _sut.IdCategoriaFiltro.Should().Be(0);
+        _sut.IdMarcaFiltro.Should().Be(0);
+        _sut.IdDistribuidorFiltro.Should().Be(0);
+        _sut.FiltroStock.Should().Be(FiltroStockArticuloEnum.Todos);
+        _sut.HayFiltrosActivos.Should().BeFalse();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
 using Xunit;
 
@@ -243,5 +244,117 @@ public class CargaSerializadaTests
         // Assert
         operacionConsultoAntes.Should().BeFalse("EF Core no admite dos operaciones simultáneas sobre el mismo contexto");
         aplicados.Should().Equal("sugerencias", "articulo escaneado");
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_ConCargaReemplazadaTrasElUmbral_RegistraUnaAdvertencia()
+    {
+        // Arrange
+        var logger = new LoggerCapturador();
+        using var carga = new CargaSerializada(logger, UmbralChico);
+        var primeraEnCurso = new TaskCompletionSource<string>();
+
+        // Act: la primera consulta supera el umbral y recién después llega una carga nueva que la reemplaza
+        var primera = carga.EjecutarAsync(_ => primeraEnCurso.Task, _ => { }, _ => { });
+        await Task.Delay(PausaSobreElUmbral);
+        var segunda = carga.EjecutarAsync(_ => Task.FromResult("B"), _ => { }, _ => { });
+        primeraEnCurso.SetException(new InvalidOperationException("Operation cancelled by user"));
+        await Task.WhenAll(primera, segunda).WaitAsync(LimiteEspera);
+
+        // Assert
+        logger.Advertencias.Should().ContainSingle().Which.Should().Contain("reemplazo por otra carga");
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_ConCargaCanceladaAntesDelUmbral_NoRegistraNada()
+    {
+        // Arrange
+        var logger = new LoggerCapturador();
+        using var carga = new CargaSerializada(logger, TimeSpan.FromSeconds(30));
+        var primeraEnCurso = new TaskCompletionSource<string>();
+
+        // Act
+        var primera = carga.EjecutarAsync(_ => primeraEnCurso.Task, _ => { }, _ => { });
+        var segunda = carga.EjecutarAsync(_ => Task.FromResult("B"), _ => { }, _ => { });
+        primeraEnCurso.SetException(new InvalidOperationException("Operation cancelled by user"));
+        await Task.WhenAll(primera, segunda).WaitAsync(LimiteEspera);
+
+        // Assert
+        logger.Advertencias.Should().BeEmpty("las cancelaciones rápidas son normales y no ameritan traza");
+    }
+
+    [Fact]
+    public async Task Dispose_ConConsultaLentaEnCurso_RegistraUnaAdvertencia()
+    {
+        // Arrange
+        var logger = new LoggerCapturador();
+        var carga = new CargaSerializada(logger, UmbralChico);
+        var enCurso = new TaskCompletionSource<string>();
+        var pendiente = carga.EjecutarAsync(_ => enCurso.Task, _ => { }, _ => { });
+        await Task.Delay(PausaSobreElUmbral);
+
+        // Act
+        carga.Dispose();
+        enCurso.SetException(new ObjectDisposedException("RetailDbContext"));
+        await pendiente.WaitAsync(LimiteEspera);
+
+        // Assert
+        logger.Advertencias.Should().ContainSingle().Which.Should().Contain("cierre de pantalla");
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_ConCargaLentaQueCompleta_NoRegistraAdvertencia()
+    {
+        // Arrange
+        var logger = new LoggerCapturador();
+        using var carga = new CargaSerializada(logger, UmbralChico);
+        var enCurso = new TaskCompletionSource<string>();
+        var aplicados = new List<string>();
+
+        // Act
+        var pendiente = carga.EjecutarAsync(_ => enCurso.Task, aplicados.Add, _ => { });
+        await Task.Delay(PausaSobreElUmbral);
+        enCurso.SetResult("A");
+        await pendiente.WaitAsync(LimiteEspera);
+
+        // Assert
+        aplicados.Should().Equal("A");
+        logger.Advertencias.Should().BeEmpty();
+    }
+
+    private static readonly TimeSpan UmbralChico = TimeSpan.FromMilliseconds(50);
+    private static readonly TimeSpan PausaSobreElUmbral = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>Logger de prueba mínimo: guarda los mensajes de nivel Warning.</summary>
+    private sealed class LoggerCapturador : ILogger
+    {
+        public List<string> Advertencias { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state)
+            where TState : notnull
+        {
+            return null;
+        }
+
+        public bool IsEnabled(LogLevel logLevel)
+        {
+            return true;
+        }
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning)
+            {
+                lock (Advertencias)
+                {
+                    Advertencias.Add(formatter(state, exception));
+                }
+            }
+        }
     }
 }

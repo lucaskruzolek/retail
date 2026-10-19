@@ -48,8 +48,8 @@ public class VentaTests
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
 
         // Act
-        venta.AgregarItem(idArticulo: 10, cantidad: 3, precioUnitario: 150.50m);
-        venta.AgregarItem(idArticulo: 11, cantidad: 1, precioUnitario: 99.99m);
+        venta.AgregarItem(idArticulo: 10, cantidad: 3, precioUnitario: 150.50m, costoUnitario: 75.25m);
+        venta.AgregarItem(idArticulo: 11, cantidad: 1, precioUnitario: 99.99m, costoUnitario: 50m);
 
         // Assert
         venta.Detalles.Should().HaveCount(2);
@@ -63,10 +63,10 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
-        venta.AgregarItem(10, 2, 100m);
+        venta.AgregarItem(10, 2, 100m, 50m);
 
         // Act
-        venta.AgregarItem(10, 3, 100m);
+        venta.AgregarItem(10, 3, 100m, 50m);
 
         // Assert
         venta.Detalles.Should().ContainSingle();
@@ -79,15 +79,87 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
-        venta.AgregarItem(10, 2, 100m);
+        venta.AgregarItem(10, 2, 100m, 50m);
 
         // Act
-        var act = () => venta.AgregarItem(10, 1, 120m);
+        var act = () => venta.AgregarItem(10, 1, 120m, 50m);
 
         // Assert
         act.Should().Throw<DomainException>();
         venta.Detalles.Single().Cantidad.Should().Be(2);
         venta.Total.Should().Be(200m);
+    }
+
+    [Fact]
+    public void AgregarItem_ConCosto_ConservaCostoUnitarioEnElDetalle()
+    {
+        // Arrange
+        var venta = Venta.Registrar(IdTurno, IdUsuario, null);
+
+        // Act
+        venta.AgregarItem(10, 2, 100m, 60m);
+
+        // Assert
+        venta.Detalles.Single().CostoUnitario.Should().Be(60m);
+    }
+
+    [Fact]
+    public void AgregarItem_CostoNegativo_LanzaArgumentOutOfRange()
+    {
+        // Arrange
+        var venta = Venta.Registrar(IdTurno, IdUsuario, null);
+
+        // Act
+        var act = () => venta.AgregarItem(10, 1, 100m, -1m);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>().WithParameterName("costoUnitario");
+        venta.Detalles.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AgregarItem_CostoCero_LoAcepta()
+    {
+        // Arrange
+        var venta = Venta.Registrar(IdTurno, IdUsuario, null);
+
+        // Act
+        venta.AgregarItem(10, 1, 100m, 0m);
+
+        // Assert
+        venta.Detalles.Single().CostoUnitario.Should().Be(0m);
+    }
+
+    [Fact]
+    public void AgregarItem_ArticuloRepetidoConOtroCosto_LanzaDomainException()
+    {
+        // Arrange
+        var venta = Venta.Registrar(IdTurno, IdUsuario, null);
+        venta.AgregarItem(10, 2, 100m, 50m);
+
+        // Act
+        var act = () => venta.AgregarItem(10, 1, 100m, 55m);
+
+        // Assert
+        act.Should().Throw<DomainException>().WithMessage("*otro costo unitario*");
+        venta.Detalles.Single().Cantidad.Should().Be(2);
+        venta.Detalles.Single().CostoUnitario.Should().Be(50m);
+    }
+
+    [Fact]
+    public void AgregarItem_ArticuloRepetidoConMismoPrecioYCosto_SumaCantidad()
+    {
+        // Arrange
+        var venta = Venta.Registrar(IdTurno, IdUsuario, null);
+        venta.AgregarItem(10, 2, 100m, 50m);
+
+        // Act
+        venta.AgregarItem(10, 3, 100m, 50m);
+
+        // Assert
+        venta.Detalles.Should().ContainSingle();
+        venta.Detalles.Single().Cantidad.Should().Be(5);
+        venta.Detalles.Single().CostoUnitario.Should().Be(50m);
     }
 
     [Theory]
@@ -100,7 +172,7 @@ public class VentaTests
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
 
         // Act
-        var act = () => venta.AgregarItem(idArticulo, cantidad, precioUnitario);
+        var act = () => venta.AgregarItem(idArticulo, cantidad, precioUnitario, costoUnitario: 0m);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -112,7 +184,7 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
-        venta.AgregarItem(10, 2, 500m);
+        venta.AgregarItem(10, 2, 500m, 250m);
 
         // Act
         venta.AplicarDescuento(150m);
@@ -130,7 +202,7 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
-        venta.AgregarItem(10, 2, 500m);
+        venta.AgregarItem(10, 2, 500m, 250m);
 
         // Act
         var act = () => venta.AplicarDescuento(descuento);
@@ -146,7 +218,7 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, IdCliente);
-        venta.AgregarItem(10, 1, 1000m);
+        venta.AgregarItem(10, 1, 1000m, 500m);
 
         // Act
         venta.ImputarPago(MedioPagoEnum.Efectivo, 300m);
@@ -167,7 +239,7 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, idCliente: null);
-        venta.AgregarItem(10, 1, 1000m);
+        venta.AgregarItem(10, 1, 1000m, 500m);
 
         // Act
         var act = () => venta.ImputarPago(MedioPagoEnum.CuentaCorriente, 1000m);
@@ -210,7 +282,7 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
-        venta.AgregarItem(10, 2, 500m);
+        venta.AgregarItem(10, 2, 500m, 250m);
         venta.AplicarDescuento(100m);
         venta.ImputarPago(MedioPagoEnum.Efectivo, 900m);
 
@@ -239,7 +311,7 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
-        venta.AgregarItem(10, 1, 1000m);
+        venta.AgregarItem(10, 1, 1000m, 500m);
         venta.ImputarPago(MedioPagoEnum.Efectivo, 700m);
 
         // Act
@@ -255,7 +327,7 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
-        venta.AgregarItem(10, 1, 1000m);
+        venta.AgregarItem(10, 1, 1000m, 500m);
         venta.ImputarPago(MedioPagoEnum.Efectivo, 1200m);
 
         // Act
@@ -270,7 +342,7 @@ public class VentaTests
     {
         // Arrange
         var venta = Venta.Registrar(IdTurno, IdUsuario, null);
-        venta.AgregarItem(10, 1, 1000m);
+        venta.AgregarItem(10, 1, 1000m, 500m);
         venta.AplicarDescuento(1000m);
 
         // Act

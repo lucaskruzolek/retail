@@ -67,6 +67,13 @@ public class VentaConfiguration : IEntityTypeConfiguration<Venta>
 
         builder.Ignore(v => v.IsDeleted);
 
+        // RNF-09: todos los reportes filtran las ventas por rango de fecha. El filtro del índice coincide con el de la
+        // consulta (baja lógica) y las columnas incluidas cubren los totales y la agrupación por cajero sin leer la tabla.
+        builder.HasIndex(v => v.FechaHora)
+            .HasDatabaseName("IX_VENTAS_fecha_hora")
+            .HasFilter("[deleted_at] IS NULL")
+            .IncludeProperties(v => new { v.Subtotal, v.Descuento, v.Total, v.IdUsuario });
+
         builder.HasOne(v => v.TurnoCaja)
             .WithMany(tc => tc.Ventas)
             .HasForeignKey(v => v.IdTurno)

@@ -3,6 +3,7 @@ using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 
 namespace Retail.Infrastructure.Persistence.Services;
@@ -30,12 +31,7 @@ public class ArticuloQueryService : IArticuloQueryService
         int totalAlertasStock = await _context.Articulos.CountAsync(a => !a.EsServicio && a.StockActual <= a.StockMinimo, cancellationToken);
 
         // 2. Consulta filtrada con proyección y sin tracking (RNF-03)
-        IQueryable<Articulo> query = _context.Articulos
-            .AsNoTracking()
-            .Include(a => a.Categoria)
-            .Include(a => a.Marca)
-            .Include(a => a.CatalogoProveedor)
-                .ThenInclude(cp => cp!.Proveedor);
+        IQueryable<Articulo> query = _context.Articulos.AsNoTracking();
 
         if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
         {
@@ -51,14 +47,40 @@ public class ArticuloQueryService : IArticuloQueryService
             query = query.Where(a => a.IdCategoria == consulta.IdCategoria.Value);
         }
 
-        if (consulta.SoloStockCritico)
+        if (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0)
+        {
+            query = query.Where(a => a.IdMarca == consulta.IdMarca.Value);
+        }
+
+        if (consulta.IdProveedor == -1)
+        {
+            // Ninguno (o manual): ni el artículo ni su artículo origen tienen proveedor asignado
+            query = query.Where(a =>
+                (a.IdArticuloOrigen == null && a.IdCatalogoProveedor == null) ||
+                (a.IdArticuloOrigen != null && a.ArticuloOrigen!.IdCatalogoProveedor == null));
+        }
+        else if (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value > 0)
+        {
+            int idProv = consulta.IdProveedor.Value;
+            query = query.Where(a =>
+                (a.CatalogoProveedor != null && a.CatalogoProveedor.IdProveedor == idProv) ||
+                (a.ArticuloOrigen != null && a.ArticuloOrigen.CatalogoProveedor != null && a.ArticuloOrigen.CatalogoProveedor.IdProveedor == idProv));
+        }
+
+        if (consulta.FiltroStock == FiltroStockArticuloEnum.StockCritico)
         {
             query = query.Where(a => !a.EsServicio && a.StockActual <= a.StockMinimo);
+        }
+        else if (consulta.FiltroStock == FiltroStockArticuloEnum.SinStock)
+        {
+            query = query.Where(a => !a.EsServicio && a.StockActual <= 0);
         }
 
         bool esConsultaFiltrada = !string.IsNullOrWhiteSpace(consulta.TerminoBusqueda) ||
             (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0) ||
-            consulta.SoloStockCritico;
+            (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0) ||
+            (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value != 0) ||
+            consulta.FiltroStock != FiltroStockArticuloEnum.Todos;
 
         // 3. Conteo de registros coincidentes (evita consulta COUNT duplicada si no hay filtros)
         int totalRegistros = esConsultaFiltrada
@@ -69,35 +91,39 @@ public class ArticuloQueryService : IArticuloQueryService
         int pagina = Math.Max(1, consulta.Pagina);
 
         // 4. Paginación nativa en SQL Server (OFFSET ... ROWS FETCH NEXT ... ROWS ONLY)
-        var entidades = await query
+        // El orden y la paginación se aplican sobre ARTICULOS antes de proyectar: los JOIN con categoría, marca y
+        // proveedor se resuelven solo para las filas de la página. Id desempata de forma determinista.
+        var items = await query
             .OrderBy(a => a.Descripcion)
+            .ThenBy(a => a.Id)
             .Skip((pagina - 1) * tamanoPagina)
             .Take(tamanoPagina)
+            .Select(a => new ArticuloDto
+            {
+                IdArticulo = a.Id,
+                CodigoBarras = a.CodigoBarras,
+                Descripcion = a.Descripcion,
+                IdCategoria = a.IdCategoria,
+                CategoriaNombre = a.Categoria != null ? a.Categoria.NombreCategoria : "Sin categoría",
+                IdMarca = a.IdMarca,
+                MarcaNombre = a.Marca != null ? a.Marca.NombreMarca : "Sin marca",
+                IdCatalogoProveedor = a.IdCatalogoProveedor,
+                IdArticuloOrigen = a.IdArticuloOrigen,
+                UnidadesPorOrigen = a.UnidadesPorOrigen,
+                ProveedorNombre = a.CatalogoProveedor != null && a.CatalogoProveedor.Proveedor != null
+                    ? a.CatalogoProveedor.Proveedor.RazonSocial
+                    : null,
+                CodigoProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.CodigoProveedor : null,
+                DescripcionProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.DescripcionProveedor : null,
+                CostoCatalogoProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.CostoReposicion : null,
+                CostoReposicion = a.CostoReposicion,
+                PorcentajeGanancia = a.PorcentajeGanancia,
+                PrecioVenta = a.PrecioVenta,
+                StockActual = a.StockActual,
+                StockMinimo = a.StockMinimo,
+                EsServicio = a.EsServicio
+            })
             .ToListAsync(cancellationToken);
-
-        var items = entidades.Select(a => new ArticuloDto
-        {
-            IdArticulo = a.Id,
-            CodigoBarras = a.CodigoBarras,
-            Descripcion = a.Descripcion,
-            IdCategoria = a.IdCategoria,
-            CategoriaNombre = a.Categoria?.NombreCategoria ?? "Sin categoría",
-            IdMarca = a.IdMarca,
-            MarcaNombre = a.Marca?.NombreMarca ?? "Sin marca",
-            IdCatalogoProveedor = a.IdCatalogoProveedor,
-            IdArticuloOrigen = a.IdArticuloOrigen,
-            UnidadesPorOrigen = a.UnidadesPorOrigen,
-            ProveedorNombre = a.CatalogoProveedor?.Proveedor?.RazonSocial,
-            CodigoProveedor = a.CatalogoProveedor?.CodigoProveedor,
-            DescripcionProveedor = a.CatalogoProveedor?.DescripcionProveedor,
-            CostoCatalogoProveedor = a.CatalogoProveedor?.CostoReposicion,
-            CostoReposicion = a.CostoReposicion,
-            PorcentajeGanancia = a.PorcentajeGanancia,
-            PrecioVenta = a.PrecioVenta,
-            StockActual = a.StockActual,
-            StockMinimo = a.StockMinimo,
-            EsServicio = a.EsServicio
-        }).ToList();
 
         return new ArticulosPaginadosDto
         {

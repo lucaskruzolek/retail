@@ -231,6 +231,85 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         sinEnie.Items.Should().BeEmpty("en castellano la ñ es una letra distinta de la n");
     }
 
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_ConDescripcionesIguales_DesempataPorIdYPaginaSinRepetir()
+    {
+        // Arrange
+        var a1 = CrearArticulo("Cuaderno");
+        var a2 = CrearArticulo("Cuaderno");
+        var a3 = CrearArticulo("Cuaderno");
+        _context.Articulos.AddRange(a1, a2, a3);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var pag1 = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { Pagina = 1, TamanoPagina = 2 });
+        var pag2 = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { Pagina = 2, TamanoPagina = 2 });
+
+        // Assert
+        pag1.Items.Select(i => i.IdArticulo).Should().Equal(a1.Id, a2.Id);
+        pag2.Items.Select(i => i.IdArticulo).Should().Equal(a3.Id);
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_SinCategoriaNiMarca_UsaNombresPorDefectoYProveedorNulo()
+    {
+        // Arrange
+        _context.Articulos.Add(CrearArticulo("Huérfano"));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var item = (await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto())).Items.Single();
+
+        // Assert
+        item.CategoriaNombre.Should().Be("Sin categoría");
+        item.MarcaNombre.Should().Be("Sin marca");
+        item.ProveedorNombre.Should().BeNull();
+        item.CodigoProveedor.Should().BeNull();
+        item.CostoCatalogoProveedor.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_ConCategoriaMarcaYProveedor_ProyectaLosNombres()
+    {
+        // Arrange
+        var categoria = new Categoria { NombreCategoria = "Papelería" };
+        var marca = new Marca { NombreMarca = "Rivadavia" };
+        var proveedor = Proveedor.Crear("Distribuidora Sur", "30-12345678-1");
+        _context.AddRange(categoria, marca, proveedor);
+        await _context.SaveChangesAsync();
+
+        var catalogo = new CatalogoProveedor
+        {
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = "P-1",
+            DescripcionProveedor = "Cuaderno proveedor",
+            CostoReposicion = 77m
+        };
+        _context.CatalogosProveedores.Add(catalogo);
+        await _context.SaveChangesAsync();
+
+        var articulo = CrearArticulo("Cuaderno Rivadavia");
+        articulo.IdCategoria = categoria.Id;
+        articulo.IdMarca = marca.Id;
+        articulo.IdCatalogoProveedor = catalogo.Id;
+        _context.Articulos.Add(articulo);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var item = (await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto())).Items.Single();
+
+        // Assert
+        item.CategoriaNombre.Should().Be("Papelería");
+        item.MarcaNombre.Should().Be("Rivadavia");
+        item.ProveedorNombre.Should().Be("Distribuidora Sur");
+        item.CodigoProveedor.Should().Be("P-1");
+        item.DescripcionProveedor.Should().Be("Cuaderno proveedor");
+        item.CostoCatalogoProveedor.Should().Be(77m);
+    }
+
     private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int stock = 10)
     {
         return new Articulo

@@ -5,6 +5,10 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <RootNamespace>Retail.App</RootNamespace>
+    <!-- LiveChartsCore.SkiaSharpView.WPF 2.0.5 arrastra SkiaSharp.Views.WPF y OpenTK.GLWpfControl, que solo publican
+         activos .NET Framework: NuGet los restaura igual (NU1701) y funcionan en net8.0-windows. Se silencia ese único
+         aviso para no relajar TreatWarningsAsErrors en el resto del proyecto. -->
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -14,6 +18,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.WPF" Version="2.0.5" />
     <PackageReference Include="MahApps.Metro.IconPacks.BoxIcons" Version="6.2.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

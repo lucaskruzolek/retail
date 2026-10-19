@@ -1,8 +1,8 @@
 # Especificación de Requisitos de Software (ERS)
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
-**Fecha:** Septiembre de 2026  
-**Versión:** 3.2 (Clean Desktop Monolith con Cobranzas Multimedio y Recálculo Automático de Precios)
+**Fecha:** Octubre de 2026  
+**Versión:** 3.3 (Clean Desktop Monolith con Cobranzas Multimedio, Recálculo Automático de Precios y Tablero Gerencial con Reportes Exportables)
 
 ---
 
@@ -42,7 +42,7 @@ El propósito del presente documento es especificar de manera formal y rigurosa 
 ## 1.2. Alcance del Producto {#12-alcance-del-producto}
 El sistema **"Retail"** está diseñado como una **aplicación monolítica de escritorio limpia (Clean Desktop Monolith)** en Windows (.NET 8 / WPF / C# 12).
 
-El producto unifica en un único proceso ejecutable la interfaz visual de mostrador, los servicios de orquestación de negocio y el acceso a datos sobre una base de datos relacional local (**Microsoft SQL Server Express**). Se integra en el entorno local con el microservicio `arcasdk` para la obtención de CAE y emisión fiscal ante ARCA (AFIP), incorporando además gestión de clientes con cobranzas multimedio de cuentas corrientes, recálculo automático de precios por compras y presupuestador independiente.
+El producto unifica en un único proceso ejecutable la interfaz visual de mostrador, los servicios de orquestación de negocio y el acceso a datos sobre una base de datos relacional local (**Microsoft SQL Server Express**). Se integra en el entorno local con el microservicio `arcasdk` para la obtención de CAE y emisión fiscal ante ARCA (AFIP), incorporando además gestión de clientes con cobranzas multimedio de cuentas corrientes, recálculo automático de precios por compras, presupuestador independiente y un tablero gerencial con reportes de ventas, rentabilidad e inventario exportables a Excel y PDF.
 
 ## 1.3. Personal Involucrado {#13-personal-involucrado}
 
@@ -68,6 +68,10 @@ El producto unifica en un único proceso ejecutable la interfaz visual de mostra
 * **Artículo de Compra:** Presentación que la librería adquiere al distribuidor; es la única que se vincula con su ítem de `CATALOGOS_PROVEEDORES`.
 * **Presentación Derivada:** Artículo que se obtiene abriendo un artículo de compra (su *origen*), que contiene una cantidad fija de unidades. No se vincula directamente al catálogo del proveedor.
 * **Fraccionamiento:** Operación de inventario que abre unidades de un artículo de compra: descuenta del stock del origen y acredita al de su presentación derivada la cantidad equivalente en unidades.
+* **Margen Bruto:** Diferencia entre el ingreso neto de lo vendido (precio menos descuento prorrateado) y su costo de reposición registrado al momento de la venta. Se expresa en pesos y como porcentaje del ingreso neto.
+* **Prorrateo de Descuento:** Reparto del descuento global de una venta entre sus ítems en proporción al subtotal de cada uno: $\text{Descuento}_i = \text{Descuento} \times \frac{\text{Subtotal}_i}{\text{Subtotal}}$.
+* **Valorización de Inventario:** Capital inmovilizado en góndola: $\sum \text{StockActual} \times \text{CostoReposicion}$.
+* **Artículo sin Movimiento:** Artículo con stock disponible que no registra ventas en una cantidad configurable de días.
 
 ---
 
@@ -157,6 +161,11 @@ graph TD
 ### Módulo VII: Gestión de Compras y Distribuidores
 * **Registro de Compras:** Ingreso de comprobantes de distribuidores con incremento automático de stock y **recálculo automático e inmediato del precio de venta sugerido** en base al markup configurado.
 
+### Módulo VIII: Tablero Gerencial y Reportes
+* **Tablero de Indicadores:** Vista de entrada con los indicadores clave del período (ventas, margen bruto, stock crítico, valorización) y su variación frente al período anterior.
+* **Reportes Parametrizables:** Ventas por período, ranking de artículos, rentabilidad, stock crítico con valorización y artículos sin movimiento, filtrables por fechas, categoría, marca y cajero.
+* **Exportación:** Cada reporte se exporta a Excel (.xlsx) para análisis y a PDF para impresión o archivo, con los filtros aplicados.
+
 ---
 
 ## 2.3. Características de los Usuarios {#23-características-de-los-usuarios}
@@ -165,7 +174,7 @@ graph TD
 | :--- | :--- | :--- |
 | **Cajero** | Acceso exclusivo al POS, cobros multimedio, búsqueda y alta rápida de clientes, emisión de presupuestos, cobranza de cuentas corrientes, apertura de turno y declaración del arqueo físico de efectivo. | No accede a costos de reposición, márgenes de ganancia, compras, importador masivo ni consola fiscal. |
 | **Encargado** | ABM de artículos, importación masiva de planillas, registro de compras y actualización automática de precios, apertura y cierre de caja, consulta de cuentas corrientes. | No puede administrar usuarios ni modificar configuraciones fiscales. |
-| **Gerente** | Administración integral de usuarios y asignación de cualquier rol, consola de reintentos fiscales ARCA, reportes de rentabilidad, límites de cuenta corriente, **backup manual y restauración de la base de datos (con reautenticación)**. | Máxima autoridad del sistema y responsable de los datos personales que almacena (Ley 25.326). Debe existir al menos uno activo. |
+| **Gerente** | Administración integral de usuarios y asignación de cualquier rol, consola de reintentos fiscales ARCA, tablero gerencial y reportes de ventas, rentabilidad e inventario con exportación (RF-24 a RF-26), límites de cuenta corriente, **backup manual y restauración de la base de datos (con reautenticación)**. | Máxima autoridad del sistema y responsable de los datos personales que almacena (Ley 25.326). Debe existir al menos uno activo. |
 | **Administrador** *(opcional, delegado por el Gerente)* | Soporte técnico: alta, edición, baja y blanqueo de contraseña de Cajeros y Encargados; consulta del historial de backups y del estado del sistema. | No opera el POS ni la caja. Sin acceso a la consola fiscal ni a los reportes. No puede crear Gerentes ni Administradores, ni ejecutar backups manuales o restauraciones. El sistema puede operar sin ningún Administrador activo. |
 
 **Reglas generales de cuentas:**
@@ -202,6 +211,7 @@ graph TD
 | **IU-08** | **Usuarios** | Panel para alta, baja lógica, asignación de roles (Cajero, Encargado, Gerente, Administrador), email de recuperación y blanqueo de contraseñas. El Administrador solo gestiona Cajeros y Encargados. |
 | **IU-09** | **Clientes y Cuentas Corrientes** | Vista para gestión del padrón de clientes: CUIT/DNI, Razón Social, Condición IVA, domicilio, límite de crédito, consulta de saldo y botón modal para **Registrar Cobranza Multimedio** (efectivo, tarjeta, transferencia/QR) con emisión de recibo. |
 | **IU-10** | **Respaldo y Restauración** | Panel gerencial con el historial de copias de seguridad (fecha, tipo, usuario, tamaño, estado), botón de **backup manual** y asistente de **restauración** con confirmación explícita, ambos previa reautenticación del Gerente. El Administrador accede en modo de solo lectura. |
+| **IU-11** | **Tablero Gerencial y Reportes** | Panel exclusivo del Gerente con tarjetas de indicadores y su variación frente al período anterior, gráficos de evolución de ventas y de rentabilidad por categoría, selector de reporte, panel de filtros (rango de fechas, agrupación, categoría, marca, cajero según el reporte), grilla de resultados y acciones **Exportar a Excel** y **Exportar a PDF**. La consulta y la exportación se ejecutan en segundo plano con indicador de progreso. |
 
 ---
 
@@ -209,10 +219,11 @@ graph TD
 
 | ID | Nombre | Descripción |
 | :--- | :--- | :--- |
-| **IS-01** | **Servicios de Aplicación C#** | Contratos de interfaz tipados expuestos a los ViewModels (`IVentaService`, `IPresupuestoService`, `IClienteService`, `ICajaService`, `IInventarioService`, `ICompraService`, `IFiscalService`, `IAuthService`, `IBackupService`). |
+| **IS-01** | **Servicios de Aplicación C#** | Contratos de interfaz tipados expuestos a los ViewModels (`IVentaService`, `IPresupuestoService`, `IClienteService`, `ICajaService`, `IInventarioService`, `ICompraService`, `IFiscalService`, `IAuthService`, `IBackupService`, `IReporteService`). |
 | **IS-02** | **Acceso a Datos EF Core 8** | Interfaz `IRetailDbContext` e `IUnitOfWork` que coordina transacciones ACID en Microsoft SQL Server. |
 | **IS-03** | **Servicio Fiscal arcasdk** | Cliente HTTP tipado (`IArcaClient`) que despacha comprobantes a `http://localhost:8080` con timeout de 10s. |
 | **IS-04** | **Herramienta de Comandos `Retail.Cli`** | Ejecutable de consola que reutiliza los servicios de aplicación para administrar la base fuera de la interfaz gráfica: `migrar` (con backup previo), `inicializar` (primer Gerente), `datos-demo`, `backup`, `restaurar` y `estado`. Ningún comando otorga acceso a una cuenta existente. Invocable por el Programador de tareas de Windows mediante scripts PowerShell. |
+| **IS-05** | **Generación de Documentos Exportables** | Componentes de infraestructura que escriben los reportes en archivos locales elegidos por el usuario: libros Excel (.xlsx) mediante `MiniExcel` y documentos PDF mediante una biblioteca de composición de PDF, con los gráficos renderizados fuera de pantalla. La capa de Aplicación entrega los datos del reporte y desconoce el formato de salida. |
 
 ---
 
@@ -252,6 +263,9 @@ graph TD
 | **RF-21** | **Presentaciones de Venta y Fraccionamiento** | Permitir definir una presentación derivada de un artículo de compra indicando las unidades que contiene cada origen (entero ≥ 1). Cada derivado tiene un único origen y la derivación es de un solo nivel: un derivado no puede ser origen de otro ni vincularse a un catálogo de proveedor. El costo de reposición del derivado es $\frac{\text{Costo del origen}}{\text{Unidades por origen}}$, redondeado a 2 decimales, y se recalcula cada vez que cambia el costo del origen (planilla o compra), aplicando el *markup* propio de cada presentación. Fraccionar $n$ unidades del origen resta $n$ de su stock y suma $n \times \text{Unidades por origen}$ al derivado en una única transacción ACID; la operación se rechaza si el origen no tiene stock suficiente. |
 | **RF-22** | **Respaldo y Restauración de la Base de Datos** | El sistema debe generar copias completas de la base (`.bak`) de forma manual, por decisión del Gerente previa reautenticación, y de forma automática y periódica. Cada operación queda registrada en la entidad `REGISTROS_BACKUP` con fecha, tipo (manual, automático, previo a restauración, previo a migración), usuario responsable, archivo, tamaño, hash SHA-256 y estado. Toda copia se verifica (`CHECKSUM` + `VERIFYONLY`). La restauración es exclusiva del Gerente, genera antes una copia de seguridad del estado actual, conserva el historial de respaldos y advierte sobre la conciliación de numeración fiscal con ARCA. |
 | **RF-23** | **Administración de la Base por Comandos** | La actualización del esquema (migraciones), la creación del primer Gerente (solo si no existe ninguno), la carga opcional de datos de demostración, los respaldos automáticos fuera de horario y la restauración ante desastres se ejecutan con una herramienta de línea de comandos independiente de la interfaz gráfica. Al iniciar, la aplicación verifica que el esquema esté al día y que exista al menos un Gerente; si no, bloquea el acceso con un mensaje accionable. |
+| **RF-24** | **Tablero Gerencial de Indicadores** | Exclusivo del Gerente. Muestra para el período elegido (por defecto, el mes en curso): total vendido, cantidad de ventas, margen bruto en pesos y en porcentaje, y la variación porcentual de cada uno frente a un período de comparación **calendario**: si el rango está dentro de un solo mes y empieza el día 1, el mismo tramo del mes anterior (el mes completo si el rango termina el último día del mes); si empieza el 1 de enero y abarca más de un mes del mismo año, el mismo tramo del año anterior; en cualquier otro caso, el período inmediatamente anterior de igual duración. La pantalla informa las fechas del período de comparación. Además, la cantidad de artículos con stock bajo mínimo (RF-08) y la valorización actual del inventario. Incluye un gráfico de evolución de ventas y uno de margen bruto por categoría. Los períodos se interpretan en la hora local del comercio (las ventas se registran en UTC). Si el período anterior no tiene ventas, la variación se informa como no disponible en lugar de calcularse. |
+| **RF-25** | **Reportes Gerenciales Parametrizables** | Exclusivo del Gerente. Consideran solo ventas sin baja lógica. (a) **Ventas por período:** total, cantidad de ventas, descuentos y el desglose del total por medio de pago (efectivo, tarjeta de débito, tarjeta de crédito, transferencia/QR y cuenta corriente), agrupados por día, semana o mes; filtros: rango de fechas y cajero. La suma de los medios de pago de cada período coincide con su total, porque los pagos de una venta cubren exactamente su importe (RF-09). (b) **Ranking de artículos:** los N más y menos vendidos (10 por defecto), por unidades o por importe; filtros: rango, categoría y marca. (c) **Rentabilidad:** ingreso neto, costo y margen bruto ($ y %) agrupados por categoría, marca o artículo; filtros: rango, categoría y marca. El margen de cada ítem es $(\text{SubtotalItem} - \text{Descuento prorrateado}) - \text{CostoUnitario} \times \text{Cantidad}$. Para que el margen histórico no cambie con las actualizaciones de precios (RF-07, RF-19), cada ítem vendido conserva el costo de reposición vigente al momento de la venta (`costo_unitario` en `DETALLE_VENTAS`), igual que conserva su precio. (d) **Stock crítico y valorización:** artículos con $\text{StockActual} \le \text{StockMinimo}$, su faltante y la valorización del inventario a costo de reposición y a precio de venta; filtros: categoría y marca. (e) **Artículos sin movimiento:** artículos con stock mayor a cero sin ventas en los últimos N días (90 por defecto), con su última fecha de venta y el capital inmovilizado. Los reportes (d) y (e) excluyen los servicios. Los filtros se validan: fecha desde ≤ fecha hasta, fecha hasta no posterior a hoy, fecha desde no anterior a la primera venta registrada (sin ventas, el primer día del mes en curso) y N positivo. Para acotar el volumen de resultados sin paginar datos ya agregados, el rango tiene un largo máximo: 366 días al agrupar por día, 5 años por semana y 10 años por mes o en los demás reportes con período. Los importes se redondean a 2 decimales con el criterio monetario único del sistema. |
+| **RF-26** | **Exportación de Reportes** | El Gerente puede exportar el tablero y cada reporte a Excel (.xlsx) y a PDF con exactamente los datos y filtros visibles en pantalla. Todo archivo incluye un encabezado con el nombre del reporte, los filtros aplicados, la fecha y hora de generación y el usuario que lo generó. En Excel, los importes y cantidades se escriben como valores numéricos (no como texto) para poder operar con ellos; el PDF incluye las tablas y los gráficos del reporte en formato A4 apto para impresión. El usuario elige la ubicación con el diálogo de guardado del sistema operativo, con un nombre sugerido `Reporte-<tipo>-<desde>-<hasta>`. Si el archivo no puede escribirse (por ejemplo, porque está abierto en otra aplicación), el sistema informa el motivo y permite reintentar sin perder el reporte generado. |
 
 ---
 
@@ -265,6 +279,7 @@ graph TD
 * **RNF-06 (Control de Acceso RBAC):** Restricción de vistas y acciones según el rol del usuario autenticado en memoria.
 * **RNF-07 (Tolerancia a Fallos Fiscales):** Continuidad operativa total de ventas ante cortes de Internet (Contingencia RF-17).
 * **RNF-08 (Integridad ACID y Respaldos):** Transacciones atómicas locales. Respaldo completo diario automático y bajo demanda (RF-22), en un directorio dedicado fuera del perfil de usuario, con verificación de integridad y política de retención configurable.
+* **RNF-09 (Rendimiento de Reportes):** Filtrado, agrupación y agregación de los reportes se ejecutan en el motor de base de datos, sin materializar ventas en memoria. El tablero y cada reporte responden en menos de 2 s con un año de operación (referencia: 50.000 ventas y 200.000 ítems vendidos) y la exportación se ejecuta en segundo plano, respetando RNF-02 y RNF-03.
 
 ---
 
@@ -294,3 +309,4 @@ graph TD
 | **RF-21** | `IU-04` (Catálogo Propio), `IU-02` (Punto de Venta) | `IS-01` (`IInventarioService`) | `ARTICULOS` |
 | **RF-22** | `IU-10` (Respaldo y Restauración) | `IS-01` (`IBackupService`), `IS-04` | `REGISTROS_BACKUP`, `USUARIOS` |
 | **RF-23** | — (línea de comandos) | `IS-04` | `__EFMigrationsHistory`, `USUARIOS`, `ROLES`, `CATEGORIAS`, `MARCAS`, `PROVEEDORES` |
+| **RF-24, RF-25, RF-26** | `IU-11` (Tablero Gerencial y Reportes) | `IS-01` (`IReporteService`), `IS-05` | `VENTAS`, `DETALLE_VENTAS`, `ARTICULOS`, `CATEGORIAS`, `MARCAS`, `USUARIOS` |

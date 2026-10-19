@@ -231,6 +231,11 @@ public partial class MainViewModel : ObservableObject
             ModuloActivo = "Respaldos";
             TituloModuloActual = "Copias de Seguridad y Restauración";
         }
+        else if (viewType == typeof(DashboardView))
+        {
+            ModuloActivo = "Tablero";
+            TituloModuloActual = "Tablero gerencial";
+        }
         else if (viewType == typeof(StyleGalleryView))
         {
             ModuloActivo = "Galeria";
@@ -377,6 +382,18 @@ public partial class MainViewModel : ObservableObject
         ModuloActivo = "Catalogos";
         TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
         _navigationService.NavigateTo<ImportadorCatalogosView>();
+    }
+
+    [RelayCommand]
+    public void NavegarTablero()
+    {
+        if (!EsGerente)
+        {
+            return;
+        }
+
+        ModuloActivo = "Tablero";
+        _navigationService.NavigateTo<DashboardView>();
     }
 
     [RelayCommand]

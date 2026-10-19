@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
 using Xunit;
@@ -73,6 +74,189 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         mapa.Should().HaveCount(existentes);
         mapa.Should().ContainKey("COD-00001").And.ContainKey($"COD-{existentes:D5}");
         mapa.Should().NotContainKey("COD-02501");
+    }
+
+    private async Task<Proveedor> CrearProveedorAsync()
+    {
+        var proveedor = Proveedor.Crear("Distribuidora Centro", "30-12345678-1");
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+        return proveedor;
+    }
+
+    private static CatalogoProveedor CrearItem(int idProveedor, string codigo, string descripcion, string? codigoBarras = null)
+    {
+        return new CatalogoProveedor
+        {
+            IdProveedor = idProveedor,
+            CodigoProveedor = codigo,
+            DescripcionProveedor = descripcion,
+            CodigoBarras = codigoBarras,
+            CostoReposicion = 100m
+        };
+    }
+
+    private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int? idCatalogo = null)
+    {
+        return new Articulo
+        {
+            Descripcion = descripcion,
+            CodigoBarras = codigoBarras,
+            IdCatalogoProveedor = idCatalogo,
+            CostoReposicion = 100m,
+            PorcentajeGanancia = 50,
+            PrecioVenta = 150m,
+            StockActual = 7,
+            StockMinimo = 1
+        };
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConItemVinculado_ExponeDatosDelArticulo()
+    {
+        // Arrange
+        var proveedor = await CrearProveedorAsync();
+        var vinculado = CrearItem(proveedor.Id, "V1", "Item vinculado");
+        var libre = CrearItem(proveedor.Id, "L1", "Item libre");
+        _context.CatalogosProveedores.AddRange(vinculado, libre);
+        await _context.SaveChangesAsync();
+        var articulo = CrearArticulo("Mi articulo", idCatalogo: vinculado.Id);
+        _context.Articulos.Add(articulo);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var res = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id });
+
+        // Assert
+        var v = res.Items.Single(i => i.CodigoProveedor == "V1");
+        v.EstaVinculado.Should().BeTrue();
+        v.IdArticuloVinculado.Should().Be(articulo.Id);
+        v.NombreArticuloTienda.Should().Be("Mi articulo");
+        v.PrecioVentaTienda.Should().Be(150m);
+        v.StockActualTienda.Should().Be(7);
+        v.CoincideConArticuloTienda.Should().BeFalse();
+        v.ProveedorRazonSocial.Should().Be("Distribuidora Centro");
+
+        var l = res.Items.Single(i => i.CodigoProveedor == "L1");
+        l.EstaVinculado.Should().BeFalse();
+        l.IdArticuloVinculado.Should().BeNull();
+        l.NombreArticuloTienda.Should().BeNull();
+        l.PrecioVentaTienda.Should().BeNull();
+        l.StockActualTienda.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConFiltrosDeVinculacion_SeparaIncorporadosDeLosPendientes()
+    {
+        // Arrange
+        var proveedor = await CrearProveedorAsync();
+        var vinculado = CrearItem(proveedor.Id, "V1", "Item vinculado");
+        var libre = CrearItem(proveedor.Id, "L1", "Item libre");
+        _context.CatalogosProveedores.AddRange(vinculado, libre);
+        await _context.SaveChangesAsync();
+        _context.Articulos.Add(CrearArticulo("Mi articulo", idCatalogo: vinculado.Id));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var sinIncorporar = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { EstadoVinculacion = EstadoVinculacionCatalogoEnum.SinIncorporar });
+        var yaEnTienda = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { EstadoVinculacion = EstadoVinculacionCatalogoEnum.YaEnTienda });
+
+        // Assert
+        sinIncorporar.Items.Should().ContainSingle(i => i.CodigoProveedor == "L1");
+        sinIncorporar.TotalRegistros.Should().Be(1);
+        yaEnTienda.Items.Should().ContainSingle(i => i.CodigoProveedor == "V1");
+        yaEnTienda.TotalRegistros.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConArticuloDadoDeBaja_NoLoCuentaComoVinculado()
+    {
+        // Arrange
+        var proveedor = await CrearProveedorAsync();
+        var item = CrearItem(proveedor.Id, "V1", "Item");
+        _context.CatalogosProveedores.Add(item);
+        await _context.SaveChangesAsync();
+        var articulo = CrearArticulo("Dado de baja", idCatalogo: item.Id);
+        _context.Articulos.Add(articulo);
+        await _context.SaveChangesAsync();
+        articulo.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var res = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { EstadoVinculacion = EstadoVinculacionCatalogoEnum.SinIncorporar });
+
+        // Assert
+        var dto = res.Items.Should().ContainSingle().Subject;
+        dto.EstaVinculado.Should().BeFalse();
+        dto.IdArticuloVinculado.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConCodigoDeBarrasDeArticuloPropioNoVinculado_MarcaLaCoincidencia()
+    {
+        // Arrange: la comparación no distingue mayúsculas (intercalación por defecto de la columna)
+        var proveedor = await CrearProveedorAsync();
+        _context.CatalogosProveedores.AddRange(
+            CrearItem(proveedor.Id, "C1", "Coincide", "ABC123"),
+            CrearItem(proveedor.Id, "C2", "No coincide", "ZZZ999"),
+            CrearItem(proveedor.Id, "C3", "Sin codigo"));
+        await _context.SaveChangesAsync();
+        _context.Articulos.Add(CrearArticulo("Propio", "abc123"));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var res = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id });
+
+        // Assert
+        res.Items.Single(i => i.CodigoProveedor == "C1").CoincideConArticuloTienda.Should().BeTrue();
+        res.Items.Single(i => i.CodigoProveedor == "C2").CoincideConArticuloTienda.Should().BeFalse();
+        res.Items.Single(i => i.CodigoProveedor == "C3").CoincideConArticuloTienda.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConArticuloYaVinculadoConElMismoCodigoDeBarras_NoMarcaCoincidencia()
+    {
+        // Arrange: un artículo vinculado a otro ítem no cuenta como "propio no vinculado"
+        var proveedor = await CrearProveedorAsync();
+        var otro = CrearItem(proveedor.Id, "O1", "Otro");
+        var candidato = CrearItem(proveedor.Id, "C1", "Candidato", "555");
+        _context.CatalogosProveedores.AddRange(otro, candidato);
+        await _context.SaveChangesAsync();
+        _context.Articulos.Add(CrearArticulo("Vinculado a otro", "555", otro.Id));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var res = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id });
+
+        // Assert
+        res.Items.Single(i => i.CodigoProveedor == "C1").CoincideConArticuloTienda.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConDescripcionesIguales_DesempataPorIdYPaginaSinRepetir()
+    {
+        // Arrange
+        var proveedor = await CrearProveedorAsync();
+        var i1 = CrearItem(proveedor.Id, "A1", "Igual");
+        var i2 = CrearItem(proveedor.Id, "A2", "Igual");
+        var i3 = CrearItem(proveedor.Id, "A3", "Igual");
+        _context.CatalogosProveedores.AddRange(i1, i2, i3);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var pag1 = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { Pagina = 1, TamañoPagina = 2 });
+        var pag2 = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { Pagina = 2, TamañoPagina = 2 });
+
+        // Assert
+        pag1.Items.Select(i => i.Id).Should().Equal(i1.Id, i2.Id);
+        pag2.Items.Select(i => i.Id).Should().Equal(i3.Id);
+        pag1.TotalRegistros.Should().Be(3);
     }
 
     [Fact]

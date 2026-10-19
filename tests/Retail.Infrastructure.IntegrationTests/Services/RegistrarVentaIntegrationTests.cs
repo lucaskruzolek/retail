@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Retail.Application.DTOs.Ventas;
@@ -93,6 +94,10 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
         venta.Total.Should().Be(4500m);
         venta.Detalles.Should().HaveCount(2);
         venta.Pagos.Should().HaveCount(2);
+
+        // Assert: cada detalle conserva la foto del costo de reposición del artículo (RF-25)
+        venta.Detalles.Single(d => d.IdArticulo == cuaderno.Id).CostoUnitario.Should().Be(cuaderno.CostoReposicion);
+        venta.Detalles.Single(d => d.IdArticulo == lapiz.Id).CostoUnitario.Should().Be(lapiz.CostoReposicion);
 
         // Assert: el stock y el turno se actualizaron en la misma transacción (RF-10)
         (await LeerStockAsync(cuaderno.Id)).Should().Be(6);
@@ -189,6 +194,23 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
         (await LeerStockAsync(cuaderno.Id)).Should().Be(0);
         (await _context.Ventas.AsNoTracking().CountAsync()).Should().Be(2);
         (await LeerEfectivoDelTurnoAsync()).Should().Be(3000m);
+    }
+
+    [Fact]
+    public async Task DetalleVenta_CostoNegativo_LoRechazaElCheck()
+    {
+        // Arrange
+        var cuaderno = await GuardarArticuloAsync("Cuaderno", precio: 1500m, stock: 8);
+        var resultado = await _sut.RegistrarVentaAsync(CrearDto([Item(cuaderno, 1)], [Pago(MedioPagoEnum.Efectivo, 1500m)]));
+        _context.ChangeTracker.Clear();
+
+        // Act: ExecuteSqlRawAsync no pasa por el dominio, así que solo lo frena el CHECK de la base
+        var act = () => _context.Database.ExecuteSqlRawAsync(
+            "UPDATE DETALLE_VENTAS SET costo_unitario = -1 WHERE id_venta = {0}",
+            resultado.IdVenta);
+
+        // Assert
+        (await act.Should().ThrowAsync<SqlException>()).WithMessage("*CK_DETALLE_VENTAS_Valores*");
     }
 
     private RetailDbContext CrearContexto()

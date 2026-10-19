@@ -301,6 +301,46 @@ public class MainViewModelTests
         _navigationMock.DidNotReceive().NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
     }
 
+    // ───────────────────── Tablero gerencial (Track 6.4) ─────────────────────
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void NavegarTableroCommand_SegunElRol_SoloNavegaElGerente(bool esGerente)
+    {
+        // Arrange
+        _sessionMock.EsGerente.Returns(esGerente);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+
+        // Act
+        vm.NavegarTableroCommand.Execute(null);
+
+        // Assert
+        if (esGerente)
+        {
+            _navigationMock.Received(1).NavigateTo<DashboardView>();
+            vm.ModuloActivo.Should().Be("Tablero");
+        }
+        else
+        {
+            _navigationMock.DidNotReceive().NavigateTo<DashboardView>();
+        }
+    }
+
+    [Fact]
+    public void Navigated_HaciaElTablero_ActualizaElModuloYElTitulo()
+    {
+        // Arrange
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+
+        // Act
+        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(DashboardView));
+
+        // Assert
+        vm.ModuloActivo.Should().Be("Tablero");
+        vm.TituloModuloActual.Should().Be("Tablero gerencial");
+    }
+
     [Fact]
     public async Task CambiarUsuarioAsync_Invocacion_DebeDispararEvento()
     {

@@ -6,10 +6,15 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Articulos;
+
+public record class OpcionFiltroDistribuidor(int IdProveedor, string Nombre);
+public record class OpcionFiltroStock(FiltroStockArticuloEnum Valor, string Descripcion);
 
 /// <summary>
 /// ViewModel principal para la administración del catálogo de artículos y visualización de alertas de stock con push-down a SQL Server (RF-04, RF-08, Ley 8).
@@ -18,20 +23,28 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 {
     private readonly IInventarioService _inventarioService;
     private readonly IArticuloDialogService _dialogService;
+    private readonly IProveedorService? _proveedorService;
     private readonly ILogger<ArticulosViewModel> _logger;
 
     private List<CategoriaDto> _cacheCategorias = new();
     private List<MarcaDto> _cacheMarcas = new();
+    private List<ProveedorDto> _cacheProveedores = new();
 
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
 
     // Búsqueda, filtros y paginación comparten esta carga: nunca usan el DbContext de la pantalla al mismo
     // tiempo, solo la vigente actualiza la grilla y al salir de la pantalla se cancela (H-19).
-    private readonly CargaSerializada _cargaArticulos = new();
+    private readonly CargaSerializada _cargaArticulos;
 
     public ObservableCollection<ArticuloDto> Articulos { get; } = new();
 
     public ObservableCollection<CategoriaDto> CategoriasFiltro { get; } = new();
+
+    public ObservableCollection<MarcaDto> MarcasFiltro { get; } = new();
+
+    public ObservableCollection<OpcionFiltroDistribuidor> DistribuidoresFiltro { get; } = new();
+
+    public ObservableCollection<OpcionFiltroStock> OpcionesStockFiltro { get; } = new();
 
     [ObservableProperty]
     private ArticuloDto? _articuloSeleccionado;
@@ -43,7 +56,19 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     private int _idCategoriaFiltro;
 
     [ObservableProperty]
-    private bool _soloStockCritico;
+    private int _idMarcaFiltro;
+
+    [ObservableProperty]
+    private int _idDistribuidorFiltro;
+
+    [ObservableProperty]
+    private FiltroStockArticuloEnum _filtroStock = FiltroStockArticuloEnum.Todos;
+
+    public bool SoloStockCritico
+    {
+        get => FiltroStock == FiltroStockArticuloEnum.StockCritico;
+        set => FiltroStock = value ? FiltroStockArticuloEnum.StockCritico : FiltroStockArticuloEnum.Todos;
+    }
 
     [ObservableProperty]
     private bool _isBusy;
@@ -84,14 +109,46 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
 
+    public bool HayFiltrosActivos =>
+        !string.IsNullOrWhiteSpace(TextoBusqueda) ||
+        IdCategoriaFiltro > 0 ||
+        IdMarcaFiltro > 0 ||
+        IdDistribuidorFiltro != 0 ||
+        FiltroStock != FiltroStockArticuloEnum.Todos;
+
     public ArticulosViewModel(
         IInventarioService inventarioService,
         IArticuloDialogService dialogService,
+        IProveedorService? proveedorService = null,
         ILogger<ArticulosViewModel>? logger = null)
     {
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _proveedorService = proveedorService;
         _logger = logger ?? NullLogger<ArticulosViewModel>.Instance;
+        _cargaArticulos = new CargaSerializada(_logger);
+
+        InicializarOpcionesFiltroEstaticas();
+    }
+
+    private void InicializarOpcionesFiltroEstaticas()
+    {
+        OpcionesStockFiltro.Clear();
+        OpcionesStockFiltro.Add(new OpcionFiltroStock(FiltroStockArticuloEnum.Todos, "Todos"));
+        OpcionesStockFiltro.Add(new OpcionFiltroStock(FiltroStockArticuloEnum.StockCritico, "Stock crítico"));
+        OpcionesStockFiltro.Add(new OpcionFiltroStock(FiltroStockArticuloEnum.SinStock, "Sin stock"));
+    }
+
+    [RelayCommand(CanExecute = nameof(HayFiltrosActivos))]
+    public void LimpiarFiltros()
+    {
+        TextoBusqueda = string.Empty;
+        IdCategoriaFiltro = 0;
+        IdMarcaFiltro = 0;
+        IdDistribuidorFiltro = 0;
+        FiltroStock = FiltroStockArticuloEnum.Todos;
+        PaginaActual = 1;
+        _ = CargarArticulosAsync();
     }
 
     partial void OnArticuloSeleccionadoChanged(ArticuloDto? value)
@@ -102,19 +159,43 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     partial void OnTextoBusquedaChanged(string value)
     {
         PaginaActual = 1;
+        ActualizarEstadoFiltros();
         _ = CargarArticulosConEsperaAsync(EsperaBusqueda);
     }
 
     partial void OnIdCategoriaFiltroChanged(int value)
     {
         PaginaActual = 1;
+        ActualizarEstadoFiltros();
         _ = CargarArticulosAsync();
     }
 
-    partial void OnSoloStockCriticoChanged(bool value)
+    partial void OnIdMarcaFiltroChanged(int value)
     {
         PaginaActual = 1;
+        ActualizarEstadoFiltros();
         _ = CargarArticulosAsync();
+    }
+
+    partial void OnIdDistribuidorFiltroChanged(int value)
+    {
+        PaginaActual = 1;
+        ActualizarEstadoFiltros();
+        _ = CargarArticulosAsync();
+    }
+
+    partial void OnFiltroStockChanged(FiltroStockArticuloEnum value)
+    {
+        PaginaActual = 1;
+        OnPropertyChanged(nameof(SoloStockCritico));
+        ActualizarEstadoFiltros();
+        _ = CargarArticulosAsync();
+    }
+
+    private void ActualizarEstadoFiltros()
+    {
+        OnPropertyChanged(nameof(HayFiltrosActivos));
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnTamanoPaginaChanged(int value)
@@ -131,12 +212,14 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
     private async Task CargarArticulosConEsperaAsync(TimeSpan espera, CancellationToken cancellationToken = default)
     {
-        bool cargarCategorias = CategoriasFiltro.Count == 0;
+        bool cargarFiltros = CategoriasFiltro.Count == 0 || MarcasFiltro.Count == 0 || DistribuidoresFiltro.Count == 0;
         var consulta = new ConsultaArticulosDto
         {
             TerminoBusqueda = TextoBusqueda,
             IdCategoria = IdCategoriaFiltro > 0 ? IdCategoriaFiltro : null,
-            SoloStockCritico = SoloStockCritico,
+            IdMarca = IdMarcaFiltro > 0 ? IdMarcaFiltro : null,
+            IdProveedor = IdDistribuidorFiltro != 0 ? IdDistribuidorFiltro : null,
+            FiltroStock = FiltroStock,
             Pagina = PaginaActual,
             TamanoPagina = TamanoPagina
         };
@@ -151,16 +234,22 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                 // Las consultas de una misma carga son secuenciales: nunca se solapan sobre el DbContext.
                 IReadOnlyList<CategoriaDto>? categorias = null;
                 IReadOnlyList<MarcaDto>? marcas = null;
-                if (cargarCategorias)
+                IReadOnlyList<ProveedorDto>? proveedores = null;
+
+                if (cargarFiltros)
                 {
                     categorias = await _inventarioService.ListarCategoriasAsync(token);
                     marcas = await _inventarioService.ListarMarcasAsync(token);
+                    if (_proveedorService != null)
+                    {
+                        proveedores = await _proveedorService.ListarProveedoresAsync(token);
+                    }
                 }
 
                 var pagina = await Task.Run(() => _inventarioService.ListarArticulosPaginadosAsync(consulta, token), token);
-                return (Categorias: categorias, Marcas: marcas, Pagina: pagina);
+                return (Categorias: categorias, Marcas: marcas, Proveedores: proveedores, Pagina: pagina);
             },
-            resultado => MostrarArticulos(resultado.Categorias, resultado.Marcas, resultado.Pagina),
+            resultado => MostrarArticulos(resultado.Categorias, resultado.Marcas, resultado.Proveedores, resultado.Pagina),
             ex =>
             {
                 _logger.LogError(ex, "Error al cargar el catálogo de artículos: {Mensaje}", ex.Message);
@@ -176,20 +265,49 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     private void MostrarArticulos(
         IReadOnlyList<CategoriaDto>? categorias,
         IReadOnlyList<MarcaDto>? marcas,
+        IReadOnlyList<ProveedorDto>? proveedores,
         ArticulosPaginadosDto resultado)
     {
         if (categorias is not null && marcas is not null)
         {
             _cacheCategorias = categorias.ToList();
             _cacheMarcas = marcas.ToList();
+            if (proveedores is not null)
+            {
+                _cacheProveedores = proveedores.ToList();
+            }
 
             EjecutarEnDispatcher(() =>
             {
-                CategoriasFiltro.Clear();
-                CategoriasFiltro.Add(new CategoriaDto { IdCategoria = 0, NombreCategoria = "Todas las Categorías" });
-                foreach (var cat in _cacheCategorias)
+                if (CategoriasFiltro.Count == 0)
                 {
-                    CategoriasFiltro.Add(cat);
+                    CategoriasFiltro.Clear();
+                    CategoriasFiltro.Add(new CategoriaDto { IdCategoria = 0, NombreCategoria = "Todas las Categorías" });
+                    foreach (var cat in _cacheCategorias)
+                    {
+                        CategoriasFiltro.Add(cat);
+                    }
+                }
+
+                if (MarcasFiltro.Count == 0)
+                {
+                    MarcasFiltro.Clear();
+                    MarcasFiltro.Add(new MarcaDto { IdMarca = 0, NombreMarca = "Todas las Marcas" });
+                    foreach (var m in _cacheMarcas)
+                    {
+                        MarcasFiltro.Add(m);
+                    }
+                }
+
+                if (DistribuidoresFiltro.Count == 0)
+                {
+                    DistribuidoresFiltro.Clear();
+                    DistribuidoresFiltro.Add(new OpcionFiltroDistribuidor(0, "Todos"));
+                    DistribuidoresFiltro.Add(new OpcionFiltroDistribuidor(-1, "Ninguno (o manual)"));
+                    foreach (var prov in _cacheProveedores)
+                    {
+                        DistribuidoresFiltro.Add(new OpcionFiltroDistribuidor(prov.IdProveedor, prov.RazonSocial));
+                    }
                 }
             });
         }

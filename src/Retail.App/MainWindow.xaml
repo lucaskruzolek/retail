@@ -526,6 +526,49 @@
                                        FontSize="10"
                                        Visibility="{Binding MostrarCabeceraAdmin, Converter={StaticResource BoolToVisConverter}}" />
 
+                            <!-- Tablero gerencial (Solo Gerente) -->
+                            <Button Command="{Binding NavegarTableroCommand}"
+                                    Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Tablero">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <TextBlock Text="Tablero gerencial" FontWeight="SemiBold" />
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidBarChart"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Tablero"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
                             <!-- 8. Consola Fiscal ARCA [F9] (Solo Gerente) -->
                             <Button Command="{Binding NavegarConsolaFiscalCommand}"
                                     Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}">
