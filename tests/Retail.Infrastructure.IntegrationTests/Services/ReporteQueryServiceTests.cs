@@ -399,7 +399,11 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
 
     private async Task<int> CategoriaAsync(string nombre)
     {
-        var categoria = new Categoria { NombreCategoria = nombre };
+        var rubro = Rubro.Crear($"Rubro de {nombre}");
+        _context.Rubros.Add(rubro);
+        await _context.SaveChangesAsync();
+
+        var categoria = Categoria.Crear(nombre, rubro.Id);
         _context.Categorias.Add(categoria);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
@@ -408,7 +412,7 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
 
     private async Task<int> MarcaAsync(string nombre)
     {
-        var marca = new Marca { NombreMarca = nombre };
+        var marca = Marca.Crear(nombre);
         _context.Marcas.Add(marca);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();

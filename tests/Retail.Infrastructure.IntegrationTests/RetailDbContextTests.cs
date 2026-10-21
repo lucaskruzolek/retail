@@ -39,12 +39,21 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         GC.SuppressFinalize(this);
     }
 
+    // Toda categoría necesita un rubro existente (FK obligatoria, Track 6.5).
+    private async Task<int> IdRubroAsync()
+    {
+        var rubro = Rubro.Crear("General");
+        await _context.Rubros.AddAsync(rubro);
+        await _context.SaveChangesAsync();
+        return rubro.Id;
+    }
+
     [Fact]
     public async Task Articulo_MultiplesCodigosNulos_DebePermitirInsercionPorIndiceFiltrado()
     {
         // Arrange
-        var categoria = new Categoria { NombreCategoria = "Artesanías" };
-        var marca = new Marca { NombreMarca = "Taller Local" };
+        var categoria = Categoria.Crear("Artesanías", await IdRubroAsync());
+        var marca = Marca.Crear("Taller Local");
         await _context.Categorias.AddAsync(categoria);
         await _context.Marcas.AddAsync(marca);
         await _context.SaveChangesAsync();
@@ -95,8 +104,8 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     public async Task Articulo_CodigosDuplicadosNoNulos_DebeLanzarExcepcionDeUnicidad()
     {
         // Arrange
-        var categoria = new Categoria { NombreCategoria = "Librería" };
-        var marca = new Marca { NombreMarca = "Bic" };
+        var categoria = Categoria.Crear("Librería", await IdRubroAsync());
+        var marca = Marca.Crear("Bic");
         await _context.Categorias.AddAsync(categoria);
         await _context.Marcas.AddAsync(marca);
         await _context.SaveChangesAsync();
@@ -145,7 +154,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     public async Task DbContext_SoftDelete_DebeOcultarRegistrosAutomaticamente()
     {
         // Arrange
-        var categoria = new Categoria { NombreCategoria = "Mochilas" };
+        var categoria = Categoria.Crear("Mochilas", await IdRubroAsync());
         await _context.Categorias.AddAsync(categoria);
         await _context.SaveChangesAsync();
 
@@ -173,8 +182,8 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     public async Task RepositoryYUnitOfWork_TransaccionExitosa_DebePersistirDatos()
     {
         // Arrange
-        var categoria = new Categoria { NombreCategoria = "Oficina" };
-        var marca = new Marca { NombreMarca = "Pelikan" };
+        var categoria = Categoria.Crear("Oficina", await IdRubroAsync());
+        var marca = Marca.Crear("Pelikan");
         await _context.Categorias.AddAsync(categoria);
         await _context.Marcas.AddAsync(marca);
         await _context.SaveChangesAsync();
@@ -312,8 +321,8 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     public async Task Articulo_CodigoBarrasSoftDeleted_PermiteNuevoArticuloConMismoCodigo()
     {
         // Arrange
-        var categoria = new Categoria { NombreCategoria = "Librería General" };
-        var marca = new Marca { NombreMarca = "Faber" };
+        var categoria = Categoria.Crear("Librería General", await IdRubroAsync());
+        var marca = Marca.Crear("Faber");
         await _context.Categorias.AddAsync(categoria);
         await _context.Marcas.AddAsync(marca);
         await _context.SaveChangesAsync();

@@ -19,6 +19,8 @@ public class RetailDbContext : DbContext, IRetailDbContext
 
     public DbSet<Rol> Roles => Set<Rol>();
 
+    public DbSet<Rubro> Rubros => Set<Rubro>();
+
     public DbSet<Categoria> Categorias => Set<Categoria>();
 
     public DbSet<Marca> Marcas => Set<Marca>();

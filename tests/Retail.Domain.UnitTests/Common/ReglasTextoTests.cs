@@ -272,6 +272,61 @@ public class ReglasTextoTests
         ReglasTexto.NormalizarNombreUsuario(login).Should().Be(login);
     }
 
+    [Theory]
+    [InlineData("  Lápices   de  Color ", "Lápices de Color")]
+    [InlineData("3M", "3M")]
+    [InlineData("  bic ", "bic")]
+    public void NormalizarNombreClasificacion_ConEspaciosYMayusculas_ReduceEspaciosYPreservaGrafia(string entrada, string esperado)
+    {
+        ReglasTexto.NormalizarNombreClasificacion(entrada).Should().Be(esperado);
+    }
+
+    [Theory]
+    [InlineData("Escolar", true)]
+    [InlineData("  3M  ", true)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData(null, false)]
+    public void EsNombreClasificacionValido_SegunContenido_DevuelveElResultadoEsperado(string? entrada, bool esperado)
+    {
+        ReglasTexto.EsNombreClasificacionValido(entrada).Should().Be(esperado);
+    }
+
+    [Fact]
+    public void EsNombreClasificacionValido_EnElLimiteDeLongitud_AceptaCienYRechazaCientoUno()
+    {
+        ReglasTexto.EsNombreClasificacionValido(new string('a', 100)).Should().BeTrue();
+        ReglasTexto.EsNombreClasificacionValido(new string('a', 101)).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ExigirNombreClasificacion_ValorValido_DevuelveLoMismoQueNormalizar()
+    {
+        const string entrada = "  BIC   Argentina ";
+
+        ReglasTexto.ExigirNombreClasificacion(entrada, "nombre de la marca")
+            .Should().Be(ReglasTexto.NormalizarNombreClasificacion(entrada));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void ExigirNombreClasificacion_ConValorVacio_LanzaDomainExceptionConElNombreDelCampo(string? entrada)
+    {
+        var act = () => ReglasTexto.ExigirNombreClasificacion(entrada, "nombre de la marca");
+
+        act.Should().Throw<DomainException>().WithMessage("*nombre de la marca*");
+    }
+
+    [Fact]
+    public void ExigirNombreClasificacion_ConCientoUnCaracteres_LanzaDomainException()
+    {
+        var act = () => ReglasTexto.ExigirNombreClasificacion(new string('a', 101), "nombre del rubro");
+
+        act.Should().Throw<DomainException>().WithMessage("*100*");
+    }
+
     [Fact]
     public void ExigirNombreDePersona_ValorValido_DevuelveLoMismoQueNormalizar()
     {

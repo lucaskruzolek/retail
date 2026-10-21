@@ -49,11 +49,11 @@ public class InventarioServiceTests
         // Arrange
         var categorias = new List<Categoria>
         {
-            new() { Id = 1, NombreCategoria = "Escolar" }
+            CategoriaConId(1, "Escolar")
         };
         var marcas = new List<Marca>
         {
-            new() { Id = 2, NombreMarca = "Rivadavia" }
+            MarcaConId(2, "Rivadavia")
         };
         var articulos = new List<Articulo>
         {
@@ -112,9 +112,9 @@ public class InventarioServiceTests
             .Returns([]);
 
         _categoriaRepository.GetByIdAsync(1, Arg.Any<CancellationToken>())
-            .Returns(new Categoria { Id = 1, NombreCategoria = "Librería" });
+            .Returns(CategoriaConId(1, "Librería"));
         _marcaRepository.GetByIdAsync(1, Arg.Any<CancellationToken>())
-            .Returns(new Marca { Id = 1, NombreMarca = "Bic" });
+            .Returns(MarcaConId(1, "Bic"));
 
         // Act
         var resultado = await _sut.CrearArticuloAsync(dto);
@@ -348,8 +348,8 @@ public class InventarioServiceTests
         // Arrange
         var categorias = new List<Categoria>
         {
-            new() { Id = 2, NombreCategoria = "Oficina" },
-            new() { Id = 1, NombreCategoria = "Artística" }
+            CategoriaConId(2, "Oficina"),
+            CategoriaConId(1, "Artística")
         };
 
         _categoriaRepository.ListAllAsync(includeDeleted: false, Arg.Any<CancellationToken>())
@@ -370,8 +370,8 @@ public class InventarioServiceTests
         // Arrange
         var marcas = new List<Marca>
         {
-            new() { Id = 2, NombreMarca = "Pelikan" },
-            new() { Id = 1, NombreMarca = "Faber-Castell" }
+            MarcaConId(2, "Pelikan"),
+            MarcaConId(1, "Faber-Castell")
         };
 
         _marcaRepository.ListAllAsync(includeDeleted: false, Arg.Any<CancellationToken>())
@@ -722,5 +722,19 @@ public class InventarioServiceTests
             StockMinimo = articulo.StockMinimo,
             EsServicio = esServicio
         };
+    }
+
+    private static Categoria CategoriaConId(int id, string nombre)
+    {
+        var categoria = Categoria.Crear(nombre, 1);
+        categoria.Id = id;
+        return categoria;
+    }
+
+    private static Marca MarcaConId(int id, string nombre)
+    {
+        var marca = Marca.Crear(nombre);
+        marca.Id = id;
+        return marca;
     }
 }

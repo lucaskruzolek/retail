@@ -23,6 +23,7 @@ public static partial class ReglasTexto
     public const int LongitudMaximaDomicilio = 200;
     public const int LongitudMinimaNombreUsuario = 3;
     public const int LongitudMaximaNombreUsuario = 50;
+    public const int LongitudMaximaNombreClasificacion = 100;
 
     // Partículas de los nombres y apellidos en castellano que se escriben en minúscula ("María de los Ángeles").
     private static readonly HashSet<string> Particulas = new(StringComparer.Ordinal)
@@ -198,6 +199,34 @@ public static partial class ReglasTexto
         return normalizado;
     }
 
+    /// <summary>
+    /// Normaliza el nombre de un rubro, una categoría o una marca respetando sus mayúsculas: las marcas tienen
+    /// grafías propias ("3M", "BIC") que capitalizar alteraría.
+    /// </summary>
+    public static string NormalizarNombreClasificacion(string valor)
+    {
+        return NormalizarEspacios(valor);
+    }
+
+    public static bool EsNombreClasificacionValido(string? valor)
+    {
+        return !string.IsNullOrWhiteSpace(valor)
+            && EsFormaCanonicaDeNombreClasificacionValida(NormalizarNombreClasificacion(valor));
+    }
+
+    public static string ExigirNombreClasificacion(string? valor, string nombreCampo)
+    {
+        var normalizado = string.IsNullOrWhiteSpace(valor) ? string.Empty : NormalizarNombreClasificacion(valor);
+        if (!EsFormaCanonicaDeNombreClasificacionValida(normalizado))
+        {
+            throw new DomainException(
+                $"El {nombreCampo} '{valor}' no es válido: no puede estar vacío ni superar los " +
+                $"{LongitudMaximaNombreClasificacion} caracteres.");
+        }
+
+        return normalizado;
+    }
+
     // Los EsFormaCanonica* validan un texto que YA está normalizado. Los usan tanto los EsValido públicos como los
     // Exigir, para que cada valor se normalice una sola vez por llamada.
     private static bool EsFormaCanonicaDeNombreValida(string normalizado, int longitudMaxima)
@@ -227,6 +256,11 @@ public static partial class ReglasTexto
         return normalizado.Length >= LongitudMinimaNombreUsuario
             && normalizado.Length <= LongitudMaximaNombreUsuario
             && FormatoNombreUsuario().IsMatch(normalizado);
+    }
+
+    private static bool EsFormaCanonicaDeNombreClasificacionValida(string normalizado)
+    {
+        return normalizado.Length > 0 && normalizado.Length <= LongitudMaximaNombreClasificacion;
     }
 
     // "maría-josé" -> "María-José", "o'connor" -> "O'Connor": mayúscula al inicio y después de cada guion o apóstrofo.

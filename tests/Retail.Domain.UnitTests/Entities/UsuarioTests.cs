@@ -17,6 +17,18 @@ public class UsuarioTests
         return Usuario.Crear("operador", "Juan", "Pérez", "hash_inicial", rol, emailEfectivo);
     }
 
+    [Theory]
+    [InlineData(RolUsuarioEnum.Cajero, false)]
+    [InlineData(RolUsuarioEnum.Encargado, true)]
+    [InlineData(RolUsuarioEnum.Gerente, true)]
+    [InlineData(RolUsuarioEnum.Administrador, false)]
+    public void PuedeAdministrarClasificacion_SegunRol_SoloGerenteYEncargado(RolUsuarioEnum rol, bool esperado)
+    {
+        var usuario = CrearOperador(rol);
+
+        usuario.PuedeAdministrarClasificacion().Should().Be(esperado);
+    }
+
     [Fact]
     public void Crear_DatosSinFormato_NormalizaLoginNombreApellidoYEmail()
     {

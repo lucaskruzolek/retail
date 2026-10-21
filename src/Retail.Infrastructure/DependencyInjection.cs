@@ -67,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<IRegistroAccesosService, Retail.Infrastructure.Persistence.Services.RegistroAccesosService>();
         services.AddScoped<ICatalogoProveedorQueryService, Retail.Infrastructure.Persistence.Services.CatalogoProveedorQueryService>();
         services.AddScoped<IArticuloQueryService, Retail.Infrastructure.Persistence.Services.ArticuloQueryService>();
+        services.AddScoped<IClasificacionQueryService, Retail.Infrastructure.Persistence.Services.ClasificacionQueryService>();
         services.AddScoped<IClienteQueryService, Retail.Infrastructure.Persistence.Services.ClienteQueryService>();
         services.AddScoped<IReporteQueryService, Retail.Infrastructure.Persistence.Services.ReporteQueryService>();
         services.AddScoped<IEsquemaBaseDatos, Retail.Infrastructure.Persistence.Services.EsquemaBaseDatos>();
