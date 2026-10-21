@@ -51,7 +51,8 @@ public static class DependencyInjection
 
         // 4. Persistencia en Entity Framework Core 8 (SQL Server Express)
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? @"Server=.\SQLEXPRESS;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+            ?? configuration.GetConnectionString("RetailDatabase")
+            ?? @"Server=.;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
 
         services.AddDbContext<RetailDbContext>(options =>
         {
@@ -59,8 +60,11 @@ public static class DependencyInjection
         });
 
         services.AddScoped<IRetailDbContext>(sp => sp.GetRequiredService<RetailDbContext>());
-        services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.Configure<Retail.Application.DTOs.Auth.PoliticaBloqueoOptions>(
+            configuration.GetSection(Retail.Application.DTOs.Auth.PoliticaBloqueoOptions.SectionName));
+        services.AddScoped<IRegistroAccesosService, Retail.Infrastructure.Persistence.Services.RegistroAccesosService>();
         services.AddScoped<ICatalogoProveedorQueryService, Retail.Infrastructure.Persistence.Services.CatalogoProveedorQueryService>();
         services.AddScoped<IArticuloQueryService, Retail.Infrastructure.Persistence.Services.ArticuloQueryService>();
         services.AddScoped<IClasificacionQueryService, Retail.Infrastructure.Persistence.Services.ClasificacionQueryService>();

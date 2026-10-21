@@ -649,7 +649,7 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task PagosPorPeriodo_EsUnaSolaConsultaConGroupByYSumasCondicionales()
+    public void PagosPorPeriodo_EsUnaSolaConsultaConGroupByYSumasCondicionales()
     {
         // Arrange
         var rango = RangoLocal(new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31));

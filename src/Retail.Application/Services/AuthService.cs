@@ -2,6 +2,7 @@ using FluentValidation;
 using Retail.Application.DTOs.Auth;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
+
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Common;
 using Retail.Domain.Entities;
@@ -19,15 +20,18 @@ public class AuthService : IAuthService
     private readonly IRepository<Usuario> _usuarioRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IValidator<LoginRequestDto> _validator;
+    private readonly IRegistroAccesosService _registroAccesosService;
 
     public AuthService(
         IRepository<Usuario> usuarioRepository,
         IPasswordHasher passwordHasher,
-        IValidator<LoginRequestDto> validator)
+        IValidator<LoginRequestDto> validator,
+        IRegistroAccesosService registroAccesosService)
     {
         _usuarioRepository = usuarioRepository ?? throw new ArgumentNullException(nameof(usuarioRepository));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
+        _registroAccesosService = registroAccesosService ?? throw new ArgumentNullException(nameof(registroAccesosService));
     }
 
     public async Task<LoginResultDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -51,9 +55,23 @@ public class AuthService : IAuthService
         if (usuarioActivo != null)
         {
             var passwordValido = _passwordHasher.VerifyPassword(request.Password, usuarioActivo.PasswordHash);
+            var intento = await _registroAccesosService.RegistrarIntentoAsync(
+                usuarioActivo.NombreUsuario,
+                usuarioActivo.Id,
+                passwordValido,
+                cancellationToken);
+
+            if (intento.EstaBloqueado)
+            {
+                throw new CuentaBloqueadaException(intento.BloqueadoHasta);
+            }
+
             if (!passwordValido)
             {
-                throw new CredencialesInvalidasException();
+                var msg = intento.IntentosRestantes > 0
+                    ? $"Contraseña incorrecta. Le quedan {intento.IntentosRestantes} intentos antes del bloqueo."
+                    : "Contraseña incorrecta.";
+                throw new CredencialesInvalidasException(msg);
             }
 
             return new LoginResultDto
@@ -71,6 +89,7 @@ public class AuthService : IAuthService
             throw new UsuarioInactivoException(username);
         }
 
+        await _registroAccesosService.RegistrarIntentoAsync(username, null, false, cancellationToken);
         throw new CredencialesInvalidasException();
     }
 
