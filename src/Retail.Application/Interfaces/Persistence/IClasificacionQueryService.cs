@@ -16,10 +16,11 @@ public interface IClasificacionQueryService
     Task<IReadOnlyList<RubroDto>> ListarRubrosAsync(string? filtro, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Categorías activas. <see cref="CategoriaDto.CantidadEnUso"/> cuenta los artículos asignados, incluidos
+    /// Categorías activas, opcionalmente solo las del rubro <c>idRubro</c> (D-26; el filtro se resuelve en SQL).
+    /// <see cref="CategoriaDto.CantidadEnUso"/> cuenta los artículos asignados, incluidos
     /// los dados de baja (R-1).
     /// </summary>
-    Task<IReadOnlyList<CategoriaDto>> ListarCategoriasAsync(string? filtro, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CategoriaDto>> ListarCategoriasAsync(string? filtro, int? idRubro, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Marcas activas. <see cref="MarcaDto.CantidadEnUso"/> cuenta los artículos asignados, incluidos los

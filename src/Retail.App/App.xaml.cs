@@ -116,6 +116,11 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.ViewModels.Articulos.ArticulosViewModel>();
         services.AddTransient<Retail.App.ViewModels.Articulos.SeleccionarCatalogoProveedorModalViewModel>();
         services.AddTransient<Retail.App.Views.Pages.ArticulosView>();
+        services.AddScoped<Retail.App.Services.IClasificacionDialogService, Retail.App.Services.ClasificacionDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Articulos.ClasificacionFormViewModel>();
+        services.AddTransient<Retail.App.Views.Dialogs.ClasificacionFormDialog>();
+        services.AddTransient<Retail.App.ViewModels.Articulos.AdministrarClasificacionViewModel>();
+        services.AddTransient<Retail.App.Views.Dialogs.AdministrarClasificacionDialog>();
         services.AddTransient<Retail.App.Views.Dialogs.SeleccionarCatalogoProveedorModalDialog>();
 
         services.AddScoped<Retail.App.Services.IClienteDialogService, Retail.App.Services.ClienteDialogService>();

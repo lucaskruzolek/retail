@@ -93,12 +93,12 @@ public class CategoriaServiceTests
         {
             new() { IdCategoria = 1, NombreCategoria = "Uno", CantidadEnUso = 2 }
         };
-        _consultas.ListarCategoriasAsync("un", Arg.Any<CancellationToken>()).Returns(esperado);
+        _consultas.ListarCategoriasAsync("un", null, Arg.Any<CancellationToken>()).Returns(esperado);
 
-        var resultado = await _servicio.ListarAsync("un");
+        var resultado = await _servicio.ListarAsync("un", null);
 
         resultado.Should().BeSameAs(esperado);
-        await _consultas.Received(1).ListarCategoriasAsync("un", Arg.Any<CancellationToken>());
+        await _consultas.Received(1).ListarCategoriasAsync("un", null, Arg.Any<CancellationToken>());
     }
 
     // ---------- Crear ----------

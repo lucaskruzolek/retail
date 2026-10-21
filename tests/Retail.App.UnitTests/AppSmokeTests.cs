@@ -1290,6 +1290,81 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void ClasificacionFormDialog_ModoCategoria_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ClasificacionFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var vm = new ClasificacionFormViewModel(
+                    Substitute.For<IRubroService>(),
+                    Substitute.For<ICategoriaService>(),
+                    Substitute.For<IMarcaService>(),
+                    Substitute.For<ICurrentUserSession>());
+                vm.ConfigurarAltaCategoria(new List<RubroDto> { new() { IdRubro = 1, NombreRubro = "Librería" } }, 1);
+
+                dialog = new ClasificacionFormDialog { DataContext = vm };
+                dialog.Measure(new System.Windows.Size(460, 390));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 460, 390));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ClasificacionFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void AdministrarClasificacionDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        AdministrarClasificacionDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var vm = new AdministrarClasificacionViewModel(
+                    Substitute.For<IRubroService>(),
+                    Substitute.For<ICategoriaService>(),
+                    Substitute.For<IMarcaService>(),
+                    Substitute.For<IClasificacionDialogService>(),
+                    Substitute.For<ICurrentUserSession>());
+                vm.Rubros.Add(new RubroDto { IdRubro = 1, NombreRubro = "Librería", CantidadEnUso = 1 });
+                vm.Categorias.Add(new CategoriaDto { IdCategoria = 1, NombreCategoria = "Cuadernos", IdRubro = 1, CantidadEnUso = 4 });
+                vm.Marcas.Add(new MarcaDto { IdMarca = 1, NombreMarca = "Rivadavia", CantidadEnUso = 2 });
+                vm.MensajeError = "Mensaje de prueba";
+
+                dialog = new AdministrarClasificacionDialog { DataContext = vm };
+                dialog.Measure(new System.Windows.Size(960, 640));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 960, 640));
+                dialog.UpdateLayout();
+
+                vm.MostrandoMarcas = true;
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de AdministrarClasificacionDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
     public void VincularArticuloModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange

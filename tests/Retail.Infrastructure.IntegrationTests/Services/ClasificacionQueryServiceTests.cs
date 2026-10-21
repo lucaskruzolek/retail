@@ -109,7 +109,7 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
         await CrearCategoriaAsync("Cuadernos", rubro.Id);
         await CrearCategoriaAsync("Obsoleta", rubro.Id, deBaja: true);
 
-        var resultado = await _sut.ListarCategoriasAsync(null);
+        var resultado = await _sut.ListarCategoriasAsync(null, null);
 
         resultado.Select(c => c.NombreCategoria).Should().Equal("Cuadernos", "Lápices");
         resultado.Should().OnlyContain(c => c.NombreRubro == "Librería" && c.IdRubro == rubro.Id);
@@ -124,10 +124,52 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
         await CrearArticuloAsync("Cuaderno A", cuadernos.Id, null);
         await CrearArticuloAsync("Cuaderno B", cuadernos.Id, null, deBaja: true);
 
-        var resultado = await _sut.ListarCategoriasAsync(null);
+        var resultado = await _sut.ListarCategoriasAsync(null, null);
 
         resultado.Single(c => c.IdCategoria == cuadernos.Id).CantidadEnUso.Should().Be(2);
         resultado.Single(c => c.IdCategoria == lapices.Id).CantidadEnUso.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task ListarCategoriasAsync_ConIdRubro_DevuelveSoloLasCategoriasDeEseRubro()
+    {
+        var libreria = await CrearRubroAsync("Librería");
+        var juguetes = await CrearRubroAsync("Juguetes");
+        await CrearCategoriaAsync("Lápices", libreria.Id);
+        await CrearCategoriaAsync("Cuadernos", libreria.Id);
+        await CrearCategoriaAsync("Muñecas", juguetes.Id);
+
+        var resultado = await _sut.ListarCategoriasAsync(null, libreria.Id);
+
+        resultado.Select(c => c.NombreCategoria).Should().Equal("Cuadernos", "Lápices");
+        resultado.Should().OnlyContain(c => c.IdRubro == libreria.Id);
+    }
+
+    [Fact]
+    public async Task ListarCategoriasAsync_SinIdRubro_DevuelveLasCategoriasDeTodosLosRubros()
+    {
+        var libreria = await CrearRubroAsync("Librería");
+        var juguetes = await CrearRubroAsync("Juguetes");
+        await CrearCategoriaAsync("Lápices", libreria.Id);
+        await CrearCategoriaAsync("Muñecas", juguetes.Id);
+
+        var resultado = await _sut.ListarCategoriasAsync(null, null);
+
+        resultado.Select(c => c.NombreCategoria).Should().Equal("Lápices", "Muñecas");
+    }
+
+    [Fact]
+    public async Task ListarCategoriasAsync_ConIdRubroYFiltroDeTexto_AplicaAmbasCondiciones()
+    {
+        var libreria = await CrearRubroAsync("Librería");
+        var juguetes = await CrearRubroAsync("Juguetes");
+        await CrearCategoriaAsync("Lápices", libreria.Id);
+        await CrearCategoriaAsync("Cuadernos", libreria.Id);
+        await CrearCategoriaAsync("Lápices de colores", juguetes.Id);
+
+        var resultado = await _sut.ListarCategoriasAsync("lapic", libreria.Id);
+
+        resultado.Select(c => c.NombreCategoria).Should().Equal("Lápices");
     }
 
     [Theory]
@@ -140,7 +182,7 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
         await CrearCategoriaAsync("Lápices", rubro.Id);
         await CrearCategoriaAsync("Cuadernos", rubro.Id);
 
-        var resultado = await _sut.ListarCategoriasAsync(filtro);
+        var resultado = await _sut.ListarCategoriasAsync(filtro, null);
 
         resultado.Select(c => c.NombreCategoria).Should().Equal("Lápices");
     }
@@ -155,7 +197,7 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
         await CrearCategoriaAsync("Lápices", rubro.Id);
         await CrearCategoriaAsync("Cuadernos", rubro.Id);
 
-        var resultado = await _sut.ListarCategoriasAsync(filtro);
+        var resultado = await _sut.ListarCategoriasAsync(filtro, null);
 
         resultado.Should().HaveCount(2);
     }

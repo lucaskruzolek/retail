@@ -40,9 +40,9 @@ public class CategoriaService : ICategoriaService
         _actualizarValidator = actualizarValidator ?? throw new ArgumentNullException(nameof(actualizarValidator));
     }
 
-    public async Task<IReadOnlyList<CategoriaDto>> ListarAsync(string? filtro, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CategoriaDto>> ListarAsync(string? filtro, int? idRubro, CancellationToken cancellationToken = default)
     {
-        return await _consultas.ListarCategoriasAsync(filtro, cancellationToken);
+        return await _consultas.ListarCategoriasAsync(filtro, idRubro, cancellationToken);
     }
 
     public async Task<CategoriaDto> CrearAsync(int idActor, CrearCategoriaDto dto, CancellationToken cancellationToken = default)

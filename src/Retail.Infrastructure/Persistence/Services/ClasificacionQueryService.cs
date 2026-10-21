@@ -42,7 +42,7 @@ public class ClasificacionQueryService : IClasificacionQueryService
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<CategoriaDto>> ListarCategoriasAsync(string? filtro, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<CategoriaDto>> ListarCategoriasAsync(string? filtro, int? idRubro, CancellationToken cancellationToken = default)
     {
         // R-1 + comportamiento de EF Core 8: IgnoreQueryFilters() afecta a TODA la consulta, no a una subconsulta.
         // Como el conteo debe incluir los artículos dados de baja, se ignoran los filtros globales y las
@@ -56,6 +56,12 @@ public class ClasificacionQueryService : IClasificacionQueryService
         {
             var patron = $"%{filtro.Trim()}%";
             query = query.Where(c => EF.Functions.Like(c.NombreCategoria, patron));
+        }
+
+        // D-26: el filtro por rubro se compone sobre el IQueryable y se resuelve en SQL (Ley 8)
+        if (idRubro.HasValue)
+        {
+            query = query.Where(c => c.IdRubro == idRubro.Value);
         }
 
         return await query

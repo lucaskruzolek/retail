@@ -25,6 +25,12 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     private readonly IArticuloDialogService _dialogService;
     private readonly IProveedorService? _proveedorService;
     private readonly ILogger<ArticulosViewModel> _logger;
+    private readonly IClasificacionDialogService? _clasificacionDialogService;
+    private readonly ICurrentUserSession? _session;
+
+    // Selección de los combos a restaurar cuando el diálogo de clasificación cambió sus listas.
+    private int? _idCategoriaARestaurar;
+    private int? _idMarcaARestaurar;
 
     private List<CategoriaDto> _cacheCategorias = new();
     private List<MarcaDto> _cacheMarcas = new();
@@ -116,17 +122,29 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         IdDistribuidorFiltro != 0 ||
         FiltroStock != FiltroStockArticuloEnum.Todos;
 
+    /// <summary>
+    /// Solo el Gerente y el Encargado administran rubros, categorías y marcas (D-5, RF-04).
+    /// </summary>
+    public bool PuedeAdministrarClasificacion =>
+        _clasificacionDialogService is not null &&
+        _session is not null &&
+        (_session.EsGerente || _session.EsEncargado);
+
     public ArticulosViewModel(
         IInventarioService inventarioService,
         IArticuloDialogService dialogService,
         IProveedorService? proveedorService = null,
-        ILogger<ArticulosViewModel>? logger = null)
+        ILogger<ArticulosViewModel>? logger = null,
+        IClasificacionDialogService? clasificacionDialogService = null,
+        ICurrentUserSession? session = null)
     {
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _proveedorService = proveedorService;
         _logger = logger ?? NullLogger<ArticulosViewModel>.Instance;
         _cargaArticulos = new CargaSerializada(_logger);
+        _clasificacionDialogService = clasificacionDialogService;
+        _session = session;
 
         InicializarOpcionesFiltroEstaticas();
     }
@@ -154,6 +172,47 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     partial void OnArticuloSeleccionadoChanged(ArticuloDto? value)
     {
         OnPropertyChanged(nameof(HayArticuloSeleccionado));
+    }
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        AdministrarClasificacionCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool PuedeAbrirAdministracion => PuedeAdministrarClasificacion && !IsBusy;
+
+    /// <summary>
+    /// Abre el diálogo de administración de rubros, categorías y marcas. Si hubo cambios, recarga los combos
+    /// de filtro, que solo se llenan cuando están vacíos (Track 6.5).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(PuedeAbrirAdministracion))]
+    private async Task AdministrarClasificacionAsync()
+    {
+        if (!PuedeAdministrarClasificacion)
+        {
+            return;
+        }
+
+        if (_clasificacionDialogService!.AbrirAdministracion())
+        {
+            await RecargarClasificacionAsync();
+        }
+    }
+
+    /// <summary>
+    /// Vacía las cachés y los combos de categorías y marcas para que la carga habitual los vuelva a llenar,
+    /// y conserva la selección de cada combo si el elemento sigue existiendo (si no, vuelve a "Todas").
+    /// </summary>
+    private Task RecargarClasificacionAsync()
+    {
+        _idCategoriaARestaurar = IdCategoriaFiltro;
+        _idMarcaARestaurar = IdMarcaFiltro;
+        _cacheCategorias = new List<CategoriaDto>();
+        _cacheMarcas = new List<MarcaDto>();
+        CategoriasFiltro.Clear();
+        MarcasFiltro.Clear();
+
+        return CargarArticulosAsync();
     }
 
     partial void OnTextoBusquedaChanged(string value)
@@ -287,6 +346,12 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                     {
                         CategoriasFiltro.Add(cat);
                     }
+
+                    if (_idCategoriaARestaurar is int idCategoria)
+                    {
+                        _idCategoriaARestaurar = null;
+                        IdCategoriaFiltro = CategoriasFiltro.Any(c => c.IdCategoria == idCategoria) ? idCategoria : 0;
+                    }
                 }
 
                 if (MarcasFiltro.Count == 0)
@@ -296,6 +361,12 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                     foreach (var m in _cacheMarcas)
                     {
                         MarcasFiltro.Add(m);
+                    }
+
+                    if (_idMarcaARestaurar is int idMarca)
+                    {
+                        _idMarcaARestaurar = null;
+                        IdMarcaFiltro = MarcasFiltro.Any(m => m.IdMarca == idMarca) ? idMarca : 0;
                     }
                 }
 

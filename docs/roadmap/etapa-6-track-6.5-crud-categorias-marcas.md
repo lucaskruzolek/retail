@@ -20,7 +20,7 @@
 | 1 | Dominio: `Crear`/`Renombrar`, regla de texto y excepción | ✅ 2026-10-17: `Rubro`, `Categoria` y `Marca` encapsuladas, regla de nombre en `ReglasTexto`, `ClasificacionEnUsoException` y 49 usos migrados a `Crear`; Release, 1.875 tests y `dotnet format` en verde. `IdRubro` pasa a la Fase 3 (D-19) |
 | 2 | Aplicación: contratos, DTOs, validadores y servicios | ✅ 2026-10-17: `IRubroService`, `ICategoriaService`, `IMarcaService` y sus servicios, puerto `IClasificacionQueryService` (D-20), autorización en `Usuario.PuedeAdministrarClasificacion` (D-21), 6 validadores y 84 tests de servicios. Registro en DI e `IdRubro` en Fase 3 |
 | 3 | Infraestructura: índices únicos filtrados, migración y conteos | ✅ 2026-10-17: `RUBROS` y FK obligatoria, colación `Modern_Spanish_CI_AI` e índices únicos (D-22), migración `AgregarRubrosYUnicidadClasificacion` con prechequeos (D-24), `ClasificacionQueryService`, semillero con 7 rubros (D-25), servicios registrados en DI; R-1 y R-3 verificados en integración; 2.041 tests en verde |
-| 4 | UI: diálogos de administración desde el catálogo de artículos | ⏳ |
+| 4 | UI: diálogos de administración desde el catálogo de artículos | ✅ 2026-10-21: `AdministrarClasificacionDialog` (maestro-detalle, D-26), `ClasificacionFormDialog`, `IClasificacionDialogService`, botón "Clasificación" en `ArticulosView` (Gerente y Encargado) y recarga de combos al cerrar; comandos bloqueados durante las cargas (DbContext compartido). Tests y verificación en verde; prueba manual del estudiante aprobada (D-28 corrigió el alto del formulario) |
 | 5 | Cierre: verificación Release, mapa semántico y propuesta de nota para `wiki/` | ⏳ |
 
 **Forma de trabajo:** fase por fase y capa por capa, con cada diff revisado por el estudiante (CLAUDE.md §3). Commits y PR los pide el estudiante (§4).
@@ -70,6 +70,9 @@
 | D-23 | `RenombrarCategoriaDto`/`RenombrarAsync` pasan a `ActualizarCategoriaDto`/`ActualizarAsync` (nombre y rubro). `CategoriaDto` suma `IdRubro` y `NombreRubro`. El servicio valida que el rubro exista y esté activo. | Cerrada (2026-10-17) | Editar una categoría es un solo formulario con nombre y rubro. |
 | D-24 | La migración verifica antes del DDL: si `CATEGORIAS` tiene filas, o si `MARCAS` tiene nombres activos duplicados bajo `CI_AI`, aborta con `THROW` y un mensaje claro. | Cerrada (2026-10-17) | Sin el prechequeo el error sería un fallo críptico de FK o de índice (R-2, D-16). |
 | D-25 | El semillero de demo crea los 7 rubros del borrador de taxonomía (Track 6.6, sección 6.1) con 1 a 3 categorías cada uno; las marcas no cambian. | Cerrada (2026-10-17) | Las cinco "categorías" de demo eran en realidad rubros. La taxonomía completa la carga el comando del Track 6.6 (M-15). |
+| D-26 | El diálogo de administración es **maestro-detalle**: rubros a la izquierda y categorías del rubro seleccionado a la derecha, con el filtro `idRubro` resuelto en SQL (`ListarCategoriasAsync(filtro, idRubro)` en el puerto y el servicio). Las secciones "Rubros y categorías" y "Marcas" se alternan con dos `KeycapToggleButtonStyle`. | Cerrada (2026-10-21) | El sistema de diseño no tiene estilos de pestañas ni de grupos en el DataGrid; filtrar en memoria violaría la Ley 8. |
+| D-27 | **Sin atajos de función** (F2, F8, …) para la administración de la clasificación; los diálogos conservan solo el comportamiento estándar de Enter (botón por defecto) y Esc (cancelar), como el resto de los formularios. | Cerrada (2026-10-21) | Decisión del estudiante. |
+| D-28 | `ClasificacionFormDialog` usa **ancho fijo (460) y alto ajustado al contenido** (`SizeToContent="Height"`) en lugar del alto fijo del preset Compacto, con `MinHeight="0"` explícito. | Cerrada (2026-10-21) | Prueba manual del estudiante: con un solo campo (rubro, marca) la ventana de 390 de alto quedaba casi vacía. Diagnóstico: el estilo por defecto de `FluentWindow` (WPF-UI 4.0) aporta `Height=600` y `MinHeight=320`; al quitar los valores locales regían los del estilo, por eso hace falta el `MinHeight` local. El alto sigue acotado por `MaxHeight = WorkArea` y crece solo si aparece el banner de error. |
 
 ---
 
@@ -147,7 +150,7 @@ Antes de empezar: leer [`SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos
 
 | Archivo | Cambio |
 | :--- | :--- |
-| `Views/Dialogs/AdministrarClasificacionDialog.xaml` | Diálogo con pestañas Rubros y categorías, y Marcas, con grilla, filtro y acciones. Las categorías se muestran agrupadas por rubro. |
+| `Views/Dialogs/AdministrarClasificacionDialog.xaml` | Diálogo maestro-detalle (D-26): rubros y categorías del rubro seleccionado, y marcas, alternados con toggles; grilla, filtro y acciones. |
 | `Views/Dialogs/ClasificacionFormDialog.xaml` | Alta y edición de un nombre. |
 | ViewModels e `IClasificacionDialogService` | Siguen el patrón de `ProveedorDialogService`. |
 | `Views/Pages/ArticulosView.xaml` | Botón de acceso; al cerrar el diálogo se recargan los combos. |

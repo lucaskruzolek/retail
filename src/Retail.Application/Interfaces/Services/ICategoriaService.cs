@@ -12,9 +12,10 @@ public interface ICategoriaService
 {
     /// <summary>
     /// Lista los elementos activos ordenados por nombre, con filtro de texto opcional (contiene). No exige
-    /// rol: lo consulta cualquier usuario autenticado (D-21).
+    /// rol: lo consulta cualquier usuario autenticado (D-21). Si <c>idRubro</c> tiene valor, solo devuelve las
+    /// categorías de ese rubro (D-26).
     /// </summary>
-    Task<IReadOnlyList<CategoriaDto>> ListarAsync(string? filtro, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<CategoriaDto>> ListarAsync(string? filtro, int? idRubro, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Da de alta un elemento. Lanza <see cref="OperacionNoAutorizadaException"/> si el actor no tiene
