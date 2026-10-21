@@ -2,7 +2,7 @@
 
 > **Para el agente que lea esto:** este archivo es el punto de entrada para retomar, en una sesión nueva y sin contexto previo, la línea de trabajo de clasificación de artículos: el CRUD de Rubros, Categorías y Marcas (Track 6.5) y el motor de sugerencia de categoría y marca (Track 6.6). Resume el estado, las reglas acordadas con el estudiante y el flujo de trabajo paso a paso. **El diseño completo vive en los documentos de cada track; este archivo no lo repite.**
 >
-> **Estado al 17 de octubre de 2026:** ambos tracks están **cerrados en lo conceptual y sin implementar**. Pasos 0 y 1 hechos en la rama `docs/clasificacion-catalogacion` (sección 2). El paso en curso es la **Fase 5 del Paso 2** (cierre) de la sección 4.
+> **Estado al 17 de octubre de 2026:** ambos tracks están **cerrados en lo conceptual y sin implementar**. Pasos 0 y 1 hechos en la rama `docs/clasificacion-catalogacion` (sección 2). El paso en curso es el **Paso 3** (PR del 6.5) y, en paralelo, el **Paso 2b** (rotulación de `ml/datos/` por el estudiante) de la sección 4.
 >
 > **Cómo usarlo:** leer la sección 1 (reglas) y la sección 4 (flujo), ubicar el primer paso sin marcar y cargar **solo** el documento del track que ese paso indica. Al cerrar cada sesión, aplicar el protocolo de la sección 6.
 
@@ -31,7 +31,7 @@ Además de `AGENTS.md` y `CLAUDE.md`, que se cargan solos:
 * Rama **`docs/clasificacion-catalogacion`** (creada desde `main`, sin push):
   * `c4ac594`: diseño de los Tracks 6.5 y 6.6, este handoff, scripts de `ml/` y `.gitignore` (Paso 0).
   * `5403a2e`: Paso 1 (ERS, roadmap de la Etapa 6, mapa semántico, estado de los dos tracks y este archivo).
-* Rama **`feat/crud-categorias-marcas`** (apilada sobre la anterior, sin push): `e686bfe` scripts del Paso 2b, `3138cae` Fase 1, `d37e8dc` Fase 2 y `99770fa` Fase 3 y la Fase 4 del 6.5 (commit siguiente).
+* Rama **`feat/crud-categorias-marcas`** (apilada sobre la anterior, sin push): `e686bfe` scripts del Paso 2b, `3138cae` Fase 1, `d37e8dc` Fase 2 y `99770fa` Fase 3, `6e2cb19` Fase 4 y `521c2f3` merge de `main` (PR #30, verificado compatible). **Publicada en `origin`**; PR a `main` pendiente de abrir.
 * `wiki/.obsidian/workspace.json` aparece modificado, pero es estado local de Obsidian y no forma parte de este trabajo.
 * Datos locales, no versionados: `ml/datos/lista-mayo-2025.csv`, exportado de `C:\Users\lucas\Proyectos\LISTA MAYO 2025.xls` (14.876 artículos, un solo distribuidor, sin precios).
 
@@ -87,7 +87,7 @@ Se hace una vez, antes de cualquier rama de código, para no editar la ERS en do
 * [x] Mostrar cada texto al estudiante antes de editar.
 * **Hecho el 2026-10-17.** Además de lo previsto: `RF-27` dice "umbral que el sistema calibra en cada entrenamiento" (M-10, M-11) en lugar de "umbral configurado"; se ajustaron `RF-05`, `RF-07`, `RF-23`, `IU-04`, `IU-05`, el Módulo I y el glosario ("Rubro"); la matriz no incluye todavía las tablas de diccionarios del 6.6 (se agregan con su migración). El mapa indexa ahora los planes de los Tracks 6.4, 6.5 y 6.6. D-5 quedó verificada (sección 3 del Track 6.5).
 
-### Paso 2 — Track 6.5, Fases 1 a 5
+### Paso 2 — Track 6.5, Fases 1 a 5 ✅
 
 Rama sugerida `feat/crud-categorias-marcas` (la crea el estudiante). Plan por capas en la sección 5 de su documento.
 
@@ -95,7 +95,7 @@ Rama sugerida `feat/crud-categorias-marcas` (la crea el estudiante). Plan por ca
 * [x] Fase 2 — Aplicación (2026-10-17; D-20 y D-21; registro en DI pasa a la Fase 3)
 * [x] Fase 3 — Infraestructura (2026-10-17; D-22 a D-25; R-1 y R-3 verificados). **Tras mergear, recrear `RetailDb`** (la migración aborta con 50001 si `CATEGORIAS` tiene datos, D-16)
 * [x] Fase 4 — UI (2026-10-21; D-26 a D-28; prueba manual aprobada)
-* [ ] Fase 5 — Verificación Release completa de `AGENTS.md`, mapa semántico y propuesta de nota para `wiki/`
+* [x] Fase 5 — Verificación Release completa (2.081 tests sobre la fusión con `main`), mapa al día; nota de `wiki/` descartada por el estudiante (2026-10-21)
 
 ### Paso 2b — Trabajo de datos del Track 6.6 (solapado con el Paso 2)
 
@@ -111,6 +111,8 @@ Formatos tentativos de los archivos que completa el estudiante (se confirman al 
 ### Paso 3 — PR del Track 6.5
 
 * [ ] El estudiante abre el PR; revisión cruzada con Pablo; merge en `main`.
+  * Rama publicada el 2026-10-21. `gh` no está instalado: el PR se abre desde https://github.com/lucaskruzolek/retail/compare/main...feat/crud-categorias-marcas?expand=1 . Avisar a Pablo que debe recrear `RetailDb` (error 50001, D-16/D-24).
+  * Para la revisión cruzada (fuera de este track): en #30 el fallback de conexión pasó a `Server=.` y la política de bloqueo vive en un SP (Ley 8).
 
 ### Paso 4 — Track 6.6, experimentos E-1 a E-4 (Fase 2 de su documento)
 

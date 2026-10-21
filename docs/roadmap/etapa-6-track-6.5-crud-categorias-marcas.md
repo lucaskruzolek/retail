@@ -21,7 +21,7 @@
 | 2 | Aplicación: contratos, DTOs, validadores y servicios | ✅ 2026-10-17: `IRubroService`, `ICategoriaService`, `IMarcaService` y sus servicios, puerto `IClasificacionQueryService` (D-20), autorización en `Usuario.PuedeAdministrarClasificacion` (D-21), 6 validadores y 84 tests de servicios. Registro en DI e `IdRubro` en Fase 3 |
 | 3 | Infraestructura: índices únicos filtrados, migración y conteos | ✅ 2026-10-17: `RUBROS` y FK obligatoria, colación `Modern_Spanish_CI_AI` e índices únicos (D-22), migración `AgregarRubrosYUnicidadClasificacion` con prechequeos (D-24), `ClasificacionQueryService`, semillero con 7 rubros (D-25), servicios registrados en DI; R-1 y R-3 verificados en integración; 2.041 tests en verde |
 | 4 | UI: diálogos de administración desde el catálogo de artículos | ✅ 2026-10-21: `AdministrarClasificacionDialog` (maestro-detalle, D-26), `ClasificacionFormDialog`, `IClasificacionDialogService`, botón "Clasificación" en `ArticulosView` (Gerente y Encargado) y recarga de combos al cerrar; comandos bloqueados durante las cargas (DbContext compartido). Tests y verificación en verde; prueba manual del estudiante aprobada (D-28 corrigió el alto del formulario) |
-| 5 | Cierre: verificación Release, mapa semántico y propuesta de nota para `wiki/` | ⏳ |
+| 5 | Cierre: verificación Release, mapa semántico y propuesta de nota para `wiki/` | ✅ 2026-10-21: verificación Release completa sobre la rama ya fusionada con `main` (PR #30, compatible), 2.081 tests; mapa al día; nota de `wiki/` descartada por el estudiante; rama publicada, PR a `main` pendiente de abrir |
 
 **Forma de trabajo:** fase por fase y capa por capa, con cada diff revisado por el estudiante (CLAUDE.md §3). Commits y PR los pide el estudiante (§4).
 
