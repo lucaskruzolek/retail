@@ -3,7 +3,7 @@ using Retail.Domain.Enums;
 namespace Retail.Application.DTOs.Backups;
 
 /// <summary>
-/// Última restauración de la base, para que la aplicación la muestre (IU-10, R-20): un restore equivocado o malicioso
+/// Restauración de la base, para que la aplicación la muestre (IU-10, R-20): un restore equivocado o malicioso
 /// debe poder detectarse aunque nadie lo haya anunciado.
 /// </summary>
 public sealed record RegistroRestauracionDto
@@ -31,6 +31,12 @@ public sealed record RegistroRestauracionDto
     public required Guid ReferenciaCopia { get; init; }
 
     public required string RutaArchivo { get; init; }
+
+    /// <summary>
+    /// Indica si antes de restaurar se tomó una copia previa de la base vigente (no la hay si no existía una base vigente
+    /// o, desde la consola, si la copia previa falló).
+    /// </summary>
+    public bool TuvoCopiaPrevia { get; init; }
 
     /// <summary>
     /// Nombre con el que quedó la base reemplazada, o <c>null</c> si no había una base vigente.

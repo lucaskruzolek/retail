@@ -1691,4 +1691,85 @@ public class RestauracionServiceTests
         ultima!.NombreUsuario.Should().Be("gerente");
         ultima.NombreOperador.Should().Be("soporte");
     }
+
+    // ───────────────────── Historial de restauraciones (D-34) ─────────────────────
+
+    [Fact]
+    public async Task ListarRestauracionesAsync_Gerente_DevuelveDeLaMasRecienteALaMasAntigua()
+    {
+        // Arrange
+        var antigua = Restauracion(1, "gerente", OrigenRestauracionEnum.Consola);
+        var reciente = Restauracion(2, "otro.gerente", OrigenRestauracionEnum.Aplicacion);
+        _restauraciones.ListAllAsync(false, Arg.Any<CancellationToken>()).Returns([antigua, reciente]);
+
+        // Act
+        var historial = await _sut.ListarRestauracionesAsync(IdGerente);
+
+        // Assert
+        historial.Select(r => r.Referencia).Should().Equal(reciente.Referencia, antigua.Referencia);
+        historial[0].NombreUsuario.Should().Be("otro.gerente");
+        historial[0].TuvoCopiaPrevia.Should().BeTrue();
+        historial[0].BaseAnterior.Should().Be(BaseAnterior);
+    }
+
+    [Fact]
+    public async Task ListarRestauracionesAsync_Administrador_PuedeConsultar()
+    {
+        // Arrange
+        _restauraciones.ListAllAsync(false, Arg.Any<CancellationToken>())
+            .Returns([Restauracion(1, "gerente", OrigenRestauracionEnum.Aplicacion)]);
+
+        // Act
+        var historial = await _sut.ListarRestauracionesAsync(IdAdministrador);
+
+        // Assert
+        historial.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData(IdCajero)]
+    [InlineData(999)]
+    [InlineData(0)]
+    public async Task ListarRestauracionesAsync_Cajero_LanzaOperacionNoAutorizada(int idActor)
+    {
+        // Act
+        var act = async () => await _sut.ListarRestauracionesAsync(idActor);
+
+        // Assert
+        await act.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _restauraciones.DidNotReceiveWithAnyArgs().ListAllAsync(default, default);
+    }
+
+    [Fact]
+    public async Task ListarRestauracionesAsync_ConOperador_MapeaEjecutorYAutorizante()
+    {
+        // Arrange
+        var registro = RegistroRestauracion.Registrar(
+            OrigenRestauracionEnum.Aplicacion, IdGerente, "gerente", Guid.NewGuid(), RutaBak, Migracion, null, null,
+            idOperador: IdAdministrador, nombreOperador: "soporte");
+        registro.Id = 1;
+        _restauraciones.ListAllAsync(false, Arg.Any<CancellationToken>()).Returns([registro]);
+
+        // Act
+        var historial = await _sut.ListarRestauracionesAsync(IdAdministrador);
+
+        // Assert
+        historial[0].NombreUsuario.Should().Be("gerente");
+        historial[0].NombreOperador.Should().Be("soporte");
+        historial[0].TuvoCopiaPrevia.Should().BeFalse();
+        historial[0].BaseAnterior.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ListarRestauracionesAsync_SinRestauraciones_DevuelveListaVacia()
+    {
+        // Arrange
+        _restauraciones.ListAllAsync(false, Arg.Any<CancellationToken>()).Returns([]);
+
+        // Act
+        var historial = await _sut.ListarRestauracionesAsync(IdGerente);
+
+        // Assert
+        historial.Should().BeEmpty();
+    }
 }

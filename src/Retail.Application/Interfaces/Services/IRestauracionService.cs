@@ -50,4 +50,11 @@ public interface IRestauracionService
     /// y el Administrador: la aplicación la muestra para que una restauración no pase inadvertida (R-20).
     /// </summary>
     Task<RegistroRestauracionDto?> ObtenerUltimaRestauracionAsync(int idActor, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Historial de restauraciones, de la más reciente a la más antigua (D-34). Es de solo lectura, sin paginación (las
+    /// restauraciones son excepcionales) y lo consultan el Gerente y el Administrador; cualquier otro rol recibe
+    /// <c>OperacionNoAutorizadaException</c>.
+    /// </summary>
+    Task<IReadOnlyList<RegistroRestauracionDto>> ListarRestauracionesAsync(int idActor, CancellationToken cancellationToken = default);
 }

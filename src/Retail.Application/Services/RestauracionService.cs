@@ -270,6 +270,21 @@ public class RestauracionService : IRestauracionService
 
     public async Task<RegistroRestauracionDto?> ObtenerUltimaRestauracionAsync(int idActor, CancellationToken cancellationToken = default)
     {
+        var restauraciones = await ConsultarRestauracionesAsync(idActor, cancellationToken);
+
+        return restauraciones.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<RegistroRestauracionDto>> ListarRestauracionesAsync(int idActor, CancellationToken cancellationToken = default)
+    {
+        return await ConsultarRestauracionesAsync(idActor, cancellationToken);
+    }
+
+    /// <summary>
+    /// Autoriza al actor (Gerente o Administrador) y devuelve las restauraciones de la más reciente a la más antigua.
+    /// </summary>
+    private async Task<List<RegistroRestauracionDto>> ConsultarRestauracionesAsync(int idActor, CancellationToken cancellationToken)
+    {
         var actor = idActor > 0
             ? await _usuarios.GetByIdAsync(idActor, includeDeleted: false, cancellationToken)
             : null;
@@ -294,9 +309,10 @@ public class RestauracionService : IRestauracionService
                 NombreOperador = r.NombreOperador,
                 ReferenciaCopia = r.ReferenciaCopia,
                 RutaArchivo = r.RutaArchivo,
+                TuvoCopiaPrevia = r.ReferenciaCopiaPrevia is not null,
                 BaseAnterior = r.BaseAnterior
             })
-            .FirstOrDefault();
+            .ToList();
     }
 
     /// <summary>
