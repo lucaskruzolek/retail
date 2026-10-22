@@ -12,6 +12,8 @@ Valida, y solo si no hay errores escribe (';', UTF-8 con BOM):
 Errores (no se escribe nada): filas sin validar (en el oro, y en las planillas de ambiguos que tengan la columna
 `validado`), celdas vacías, categorías que no están en la taxonomía,
 códigos repetidos y familias (tres primeras palabras) presentes en las dos planillas.
+El EAN del oro se toma siempre de la lista original, por código: Excel convierte los códigos de barras a notación
+científica al guardar una planilla (7,7981E+12) y los dígitos perdidos no se recuperan desde la planilla.
 Informe: tasa de corrección del validador sobre las etiquetas de Claude (M-19), con su intervalo de confianza, y las
 marcas del oro que no están en el diccionario (el sistema no puede sugerirlas: cuentan como fallo de cobertura).
 """
@@ -21,11 +23,12 @@ import math
 import sys
 from collections import Counter
 
-from comun import escribir_csv, leer_planilla, normalizar_texto
+from comun import escribir_csv, leer_lista, leer_planilla, normalizar_ean, normalizar_texto
 
 SIN_MARCA = "SIN MARCA"
 
 parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+parser.add_argument("--lista", default="ml/datos/lista-mayo-2025.csv")
 parser.add_argument("--oro", default="ml/datos/oro-validar.csv")
 parser.add_argument("--ambiguos", nargs="+",
                     default=["ml/datos/ambiguos-a-etiquetar.csv", "ml/datos/ambiguos-2-a-etiquetar.csv"])
@@ -37,6 +40,7 @@ argumentos = parser.parse_args()
 errores = []
 categorias = {normalizar_texto(f["categoria"]): f["categoria"] for f in leer_planilla(argumentos.taxonomia)}
 marcas = {normalizar_texto(f["marca"]): f["marca"] for f in leer_planilla(argumentos.marcas)}
+ean_original = {codigo: ean for codigo, _, ean in leer_lista(argumentos.lista)}
 
 
 def familia(descripcion):
@@ -70,6 +74,10 @@ for fila in leer_planilla(argumentos.oro):
     donde = f"Oro {fila['codigo']}"
     if fila["validado"].strip() != "1":
         errores.append(f"{donde}: sin validar")
+    if fila["codigo"] not in ean_original:
+        errores.append(f"{donde}: el código no está en la lista")
+        continue
+    gtin, _ = normalizar_ean(fila["codigo"], ean_original[fila["codigo"]])
     categoria = categoria_valida(fila["categoria"], donde)
     marca = " ".join(fila["marca"].split())
     if not marca:
@@ -87,7 +95,7 @@ for fila in leer_planilla(argumentos.oro):
     corregidas["categoria"] += corrigio_categoria
     corregidas["marca"] += corrigio_marca
     corregidas["fila"] += corrigio_categoria or corrigio_marca
-    oro.append([fila["codigo"], fila["descripcion"], fila["ean"], categoria, marca])
+    oro.append([fila["codigo"], fila["descripcion"], gtin or "", categoria, marca])
 
 # 2. Ejemplos de términos ambiguos.
 ambiguos = []

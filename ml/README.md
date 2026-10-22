@@ -88,3 +88,30 @@ La consola solo muestra conteos; las descripciones de ejemplo están únicamente
 
 > **No guardar la lista como CSV desde Excel.** Excel convierte los códigos de barras a notación científica
 > (`3,50118E+12`) y se pierden dígitos de forma irrecuperable. Por eso existe `exportar_lista_xls.ps1`.
+
+## Experimentos del modelo (Track 6.6, Fase 2)
+
+Usan **scikit-learn** en un entorno virtual propio, aprobado solo para exploración: no llega al producto, que entrena
+en C# sin dependencias nuevas (M-3). Las versiones están fijadas en `requirements.txt`.
+
+```powershell
+python -m venv ml/.venv
+ml/.venv/Scripts/python -m pip install -r ml/requirements.txt
+ml/.venv/Scripts/python ml/scripts/e1_e2_clasificador.py e2      # E-2: vectorizador
+ml/.venv/Scripts/python ml/scripts/e1_e2_clasificador.py e1 --ngramas-logistica 3,4 --ngramas-centroide 3,5 --numericos-centroide
+ml/.venv/Scripts/python ml/scripts/e3_e4_umbrales.py           # E-3 y E-4 (C = 100, n-gramas 3-4)
+python ml/scripts/e5_marca.py                                    # E-5
+ml/.venv/Scripts/python ml/scripts/vectores_paridad.py          # referencia para C#
+```
+
+| Archivo | Responsabilidad |
+| :--- | :--- |
+| `vectorizador.py` | TF-IDF de n-gramas de caracteres de la sección 5.1. Es la especificación que replica C#. |
+| `datos_modelo.py` | Entrenamiento (etiquetas débiles de términos no ambiguos + `ambiguos.csv`) sin las familias del desarrollo ni de la prueba, y sin categorías con menos de 5 ejemplos (M-9). |
+| `e1_e2_clasificador.py` | Validación cruzada de M-22: escenario A (término ambiguo) y B (término desconocido). |
+| `e3_e4_umbrales.py` | E-3: umbral de confianza `τ` ponderado por la mezcla de producción. E-4: el sistema completo sobre el desarrollo. |
+| `e5_marca.py` | E-5: texto o prefijo primero y pureza mínima del prefijo (solo biblioteca estándar). |
+| `vectores_paridad.py` | Escribe `ml/paridad/vectores-referencia.json` (**versionado**): descripciones inventadas con su texto preparado, n-gramas, IDF y vector TF-IDF, para el test de paridad de C# (sección 10). |
+
+Los resultados crudos quedan en `ml/datos/resultados/` (no versionado); los que deciden se registran en la sección 11
+del Track 6.6.

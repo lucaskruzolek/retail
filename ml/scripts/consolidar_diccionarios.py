@@ -3,7 +3,7 @@
 Uso: python ml/scripts/consolidar_diccionarios.py ml/datos/lista-mayo-2025.csv
          [--taxonomia ml/datos/taxonomia-borrador.csv] [--terminos ml/datos/terminos-borrador.csv]
          [--marcas ml/datos/marcas-candidatas.csv] [--prefijos ml/datos/prefijos-revision.csv]
-         [--destino ml/datos] [--largo-prefijo 7]
+         [--destino ml/datos] [--largo-prefijo 7] [--pureza-minima 0.6]
 
 Valida las planillas y, solo si no hay errores, escribe en --destino (';', UTF-8 con BOM):
   taxonomia.csv  rubro;categoria
@@ -37,6 +37,7 @@ parser.add_argument("--marcas", default="ml/datos/marcas-candidatas.csv")
 parser.add_argument("--prefijos", default="ml/datos/prefijos-revision.csv")
 parser.add_argument("--destino", default="ml/datos")
 parser.add_argument("--largo-prefijo", type=int, default=7)
+parser.add_argument("--pureza-minima", type=float, default=0.6, help="pureza mínima de un prefijo aprobado (E-5)")
 argumentos = parser.parse_args()
 
 errores = []
@@ -119,8 +120,10 @@ for clave, (nombre, alias) in marcas.items():
         if forma_a_marca.setdefault(forma, nombre) != nombre:
             errores.append(f"La forma '{forma}' pertenece a dos marcas: '{forma_a_marca[forma]}' y '{nombre}'")
 
-# 4. Prefijos: todos decididos, únicos, numéricos y apuntando a una marca aprobada.
+# 4. Prefijos: todos decididos, únicos, numéricos y apuntando a una marca aprobada. Los aprobados con pureza menor
+#    que --pureza-minima no entran al diccionario (E-5, M-25): así la base no necesita guardar la pureza.
 prefijos = {}
+descartados_por_pureza = []
 for fila in leer_planilla(argumentos.prefijos):
     prefijo = fila["prefijo"].strip().zfill(argumentos.largo_prefijo)  # Excel borra los ceros iniciales
     decision, marca = fila["aprobado"].strip(), limpio(fila["marca"])
@@ -134,6 +137,9 @@ for fila in leer_planilla(argumentos.prefijos):
     if decision == "1":
         if normalizar_texto(marca) not in marcas:
             errores.append(f"Prefijo {prefijo}: la marca '{marca}' no está aprobada")
+            continue
+        if float(fila["pureza"]) < argumentos.pureza_minima:
+            descartados_por_pureza.append(prefijo)  # E-5 / M-25: el titular reparte el prefijo entre varias marcas
             continue
         prefijos[prefijo] = marcas[normalizar_texto(marca)][0]
 
@@ -157,7 +163,8 @@ escribir_csv(f"{destino}/prefijos.csv", ["prefijo", "marca"], sorted(prefijos.it
 
 print(f"\nRubros: {len(rubros)} | categorías: {len(rubro_de_categoria)} | términos: {len(terminos)} "
       f"(ambiguos: {sum(1 for t in terminos.values() if t[3])}) | marcas: {len(marcas)} "
-      f"(alias: {sum(len(a) for _, a in marcas.values())}) | prefijos aprobados: {len(prefijos)}")
+      f"(alias: {sum(len(a) for _, a in marcas.values())}) | prefijos: {len(prefijos)} "
+      f"(aprobados con pureza < {argumentos.pureza_minima:g} descartados: {len(descartados_por_pureza)})")
 print(f"Archivos: {destino}/taxonomia.csv, terminos.csv, marcas.csv, prefijos.csv")
 
 # 6. Cobertura sobre la lista: cuántas filas resuelve cada diccionario por sí solo.
