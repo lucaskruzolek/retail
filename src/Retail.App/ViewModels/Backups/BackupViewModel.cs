@@ -209,13 +209,13 @@ public partial class BackupViewModel : ObservableObject, IDisposable
                     fechaCopia,
                     ResultadoRestauracionDto.AvisoConciliacionArca)
                 : ConfirmarCredencialViewModel.ParaRestauracionAutorizada(
-                    async (credencial, progreso) =>
+                    async (passwordActor, credencial, progreso) =>
                     {
                         try
                         {
                             restaurada = await Task.Run(() =>
                                 _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
-                                    idActor, credencial, copia.Referencia, progreso));
+                                    idActor, passwordActor, credencial, copia.Referencia, progreso));
                         }
                         catch (CredencialesInvalidasException)
                         {

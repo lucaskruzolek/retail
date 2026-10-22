@@ -4,9 +4,9 @@
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                   Title="Confirmar con contraseña"
                   Width="500"
-                  Height="440"
                   MinWidth="440"
-                  MinHeight="380"
+                  MinHeight="0"
+                  SizeToContent="Height"
                   WindowStartupLocation="CenterOwner"
                   ExtendsContentIntoTitleBar="True"
                   WindowBackdropType="Mica"
@@ -62,7 +62,7 @@
                         BorderThickness="1"
                         CornerRadius="6"
                         Padding="12,8"
-                        Margin="0,0,0,16"
+                        Margin="0,0,0,12"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
@@ -74,7 +74,7 @@
                 <TextBlock Text="{Binding Mensaje}"
                            Style="{StaticResource TextBlockBody}"
                            TextWrapping="Wrap"
-                           Margin="0,0,0,16" />
+                           Margin="0,0,0,12" />
 
                 <!-- Aviso destacado (restauración: conciliación fiscal con ARCA) -->
                 <Border Background="{DynamicResource WarningBackgroundBrush}"
@@ -82,7 +82,7 @@
                         BorderThickness="1"
                         CornerRadius="6"
                         Padding="12,8"
-                        Margin="0,0,0,16"
+                        Margin="0,0,0,12"
                         Visibility="{Binding TieneAviso, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding Aviso}"
                                Foreground="{DynamicResource WarningForegroundBrush}"
@@ -97,7 +97,18 @@
                                 PlaceholderText="RESTAURAR"
                                 TabIndex="0"
                                 IsEnabled="{Binding IsNotBusy}"
-                                Margin="0,0,0,14" />
+                                Margin="0,0,0,10" />
+                </StackPanel>
+
+                <!-- Contraseña del Administrador que ejecuta (solo restauración autorizada, D-33) -->
+                <StackPanel Visibility="{Binding PideUsuarioAutorizante, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="Su contraseña (Administrador)" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                    <ui:PasswordBox x:Name="TxtPasswordActor"
+                                    PasswordChanged="TxtPasswordActor_PasswordChanged"
+                                    PlaceholderText="Su contraseña"
+                                    TabIndex="1"
+                                    IsEnabled="{Binding IsNotBusy}"
+                                    Margin="0,0,0,10" />
                 </StackPanel>
 
                 <!-- Usuario del Gerente que autoriza (solo restauración ejecutada por un Administrador, D-30) -->
@@ -106,9 +117,9 @@
                     <ui:TextBox x:Name="TxtUsuarioAutorizante"
                                 Text="{Binding NombreUsuarioAutorizante, UpdateSourceTrigger=PropertyChanged}"
                                 PlaceholderText="Usuario del Gerente"
-                                TabIndex="1"
+                                TabIndex="2"
                                 IsEnabled="{Binding IsNotBusy}"
-                                Margin="0,0,0,14" />
+                                Margin="0,0,0,10" />
                 </StackPanel>
 
                 <!-- Contraseña (propia, o la del Gerente que autoriza) -->
@@ -116,9 +127,9 @@
                 <ui:PasswordBox x:Name="TxtPassword"
                                 PasswordChanged="TxtPassword_PasswordChanged"
                                 PlaceholderText="{Binding PlaceholderPassword}"
-                                TabIndex="2"
+                                TabIndex="3"
                                 IsEnabled="{Binding IsNotBusy}"
-                                Margin="0,0,0,14" />
+                                Margin="0,0,0,10" />
 
                 <!-- Progreso de la operación -->
                 <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">

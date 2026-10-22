@@ -16,6 +16,7 @@ public class BackupViewModelTests : IDisposable
 {
     private const int IdActor = 7;
     private const string Password = "Clave2026!";
+    private const string PasswordAdmin = "ClaveAdmin!";
     private const string UsuarioGerente = "gerente";
 
     private readonly IBackupService _backupService = Substitute.For<IBackupService>();
@@ -89,6 +90,7 @@ public class BackupViewModelTests : IDisposable
         {
             var vm = ci.Arg<ConfirmarCredencialViewModel>();
             vm.NombreUsuarioAutorizante = usuario;
+            vm.PasswordActor = PasswordAdmin;
             vm.Password = password;
             vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
             vm.EjecutarAsync().GetAwaiter().GetResult();
@@ -451,7 +453,7 @@ public class BackupViewModelTests : IDisposable
         var referencia = _sut.CopiaSeleccionada!.Referencia;
         AdministradorConfirmaConAutorizacion();
         _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
-                IdActor, Arg.Any<CredencialAutorizanteDto>(), referencia, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+                IdActor, PasswordAdmin, Arg.Any<CredencialAutorizanteDto>(), referencia, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
             .Returns(Restaurada());
 
         // Act
@@ -460,6 +462,7 @@ public class BackupViewModelTests : IDisposable
         // Assert
         await _restauracionService.Received(1).RestaurarConAutorizacionDeGerenteAsync(
             IdActor,
+            PasswordAdmin,
             Arg.Is<CredencialAutorizanteDto>(c => c.NombreUsuario == UsuarioGerente && c.Password == Password),
             referencia,
             Arg.Any<IProgress<int>?>(),
@@ -485,7 +488,7 @@ public class BackupViewModelTests : IDisposable
         await _restauracionService.Received(1)
             .RestaurarDesdeHistorialAsync(IdActor, Password, Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>());
         await _restauracionService.DidNotReceiveWithAnyArgs()
-            .RestaurarConAutorizacionDeGerenteAsync(default, default!, default, default, default);
+            .RestaurarConAutorizacionDeGerenteAsync(default, default!, default!, default, default, default);
     }
 
     [Fact]
@@ -496,7 +499,7 @@ public class BackupViewModelTests : IDisposable
         await SeleccionarCopiaRestaurableAsync();
         AdministradorConfirmaConAutorizacion();
         _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
-                IdActor, Arg.Any<CredencialAutorizanteDto>(), Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+                IdActor, PasswordAdmin, Arg.Any<CredencialAutorizanteDto>(), Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(CuentaBloqueadaException.PorAutorizacionesFallidas());
 
         // Act
@@ -515,13 +518,14 @@ public class BackupViewModelTests : IDisposable
         ComoAdministrador();
         await SeleccionarCopiaRestaurableAsync();
         _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
-                IdActor, Arg.Any<CredencialAutorizanteDto>(), Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+                IdActor, PasswordAdmin, Arg.Any<CredencialAutorizanteDto>(), Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
             .ThrowsAsync(new CredencialesInvalidasException());
         var quedoAbierto = false;
         _dialogService.SolicitarCredencial(Arg.Any<ConfirmarCredencialViewModel>()).Returns(ci =>
         {
             var vm = ci.Arg<ConfirmarCredencialViewModel>();
             vm.NombreUsuarioAutorizante = UsuarioGerente;
+            vm.PasswordActor = PasswordAdmin;
             vm.Password = "incorrecta";
             vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
             quedoAbierto = !vm.EjecutarAsync().GetAwaiter().GetResult();

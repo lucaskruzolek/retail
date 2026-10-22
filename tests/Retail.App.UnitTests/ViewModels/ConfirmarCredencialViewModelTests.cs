@@ -19,6 +19,8 @@ public class ConfirmarCredencialViewModelTests
 
         public CredencialAutorizanteDto? CredencialRecibida { get; set; }
 
+        public string? PasswordActorRecibida { get; set; }
+
         public int Llamadas { get; private set; }
 
         public Exception? Falla { get; set; }
@@ -33,8 +35,9 @@ public class ConfirmarCredencialViewModelTests
 
     private static ConfirmarCredencialViewModel CrearAutorizada(OperacionDePrueba operacion) =>
         ConfirmarCredencialViewModel.ParaRestauracionAutorizada(
-            (credencial, progreso) =>
+            (passwordActor, credencial, progreso) =>
             {
+                operacion.PasswordActorRecibida = passwordActor;
                 operacion.CredencialRecibida = credencial;
                 return operacion.EjecutarAsync(credencial.Password, progreso);
             },
@@ -200,7 +203,7 @@ public class ConfirmarCredencialViewModelTests
         vm.PideUsuarioAutorizante.Should().BeTrue();
         vm.ExigeFrase.Should().BeTrue();
         vm.TieneAviso.Should().BeTrue();
-        vm.Mensaje.Should().Contain("01/10/2026 10:00").And.Contain("Un Gerente debe ingresar SU usuario");
+        vm.Mensaje.Should().Contain("01/10/2026 10:00").And.Contain("un Gerente debe ingresar SU usuario");
         vm.EtiquetaPassword.Should().Be("Contraseña del Gerente");
     }
 
@@ -211,6 +214,7 @@ public class ConfirmarCredencialViewModelTests
         var operacion = new OperacionDePrueba();
         var vm = CrearAutorizada(operacion);
         vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
+        vm.PasswordActor = "ClaveAdmin!";
         vm.Password = "Clave2026!";
 
         // Act
@@ -230,6 +234,7 @@ public class ConfirmarCredencialViewModelTests
         var vm = CrearAutorizada(operacion);
         vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
         vm.NombreUsuarioAutorizante = " gerente ";
+        vm.PasswordActor = "ClaveAdmin!";
         vm.Password = "Clave2026!";
 
         // Act
@@ -239,16 +244,37 @@ public class ConfirmarCredencialViewModelTests
         debeCerrar.Should().BeTrue();
         vm.Completada.Should().BeTrue();
         operacion.CredencialRecibida.Should().Be(new CredencialAutorizanteDto("gerente", "Clave2026!"));
+        operacion.PasswordActorRecibida.Should().Be("ClaveAdmin!");
     }
 
     [Fact]
-    public async Task EjecutarAsync_ModoAutorizadoCredencialInvalida_ConservaElUsuarioYLimpiaLaPassword()
+    public async Task EjecutarAsync_ModoAutorizadoSinPasswordPropia_NoEjecutaLaOperacionYLaPide()
+    {
+        // Arrange
+        var operacion = new OperacionDePrueba();
+        var vm = CrearAutorizada(operacion);
+        vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
+        vm.NombreUsuarioAutorizante = "gerente";
+        vm.Password = "Clave2026!";
+
+        // Act
+        var debeCerrar = await vm.EjecutarAsync();
+
+        // Assert
+        debeCerrar.Should().BeFalse();
+        operacion.Llamadas.Should().Be(0);
+        vm.MensajeError.Should().Be("Ingrese su contraseña.");
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_ModoAutorizadoCredencialInvalida_ConservaElUsuarioYLimpiaAmbasPasswords()
     {
         // Arrange
         var operacion = new OperacionDePrueba { Falla = new CredencialesInvalidasException() };
         var vm = CrearAutorizada(operacion);
         vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
         vm.NombreUsuarioAutorizante = "gerente";
+        vm.PasswordActor = "ClaveAdmin!";
         vm.Password = "incorrecta";
 
         // Act
@@ -258,6 +284,7 @@ public class ConfirmarCredencialViewModelTests
         debeCerrar.Should().BeFalse();
         vm.NombreUsuarioAutorizante.Should().Be("gerente");
         vm.Password.Should().BeEmpty();
+        vm.PasswordActor.Should().BeEmpty();
         vm.TieneError.Should().BeTrue();
         vm.FalloOperacion.Should().BeNull();
     }
@@ -271,6 +298,7 @@ public class ConfirmarCredencialViewModelTests
         var vm = CrearAutorizada(operacion);
         vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;
         vm.NombreUsuarioAutorizante = "gerente";
+        vm.PasswordActor = "ClaveAdmin!";
         vm.Password = "Clave2026!";
 
         // Act

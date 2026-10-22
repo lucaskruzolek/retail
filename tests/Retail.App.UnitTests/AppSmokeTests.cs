@@ -540,11 +540,13 @@ public class AppSmokeTests
         // Arrange
         Exception? xamlException = null;
         ConfirmarCredencialDialog? dialog = null;
+        var alturaMedida = 0d;
+        var sizeToContent = System.Windows.SizeToContent.Manual;
 
         WpfTestHelper.Run(() =>
         {
             Func<string, IProgress<int>, Task> operacion = (_, _) => Task.CompletedTask;
-            Func<Retail.Application.DTOs.Backups.CredencialAutorizanteDto, IProgress<int>, Task> operacionAutorizada = (_, _) => Task.CompletedTask;
+            Func<string, Retail.Application.DTOs.Backups.CredencialAutorizanteDto, IProgress<int>, Task> operacionAutorizada = (_, _, _) => Task.CompletedTask;
 
             // 0 = copia manual, 1 = restauración del Gerente, 2 = restauración autorizada (Administrador, D-30).
             var viewModel = modo switch
@@ -559,9 +561,17 @@ public class AppSmokeTests
             try
             {
                 dialog = new ConfirmarCredencialDialog(viewModel);
-                dialog.Measure(new System.Windows.Size(500, 640));
+                dialog.Measure(new System.Windows.Size(500, double.PositiveInfinity));
                 dialog.Arrange(new System.Windows.Rect(0, 0, 500, 640));
                 dialog.UpdateLayout();
+
+                // Sin mostrarla, la ventana no resuelve los bindings de visibilidad ni aplica SizeToContent: se la muestra un
+                // instante para medir la altura real que tendría ante el usuario.
+                dialog.Show();
+                dialog.UpdateLayout();
+                alturaMedida = dialog.ActualHeight;
+                sizeToContent = dialog.SizeToContent;
+                dialog.Close();
             }
             catch (Exception ex)
             {
@@ -572,6 +582,10 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de ConfirmarCredencialDialog debe resolverse sin errores de recursos");
         dialog.Should().NotBeNull();
+
+        // El alto lo da el contenido (patrón de ClasificacionFormDialog) y respeta la salvaguarda de SISTEMA_DE_DISENO.md.
+        sizeToContent.Should().Be(System.Windows.SizeToContent.Height);
+        alturaMedida.Should().BeLessThanOrEqualTo(680, $"el modo {modo} no debe superar la altura máxima de un modal");
     }
 
     [Fact]
