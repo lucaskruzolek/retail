@@ -266,7 +266,7 @@ public class ConfirmarCredencialViewModelTests
     public async Task EjecutarAsync_ModoAutorizadoCuentaBloqueada_CierraElDialogoConLaExcepcion()
     {
         // Arrange
-        var bloqueo = new CuentaBloqueadaException();
+        var bloqueo = CuentaBloqueadaException.PorAutorizacionesFallidas();
         var operacion = new OperacionDePrueba { Falla = bloqueo };
         var vm = CrearAutorizada(operacion);
         vm.Frase = ConfirmarCredencialViewModel.FraseRestauracion;

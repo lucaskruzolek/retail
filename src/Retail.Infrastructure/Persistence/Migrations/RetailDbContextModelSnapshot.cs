@@ -215,13 +215,24 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("deleted_at");
 
+                    b.Property<int>("IdRubro")
+                        .HasColumnType("int")
+                        .HasColumnName("id_rubro");
+
                     b.Property<string>("NombreCategoria")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
-                        .HasColumnName("nombre_categoria");
+                        .HasColumnName("nombre_categoria")
+                        .UseCollation("Modern_Spanish_CI_AI");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdRubro");
+
+                    b.HasIndex("NombreCategoria")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("CATEGORIAS", (string)null);
                 });
@@ -691,9 +702,14 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
-                        .HasColumnName("nombre_marca");
+                        .HasColumnName("nombre_marca")
+                        .UseCollation("Modern_Spanish_CI_AI");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NombreMarca")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("MARCAS", (string)null);
                 });
@@ -1144,6 +1160,39 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.ToTable("ROLES", (string)null);
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.Rubro", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_rubro");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("NombreRubro")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("nombre_rubro")
+                        .UseCollation("Modern_Spanish_CI_AI");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NombreRubro")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.ToTable("RUBROS", (string)null);
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.TurnoCaja", b =>
                 {
                     b.Property<int>("Id")
@@ -1433,6 +1482,15 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Proveedor");
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.Categoria", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Rubro", null)
+                        .WithMany()
+                        .HasForeignKey("IdRubro")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.CobranzaCliente", b =>

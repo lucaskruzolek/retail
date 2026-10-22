@@ -2,6 +2,7 @@ using FluentValidation;
 using Retail.Application.DTOs.Auth;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
+
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Common;
 using Retail.Domain.Entities;
@@ -19,15 +20,18 @@ public class AuthService : IAuthService
     private readonly IRepository<Usuario> _usuarioRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IValidator<LoginRequestDto> _validator;
+    private readonly IRegistroAccesosService _registroAccesosService;
 
     public AuthService(
         IRepository<Usuario> usuarioRepository,
         IPasswordHasher passwordHasher,
-        IValidator<LoginRequestDto> validator)
+        IValidator<LoginRequestDto> validator,
+        IRegistroAccesosService registroAccesosService)
     {
         _usuarioRepository = usuarioRepository ?? throw new ArgumentNullException(nameof(usuarioRepository));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
+        _registroAccesosService = registroAccesosService ?? throw new ArgumentNullException(nameof(registroAccesosService));
     }
 
     public async Task<LoginResultDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken = default)
@@ -51,16 +55,32 @@ public class AuthService : IAuthService
         if (usuarioActivo != null)
         {
             var passwordValido = _passwordHasher.VerifyPassword(request.Password, usuarioActivo.PasswordHash);
-            if (!passwordValido)
+
+            // Bloqueo por autorizaciones fallidas (D-31), distinto del bloqueo temporal de inicio de sesión. Se informa
+            // solo con la contraseña correcta, para no revelar qué cuentas están bloqueadas a quien no la conoce, y
+            // antes de llamar al SP: informarle un login válido registraría "Aceptado" y reiniciaría su contador.
+            if (passwordValido && usuarioActivo.EstaBloqueada)
             {
-                throw new CredencialesInvalidasException();
+                throw CuentaBloqueadaException.PorAutorizacionesFallidas();
             }
 
-            // El bloqueo se informa recién con la contraseña correcta: quien no la conoce recibe siempre la misma
-            // respuesta genérica y no puede averiguar qué cuentas están bloqueadas (D-31).
-            if (usuarioActivo.EstaBloqueada)
+            var intento = await _registroAccesosService.RegistrarIntentoAsync(
+                usuarioActivo.NombreUsuario,
+                usuarioActivo.Id,
+                passwordValido,
+                cancellationToken);
+
+            if (intento.EstaBloqueado)
             {
-                throw new CuentaBloqueadaException();
+                throw new CuentaBloqueadaException(intento.BloqueadoHasta);
+            }
+
+            if (!passwordValido)
+            {
+                var msg = intento.IntentosRestantes > 0
+                    ? $"Contraseña incorrecta. Le quedan {intento.IntentosRestantes} intentos antes del bloqueo."
+                    : "Contraseña incorrecta.";
+                throw new CredencialesInvalidasException(msg);
             }
 
             return new LoginResultDto
@@ -78,6 +98,7 @@ public class AuthService : IAuthService
             throw new UsuarioInactivoException(username);
         }
 
+        await _registroAccesosService.RegistrarIntentoAsync(username, null, false, cancellationToken);
         throw new CredencialesInvalidasException();
     }
 
@@ -100,7 +121,7 @@ public class AuthService : IAuthService
         // Mismo orden que en el login: el bloqueo solo se revela a quien demostró conocer la contraseña (D-31).
         if (usuario.EstaBloqueada)
         {
-            throw new CuentaBloqueadaException();
+            throw CuentaBloqueadaException.PorAutorizacionesFallidas();
         }
     }
 }

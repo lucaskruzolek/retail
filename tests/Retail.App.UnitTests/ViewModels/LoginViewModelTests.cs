@@ -94,7 +94,7 @@ public class LoginViewModelTests
     {
         // Arrange
         _sut.NombreUsuario = "admin";
-        var excepcion = new CuentaBloqueadaException();
+        var excepcion = CuentaBloqueadaException.PorAutorizacionesFallidas();
         _authService.LoginAsync(Arg.Any<LoginRequestDto>()).ThrowsAsync(excepcion);
 
         // Act

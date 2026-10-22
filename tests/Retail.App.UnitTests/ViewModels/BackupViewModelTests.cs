@@ -497,7 +497,7 @@ public class BackupViewModelTests : IDisposable
         AdministradorConfirmaConAutorizacion();
         _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
                 IdActor, Arg.Any<CredencialAutorizanteDto>(), Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
-            .ThrowsAsync(new CuentaBloqueadaException());
+            .ThrowsAsync(CuentaBloqueadaException.PorAutorizacionesFallidas());
 
         // Act
         await _sut.RestaurarCopiaCommand.ExecuteAsync(null);

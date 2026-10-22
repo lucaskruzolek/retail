@@ -1,0 +1,290 @@
+using System.Linq.Expressions;
+using FluentAssertions;
+using FluentValidation;
+using NSubstitute;
+using Retail.Application.DTOs.Articulos;
+using Retail.Application.Interfaces.Persistence;
+using Retail.Application.Services;
+using Retail.Application.Validators.Articulos;
+using Retail.Domain.Entities;
+using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
+using Xunit;
+
+namespace Retail.Application.UnitTests.Services;
+
+public class RubroServiceTests
+{
+    private const int IdGerente = 1;
+    private const int IdEncargado = 2;
+    private const int IdCajero = 3;
+    private const int IdAdministrador = 4;
+    private const int IdInexistente = 99;
+    private const int IdRubroExistente = 7;
+
+    private readonly IRepository<Rubro> _repository = Substitute.For<IRepository<Rubro>>();
+    private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
+    private readonly IClasificacionQueryService _consultas = Substitute.For<IClasificacionQueryService>();
+    private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
+    private readonly RubroService _servicio;
+
+    public RubroServiceTests()
+    {
+        RegistrarUsuario(IdGerente, RolUsuarioEnum.Gerente);
+        RegistrarUsuario(IdEncargado, RolUsuarioEnum.Encargado);
+        RegistrarUsuario(IdCajero, RolUsuarioEnum.Cajero);
+        RegistrarUsuario(IdAdministrador, RolUsuarioEnum.Administrador);
+
+        ConfigurarDuplicados();
+
+        _servicio = new RubroService(
+            _repository,
+            _usuarios,
+            _consultas,
+            _unitOfWork,
+            new CrearRubroValidator(),
+            new RenombrarRubroValidator());
+    }
+
+    private void RegistrarUsuario(int id, RolUsuarioEnum rol)
+    {
+        var email = rol == RolUsuarioEnum.Cajero ? null : $"usuario{id}@libreria.com";
+        var usuario = Usuario.Crear($"usuario{id}", "Juan", "Pérez", "hash", rol, email);
+        usuario.Id = id;
+        _usuarios.GetByIdAsync(id, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(usuario);
+    }
+
+    private void ConfigurarDuplicados(params Rubro[] existentes)
+    {
+        IReadOnlyList<Rubro> lista = existentes.ToList();
+        _repository.FindAsync(Arg.Any<Expression<Func<Rubro, bool>>>(), false, Arg.Any<CancellationToken>()).Returns(lista);
+    }
+
+    private static Rubro CrearRubroConId(int id, string nombre)
+    {
+        var entidad = Rubro.Crear(nombre);
+        entidad.Id = id;
+        return entidad;
+    }
+
+    private void ConfigurarExistente(Rubro entidad)
+    {
+        _repository.GetByIdAsync(entidad.Id, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(entidad);
+    }
+
+    // ---------- Listar ----------
+
+    [Fact]
+    public async Task Listar_ConFiltro_DelegaEnElServicioDeConsultasConElMismoFiltro()
+    {
+        IReadOnlyList<RubroDto> esperado = new List<RubroDto>
+        {
+            new() { IdRubro = 1, NombreRubro = "Uno", CantidadEnUso = 2 }
+        };
+        _consultas.ListarRubrosAsync("un", Arg.Any<CancellationToken>()).Returns(esperado);
+
+        var resultado = await _servicio.ListarAsync("un");
+
+        resultado.Should().BeSameAs(esperado);
+        await _consultas.Received(1).ListarRubrosAsync("un", Arg.Any<CancellationToken>());
+    }
+
+    // ---------- Crear ----------
+
+    [Theory]
+    [InlineData(IdCajero)]
+    [InlineData(IdAdministrador)]
+    [InlineData(IdInexistente)]
+    [InlineData(0)]
+    public async Task Crear_ConActorSinAutoridad_LanzaOperacionNoAutorizadaYNoAgrega(int idActor)
+    {
+        var accion = () => _servicio.CrearAsync(idActor, new CrearRubroDto { Nombre = "Nuevo" });
+
+        await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Rubro>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Crear_ConActorSinAutoridadYNombreInvalido_LanzaOperacionNoAutorizadaAntesQueValidar()
+    {
+        var accion = () => _servicio.CrearAsync(IdCajero, new CrearRubroDto { Nombre = "" });
+
+        await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
+    }
+
+    [Theory]
+    [InlineData(IdGerente)]
+    [InlineData(IdEncargado)]
+    public async Task Crear_ConGerenteOEncargado_CreaConNombreNormalizadoYGuardaUnaVez(int idActor)
+    {
+        var resultado = await _servicio.CrearAsync(idActor, new CrearRubroDto { Nombre = "  Nombre   compuesto " });
+
+        resultado.NombreRubro.Should().Be("Nombre compuesto");
+        resultado.CantidadEnUso.Should().Be(0);
+        await _repository.Received(1).AddAsync(
+            Arg.Is<Rubro>(x => x.NombreRubro == "Nombre compuesto"),
+            Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Crear_ConNombreInvalido_LanzaValidationExceptionYNoAgrega()
+    {
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearRubroDto { Nombre = "   " });
+
+        await accion.Should().ThrowAsync<ValidationException>();
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Rubro>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Crear_ConNombreDuplicado_LanzaDomainExceptionYNoAgrega()
+    {
+        ConfigurarDuplicados(CrearRubroConId(IdRubroExistente, "Repetido"));
+
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearRubroDto { Nombre = "Repetido" });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("Ya existe un rubro activo con el nombre 'Repetido'.");
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Rubro>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ---------- Renombrar ----------
+
+    [Theory]
+    [InlineData(IdCajero)]
+    [InlineData(IdAdministrador)]
+    [InlineData(IdInexistente)]
+    [InlineData(0)]
+    public async Task Renombrar_ConActorSinAutoridad_LanzaOperacionNoAutorizadaYNoGuarda(int idActor)
+    {
+        var accion = () => _servicio.RenombrarAsync(idActor, new RenombrarRubroDto { IdRubro = IdRubroExistente, Nombre = "Otro" });
+
+        await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Renombrar_ConNombreInvalido_LanzaValidationException()
+    {
+        var accion = () => _servicio.RenombrarAsync(IdGerente, new RenombrarRubroDto { IdRubro = IdRubroExistente, Nombre = "" });
+
+        await accion.Should().ThrowAsync<ValidationException>();
+    }
+
+    [Fact]
+    public async Task Renombrar_ConElementoInexistente_LanzaDomainException()
+    {
+        var accion = () => _servicio.RenombrarAsync(IdGerente, new RenombrarRubroDto { IdRubro = IdRubroExistente, Nombre = "Otro" });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("No se encontró el rubro con ID 7.");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Renombrar_ConNombreDeOtroElemento_LanzaDomainExceptionYNoGuarda()
+    {
+        ConfigurarExistente(CrearRubroConId(IdRubroExistente, "Original"));
+        ConfigurarDuplicados(CrearRubroConId(8, "Ocupado"));
+
+        var accion = () => _servicio.RenombrarAsync(IdGerente, new RenombrarRubroDto { IdRubro = IdRubroExistente, Nombre = "Ocupado" });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("Ya existe un rubro activo con el nombre 'Ocupado'.");
+        await _repository.DidNotReceive().UpdateAsync(Arg.Any<Rubro>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Renombrar_AlBuscarDuplicados_ExcluyeAlPropioElementoPorId()
+    {
+        ConfigurarExistente(CrearRubroConId(IdRubroExistente, "Original"));
+        Expression<Func<Rubro, bool>>? predicado = null;
+        _repository.FindAsync(
+                Arg.Do<Expression<Func<Rubro, bool>>>(p => predicado = p),
+                false,
+                Arg.Any<CancellationToken>())
+            .Returns(new List<Rubro>());
+
+        await _servicio.RenombrarAsync(IdGerente, new RenombrarRubroDto { IdRubro = IdRubroExistente, Nombre = "Original" });
+
+        predicado.Should().NotBeNull();
+        var evaluar = predicado!.Compile();
+        evaluar(CrearRubroConId(IdRubroExistente, "Original")).Should().BeFalse("el propio elemento no cuenta como duplicado");
+        evaluar(CrearRubroConId(8, "Original")).Should().BeTrue("otro elemento con el mismo nombre sí es duplicado");
+    }
+
+    [Theory]
+    [InlineData(IdGerente)]
+    [InlineData(IdEncargado)]
+    public async Task Renombrar_ConDatosValidos_CambiaElNombreYGuarda(int idActor)
+    {
+        var entidad = CrearRubroConId(IdRubroExistente, "Original");
+        ConfigurarExistente(entidad);
+
+        await _servicio.RenombrarAsync(idActor, new RenombrarRubroDto { IdRubro = IdRubroExistente, Nombre = "  Nuevo   nombre " });
+
+        entidad.NombreRubro.Should().Be("Nuevo nombre");
+        await _repository.Received(1).UpdateAsync(entidad, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ---------- Baja ----------
+
+    [Theory]
+    [InlineData(IdCajero)]
+    [InlineData(IdAdministrador)]
+    [InlineData(IdInexistente)]
+    [InlineData(0)]
+    public async Task Baja_ConActorSinAutoridad_LanzaOperacionNoAutorizadaSinConsultarElConteo(int idActor)
+    {
+        var accion = () => _servicio.BajaAsync(idActor, IdRubroExistente);
+
+        await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _consultas.DidNotReceive().ContarCategoriasActivasPorRubroAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Baja_ConElementoInexistente_LanzaDomainException()
+    {
+        var accion = () => _servicio.BajaAsync(IdGerente, IdRubroExistente);
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("No se encontró el rubro con ID 7.");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Baja_ConElementoEnUso_LanzaClasificacionEnUsoYNoDaDeBaja()
+    {
+        var entidad = CrearRubroConId(IdRubroExistente, "Ocupado");
+        ConfigurarExistente(entidad);
+        _consultas.ContarCategoriasActivasPorRubroAsync(IdRubroExistente, Arg.Any<CancellationToken>()).Returns(3);
+
+        var accion = () => _servicio.BajaAsync(IdGerente, IdRubroExistente);
+
+        var excepcion = (await accion.Should().ThrowAsync<ClasificacionEnUsoException>()).Which;
+        excepcion.CantidadEnUso.Should().Be(3);
+        excepcion.Nombre.Should().Be("Ocupado");
+        excepcion.Tipo.Should().Be("el rubro");
+        excepcion.Dependientes.Should().Be("categorías activas");
+        entidad.IsDeleted.Should().BeFalse();
+        await _repository.DidNotReceive().UpdateAsync(Arg.Any<Rubro>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(IdGerente)]
+    [InlineData(IdEncargado)]
+    public async Task Baja_ConElementoLibre_LoMarcaComoBorradoYGuardaUnaVez(int idActor)
+    {
+        var entidad = CrearRubroConId(IdRubroExistente, "Libre");
+        ConfigurarExistente(entidad);
+        _consultas.ContarCategoriasActivasPorRubroAsync(IdRubroExistente, Arg.Any<CancellationToken>()).Returns(0);
+
+        await _servicio.BajaAsync(idActor, IdRubroExistente);
+
+        entidad.IsDeleted.Should().BeTrue();
+        await _repository.Received(1).UpdateAsync(entidad, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+}

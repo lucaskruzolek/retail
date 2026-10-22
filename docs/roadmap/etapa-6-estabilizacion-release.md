@@ -2,7 +2,7 @@
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
 **Documento Maestro:** [`Roadmap de Implementacion.md`](file:///c:/Users/lucas/Proyectos/retail/docs/Roadmap%20de%20Implementacion.md) | **Mapa Semántico:** [`MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md)  
-**Requisitos Vinculados:** [`RNF-01`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L250), [`RNF-02`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L251), [`RNF-03`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L252), [`RNF-07`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L256), [`RNF-08`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L257), [`RF-22`, `RF-23`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.3 y Track 6.3.1)
+**Requisitos Vinculados:** [`RNF-01`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L250), [`RNF-02`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L251), [`RNF-03`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L252), [`RNF-07`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L256), [`RNF-08`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L257), [`RF-22`, `RF-23`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.3 y Track 6.3.1), [`RF-24` a `RF-26`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.4), [`RF-04`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.5), [`RF-27`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.6)
 
 ---
 
@@ -45,7 +45,7 @@
 * **Fase 6 — UI:** `BackupView` (IU-10) y `ConfirmarCredencialDialog`, visibles solo para Gerente (lectura para Administrador).
 * **Fase 7 — Backup automático:** `BackupAutomaticoHostedService` con recuperación al arrancar, más un script PowerShell que registra `Retail.Cli backup --automatico` en el Programador de tareas.
 
-**Mejoras futuras (fuera de alcance):** envío de correos de recuperación de contraseña (único mecanismo de recuperación previsto), copia cifrada a una carpeta sincronizada con OneDrive, migración de producción a SQL Server Express (coordinar con el Track 6.2) y **CRUD propio de Categorías y Marcas**, que hoy solo se cargan con `datos-demo`.
+**Mejoras futuras (fuera de alcance):** envío de correos de recuperación de contraseña (único mecanismo de recuperación previsto), copia cifrada a una carpeta sincronizada con OneDrive y migración de producción a SQL Server Express (coordinar con el Track 6.2). El CRUD de Categorías y Marcas, que hoy solo se cargan con `datos-demo`, pasó a ser el [Track 6.5](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md).
 
 ---
 
@@ -68,6 +68,40 @@ El Administrador ejecuta el backup manual con su propia contraseña y la restaur
 * **Fase 3 — Persistencia:** migración del costo e índice `IX_VENTAS_fecha_hora`; `ReporteQueryService` en LINQ con push-down (sin vistas ni procedimientos almacenados, ver sección 3 del plan).
 * **Fase 4 — Exportación:** Excel con MiniExcel y PDF con QuestPDF, con gráficos renderizados fuera de pantalla.
 * **Fase 5 — UI:** `DashboardView` (IU-11) con LiveCharts2, visible solo para el Gerente.
+
+---
+
+### Track 6.5: Rubros, Categorías y Marcas — CRUD de Clasificación
+**Responsable:** Lucas Kruzolek | **Rama sugerida:** `feat/crud-categorias-marcas` | **Requisitos:** [`RF-04`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf)  
+**Plan de diseño, decisiones y avance:** [`etapa-6-track-6.5-crud-categorias-marcas.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md)
+
+> [!NOTE]
+> **Diseño cerrado en lo conceptual, sin implementar (2026-10-17).** Este track reemplaza la mejora futura "CRUD propio de Categorías y Marcas" del Track 6.3 y se implementa **antes** que el Track 6.6. Se accede por un diálogo desde el catálogo de artículos, sin tocar `MainWindow` ni `MainViewModel` (Ley 10).
+
+* **✅ Fase 0 — Alta y requisitos:** alta del track en este roadmap, ampliación de `RF-04` en la ERS y cierre de decisiones (hecho).
+* **Fase 1 — Dominio:** nueva raíz de agregado `Rubro`; `Categoria` y `Marca` encapsuladas (`Crear`/`Renombrar`, `IdRubro` obligatorio en `Categoria`), regla única de texto y `ClasificacionEnUsoException`.
+* **Fase 2 — Aplicación:** `IRubroService`, `ICategoriaService` e `IMarcaService` (sin abstracción genérica), DTOs con cantidad de artículos, validadores FluentValidation, autorización por rol validada en el servicio y baja bloqueada si hay artículos o categorías asignados.
+* **Fase 3 — Infraestructura:** tabla `RUBROS`, índices únicos filtrados por `deleted_at IS NULL`, migración con detección previa de duplicados, conteos en SQL con push-down (Ley 8) y semillero con fábricas.
+* **Fase 4 — UI:** `AdministrarClasificacionDialog` (pestañas Rubros y categorías, y Marcas) y `ClasificacionFormDialog`, lanzados desde `ArticulosView`.
+* **Fase 5 — Cierre:** verificación Release, mapa semántico y propuesta de nota para `wiki/`.
+
+---
+
+### Track 6.6: Catalogación Inteligente — Sugerencia de Categoría y Marca
+**Responsable:** Lucas Kruzolek | **Rama sugerida:** `feat/catalogacion-inteligente` | **Depende de:** Track 6.5 | **Requisitos:** [`RF-27`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf), `RNF-02`, `RNF-03`, `RNF-07`  
+**Plan de diseño, decisiones y avance:** [`etapa-6-track-6.6-catalogacion-inteligente.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md)
+
+> [!NOTE]
+> **Diseño cerrado en lo conceptual, sin implementar (2026-10-17).** Al incorporar artículos del catálogo de un proveedor a la tienda, el sistema **sugiere** categoría y marca con un nivel de confianza; nada se asigna sin que una persona lo vea. El motor corre localmente, sin servicios externos. La Fase 1 (datos) puede solaparse con el Track 6.5 porque no toca `src/`.
+
+* **✅ Fase 0 — Exploración y diseño:** scripts de exploración en `ml/` (fuera de `Retail.sln`), decisiones M-1 a M-16, alta del track en este roadmap y `RF-27` en la ERS (hecho).
+* **Fase 1 — Arranque de datos:** diccionarios revisados por el estudiante y conjunto de oro.
+* **Fase 2 — Experimentos E-1 a E-4:** selección del clasificador y de los umbrales, en Python.
+* **Fase 3 — Dominio:** entidades hijas de `Categoria` y `Marca`, origen de la clasificación y regla de EAN.
+* **Fase 4 — Aplicación:** puertos, servicio de clasificación por niveles y cambio del contrato de incorporación.
+* **Fase 5 — Infraestructura:** vectorizador de n-gramas, clasificador, almacenamiento del modelo y migraciones.
+* **Fase 6 — UI y `Retail.Cli`:** sugerencias por artículo, cola de revisión, carga de diccionarios y "Actualizar modelo".
+* **Fase 7 — Cierre:** evaluación final sobre el conjunto de oro, verificación Release, mapa y wiki.
 
 ---
 

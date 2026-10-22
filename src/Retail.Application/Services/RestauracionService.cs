@@ -134,7 +134,7 @@ public class RestauracionService : IRestauracionService
             // El contador ya está guardado: solo se decide qué respuesta recibe el Administrador.
             if (actor.EstaBloqueada)
             {
-                throw new CuentaBloqueadaException();
+                throw CuentaBloqueadaException.PorAutorizacionesFallidas();
             }
 
             throw;
