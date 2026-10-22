@@ -426,6 +426,41 @@ Las sugerencias por prefijo en filas `SIN MARCA` no se pueden verificar con un o
 > `cerrar_etiquetado.py` ahora toma el EAN de la lista original por código; códigos, descripciones y etiquetas no se
 > habían dañado, y el oro de prueba nunca pasó por Excel.
 
+### 11.2 Validación externa: lista de otro proveedor (2026-10-22)
+
+Lista de Piatto (`ml/datos/lista-piatto-1.csv`, no versionada): 17.194 filas con código y descripción, sin EAN ni
+precios; solo 5 descripciones coinciden con la primera lista. 365 filas son de kiosco (93 términos validados por el
+estudiante en `ml/datos/piatto-kiosco.csv`), fuera del negocio. Modelo entrenado con todo el primer proveedor
+(`ml/scripts/diagnosticar_lista_externa.py`, sin etiquetado).
+
+| Camino (negocio: 16.829 filas) | Filas | % | n-gramas conocidos | Sugiere el modelo (τ = 0,94) |
+| :--- | ---: | ---: | ---: | ---: |
+| Tabla de términos | 9.678 | 57,5 % | 92,4 % | — |
+| Modelo, término ambiguo | 2.303 | 13,7 % | 87,4 % | 17,0 % |
+| Modelo, término desconocido | 4.848 | 28,8 % | 88,4 % | 11,1 % |
+| **Sistema** | | **63,0 %** de cobertura (89,2 % en el desarrollo del primer proveedor) | | |
+
+* **Marca por texto:** 44,7 % de las filas (sin EAN no hay prefijos).
+* **Abstención fuera del dominio:** el modelo sugiere una categoría en 17 de 365 productos de kiosco (4,7 %).
+* **Precisión aproximada con abreviaturas** (la categoría esperada es la del término completo): `MARC` 72 de 72,
+  `LAP` 19 de 19, `CUAD` 5 de 5, `CARP` 25 de 28, `PINT` 0 sugerencias. **`ACRIL` 0 de 121:** en Piatto es siempre
+  "ACRIL ETERNA" (Pinturas) y el modelo sugiere Barnices, Medios y Solventes con confianza ≥ 0,94, porque sin la
+  palabra `ACRILICO` se apoya en la marca Eterna, que en el primer proveedor también vende barnices. Total: 121 de 245
+  (49,4 %); sin `ACRIL`, 121 de 124 (97,6 %).
+* **Conclusión:** con un proveedor nuevo los errores del modelo no son aleatorios sino **correlacionados**: un término
+  desconocido y frecuente produce de una vez muchas sugerencias equivocadas y seguras. Es el riesgo que M-23 dejó
+  abierto; el umbral de cobertura `κ` no lo habría evitado (los n-gramas de "ACRIL ETERNA" son conocidos).
+
+**Grupos de término desconocido (M-26):** 747 términos desconocidos en 4.848 filas del negocio.
+
+| Tamaño mínimo del grupo | Decisiones del usuario | Filas resueltas en bloque | Filas para el modelo | El modelo sugiere en |
+| ---: | ---: | ---: | ---: | ---: |
+| 2 | 367 | 4.468 (92,2 %) | 380 | 26 |
+| 3 | 236 | 4.206 (86,8 %) | 642 | 50 |
+| **5** | **156** | **3.937 (81,2 %)** | 911 | 70 |
+| 10 | 81 | 3.442 (71,0 %) | 1.406 | 127 |
+| 20 | 45 | 2.936 (60,6 %) | 1.912 | 154 |
+
 ---
 
 ## 12. Decisiones
@@ -457,6 +492,7 @@ Las sugerencias por prefijo en filas `SIN MARCA` no se pueden verificar con un o
 | M-23 | **Se elimina el umbral de cobertura `κ`**: el modelo sugiere solo por confianza (`τ`). | Cerrada (2026-10-22) | E-3: con `τ` calibrado, `κ` no mejora la precisión de ninguna combinación (el óptimo fue κ = 0). Cuando el modelo no conoce el texto ya está poco seguro. Una regla menos en C#, en los tests y en la explicación al usuario. Reversible si un catálogo nuevo muestra sugerencias seguras y equivocadas sobre textos desconocidos; M-10 ya protege recalibrando `τ`. |
 | M-24 | **La tabla de términos se reevalúa en la Fase 7** con el oro de prueba, sin más correcciones ahora. Si su precisión queda por debajo de M-1, se decide entre nuevos términos ambiguos, ajustes de fronteras entre categorías o que el modelo controle a la tabla. | Cerrada (2026-10-22) | E-4: la tabla acierta el 94,0 % (IC 91,0 % a 96,1 %) sobre el desarrollo, cifra optimista (M-20). Sus errores son casos sueltos de frontera; corregirlos uno por uno sería ajustarse al conjunto de desarrollo. El control por el modelo es en parte circular (el modelo aprende de las etiquetas de la tabla) y resta cobertura. Toda sugerencia la confirma una persona (RF-27), así que un error cuesta una corrección y no un dato sucio. |
 | M-25 | **Marca: texto primero; el prefijo EAN decide solo si el texto no nombra ninguna marca, o desempata si nombra varias.** Los prefijos aprobados con pureza < 0,6 no entran al diccionario: el filtro se aplica al consolidar (`consolidar_diccionarios.py --pureza-minima`), así que la base no guarda la pureza. | Cerrada (2026-10-22) | E-5: texto primero con pureza ≥ 0,6 da 94,4 % de cobertura y 98,9 % de precisión; con el prefijo primero la precisión baja hasta 95,6 %. Se descartan 15 de 182 prefijos (por ejemplo `7798100`, que reparte Artística Dibu y FILGO); los desacuerdos entre texto y prefijo en la lista bajan de 371 a 136. Reemplaza el orden del diagrama de la sección 4. |
+| M-26 | **Al importar, los productos con término desconocido que forman un grupo de 5 o más filas se resuelven primero en bloque (M-16), antes que el modelo.** El usuario asigna una vez la categoría del grupo y el término entra a la tabla; el modelo solo sugiere, por producto, para los grupos chicos. | Cerrada (2026-10-22) | Validación externa (sección 11.2): con un proveedor nuevo, los errores del modelo vienen en bloque y con confianza alta (`ACRIL ETERNA`: 121 sugerencias equivocadas con τ ≥ 0,94), y ni `τ` ni `κ` los evitan. En Piatto, con mínimo 5: 156 decisiones resuelven 3.937 de 4.848 productos con término desconocido (81,2 %), unos 25 por decisión; con mínimo 2 serían 367 decisiones y con 10, 81 decisiones para el 71,0 %. Cada decisión en bloque reemplaza al menos 5 revisiones individuales. Reordena dos componentes existentes, sin agregar ninguno. |
 
 ---
 

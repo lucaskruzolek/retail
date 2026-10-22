@@ -125,6 +125,7 @@ Formatos definitivos: `taxonomia.csv` (`rubro;categoria`), `terminos.csv` (`term
 * [x] **Pedir aprobación** para usar scikit-learn (aprobado el 2026-10-22; scikit-learn 1.9.1 en `ml/.venv/`, versiones en `ml/requirements.txt`) en un entorno virtual dentro de `ml/` (agregar `ml/.venv/` al `.gitignore`). Es una dependencia solo de exploración: no llega al producto. Si no se aprueba, los experimentos se escriben con la biblioteca estándar.
 * [x] Ejecutar E-1 a E-5 con las reglas de decisión de la sección 11 del Track 6.6 y registrar los resultados en ese documento (2026-10-22, sección 11.1; M-22 a M-24). Regresión logística C = 100, n-gramas 3-4 sin numéricos, τ = 0,94 sin κ; marca: texto primero con prefijos de pureza ≥ 0,6. Pendiente: aprobar el filtro de pureza en la consolidación.
 * [x] Generar los vectores de referencia de paridad con descripciones **inventadas** (sección 10): `ml/paridad/vectores-referencia.json` (2026-10-22).
+* [x] Validación externa con la lista de otro proveedor (Piatto, 2026-10-22; sección 11.2 del Track 6.6): cobertura del sistema 63,0 %; errores del modelo en bloque con términos desconocidos (`ACRIL ETERNA`), que motivaron **M-26** (grupos de 5 o más filas con término desconocido se asignan en bloque antes que el modelo). Opcional y pendiente: medir la precisión real sobre una muestra de unas 200 sugerencias del modelo en Piatto (método M-19).
 
 ### Paso 5 — Track 6.6, Fases 3 a 7
 
