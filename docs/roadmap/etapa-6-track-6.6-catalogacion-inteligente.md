@@ -18,8 +18,8 @@
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
 | 0 | Exploración de datos (`ml/scripts/`) y este documento | ✅ Diseño cerrado; track dado de alta en el roadmap y `RF-27` incorporado a la ERS (2026-10-17) |
-| 1 | Arranque: diccionarios revisados por el estudiante y conjunto de oro | ⏳ |
-| 2 | Experimentos E-1 a E-4 en Python (selección del clasificador y umbrales) | ⏳ |
+| 1 | Arranque: diccionarios revisados por el estudiante y conjunto de oro | ✅ 2026-10-22: 7 rubros, 46 categorías, 299 términos (18 ambiguos), 169 marcas, 182 prefijos; desarrollo, ejemplos de ambiguos y oro de prueba (sección 6.4; M-17 a M-21) |
+| 2 | Experimentos E-1 a E-5 en Python (selección del clasificador, umbrales y orden de los niveles de marca) | ⏳ |
 | 3 | Dominio: entidades hijas de `Categoria` y `Marca`, origen de la clasificación, regla de EAN | ⏳ |
 | 4 | Aplicación: puertos, servicio de clasificación por niveles, cambio del contrato de incorporación | ⏳ |
 | 5 | Infraestructura: vectorizador de n-gramas, clasificador, almacenamiento del modelo, migraciones | ⏳ |
@@ -117,6 +117,8 @@ flowchart TD
 
 El aprendizaje automático se usa **solo donde las reglas no alcanzan**: términos ambiguos, variantes, abreviaturas, truncados y la cola larga.
 
+> **Orden de los niveles de marca en revisión (M-17, E-5).** El diagrama consulta el prefijo antes que el texto. Con los diccionarios del arranque, en 355 filas (2,4 %) el prefijo y la marca escrita en la descripción no coinciden (por ejemplo, prefijo `7798100` → Artística Dibu, texto → FILGO, 98 filas): el prefijo identifica al titular, no a la marca (sección 3.2). El orden definitivo lo decide E-5 sobre el conjunto de oro.
+
 ### 4.1 Planillas con columnas de clasificación (M-12 a M-14)
 
 Si la planilla del proveedor trae rubro, categoría o marca, esos datos se usan **antes** que cualquier inferencia, pero traducidos a la taxonomía del comercio:
@@ -196,7 +198,8 @@ Con ~15.000 artículos, ~60 n-gramas por descripción y ~60 categorías, la matr
 | Conjunto | Contenido | Uso |
 | :--- | :--- | :--- |
 | Entrenamiento | Etiquetas débiles de la tabla de términos + etiquetas manuales de términos ambiguos | Entrenar |
-| **Conjunto de oro** | 400 filas verificadas a mano, muestreadas por familia y estratificadas por término | **Solo** para la evaluación final; nunca para elegir hiperparámetros |
+| Desarrollo (M-20) | El primer oro: 400 filas validadas (`ml/datos/oro.csv`) | Diagnóstico y decisiones de diseño: tabla de términos, umbrales (E-3), orden de marca (E-5) |
+| **Conjunto de oro** | 400 filas verificadas a mano, muestreadas por familia y estratificadas por término, de familias ausentes en los demás conjuntos (M-20) | **Solo** para la evaluación final; nunca para elegir hiperparámetros |
 
 * Las particiones son **agrupadas por familia** (por ejemplo, las tres primeras palabras), para que las variantes de color de un mismo producto no queden a ambos lados.
 * Hiperparámetros y umbrales se eligen con **validación cruzada agrupada de 5 particiones** sobre el entrenamiento. El vectorizador se ajusta dentro de cada partición.
@@ -211,6 +214,28 @@ Con ~15.000 artículos, ~60 n-gramas por descripción y ~60 categorías, la matr
 | F1-macro | Promedia todas las categorías por igual; no deja que `MOCHILA` (1.139) oculte a las chicas |
 | Aporte de cada nivel | Cuánto resuelve la tabla de términos y cuánto el modelo |
 | Matriz de confusión | Qué categorías se confunden entre sí |
+
+### 6.4 Resultado del arranque (2026-10-21)
+
+Diccionarios revisados por el estudiante y consolidados con `ml/scripts/consolidar_diccionarios.py`, que valida las reglas de la base (Track 6.5, D-4) y no escribe nada si encuentra un error. Prefijos recalculados con `ml/scripts/prefijos_por_marca.py`, que cuenta solo marcas aprobadas: en la primera pasada una palabra genérica tapaba a la marca (caso `AD`, que pasó a llamarse Artística Dibu con alias `AD`).
+
+| Cobertura sobre 14.876 filas | Filas | % |
+| :--- | ---: | ---: |
+| Categoría por término (no ambiguo) | 12.445 | 83,7 (89,9 antes de M-20) |
+| Término ambiguo (18 términos desde M-20) | 1.714 | 11,5 (5,3 antes de M-20) |
+| Término fuera del diccionario | 717 | 4,8 |
+| Marca por texto | 10.098 | 67,9 |
+| Marca por prefijo EAN | 7.502 | 50,4 |
+| Marca por texto o prefijo | 10.735 | 72,2 |
+| Texto y prefijo no coinciden | 355 | 2,4 |
+
+El clasificador de categoría se ocupa del 16,3 % que la tabla de términos no resuelve. Sobre el conjunto de desarrollo, la tabla acertaba el 86,4 %. Con M-20 se marcaron como ambiguos `GOMA`, `CINTA`, `LIBRO`, `BASE` y `TINTA`, y se corrigieron `TACO` (→ Oficina) y `VASO` (→ Vajilla y Mate), que estaban **mal asignados** pero no eran ambiguos (25 de 25 y 17 de 18 ejemplos en una sola categoría). Ahora acierta el **94,0 %** con 84 % de cobertura del desarrollo; la cifra es optimista porque la tabla se corrigió mirando ese conjunto, y la medición válida es la de la Fase 7.
+
+| Conjunto (`ml/datos/`) | Filas | Etiquetado | Uso |
+| :--- | ---: | :--- | :--- |
+| `oro.csv` (desarrollo, M-20) | 400 | Claude, validado por el estudiante (9 filas corregidas, 2,2 %) | Diagnóstico, E-3, E-5 |
+| `ambiguos.csv` | 334 | Estudiante (91) y Claude validado (243) | Entrenamiento |
+| `oro-prueba-a-etiquetar.csv` | 400 | Sin abrir (semilla 2027) | Evaluación final, Fase 7 | Las 355 filas en desacuerdo motivaron M-17 y E-5.
 
 ---
 
@@ -325,6 +350,7 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 | E-2 | Largo de los n-gramas (3–4, 3–5, 2–5) y quitar o no los tokens numéricos | Mejor F1-macro en validación cruzada agrupada |
 | E-3 | Umbrales `τ` y `κ` | Máxima cobertura que cumpla el criterio M-1 |
 | E-4 | Aporte de cada nivel | Informe; si el modelo aporta poco sobre la tabla de términos, se documenta como resultado |
+| E-5 | Marca: ¿texto antes que prefijo o prefijo antes que texto? ¿Pureza mínima para usar un prefijo? (M-17) | La combinación de mayor cobertura de marca que cumpla M-1 sobre el conjunto de desarrollo (M-20). Ante un empate práctico (< 1 punto de precisión), texto primero: es evidencia explícita |
 
 ---
 
@@ -348,6 +374,11 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 | M-14 | **Precedencia:** equivalencia del proveedor > EAN, diccionarios y términos > modelo > sin sugerencia. | Cerrada (2026-10-17) | Un dato explícito, ya revisado por una persona, es más confiable que cualquier inferencia. |
 | M-15 | **Taxonomía semilla editable**, cargada al instalar con `Retail.Cli` (sección 7.1). Solo diccionarios; ni descripciones del distribuidor ni modelo entrenado. | Cerrada (2026-10-17) | Sin semilla, una instalación nueva no recibe ninguna sugerencia. Nombres de categorías, marcas y prefijos son hechos públicos; las descripciones son datos comerciales de un tercero. |
 | M-16 | **Descubrimiento por agrupación de términos** en la incorporación, con asignación o creación en bloque que también registra el término (sección 7.1). | Cerrada (2026-10-17) | El sistema aprende de cada importación aunque todavía no exista modelo, y el usuario no necesita crear la taxonomía completa antes de importar. |
+| M-17 | **El orden entre prefijo y texto para la marca se decide con datos** (E-5, sobre el conjunto de desarrollo; corregido por M-20) y no por diseño previo. Hipótesis: texto primero, prefijo cuando el texto no encuentra ninguna marca. | Cerrada (2026-10-21) | En 355 filas del arranque el prefijo contradice la marca escrita; el prefijo identifica al titular del código (sección 3.2), que puede tener varias líneas. Decidir con el conjunto de oro es más riguroso que asumir. |
+| M-18 | **Marcas vulgarizadas** (una marca que por metonimia nombra un tipo de producto, como `CANSON` en "repuesto tipo canson"): no se cargan en el diccionario de marcas. Quedan como señal de **categoría** para el clasificador. Si una lista futura trae productos de esa marca, se identifican por el prefijo EAN de su titular; la forma de cargar una marca "solo por prefijo" se define cuando ocurra (YAGNI). | Cerrada (2026-10-21) | En la lista, las 30 filas con `CANSON` son `REPUESTO CANSON …` y todas tienen otra marca (LUMA, MURESCO, 1028, NENE, EXITO): detectarla por texto fallaría en el 100 % de los casos. |
+| M-19 | **El conjunto de oro lo pre-etiqueta Claude y el estudiante valida cada fila** (`ml/datos/oro-validar.csv`). Se aparta de la sección 6.1 (al modelo de lenguaje se le enviaban solo términos): Claude lee las 400 descripciones y EAN, sin precios, con autorización del estudiante. La categoría se etiqueta **sin consultar la tabla de términos** y la marca **solo por el texto, sin el prefijo EAN**, para que el oro no le dé la razón al sistema por construcción (E-4, E-5). Los desacuerdos con los diccionarios y las dudas de Claude se marcan para revisión. | Cerrada (2026-10-21) | Decisión del estudiante por costo de etiquetado. **Limitación:** el anclaje del validador no se mide; se conservan las etiquetas originales (`categoria_claude`, `marca_claude`) e informa la tasa de corrección como cota inferior del error. Las filas sin marca en el texto quedan `SIN MARCA`: E-5 no puede medir la precisión del prefijo en ellas. |
+| M-20 | **El oro etiquetado en la Fase 1 pasa a ser el conjunto de desarrollo** (`ml/datos/oro.csv`): se usa para diagnosticar y decidir (tabla de términos, E-3, E-5). Para la evaluación final (Fase 7) se muestrea **un oro nuevo** de familias que no estén en ningún otro conjunto, se guarda sin mirar y se etiqueta con el método de M-19. | Cerrada (2026-10-22) | Al validar el oro se midió que la tabla de términos acierta el 86,4 % (< M-1) y se corrigió con esos errores (`GOMA`, `CINTA`, `LIBRO`, `BASE`, `TACO`, `VASO` y `TINTA` pasan a ambiguos). Desde ese momento el oro ya no es independiente: evaluar sobre él daría un resultado optimista (fuga de datos). Corrige también M-17/E-5, que decidían sobre el oro en contra de la sección 6.2. |
+| M-21 | **Una marca real cuyo nombre es una palabra común no se carga en el diccionario** cuando el riesgo de detectarla por error supera el beneficio (`ARTE`, 68 filas en la lista). Las 37 marcas nuevas del conjunto de desarrollo sí se cargan, incluidas `CADENA`, `NORTE` y `PAPERLAND`, antes rechazadas. | Cerrada (2026-10-22) | Decisión del estudiante. El diccionario busca palabras completas en toda la descripción: una palabra común produce sugerencias falsas en productos de otras marcas, y una sugerencia equivocada cuesta más que una ausente (M-1). |
 
 ---
 
@@ -408,3 +439,5 @@ No se identificaron cambios necesarios en el plan del CRUD. Las piezas de este t
 * ¿Qué pasa con el modelo si el comercio crea, renombra o elimina una categoría?
 * ¿Cómo se evita que el modelo aprenda de sus propios errores?
 * ¿Por qué ningún modelo puede sugerir la marca de los artículos del importador `7450077`?
+* Si el prefijo EAN es determinista, ¿por qué puede contradecir a la marca escrita en la descripción? (M-17)
+* ¿Por qué `CANSON` no está en el diccionario de marcas aunque sea una marca real? (M-18)

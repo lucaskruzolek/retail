@@ -37,7 +37,7 @@ Además de `AGENTS.md` y `CLAUDE.md`, que se cargan solos:
 
 --- | :--- |
 | `docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md` | Plan del Track 6.5 (decisiones D-1 a D-18) |
-| `docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md` | Diseño del Track 6.6 (decisiones M-1 a M-16, experimentos E-1 a E-4) |
+| `docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md` | Diseño del Track 6.6 (decisiones M-1 a M-18, experimentos E-1 a E-5) |
 | `docs/auditorias/handoff-clasificacion-y-catalogacion.md` | Este archivo |
 | `ml/README.md`, `ml/scripts/*.py`, `ml/scripts/exportar_lista_xls.ps1` | Scripts de exploración (Python 3, solo biblioteca estándar) |
 | `.gitignore` | Excluye `ml/datos/` y `__pycache__/` |
@@ -102,22 +102,28 @@ Rama sugerida `feat/crud-categorias-marcas` (la crea el estudiante). Plan por ca
 Es sobre todo trabajo del estudiante, en `ml/datos/`. No toca `src/` ni genera commits del CRUD. Detalle en la sección 6.1 del Track 6.6.
 
 * [x] Escribir los scripts de arranque: `ml/scripts/listar_terminos.py` y `candidatos_marcas.py` (2026-10-17). Generan `terminos-candidatos.csv`, `marcas-candidatas.csv` y `prefijos-candidatos.csv` en `ml/datos/` para completar (ver `ml/README.md`).
-* [ ] El estudiante arma la taxonomía (rubros y categorías) y asigna los ~300 términos más frecuentes, marcando los ambiguos.
-* [ ] El estudiante aprueba marcas, alias y prefijos.
-* [ ] El estudiante etiqueta una muestra de los términos ambiguos y el conjunto de oro (400 filas, muestreo agrupado por familia).
+* [x] El estudiante arma la taxonomía (rubros y categorías) y asigna los ~300 términos más frecuentes, marcando los ambiguos (2026-10-21).
+* [x] El estudiante aprueba marcas, alias y prefijos (2026-10-21). Segunda pasada de prefijos con `prefijos_por_marca.py` (caso AD) y consolidación con `consolidar_diccionarios.py` en `ml/datos/taxonomia.csv`, `terminos.csv`, `marcas.csv` y `prefijos.csv`. Resultado y cobertura en la sección 6.4 del Track 6.6; decisiones nuevas M-17 (orden texto/prefijo, experimento E-5) y M-18 (marcas vulgarizadas como `CANSON`).
+* [x] El estudiante etiqueta una muestra de los términos ambiguos y el conjunto de oro (400 filas, muestreo agrupado por familia). Cerrado el 2026-10-22 con M-19 a M-21 (detalle abajo y en la sección 6.4 del Track 6.6).
+  * Planillas generadas el 2026-10-21 con `muestrear_etiquetado.py` (semilla 2026): `ml/datos/ambiguos-a-etiquetar.csv` (197 filas, completar `categoria`) y `ml/datos/oro-a-etiquetar.csv` (400 filas, completar `categoria` y `marca`, o `SIN MARCA`; celda vacía = pendiente). Ninguna familia aparece en las dos. El oro se etiqueta a ciegas.
+  * **M-19 (2026-10-21):** el estudiante decidió no etiquetar. Claude pre-etiquetó el oro en `ml/datos/oro-validar.csv` (186 filas marcadas para revisar, 214 sin observaciones); el estudiante valida cada fila (`validado` = 1, corrigiendo `categoria`/`marca` si hace falta). Falta: validación del estudiante, script que valide la planilla y genere `oro.csv` con la tasa de corrección, y decidir quién etiqueta `ambiguos-a-etiquetar.csv`. Hallazgo: `CINTA`, `GOMA`, `LIBRO`, `BLOCK` y otros términos no marcados como ambiguos lo son (R-2).
+  * **2026-10-22:** el estudiante validó el oro (8 de 400 filas corregidas, 2,0 %, contando las 2 de EXHIBIDOR) y etiquetó 91 de los 197 ambiguos; Claude etiquetó los 106 restantes (columna `origen`). Nueva categoría `Exhibidores` (Librería) en `taxonomia-borrador.csv`. `cerrar_etiquetado.py` escribió `ml/datos/oro.csv` y `ml/datos/ambiguos.csv`. **Decisión abierta:** la tabla de términos acierta el 86,4 % en el oro (< M-1). Como ese diagnóstico se hizo mirando el oro, se propuso redesignarlo como conjunto de desarrollo y muestrear un oro nuevo para la Fase 7. También queda pendiente pasar `EXHIBIDOR` a no ambiguo.
+  * **2026-10-22, M-20 aprobada:** el oro actual pasa a ser conjunto de desarrollo; `GOMA`, `CINTA`, `LIBRO`, `BASE`, `TACO`, `VASO` y `TINTA` pasan a ambiguos y `EXHIBIDOR` a `Exhibidores`. Diccionarios reconsolidados (20 ambiguos). Propuesto y pendiente de aprobación: agregar marcas nuevas del desarrollo al diccionario, muestrear **primero** el oro de prueba (bloqueado hasta la Fase 7) y después ejemplos de entrenamiento para los 7 términos nuevos (Claude etiqueta y el estudiante valida).
+  * **Hecho el 2026-10-22:** 37 marcas del desarrollo agregadas (170 en total); `ARTE` rechazada (M-21). Oro de prueba en `ml/datos/oro-prueba-a-etiquetar.csv` (semilla 2027, **no abrir hasta la Fase 7**). 137 ejemplos de los 7 términos nuevos, etiquetados por Claude, en `ml/datos/ambiguos-2-a-etiquetar.csv`. Los 4 conjuntos son disjuntos en familias y códigos. **Falta:** que el estudiante valide las 137 filas (`validado` = 1), decidir si `TACO` y `VASO` vuelven a no ambiguos con la categoría corregida, y correr `cerrar_etiquetado.py`.
+  * **Cerrado el 2026-10-22:** 137 filas validadas sin correcciones; `TACO` → Oficina y `VASO` → Vajilla y Mate como no ambiguos; `KIMELEKA` no es marca (rechazada; la fila del desarrollo pasó a `SIN MARCA`). `cerrar_etiquetado.py` escribió `oro.csv` (400) y `ambiguos.csv` (334). Tabla de términos sobre el desarrollo: 94,0 % de precisión y 84 % de cobertura (cifra optimista, M-20). **Siguiente: Paso 4.**
 
-Formatos tentativos de los archivos que completa el estudiante (se confirman al escribir los scripts): `taxonomia.csv` (`rubro;categoria`), `terminos.csv` (`termino;rubro;categoria;ambiguo`), `marcas.csv` (`marca;alias`), `prefijos.csv` (`prefijo;marca`), `oro.csv` (`codigo;descripcion;rubro;categoria;marca`).
+Formatos definitivos: `taxonomia.csv` (`rubro;categoria`), `terminos.csv` (`termino;rubro;categoria;ambiguo`), `marcas.csv` (`marca;alias`), `prefijos.csv` (`prefijo;marca`). El oro queda como `codigo;descripcion;ean;categoria;marca`: el rubro se deriva de la categoría, que es única en todo el catálogo.
 
 ### Paso 3 — PR del Track 6.5
 
-* [ ] El estudiante abre el PR; revisión cruzada con Pablo; merge en `main`.
+* [x] El estudiante abre el PR; revisión cruzada con Pablo; merge en `main` (PR #31, commit `2112b37`).
   * Rama publicada el 2026-10-21. `gh` no está instalado: el PR se abre desde https://github.com/lucaskruzolek/retail/compare/main...feat/crud-categorias-marcas?expand=1 . Avisar a Pablo que debe recrear `RetailDb` (error 50001, D-16/D-24).
   * Para la revisión cruzada (fuera de este track): en #30 el fallback de conexión pasó a `Server=.` y la política de bloqueo vive en un SP (Ley 8).
 
 ### Paso 4 — Track 6.6, experimentos E-1 a E-4 (Fase 2 de su documento)
 
 * [ ] **Pedir aprobación** para usar scikit-learn en un entorno virtual dentro de `ml/` (agregar `ml/.venv/` al `.gitignore`). Es una dependencia solo de exploración: no llega al producto. Si no se aprueba, los experimentos se escriben con la biblioteca estándar.
-* [ ] Ejecutar E-1 a E-4 con las reglas de decisión de la sección 11 del Track 6.6 y registrar los resultados en ese documento.
+* [ ] Ejecutar E-1 a E-5 con las reglas de decisión de la sección 11 del Track 6.6 y registrar los resultados en ese documento.
 * [ ] Generar los vectores de referencia de paridad con descripciones **inventadas** (sección 10).
 
 ### Paso 5 — Track 6.6, Fases 3 a 7
