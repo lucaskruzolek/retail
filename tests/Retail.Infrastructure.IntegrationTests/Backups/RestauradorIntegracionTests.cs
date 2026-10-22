@@ -702,6 +702,38 @@ public class RestauradorIntegracionTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ImportarHistorialDeLaBaseVigenteAsync_RestauracionConOperador_ConservaOperadorYNombre()
+    {
+        // Arrange: la copia no tiene registros de restauración; la vigente registra una con control dual después de tomarla.
+        var ruta = await CrearCopiaAsync();
+        var registro = RegistroRestauracion.Registrar(
+            OrigenRestauracionEnum.Aplicacion,
+            3,
+            "gerente",
+            Guid.NewGuid(),
+            @"C:\copias\a.bak",
+            "M1",
+            null,
+            null,
+            idOperador: 5,
+            nombreOperador: "admin");
+        _context.RegistrosRestauracion.Add(registro);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await using var restaurada = await CrearSut().RestaurarEnBaseTemporalAsync(ruta, progreso: null);
+        await restaurada.ImportarHistorialDeLaBaseVigenteAsync();
+
+        // Assert
+        await using var lectura = ContextoDe(CadenaDe($"{_vigente}_Restaurando"));
+        var importado = await lectura.RegistrosRestauracion.AsNoTracking().SingleAsync();
+        importado.Referencia.Should().Be(registro.Referencia);
+        importado.IdUsuario.Should().Be(3);
+        importado.IdOperador.Should().Be(5);
+        importado.NombreOperador.Should().Be("admin");
+    }
+
+    [Fact]
     public async Task ObtenerCopiasEnCursoAsync_SinImportarHistorial_DevuelveLasEnCursoDeLaCopia()
     {
         // Arrange

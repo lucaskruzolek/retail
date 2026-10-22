@@ -38,6 +38,18 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                    <!-- Desbloquear la cuenta de Administrador seleccionada (solo Gerente, D-31) -->
+                    <Button Command="{Binding DesbloquearCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Padding="16,8"
+                            Margin="0,0,8,0"
+                            ToolTip="Desbloquear la cuenta seleccionada (bloqueada por autorizaciones fallidas)"
+                            Visibility="{Binding PuedeDesbloquear, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularLockOpenAlt" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Desbloquear" FontWeight="Bold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <Button Command="{Binding NuevoUsuarioCommand}"
                             Style="{StaticResource PrimaryActionButtonStyle}"
                             Padding="16,8">
@@ -154,9 +166,10 @@
                     </DataGridTemplateColumn>
 
                     <!-- Estado (Activo / Inactivo) con Badge Semáforo -->
-                    <DataGridTemplateColumn Header="Estado" Width="110">
+                    <DataGridTemplateColumn Header="Estado" Width="210">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
                                 <Border x:Name="EstadoBadge" Style="{StaticResource BadgeSuccessStyle}">
                                     <TextBlock x:Name="TxtEstado"
                                                Text="Activo"
@@ -164,6 +177,16 @@
                                                FontWeight="Bold"
                                                Foreground="{DynamicResource SuccessForegroundBrush}" />
                                 </Border>
+                                <!-- Bloqueada por autorizaciones de restauración fallidas (D-31) -->
+                                <Border Style="{StaticResource BadgeWarningStyle}"
+                                        Margin="6,0,0,0"
+                                        Visibility="{Binding EstaBloqueada, Converter={StaticResource BoolToVisConverter}}">
+                                    <TextBlock Text="Bloqueada"
+                                               FontSize="11"
+                                               FontWeight="Bold"
+                                               Foreground="{DynamicResource WarningForegroundBrush}" />
+                                </Border>
+                                </StackPanel>
                                 <DataTemplate.Triggers>
                                     <DataTrigger Binding="{Binding Activo}" Value="False">
                                         <Setter TargetName="EstadoBadge" Property="Style" Value="{StaticResource BadgeDangerStyle}" />

@@ -22,7 +22,9 @@ public class RegistroRestauracionTests
         string rutaArchivo = Ruta,
         string migracionCopia = Migracion,
         Guid? referenciaCopiaPrevia = null,
-        string? baseAnterior = "RetailDb_Anterior_20261013_220000") =>
+        string? baseAnterior = "RetailDb_Anterior_20261013_220000",
+        int? idOperador = null,
+        string? nombreOperador = null) =>
         RegistroRestauracion.Registrar(
             origen,
             idUsuario,
@@ -31,7 +33,9 @@ public class RegistroRestauracionTests
             rutaArchivo,
             migracionCopia,
             referenciaCopiaPrevia,
-            baseAnterior);
+            baseAnterior,
+            idOperador,
+            nombreOperador);
 
     [Fact]
     public void Registrar_DatosValidos_ConservaLaFotoDelOperadorYLaRedDeSeguridad()
@@ -163,6 +167,72 @@ public class RegistroRestauracionTests
         var act = () => Registrar(baseAnterior: new string('x', RegistroRestauracion.LongitudMaximaNombreBase + 1));
 
         act.Should().Throw<DomainException>().WithMessage($"El nombre de la base anterior supera los {RegistroRestauracion.LongitudMaximaNombreBase}*");
+    }
+
+    [Fact]
+    public void Registrar_ConOperadorDistintoDelAutorizante_GuardaAmbos()
+    {
+        var registro = Registrar(idUsuario: 3, idOperador: 9, nombreOperador: "  admin ");
+
+        registro.IdUsuario.Should().Be(3);
+        registro.IdOperador.Should().Be(9);
+        registro.NombreOperador.Should().Be("admin");
+    }
+
+    [Fact]
+    public void Registrar_SinOperador_DejaOperadorNulo()
+    {
+        var registro = Registrar();
+
+        registro.IdOperador.Should().BeNull();
+        registro.NombreOperador.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Registrar_OperadorSinNombre_LanzaDomainException(string? nombreOperador)
+    {
+        var act = () => Registrar(idOperador: 9, nombreOperador: nombreOperador);
+
+        act.Should().Throw<DomainException>().WithMessage("Deben indicarse el Id y el nombre del operador*");
+    }
+
+    [Fact]
+    public void Registrar_NombreOperadorSinId_LanzaDomainException()
+    {
+        var act = () => Registrar(idOperador: null, nombreOperador: "admin");
+
+        act.Should().Throw<DomainException>().WithMessage("Deben indicarse el Id y el nombre del operador*");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Registrar_OperadorConIdInvalido_LanzaDomainException(int idOperador)
+    {
+        var act = () => Registrar(idOperador: idOperador, nombreOperador: "admin");
+
+        act.Should().Throw<DomainException>().WithMessage("El Id del operador*");
+    }
+
+    [Fact]
+    public void Registrar_OperadorIgualAlAutorizante_LanzaDomainException()
+    {
+        var act = () => Registrar(idUsuario: 3, idOperador: 3, nombreOperador: "gerente");
+
+        act.Should().Throw<DomainException>().WithMessage("El operador debe ser distinto del Gerente*");
+    }
+
+    [Fact]
+    public void Registrar_NombreOperadorDemasiadoLargo_LanzaDomainException()
+    {
+        var act = () => Registrar(
+            idOperador: 9,
+            nombreOperador: new string('a', ReglasTexto.LongitudMaximaNombreUsuario + 1));
+
+        act.Should().Throw<DomainException>().WithMessage($"El nombre del operador supera los {ReglasTexto.LongitudMaximaNombreUsuario}*");
     }
 
     [Fact]

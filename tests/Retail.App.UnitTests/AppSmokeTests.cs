@@ -400,6 +400,25 @@ public class AppSmokeTests
                 view.Measure(new System.Windows.Size(1024, 768));
                 view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
                 view.UpdateLayout();
+
+                // D-34: la pestaña de restauraciones, vacía y con datos, también debe resolver sus recursos.
+                viewModel.MostrandoRestauraciones = true;
+                view.UpdateLayout();
+                viewModel.Restauraciones.Add(new RegistroRestauracionFila(new RegistroRestauracionDto
+                {
+                    Referencia = Guid.NewGuid(),
+                    Fecha = DateTime.UtcNow,
+                    Origen = OrigenRestauracionEnum.Aplicacion,
+                    NombreUsuario = "gerente",
+                    NombreOperador = "admin",
+                    ReferenciaCopia = Guid.NewGuid(),
+                    RutaArchivo = @"C:\RetailData\Backups\copia.bak",
+                    TuvoCopiaPrevia = true,
+                    BaseAnterior = "Retail_anterior"
+                }));
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
             }
             catch (Exception ex)
             {
@@ -532,29 +551,46 @@ public class AppSmokeTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ConfirmarCredencialDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool restauracion)
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void ConfirmarCredencialDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(int modo)
     {
         // Arrange
         Exception? xamlException = null;
         ConfirmarCredencialDialog? dialog = null;
+        var alturaMedida = 0d;
+        var sizeToContent = System.Windows.SizeToContent.Manual;
 
         WpfTestHelper.Run(() =>
         {
             Func<string, IProgress<int>, Task> operacion = (_, _) => Task.CompletedTask;
-            var viewModel = restauracion
-                ? ConfirmarCredencialViewModel.ParaRestauracion(operacion, "01/10/2026 10:00", "Conciliar con ARCA.")
-                : ConfirmarCredencialViewModel.ParaBackupManual(operacion);
+            Func<string, Retail.Application.DTOs.Backups.CredencialAutorizanteDto, IProgress<int>, Task> operacionAutorizada = (_, _, _) => Task.CompletedTask;
+
+            // 0 = copia manual, 1 = restauración del Gerente, 2 = restauración autorizada (Administrador, D-30).
+            var viewModel = modo switch
+            {
+                1 => ConfirmarCredencialViewModel.ParaRestauracion(operacion, "01/10/2026 10:00", "Conciliar con ARCA."),
+                2 => ConfirmarCredencialViewModel.ParaRestauracionAutorizada(operacionAutorizada, "01/10/2026 10:00", "Conciliar con ARCA."),
+                _ => ConfirmarCredencialViewModel.ParaBackupManual(operacion)
+            };
             viewModel.MensajeError = "Contraseña incorrecta.";
             viewModel.IsBusy = true;
 
             try
             {
                 dialog = new ConfirmarCredencialDialog(viewModel);
-                dialog.Measure(new System.Windows.Size(500, 640));
+                dialog.Measure(new System.Windows.Size(500, double.PositiveInfinity));
                 dialog.Arrange(new System.Windows.Rect(0, 0, 500, 640));
                 dialog.UpdateLayout();
+
+                // Sin mostrarla, la ventana no resuelve los bindings de visibilidad ni aplica SizeToContent: se la muestra un
+                // instante para medir la altura real que tendría ante el usuario.
+                dialog.Show();
+                dialog.UpdateLayout();
+                alturaMedida = dialog.ActualHeight;
+                sizeToContent = dialog.SizeToContent;
+                dialog.Close();
             }
             catch (Exception ex)
             {
@@ -565,6 +601,10 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de ConfirmarCredencialDialog debe resolverse sin errores de recursos");
         dialog.Should().NotBeNull();
+
+        // El alto lo da el contenido (patrón de ClasificacionFormDialog) y respeta la salvaguarda de SISTEMA_DE_DISENO.md.
+        sizeToContent.Should().Be(System.Windows.SizeToContent.Height);
+        alturaMedida.Should().BeLessThanOrEqualTo(680, $"el modo {modo} no debe superar la altura máxima de un modal");
     }
 
     [Fact]

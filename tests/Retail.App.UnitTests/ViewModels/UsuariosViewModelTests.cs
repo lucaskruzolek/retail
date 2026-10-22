@@ -457,4 +457,104 @@ public class UsuariosViewModelTests : IDisposable
         _dialogService.Received(1).MostrarDialogoCambioPropio(cuentaPropia, Arg.Any<Func<CambiarPasswordDto, Task>>());
         _dialogService.DidNotReceive().MostrarDialogoCambiarPassword(Arg.Any<UsuarioDto>(), Arg.Any<Func<CambiarPasswordDto, Task>>());
     }
+
+    // ───────────────────────────── Desbloqueo (D-31) ─────────────────────────────
+
+    private static UsuarioDto Administrador(bool bloqueada) => new()
+    {
+        IdUsuario = 5,
+        NombreUsuario = "admin",
+        Nombre = "Ada",
+        Apellido = "Sistema",
+        Rol = RolUsuarioEnum.Administrador,
+        Activo = true,
+        EstaBloqueada = bloqueada,
+        CreatedAt = DateTime.UtcNow
+    };
+
+    [Fact]
+    public async Task DesbloquearAsync_GerenteConfirma_LlamaAlServicioYRecarga()
+    {
+        // Arrange
+        _session.EsGerente.Returns(true);
+        var bloqueada = Administrador(bloqueada: true);
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new List<UsuarioDto> { bloqueada });
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        await _sut.CargarUsuariosCommand.ExecuteAsync(null);
+        _sut.UsuarioSeleccionado = _sut.Usuarios[0];
+        _usuarioService.ClearReceivedCalls();
+
+        // Act
+        await _sut.DesbloquearCommand.ExecuteAsync(null);
+
+        // Assert
+        await _usuarioService.Received(1).DesbloquearUsuarioAsync(IdActor, bloqueada.IdUsuario, Arg.Any<CancellationToken>());
+        await _usuarioService.Received(1).ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarInformacion("Cuenta Desbloqueada", Arg.Any<string>());
+        _sut.IsBusy.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DesbloquearAsync_GerenteCancela_NoLlamaAlServicio()
+    {
+        // Arrange
+        _session.EsGerente.Returns(true);
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        _sut.UsuarioSeleccionado = Administrador(bloqueada: true);
+
+        // Act
+        await _sut.DesbloquearCommand.ExecuteAsync(null);
+
+        // Assert
+        await _usuarioService.DidNotReceiveWithAnyArgs().DesbloquearUsuarioAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task DesbloquearAsync_ServicioFalla_InformaElError()
+    {
+        // Arrange
+        _session.EsGerente.Returns(true);
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        _usuarioService.DesbloquearUsuarioAsync(IdActor, 5, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("sin conexión"));
+        _sut.UsuarioSeleccionado = Administrador(bloqueada: true);
+
+        // Act
+        await _sut.DesbloquearCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeError.Should().Contain("sin conexión");
+        _dialogService.Received(1).MostrarError("Error al Desbloquear", Arg.Is<string>(m => m.Contains("sin conexión")));
+        _sut.IsBusy.Should().BeFalse();
+    }
+
+    [Fact]
+    public void DesbloquearCommand_SesionDeAdministrador_NoSePuedeEjecutar()
+    {
+        // Arrange
+        _session.EsGerente.Returns(false);
+        _session.EsAdministrador.Returns(true);
+        _sut.UsuarioSeleccionado = Administrador(bloqueada: true);
+
+        // Assert
+        _sut.PuedeDesbloquear.Should().BeFalse();
+        _sut.DesbloquearCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void DesbloquearCommand_FilaNoBloqueada_NoSePuedeEjecutar()
+    {
+        // Arrange
+        _session.EsGerente.Returns(true);
+
+        // Act
+        _sut.UsuarioSeleccionado = Administrador(bloqueada: false);
+
+        // Assert
+        _sut.DesbloquearCommand.CanExecute(null).Should().BeFalse();
+
+        _sut.UsuarioSeleccionado = Administrador(bloqueada: true);
+        _sut.DesbloquearCommand.CanExecute(null).Should().BeTrue();
+    }
 }

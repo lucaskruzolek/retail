@@ -16,5 +16,8 @@ public interface IAuthService
     /// <exception cref="Retail.Domain.Exceptions.CredencialesInvalidasException">
     /// La contraseña no coincide o el usuario no está activo.
     /// </exception>
+    /// <exception cref="Retail.Domain.Exceptions.CuentaBloqueadaException">
+    /// La contraseña es correcta pero la cuenta está bloqueada por intentos de autorización fallidos (D-31).
+    /// </exception>
     Task VerificarCredencialAsync(int idUsuario, string password, CancellationToken cancellationToken = default);
 }

@@ -2,7 +2,7 @@
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
 **Documento Maestro:** [`Roadmap de Implementacion.md`](file:///c:/Users/lucas/Proyectos/retail/docs/Roadmap%20de%20Implementacion.md) | **Mapa Semántico:** [`MAPA_DEL_PROYECTO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/MAPA_DEL_PROYECTO.md)  
-**Requisitos Vinculados:** [`RNF-01`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L250), [`RNF-02`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L251), [`RNF-03`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L252), [`RNF-07`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L256), [`RNF-08`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L257), [`RF-22`, `RF-23`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.3), [`RF-24` a `RF-26`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.4), [`RF-04`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.5), [`RF-27`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.6)
+**Requisitos Vinculados:** [`RNF-01`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L250), [`RNF-02`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L251), [`RNF-03`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L252), [`RNF-07`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L256), [`RNF-08`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#L257), [`RF-22`, `RF-23`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.3 y Track 6.3.1), [`RF-24` a `RF-26`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.4), [`RF-04`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.5), [`RF-27`](file:///c:/Users/lucas/Proyectos/retail/docs/ERS%20-%20Libreria%20POS.md#32-requisitos-funcionales-rf) (Track 6.6)
 
 ---
 
@@ -46,6 +46,16 @@
 * **Fase 7 — Backup automático:** `BackupAutomaticoHostedService` con recuperación al arrancar, más un script PowerShell que registra `Retail.Cli backup --automatico` en el Programador de tareas.
 
 **Mejoras futuras (fuera de alcance):** envío de correos de recuperación de contraseña (único mecanismo de recuperación previsto), copia cifrada a una carpeta sincronizada con OneDrive y migración de producción a SQL Server Express (coordinar con el Track 6.2). El CRUD de Categorías y Marcas, que hoy solo se cargan con `datos-demo`, pasó a ser el [Track 6.5](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md).
+
+---
+
+### Track 6.3.1: Control Dual de Restauración
+**Responsable:** Lucas Kruzolek | **Rama:** `feat/control-dual-restore` | **Requisitos:** `RF-03`, `RF-22`, `RNF-08`  
+**Plan de diseño, decisiones y avance:** [`etapa-6-track-6.3.1-control-dual-restore.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.3.1-control-dual-restore.md)
+
+El Administrador ejecuta el backup manual con su propia contraseña y la restauración con el usuario y la contraseña de un Gerente que la autoriza (control dual, D-30 a D-32). Tras 3 autorizaciones fallidas consecutivas, su cuenta queda bloqueada hasta que un Gerente la desbloquee.
+
+**Estado:** Diseño aprobado, sin implementar (2026-10-17).
 
 ---
 

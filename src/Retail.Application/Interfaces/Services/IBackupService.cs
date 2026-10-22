@@ -14,7 +14,7 @@ public interface IBackupService
     Task<IReadOnlyList<RegistroBackupDto>> ListarAsync(int idActor, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Copia pedida por un Gerente, que debe reautenticarse con su contraseña (D-8).
+    /// Copia pedida por un Gerente o un Administrador (D-32), que debe reautenticarse con su propia contraseña (D-8).
     /// </summary>
     Task<ResultadoBackupDto> CrearBackupManualAsync(
         int idActor,

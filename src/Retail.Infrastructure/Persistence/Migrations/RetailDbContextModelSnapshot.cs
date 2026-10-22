@@ -1061,6 +1061,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha");
 
+                    b.Property<int?>("IdOperador")
+                        .HasColumnType("int")
+                        .HasColumnName("id_operador");
+
                     b.Property<int>("IdUsuario")
                         .HasColumnType("int")
                         .HasColumnName("id_usuario");
@@ -1070,6 +1074,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)")
                         .HasColumnName("migracion_copia");
+
+                    b.Property<string>("NombreOperador")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("nombre_operador");
 
                     b.Property<string>("NombreUsuario")
                         .IsRequired()
@@ -1112,6 +1121,8 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.ToTable("REGISTROS_RESTAURACION", null, t =>
                         {
                             t.HasCheckConstraint("CK_REGISTROS_RESTAURACION_IdUsuario", "[id_usuario] > 0");
+
+                            t.HasCheckConstraint("CK_REGISTROS_RESTAURACION_Operador", "([id_operador] IS NULL AND [nombre_operador] IS NULL) OR ([id_operador] > 0 AND [nombre_operador] IS NOT NULL AND [id_operador] <> [id_usuario])");
                         });
                 });
 
@@ -1314,6 +1325,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_rol");
 
+                    b.Property<int>("IntentosAutorizacionFallidos")
+                        .HasColumnType("int")
+                        .HasColumnName("intentos_autorizacion_fallidos");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1341,7 +1356,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[deleted_at] IS NULL");
 
-                    b.ToTable("USUARIOS", (string)null);
+                    b.ToTable("USUARIOS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_USUARIOS_IntentosAutorizacionFallidos", "[intentos_autorizacion_fallidos] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Venta", b =>

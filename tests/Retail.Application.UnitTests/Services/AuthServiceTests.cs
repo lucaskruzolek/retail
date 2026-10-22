@@ -382,6 +382,106 @@ public class AuthServiceTests
         await act.Should().ThrowAsync<CredencialesInvalidasException>();
     }
 
+    private static Usuario CrearAdministradorBloqueado()
+    {
+        var administrador = CrearUsuario(2, "soporte", "Sara", "Ruiz", "hash_soporte", RolUsuarioEnum.Administrador);
+        for (var i = 0; i < Usuario.MaximoIntentosAutorizacion; i++)
+        {
+            administrador.RegistrarIntentoDeAutorizacion();
+        }
+
+        return administrador;
+    }
+
+    [Fact]
+    public async Task LoginAsync_CuentaBloqueadaConPasswordCorrecta_LanzaCuentaBloqueada()
+    {
+        // Arrange
+        var bloqueado = CrearAdministradorBloqueado();
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: true, Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { bloqueado });
+        _passwordHasher.VerifyPassword("Clave2026!", "hash_soporte").Returns(true);
+
+        // Act
+        var act = () => _sut.LoginAsync(new LoginRequestDto { NombreUsuario = "soporte", Password = "Clave2026!" });
+
+        // Assert
+        (await act.Should().ThrowAsync<CuentaBloqueadaException>())
+            .Which.RequiereDesbloqueoDeGerente.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LoginAsync_CuentaBloqueadaPorAutorizacionConPasswordCorrecta_NoInformaUnLoginAceptadoAlSp()
+    {
+        // Arrange: informarle al SP un login válido registraría "Aceptado" en la auditoría y reiniciaría su contador.
+        var bloqueado = CrearAdministradorBloqueado();
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: true, Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { bloqueado });
+        _passwordHasher.VerifyPassword("Clave2026!", "hash_soporte").Returns(true);
+
+        // Act
+        var act = () => _sut.LoginAsync(new LoginRequestDto { NombreUsuario = "soporte", Password = "Clave2026!" });
+
+        // Assert
+        await act.Should().ThrowAsync<CuentaBloqueadaException>();
+        await _registroAccesosService.DidNotReceive().RegistrarIntentoAsync(
+            Arg.Any<string>(), Arg.Any<int?>(), true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LoginAsync_CuentaBloqueadaPorAutorizacionConPasswordCorrecta_RegistraEventoBloqueado()
+    {
+        // Arrange
+        var bloqueado = CrearAdministradorBloqueado();
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: true, Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { bloqueado });
+        _passwordHasher.VerifyPassword("Clave2026!", "hash_soporte").Returns(true);
+
+        // Act
+        var act = () => _sut.LoginAsync(new LoginRequestDto { NombreUsuario = "soporte", Password = "Clave2026!" });
+
+        // Assert: el rechazo deja fila de auditoría (antes no dejaba ninguna) y sin la contraseña.
+        await act.Should().ThrowAsync<CuentaBloqueadaException>();
+        await _registroAccesosService.Received(1).RegistrarEventoAsync(
+            TipoEventoAccesoEnum.InicioSesion,
+            ResultadoEventoAccesoEnum.Bloqueado,
+            "soporte",
+            2,
+            "Bloqueada por autorizaciones fallidas (D-31)",
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LoginAsync_CuentaBloqueadaConPasswordIncorrecta_LanzaCredencialesInvalidas()
+    {
+        // Arrange: quien no conoce la contraseña no debe enterarse de que la cuenta está bloqueada.
+        var bloqueado = CrearAdministradorBloqueado();
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: true, Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { bloqueado });
+        _passwordHasher.VerifyPassword("otra", "hash_soporte").Returns(false);
+
+        // Act
+        var act = () => _sut.LoginAsync(new LoginRequestDto { NombreUsuario = "soporte", Password = "otra" });
+
+        // Assert
+        await act.Should().ThrowAsync<CredencialesInvalidasException>();
+    }
+
+    [Fact]
+    public async Task VerificarCredencialAsync_CuentaBloqueadaConPasswordCorrecta_LanzaCuentaBloqueada()
+    {
+        // Arrange
+        var bloqueado = CrearAdministradorBloqueado();
+        _usuarioRepository.GetByIdAsync(2, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(bloqueado);
+        _passwordHasher.VerifyPassword("Clave2026!", "hash_soporte").Returns(true);
+
+        // Act
+        var act = async () => await _sut.VerificarCredencialAsync(2, "Clave2026!");
+
+        // Assert
+        await act.Should().ThrowAsync<CuentaBloqueadaException>();
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(99)]

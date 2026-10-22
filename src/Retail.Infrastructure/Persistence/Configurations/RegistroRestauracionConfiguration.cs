@@ -22,6 +22,12 @@ public class RegistroRestauracionConfiguration : IEntityTypeConfiguration<Regist
         {
             // Defensa en profundidad: toda restauración la autoriza un Gerente identificado (D-18).
             tabla.HasCheckConstraint("CK_REGISTROS_RESTAURACION_IdUsuario", "[id_usuario] > 0");
+
+            // Control dual (D-30): sin operador, o un operador completo y distinto del Gerente que autorizó.
+            tabla.HasCheckConstraint(
+                "CK_REGISTROS_RESTAURACION_Operador",
+                "([id_operador] IS NULL AND [nombre_operador] IS NULL) OR " +
+                "([id_operador] > 0 AND [nombre_operador] IS NOT NULL AND [id_operador] <> [id_usuario])");
         });
 
         builder.HasKey(r => r.Id);
@@ -51,6 +57,14 @@ public class RegistroRestauracionConfiguration : IEntityTypeConfiguration<Regist
             .HasColumnName("nombre_usuario")
             .HasMaxLength(ReglasTexto.LongitudMaximaNombreUsuario)
             .IsRequired();
+
+        // Quien ejecutó, si no fue el mismo Gerente: también es una foto, sin clave foránea.
+        builder.Property(r => r.IdOperador)
+            .HasColumnName("id_operador");
+
+        builder.Property(r => r.NombreOperador)
+            .HasColumnName("nombre_operador")
+            .HasMaxLength(ReglasTexto.LongitudMaximaNombreUsuario);
 
         builder.Property(r => r.Fecha)
             .HasColumnName("fecha")

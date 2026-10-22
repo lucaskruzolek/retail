@@ -18,6 +18,9 @@ public record class UsuarioDto : BaseDto
     public string? EmailRecuperacion { get; init; }
 
     public bool DebeCambiarPassword { get; init; }
+    /// <summary>La cuenta agotó sus intentos de autorización y un Gerente debe desbloquearla (D-31).</summary>
+    public bool EstaBloqueada { get; init; }
+
     public required bool Activo { get; init; }
     public required DateTime CreatedAt { get; init; }
 }

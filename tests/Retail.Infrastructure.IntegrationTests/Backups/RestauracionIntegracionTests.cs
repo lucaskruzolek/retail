@@ -4,9 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Retail.Application;
+using Retail.Application.DTOs.Auth;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
+using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
@@ -26,6 +28,7 @@ public class RestauracionIntegracionTests : IAsyncLifetime
 {
     private const string NombreGerente = "gerente";
     private const string ClaveGerente = "Clave2026!";
+    private const string ClaveAdministrador = "ClaveAdmin2026!";
 
     private readonly string _vigente = $"RetailDb_Test_Restauracion_{Guid.NewGuid():N}";
     private readonly string _directorio = ServidorDePruebas.CrearCarpetaAccesibleParaElMotor("RetailRestauracionTests");
@@ -358,6 +361,160 @@ public class RestauracionIntegracionTests : IAsyncLifetime
         registro.ReferenciaCopia.Should().Be(copia.Referencia);
         registro.ReferenciaCopiaPrevia.Should().Be(resultado.ReferenciaCopiaPrevia);
         registro.BaseAnterior.Should().Be(resultado.BaseAnterior);
+    }
+
+    // ───────────────────── Control dual (D-30, D-31) ─────────────────────
+
+    private const string NombreAdministrador = "soporte";
+
+    /// <summary>
+    /// Da de alta en la vigente un Administrador con contraseña propia y hash BCrypt real.
+    /// </summary>
+    private async Task<int> CrearAdministradorAsync()
+    {
+        await using var scope = _servicios.CreateAsyncScope();
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+
+        await using var contexto = ContextoDe(CadenaVigente);
+        var administrador = Usuario.Crear(
+            NombreAdministrador, "Sara", "Ruiz", hasher.HashPassword("provisoria"), RolUsuarioEnum.Administrador, null);
+        administrador.CambiarPasswordPropia(hasher.HashPassword(ClaveAdministrador));
+        contexto.Usuarios.Add(administrador);
+        await contexto.SaveChangesAsync();
+        return administrador.Id;
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_PasswordIncorrecta_PersisteElIntentoEnLaBase()
+    {
+        // Arrange
+        await PrepararBaseConGerenteAsync();
+        var idAdministrador = await CrearAdministradorAsync();
+        var copia = await CrearBackupManualAsync();
+
+        // Act
+        var act = () => EnScopeAsync(sp => sp.GetRequiredService<IRestauracionService>()
+            .RestaurarConAutorizacionDeGerenteAsync(
+                idAdministrador, ClaveAdministrador, new CredencialAutorizanteDto(NombreGerente, "ClaveIncorrecta1!"), copia.Referencia));
+
+        // Assert: con un contexto nuevo se comprueba que el contador quedó guardado en la base, no solo en memoria.
+        await act.Should().ThrowAsync<CredencialesInvalidasException>();
+        await using var contexto = ContextoDe(CadenaVigente);
+        var administrador = await contexto.Usuarios.AsNoTracking().SingleAsync(u => u.Id == idAdministrador);
+        administrador.IntentosAutorizacionFallidos.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_CredencialValida_RegistraOperadorYAutorizante()
+    {
+        // Arrange
+        await PrepararBaseConGerenteAsync();
+        var idAdministrador = await CrearAdministradorAsync();
+        var copia = await CrearBackupManualAsync();
+        await AgregarCategoriaAsync(CadenaVigente, "Datos B");
+
+        // Act
+        var resultado = await EnScopeAsync(sp => sp.GetRequiredService<IRestauracionService>()
+            .RestaurarConAutorizacionDeGerenteAsync(
+                idAdministrador, ClaveAdministrador, new CredencialAutorizanteDto(NombreGerente, ClaveGerente), copia.Referencia));
+
+        // Assert: en la base restaurada queda el Gerente que autorizó y el Administrador que ejecutó.
+        await using var contexto = ContextoDe(CadenaVigente);
+        var registro = await contexto.RegistrosRestauracion.AsNoTracking()
+            .SingleAsync(r => r.Referencia == resultado.ReferenciaRestauracion);
+        registro.IdUsuario.Should().Be(_idGerente);
+        registro.NombreUsuario.Should().Be(NombreGerente);
+        registro.IdOperador.Should().Be(idAdministrador);
+        registro.NombreOperador.Should().Be(NombreAdministrador);
+    }
+
+    private sealed record FilaDeAuditoria(string Nombre, int? IdUsuario, byte Resultado, byte Tipo, string? Detalle);
+
+    private async Task<List<FilaDeAuditoria>> AuditoriaDeLaVigenteAsync()
+    {
+        SqlConnection.ClearAllPools();
+        var filas = new List<FilaDeAuditoria>();
+        await using var conexion = new SqlConnection(CadenaVigente);
+        await conexion.OpenAsync();
+        await using var comando = conexion.CreateCommand();
+        comando.CommandText = "SELECT nombre_usuario, id_usuario, resultado, tipo_evento, detalle FROM dbo.AUDITORIA_ACCESOS ORDER BY id_auditoria";
+        await using var lector = await comando.ExecuteReaderAsync();
+        while (await lector.ReadAsync())
+        {
+            filas.Add(new FilaDeAuditoria(
+                lector.GetString(0),
+                lector.IsDBNull(1) ? null : lector.GetInt32(1),
+                lector.GetByte(2),
+                lector.GetByte(3),
+                lector.IsDBNull(4) ? null : lector.GetString(4)));
+        }
+
+        return filas;
+    }
+
+    private async Task RegistrarLoginAsync(string nombreUsuario)
+    {
+        await EnScopeAsync(async sp =>
+        {
+            await sp.GetRequiredService<IRegistroAccesosService>().RegistrarIntentoAsync(nombreUsuario, _idGerente, credencialesValidas: true);
+            return 0;
+        });
+    }
+
+    private Task<ResultadoRestauracionDto> RestaurarAutorizadoAsync(int idAdministrador, Guid referenciaCopia)
+    {
+        return EnScopeAsync(sp => sp.GetRequiredService<IRestauracionService>()
+            .RestaurarConAutorizacionDeGerenteAsync(
+                idAdministrador, ClaveAdministrador, new CredencialAutorizanteDto(NombreGerente, ClaveGerente), referenciaCopia));
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_CredencialValida_ConservaLaAuditoriaDeLaVigente()
+    {
+        // Arrange: un login que la copia ya contiene y otro posterior a la copia, que solo existe en la vigente.
+        await PrepararBaseConGerenteAsync();
+        var idAdministrador = await CrearAdministradorAsync();
+        await RegistrarLoginAsync("login-previo");
+        var copia = await CrearBackupManualAsync();
+        await RegistrarLoginAsync("login-posterior");
+
+        // Act
+        await RestaurarAutorizadoAsync(idAdministrador, copia.Referencia);
+
+        // Assert: la auditoría sobrevive al restore y el hecho del propio restore quedó registrado.
+        var filas = await AuditoriaDeLaVigenteAsync();
+        filas.Should().ContainSingle(f => f.Nombre == "login-previo");
+
+        var posterior = filas.Should().ContainSingle(f => f.Nombre == "login-posterior").Subject;
+        posterior.IdUsuario.Should().BeNull("el Id de usuario puede ser otra persona en la base restaurada");
+        posterior.Tipo.Should().Be((byte)TipoEventoAccesoEnum.InicioSesion);
+
+        var autorizacion = filas.Should().ContainSingle(f => f.Tipo == (byte)TipoEventoAccesoEnum.AutorizacionRestauracion).Subject;
+        autorizacion.Nombre.Should().Be(NombreAdministrador);
+        autorizacion.IdUsuario.Should().BeNull();
+        autorizacion.Resultado.Should().Be((byte)ResultadoEventoAccesoEnum.Aceptado);
+        autorizacion.Detalle.Should().Be($"Gerente: {NombreGerente}");
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_SegundoRestore_NoDuplicaLaAuditoria()
+    {
+        // Arrange
+        await PrepararBaseConGerenteAsync();
+        var idAdministrador = await CrearAdministradorAsync();
+        await RegistrarLoginAsync("login-previo");
+        var copia = await CrearBackupManualAsync();
+        await RegistrarLoginAsync("login-posterior");
+        await RestaurarAutorizadoAsync(idAdministrador, copia.Referencia);
+
+        // Act: se restaura la misma copia otra vez, ahora sobre la base ya restaurada.
+        await RestaurarAutorizadoAsync(idAdministrador, copia.Referencia);
+
+        // Assert: cada hecho figura una sola vez; hay una autorización Aceptada por restore.
+        var filas = await AuditoriaDeLaVigenteAsync();
+        filas.Count(f => f.Nombre == "login-previo").Should().Be(1);
+        filas.Count(f => f.Nombre == "login-posterior").Should().Be(1);
+        filas.Count(f => f.Tipo == (byte)TipoEventoAccesoEnum.AutorizacionRestauracion).Should().Be(2);
     }
 
     // ───────────────────── B-3: copias fuera del directorio de respaldos ─────────────────────

@@ -116,13 +116,15 @@ public partial class LoginViewModel : ObservableObject
             _session.EstablecerSesion(resultado);
             LoginExitoso?.Invoke();
         }
-        catch (CuentaBloqueadaException ex)
+        catch (CredencialesInvalidasException ex)
         {
             TieneError = true;
             MensajeError = ex.Message;
         }
-        catch (CredencialesInvalidasException ex)
+        catch (CuentaBloqueadaException ex)
         {
+            // Cubre los dos bloqueos: el temporal de inicio de sesión y el permanente por autorizaciones (D-31).
+            _logger.LogWarning("Intento de inicio de sesión con la cuenta bloqueada '{Usuario}'", NombreUsuario);
             TieneError = true;
             MensajeError = ex.Message;
         }
