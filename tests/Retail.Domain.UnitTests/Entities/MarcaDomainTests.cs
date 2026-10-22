@@ -87,4 +87,135 @@ public class MarcaDomainTests
         act.Should().Throw<DomainException>();
         entidad.NombreMarca.Should().Be("Original");
     }
+
+    [Fact]
+    public void AgregarAlias_TextoValido_LoGuardaNormalizado()
+    {
+        var entidad = Marca.Crear("Husares");
+
+        var alias = entidad.AgregarAlias(" husar ");
+
+        alias.Alias.Should().Be("HUSAR");
+        entidad.Alias.Should().ContainSingle().Which.Should().BeSameAs(alias);
+    }
+
+    [Theory]
+    [InlineData("Artística Dibu", "artistica dibu")]
+    [InlineData("BIC", "bic")]
+    public void AgregarAlias_IgualAlNombre_LanzaDomainException(string nombre, string alias)
+    {
+        var entidad = Marca.Crear(nombre);
+
+        var act = () => entidad.AgregarAlias(alias);
+
+        act.Should().Throw<DomainException>().WithMessage("*nombre de la marca*");
+        entidad.Alias.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AgregarAlias_Repetido_LanzaDomainException()
+    {
+        var entidad = Marca.Crear("Husares");
+        entidad.AgregarAlias("HUSAR");
+
+        var act = () => entidad.AgregarAlias("húsar");
+
+        act.Should().Throw<DomainException>();
+        entidad.Alias.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void QuitarAlias_Existente_LoDaDeBajaYPermiteVolverAAgregarlo()
+    {
+        var entidad = Marca.Crear("Husares");
+        var original = entidad.AgregarAlias("HUSAR");
+
+        entidad.QuitarAlias("husar");
+        var nuevo = entidad.AgregarAlias("HUSAR");
+
+        original.IsDeleted.Should().BeTrue();
+        nuevo.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public void QuitarAlias_Inexistente_LanzaDomainException()
+    {
+        var entidad = Marca.Crear("Husares");
+
+        var act = () => entidad.QuitarAlias("HUSAR");
+
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
+    public void Renombrar_ConUnAliasVigente_LanzaDomainExceptionYNoModificaElNombre()
+    {
+        var entidad = Marca.Crear("Husares");
+        entidad.AgregarAlias("HUSAR");
+
+        var act = () => entidad.Renombrar("Húsar");
+
+        act.Should().Throw<DomainException>().WithMessage("*alias*");
+        entidad.NombreMarca.Should().Be("Husares");
+    }
+
+    [Fact]
+    public void AgregarPrefijo_PrefijoValido_LoGuarda()
+    {
+        var entidad = Marca.Crear("Mooving");
+
+        var prefijo = entidad.AgregarPrefijo(" 7798100 ");
+
+        prefijo.Prefijo.Should().Be("7798100");
+        entidad.Prefijos.Should().ContainSingle();
+    }
+
+    [Theory]
+    [InlineData("779810")]
+    [InlineData("2000001")]
+    public void AgregarPrefijo_PrefijoInvalido_LanzaDomainException(string prefijo)
+    {
+        var entidad = Marca.Crear("Mooving");
+
+        var act = () => entidad.AgregarPrefijo(prefijo);
+
+        act.Should().Throw<DomainException>();
+        entidad.Prefijos.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AgregarPrefijo_Repetido_LanzaDomainException()
+    {
+        var entidad = Marca.Crear("Mooving");
+        entidad.AgregarPrefijo("7798100");
+
+        var act = () => entidad.AgregarPrefijo("7798100");
+
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
+    public void QuitarPrefijo_Existente_LoDaDeBaja()
+    {
+        var entidad = Marca.Crear("Mooving");
+        var prefijo = entidad.AgregarPrefijo("7798100");
+
+        entidad.QuitarPrefijo("7798100");
+
+        prefijo.IsDeleted.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MarkAsDeleted_ConAliasYPrefijos_DaDeBajaTambienSusDiccionarios()
+    {
+        var entidad = Marca.Crear("Mooving");
+        var alias = entidad.AgregarAlias("MOOV");
+        var prefijo = entidad.AgregarPrefijo("7798100");
+
+        entidad.MarkAsDeleted();
+
+        entidad.IsDeleted.Should().BeTrue();
+        alias.IsDeleted.Should().BeTrue();
+        prefijo.IsDeleted.Should().BeTrue();
+    }
 }

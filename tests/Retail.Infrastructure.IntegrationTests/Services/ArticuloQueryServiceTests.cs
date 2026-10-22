@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Retail.Application.DTOs.Articulos;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
 using Xunit;
@@ -60,12 +61,16 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
 
         var articulos = new List<Articulo>
         {
-            new() { CodigoBarras = "111", Descripcion = "Cuaderno A4", IdCategoria = cat1.Id, CostoReposicion = 100, PorcentajeGanancia = 50, PrecioVenta = 150, StockActual = 2, StockMinimo = 5, EsServicio = false },
-            new() { CodigoBarras = "222", Descripcion = "Lapicera Azul", IdCategoria = cat1.Id, CostoReposicion = 50, PorcentajeGanancia = 40, PrecioVenta = 70, StockActual = 20, StockMinimo = 10, EsServicio = false },
-            new() { CodigoBarras = "333", Descripcion = "Regla 30cm", IdCategoria = cat1.Id, CostoReposicion = 80, PorcentajeGanancia = 50, PrecioVenta = 120, StockActual = 1, StockMinimo = 3, EsServicio = false },
-            new() { CodigoBarras = "444", Descripcion = "Pendrive 32GB", IdCategoria = cat2.Id, CostoReposicion = 500, PorcentajeGanancia = 30, PrecioVenta = 650, StockActual = 4, StockMinimo = 2, EsServicio = false },
-            new() { CodigoBarras = null, Descripcion = "Servicio de Fotocopia", IdCategoria = null, CostoReposicion = 10, PorcentajeGanancia = 100, PrecioVenta = 20, StockActual = 0, StockMinimo = 0, EsServicio = true }
+            new() { CodigoBarras = "111", Descripcion = "Cuaderno A4", CostoReposicion = 100, PorcentajeGanancia = 50, PrecioVenta = 150, StockActual = 2, StockMinimo = 5, EsServicio = false },
+            new() { CodigoBarras = "222", Descripcion = "Lapicera Azul", CostoReposicion = 50, PorcentajeGanancia = 40, PrecioVenta = 70, StockActual = 20, StockMinimo = 10, EsServicio = false },
+            new() { CodigoBarras = "333", Descripcion = "Regla 30cm", CostoReposicion = 80, PorcentajeGanancia = 50, PrecioVenta = 120, StockActual = 1, StockMinimo = 3, EsServicio = false },
+            new() { CodigoBarras = "444", Descripcion = "Pendrive 32GB", CostoReposicion = 500, PorcentajeGanancia = 30, PrecioVenta = 650, StockActual = 4, StockMinimo = 2, EsServicio = false },
+            new() { CodigoBarras = null, Descripcion = "Servicio de Fotocopia", CostoReposicion = 10, PorcentajeGanancia = 100, PrecioVenta = 20, StockActual = 0, StockMinimo = 0, EsServicio = true }
         };
+        articulos[0].Clasificar(cat1.Id, OrigenClasificacionEnum.Manual, null, null);
+        articulos[1].Clasificar(cat1.Id, OrigenClasificacionEnum.Manual, null, null);
+        articulos[2].Clasificar(cat1.Id, OrigenClasificacionEnum.Manual, null, null);
+        articulos[3].Clasificar(cat2.Id, OrigenClasificacionEnum.Manual, null, null);
         _context.Articulos.AddRange(articulos);
         await _context.SaveChangesAsync();
 
@@ -301,8 +306,7 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         var articulo = CrearArticulo("Cuaderno Rivadavia");
-        articulo.IdCategoria = categoria.Id;
-        articulo.IdMarca = marca.Id;
+        articulo.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
         articulo.IdCatalogoProveedor = catalogo.Id;
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();

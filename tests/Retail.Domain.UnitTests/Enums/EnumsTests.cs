@@ -36,6 +36,24 @@ public class EnumsTests
     }
 
     [Fact]
+    public void OrigenClasificacionEnum_DebeContenerLosTresOrigenes()
+    {
+        // Se persisten: renumerarlos cambiaría el origen de los artículos guardados.
+        ((int)OrigenClasificacionEnum.Manual).Should().Be(1);
+        ((int)OrigenClasificacionEnum.SugerenciaAceptada).Should().Be(2);
+        ((int)OrigenClasificacionEnum.SugerenciaCorregida).Should().Be(3);
+        Enum.GetValues<OrigenClasificacionEnum>().Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void TipoEquivalenciaEnum_DebeContenerCategoriaYMarca()
+    {
+        ((int)TipoEquivalenciaEnum.Categoria).Should().Be(1);
+        ((int)TipoEquivalenciaEnum.Marca).Should().Be(2);
+        Enum.GetValues<TipoEquivalenciaEnum>().Should().HaveCount(2);
+    }
+
+    [Fact]
     public void EstadoBackupEnum_DebeContenerElCicloDeVidaCompleto()
     {
         ((int)EstadoBackupEnum.EnCurso).Should().Be(1);

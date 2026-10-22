@@ -70,6 +70,11 @@ public class MarcaServiceTests
     private void ConfigurarExistente(Marca entidad)
     {
         _repository.GetByIdAsync(entidad.Id, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(entidad);
+        _repository.GetByIdWithIncludesAsync(
+                entidad.Id,
+                Arg.Any<CancellationToken>(),
+                Arg.Any<Expression<Func<Marca, object>>[]>())
+            .Returns(entidad);
     }
 
     // ---------- Listar ----------
@@ -286,5 +291,24 @@ public class MarcaServiceTests
         entidad.IsDeleted.Should().BeTrue();
         await _repository.Received(1).UpdateAsync(entidad, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Baja_ConAliasYPrefijos_LosCargaYLosDaDeBajaConLaMarca()
+    {
+        var entidad = CrearMarcaConId(IdMarcaExistente, "Mooving");
+        var alias = entidad.AgregarAlias("MOOV");
+        var prefijo = entidad.AgregarPrefijo("7798100");
+        ConfigurarExistente(entidad);
+        _consultas.ContarArticulosPorMarcaAsync(IdMarcaExistente, Arg.Any<CancellationToken>()).Returns(0);
+
+        await _servicio.BajaAsync(IdGerente, IdMarcaExistente);
+
+        alias.IsDeleted.Should().BeTrue();
+        prefijo.IsDeleted.Should().BeTrue();
+        await _repository.Received(1).GetByIdWithIncludesAsync(
+            IdMarcaExistente,
+            Arg.Any<CancellationToken>(),
+            Arg.Is<Expression<Func<Marca, object>>[]>(includes => includes.Length == 2));
     }
 }

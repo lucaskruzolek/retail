@@ -75,12 +75,15 @@ def leer_planilla(ruta):
     return list(csv.DictReader(io.StringIO(texto), delimiter=separador))
 
 
-def digito_verificador_valido(codigo):
-    """Algoritmo GS1 módulo 10: pondera 3 y 1 alternados desde la derecha, sin contar el verificador."""
-    cuerpo = codigo[:-1]
-    verificador = int(codigo[-1])
+def calcular_digito_verificador(cuerpo):
+    """Algoritmo GS1 módulo 10: pondera 3 y 1 alternados desde la derecha del cuerpo (sin el verificador)."""
     suma = sum(int(digito) * (3 if indice % 2 == 0 else 1) for indice, digito in enumerate(reversed(cuerpo)))
-    return (10 - suma % 10) % 10 == verificador
+    return (10 - suma % 10) % 10
+
+
+def digito_verificador_valido(codigo):
+    """El último dígito es el verificador GS1 de los anteriores."""
+    return calcular_digito_verificador(codigo[:-1]) == int(codigo[-1])
 
 
 def normalizar_ean(codigo_interno, ean):
@@ -93,7 +96,12 @@ def normalizar_ean(codigo_interno, ean):
     if len(valor) == 11:
         valor = "0" + valor  # UPC-A al que Excel le quitó el cero inicial
     if len(valor) == 14:
-        valor = valor[1:]  # GTIN-14: se descarta el indicador de empaque
+        # GTIN-14: el indicador de empaque entra en el verificador. Se valida con los 14 dígitos y el GTIN-13 del
+        # producto se arma con el cuerpo y un verificador nuevo (M-28; igual que ReglasCodigoBarras en C#).
+        if not digito_verificador_valido(valor):
+            return None, "digito_verificador_invalido"
+        cuerpo = valor[1:13]
+        valor = cuerpo + str(calcular_digito_verificador(cuerpo))
     if len(valor) == 12:
         valor = "0" + valor  # UPC-A -> GTIN-13
     if len(valor) not in (8, 13):

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
 
 namespace Retail.Infrastructure.Persistence.Configurations;
@@ -54,6 +55,19 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
         builder.Property(cp => cp.FechaActualizacion)
             .HasColumnName("fecha_actualizacion")
             .IsRequired();
+
+        // Clasificación del proveedor tal como la escribe (Track 6.6, M-12): texto para mostrar, no clave foránea.
+        builder.Property(cp => cp.RubroProveedor)
+            .HasColumnName("rubro_proveedor")
+            .HasMaxLength(ReglasClasificacion.LongitudMaximaTextoDeProveedor);
+
+        builder.Property(cp => cp.CategoriaProveedor)
+            .HasColumnName("categoria_proveedor")
+            .HasMaxLength(ReglasClasificacion.LongitudMaximaTextoDeProveedor);
+
+        builder.Property(cp => cp.MarcaProveedor)
+            .HasColumnName("marca_proveedor")
+            .HasMaxLength(ReglasClasificacion.LongitudMaximaTextoDeProveedor);
 
         builder.Property(cp => cp.CreatedAt)
             .HasColumnName("created_at")

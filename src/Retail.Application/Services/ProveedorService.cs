@@ -403,8 +403,6 @@ public class ProveedorService : IProveedorService
             {
                 Descripcion = catalogo.DescripcionProveedor,
                 CodigoBarras = catalogo.CodigoBarras,
-                IdCategoria = dto.IdCategoria,
-                IdMarca = dto.IdMarca,
                 IdCatalogoProveedor = catalogo.Id,
                 CostoReposicion = catalogo.CostoReposicion,
                 PorcentajeGanancia = porcentajeGanancia,
@@ -412,6 +410,14 @@ public class ProveedorService : IProveedorService
                 StockActual = 0,
                 StockMinimo = 5
             };
+
+            // La categoría y la marca del lote las elige el usuario sin sugerencia; la que no eligió queda sin
+            // clasificar. La Fase 4 del Track 6.6 las lleva por ítem, con la sugerencia aceptada o corregida.
+            nuevoArticulo.Clasificar(
+                dto.IdCategoria,
+                dto.IdCategoria.HasValue ? OrigenClasificacionEnum.Manual : null,
+                dto.IdMarca,
+                dto.IdMarca.HasValue ? OrigenClasificacionEnum.Manual : null);
 
             await _articuloRepository.AddAsync(nuevoArticulo, cancellationToken);
             incorporados++;

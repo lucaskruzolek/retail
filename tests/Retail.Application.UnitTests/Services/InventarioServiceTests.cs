@@ -8,6 +8,7 @@ using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.Validators.Articulos;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 using Xunit;
 
@@ -55,22 +56,19 @@ public class InventarioServiceTests
         {
             MarcaConId(2, "Rivadavia")
         };
-        var articulos = new List<Articulo>
+        var cuaderno = new Articulo
         {
-            new()
-            {
-                Id = 10,
-                Descripcion = "Cuaderno 50 Hojas",
-                IdCategoria = 1,
-                IdMarca = 2,
-                CostoReposicion = 1000m,
-                PorcentajeGanancia = 50m,
-                PrecioVenta = 1500m,
-                StockActual = 8,
-                StockMinimo = 5,
-                EsServicio = false
-            }
+            Id = 10,
+            Descripcion = "Cuaderno 50 Hojas",
+            CostoReposicion = 1000m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 1500m,
+            StockActual = 8,
+            StockMinimo = 5,
+            EsServicio = false
         };
+        cuaderno.Clasificar(1, OrigenClasificacionEnum.Manual, 2, OrigenClasificacionEnum.Manual);
+        var articulos = new List<Articulo> { cuaderno };
 
         _articuloRepository.ListAllAsync(includeDeleted: false, Arg.Any<CancellationToken>())
             .Returns(articulos);
@@ -231,8 +229,6 @@ public class InventarioServiceTests
         {
             Id = 1,
             Descripcion = "Antiguo",
-            IdCategoria = 1,
-            IdMarca = 1,
             CostoReposicion = 100m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 150m,
@@ -240,6 +236,7 @@ public class InventarioServiceTests
             StockMinimo = 2,
             EsServicio = false
         };
+        articuloExistente.Clasificar(1, OrigenClasificacionEnum.Manual, 1, OrigenClasificacionEnum.Manual);
 
         var dto = new ActualizarArticuloDto
         {
@@ -669,18 +666,18 @@ public class InventarioServiceTests
 
     private static Articulo CrearOrigen(int stock = 5)
     {
-        return new Articulo
+        var origen = new Articulo
         {
             Id = 1,
             Descripcion = "Sobre manila (pack x100)",
-            IdCategoria = 3,
-            IdMarca = 4,
             CostoReposicion = 1000m,
             PorcentajeGanancia = 40m,
             PrecioVenta = 1400m,
             StockActual = stock,
             StockMinimo = 1
         };
+        origen.Clasificar(3, OrigenClasificacionEnum.Manual, 4, OrigenClasificacionEnum.Manual);
+        return origen;
     }
 
     private static Articulo CrearDerivado(Articulo origen, int stock = 0)

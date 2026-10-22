@@ -314,4 +314,4 @@ graph TD
 | **RF-22** | `IU-10` (Respaldo y Restauración) | `IS-01` (`IBackupService`), `IS-04` | `REGISTROS_BACKUP`, `USUARIOS` |
 | **RF-23** | — (línea de comandos) | `IS-04` | `__EFMigrationsHistory`, `USUARIOS`, `ROLES`, `RUBROS`, `CATEGORIAS`, `MARCAS`, `PROVEEDORES` |
 | **RF-24, RF-25, RF-26** | `IU-11` (Tablero Gerencial y Reportes) | `IS-01` (`IReporteService`), `IS-05` | `VENTAS`, `DETALLE_VENTAS`, `ARTICULOS`, `CATEGORIAS`, `MARCAS`, `USUARIOS` |
-| **RF-27** | `IU-05` (Proveedores e Importador: modal de incorporación), `IU-04` (Catálogo Propio: administración de la clasificación) | `IS-01` (`IClasificacionService`) | `ARTICULOS`, `CATALOGOS_PROVEEDORES`, `PROVEEDORES`, `CATEGORIAS`, `MARCAS` |
+| **RF-27** | `IU-05` (Proveedores e Importador: modal de incorporación), `IU-04` (Catálogo Propio: administración de la clasificación) | `IS-01` (`IClasificacionService`) | `ARTICULOS`, `CATALOGOS_PROVEEDORES`, `PROVEEDORES`, `CATEGORIAS`, `MARCAS`, `TERMINOS_CLASIFICACION`, `ALIAS_MARCAS`, `PREFIJOS_EAN_MARCAS`, `EQUIVALENCIAS_CLASIFICACION` |

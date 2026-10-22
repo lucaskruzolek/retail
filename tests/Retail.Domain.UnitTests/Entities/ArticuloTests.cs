@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 using Xunit;
 
@@ -110,8 +111,6 @@ public class ArticuloTests
         var articulo = new Articulo
         {
             Descripcion = "Original",
-            IdCategoria = 1,
-            IdMarca = 1,
             CostoReposicion = 100m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 150m,
@@ -119,6 +118,7 @@ public class ArticuloTests
             StockMinimo = 2,
             EsServicio = false
         };
+        articulo.Clasificar(1, OrigenClasificacionEnum.Manual, 1, OrigenClasificacionEnum.Manual);
 
         // Act
         articulo.ActualizarDatos(
@@ -826,6 +826,157 @@ public class ArticuloTests
         // Assert
         act.Should().Throw<OverflowException>();
         articulo.StockActual.Should().Be(int.MaxValue);
+    }
+
+    [Fact]
+    public void Clasificar_SugerenciasConfirmadas_AsignaIdentificadoresYOrigenes()
+    {
+        var articulo = new Articulo { Descripcion = "Mochila" };
+
+        articulo.Clasificar(4, OrigenClasificacionEnum.SugerenciaAceptada, 7, OrigenClasificacionEnum.SugerenciaCorregida);
+
+        articulo.IdCategoria.Should().Be(4);
+        articulo.OrigenCategoria.Should().Be(OrigenClasificacionEnum.SugerenciaAceptada);
+        articulo.IdMarca.Should().Be(7);
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.SugerenciaCorregida);
+    }
+
+    [Fact]
+    public void Clasificar_SinMarcaConOrigen_RegistraSinMarcaConfirmada()
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        articulo.Clasificar(4, OrigenClasificacionEnum.Manual, null, OrigenClasificacionEnum.SugerenciaAceptada);
+
+        articulo.IdMarca.Should().BeNull();
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.SugerenciaAceptada);
+    }
+
+    [Fact]
+    public void Clasificar_SinOrigenes_DejaElArticuloSinClasificar()
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+        articulo.Clasificar(4, OrigenClasificacionEnum.Manual, 7, OrigenClasificacionEnum.Manual);
+
+        articulo.Clasificar(null, null, null, null);
+
+        articulo.IdCategoria.Should().BeNull();
+        articulo.OrigenCategoria.Should().BeNull();
+        articulo.IdMarca.Should().BeNull();
+        articulo.OrigenMarca.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(4, null)]
+    [InlineData(null, OrigenClasificacionEnum.Manual)]
+    public void Clasificar_CategoriaYOrigenNoVanJuntos_LanzaDomainException(int? idCategoria, OrigenClasificacionEnum? origen)
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        var accion = () => articulo.Clasificar(idCategoria, origen, null, null);
+
+        accion.Should().Throw<DomainException>();
+        articulo.OrigenCategoria.Should().BeNull();
+    }
+
+    [Fact]
+    public void Clasificar_MarcaSinOrigen_LanzaDomainException()
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        var accion = () => articulo.Clasificar(null, null, 7, null);
+
+        accion.Should().Throw<DomainException>();
+        articulo.IdMarca.Should().BeNull();
+    }
+
+    [Fact]
+    public void Clasificar_OrigenFueraDelEnum_LanzaArgumentOutOfRangeException()
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        var accion = () => articulo.Clasificar(4, (OrigenClasificacionEnum)99, null, null);
+
+        accion.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(null, -1)]
+    public void Clasificar_IdentificadorNoPositivo_LanzaArgumentOutOfRangeException(int? idCategoria, int? idMarca)
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        var accion = () => articulo.Clasificar(
+            idCategoria,
+            OrigenClasificacionEnum.Manual,
+            idMarca,
+            OrigenClasificacionEnum.Manual);
+
+        accion.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void ActualizarDatos_ClasificacionSinCambios_ConservaElOrigen()
+    {
+        var articulo = new Articulo { Descripcion = "Mochila" };
+        articulo.Clasificar(4, OrigenClasificacionEnum.SugerenciaAceptada, 7, OrigenClasificacionEnum.SugerenciaCorregida);
+
+        ActualizarClasificacion(articulo, idCategoria: 4, idMarca: 7);
+
+        articulo.OrigenCategoria.Should().Be(OrigenClasificacionEnum.SugerenciaAceptada);
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.SugerenciaCorregida);
+    }
+
+    [Fact]
+    public void ActualizarDatos_ClasificacionCambiada_PasaAOrigenManual()
+    {
+        var articulo = new Articulo { Descripcion = "Mochila" };
+        articulo.Clasificar(4, OrigenClasificacionEnum.SugerenciaAceptada, 7, OrigenClasificacionEnum.SugerenciaAceptada);
+
+        ActualizarClasificacion(articulo, idCategoria: 5, idMarca: 8);
+
+        articulo.OrigenCategoria.Should().Be(OrigenClasificacionEnum.Manual);
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.Manual);
+    }
+
+    [Fact]
+    public void ActualizarDatos_QuitaCategoriaYMarca_CategoriaSinClasificarYSinMarcaConfirmada()
+    {
+        var articulo = new Articulo { Descripcion = "Mochila" };
+        articulo.Clasificar(4, OrigenClasificacionEnum.SugerenciaAceptada, 7, OrigenClasificacionEnum.SugerenciaAceptada);
+
+        ActualizarClasificacion(articulo, idCategoria: null, idMarca: null);
+
+        articulo.IdCategoria.Should().BeNull();
+        articulo.OrigenCategoria.Should().BeNull();
+        articulo.IdMarca.Should().BeNull();
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.Manual);
+    }
+
+    [Fact]
+    public void ActualizarDatos_ArticuloNuevoSinClasificacion_QuedaSinClasificar()
+    {
+        var articulo = new Articulo();
+
+        ActualizarClasificacion(articulo, idCategoria: null, idMarca: null);
+
+        articulo.OrigenCategoria.Should().BeNull();
+        articulo.OrigenMarca.Should().BeNull();
+    }
+
+    private static void ActualizarClasificacion(Articulo articulo, int? idCategoria, int? idMarca)
+    {
+        articulo.ActualizarDatos(
+            descripcion: "Mochila escolar",
+            idCategoria: idCategoria,
+            idMarca: idMarca,
+            codigoBarras: null,
+            costoReposicion: 100m,
+            porcentajeGanancia: 50m,
+            stockActual: 1,
+            stockMinimo: 0,
+            esServicio: false);
     }
 
     private static Articulo CrearOrigen(int id = 1, decimal costo = 1000m)

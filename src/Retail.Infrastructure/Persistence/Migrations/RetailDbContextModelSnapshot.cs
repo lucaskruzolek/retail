@@ -22,6 +22,44 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("Retail.Domain.Entities.AliasMarca", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_alias");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Alias")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("alias");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int>("IdMarca")
+                        .HasColumnType("int")
+                        .HasColumnName("id_marca");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Alias")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.HasIndex("IdMarca");
+
+                    b.ToTable("ALIAS_MARCAS", (string)null);
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.Articulo", b =>
                 {
                     b.Property<int>("Id")
@@ -76,6 +114,16 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_marca");
 
+                    b.Property<string>("OrigenCategoria")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("origen_categoria");
+
+                    b.Property<string>("OrigenMarca")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("origen_marca");
+
                     b.Property<decimal>("PorcentajeGanancia")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
@@ -125,6 +173,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ARTICULOS", null, t =>
                         {
+                            t.HasCheckConstraint("CK_ARTICULOS_OrigenCategoria", "([id_categoria] IS NULL AND [origen_categoria] IS NULL) OR ([id_categoria] IS NOT NULL AND [origen_categoria] IS NOT NULL AND [origen_categoria] IN ('Manual', 'SugerenciaAceptada', 'SugerenciaCorregida'))");
+
+                            t.HasCheckConstraint("CK_ARTICULOS_OrigenMarca", "([id_marca] IS NULL AND [origen_marca] IS NULL) OR ([origen_marca] IS NOT NULL AND [origen_marca] IN ('Manual', 'SugerenciaAceptada', 'SugerenciaCorregida'))");
+
                             t.HasCheckConstraint("CK_ARTICULOS_Precios", "[precio_venta] >= 0 AND [costo_reposicion] >= 0 AND [porcentaje_ganancia] >= 0");
 
                             t.HasCheckConstraint("CK_ARTICULOS_Presentacion", "([id_articulo_origen] IS NULL AND [unidades_por_origen] IS NULL) OR ([id_articulo_origen] IS NOT NULL AND [unidades_por_origen] IS NOT NULL AND [unidades_por_origen] >= 1 AND [id_catalogo_proveedor] IS NULL AND [es_servicio] = 0 AND [id_articulo_origen] <> [id_articulo])");
@@ -143,6 +195,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnName("id_catalogo");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CategoriaProveedor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("categoria_proveedor");
 
                     b.Property<string>("CodigoBarras")
                         .HasMaxLength(50)
@@ -182,6 +239,16 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.Property<int>("IdProveedor")
                         .HasColumnType("int")
                         .HasColumnName("id_proveedor");
+
+                    b.Property<string>("MarcaProveedor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("marca_proveedor");
+
+                    b.Property<string>("RubroProveedor")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("rubro_proveedor");
 
                     b.HasKey("Id");
 
@@ -681,6 +748,68 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.EquivalenciaClasificacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_equivalencia");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int?>("IdCategoria")
+                        .HasColumnType("int")
+                        .HasColumnName("id_categoria");
+
+                    b.Property<int?>("IdMarca")
+                        .HasColumnType("int")
+                        .HasColumnName("id_marca");
+
+                    b.Property<int>("IdProveedor")
+                        .HasColumnType("int")
+                        .HasColumnName("id_proveedor");
+
+                    b.Property<string>("Texto")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("texto");
+
+                    b.Property<string>("TextoRubro")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("texto_rubro");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("tipo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdCategoria");
+
+                    b.HasIndex("IdMarca");
+
+                    b.HasIndex("IdProveedor", "Tipo", "TextoRubro", "Texto")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.ToTable("EQUIVALENCIAS_CLASIFICACION", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_EQUIVALENCIAS_CLASIFICACION_Destino", "([tipo] = 'Categoria' AND [id_marca] IS NULL) OR ([tipo] = 'Marca' AND [id_categoria] IS NULL AND [texto_rubro] IS NULL)");
+                        });
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.Marca", b =>
                 {
                     b.Property<int>("Id")
@@ -810,6 +939,48 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.ToTable("PAGOS_VENTA", null, t =>
                         {
                             t.HasCheckConstraint("CK_PAGOS_VENTA_Monto", "[monto] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.PrefijoEanMarca", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_prefijo");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int>("IdMarca")
+                        .HasColumnType("int")
+                        .HasColumnName("id_marca");
+
+                    b.Property<string>("Prefijo")
+                        .IsRequired()
+                        .HasMaxLength(7)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(7)")
+                        .HasColumnName("prefijo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdMarca");
+
+                    b.HasIndex("Prefijo")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.ToTable("PREFIJOS_EAN_MARCAS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PREFIJOS_EAN_MARCAS_Prefijo", "LEN([prefijo]) = 7 AND [prefijo] NOT LIKE '%[^0-9]%' AND [prefijo] NOT LIKE '2%'");
                         });
                 });
 
@@ -1193,6 +1364,44 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.ToTable("RUBROS", (string)null);
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.TerminoClasificacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_termino");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int?>("IdCategoria")
+                        .HasColumnType("int")
+                        .HasColumnName("id_categoria");
+
+                    b.Property<string>("Termino")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("termino");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdCategoria");
+
+                    b.HasIndex("Termino")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.ToTable("TERMINOS_CLASIFICACION", (string)null);
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.TurnoCaja", b =>
                 {
                     b.Property<int>("Id")
@@ -1442,6 +1651,17 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.AliasMarca", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Marca", "Marca")
+                        .WithMany("Alias")
+                        .HasForeignKey("IdMarca")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Marca");
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.Articulo", b =>
                 {
                     b.HasOne("Retail.Domain.Entities.Articulo", "ArticuloOrigen")
@@ -1607,6 +1827,27 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.Navigation("Venta");
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.EquivalenciaClasificacion", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Categoria", null)
+                        .WithMany()
+                        .HasForeignKey("IdCategoria")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Retail.Domain.Entities.Marca", null)
+                        .WithMany()
+                        .HasForeignKey("IdMarca")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Retail.Domain.Entities.Proveedor", "Proveedor")
+                        .WithMany("Equivalencias")
+                        .HasForeignKey("IdProveedor")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Proveedor");
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.MovimientoCaja", b =>
                 {
                     b.HasOne("Retail.Domain.Entities.TurnoCaja", "TurnoCaja")
@@ -1629,6 +1870,17 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.Navigation("Venta");
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.PrefijoEanMarca", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Marca", "Marca")
+                        .WithMany("Prefijos")
+                        .HasForeignKey("IdMarca")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Marca");
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.Presupuesto", b =>
                 {
                     b.HasOne("Retail.Domain.Entities.Cliente", "Cliente")
@@ -1646,6 +1898,14 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.Navigation("Cliente");
 
                     b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.TerminoClasificacion", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Categoria", null)
+                        .WithMany()
+                        .HasForeignKey("IdCategoria")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.TurnoCaja", b =>
@@ -1740,7 +2000,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Retail.Domain.Entities.Marca", b =>
                 {
+                    b.Navigation("Alias");
+
                     b.Navigation("Articulos");
+
+                    b.Navigation("Prefijos");
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Presupuesto", b =>
@@ -1755,6 +2019,8 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.Navigation("Catalogos");
 
                     b.Navigation("Compras");
+
+                    b.Navigation("Equivalencias");
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Rol", b =>

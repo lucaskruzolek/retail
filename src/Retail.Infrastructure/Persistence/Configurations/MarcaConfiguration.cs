@@ -34,5 +34,24 @@ public class MarcaConfiguration : IEntityTypeConfiguration<Marca>
             .HasColumnName("deleted_at");
 
         builder.Ignore(m => m.IsDeleted);
+
+        // Diccionarios de catalogación (Track 6.6): entidades internas del agregado, que EF Core escribe a través de
+        // las listas privadas (_alias, _prefijos) porque las colecciones públicas son de solo lectura. Cascade como
+        // los detalles de una venta: nunca se ejecuta, porque el borrado es lógico (Ley 3).
+        builder.HasMany(m => m.Alias)
+            .WithOne(a => a.Marca)
+            .HasForeignKey(a => a.IdMarca)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(m => m.Alias)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(m => m.Prefijos)
+            .WithOne(p => p.Marca)
+            .HasForeignKey(p => p.IdMarca)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(m => m.Prefijos)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
 using Xunit;
@@ -83,8 +84,6 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
         var articulo = new Articulo
         {
             Descripcion = descripcion,
-            IdCategoria = idCategoria,
-            IdMarca = idMarca,
             CostoReposicion = 100,
             PorcentajeGanancia = 50,
             PrecioVenta = 150,
@@ -92,6 +91,12 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
             StockMinimo = 0,
             EsServicio = false
         };
+        articulo.Clasificar(
+            idCategoria,
+            idCategoria.HasValue ? OrigenClasificacionEnum.Manual : null,
+            idMarca,
+            idMarca.HasValue ? OrigenClasificacionEnum.Manual : null);
+
         if (deBaja)
         {
             articulo.MarkAsDeleted();

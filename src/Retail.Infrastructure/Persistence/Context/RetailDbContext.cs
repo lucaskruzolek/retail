@@ -25,6 +25,8 @@ public class RetailDbContext : DbContext, IRetailDbContext
 
     public DbSet<Marca> Marcas => Set<Marca>();
 
+    public DbSet<TerminoClasificacion> TerminosClasificacion => Set<TerminoClasificacion>();
+
     public DbSet<Articulo> Articulos => Set<Articulo>();
 
     public DbSet<Proveedor> Proveedores => Set<Proveedor>();

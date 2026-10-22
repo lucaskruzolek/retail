@@ -108,7 +108,9 @@ public class MarcaService : IMarcaService
     {
         await AutorizacionClasificacion.ExigirAsync(_usuarios, idActor, cancellationToken);
 
-        var entidad = await _repository.GetByIdAsync(idMarca, includeDeleted: false, cancellationToken);
+        // Con sus alias y prefijos: la baja de la marca los da de baja también (Track 6.6), y solo alcanza a los que
+        // están en memoria. Si quedaran activos, el índice único no dejaría usarlos en otra marca.
+        var entidad = await _repository.GetByIdWithIncludesAsync(idMarca, cancellationToken, m => m.Alias, m => m.Prefijos);
         if (entidad == null)
         {
             throw new DomainException($"No se encontró la marca con ID {idMarca}.");

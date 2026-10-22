@@ -138,8 +138,6 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         {
             CodigoBarras = null,
             Descripcion = "Vasija de Cerámica 1",
-            IdCategoria = categoria.Id,
-            IdMarca = marca.Id,
             CostoReposicion = 1000m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 1500m,
@@ -147,13 +145,12 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             StockMinimo = 1,
             EsServicio = false
         };
+        artesania1.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
 
         var artesania2 = new Articulo
         {
             CodigoBarras = null,
             Descripcion = "Vasija de Cerámica 2",
-            IdCategoria = categoria.Id,
-            IdMarca = marca.Id,
             CostoReposicion = 1200m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 1800m,
@@ -161,6 +158,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             StockMinimo = 1,
             EsServicio = false
         };
+        artesania2.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
 
         // Act
         await _context.Articulos.AddRangeAsync(artesania1, artesania2);
@@ -192,8 +190,6 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         {
             CodigoBarras = codigoDuplicado,
             Descripcion = "Bolígrafo Azul Original",
-            IdCategoria = categoria.Id,
-            IdMarca = marca.Id,
             CostoReposicion = 200m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 300m,
@@ -201,6 +197,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             StockMinimo = 2,
             EsServicio = false
         };
+        articulo1.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
 
         await _context.Articulos.AddAsync(articulo1);
         await _context.SaveChangesAsync();
@@ -209,8 +206,6 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         {
             CodigoBarras = codigoDuplicado,
             Descripcion = "Bolígrafo Azul Duplicado",
-            IdCategoria = categoria.Id,
-            IdMarca = marca.Id,
             CostoReposicion = 200m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 300m,
@@ -218,6 +213,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             StockMinimo = 2,
             EsServicio = false
         };
+        articulo2.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
 
         await _context.Articulos.AddAsync(articulo2);
 
@@ -271,8 +267,6 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         {
             CodigoBarras = "7798888888888",
             Descripcion = "Marcador Permanente Negro",
-            IdCategoria = categoria.Id,
-            IdMarca = marca.Id,
             CostoReposicion = 500m,
             PorcentajeGanancia = 60m,
             PrecioVenta = 800m,
@@ -280,6 +274,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             StockMinimo = 10,
             EsServicio = false
         };
+        nuevoArticulo.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
 
         // Act
         await uow.BeginTransactionAsync();
@@ -409,8 +404,6 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         {
             CodigoBarras = codigoCompartido,
             Descripcion = "Resaltador Amarillo Original",
-            IdCategoria = categoria.Id,
-            IdMarca = marca.Id,
             CostoReposicion = 300m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 450m,
@@ -418,6 +411,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             StockMinimo = 2,
             EsServicio = false
         };
+        articulo1.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
 
         await _context.Articulos.AddAsync(articulo1);
         await _context.SaveChangesAsync();
@@ -431,8 +425,6 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         {
             CodigoBarras = codigoCompartido,
             Descripcion = "Resaltador Amarillo Nuevo Lote",
-            IdCategoria = categoria.Id,
-            IdMarca = marca.Id,
             CostoReposicion = 350m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 525m,
@@ -440,6 +432,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
             StockMinimo = 5,
             EsServicio = false
         };
+        articulo2.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
 
         await _context.Articulos.AddAsync(articulo2);
         var act = async () => await _context.SaveChangesAsync();
@@ -468,8 +461,6 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         {
             CodigoBarras = "7790000000001",
             Descripcion = "Producto Sin Categoría Ni Marca",
-            IdCategoria = null,
-            IdMarca = null,
             CostoReposicion = 250m,
             PorcentajeGanancia = 40m,
             PrecioVenta = 350m,
