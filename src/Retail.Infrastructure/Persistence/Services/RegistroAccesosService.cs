@@ -13,6 +13,8 @@ namespace Retail.Infrastructure.Persistence.Services;
 /// </summary>
 public class RegistroAccesosService : IRegistroAccesosService
 {
+    private const int LongitudMaximaDetalle = 100;
+
     private readonly RetailDbContext _context;
     private readonly PoliticaBloqueoOptions _options;
 
@@ -104,5 +106,39 @@ public class RegistroAccesosService : IRegistroAccesosService
             IntentosRestantes = intentosRestantesVal,
             BloqueadoHasta = bloqueadoHastaVal
         };
+    }
+
+    public async Task RegistrarEventoAsync(
+        TipoEventoAccesoEnum tipo,
+        ResultadoEventoAccesoEnum resultado,
+        string nombreUsuario,
+        int? idUsuario,
+        string? detalle,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(nombreUsuario);
+
+        // El detalle es texto libre armado por la aplicación: la columna admite 100 caracteres.
+        if (detalle is { Length: > LongitudMaximaDetalle })
+        {
+            detalle = detalle[..LongitudMaximaDetalle];
+        }
+
+        var parametros = new object[]
+        {
+            new SqlParameter("@nombre_usuario", SqlDbType.NVarChar, 50) { Value = nombreUsuario },
+            new SqlParameter("@id_usuario", SqlDbType.Int) { Value = (object?)idUsuario ?? DBNull.Value },
+            new SqlParameter("@resultado", SqlDbType.TinyInt) { Value = (byte)resultado },
+            new SqlParameter("@equipo", SqlDbType.NVarChar, 100) { Value = Environment.MachineName },
+            new SqlParameter("@tipo_evento", SqlDbType.TinyInt) { Value = (byte)tipo },
+            new SqlParameter("@detalle", SqlDbType.NVarChar, LongitudMaximaDetalle) { Value = (object?)detalle ?? DBNull.Value }
+        };
+
+        // Solo registra un hecho: el INSERT no decide nada (Ley 8).
+        await _context.Database.ExecuteSqlRawAsync(
+            "INSERT INTO dbo.AUDITORIA_ACCESOS (fecha_hora, nombre_usuario, id_usuario, resultado, nombre_equipo, tipo_evento, detalle) " +
+            "VALUES (SYSUTCDATETIME(), @nombre_usuario, @id_usuario, @resultado, @equipo, @tipo_evento, @detalle)",
+            parametros,
+            cancellationToken);
     }
 }
