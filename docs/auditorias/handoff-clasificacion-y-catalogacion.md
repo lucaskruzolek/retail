@@ -2,7 +2,7 @@
 
 > **Para el agente que lea esto:** este archivo es el punto de entrada para retomar, en una sesión nueva y sin contexto previo, la línea de trabajo de clasificación de artículos: el CRUD de Rubros, Categorías y Marcas (Track 6.5) y el motor de sugerencia de categoría y marca (Track 6.6). Resume el estado, las reglas acordadas con el estudiante y el flujo de trabajo paso a paso. **El diseño completo vive en los documentos de cada track; este archivo no lo repite.**
 >
-> **Estado al 17 de octubre de 2026:** ambos tracks están **cerrados en lo conceptual y sin implementar**. Pasos 0 y 1 hechos en la rama `docs/clasificacion-catalogacion` (sección 2). El paso en curso es el **Paso 3** (PR del 6.5) y, en paralelo, el **Paso 2b** (rotulación de `ml/datos/` por el estudiante) de la sección 4.
+> **Estado al 22 de octubre de 2026:** el Track 6.5 está implementado y mergeado (PR #31). Del Track 6.6 están cerradas las Fases 0 a 2 en Python (arranque de datos, experimentos E-1 a E-5 y validación externa con la lista de Piatto; decisiones M-17 a M-26), commiteadas en la rama **`feat/catalogacion-arranque-datos`** (sin publicar). El paso en curso es el **Paso 5**: Fase 3 del Track 6.6 (dominio en C#), **en la misma rama** (decisión del estudiante, 2026-10-22).
 >
 > **Cómo usarlo:** leer la sección 1 (reglas) y la sección 4 (flujo), ubicar el primer paso sin marcar y cargar **solo** el documento del track que ese paso indica. Al cerrar cada sesión, aplicar el protocolo de la sección 6.
 
@@ -131,6 +131,11 @@ Formatos definitivos: `taxonomia.csv` (`rubro;categoria`), `terminos.csv` (`term
 
 * [x] **Coordinar con Pablo** (hecho el 2026-10-17, regla 8) los cambios en `Proveedor`, `CatalogoProveedor`, `MapeoColumnasDto` e `IncorporarCatalogoArticulosDto` (regla 8).
 * [ ] Fases 3 a 7 según el documento del track, con la misma forma de trabajo del Paso 2.
+  * **Punto de partida (2026-10-22):** nada de C# está empezado. Siguiente: Fase 3 (dominio) de la sección 8 del Track 6.6. Antes de proponer el plan, leer `docs/MAPA_DEL_PROYECTO.md`, `docs/SISTEMA_DE_PERSISTENCIA.md` y las secciones 4, 7, 8 y 12 del track (las decisiones M-17 a M-26 cambiaron el diseño original: marca por texto primero y prefijos con pureza ≥ 0,6 filtrados al consolidar, sin umbral `κ`, bloques de término desconocido de 5 o más productos antes que el modelo, con propuesta precargada).
+  * **Configuración del modelo para C#:** `ml/scripts/modelo.py` (regresión logística C = 100, n-gramas de caracteres 3-4 `char_wb`, sin tokens sin letras, τ = 0,94) y `ml/scripts/vectorizador.py`. Referencia de paridad versionada en `ml/paridad/vectores-referencia.json`.
+  * **Datos (no versionados, en `ml/datos/`):** diccionarios para la semilla de `Retail.Cli` (M-15): `taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv`. `oro.csv` es el conjunto de desarrollo (M-20). **`oro-prueba-a-etiquetar.csv` está sellado hasta la Fase 7: no abrirlo ni mostrar su contenido.**
+  * **Opcional, antes de la Fase 7:** medir la precisión real en Piatto con una muestra de unas 200 sugerencias del modelo (método M-19).
+  * **Hábitos del estudiante a tener en cuenta:** prefiere validar etiquetas antes que etiquetar (M-19); al validar suele dejar vacía la columna `validado` (confirmar con él y completarla). Excel guarda las planillas en ANSI o con tabulaciones (`leer_planilla` lo resuelve), borra ceros iniciales de los prefijos y convierte los EAN a notación científica (por eso los EAN siempre se toman de la lista original por código).
 
 ---
 
