@@ -16,12 +16,12 @@ import argparse
 import math
 
 import numpy as np
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GroupKFold
 
+import modelo as configuracion
 from comun import leer_lista, primera_palabra
 from datos_modelo import cargar_desarrollo, cargar_entrenamiento, cargar_terminos, misma_categoria
-from vectorizador import crear_vectorizador
+from modelo import predecir
 
 PLIEGUES = 5
 PRECISION_OBJETIVO = 0.95  # M-1
@@ -29,29 +29,15 @@ VALORES_TAU = np.round(np.arange(0.0, 1.0001, 0.01), 2)
 VALORES_KAPPA = np.round(np.arange(0.0, 1.0001, 0.05), 2)
 
 parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-parser.add_argument("--c", type=float, default=100.0)
-parser.add_argument("--ngramas", default="3,4")
+parser.add_argument("--c", type=float, default=configuracion.C)
+parser.add_argument("--ngramas", default=",".join(str(n) for n in configuracion.NGRAMAS))
 parser.add_argument("--con-numericos", action="store_true")
 argumentos = parser.parse_args()
 NGRAMAS = tuple(int(n) for n in argumentos.ngramas.split(","))
 
 
 def entrenar(textos, categorias):
-    vectorizador = crear_vectorizador(NGRAMAS, not argumentos.con_numericos)
-    modelo = LogisticRegression(C=argumentos.c, max_iter=3000).fit(vectorizador.fit_transform(textos), categorias)
-    return vectorizador, modelo
-
-
-def predecir(vectorizador, modelo, textos):
-    """Categoría, confianza (probabilidad máxima) y cobertura del vocabulario de cada texto."""
-    probabilidades = modelo.predict_proba(vectorizador.transform(textos))
-    analizador = vectorizador.build_analyzer()
-    vocabulario = vectorizador.vocabulary_
-    coberturas = []
-    for texto in textos:
-        ngramas = analizador(texto)
-        coberturas.append(sum(g in vocabulario for g in ngramas) / len(ngramas) if ngramas else 0.0)
-    return modelo.classes_[probabilidades.argmax(axis=1)], probabilidades.max(axis=1), np.array(coberturas)
+    return configuracion.entrenar(textos, categorias, argumentos.c, NGRAMAS, not argumentos.con_numericos)
 
 
 def intervalo_wilson(exitos, total, z=1.96):

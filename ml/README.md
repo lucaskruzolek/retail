@@ -107,10 +107,12 @@ ml/.venv/Scripts/python ml/scripts/vectores_paridad.py          # referencia par
 | Archivo | Responsabilidad |
 | :--- | :--- |
 | `vectorizador.py` | TF-IDF de n-gramas de caracteres de la sección 5.1. Es la especificación que replica C#. |
+| `modelo.py` | Configuración elegida en la Fase 2 (C = 100, n-gramas 3-4, τ = 0,94) y funciones `entrenar` y `predecir`, compartidas por E-3/E-4 y el diagnóstico externo. |
 | `datos_modelo.py` | Entrenamiento (etiquetas débiles de términos no ambiguos + `ambiguos.csv`) sin las familias del desarrollo ni de la prueba, y sin categorías con menos de 5 ejemplos (M-9). |
 | `e1_e2_clasificador.py` | Validación cruzada de M-22: escenario A (término ambiguo) y B (término desconocido). |
 | `e3_e4_umbrales.py` | E-3: umbral de confianza `τ` ponderado por la mezcla de producción. E-4: el sistema completo sobre el desarrollo. |
 | `e5_marca.py` | E-5: texto o prefijo primero y pureza mínima del prefijo (solo biblioteca estándar). |
+| `diagnosticar_lista_externa.py` | Validación externa sin etiquetas sobre la lista de otro proveedor (sección 11.2): caminos, cobertura, abstención en kiosco, precisión con abreviaturas y tamaño de los grupos de M-26. |
 | `vectores_paridad.py` | Escribe `ml/paridad/vectores-referencia.json` (**versionado**): descripciones inventadas con su texto preparado, n-gramas, IDF y vector TF-IDF, para el test de paridad de C# (sección 10). |
 
 Los resultados crudos quedan en `ml/datos/resultados/` (no versionado); los que deciden se registran en la sección 11
