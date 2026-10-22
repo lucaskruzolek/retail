@@ -19,7 +19,7 @@
 | :--- | :--- | :---: |
 | 0 | Exploración de datos (`ml/scripts/`) y este documento | ✅ Diseño cerrado; track dado de alta en el roadmap y `RF-27` incorporado a la ERS (2026-10-17) |
 | 1 | Arranque: diccionarios revisados por el estudiante y conjunto de oro | ✅ 2026-10-22: 7 rubros, 46 categorías, 299 términos (18 ambiguos), 169 marcas, 182 prefijos; desarrollo, ejemplos de ambiguos y oro de prueba (sección 6.4; M-17 a M-21) |
-| 2 | Experimentos E-1 a E-5 en Python (selección del clasificador, umbrales y orden de los niveles de marca) | ⏳ |
+| 2 | Experimentos E-1 a E-5 en Python (selección del clasificador, umbrales y orden de los niveles de marca) | ✅ 2026-10-22: regresión logística C = 100, n-gramas 3-4 sin numéricos, τ = 0,94 (sin κ, M-23); marca por texto primero y prefijos de pureza ≥ 0,6; vectores de paridad (sección 11.1) |
 | 3 | Dominio: entidades hijas de `Categoria` y `Marca`, origen de la clasificación, regla de EAN | ⏳ |
 | 4 | Aplicación: puertos, servicio de clasificación por niveles, cambio del contrato de incorporación | ⏳ |
 | 5 | Infraestructura: vectorizador de n-gramas, clasificador, almacenamiento del modelo, migraciones | ⏳ |
@@ -82,21 +82,21 @@ flowchart TD
     N0 --> CA[Categoría]
 
     subgraph Marca
-        MA --> M1{¿EAN válido con<br/>prefijo registrado?}
-        M1 -- una marca --> MOK[Sugerencia]
-        M1 -- varias marcas --> M2[Buscar en el texto<br/>solo entre esas marcas y alias]
-        M1 -- no --> M3[Buscar en el texto<br/>todas las marcas y alias]
-        M2 --> MOK
-        M3 --> M4{¿Encontró?}
-        M4 -- sí --> MOK
-        M4 -- no --> MSM[Sin sugerencia]
+        MA --> M1{¿El texto nombra marcas<br/>o alias del diccionario?}
+        M1 -- una --> MOK[Sugerencia]
+        M1 -- varias --> M2{¿La marca del prefijo EAN<br/>está entre ellas?}
+        M2 -- sí --> MOK
+        M2 -- no --> MSM[Sin sugerencia]
+        M1 -- ninguna --> M3{¿EAN válido con<br/>prefijo registrado?<br/>pureza ≥ 0,6, M-25}
+        M3 -- sí --> MOK
+        M3 -- no --> MSM
     end
 
     subgraph Categoria
         CA --> C1{¿Primera palabra en la<br/>tabla de términos y no ambigua?}
         C1 -- sí --> COK[Sugerencia]
         C1 -- no --> C2[Clasificador de n-gramas<br/>de caracteres]
-        C2 --> C3{¿Confianza ≥ τ y<br/>cobertura ≥ κ?}
+        C2 --> C3{¿Confianza ≥ τ?}
         C3 -- sí --> COK
         C3 -- no --> CSM[Sin sugerencia]
     end
@@ -117,7 +117,7 @@ flowchart TD
 
 El aprendizaje automático se usa **solo donde las reglas no alcanzan**: términos ambiguos, variantes, abreviaturas, truncados y la cola larga.
 
-> **Orden de los niveles de marca en revisión (M-17, E-5).** El diagrama consulta el prefijo antes que el texto. Con los diccionarios del arranque, en 355 filas (2,4 %) el prefijo y la marca escrita en la descripción no coinciden (por ejemplo, prefijo `7798100` → Artística Dibu, texto → FILGO, 98 filas): el prefijo identifica al titular, no a la marca (sección 3.2). El orden definitivo lo decide E-5 sobre el conjunto de oro.
+> **Orden de los niveles de marca (M-17, E-5, M-25).** El diseño original consultaba el prefijo antes que el texto. Con los diccionarios del arranque, en 355 filas (2,4 %) el prefijo contradecía la marca escrita (por ejemplo `7798100` → Artística Dibu, texto → FILGO): el prefijo identifica al titular, no a la marca (sección 3.2). E-5 confirmó **texto primero**, con prefijos de pureza ≥ 0,6, y el diagrama refleja ese orden.
 
 ### 4.1 Planillas con columnas de clasificación (M-12 a M-14)
 
@@ -166,12 +166,11 @@ La elección entre ambos la decide el experimento E-1 con una regla fijada de an
 
 ### 5.3 Confianza y abstención
 
-Se sugiere una categoría solo si se cumplen las dos condiciones:
+Se sugiere una categoría solo si la **confianza** (probabilidad máxima de la regresión logística, E-1) es ≥ `τ`.
+`τ` se calibró en E-3 (0,94) y se recalibra en cada entrenamiento (M-10).
 
-* **Confianza** (probabilidad máxima, o similitud máxima en el centroide) ≥ `τ`.
-* **Cobertura** (fracción de los n-gramas del texto presentes en el vocabulario) ≥ `κ`.
-
-`τ` y `κ` se calibran en E-3 para alcanzar el criterio de éxito (M-1).
+El diseño original agregaba una segunda condición, **cobertura** (fracción de los n-gramas del texto presentes en el
+vocabulario) ≥ `κ`. E-3 mostró que no mejora la precisión de ninguna combinación y se eliminó (M-23).
 
 ### 5.4 Costo estimado
 
@@ -352,6 +351,81 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 | E-4 | Aporte de cada nivel | Informe; si el modelo aporta poco sobre la tabla de términos, se documenta como resultado |
 | E-5 | Marca: ¿texto antes que prefijo o prefijo antes que texto? ¿Pureza mínima para usar un prefijo? (M-17) | La combinación de mayor cobertura de marca que cumpla M-1 sobre el conjunto de desarrollo (M-20). Ante un empate práctico (< 1 punto de precisión), texto primero: es evidencia explícita |
 
+### 11.1 Resultados
+
+Entrenamiento: 8.734 filas (334 manuales), 45 categorías (Cámaras excluida por M-9), 4.000 familias, 287 términos.
+Validación cruzada de M-22 con 5 particiones por escenario; scikit-learn 1.9.1 (`ml/requirements.txt`).
+
+**E-2 (2026-10-22), F1-macro:**
+
+| Clasificador | n-gramas | Tokens numéricos | A (ambiguo) | B (desconocido) | Promedio |
+| :--- | :---: | :---: | ---: | ---: | ---: |
+| Centroide | 3-5 | con | 0,469 | 0,250 | **0,359** (ganador) |
+| Centroide | 2-5 | con | 0,466 | 0,252 | 0,359 |
+| Centroide | 3-4 | sin | 0,430 | 0,245 | 0,337 (peor) |
+| Regresión logística (C = 10) | 3-4 | sin | 0,695 | 0,242 | **0,468** (ganador) |
+| Regresión logística (C = 10) | 2-5 | sin | 0,698 | 0,236 | 0,467 |
+| Regresión logística (C = 10) | 2-5 | con | 0,648 | 0,240 | 0,444 (peor) |
+
+* El vectorizador pesa poco: entre la mejor y la peor configuración de cada clasificador hay 2,2 puntos.
+* El escenario B queda en ~0,25 con cualquier configuración: el modelo apenas generaliza a términos que nunca vio.
+* El escenario A se mide sobre 334 ejemplos manuales: diferencias de menos de 1 punto no son significativas.
+
+**E-1 (2026-10-22), cada clasificador con su vectorizador ganador de E-2:**
+
+| Clasificador | A (ambiguo) | B (desconocido) | Promedio |
+| :--- | ---: | ---: | ---: |
+| Centroide (3-5, con numéricos) | 0,469 | 0,250 | 0,359 |
+| Regresión logística C = 1 (3-4, sin numéricos) | 0,519 | 0,164 | 0,342 |
+| Regresión logística C = 10 | 0,695 | 0,242 | 0,468 |
+| Regresión logística C = 100 | 0,725 | 0,257 | **0,491** |
+
+**Decisión por la regla de la sección 5.2: regresión logística**, que supera al centroide por 13,2 puntos (el umbral era 2). Vectorizador: n-gramas de 3 a 4 caracteres sin tokens numéricos. El mejor `C` quedó en el borde de la grilla (100), así que se extendió: C = 300 da 0,481 y C = 1.000 da 0,469. **El óptimo es C = 100**, interior a la grilla; por encima, el modelo se sobreajusta a n-gramas demasiado específicos.
+
+**E-3 (2026-10-22), umbrales sobre las predicciones fuera de partición**, ponderadas por la mezcla de producción
+(70,5 % término ambiguo, 29,5 % término desconocido):
+
+| Umbrales | Precisión | Cobertura | Precisión A | Cobertura A | Precisión B | Cobertura B |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Sin umbral | 68,2 % | 100 % | 81,1 % | 100 % | 37,4 % | 100 % |
+| **τ = 0,94, κ = 0** | **95,2 %** | **33,1 %** | 95,9 % | 43,4 % | 86,8 % | 8,6 % |
+
+* `κ` no aporta: con `τ` calibrado, exigir cobertura de vocabulario no mejora la precisión de ninguna combinación. Se eliminó (M-23).
+* La cobertura (33,1 %) supera apenas la mínima de la sección 7.2 (30 %).
+
+**E-4 (2026-10-22), sistema completo sobre el conjunto de desarrollo** (modelo entrenado con todo el entrenamiento):
+
+| Nivel | Filas | Sugeridas | Cobertura | Precisión | IC 95 % |
+| :--- | ---: | ---: | ---: | ---: | :--- |
+| Tabla de términos | 336 | 336 | 100 % | 94,0 % | 91,0 % a 96,1 % |
+| Modelo, término ambiguo | 45 | 20 | 44,4 % | 95,0 % | 76,4 % a 99,1 % |
+| Modelo, término desconocido | 19 | 1 | 5,3 % | 100 % | 20,7 % a 100 % |
+| **Sistema** | 400 | 357 | **89,2 %** | **94,1 %** | 91,2 % a 96,1 % |
+
+* El modelo resuelve casi la mitad de los términos ambiguos con la precisión exigida y se abstiene en el resto.
+* La precisión del sistema la limita la tabla de términos, no el modelo; y es optimista (M-20).
+
+**E-5 (2026-10-22), marca sobre el conjunto de desarrollo** (285 filas con marca en el oro, 115 `SIN MARCA`):
+
+| Estrategia | Pureza mínima del prefijo | Cobertura | Precisión | IC 95 % | Sugerencias por prefijo no verificables |
+| :--- | :---: | ---: | ---: | :--- | ---: |
+| Solo texto (sin prefijos) | — | 89,1 % | 99,2 % | 97,2 % a 99,8 % | 0 |
+| Prefijo primero | 0,5 | 94,4 % | 95,6 % | 92,4 % a 97,4 % | 14 |
+| Prefijo primero | 0,6 | 94,4 % | 98,5 % | 96,3 % a 99,4 % | 12 |
+| Texto primero | 0,5 | 94,4 % | 98,9 % | 96,8 % a 99,6 % | 13 |
+| **Texto primero** | **0,6** | **94,4 %** | **98,9 %** | 96,8 % a 99,6 % | 11 |
+| Texto primero | 0,9 | 91,9 % | 99,2 % | 97,3 % a 99,8 % | 0 |
+
+**Decisión por la regla: texto primero, con prefijos de pureza ≥ 0,6** (confirma la hipótesis de M-17). Los prefijos
+suman 5,3 puntos de cobertura sobre el texto solo. Con el prefijo primero y pureza 0,5, la precisión cae 3,3 puntos:
+el prefijo de un titular con varias marcas (por ejemplo `7798100`, Artística Dibu y FILGO) contradice a la marca escrita.
+Las sugerencias por prefijo en filas `SIN MARCA` no se pueden verificar con un oro etiquetado solo por el texto (M-19).
+
+> **Incidente de datos (2026-10-22):** Excel guardó `oro-validar.csv` con los EAN en notación científica
+> (`7,7981E+12`), y E-5 corrió primero sin ningún prefijo aplicable (resultados idénticos en todas las variantes).
+> `cerrar_etiquetado.py` ahora toma el EAN de la lista original por código; códigos, descripciones y etiquetas no se
+> habían dañado, y el oro de prueba nunca pasó por Excel.
+
 ---
 
 ## 12. Decisiones
@@ -379,6 +453,10 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 | M-19 | **El conjunto de oro lo pre-etiqueta Claude y el estudiante valida cada fila** (`ml/datos/oro-validar.csv`). Se aparta de la sección 6.1 (al modelo de lenguaje se le enviaban solo términos): Claude lee las 400 descripciones y EAN, sin precios, con autorización del estudiante. La categoría se etiqueta **sin consultar la tabla de términos** y la marca **solo por el texto, sin el prefijo EAN**, para que el oro no le dé la razón al sistema por construcción (E-4, E-5). Los desacuerdos con los diccionarios y las dudas de Claude se marcan para revisión. | Cerrada (2026-10-21) | Decisión del estudiante por costo de etiquetado. **Limitación:** el anclaje del validador no se mide; se conservan las etiquetas originales (`categoria_claude`, `marca_claude`) e informa la tasa de corrección como cota inferior del error. Las filas sin marca en el texto quedan `SIN MARCA`: E-5 no puede medir la precisión del prefijo en ellas. |
 | M-20 | **El oro etiquetado en la Fase 1 pasa a ser el conjunto de desarrollo** (`ml/datos/oro.csv`): se usa para diagnosticar y decidir (tabla de términos, E-3, E-5). Para la evaluación final (Fase 7) se muestrea **un oro nuevo** de familias que no estén en ningún otro conjunto, se guarda sin mirar y se etiqueta con el método de M-19. | Cerrada (2026-10-22) | Al validar el oro se midió que la tabla de términos acierta el 86,4 % (< M-1) y se corrigió con esos errores (`GOMA`, `CINTA`, `LIBRO`, `BASE`, `TACO`, `VASO` y `TINTA` pasan a ambiguos). Desde ese momento el oro ya no es independiente: evaluar sobre él daría un resultado optimista (fuga de datos). Corrige también M-17/E-5, que decidían sobre el oro en contra de la sección 6.2. |
 | M-21 | **Una marca real cuyo nombre es una palabra común no se carga en el diccionario** cuando el riesgo de detectarla por error supera el beneficio (`ARTE`, 68 filas en la lista). Las 37 marcas nuevas del conjunto de desarrollo sí se cargan, incluidas `CADENA`, `NORTE` y `PAPERLAND`, antes rechazadas. | Cerrada (2026-10-22) | Decisión del estudiante. El diccionario busca palabras completas en toda la descripción: una palabra común produce sugerencias falsas en productos de otras marcas, y una sugerencia equivocada cuesta más que una ausente (M-1). |
+| M-22 | **La validación cruzada de E-1 y E-2 simula los dos caminos por los que un ítem llega al modelo**: (A) término ambiguo, con particiones agrupadas por familia y evaluación solo sobre los ejemplos manuales; (B) término desconocido, con particiones agrupadas **por término** (todas las filas de un término quedan fuera del entrenamiento) y evaluación sobre todo lo excluido. La métrica de decisión es el promedio del F1-macro de A y B. Las reglas de la sección 11 no cambian. | Cerrada (2026-10-22), antes de ejecutar ningún experimento | El 96 % del entrenamiento son etiquetas débiles derivadas de la primera palabra: una validación cruzada común premiaría memorizar esa palabra, un caso que en producción resuelve la tabla de términos y nunca llega al modelo. |
+| M-23 | **Se elimina el umbral de cobertura `κ`**: el modelo sugiere solo por confianza (`τ`). | Cerrada (2026-10-22) | E-3: con `τ` calibrado, `κ` no mejora la precisión de ninguna combinación (el óptimo fue κ = 0). Cuando el modelo no conoce el texto ya está poco seguro. Una regla menos en C#, en los tests y en la explicación al usuario. Reversible si un catálogo nuevo muestra sugerencias seguras y equivocadas sobre textos desconocidos; M-10 ya protege recalibrando `τ`. |
+| M-24 | **La tabla de términos se reevalúa en la Fase 7** con el oro de prueba, sin más correcciones ahora. Si su precisión queda por debajo de M-1, se decide entre nuevos términos ambiguos, ajustes de fronteras entre categorías o que el modelo controle a la tabla. | Cerrada (2026-10-22) | E-4: la tabla acierta el 94,0 % (IC 91,0 % a 96,1 %) sobre el desarrollo, cifra optimista (M-20). Sus errores son casos sueltos de frontera; corregirlos uno por uno sería ajustarse al conjunto de desarrollo. El control por el modelo es en parte circular (el modelo aprende de las etiquetas de la tabla) y resta cobertura. Toda sugerencia la confirma una persona (RF-27), así que un error cuesta una corrección y no un dato sucio. |
+| M-25 | **Marca: texto primero; el prefijo EAN decide solo si el texto no nombra ninguna marca, o desempata si nombra varias.** Los prefijos aprobados con pureza < 0,6 no entran al diccionario: el filtro se aplica al consolidar (`consolidar_diccionarios.py --pureza-minima`), así que la base no guarda la pureza. | Cerrada (2026-10-22) | E-5: texto primero con pureza ≥ 0,6 da 94,4 % de cobertura y 98,9 % de precisión; con el prefijo primero la precisión baja hasta 95,6 %. Se descartan 15 de 182 prefijos (por ejemplo `7798100`, que reparte Artística Dibu y FILGO); los desacuerdos entre texto y prefijo en la lista bajan de 371 a 136. Reemplaza el orden del diagrama de la sección 4. |
 
 ---
 
