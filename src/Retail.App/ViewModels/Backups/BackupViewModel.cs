@@ -211,21 +211,10 @@ public partial class BackupViewModel : ObservableObject, IDisposable
                 : ConfirmarCredencialViewModel.ParaRestauracionAutorizada(
                     async (passwordActor, credencial, progreso) =>
                     {
-                        try
-                        {
-                            restaurada = await Task.Run(() =>
-                                _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
-                                    idActor, passwordActor, credencial, copia.Referencia, progreso));
-                        }
-                        catch (CredencialesInvalidasException)
-                        {
-                            // Nunca se registra la contraseña, solo quién intentó y con qué usuario.
-                            _logger.LogWarning(
-                                "Autorización de restauración rechazada: el actor {IdActor} probó con el usuario '{UsuarioAutorizante}'",
-                                idActor,
-                                credencial.NombreUsuario);
-                            throw;
-                        }
+                        // Los rechazos quedan auditados en la base (AUDITORIA_ACCESOS) por el servicio de aplicación.
+                        restaurada = await Task.Run(() =>
+                            _restauracionService.RestaurarConAutorizacionDeGerenteAsync(
+                                idActor, passwordActor, credencial, copia.Referencia, progreso));
                     },
                     fechaCopia,
                     ResultadoRestauracionDto.AvisoConciliacionArca);
