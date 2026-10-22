@@ -1,3 +1,4 @@
+using Retail.Application.DTOs.Auth;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
@@ -40,6 +41,7 @@ public class RestauracionService : IRestauracionService
     private readonly IArchivosBackup _archivos;
     private readonly IEsquemaBaseDatos _esquema;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IRegistroAccesosService _registroAccesos;
 
     public RestauracionService(
         IRepository<Usuario> usuarios,
@@ -52,7 +54,8 @@ public class RestauracionService : IRestauracionService
         IBloqueoRestauracion bloqueo,
         IArchivosBackup archivos,
         IEsquemaBaseDatos esquema,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        IRegistroAccesosService registroAccesos)
     {
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _registros = registros ?? throw new ArgumentNullException(nameof(registros));
@@ -65,6 +68,7 @@ public class RestauracionService : IRestauracionService
         _archivos = archivos ?? throw new ArgumentNullException(nameof(archivos));
         _esquema = esquema ?? throw new ArgumentNullException(nameof(esquema));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
+        _registroAccesos = registroAccesos ?? throw new ArgumentNullException(nameof(registroAccesos));
     }
 
     public async Task<ResultadoRestauracionDto> RestaurarDesdeHistorialAsync(
@@ -121,7 +125,16 @@ public class RestauracionService : IRestauracionService
 
         // D-31 / §3.1: el intento se cuenta y se guarda ANTES de verificar la credencial (conteo pesimista). Lanza
         // CuentaBloqueadaException si la cuenta ya agotó sus intentos, sin llegar a verificar ninguna contraseña.
-        actor.RegistrarIntentoDeAutorizacion();
+        try
+        {
+            actor.RegistrarIntentoDeAutorizacion();
+        }
+        catch (CuentaBloqueadaException)
+        {
+            await RegistrarAutorizacionAsync(actor, ResultadoEventoAccesoEnum.Bloqueado, "Cuenta ya bloqueada", cancellationToken);
+            throw;
+        }
+
         await _usuarios.UpdateAsync(actor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
@@ -130,6 +143,9 @@ public class RestauracionService : IRestauracionService
         // verificar, así que bloquearía aunque ambas contraseñas fueran correctas. Si falla, no se evalúa la del Gerente.
         if (string.IsNullOrEmpty(passwordActor) || !_passwordHasher.VerifyPassword(passwordActor, actor.PasswordHash))
         {
+            // Después de guardar el contador: el hecho se registra con el desenlace que ya decidió el dominio. Nunca la contraseña.
+            await RegistrarAutorizacionAsync(actor, ResultadoDeUnFallo(actor), "Contraseña del Administrador incorrecta", cancellationToken);
+
             if (actor.EstaBloqueada)
             {
                 throw CuentaBloqueadaException.PorAutorizacionesFallidas();
@@ -146,7 +162,13 @@ public class RestauracionService : IRestauracionService
         }
         catch (CredencialesInvalidasException)
         {
-            // El contador ya está guardado: solo se decide qué respuesta recibe el Administrador.
+            // El contador ya está guardado: se audita el intento (sin contraseñas) y se decide qué respuesta recibe el Administrador.
+            await RegistrarAutorizacionAsync(
+                actor,
+                ResultadoDeUnFallo(actor),
+                $"Gerente intentado: {ReglasTexto.NormalizarNombreUsuario(autorizante.NombreUsuario)}",
+                cancellationToken);
+
             if (actor.EstaBloqueada)
             {
                 throw CuentaBloqueadaException.PorAutorizacionesFallidas();
@@ -161,6 +183,10 @@ public class RestauracionService : IRestauracionService
         await _usuarios.UpdateAsync(actor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // La fila se escribe ANTES de restaurar: así ya está en la base vigente cuando se importa su auditoría a la restaurada.
+        await RegistrarAutorizacionAsync(
+            actor, ResultadoEventoAccesoEnum.Aceptado, $"Gerente: {gerenteAutorizante.NombreUsuario}", cancellationToken);
+
         var copia = await BuscarCopiaRestaurableAsync(referenciaCopia, cancellationToken);
 
         return await RestaurarAsync(
@@ -170,6 +196,19 @@ public class RestauracionService : IRestauracionService
             operador: actor,
             progreso,
             cancellationToken);
+    }
+
+    private static ResultadoEventoAccesoEnum ResultadoDeUnFallo(Usuario actor) =>
+        actor.EstaBloqueada ? ResultadoEventoAccesoEnum.Bloqueado : ResultadoEventoAccesoEnum.Rechazado;
+
+    private Task RegistrarAutorizacionAsync(
+        Usuario actor,
+        ResultadoEventoAccesoEnum resultado,
+        string detalle,
+        CancellationToken cancellationToken)
+    {
+        return _registroAccesos.RegistrarEventoAsync(
+            TipoEventoAccesoEnum.AutorizacionRestauracion, resultado, actor.NombreUsuario, actor.Id, detalle, cancellationToken);
     }
 
     public async Task<ResultadoRestauracionDto> RestaurarDesdeArchivoAsync(

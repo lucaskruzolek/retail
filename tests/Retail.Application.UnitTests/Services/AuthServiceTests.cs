@@ -429,6 +429,29 @@ public class AuthServiceTests
     }
 
     [Fact]
+    public async Task LoginAsync_CuentaBloqueadaPorAutorizacionConPasswordCorrecta_RegistraEventoBloqueado()
+    {
+        // Arrange
+        var bloqueado = CrearAdministradorBloqueado();
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: true, Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { bloqueado });
+        _passwordHasher.VerifyPassword("Clave2026!", "hash_soporte").Returns(true);
+
+        // Act
+        var act = () => _sut.LoginAsync(new LoginRequestDto { NombreUsuario = "soporte", Password = "Clave2026!" });
+
+        // Assert: el rechazo deja fila de auditoría (antes no dejaba ninguna) y sin la contraseña.
+        await act.Should().ThrowAsync<CuentaBloqueadaException>();
+        await _registroAccesosService.Received(1).RegistrarEventoAsync(
+            TipoEventoAccesoEnum.InicioSesion,
+            ResultadoEventoAccesoEnum.Bloqueado,
+            "soporte",
+            2,
+            "Bloqueada por autorizaciones fallidas (D-31)",
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task LoginAsync_CuentaBloqueadaConPasswordIncorrecta_LanzaCredencialesInvalidas()
     {
         // Arrange: quien no conoce la contraseña no debe enterarse de que la cuenta está bloqueada.

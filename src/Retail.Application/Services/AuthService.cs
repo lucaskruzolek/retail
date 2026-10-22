@@ -61,6 +61,13 @@ public class AuthService : IAuthService
             // antes de llamar al SP: informarle un login válido registraría "Aceptado" y reiniciaría su contador.
             if (passwordValido && usuarioActivo.EstaBloqueada)
             {
+                await _registroAccesosService.RegistrarEventoAsync(
+                    TipoEventoAccesoEnum.InicioSesion,
+                    ResultadoEventoAccesoEnum.Bloqueado,
+                    usuarioActivo.NombreUsuario,
+                    usuarioActivo.Id,
+                    "Bloqueada por autorizaciones fallidas (D-31)",
+                    cancellationToken);
                 throw CuentaBloqueadaException.PorAutorizacionesFallidas();
             }
 
