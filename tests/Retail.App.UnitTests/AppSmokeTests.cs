@@ -400,6 +400,25 @@ public class AppSmokeTests
                 view.Measure(new System.Windows.Size(1024, 768));
                 view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
                 view.UpdateLayout();
+
+                // D-34: la pestaña de restauraciones, vacía y con datos, también debe resolver sus recursos.
+                viewModel.MostrandoRestauraciones = true;
+                view.UpdateLayout();
+                viewModel.Restauraciones.Add(new RegistroRestauracionFila(new RegistroRestauracionDto
+                {
+                    Referencia = Guid.NewGuid(),
+                    Fecha = DateTime.UtcNow,
+                    Origen = OrigenRestauracionEnum.Aplicacion,
+                    NombreUsuario = "gerente",
+                    NombreOperador = "admin",
+                    ReferenciaCopia = Guid.NewGuid(),
+                    RutaArchivo = @"C:\RetailData\Backups\copia.bak",
+                    TuvoCopiaPrevia = true,
+                    BaseAnterior = "Retail_anterior"
+                }));
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
             }
             catch (Exception ex)
             {

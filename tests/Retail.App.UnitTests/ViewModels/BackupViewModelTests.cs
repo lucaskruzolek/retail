@@ -34,6 +34,8 @@ public class BackupViewModelTests : IDisposable
         _backupService.ListarAsync(IdActor, Arg.Any<CancellationToken>()).Returns(new List<RegistroBackupDto>());
         _restauracionService.ObtenerUltimaRestauracionAsync(IdActor, Arg.Any<CancellationToken>())
             .Returns((RegistroRestauracionDto?)null);
+        _restauracionService.ListarRestauracionesAsync(IdActor, Arg.Any<CancellationToken>())
+            .Returns(new List<RegistroRestauracionDto>());
 
         _sut = new BackupViewModel(_backupService, _restauracionService, _dialogService, _session, _reinicio);
     }
@@ -565,5 +567,105 @@ public class BackupViewModelTests : IDisposable
 
         // Assert
         _sut.UltimaRestauracionTexto.Should().Contain(esperado);
+    }
+
+    // ───────────────────────────── Historial de restauraciones (D-34) ─────────────────────────────
+
+    private static RegistroRestauracionDto Restauracion(string? operador = null, bool copiaPrevia = true, string? baseAnterior = "Retail_anterior") => new()
+    {
+        Referencia = Guid.NewGuid(),
+        Fecha = new DateTime(2026, 10, 1, 13, 0, 0, DateTimeKind.Unspecified),
+        Origen = OrigenRestauracionEnum.Aplicacion,
+        NombreUsuario = UsuarioGerente,
+        NombreOperador = operador,
+        ReferenciaCopia = Guid.NewGuid(),
+        RutaArchivo = @"C:\RetailData\Backups\vieja.bak",
+        TuvoCopiaPrevia = copiaPrevia,
+        BaseAnterior = baseAnterior
+    };
+
+    [Fact]
+    public async Task CargarAsync_Exito_CargaCopiasYRestauraciones()
+    {
+        // Arrange
+        _backupService.ListarAsync(IdActor, Arg.Any<CancellationToken>()).Returns(new List<RegistroBackupDto> { Copia() });
+        _restauracionService.ListarRestauracionesAsync(IdActor, Arg.Any<CancellationToken>())
+            .Returns(new List<RegistroRestauracionDto> { Restauracion(), Restauracion("admin") });
+
+        // Act
+        await _sut.CargarCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.Copias.Should().HaveCount(1);
+        _sut.Restauraciones.Should().HaveCount(2);
+        _sut.NoHayRestauraciones.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CargarAsync_SinRestauraciones_IndicaQueNoHay()
+    {
+        // Act
+        await _sut.CargarCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.Restauraciones.Should().BeEmpty();
+        _sut.NoHayRestauraciones.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CargarAsync_RestauracionConOperador_MuestraEjecutorYAutorizante()
+    {
+        // Arrange
+        _restauracionService.ListarRestauracionesAsync(IdActor, Arg.Any<CancellationToken>())
+            .Returns(new List<RegistroRestauracionDto> { Restauracion("admin") });
+
+        // Act
+        await _sut.CargarCommand.ExecuteAsync(null);
+
+        // Assert
+        var fila = _sut.Restauraciones[0];
+        fila.EjecutadaPor.Should().Be("admin");
+        fila.AutorizadaPor.Should().Be(UsuarioGerente);
+        fila.ArchivoCopia.Should().Be("vieja.bak");
+        fila.CopiaPreviaTexto.Should().Be("Sí");
+        fila.BaseAnteriorTexto.Should().Be("Retail_anterior");
+        fila.OrigenTexto.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public async Task CargarAsync_RestauracionSinOperadorNiBaseAnterior_MuestraGuion()
+    {
+        // Arrange
+        _restauracionService.ListarRestauracionesAsync(IdActor, Arg.Any<CancellationToken>())
+            .Returns(new List<RegistroRestauracionDto> { Restauracion(copiaPrevia: false, baseAnterior: null) });
+
+        // Act
+        await _sut.CargarCommand.ExecuteAsync(null);
+
+        // Assert
+        var fila = _sut.Restauraciones[0];
+        fila.EjecutadaPor.Should().Be("—");
+        fila.CopiaPreviaTexto.Should().Be("No");
+        fila.BaseAnteriorTexto.Should().Be("—");
+    }
+
+    [Fact]
+    public async Task CargarAsync_Restauraciones_UsaElIdActorDeLaSesion()
+    {
+        // Act
+        await _sut.CargarCommand.ExecuteAsync(null);
+
+        // Assert
+        await _restauracionService.Received(1).ListarRestauracionesAsync(IdActor, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void MostrandoRestauraciones_AlElegirLaPestana_EsElComplementoDeMostrandoCopias()
+    {
+        // Act
+        _sut.MostrandoRestauraciones = true;
+
+        // Assert
+        _sut.MostrandoCopias.Should().BeFalse();
     }
 }

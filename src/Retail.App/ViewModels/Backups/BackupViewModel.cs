@@ -49,6 +49,8 @@ public partial class BackupViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<RegistroBackupFila> Copias { get; } = new();
 
+    public ObservableCollection<RegistroRestauracionFila> Restauraciones { get; } = new();
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RestaurarCopiaCommand))]
     private RegistroBackupFila? _copiaSeleccionada;
@@ -68,6 +70,22 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneUltimaRestauracion))]
     private string? _ultimaRestauracionTexto;
+
+    /// <summary>
+    /// Pestaña visible de la grilla (D-34): las copias o el historial de restauraciones. <see cref="MostrandoRestauraciones"/>
+    /// es su complemento, para que los dos selectores se enlacen sin convertidores.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrandoRestauraciones))]
+    private bool _mostrandoCopias = true;
+
+    public bool MostrandoRestauraciones
+    {
+        get => !MostrandoCopias;
+        set => MostrandoCopias = !value;
+    }
+
+    public bool NoHayRestauraciones => Restauraciones.Count == 0;
 
     public bool TieneError => !string.IsNullOrWhiteSpace(MensajeError);
 
@@ -94,10 +112,11 @@ public partial class BackupViewModel : ObservableObject, IDisposable
             token => Task.Run(
                 async () =>
                 {
-                    // Secuencial a propósito: ambas consultas comparten el DbContext de la pantalla.
+                    // Secuencial a propósito: las consultas comparten el DbContext de la pantalla.
                     var copias = await _backupService.ListarAsync(IdActor, token);
                     var ultima = await _restauracionService.ObtenerUltimaRestauracionAsync(IdActor, token);
-                    return (Copias: copias, Ultima: ultima);
+                    var restauraciones = await _restauracionService.ListarRestauracionesAsync(IdActor, token);
+                    return (Copias: copias, Ultima: ultima, Restauraciones: restauraciones);
                 },
                 token),
             resultado =>
@@ -108,6 +127,13 @@ public partial class BackupViewModel : ObservableObject, IDisposable
                     Copias.Add(new RegistroBackupFila(dto));
                 }
 
+                Restauraciones.Clear();
+                foreach (var dto in resultado.Restauraciones)
+                {
+                    Restauraciones.Add(new RegistroRestauracionFila(dto));
+                }
+
+                OnPropertyChanged(nameof(NoHayRestauraciones));
                 UltimaRestauracionTexto = resultado.Ultima is null ? null : DescribirRestauracion(resultado.Ultima);
                 MensajeEstado = $"Se cargaron {Copias.Count} copias.";
             },
