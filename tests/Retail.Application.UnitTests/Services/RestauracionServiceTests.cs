@@ -22,6 +22,7 @@ public class RestauracionServiceTests
     private const int IdAdministrador = 2;
     private const int IdCajero = 3;
     private const string Password = "Clave2026!";
+    private const string PasswordAdmin = "AdminClave2026!";
     private const string Migracion = "20261013083426_AgregarRegistrosBackup";
     private const string RutaBak = @"C:\RetailData\Backups\Retail_20261013_210000_Manual.bak";
     private const string BaseAnterior = "RetailDb_Anterior_20261013_220000";
@@ -59,6 +60,7 @@ public class RestauracionServiceTests
         RegistrarUsuario(IdGerente, "gerente", RolUsuarioEnum.Gerente);
         RegistrarUsuario(IdAdministrador, "soporte", RolUsuarioEnum.Administrador);
         RegistrarUsuario(IdCajero, "cajero", RolUsuarioEnum.Cajero);
+        _passwordHasher.VerifyPassword(PasswordAdmin, "hash").Returns(true);
 
         _archivos.PrepararParaRestaurarAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ci => ci.Arg<string>());
         _archivos.CalcularHuellaAsync(RutaBak, Arg.Any<CancellationToken>()).Returns(new ArchivoBackupDto(Tamano, Hash));
@@ -1195,7 +1197,7 @@ public class RestauracionServiceTests
 
         // Act: el nombre se normaliza igual que en el login.
         var resultado = await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdAdministrador, new CredencialAutorizanteDto(" Jefe ", Password), copia.Referencia);
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto(" Jefe ", Password), copia.Referencia);
 
         // Assert: el Gerente autorizó; el Administrador ejecutó.
         _restauracionRegistrada.Should().NotBeNull();
@@ -1220,7 +1222,7 @@ public class RestauracionServiceTests
 
         // Act
         var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdAdministrador, new CredencialAutorizanteDto("encargado", Password), copia.Referencia);
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("encargado", Password), copia.Referencia);
 
         // Assert
         await act.Should().ThrowAsync<CredencialesInvalidasException>();
@@ -1236,7 +1238,7 @@ public class RestauracionServiceTests
 
         // Act
         var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdAdministrador, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
 
         // Assert
         await act.Should().ThrowAsync<CredencialesInvalidasException>();
@@ -1252,7 +1254,7 @@ public class RestauracionServiceTests
 
         // Act
         var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdAdministrador, new CredencialAutorizanteDto("fantasma", Password), copia.Referencia);
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("fantasma", Password), copia.Referencia);
 
         // Assert
         await act.Should().ThrowAsync<CredencialesInvalidasException>();
@@ -1268,7 +1270,7 @@ public class RestauracionServiceTests
 
         // Act
         var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdCajero, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+            IdCajero, PasswordAdmin, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
 
         // Assert
         await act.Should().ThrowAsync<OperacionNoAutorizadaException>();
@@ -1285,7 +1287,7 @@ public class RestauracionServiceTests
 
         // Act
         var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdGerente, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+            IdGerente, PasswordAdmin, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
 
         // Assert
         await act.Should().ThrowAsync<OperacionNoAutorizadaException>();
@@ -1302,7 +1304,7 @@ public class RestauracionServiceTests
 
         // Act
         var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdAdministrador, new CredencialAutorizanteDto("jefe", "incorrecta"), copia.Referencia);
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("jefe", "incorrecta"), copia.Referencia);
 
         // Assert: conteo pesimista (§3.1), el intento queda persistido aunque la verificación falle.
         await act.Should().ThrowAsync<CredencialesInvalidasException>();
@@ -1321,9 +1323,9 @@ public class RestauracionServiceTests
         var credencial = new CredencialAutorizanteDto("jefe", "incorrecta");
 
         // Act
-        var primero = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, credencial, copia.Referencia);
-        var segundo = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, credencial, copia.Referencia);
-        var tercero = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, credencial, copia.Referencia);
+        var primero = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, PasswordAdmin, credencial, copia.Referencia);
+        var segundo = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, PasswordAdmin, credencial, copia.Referencia);
+        var tercero = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, PasswordAdmin, credencial, copia.Referencia);
 
         // Assert: los dos primeros fallos son credenciales inválidas; el que agota los intentos informa el bloqueo.
         await primero.Should().ThrowAsync<CredencialesInvalidasException>();
@@ -1347,7 +1349,7 @@ public class RestauracionServiceTests
 
         // Act: aun con la credencial correcta, una cuenta bloqueada no puede autorizar.
         var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdAdministrador, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
 
         // Assert
         await act.Should().ThrowAsync<CuentaBloqueadaException>();
@@ -1367,7 +1369,7 @@ public class RestauracionServiceTests
 
         for (var i = 0; i < 2; i++)
         {
-            var fallo = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, incorrecta, copia.Referencia);
+            var fallo = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, PasswordAdmin, incorrecta, copia.Referencia);
             await fallo.Should().ThrowAsync<CredencialesInvalidasException>();
         }
 
@@ -1375,7 +1377,7 @@ public class RestauracionServiceTests
 
         // Act
         await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdAdministrador, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
 
         // Assert: los intentos son consecutivos, no acumulados.
         administrador.IntentosAutorizacionFallidos.Should().Be(0);
@@ -1392,12 +1394,95 @@ public class RestauracionServiceTests
 
         // Act
         var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
-            IdAdministrador, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
 
         // Assert: la autorización fue válida, así que no consume intentos aunque la copia no sirva.
         await act.Should().ThrowAsync<RestauracionFallidaException>().WithMessage("*no es restaurable*");
         administrador.IntentosAutorizacionFallidos.Should().Be(0);
         await _restaurador.DidNotReceiveWithAnyArgs().RestaurarEnBaseTemporalAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_PasswordDelAdministradorIncorrecta_CuentaElIntentoYNoEvaluaAlGerente()
+    {
+        // Arrange
+        ConAutorizanteEnLaVigente("jefe", RolUsuarioEnum.Gerente);
+        var administrador = await AdministradorAsync();
+        var copia = CopiaEnHistorial();
+        _usuarios.ClearReceivedCalls();
+
+        // Act
+        var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
+            IdAdministrador, "incorrecta", new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+
+        // Assert: el intento se cuenta (D-31) y la credencial del Gerente ni siquiera se busca (D-33).
+        await act.Should().ThrowAsync<CredencialesInvalidasException>().WithMessage("Su contraseña es incorrecta.");
+        administrador.IntentosAutorizacionFallidos.Should().Be(1);
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _usuarios.DidNotReceiveWithAnyArgs().FindAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_CredencialDelGerenteIncorrecta_InformaQueFalloElGerente()
+    {
+        // Arrange
+        ConAutorizanteEnLaVigente("jefe", RolUsuarioEnum.Gerente);
+        var copia = CopiaEnHistorial();
+
+        // Act
+        var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("jefe", "incorrecta"), copia.Referencia);
+
+        // Assert
+        await act.Should().ThrowAsync<CredencialesInvalidasException>().WithMessage("Usuario o contraseña del Gerente incorrectos.");
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_TercerIntentoConAmbasPasswordsCorrectas_RestauraYNoBloquea()
+    {
+        // Arrange: dos fallos previos; en el 3.er envío el contador ya vale 3 antes de verificar.
+        ConAutorizanteEnLaVigente("jefe", RolUsuarioEnum.Gerente);
+        var administrador = await AdministradorAsync();
+        var copia = CopiaEnHistorial();
+        var incorrecta = new CredencialAutorizanteDto("jefe", "incorrecta");
+        for (var i = 0; i < 2; i++)
+        {
+            var fallo = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, PasswordAdmin, incorrecta, copia.Referencia);
+            await fallo.Should().ThrowAsync<CredencialesInvalidasException>();
+        }
+
+        // Act
+        await _sut.RestaurarConAutorizacionDeGerenteAsync(
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+
+        // Assert
+        _restauracionRegistrada.Should().NotBeNull();
+        administrador.EstaBloqueada.Should().BeFalse();
+        administrador.IntentosAutorizacionFallidos.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_TercerFalloPorPasswordDelAdministrador_LanzaCuentaBloqueada()
+    {
+        // Arrange
+        ConAutorizanteEnLaVigente("jefe", RolUsuarioEnum.Gerente);
+        var administrador = await AdministradorAsync();
+        var copia = CopiaEnHistorial();
+        var credencial = new CredencialAutorizanteDto("jefe", Password);
+
+        // Act
+        for (var i = 0; i < 2; i++)
+        {
+            var fallo = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, "incorrecta", credencial, copia.Referencia);
+            await fallo.Should().ThrowAsync<CredencialesInvalidasException>();
+        }
+
+        var tercero = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(IdAdministrador, "incorrecta", credencial, copia.Referencia);
+
+        // Assert
+        var excepcion = await tercero.Should().ThrowAsync<CuentaBloqueadaException>();
+        excepcion.Which.RequiereDesbloqueoDeGerente.Should().BeTrue();
+        administrador.EstaBloqueada.Should().BeTrue();
     }
 
     [Fact]

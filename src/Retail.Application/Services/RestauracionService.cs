@@ -99,11 +99,13 @@ public class RestauracionService : IRestauracionService
 
     public async Task<ResultadoRestauracionDto> RestaurarConAutorizacionDeGerenteAsync(
         int idActor,
+        string passwordActor,
         CredencialAutorizanteDto autorizante,
         Guid referenciaCopia,
         IProgress<int>? progreso = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(passwordActor);
         ArgumentNullException.ThrowIfNull(autorizante);
 
         var actor = idActor > 0
@@ -123,11 +125,24 @@ public class RestauracionService : IRestauracionService
         await _usuarios.UpdateAsync(actor, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
+        // D-33: el Administrador también demuestra quién es (step-up). No se usa IAuthService.VerificarCredencialAsync: lanza
+        // CuentaBloqueadaException si la cuenta EstaBloqueada y, en el 3.er intento, el contador ya vale 3 antes de
+        // verificar, así que bloquearía aunque ambas contraseñas fueran correctas. Si falla, no se evalúa la del Gerente.
+        if (string.IsNullOrEmpty(passwordActor) || !_passwordHasher.VerifyPassword(passwordActor, actor.PasswordHash))
+        {
+            if (actor.EstaBloqueada)
+            {
+                throw CuentaBloqueadaException.PorAutorizacionesFallidas();
+            }
+
+            throw new CredencialesInvalidasException("Su contraseña es incorrecta.");
+        }
+
         Usuario gerenteAutorizante;
         try
         {
             var candidato = await BuscarAutorizanteAsync(autorizante, cancellationToken);
-            gerenteAutorizante = ExigirGerenteConCredencial(candidato, autorizante.Password);
+            gerenteAutorizante = ExigirGerenteConCredencial(candidato, autorizante.Password, "Usuario o contraseña del Gerente incorrectos.");
         }
         catch (CredencialesInvalidasException)
         {
@@ -471,12 +486,12 @@ public class RestauracionService : IRestauracionService
     /// Regla común de credencial de Gerente (D-18, D-30): un usuario inexistente, que no es Gerente, con cambio de
     /// contraseña pendiente (la eligió otra persona) o con contraseña incorrecta recibe siempre la misma respuesta.
     /// </summary>
-    private Usuario ExigirGerenteConCredencial(Usuario? usuario, string password)
+    private Usuario ExigirGerenteConCredencial(Usuario? usuario, string password, string? mensaje = null)
     {
         if (usuario is null || !usuario.EsGerente() || usuario.DebeCambiarPassword || string.IsNullOrEmpty(password)
             || !_passwordHasher.VerifyPassword(password, usuario.PasswordHash))
         {
-            throw new CredencialesInvalidasException();
+            throw mensaje is null ? new CredencialesInvalidasException() : new CredencialesInvalidasException(mensaje);
         }
 
         return usuario;

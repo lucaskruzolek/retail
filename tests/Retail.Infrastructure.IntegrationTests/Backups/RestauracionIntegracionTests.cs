@@ -26,6 +26,7 @@ public class RestauracionIntegracionTests : IAsyncLifetime
 {
     private const string NombreGerente = "gerente";
     private const string ClaveGerente = "Clave2026!";
+    private const string ClaveAdministrador = "ClaveAdmin2026!";
 
     private readonly string _vigente = $"RetailDb_Test_Restauracion_{Guid.NewGuid():N}";
     private readonly string _directorio = ServidorDePruebas.CrearCarpetaAccesibleParaElMotor("RetailRestauracionTests");
@@ -375,7 +376,7 @@ public class RestauracionIntegracionTests : IAsyncLifetime
         await using var contexto = ContextoDe(CadenaVigente);
         var administrador = Usuario.Crear(
             NombreAdministrador, "Sara", "Ruiz", hasher.HashPassword("provisoria"), RolUsuarioEnum.Administrador, null);
-        administrador.CambiarPasswordPropia(hasher.HashPassword("ClaveAdmin2026!"));
+        administrador.CambiarPasswordPropia(hasher.HashPassword(ClaveAdministrador));
         contexto.Usuarios.Add(administrador);
         await contexto.SaveChangesAsync();
         return administrador.Id;
@@ -392,7 +393,7 @@ public class RestauracionIntegracionTests : IAsyncLifetime
         // Act
         var act = () => EnScopeAsync(sp => sp.GetRequiredService<IRestauracionService>()
             .RestaurarConAutorizacionDeGerenteAsync(
-                idAdministrador, new CredencialAutorizanteDto(NombreGerente, "ClaveIncorrecta1!"), copia.Referencia));
+                idAdministrador, ClaveAdministrador, new CredencialAutorizanteDto(NombreGerente, "ClaveIncorrecta1!"), copia.Referencia));
 
         // Assert: con un contexto nuevo se comprueba que el contador quedó guardado en la base, no solo en memoria.
         await act.Should().ThrowAsync<CredencialesInvalidasException>();
@@ -413,7 +414,7 @@ public class RestauracionIntegracionTests : IAsyncLifetime
         // Act
         var resultado = await EnScopeAsync(sp => sp.GetRequiredService<IRestauracionService>()
             .RestaurarConAutorizacionDeGerenteAsync(
-                idAdministrador, new CredencialAutorizanteDto(NombreGerente, ClaveGerente), copia.Referencia));
+                idAdministrador, ClaveAdministrador, new CredencialAutorizanteDto(NombreGerente, ClaveGerente), copia.Referencia));
 
         // Assert: en la base restaurada queda el Gerente que autorizó y el Administrador que ejecutó.
         await using var contexto = ContextoDe(CadenaVigente);

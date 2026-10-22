@@ -20,12 +20,14 @@ public interface IRestauracionService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Control dual (D-30): un Administrador ejecuta la restauración y un Gerente activo, sin cambio de contraseña
-    /// pendiente, la autoriza con su credencial, que se verifica contra la base vigente. Cada intento del Administrador
-    /// se cuenta antes de verificar y la cuenta se bloquea al agotarlos (D-31).
+    /// Control dual (D-30) con step-up (D-33): un Administrador ejecuta la restauración, reingresa su propia contraseña y un
+    /// Gerente activo, sin cambio de contraseña pendiente, la autoriza con su credencial, que se verifica contra la base
+    /// vigente. Cada intento del Administrador se cuenta antes de verificar (falle la credencial que falle) y la cuenta se
+    /// bloquea al agotarlos (D-31).
     /// </summary>
     Task<ResultadoRestauracionDto> RestaurarConAutorizacionDeGerenteAsync(
         int idActor,
+        string passwordActor,
         CredencialAutorizanteDto autorizante,
         Guid referenciaCopia,
         IProgress<int>? progreso = null,
