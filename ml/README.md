@@ -28,19 +28,57 @@ python ml/scripts/muestras.py ml/datos/lista-mayo-2025.csv prefijo 7792216
 ## Scripts de arranque (Track 6.6, sección 6.1)
 
 Producen planillas **para completar a mano**. Todos escriben en `ml/datos/` (no versionado), con `;` como separador y
-UTF-8 **con BOM** (Excel respeta tildes). Si un script posterior las relee, abrirlas con `encoding="utf-8-sig"`.
+UTF-8 **con BOM** (Excel respeta tildes). Para releer una planilla completada a mano usar `leer_planilla` de
+`comun.py`, que acepta también el ANSI (cp1252) que deja Excel al guardar.
 
 ```powershell
 python ml/scripts/listar_terminos.py ml/datos/lista-mayo-2025.csv [--top 300]   # --top 0 = todos
 python ml/scripts/candidatos_marcas.py ml/datos/lista-mayo-2025.csv [--min-frecuencia 10] [--top 500] `
     [--largo-prefijo 7] [--min-soporte 3] [--min-pureza 0.5]
+# Segunda pasada, después de revisar marcas y prefijos:
+python ml/scripts/prefijos_por_marca.py ml/datos/lista-mayo-2025.csv [--salida ml/datos/prefijos-revision.csv]
+# Cierre: valida todas las planillas y escribe los diccionarios definitivos (no escribe nada si hay errores)
+python ml/scripts/consolidar_diccionarios.py ml/datos/lista-mayo-2025.csv [--destino ml/datos]
+# Muestras para etiquetar: términos ambiguos (entrenamiento) y conjunto de oro (evaluación final)
+python ml/scripts/muestrear_etiquetado.py ml/datos/lista-mayo-2025.csv [--por-termino 25] [--oro 400] [--semilla 2026]
+# Cierre del etiquetado: valida oro-validar.csv y las planillas de ambiguos y escribe oro.csv y ambiguos.csv
+python ml/scripts/cerrar_etiquetado.py
 ```
+
+Desde M-20, `oro.csv` es el **conjunto de desarrollo**. El oro de prueba para la evaluación final se muestreó aparte
+y no se abre hasta la Fase 7. Comandos usados el 2026-10-22 (las exclusiones garantizan familias disjuntas):
+
+```powershell
+# Oro de prueba (primero, para que ninguna decisión posterior lo condicione)
+python ml/scripts/muestrear_etiquetado.py ml/datos/lista-mayo-2025.csv --por-termino 0 --oro 400 --semilla 2027 `
+    --excluir ml/datos/oro.csv ml/datos/ambiguos.csv --salida-oro ml/datos/oro-prueba-a-etiquetar.csv
+# Ejemplos de los términos que pasaron a ambiguos con M-20
+python ml/scripts/muestrear_etiquetado.py ml/datos/lista-mayo-2025.csv --oro 0 --solo GOMA,CINTA,LIBRO,BASE,TACO,VASO,TINTA `
+    --semilla 2028 --excluir ml/datos/oro.csv ml/datos/ambiguos.csv ml/datos/oro-prueba-a-etiquetar.csv `
+    --salida-ambiguos ml/datos/ambiguos-2-a-etiquetar.csv
+```
+
+`leer_planilla` acepta planillas separadas por `;` o por tabulaciones (Excel, "Texto delimitado por tabulaciones").
+
+`muestrear_etiquetado.py` toma una fila por familia (tres primeras palabras) y ninguna familia aparece en las dos
+muestras. El oro se etiqueta **a ciegas** (sin sugerencias) y se usa solo para la evaluación final. No sobrescribe
+planillas existentes salvo con `--sobrescribir`.
 
 | Script | Salida | Columnas a completar |
 | :--- | :--- | :--- |
 | `listar_terminos.py` | `terminos-candidatos.csv`: `termino;frecuencia;ejemplo1;ejemplo2;ejemplo3;rubro;categoria;ambiguo`, ordenado por frecuencia. Término = primera palabra de la descripción limpia. | `rubro`, `categoria`, `ambiguo` (poner `1` en `SET`, `REPUESTO`, etc.). Guardar como `terminos.csv`. |
-| `candidatos_marcas.py` | `marcas-candidatas.csv`: `marca_candidata;frecuencia;variantes_detectadas;ejemplo;aprobada;alias` | `aprobada` (`1`/vacío) y `alias` (variantes que se aceptan, separadas por `|`). Guardar como `marcas.csv` (`marca;alias`) con las aprobadas. |
-| `candidatos_marcas.py` | `prefijos-candidatos.csv`: `prefijo;marca_candidata;soporte;pureza;aprobado` | `aprobado` (`1`/vacío). `pureza` = fracción de los artículos del prefijo que contienen la marca candidata. Guardar como `prefijos.csv` (`prefijo;marca`). |
+| `candidatos_marcas.py` | `marcas-candidatas.csv`: `marca_candidata;frecuencia;variantes_detectadas;ejemplo;aprobada;alias` | `aprobada` (vacío = sí, `0` = no; convención usada en la revisión de 2026-10-21) y `alias` (formas que aparecen en el texto, separadas por `|`). Se puede reescribir `marca_candidata` con el nombre verdadero de la marca. |
+| `candidatos_marcas.py` | `prefijos-candidatos.csv`: `prefijo;marca_candidata;soporte;pureza;aprobado` | `aprobado` (vacío = sí, `0` = no). `pureza` = fracción de los artículos del prefijo que contienen la marca candidata. |
+| `prefijos_por_marca.py` | `prefijos-revision.csv`: `prefijo;marca;soporte;pureza;aprobado;origen`. Recalcula cada prefijo contando **solo marcas aprobadas** (una palabra genérica ya no tapa a la marca) y arrastra la revisión anterior. | `aprobado` en las filas con `?` (`1` = sí, `0` = no). `origen`: `conservado`, `reasignado` o `nuevo`. |
+
+`consolidar_diccionarios.py` produce los cuatro diccionarios que cargará `Retail.Cli` (Track 6.6, M-15):
+`taxonomia.csv` (`rubro;categoria`), `terminos.csv` (`termino;rubro;categoria;ambiguo`), `marcas.csv` (`marca;alias`,
+alias separados por `|`) y `prefijos.csv` (`prefijo;marca`). Valida las reglas de la base (nombres obligatorios, de
+hasta 100 caracteres, únicos sin distinguir mayúsculas ni acentos) y las referencias cruzadas, e informa la cobertura
+de cada diccionario sobre la lista.
+
+Los empates de frecuencia y pureza se desempatan alfabéticamente: dos corridas sobre la misma lista producen el mismo
+archivo.
 
 La consola solo muestra conteos; las descripciones de ejemplo están únicamente en los archivos de `datos/`.
 

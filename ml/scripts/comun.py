@@ -4,8 +4,10 @@ Solo usa la biblioteca estándar de Python: no hace falta instalar paquetes.
 """
 
 import csv
+import io
 import os
 import re
+import unicodedata
 
 
 def leer_lista(ruta):
@@ -25,6 +27,52 @@ def primera_palabra(descripcion):
     """Sustantivo núcleo aproximado: la primera palabra de la descripción limpia."""
     limpia = limpiar_descripcion(descripcion)
     return limpia.split(" ")[0] if limpia else ""
+
+
+def tokens_de(descripcion):
+    """Palabras de una descripción limpia sin la primera (el término) y sin el punto final."""
+    return [t.rstrip(".") for t in descripcion.split(" ")[1:]]
+
+
+def normalizar_texto(texto):
+    """Mayúsculas sin tildes ni espacios repetidos: compara nombres de marca escritos a mano con las descripciones."""
+    sin_tildes = "".join(c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn")
+    return re.sub(r"\s+", " ", sin_tildes).strip().upper()
+
+
+def marcas_en(descripcion, forma_a_marca):
+    """Marcas cuyo nombre o alias aparece en la descripción como palabra o frase completa (no como parte de otra).
+
+    forma_a_marca asocia cada forma normalizada con normalizar_texto a su marca. La primera palabra no cuenta (es el
+    término). La barra también separa palabras: el proveedor escribe la marca pegada a la línea ("KOBY/DATA").
+    """
+    palabras = [parte for token in tokens_de(normalizar_texto(descripcion)) for parte in token.split("/") if parte]
+    max_palabras = max((len(forma.split(" ")) for forma in forma_a_marca), default=0)
+    encontradas = set()
+    for largo in range(1, max_palabras + 1):
+        for inicio in range(len(palabras) - largo + 1):
+            marca = forma_a_marca.get(" ".join(palabras[inicio:inicio + largo]))
+            if marca:
+                encontradas.add(marca)
+    return encontradas
+
+
+def leer_planilla(ruta):
+    """Lee una planilla ';' completada a mano y devuelve una lista de diccionarios, uno por fila.
+
+    Acepta UTF-8 (con o sin BOM), que es lo que escriben estos scripts, y ANSI de Windows (cp1252), que es lo que
+    deja Excel al guardar como "CSV (delimitado por comas)". El separador es ';', salvo que el encabezado esté
+    separado por tabulaciones (Excel, "Texto (delimitado por tabulaciones)").
+    """
+    with open(ruta, "rb") as archivo:
+        crudo = archivo.read()
+    try:
+        texto = crudo.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        texto = crudo.decode("cp1252")
+    encabezado = texto.split("\n", 1)[0]
+    separador = "\t" if "\t" in encabezado and ";" not in encabezado else ";"
+    return list(csv.DictReader(io.StringIO(texto), delimiter=separador))
 
 
 def digito_verificador_valido(codigo):
