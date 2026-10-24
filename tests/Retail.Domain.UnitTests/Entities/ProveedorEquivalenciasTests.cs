@@ -162,6 +162,63 @@ public class ProveedorEquivalenciasTests
         act.Should().Throw<DomainException>();
     }
 
+    [Fact]
+    public void QuitarEquivalenciasHacia_Categoria_DaDeBajaSoloLasQueApuntanAEsaCategoria()
+    {
+        var proveedor = CrearProveedor();
+        var escolar = proveedor.AsignarEquivalenciaCategoria("ESCOLAR", "CUADERNOS", 4);
+        var oficina = proveedor.AsignarEquivalenciaCategoria("OFICINA", "CUADERNOS", 4);
+        var otra = proveedor.AsignarEquivalenciaCategoria(null, "MOCHILAS", 5);
+        var marcaConMismoId = proveedor.AsignarEquivalenciaMarca("RIVADAVIA", 4);
+
+        int quitadas = proveedor.QuitarEquivalenciasHacia(TipoEquivalenciaEnum.Categoria, 4);
+
+        quitadas.Should().Be(2);
+        escolar.IsDeleted.Should().BeTrue();
+        oficina.IsDeleted.Should().BeTrue();
+        otra.IsDeleted.Should().BeFalse();
+        marcaConMismoId.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public void QuitarEquivalenciasHacia_Marca_NoTocaLasIgnoradasNiLasYaDadasDeBaja()
+    {
+        var proveedor = CrearProveedor();
+        var vigente = proveedor.AsignarEquivalenciaMarca("RIVADAVIA", 7);
+        var ignorada = proveedor.AsignarEquivalenciaMarca("GENERICO", null);
+        proveedor.AsignarEquivalenciaMarca("RIVA", 7);
+        proveedor.QuitarEquivalencia(TipoEquivalenciaEnum.Marca, null, "RIVA");
+
+        int quitadas = proveedor.QuitarEquivalenciasHacia(TipoEquivalenciaEnum.Marca, 7);
+
+        quitadas.Should().Be(1);
+        vigente.IsDeleted.Should().BeTrue();
+        ignorada.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public void QuitarEquivalenciasHacia_SinEquivalenciasHaciaElDestino_DevuelveCero()
+    {
+        var proveedor = CrearProveedor();
+        proveedor.AsignarEquivalenciaCategoria(null, "VARIOS", 4);
+
+        int quitadas = proveedor.QuitarEquivalenciasHacia(TipoEquivalenciaEnum.Categoria, 9);
+
+        quitadas.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void QuitarEquivalenciasHacia_DestinoNoPositivo_LanzaDomainException(int idDestino)
+    {
+        var proveedor = CrearProveedor();
+
+        var act = () => proveedor.QuitarEquivalenciasHacia(TipoEquivalenciaEnum.Marca, idDestino);
+
+        act.Should().Throw<DomainException>();
+    }
+
     private static Proveedor CrearProveedor()
     {
         return Proveedor.Crear("Distribuidora Valida", "20111111112");

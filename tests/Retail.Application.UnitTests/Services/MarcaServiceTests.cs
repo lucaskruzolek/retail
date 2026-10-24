@@ -3,9 +3,12 @@ using FluentAssertions;
 using FluentValidation;
 using NSubstitute;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Clasificacion;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.Validators.Articulos;
+using Retail.Application.Validators.Clasificacion;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
@@ -22,7 +25,11 @@ public class MarcaServiceTests
     private const int IdInexistente = 99;
     private const int IdMarcaExistente = 7;
 
+    private const int IdOtraMarca = 8;
+    private const int IdProveedor = 20;
+
     private readonly IRepository<Marca> _repository = Substitute.For<IRepository<Marca>>();
+    private readonly IRepository<Proveedor> _proveedores = Substitute.For<IRepository<Proveedor>>();
     private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
     private readonly IClasificacionQueryService _consultas = Substitute.For<IClasificacionQueryService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
@@ -37,13 +44,29 @@ public class MarcaServiceTests
 
         ConfigurarDuplicados();
 
+        // Sin configurar, NSubstitute devuelve "" para un string: se fija null ("sin conflicto") de forma explícita.
+        _consultas.BuscarMarcaPorAliasAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+        _consultas.BuscarMarcaPorNombreAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+        _consultas.BuscarMarcaPorPrefijoAsync(Arg.Any<string>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+            .Returns((string?)null);
+        _consultas.ListarProveedoresConEquivalenciasHaciaAsync(
+                Arg.Any<TipoEquivalenciaEnum>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<int>());
+
         _servicio = new MarcaService(
             _repository,
+            _proveedores,
             _usuarios,
             _consultas,
             _unitOfWork,
             new CrearMarcaValidator(),
-            new RenombrarMarcaValidator());
+            new RenombrarMarcaValidator(),
+            new AliasMarcaValidator(),
+            new PrefijoMarcaValidator());
     }
 
     private void RegistrarUsuario(int id, RolUsuarioEnum rol)
@@ -310,5 +333,285 @@ public class MarcaServiceTests
             IdMarcaExistente,
             Arg.Any<CancellationToken>(),
             Arg.Is<Expression<Func<Marca, object>>[]>(includes => includes.Length == 2));
+    }
+
+    [Fact]
+    public async Task Baja_ConEquivalenciasDeProveedores_LasQuitaPorLaRaizEnElMismoGuardado()
+    {
+        var entidad = CrearMarcaConId(IdMarcaExistente, "Rivadavia");
+        ConfigurarExistente(entidad);
+        var proveedor = ConfigurarProveedorConEquivalencias();
+        var haciaLaMarca = proveedor.AsignarEquivalenciaMarca("RIVA", IdMarcaExistente);
+        var haciaOtra = proveedor.AsignarEquivalenciaMarca("BIC", IdOtraMarca);
+
+        await _servicio.BajaAsync(IdGerente, IdMarcaExistente);
+
+        haciaLaMarca.IsDeleted.Should().BeTrue();
+        haciaOtra.IsDeleted.Should().BeFalse();
+        entidad.IsDeleted.Should().BeTrue();
+        await _proveedores.Received(1).UpdateAsync(proveedor, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Baja_ConElementoEnUso_NoBuscaEquivalencias()
+    {
+        ConfigurarExistente(CrearMarcaConId(IdMarcaExistente, "Ocupado"));
+        _consultas.ContarArticulosPorMarcaAsync(IdMarcaExistente, Arg.Any<CancellationToken>()).Returns(1);
+
+        var accion = () => _servicio.BajaAsync(IdGerente, IdMarcaExistente);
+
+        await accion.Should().ThrowAsync<ClasificacionEnUsoException>();
+        await _consultas.DidNotReceive().ListarProveedoresConEquivalenciasHaciaAsync(
+            Arg.Any<TipoEquivalenciaEnum>(),
+            Arg.Any<int>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    // ---------- M-38: el nombre de una marca no puede ser alias de otra ----------
+
+    [Fact]
+    public async Task Crear_ConNombreQueEsAliasDeOtraMarca_LanzaDomainExceptionYNoAgrega()
+    {
+        _consultas.BuscarMarcaPorAliasAsync("HUSAR", null, Arg.Any<CancellationToken>()).Returns("Husares");
+
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearMarcaDto { Nombre = "Húsar" });
+
+        await accion.Should().ThrowAsync<DomainException>()
+            .WithMessage("El nombre 'Húsar' ya es un alias de la marca 'Husares'.");
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Marca>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Renombrar_ConNombreQueEsAliasDeOtraMarca_ExcluyeLaPropiaYNoGuarda()
+    {
+        ConfigurarExistente(CrearMarcaConId(IdMarcaExistente, "Viejo"));
+        _consultas.BuscarMarcaPorAliasAsync("HUSAR", IdMarcaExistente, Arg.Any<CancellationToken>()).Returns("Husares");
+
+        var accion = () => _servicio.RenombrarAsync(
+            IdGerente,
+            new RenombrarMarcaDto { IdMarca = IdMarcaExistente, Nombre = "Husar" });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("*alias de la marca 'Husares'*");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ---------- M-39: el motor debe poder distinguir el nombre de las otras marcas ----------
+
+    [Fact]
+    public async Task Crear_ConNombreQueSoloDifiereEnLaEnie_LanzaDomainExceptionYNoAgrega()
+    {
+        // D-8 (Modern_Spanish_CI_AI) deja pasar "Nandu" junto a "Ñandú"; el motor las vería como la misma marca.
+        _consultas.BuscarMarcaPorNombreAsync("NANDU", null, Arg.Any<CancellationToken>()).Returns("Ñandú");
+
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearMarcaDto { Nombre = "Nandu" });
+
+        await accion.Should().ThrowAsync<DomainException>()
+            .WithMessage("Ya existe la marca 'Ñandú': el motor de catalogación no la distingue de 'Nandu'.");
+        await _repository.DidNotReceive().AddAsync(Arg.Any<Marca>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Renombrar_AUnaGrafiaQueElMotorNoDistingue_ExcluyeLaPropiaYGuarda()
+    {
+        // Corregir la grafía de la propia marca ("Nandu" → "Ñandú") no choca consigo misma.
+        var entidad = CrearMarcaConId(IdMarcaExistente, "Nandu");
+        ConfigurarExistente(entidad);
+
+        await _servicio.RenombrarAsync(IdGerente, new RenombrarMarcaDto { IdMarca = IdMarcaExistente, Nombre = "Ñandú" });
+
+        entidad.NombreMarca.Should().Be("Ñandú");
+        await _consultas.Received(1).BuscarMarcaPorNombreAsync("NANDU", IdMarcaExistente, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ---------- Alias ----------
+
+    [Fact]
+    public async Task ListarAlias_DelegaEnElServicioDeConsultas()
+    {
+        IReadOnlyList<AliasListadoDto> esperado =
+            [new AliasListadoDto { IdMarca = IdMarcaExistente, NombreMarca = "Husares", Alias = "HUSAR" }];
+        _consultas.ListarAliasAsync("hus", IdMarcaExistente, Arg.Any<CancellationToken>()).Returns(esperado);
+
+        var resultado = await _servicio.ListarAliasAsync("hus", IdMarcaExistente);
+
+        resultado.Should().BeSameAs(esperado);
+    }
+
+    [Theory]
+    [InlineData(IdCajero)]
+    [InlineData(IdAdministrador)]
+    public async Task AgregarAlias_ConActorSinAutoridad_LanzaOperacionNoAutorizadaSinCargarLaMarca(int idActor)
+    {
+        var accion = () => _servicio.AgregarAliasAsync(idActor, AliasDe("HUSAR"));
+
+        await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _repository.DidNotReceive().GetByIdWithIncludesAsync(
+            Arg.Any<int>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<Expression<Func<Marca, object>>[]>());
+    }
+
+    [Fact]
+    public async Task AgregarAlias_ConDatosValidos_LoAgregaNormalizadoYGuardaUnaVez()
+    {
+        var entidad = CrearMarcaConId(IdMarcaExistente, "Husares");
+        ConfigurarExistente(entidad);
+
+        await _servicio.AgregarAliasAsync(IdEncargado, AliasDe(" húsar "));
+
+        entidad.Alias.Should().ContainSingle(a => a.Alias == "HUSAR");
+        await _repository.Received(1).UpdateAsync(entidad, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AgregarAlias_ConMarcaInexistente_LanzaDomainException()
+    {
+        var accion = () => _servicio.AgregarAliasAsync(IdGerente, AliasDe("HUSAR"));
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("No se encontró la marca con ID 7.");
+    }
+
+    [Fact]
+    public async Task AgregarAlias_QueYaEsDeOtraMarca_LanzaConElNombreDeLaOtraYNoGuarda()
+    {
+        var entidad = CrearMarcaConId(IdMarcaExistente, "Husares");
+        ConfigurarExistente(entidad);
+        _consultas.BuscarMarcaPorAliasAsync("HUSAR", IdMarcaExistente, Arg.Any<CancellationToken>()).Returns("Otra");
+
+        var accion = () => _servicio.AgregarAliasAsync(IdGerente, AliasDe("husar"));
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("El alias 'HUSAR' ya pertenece a la marca 'Otra'.");
+        entidad.Alias.Should().BeEmpty();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AgregarAlias_IgualAlNombreDeOtraMarca_LanzaDomainExceptionYNoGuarda()
+    {
+        ConfigurarExistente(CrearMarcaConId(IdMarcaExistente, "Pinturas Del Sur"));
+        _consultas.BuscarMarcaPorNombreAsync("NANDU", IdMarcaExistente, Arg.Any<CancellationToken>()).Returns("Ñandú");
+
+        var accion = () => _servicio.AgregarAliasAsync(IdGerente, AliasDe("Ñandú"));
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("El alias 'NANDU' es el nombre de la marca 'Ñandú'.");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AgregarAlias_ConCarreraEnElIndiceUnico_TraduceAUnMensajeDeNegocio()
+    {
+        ConfigurarExistente(CrearMarcaConId(IdMarcaExistente, "Husares"));
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .Returns<int>(_ => throw new RestriccionDeUnicidadException());
+
+        var accion = () => _servicio.AgregarAliasAsync(IdGerente, AliasDe("HUSAR"));
+
+        (await accion.Should().ThrowAsync<DomainException>().WithMessage("*alias 'HUSAR' al mismo tiempo*"))
+            .WithInnerException<RestriccionDeUnicidadException>();
+    }
+
+    [Fact]
+    public async Task QuitarAlias_Existente_LoDaDeBajaYGuarda()
+    {
+        var entidad = CrearMarcaConId(IdMarcaExistente, "Husares");
+        var alias = entidad.AgregarAlias("HUSAR");
+        ConfigurarExistente(entidad);
+
+        await _servicio.QuitarAliasAsync(IdGerente, AliasDe("husar"));
+
+        alias.IsDeleted.Should().BeTrue();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task QuitarAlias_Inexistente_LanzaDomainExceptionYNoGuarda()
+    {
+        ConfigurarExistente(CrearMarcaConId(IdMarcaExistente, "Husares"));
+
+        var accion = () => _servicio.QuitarAliasAsync(IdGerente, AliasDe("HUSAR"));
+
+        await accion.Should().ThrowAsync<DomainException>();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ---------- Prefijos ----------
+
+    [Fact]
+    public async Task AgregarPrefijo_ConDatosValidos_LoAgregaYGuardaUnaVez()
+    {
+        var entidad = CrearMarcaConId(IdMarcaExistente, "Filgo");
+        ConfigurarExistente(entidad);
+
+        await _servicio.AgregarPrefijoAsync(IdGerente, PrefijoDe(" 7791234 "));
+
+        entidad.Prefijos.Should().ContainSingle(p => p.Prefijo == "7791234");
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AgregarPrefijo_QueYaEsDeOtraMarca_LanzaConElNombreDeLaOtraYNoGuarda()
+    {
+        ConfigurarExistente(CrearMarcaConId(IdMarcaExistente, "Filgo"));
+        _consultas.BuscarMarcaPorPrefijoAsync("7791234", IdMarcaExistente, Arg.Any<CancellationToken>()).Returns("Bic");
+
+        var accion = () => _servicio.AgregarPrefijoAsync(IdGerente, PrefijoDe("7791234"));
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("El prefijo '7791234' ya pertenece a la marca 'Bic'.");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AgregarPrefijo_Invalido_LanzaValidationExceptionSinCargarLaMarca()
+    {
+        var accion = () => _servicio.AgregarPrefijoAsync(IdGerente, PrefijoDe("2791234"));
+
+        await accion.Should().ThrowAsync<ValidationException>();
+        await _repository.DidNotReceive().GetByIdWithIncludesAsync(
+            Arg.Any<int>(),
+            Arg.Any<CancellationToken>(),
+            Arg.Any<Expression<Func<Marca, object>>[]>());
+    }
+
+    [Fact]
+    public async Task QuitarPrefijo_Existente_LoDaDeBajaYGuarda()
+    {
+        var entidad = CrearMarcaConId(IdMarcaExistente, "Filgo");
+        var prefijo = entidad.AgregarPrefijo("7791234");
+        ConfigurarExistente(entidad);
+
+        await _servicio.QuitarPrefijoAsync(IdGerente, PrefijoDe("7791234"));
+
+        prefijo.IsDeleted.Should().BeTrue();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    private static AliasMarcaDto AliasDe(string alias)
+    {
+        return new AliasMarcaDto { IdMarca = IdMarcaExistente, Alias = alias };
+    }
+
+    private static PrefijoMarcaDto PrefijoDe(string prefijo)
+    {
+        return new PrefijoMarcaDto { IdMarca = IdMarcaExistente, Prefijo = prefijo };
+    }
+
+    private Proveedor ConfigurarProveedorConEquivalencias()
+    {
+        var proveedor = Proveedor.Crear("Distribuidora Valida", "20111111112");
+        proveedor.Id = IdProveedor;
+        _consultas.ListarProveedoresConEquivalenciasHaciaAsync(
+                TipoEquivalenciaEnum.Marca,
+                IdMarcaExistente,
+                Arg.Any<CancellationToken>())
+            .Returns([IdProveedor]);
+        _proveedores.GetByIdWithIncludesAsync(
+                IdProveedor,
+                Arg.Any<CancellationToken>(),
+                Arg.Any<Expression<Func<Proveedor, object>>[]>())
+            .Returns(proveedor);
+        return proveedor;
     }
 }

@@ -30,7 +30,8 @@ public interface ICategoriaService
     Task ActualizarAsync(int idActor, ActualizarCategoriaDto dto, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Baja lógica. Lanza <see cref="OperacionNoAutorizadaException"/> si el actor no tiene autoridad,
+    /// Baja lógica, con los términos y las equivalencias de proveedores que la tienen como destino (M-35).
+    /// Lanza <see cref="OperacionNoAutorizadaException"/> si el actor no tiene autoridad,
     /// <see cref="DomainException"/> si el elemento no existe y <see cref="ClasificacionEnUsoException"/>
     /// si está en uso (D-1).
     /// </summary>

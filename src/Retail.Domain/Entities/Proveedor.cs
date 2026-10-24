@@ -104,6 +104,31 @@ public class Proveedor : BaseEntity, IAggregateRoot
         existente.MarkAsDeleted();
     }
 
+    /// <summary>
+    /// Da de baja las equivalencias vigentes que traducen a la categoría o la marca indicada (M-35): sin su destino
+    /// no tienen sentido, y la próxima importación vuelve a ofrecer esos valores para traducirlos. Las ignoradas no
+    /// apuntan a ningún destino y no se tocan. Devuelve cuántas se dieron de baja.
+    /// </summary>
+    public int QuitarEquivalenciasHacia(TipoEquivalenciaEnum tipo, int idDestino)
+    {
+        if (idDestino <= 0)
+        {
+            throw new DomainException("El destino de las equivalencias no es válido.");
+        }
+
+        var afectadas = _equivalencias
+            .Where(e => !e.IsDeleted && e.Tipo == tipo)
+            .Where(e => (tipo == TipoEquivalenciaEnum.Categoria ? e.IdCategoria : e.IdMarca) == idDestino)
+            .ToList();
+
+        foreach (var equivalencia in afectadas)
+        {
+            equivalencia.MarkAsDeleted();
+        }
+
+        return afectadas.Count;
+    }
+
     private EquivalenciaClasificacion Asignar(
         TipoEquivalenciaEnum tipo,
         string? textoRubro,

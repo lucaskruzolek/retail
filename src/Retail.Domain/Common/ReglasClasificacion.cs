@@ -144,6 +144,11 @@ public static partial class ReglasClasificacion
         return normalizado;
     }
 
+    public static bool EsTextoDeProveedorValido(string? valor)
+    {
+        return !string.IsNullOrWhiteSpace(valor) && NormalizarTexto(valor).Length <= LongitudMaximaTextoDeProveedor;
+    }
+
     /// <summary>
     /// Forma de comparación de un texto de clasificación del proveedor ("Cuadernos T/D" → "CUADERNOS T/D"), que es la
     /// clave de sus equivalencias (M-31): así "Escolar" y "ESCOLAR" en dos planillas son el mismo valor.

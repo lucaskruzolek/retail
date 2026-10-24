@@ -4,6 +4,7 @@ using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Common;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.Application.Services;
@@ -16,6 +17,8 @@ public class CategoriaService : ICategoriaService
 {
     private readonly IRepository<Categoria> _repository;
     private readonly IRepository<Rubro> _rubros;
+    private readonly IRepository<TerminoClasificacion> _terminos;
+    private readonly IRepository<Proveedor> _proveedores;
     private readonly IRepository<Usuario> _usuarios;
     private readonly IClasificacionQueryService _consultas;
     private readonly IUnitOfWork _unitOfWork;
@@ -25,6 +28,8 @@ public class CategoriaService : ICategoriaService
     public CategoriaService(
         IRepository<Categoria> repository,
         IRepository<Rubro> rubros,
+        IRepository<TerminoClasificacion> terminos,
+        IRepository<Proveedor> proveedores,
         IRepository<Usuario> usuarios,
         IClasificacionQueryService consultas,
         IUnitOfWork unitOfWork,
@@ -33,6 +38,8 @@ public class CategoriaService : ICategoriaService
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _rubros = rubros ?? throw new ArgumentNullException(nameof(rubros));
+        _terminos = terminos ?? throw new ArgumentNullException(nameof(terminos));
+        _proveedores = proveedores ?? throw new ArgumentNullException(nameof(proveedores));
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _consultas = consultas ?? throw new ArgumentNullException(nameof(consultas));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
@@ -145,6 +152,23 @@ public class CategoriaService : ICategoriaService
         {
             throw new ClasificacionEnUsoException("la categoría", entidad.NombreCategoria, enUso, "artículos");
         }
+
+        // M-35 y M-27: los términos y las equivalencias que apuntan a la categoría son reglas derivadas que no tienen
+        // sentido sin ella. Se dan de baja en el mismo guardado que la categoría: la baja ocurre completa o no ocurre.
+        // El término pasa a ser desconocido y vuelve a la decisión en bloque de la incorporación (M-26).
+        var terminos = await _terminos.FindAsync(t => t.IdCategoria == idCategoria, includeDeleted: false, cancellationToken);
+        foreach (var termino in terminos)
+        {
+            termino.MarkAsDeleted();
+            await _terminos.UpdateAsync(termino, cancellationToken);
+        }
+
+        await PersistenciaDiccionarios.QuitarEquivalenciasHaciaAsync(
+            _proveedores,
+            _consultas,
+            TipoEquivalenciaEnum.Categoria,
+            idCategoria,
+            cancellationToken);
 
         entidad.MarkAsDeleted();
 

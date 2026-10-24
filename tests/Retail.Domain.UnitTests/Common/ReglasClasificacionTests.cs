@@ -117,4 +117,31 @@ public class ReglasClasificacionTests
 
         accion.Should().Throw<DomainException>();
     }
+
+    [Theory]
+    [InlineData("Cuadernos  t/d")]
+    [InlineData("ESCOLAR")]
+    public void EsTextoDeProveedorValido_TextoValido_CoincideConExigir(string texto)
+    {
+        ReglasClasificacion.EsTextoDeProveedorValido(texto).Should().BeTrue();
+        var accion = () => ReglasClasificacion.ExigirTextoDeProveedor(texto, "texto");
+        accion.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void EsTextoDeProveedorValido_Vacio_DevuelveFalse(string? texto)
+    {
+        ReglasClasificacion.EsTextoDeProveedorValido(texto).Should().BeFalse();
+    }
+
+    [Fact]
+    public void EsTextoDeProveedorValido_SuperaLongitudMaxima_DevuelveFalse()
+    {
+        var texto = new string('A', ReglasClasificacion.LongitudMaximaTextoDeProveedor + 1);
+
+        ReglasClasificacion.EsTextoDeProveedorValido(texto).Should().BeFalse();
+    }
 }
