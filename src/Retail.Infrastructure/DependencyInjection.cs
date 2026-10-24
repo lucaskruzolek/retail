@@ -68,6 +68,11 @@ public static class DependencyInjection
         services.AddScoped<ICatalogoProveedorQueryService, Retail.Infrastructure.Persistence.Services.CatalogoProveedorQueryService>();
         services.AddScoped<IArticuloQueryService, Retail.Infrastructure.Persistence.Services.ArticuloQueryService>();
         services.AddScoped<IClasificacionQueryService, Retail.Infrastructure.Persistence.Services.ClasificacionQueryService>();
+
+        // Motor de catalogación (Track 6.6): diccionarios por lote y, hasta la Fase 5, el modelo del arranque en frío
+        // (M-37). Es Singleton porque no tiene estado.
+        services.AddScoped<IDiccionariosClasificacionQueryService, Retail.Infrastructure.Persistence.Services.DiccionariosClasificacionQueryService>();
+        services.AddSingleton<IModeloCategoria, Retail.Infrastructure.Clasificacion.ModeloCategoriaNoDisponible>();
         services.AddScoped<IClienteQueryService, Retail.Infrastructure.Persistence.Services.ClienteQueryService>();
         services.AddScoped<IReporteQueryService, Retail.Infrastructure.Persistence.Services.ReporteQueryService>();
         services.AddScoped<IEsquemaBaseDatos, Retail.Infrastructure.Persistence.Services.EsquemaBaseDatos>();

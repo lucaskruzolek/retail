@@ -2,7 +2,7 @@
 
 > **Para el agente que lea esto:** este archivo es el punto de entrada para retomar, en una sesión nueva y sin contexto previo, la línea de trabajo de clasificación de artículos: el CRUD de Rubros, Categorías y Marcas (Track 6.5) y el motor de sugerencia de categoría y marca (Track 6.6). Resume el estado, las reglas acordadas con el estudiante y el flujo de trabajo paso a paso. **El diseño completo vive en los documentos de cada track; este archivo no lo repite.**
 >
-> **Estado al 22 de octubre de 2026:** el Track 6.5 está implementado y mergeado (PR #31). Del Track 6.6 están cerradas las Fases 0 a 2 en Python (arranque de datos, experimentos E-1 a E-5 y validación externa con la lista de Piatto; decisiones M-17 a M-26), commiteadas en la rama **`feat/catalogacion-arranque-datos`** (sin publicar). El paso en curso es el **Paso 5**: Fase 3 del Track 6.6 (dominio en C#), **en la misma rama** (decisión del estudiante, 2026-10-22).
+> **Estado al 24 de octubre de 2026:** el Track 6.5 está implementado y mergeado (PR #31). Del Track 6.6 están cerradas las Fases 0 a 2 (Python), la Fase 3 (dominio y persistencia de diccionarios, origen y equivalencias) y la **Fase 4a** (motor de sugerencias, incorporación por ítem y columnas del importador), todo commiteado en la rama **`feat/catalogacion-arranque-datos`** (sin publicar). **El próximo paso es la Fase 4b** del Paso 5: empieza con un plan propio (ver "Punto de partida para la Fase 4b" en la sección 4).
 >
 > **Cómo usarlo:** leer la sección 1 (reglas) y la sección 4 (flujo), ubicar el primer paso sin marcar y cargar **solo** el documento del track que ese paso indica. Al cerrar cada sesión, aplicar el protocolo de la sección 6.
 
@@ -25,25 +25,16 @@ Además de `AGENTS.md` y `CLAUDE.md`, que se cargan solos:
 
 ---
 
-## 2. Estado del Repositorio (17 de octubre de 2026)
+## 2. Estado del Repositorio (24 de octubre de 2026)
 
-* `main` en `f0f488d` (merge del PR #29).
-* Rama **`docs/clasificacion-catalogacion`** (creada desde `main`, sin push):
-  * `c4ac594`: diseño de los Tracks 6.5 y 6.6, este handoff, scripts de `ml/` y `.gitignore` (Paso 0).
-  * `5403a2e`: Paso 1 (ERS, roadmap de la Etapa 6, mapa semántico, estado de los dos tracks y este archivo).
-* Rama **`feat/crud-categorias-marcas`** (apilada sobre la anterior, sin push): `e686bfe` scripts del Paso 2b, `3138cae` Fase 1, `d37e8dc` Fase 2 y `99770fa` Fase 3, `6e2cb19` Fase 4 y `521c2f3` merge de `main` (PR #30, verificado compatible). **Publicada en `origin`**; PR a `main` pendiente de abrir.
-* `wiki/.obsidian/workspace.json` aparece modificado, pero es estado local de Obsidian y no forma parte de este trabajo.
-* Datos locales, no versionados: `ml/datos/lista-mayo-2025.csv`, exportado de `C:\Users\lucas\Proyectos\LISTA MAYO 2025.xls` (14.876 artículos, un solo distribuidor, sin precios).
-
---- | :--- |
-| `docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md` | Plan del Track 6.5 (decisiones D-1 a D-18) |
-| `docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md` | Diseño del Track 6.6 (decisiones M-1 a M-18, experimentos E-1 a E-5) |
-| `docs/auditorias/handoff-clasificacion-y-catalogacion.md` | Este archivo |
-| `ml/README.md`, `ml/scripts/*.py`, `ml/scripts/exportar_lista_xls.ps1` | Scripts de exploración (Python 3, solo biblioteca estándar) |
-| `.gitignore` | Excluye `ml/datos/` y `__pycache__/` |
-
-* `wiki/.obsidian/workspace.json` aparece modificado, pero es estado local de Obsidian y no forma parte de este trabajo.
-* Datos locales, no versionados: `ml/datos/lista-mayo-2025.csv`, exportado de `C:\Users\lucas\Proyectos\LISTA MAYO 2025.xls` (14.876 artículos, un solo distribuidor, sin precios).
+* `origin/main` contiene los PR #31 (Track 6.5, `2112b37`) y #32 (Track 6.3.1, `aef89bb`). El `main` local puede estar desactualizado: no hace falta para este trabajo.
+* Rama **`feat/catalogacion-arranque-datos`** (creada sobre `main` con #31 y #32, **sin publicar**):
+  * Fases 0 a 2 del Track 6.6 (Python): `3ce08ce` … `e2de35f`.
+  * `a9f0d14`: Fase 3 (dominio y persistencia) con dos migraciones: `20261022160838_AgregarDiccionariosYOrigenClasificacion` y `20261022173524_AgregarEquivalenciasYTextosProveedor`.
+  * El commit siguiente a `a9f0d14`: Fase 4a (motor de sugerencias, incorporación por ítem, columnas del importador). Sin migraciones nuevas.
+* **Base local:** después de actualizar la rama, ejecutar `dotnet run --project src/Retail.Cli -- migrar` (las dos migraciones de la Fase 3).
+* `wiki/.obsidian/workspace.json` puede aparecer modificado: es estado local de Obsidian y no forma parte de este trabajo.
+* Datos locales, no versionados: `ml/datos/lista-mayo-2025.csv` (exportado de `C:\Users\lucas\Proyectos\LISTA MAYO 2025.xls`, 14.876 artículos, un solo distribuidor, sin precios), `ml/datos/lista-piatto-1.csv` (validación externa) y los diccionarios consolidados (`taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv`).
 
 ---
 
@@ -131,8 +122,21 @@ Formatos definitivos: `taxonomia.csv` (`rubro;categoria`), `terminos.csv` (`term
 
 * [x] **Coordinar con Pablo** (hecho el 2026-10-17, regla 8) los cambios en `Proveedor`, `CatalogoProveedor`, `MapeoColumnasDto` e `IncorporarCatalogoArticulosDto` (regla 8).
 * [ ] Fases 3 a 7 según el documento del track, con la misma forma de trabajo del Paso 2.
-  * **Fase 3 en curso (2026-10-22):** plan aprobado con M-27 a M-30 (sección 12 del track): términos como agregado propio, regla GS1 completa del GTIN-14 (también corregida en `comun.py`), persistencia dentro de la Fase 3 (paso 3.3) y `IdCategoria`/`IdMarca` encapsulados. Pasos: 3.1 reglas puras y enum ✅ (`ReglasCodigoBarras`, `ReglasClasificacion`, `OrigenClasificacionEnum`, 590 tests de dominio en verde); 3.2 entidades ✅ (`TerminoClasificacion` con `EsAmbiguo` derivado de `IdCategoria == null`, `AliasMarca`, `PrefijoEanMarca`, métodos de `Marca` y baja en cascada de sus diccionarios, `Articulo.Clasificar` y origen en `ActualizarDatos`; `ProveedorService` y 6 archivos de tests migrados; Dominio 625 y Aplicación 694 tests en verde). 3.3 persistencia ✅ (configuraciones de `TERMINOS_CLASIFICACION`, `ALIAS_MARCAS` y `PREFIJOS_EAN_MARCAS`, origen en `ARTICULOS`, migración `20261022160838_AgregarDiccionariosYOrigenClasificacion` con relleno `Manual`; `MarcaService.BajaAsync` carga alias y prefijos; un test detectó que `NULL IN (...)` hacía pasar el `CHECK` y se corrigió con `IS NOT NULL`). Verificación Release: 2.293 tests y `dotnet format` en verde. 3b con plan aprobado (M-31 a M-33): 3b.1 dominio ✅ (`EquivalenciaClasificacion` hija de `Proveedor` con `EsIgnorada` derivada, `AsignarEquivalencia…` crea o reasigna, `QuitarEquivalencia`; `CatalogoProveedor.ActualizarPrecio` recibe rubro, categoría y marca del proveedor y valida todo antes de asignar; Dominio 643 y Aplicación 695 tests en verde). 3b.2 persistencia ✅ (migración `20261022173524_AgregarEquivalenciasYTextosProveedor`: `EQUIVALENCIAS_CLASIFICACION` con `CK_EQUIVALENCIAS_CLASIFICACION_Destino` e índice único filtrado por proveedor y valor, y las tres columnas de texto en `CATALOGOS_PROVEEDORES`; `#pragma warning disable CA1861` como en las migraciones anteriores con índices compuestos). **Fase 3 cerrada:** verificación Release con 2.321 tests y `dotnet format` en verde. **Siguiente: Fase 4** (Aplicación) de la sección 9 del track, con su propio plan: puertos y `ClasificacionService` por niveles, contrato de incorporación por ítem (R-7), columnas opcionales del importador (M-33), baja de categorías y marcas usadas por términos o equivalencias (M-27). **Tras actualizar la rama, ejecutar `Retail.Cli migrar`** (dos migraciones nuevas). Queda para la Fase 4: que la baja de una categoría dé de baja sus términos (M-27). **Tras actualizar la rama, ejecutar `Retail.Cli migrar`.** (mapeo, migración, `CHECK` e índices) y 3b (equivalencias de `Proveedor`, M-12/M-13). La corrección del GTIN-14 cambia 56 de 14.876 filas de la lista del arranque (55 pasan a válidas); los diccionarios consolidados no se regeneraron.
-  * **Punto de partida original (2026-10-22):** nada de C# está empezado. Siguiente: Fase 3 (dominio) de la sección 8 del Track 6.6. Antes de proponer el plan, leer `docs/MAPA_DEL_PROYECTO.md`, `docs/SISTEMA_DE_PERSISTENCIA.md` y las secciones 4, 7, 8 y 12 del track (las decisiones M-17 a M-26 cambiaron el diseño original: marca por texto primero y prefijos con pureza ≥ 0,6 filtrados al consolidar, sin umbral `κ`, bloques de término desconocido de 5 o más productos antes que el modelo, con propuesta precargada).
+  * **Fase 3 ✅ (2026-10-22, commit `a9f0d14`):** decisiones M-27 a M-33. Términos como agregado propio (`TerminoClasificacion`, `EsAmbiguo` derivado de `IdCategoria == null`); alias y prefijos EAN hijos de `Marca` con baja en cascada; regla GS1 completa del GTIN-14 en `ReglasCodigoBarras` (también corregida en `comun.py`: cambia 56 de 14.876 filas; los diccionarios consolidados no se regeneraron); origen de la clasificación en `Articulo` con `IdCategoria`/`IdMarca` encapsulados (`Clasificar`); Fase 3b: `EquivalenciaClasificacion` hija de `Proveedor` (asignar crea o reasigna; sin destino = ignorada) y textos del proveedor en `CatalogoProveedor`. Dos migraciones; un test detectó que `NULL IN (...)` dejaba pasar un `CHECK` (corregido y documentado en `SISTEMA_DE_PERSISTENCIA.md`).
+  * **Fase 4a ✅ (2026-10-24, commit siguiente a `a9f0d14`):** decisiones M-34 a M-37. Verificación Release: 2.417 tests (Dominio 681, Aplicación 746, App 541, Integración 449) y `dotnet format` en verde.
+    * 4a.1: reglas de descripción en `ReglasClasificacion` (`LimpiarDescripcion`, `PrimeraPalabra`, `TerminoDeDescripcion`, `PalabrasParaMarca`) con paridad contra Python (`ml/scripts/reglas_paridad.py` → `ml/paridad/reglas-texto-referencia.json`, enlazado en `Retail.Domain.UnitTests.csproj`).
+    * 4a.2: puertos `IModeloCategoria` e `IDiccionariosClasificacionQueryService`; DTOs en `DTOs/Clasificacion/`.
+    * 4a.3: `ClasificacionService.SugerirAsync` (niveles de la sección 4 en el orden de M-14), con apoyos internos `ItemAClasificar`, `DiccionariosDelLote` y `BuscadorDeMarcas` en `Services/Clasificacion/`.
+    * 4a.4: contrato de incorporación por ítem (R-7 resuelto): categoría y marca confirmadas y sugeridas, `SinMarcaConfirmada`; el origen lo deriva `ReglasOrigenClasificacion` (Dominio). El modal de incorporación solo se adaptó: aplica su categoría y marca a cada ítem sin sugerencia (la pantalla nueva es de la Fase 6).
+    * 4a.5: columnas opcionales de rubro, categoría y marca en el importador; si la planilla no tiene la columna se importa sin el dato (mismo criterio que el código de barras). `CatalogoProveedor.ActualizarClasificacionDelProveedor` para ítems nuevos, porque `ActualizarPrecio` rechaza costo 0 y el parser lo acepta.
+    * 4a.6: `DiccionariosClasificacionQueryService`, `ModeloCategoriaNoDisponible` (Singleton, arranque en frío) y registro en DI de `ClasificacionService`.
+  * **Punto de partida para la Fase 4b (siguiente sesión):** nada de la 4b está empezado. Empezar por un **plan** (CLAUDE.md §1) y esperar la aprobación. Antes de proponerlo, leer `docs/MAPA_DEL_PROYECTO.md` (filas de Aplicación y de Rubros, Categorías y Marcas), la sección 12 del track (M-27, M-35, M-16 y M-26) y los servicios existentes `CategoriaService`, `MarcaService`, `ProveedorService` y `AutorizacionClasificacion`. Contenido acordado (M-36):
+    1. **Comandos de diccionarios** con autorización D-5 (`Usuario.PuedeAdministrarClasificacion`, Gerente o Encargado) y FluentValidation: registrar o reasignar un término y marcarlo ambiguo (lo usa la decisión en bloque, M-16); agregar y quitar alias y prefijos de una marca; asignar y quitar equivalencias de un proveedor.
+    2. **Unicidad entre agregados** antes de guardar: un término en una sola categoría; un alias en una sola marca y distinto del nombre de **otra** marca (en forma de comparación; el nombre se guarda con su grafía y collation `Modern_Spanish_CI_AI`); un prefijo en una sola marca. Ante una carrera, el índice único lanza `RestriccionDeUnicidadException` (ya existe en Aplicación) y hay que traducirla a un mensaje claro.
+    3. **Bajas en cascada (M-35):** `CategoriaService.BajaAsync` da de baja los términos y las equivalencias que apuntan a la categoría, en el mismo `SaveChanges`; `MarcaService.BajaAsync` hace lo mismo con las equivalencias de marca (alias y prefijos ya caen por el dominio). Los artículos siguen bloqueando la baja (D-1).
+    4. **Consultas para las pestañas de la Fase 6** (términos, alias, prefijos y equivalencias), con push-down a SQL (Ley 8).
+    * **Por decidir en el plan:** si los comandos van en los servicios existentes por agregado (`MarcaService` para alias y prefijos, `ProveedorService` para equivalencias) y en uno nuevo para términos, o en un servicio único de diccionarios (D-10 del Track 6.5 eligió "un servicio por tipo").
+    * **Fuera de la 4b:** la semilla de diccionarios en `Retail.Cli` (M-15) y las pantallas son de la Fase 6; el modelo entrenado, de la Fase 5. Para la revisión cruzada con Pablo queda la observación sobre la persistencia de `CatalogoProveedor` (sección 8.1 del track).
   * **Configuración del modelo para C#:** `ml/scripts/modelo.py` (regresión logística C = 100, n-gramas de caracteres 3-4 `char_wb`, sin tokens sin letras, τ = 0,94) y `ml/scripts/vectorizador.py`. Referencia de paridad versionada en `ml/paridad/vectores-referencia.json`.
   * **Datos (no versionados, en `ml/datos/`):** diccionarios para la semilla de `Retail.Cli` (M-15): `taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv`. `oro.csv` es el conjunto de desarrollo (M-20). **`oro-prueba-a-etiquetar.csv` está sellado hasta la Fase 7: no abrirlo ni mostrar su contenido.**
   * **Opcional, antes de la Fase 7:** medir la precisión real en Piatto con una muestra de unas 200 sugerencias del modelo (método M-19).
@@ -173,3 +177,9 @@ Antes de que el contexto se agote, o al terminar una fase:
 | `.cs` nuevos en LF | Regla 10 |
 | Cargar los dos documentos de track completos agota el contexto | Sección 3: solo el track en curso |
 | La consola de Windows muestra mal la `Ñ` en la salida de los scripts | Ejecutar con `$env:PYTHONIOENCODING = "utf-8"`; los datos están bien |
+| Una propiedad o navegación nueva en una entidad mapeada deja en rojo los tests de integración hasta su migración | Esperado (M-29, como D-19): hacer dominio y persistencia en pasos consecutivos y no cerrar la fase en el medio |
+| Registrar en DI un servicio cuyos puertos no tienen implementación | `ValidateOnBuild` hace fallar el arranque y `InyeccionDependenciasTests`: registrar el servicio junto con la infraestructura de sus puertos |
+| `CA1861` (arreglos constantes como argumento) rompe la compilación | En tests, usar campos `static readonly` o aserciones sin arreglos; en migraciones generadas con índices compuestos, `#pragma warning disable CA1861` como las anteriores |
+| Un `CHECK` con `IN (...)` sobre una columna nullable acepta `NULL` (`UNKNOWN`) | Agregar `IS NOT NULL` explícito y probar el `CHECK` con SQL directo (Ley 7 de persistencia) |
+| `python -I` no encuentra `comun.py` | Los scripts propios de `ml/scripts` se corren desde esa carpeta y sin `-I` (es código del repositorio, no un archivo descargado) |
+| El script de verificación marca éxito aunque `dotnet format` falle | Capturar el código de salida del comando y no el de un `tail` en la misma tubería |

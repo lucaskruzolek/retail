@@ -127,6 +127,31 @@ public class CatalogoProveedorDomainTests
         item.FechaActualizacion.Should().Be(fechaAnterior);
     }
 
+    [Fact]
+    public void ActualizarClasificacionDelProveedor_ItemNuevo_RegistraLosTextosSinTocarElPrecio()
+    {
+        var item = CrearItem();
+
+        item.ActualizarClasificacionDelProveedor("Escolar", null, " Rivadavia ");
+
+        item.RubroProveedor.Should().Be("Escolar");
+        item.CategoriaProveedor.Should().BeNull();
+        item.MarcaProveedor.Should().Be("Rivadavia");
+        item.CostoReposicion.Should().Be(100m);
+    }
+
+    [Fact]
+    public void ActualizarClasificacionDelProveedor_UnTextoDemasiadoLargo_LanzaDomainExceptionSinAsignarLosOtros()
+    {
+        var item = CrearItem();
+
+        var act = () => item.ActualizarClasificacionDelProveedor("Escolar", "Cuadernos", new string('A', 101));
+
+        act.Should().Throw<DomainException>();
+        item.RubroProveedor.Should().BeNull();
+        item.CategoriaProveedor.Should().BeNull();
+    }
+
     private static CatalogoProveedor CrearItem()
     {
         return new CatalogoProveedor

@@ -101,11 +101,15 @@ public class IncorporarArticulosModalViewModelTests
         var dto = _sut.ObtenerDto();
 
         // Assert
+        // La categoría y la marca del modal se aplican a cada ítem, sin sugerencia (Track 6.6, R-7).
         dto.Should().NotBeNull();
-        dto.IdCategoria.Should().Be(3);
-        dto.IdMarca.Should().Be(7);
-        dto.Items.Should().HaveCount(1);
-        dto.Items[0].IdCatalogo.Should().Be(5);
-        dto.Items[0].PorcentajeGanancia.Should().Be(30m);
+        dto.Items.Should().ContainSingle();
+        dto.Items[0].Should().BeEquivalentTo(new ItemIncorporacionArticuloDto
+        {
+            IdCatalogo = 5,
+            PorcentajeGanancia = 30m,
+            IdCategoria = 3,
+            IdMarca = 7
+        });
     }
 }

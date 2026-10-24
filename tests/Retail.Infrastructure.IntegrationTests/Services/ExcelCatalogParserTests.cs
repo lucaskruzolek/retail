@@ -284,6 +284,38 @@ public class ExcelCatalogParserTests : IDisposable
     }
 
     [Fact]
+    public async Task ParsearCatalogoAsync_ConColumnasDeClasificacionMapeadas_LeeRubroCategoriaYMarca()
+    {
+        // Act: la celda vacía de marca queda nula (Track 6.6, M-12)
+        var resultado = await ParsearCsvAsync(
+            "CODIGO,DETALLE,PRECIO,RUBRO,FAMILIA,MARCA\n" +
+            "A1,Cuaderno uno,100,Escolar,Cuadernos T/D,Rivadavia\n" +
+            "A2,Cuaderno dos,100,Escolar,Cuadernos T/D,\n",
+            Mapeo(".csv") with { ColumnaRubro = "Rubro", ColumnaCategoria = "familia", ColumnaMarca = "MARCA" });
+
+        // Assert
+        resultado.Items.Select(i => (i.RubroProveedor, i.CategoriaProveedor, i.MarcaProveedor)).Should().Equal(
+            ("Escolar", "Cuadernos T/D", "Rivadavia"),
+            ("Escolar", "Cuadernos T/D", null));
+    }
+
+    [Fact]
+    public async Task ParsearCatalogoAsync_ConColumnasDeClasificacionInexistentesONoMapeadas_ImportaSinEsosDatos()
+    {
+        // Act: el mapeo pide RUBRO (la planilla no lo tiene) y no mapea MARCA (la planilla sí la tiene)
+        var resultado = await ParsearCsvAsync(
+            "CODIGO,DETALLE,PRECIO,MARCA\n" +
+            "A1,Libro uno,100,Kapelusz\n",
+            Mapeo(".csv") with { ColumnaRubro = "RUBRO" });
+
+        // Assert
+        var item = resultado.Items.Should().ContainSingle().Subject;
+        item.RubroProveedor.Should().BeNull();
+        item.CategoriaProveedor.Should().BeNull();
+        item.MarcaProveedor.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ParsearCatalogoAsync_ConFilaEncabezadoPosteriorAlFinDeLaPlanilla_LanzaInvalidDataException()
     {
         // Act

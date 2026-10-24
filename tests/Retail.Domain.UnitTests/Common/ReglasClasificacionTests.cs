@@ -26,6 +26,35 @@ public class ReglasClasificacionTests
     }
 
     [Theory]
+    [InlineData("**Cuaderno  tapa dura", "CUADERNO TAPA DURA")]
+    [InlineData("  * lápiz negro ", "LÁPIZ NEGRO")]
+    [InlineData("***", "")]
+    public void LimpiarDescripcion_ConPrefijosYEspacios_QuitaElControlYConservaLasTildes(string descripcion, string esperado)
+    {
+        ReglasClasificacion.LimpiarDescripcion(descripcion).Should().Be(esperado);
+    }
+
+    [Fact]
+    public void TerminoDeDescripcion_PrimeraPalabraConTilde_DevuelveLaFormaDeComparacion()
+    {
+        ReglasClasificacion.TerminoDeDescripcion("**Lápiz negro HB").Should().Be("LAPIZ");
+    }
+
+    [Fact]
+    public void PalabrasParaMarca_MarcaPegadaConBarraYPuntoFinal_LasSeparaSinElTermino()
+    {
+        ReglasClasificacion.PalabrasParaMarca("LAPIZ NEGRO KOBY/DATA.").Should().Equal("NEGRO", "KOBY", "DATA");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("MOCHILA")]
+    public void PalabrasParaMarca_SinPalabrasDespuesDelTermino_DevuelveVacio(string descripcion)
+    {
+        ReglasClasificacion.PalabrasParaMarca(descripcion).Should().BeEmpty();
+    }
+
+    [Theory]
     [InlineData("mochila", "MOCHILA")]
     [InlineData(" Cuadér ", "CUADER")]
     [InlineData("100", "100")]

@@ -58,13 +58,9 @@ public class CatalogoProveedor : BaseEntity
             throw new ArgumentOutOfRangeException(nameof(nuevoCosto), "El costo de reposición debe ser estrictamente positivo.");
         }
 
-        var rubro = NormalizarTextoDeClasificacion(rubroProveedor, "rubro del proveedor");
-        var categoria = NormalizarTextoDeClasificacion(categoriaProveedor, "categoría del proveedor");
-        var marca = NormalizarTextoDeClasificacion(marcaProveedor, "marca del proveedor");
+        var textos = NormalizarTextosDeClasificacion(rubroProveedor, categoriaProveedor, marcaProveedor);
 
-        RubroProveedor = rubro ?? RubroProveedor;
-        CategoriaProveedor = categoria ?? CategoriaProveedor;
-        MarcaProveedor = marca ?? MarcaProveedor;
+        AsignarTextosDeClasificacion(textos);
         CostoReposicion = nuevoCosto;
         FechaActualizacion = DateTime.UtcNow;
 
@@ -77,6 +73,34 @@ public class CatalogoProveedor : BaseEntity
         {
             CodigoBarras = codigoBarras.Trim();
         }
+    }
+
+    /// <summary>
+    /// Registra el rubro, la categoría y la marca que trae la planilla para un ítem nuevo, que todavía no pasa por
+    /// <see cref="ActualizarPrecio"/> (Track 6.6, M-12). Un texto vacío conserva el valor anterior; los tres se validan
+    /// antes de asignar alguno.
+    /// </summary>
+    public void ActualizarClasificacionDelProveedor(string? rubroProveedor, string? categoriaProveedor, string? marcaProveedor)
+    {
+        AsignarTextosDeClasificacion(NormalizarTextosDeClasificacion(rubroProveedor, categoriaProveedor, marcaProveedor));
+    }
+
+    private static (string? Rubro, string? Categoria, string? Marca) NormalizarTextosDeClasificacion(
+        string? rubroProveedor,
+        string? categoriaProveedor,
+        string? marcaProveedor)
+    {
+        return (
+            NormalizarTextoDeClasificacion(rubroProveedor, "rubro del proveedor"),
+            NormalizarTextoDeClasificacion(categoriaProveedor, "categoría del proveedor"),
+            NormalizarTextoDeClasificacion(marcaProveedor, "marca del proveedor"));
+    }
+
+    private void AsignarTextosDeClasificacion((string? Rubro, string? Categoria, string? Marca) textos)
+    {
+        RubroProveedor = textos.Rubro ?? RubroProveedor;
+        CategoriaProveedor = textos.Categoria ?? CategoriaProveedor;
+        MarcaProveedor = textos.Marca ?? MarcaProveedor;
     }
 
     // Se guarda como lo escribe el proveedor (solo espacios normalizados): la forma de comparación vive en la

@@ -131,19 +131,19 @@ public partial class IncorporarArticulosModalViewModel : ObservableObject
 
     public IncorporarCatalogoArticulosDto ObtenerDto()
     {
+        // La categoría y la marca elegidas para todo el modal se aplican a cada ítem, sin sugerencia (origen Manual).
+        // La pantalla con sugerencias por ítem llega en la Fase 6 del Track 6.6.
         var itemsDto = Items.Select(i => new ItemIncorporacionArticuloDto
         {
             IdCatalogo = i.IdCatalogo,
-            PorcentajeGanancia = i.PorcentajeGanancia
+            PorcentajeGanancia = i.PorcentajeGanancia,
+            IdCategoria = IdCategoriaDestino,
+            IdMarca = IdMarcaDestino
         }).ToList();
 
         return new IncorporarCatalogoArticulosDto
         {
-            Items = itemsDto,
-            IdsCatalogo = Items.Select(i => i.IdCatalogo).ToList(),
-            IdCategoria = IdCategoriaDestino,
-            IdMarca = IdMarcaDestino,
-            PorcentajeGananciaSugerido = PorcentajeGananciaGlobal
+            Items = itemsDto
         };
     }
 }

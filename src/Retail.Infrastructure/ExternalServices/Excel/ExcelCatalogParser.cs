@@ -116,19 +116,24 @@ public class ExcelCatalogParser : IExcelCatalogParser
                 $"Columnas encontradas: {encontradas}.");
         }
 
-        // El código de barras es opcional: si la columna no existe en la planilla, se importa sin él.
-        string? letraCodigoBarras = null;
-        if (!string.IsNullOrWhiteSpace(mapeo.ColumnaCodigoBarras) &&
-            letraPorNombre.TryGetValue(NormalizarNombreColumna(mapeo.ColumnaCodigoBarras), out var letraBarras))
+        // El código de barras y la clasificación del proveedor (Track 6.6, M-12) son opcionales: si la columna no
+        // existe en la planilla, se importa sin ese dato.
+        string? BuscarOpcional(string? nombreColumna)
         {
-            letraCodigoBarras = letraBarras;
+            return !string.IsNullOrWhiteSpace(nombreColumna) &&
+                letraPorNombre.TryGetValue(NormalizarNombreColumna(nombreColumna), out var letra)
+                ? letra
+                : null;
         }
 
         return new ColumnasPlanilla(
             BuscarObligatoria(mapeo.ColumnaCodigo),
             BuscarObligatoria(mapeo.ColumnaDescripcion),
             BuscarObligatoria(mapeo.ColumnaPrecioCosto),
-            letraCodigoBarras);
+            BuscarOpcional(mapeo.ColumnaCodigoBarras),
+            BuscarOpcional(mapeo.ColumnaRubro),
+            BuscarOpcional(mapeo.ColumnaCategoria),
+            BuscarOpcional(mapeo.ColumnaMarca));
     }
 
     /// <summary>
@@ -181,21 +186,31 @@ public class ExcelCatalogParser : IExcelCatalogParser
             return;
         }
 
-        string? codigoBarras = null;
-        if (columnas.CodigoBarras is not null)
-        {
-            string barras = LeerTexto(row, columnas.CodigoBarras);
-            codigoBarras = barras.Length > 0 ? barras : null;
-        }
-
         items.Add(new ItemCatalogoImportadoDto
         {
             NumeroFila = numeroFila,
             CodigoProveedor = codigo,
-            CodigoBarras = codigoBarras,
+            CodigoBarras = LeerOpcional(row, columnas.CodigoBarras),
             Descripcion = descripcion,
-            PrecioCosto = Math.Round(precioCosto, 2)
+            PrecioCosto = Math.Round(precioCosto, 2),
+            RubroProveedor = LeerOpcional(row, columnas.Rubro),
+            CategoriaProveedor = LeerOpcional(row, columnas.Categoria),
+            MarcaProveedor = LeerOpcional(row, columnas.Marca)
         });
+    }
+
+    /// <summary>
+    /// Valor de una columna opcional: nulo si no está mapeada o si la celda está vacía.
+    /// </summary>
+    private static string? LeerOpcional(IDictionary<string, object?> row, string? letra)
+    {
+        if (letra is null)
+        {
+            return null;
+        }
+
+        string texto = LeerTexto(row, letra);
+        return texto.Length > 0 ? texto : null;
     }
 
     /// <summary>
@@ -251,5 +266,12 @@ public class ExcelCatalogParser : IExcelCatalogParser
     }
 
     /// <summary>Letras de columna (A, B, C…) donde la planilla tiene cada dato mapeado.</summary>
-    private sealed record ColumnasPlanilla(string Codigo, string Descripcion, string PrecioCosto, string? CodigoBarras);
+    private sealed record ColumnasPlanilla(
+        string Codigo,
+        string Descripcion,
+        string PrecioCosto,
+        string? CodigoBarras,
+        string? Rubro,
+        string? Categoria,
+        string? Marca);
 }

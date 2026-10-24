@@ -52,6 +52,55 @@ public static partial class ReglasClasificacion
         return Espacios().Replace(sinMarcas.ToString(), " ").Trim().ToUpperInvariant();
     }
 
+    /// <summary>
+    /// Descripción del proveedor sin los prefijos de control (<c>*</c>, <c>**</c>), con los espacios colapsados y en
+    /// mayúsculas (<c>limpiar_descripcion</c> de <c>comun.py</c>). Conserva las tildes: es el texto que se muestra y del
+    /// que se derivan el término y las palabras de marca.
+    /// </summary>
+    /// <remarks>
+    /// Como en Python, solo quita los asteriscos del comienzo: "* * CUADERNO" queda "* CUADERNO" y su primera palabra
+    /// es "*". No ocurre en la lista del arranque (0 de 14.876 descripciones) y se conserva por paridad.
+    /// </remarks>
+    public static string LimpiarDescripcion(string descripcion)
+    {
+        ArgumentNullException.ThrowIfNull(descripcion);
+        var sinPrefijo = descripcion.Trim().TrimStart('*').Trim();
+        return Espacios().Replace(sinPrefijo, " ").ToUpperInvariant();
+    }
+
+    /// <summary>
+    /// Primera palabra de la descripción limpia, el sustantivo núcleo aproximado (<c>primera_palabra</c>); vacía si la
+    /// descripción no tiene texto.
+    /// </summary>
+    public static string PrimeraPalabra(string descripcion)
+    {
+        var limpia = LimpiarDescripcion(descripcion);
+        return limpia.Length == 0 ? string.Empty : limpia.Split(' ')[0];
+    }
+
+    /// <summary>
+    /// Término de la descripción en forma de comparación: la clave con que se busca en la tabla de términos.
+    /// </summary>
+    public static string TerminoDeDescripcion(string descripcion)
+    {
+        return NormalizarTexto(PrimeraPalabra(descripcion));
+    }
+
+    /// <summary>
+    /// Palabras de la descripción donde se buscan las marcas (<c>marcas_en</c>): en forma de comparación, sin la primera
+    /// (es el término), sin el punto final y separadas también por la barra, porque el proveedor escribe la marca
+    /// pegada a la línea ("KOBY/DATA").
+    /// </summary>
+    public static IReadOnlyList<string> PalabrasParaMarca(string descripcion)
+    {
+        var palabras = NormalizarTexto(LimpiarDescripcion(descripcion)).Split(' ');
+        return palabras
+            .Skip(1)
+            .SelectMany(palabra => palabra.TrimEnd('.').Split('/'))
+            .Where(parte => parte.Length > 0)
+            .ToList();
+    }
+
     public static bool EsTerminoValido(string? valor)
     {
         return !string.IsNullOrWhiteSpace(valor) && EsFormaCanonicaDeTerminoValida(NormalizarTexto(valor));

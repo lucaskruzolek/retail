@@ -101,7 +101,8 @@ ml/.venv/Scripts/python ml/scripts/e1_e2_clasificador.py e2      # E-2: vectoriz
 ml/.venv/Scripts/python ml/scripts/e1_e2_clasificador.py e1 --ngramas-logistica 3,4 --ngramas-centroide 3,5 --numericos-centroide
 ml/.venv/Scripts/python ml/scripts/e3_e4_umbrales.py           # E-3 y E-4 (C = 100, n-gramas 3-4)
 python ml/scripts/e5_marca.py                                    # E-5
-ml/.venv/Scripts/python ml/scripts/vectores_paridad.py          # referencia para C#
+ml/.venv/Scripts/python ml/scripts/vectores_paridad.py          # referencia para C# (vectorizador)
+cd ml/scripts && python reglas_paridad.py --salida ../paridad/reglas-texto-referencia.json   # referencia para C# (reglas de texto)
 ```
 
 | Archivo | Responsabilidad |
@@ -114,6 +115,7 @@ ml/.venv/Scripts/python ml/scripts/vectores_paridad.py          # referencia par
 | `e5_marca.py` | E-5: texto o prefijo primero y pureza mínima del prefijo (solo biblioteca estándar). |
 | `diagnosticar_lista_externa.py` | Validación externa sin etiquetas sobre la lista de otro proveedor (sección 11.2): caminos, cobertura, abstención en kiosco, precisión con abreviaturas y tamaño de los grupos de M-26. |
 | `vectores_paridad.py` | Escribe `ml/paridad/vectores-referencia.json` (**versionado**): descripciones inventadas con su texto preparado, n-gramas, IDF y vector TF-IDF, para el test de paridad de C# (sección 10). |
+| `reglas_paridad.py` | Escribe `ml/paridad/reglas-texto-referencia.json` (**versionado**): descripciones y códigos inventados con su descripción limpia, primera palabra, término, palabras de marca y GTIN normalizado, para `ParidadReglasTextoTests` (Fase 4a; solo biblioteca estándar). |
 
 Los resultados crudos quedan en `ml/datos/resultados/` (no versionado); los que deciden se registran en la sección 11
 del Track 6.6.

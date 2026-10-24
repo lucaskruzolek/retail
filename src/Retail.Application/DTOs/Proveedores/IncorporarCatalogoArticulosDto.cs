@@ -1,19 +1,11 @@
 namespace Retail.Application.DTOs.Proveedores;
 
 /// <summary>
-/// Parámetros para incorporar uno o varios ítems del catálogo de un proveedor a la tabla propia de Artículos.
-/// Permite categorías y marcas nulables para artículos no clasificados y porcentajes de ganancia individuales por ítem.
+/// Ítems del catálogo de un proveedor a incorporar a la tabla propia de Artículos, cada uno con su margen y su
+/// clasificación (Track 6.6, R-7). La clasificación es por ítem: la pantalla puede aplicar la misma a varios, pero el
+/// contrato no tiene una categoría ni una marca "del lote".
 /// </summary>
 public record class IncorporarCatalogoArticulosDto
 {
     public IReadOnlyList<ItemIncorporacionArticuloDto> Items { get; init; } = Array.Empty<ItemIncorporacionArticuloDto>();
-
-    public IReadOnlyList<int>? IdsCatalogo { get; init; }
-
-    public int? IdCategoria { get; init; }
-
-    public int? IdMarca { get; init; }
-
-    public decimal PorcentajeGananciaSugerido { get; init; } = 40m;
 }
-

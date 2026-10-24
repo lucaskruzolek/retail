@@ -221,7 +221,13 @@ public class ProveedorService : IProveedorService
                 {
                     if (mapCatalogos.TryGetValue(item.CodigoProveedor, out var catalogoExistente))
                     {
-                        catalogoExistente.ActualizarPrecio(item.PrecioCosto, item.Descripcion, item.CodigoBarras);
+                        catalogoExistente.ActualizarPrecio(
+                            item.PrecioCosto,
+                            item.Descripcion,
+                            item.CodigoBarras,
+                            item.RubroProveedor,
+                            item.CategoriaProveedor,
+                            item.MarcaProveedor);
                         await _catalogoQueryService.ActualizarAsync(catalogoExistente, cancellationToken);
 
                         foreach (var articuloAsociado in articulosPorCatalogo[catalogoExistente.Id])
@@ -263,6 +269,12 @@ public class ProveedorService : IProveedorService
                             CostoReposicion = item.PrecioCosto,
                             FechaActualizacion = DateTime.UtcNow
                         };
+
+                        // Antes de agregarlo: si un texto es inválido, la fila se informa y el ítem no se crea.
+                        nuevoCatalogo.ActualizarClasificacionDelProveedor(
+                            item.RubroProveedor,
+                            item.CategoriaProveedor,
+                            item.MarcaProveedor);
                         await _catalogoQueryService.AgregarAsync(nuevoCatalogo, cancellationToken);
                         mapCatalogos[item.CodigoProveedor] = nuevoCatalogo;
                         nuevosRegistros++;
@@ -364,16 +376,11 @@ public class ProveedorService : IProveedorService
     {
         await _incorporarArticulosValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
-        var ids = dto.Items.Count > 0
-            ? dto.Items.Select(i => i.IdCatalogo).ToList()
-            : dto.IdsCatalogo ?? Array.Empty<int>();
-
-        ids = ids.Distinct().ToList();
+        // El validador garantiza que cada ítem del catálogo figura una sola vez.
+        var itemPorCatalogo = dto.Items.ToDictionary(i => i.IdCatalogo);
+        var ids = itemPorCatalogo.Keys.ToList();
 
         var catalogos = await _catalogoQueryService.ObtenerPorIdsAsync(ids, cancellationToken);
-        var itemDict = dto.Items
-            .GroupBy(i => i.IdCatalogo)
-            .ToDictionary(g => g.Key, g => g.First());
 
         var yaVinculados = await _articuloRepository.FindAsync(
             a => a.IdCatalogoProveedor != null && ids.Contains(a.IdCatalogoProveedor.Value),
@@ -393,9 +400,8 @@ public class ProveedorService : IProveedorService
                 continue;
             }
 
-            var porcentajeGanancia = itemDict.TryGetValue(catalogo.Id, out var itemDto)
-                ? itemDto.PorcentajeGanancia
-                : dto.PorcentajeGananciaSugerido;
+            var item = itemPorCatalogo[catalogo.Id];
+            var porcentajeGanancia = item.PorcentajeGanancia;
 
             var precioVenta = Articulo.CalcularPrecioVenta(catalogo.CostoReposicion, porcentajeGanancia);
 
@@ -411,13 +417,17 @@ public class ProveedorService : IProveedorService
                 StockMinimo = 5
             };
 
-            // La categoría y la marca del lote las elige el usuario sin sugerencia; la que no eligió queda sin
-            // clasificar. La Fase 4 del Track 6.6 las lleva por ítem, con la sugerencia aceptada o corregida.
+            // El origen lo deriva el servidor comparando lo confirmado con lo sugerido (M-34). Sin categoría, el
+            // artículo queda sin clasificar; sin marca, solo si la persona no confirmó "Sin marca" (D-18).
             nuevoArticulo.Clasificar(
-                dto.IdCategoria,
-                dto.IdCategoria.HasValue ? OrigenClasificacionEnum.Manual : null,
-                dto.IdMarca,
-                dto.IdMarca.HasValue ? OrigenClasificacionEnum.Manual : null);
+                item.IdCategoria,
+                item.IdCategoria.HasValue
+                    ? ReglasOrigenClasificacion.Derivar(item.IdCategoriaSugerida, item.IdCategoria)
+                    : null,
+                item.IdMarca,
+                item.IdMarca.HasValue || item.SinMarcaConfirmada
+                    ? ReglasOrigenClasificacion.Derivar(item.IdMarcaSugerida, item.IdMarca)
+                    : null);
 
             await _articuloRepository.AddAsync(nuevoArticulo, cancellationToken);
             incorporados++;

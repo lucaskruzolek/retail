@@ -11,6 +11,11 @@
     <ProjectReference Include="..\..\src\Retail.Domain\Retail.Domain.csproj" />
   </ItemGroup>
 
+  <!-- Casos de paridad que genera ml/scripts/reglas_paridad.py (Track 6.6, sección 10): una sola fuente de verdad. -->
+  <ItemGroup>
+    <None Include="..\..\ml\paridad\reglas-texto-referencia.json" Link="Paridad\reglas-texto-referencia.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
