@@ -1353,8 +1353,10 @@ public class AppSmokeTests
         WpfTestHelper.Run(() =>
         {
             var proveedorServiceMock = Substitute.For<IProveedorService>();
+            var compraServiceMock = Substitute.For<ICompraService>();
+            var sessionMock = Substitute.For<ICurrentUserSession>();
             var loggerMock = Substitute.For<ILogger<ComprasViewModel>>();
-            var viewModel = new ComprasViewModel(proveedorServiceMock, loggerMock);
+            var viewModel = new ComprasViewModel(proveedorServiceMock, compraServiceMock, sessionMock, loggerMock);
 
             try
             {
@@ -1391,8 +1393,10 @@ public class AppSmokeTests
         WpfTestHelper.Run(() =>
         {
             var proveedorServiceMock = Substitute.For<IProveedorService>();
+            var compraServiceMock = Substitute.For<ICompraService>();
+            var sessionMock = Substitute.For<ICurrentUserSession>();
             var loggerMock = Substitute.For<ILogger<ComprasViewModel>>();
-            var viewModel = new ComprasViewModel(proveedorServiceMock, loggerMock);
+            var viewModel = new ComprasViewModel(proveedorServiceMock, compraServiceMock, sessionMock, loggerMock);
 
             var view = new ComprasView(viewModel);
 

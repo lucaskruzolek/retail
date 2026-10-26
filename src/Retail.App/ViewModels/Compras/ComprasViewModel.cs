@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
+using Retail.App.Services;
+using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 
@@ -17,6 +19,8 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     private readonly CargaSerializada _cargaProveedores = new();
 
     private readonly IProveedorService _proveedorService;
+    private readonly ICompraService _compraService;
+    private readonly ICurrentUserSession _currentUserSession;
     private readonly ILogger<ComprasViewModel> _logger;
 
     public ObservableCollection<ProveedorDto> Proveedores { get; } = new();
@@ -27,6 +31,12 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private string _numeroComprobante = string.Empty;
+
+    [ObservableProperty]
+    private string _tipoComprobante = "FACTURA";
+
+    [ObservableProperty]
+    private DateTime _fechaEmision = DateTime.Today;
 
     [ObservableProperty]
     private bool _isBusy;
@@ -44,9 +54,13 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
 
     public ComprasViewModel(
         IProveedorService proveedorService,
+        ICompraService compraService,
+        ICurrentUserSession currentUserSession,
         ILogger<ComprasViewModel> logger)
     {
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
+        _compraService = compraService ?? throw new ArgumentNullException(nameof(compraService));
+        _currentUserSession = currentUserSession ?? throw new ArgumentNullException(nameof(currentUserSession));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -102,12 +116,50 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
 
         IsBusy = true;
         MensajeError = null;
+        MensajeEstado = null;
+
+        // Guard: la sesión podría haberse cerrado entre la carga de la pantalla y el click de confirmar.
+        var idUsuario = _currentUserSession.IdUsuario;
+        if (idUsuario is null)
+        {
+            MensajeError = "No hay una sesión de usuario activa. Por favor, inicie sesión nuevamente.";
+            IsBusy = false;
+            return;
+        }
 
         try
         {
-            // Lógica de transacción ACID e invocación a ICompraService (Siguiente fase)
-            await Task.Delay(500); // Simulación temporal de procesamiento
-            MensajeEstado = $"Compra Nro. {NumeroComprobante} registrada exitosamente.";
+            var dto = new CrearCompraDto
+            {
+                IdProveedor = ProveedorSeleccionado.IdProveedor,
+                IdUsuario = idUsuario.Value,
+                TipoComprobante = TipoComprobante.Trim(),
+                NumeroComprobante = NumeroComprobante.Trim(),
+                FechaEmision = FechaEmision.ToUniversalTime(),
+                Items = DetalleCompraItems
+                    .Select(i => new DetalleCompraDto
+                    {
+                        IdArticulo = i.IdArticulo,
+                        Cantidad = i.Cantidad,
+                        CostoUnitario = i.CostoUnitario,
+                    })
+                    .ToList()
+                    .AsReadOnly(),
+            };
+
+            // Ley 4: toda operación pesada se ejecuta fuera del UI Dispatcher.
+            var resultado = await Task.Run(() => _compraService.RegistrarCompraAsync(dto));
+
+            LimpiarFormulario();
+
+            MensajeEstado = $"Compra {resultado.TipoComprobante} Nro. {resultado.NumeroComprobante} registrada. " +
+                            $"Total: {resultado.Total:C2}. " +
+                            $"Artículos actualizados: {resultado.ArticulosActualizados}.";
+        }
+        catch (FluentValidation.ValidationException ex)
+        {
+            MensajeError = string.Join(" | ", ex.Errors.Select(e => e.ErrorMessage));
+            _logger.LogWarning("Validación fallida al registrar compra: {Errores}", MensajeError);
         }
         catch (Exception ex)
         {
@@ -118,6 +170,15 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         {
             IsBusy = false;
         }
+    }
+
+    private void LimpiarFormulario()
+    {
+        DetalleCompraItems.Clear();
+        NumeroComprobante = string.Empty;
+        ProveedorSeleccionado = null;
+        FechaEmision = DateTime.Today;
+        OnPropertyChanged(nameof(TotalCompra));
     }
 
     /// <summary>

@@ -64,6 +64,10 @@ public class CompraConfiguration : IEntityTypeConfiguration<Compra>
 
         builder.Ignore(c => c.IsDeleted);
 
+        // La colección de renglones vive en el backing field privado _detalles del agregado.
+        builder.Navigation(c => c.Detalles)
+            .HasField("_detalles");
+
         builder.HasOne(c => c.Proveedor)
             .WithMany(p => p.Compras)
             .HasForeignKey(c => c.IdProveedor)
