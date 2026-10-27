@@ -51,9 +51,22 @@
 * **Dominio:** Agregado `Compra` (`IAggregateRoot`), `DetalleCompra`. Regla de negocio central `RF-19`: `Articulo.ActualizarCostoYRecalcularPrecio(nuevoCosto)` con fórmula de markup.
 * **Persistencia:** `CompraConfiguration.cs` y `DetalleCompraConfiguration.cs` en EF Core.
 * **Testing:** Pruebas unitarias de recálculo de markup; pruebas de integración de compras validando nuevo stock y nuevo precio en una sola transacción; tests de `ComprasView`.
+* **Replanteo (Track 4.3):** a partir de una sugerencia docente, la compra puede importarse desde un pedido emitido y ajustarse a la factura, y se agregan las correcciones de revisión del backend (`a1d7be9`). Plan de trabajo en [`etapa-4-track-4.3-paquete-pablo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-4-track-4.3-paquete-pablo.md) (fases P1 y P2).
+
+---
+
+### Track 4.3: Abastecimiento — Fuentes Múltiples, Pedidos y Compras desde Pedido
+**Responsables:** Lucas Kruzolek (fuentes múltiples, comparador y pedidos) y Pablo Fernandez (compras desde pedido)  
+**Estado:** 🚧 Diseño (PR-0)
+
+Sugerencia docente: comparar costos del mismo artículo entre distribuidores, armar pedidos desde el catálogo y registrar la compra a partir del pedido ajustándola a la factura (`RF-05`, `RF-07`, `RF-19`, `RF-28`, `RF-29`, `IU-12`).
+
+* **Documento rector** (decisiones, contratos de frontera, propiedad de archivos y orden de integración): [`etapa-4-track-4.3-abastecimiento.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-4-track-4.3-abastecimiento.md).
+* **Paquete de Lucas** (L1 agregado `Pedido`, L2 `PedidosView` y faltantes, L3 fuentes múltiples, L4 comparador): [`etapa-4-track-4.3-paquete-lucas.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-4-track-4.3-paquete-lucas.md).
+* **Paquete de Pablo** (P1 puesta al día del 4.2, P2 compra desde pedido): [`etapa-4-track-4.3-paquete-pablo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-4-track-4.3-paquete-pablo.md).
 
 ---
 
 ## Prevención de Sobreescritura y Criterio de Aceptación
-* **Prevención de Sobreescritura:** Lucas es el dueño exclusivo del POS y el modal de cobro. Pablo es el dueño exclusivo de la pantalla de Compras. En la entidad compartida `Articulo`, Lucas solo invoca `DescontarStock` y Pablo invoca `IncrementarStock` y `ActualizarCostoYRecalcularPrecio`, manteniendo los métodos estrictamente encapsulados.
+* **Prevención de Sobreescritura:** Lucas es el dueño exclusivo del POS y el modal de cobro. Pablo es el dueño exclusivo de la pantalla de Compras. En la entidad compartida `Articulo`, Lucas solo invoca `DescontarStock` y Pablo invoca `IncrementarStock` y `ActualizarCostoYRecalcularPrecio`, manteniendo los métodos estrictamente encapsulados. Para el Track 4.3 rige la tabla de propiedad de archivos de su documento rector (§6): `Pedido` y el catálogo son de Lucas; `Compra` y su pantalla, de Pablo.
 * **Criterio de Aceptación Integrado:** El POS permite vender ágilmente con teclado y lector de barras en $< 50\text{ ms}$, descontando stock e imprimiendo el ticket; al ingresar una compra de distribuidor, el stock se incrementa y el catálogo recalcula inmediatamente el precio de venta sugerido protegiendo el margen comercial.

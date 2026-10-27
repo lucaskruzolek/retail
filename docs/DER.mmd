@@ -34,6 +34,13 @@ erDiagram
     COMPRAS ||--|{ DETALLE_COMPRAS : "posee"
     ARTICULOS ||--o{ DETALLE_COMPRAS : "es_adquirido"
 
+    PROVEEDORES ||--o{ PEDIDOS : "recibe"
+    USUARIOS ||--o{ PEDIDOS : "arma"
+    PEDIDOS ||--|{ DETALLE_PEDIDOS : "contiene"
+    ARTICULOS ||--o{ DETALLE_PEDIDOS : "se_pide"
+    CATALOGOS_PROVEEDORES ||--o{ DETALLE_PEDIDOS : "se_pide_como"
+    PEDIDOS |o--o| COMPRAS : "se_recibe_con"
+
     USUARIOS {
         int id_usuario PK
         string nombre_usuario UK
@@ -242,6 +249,7 @@ erDiagram
         decimal subtotal
         decimal total
         string estado
+        int id_pedido_origen "FK nullable, UK (filtered) (RF-29)"
         datetime deleted_at
     }
 
@@ -252,6 +260,31 @@ erDiagram
         int cantidad
         decimal costo_unitario
         decimal subtotal_item
+    }
+
+    PEDIDOS {
+        int id_pedido PK
+        int id_proveedor FK "UK (filtered): un Borrador por proveedor"
+        int id_usuario FK
+        int estado "Borrador, Emitido, Recibido, Cancelado"
+        datetime fecha_creacion
+        datetime fecha_emision "nullable"
+        datetime fecha_cierre "nullable"
+        string observaciones "nullable"
+        string motivo_cancelacion "nullable"
+        rowversion row_version "concurrencia optimista"
+        datetime deleted_at
+    }
+
+    DETALLE_PEDIDOS {
+        int id_detalle_pedido PK
+        int id_pedido FK "UK composite con id_catalogo_proveedor"
+        int id_articulo FK
+        int id_catalogo_proveedor FK
+        string codigo_proveedor "foto al agregar"
+        string descripcion "foto al agregar"
+        int cantidad ">= 1"
+        decimal costo_pactado "foto al agregar, > 0"
     }
 
     REGISTROS_BACKUP {
