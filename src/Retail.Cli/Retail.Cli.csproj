@@ -18,6 +18,11 @@
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
   </ItemGroup>
 
+  <!-- Semilla de diccionarios de clasificación (Track 6.6, M-59): copia revisada de los consolidados de ml/datos/. -->
+  <ItemGroup>
+    <None Include="Semilla\*.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- Misma configuración que la aplicación (archivo enlazado, no copiado): la cadena de conexión existe en un solo lugar. -->
   <ItemGroup>
     <None Include="..\Retail.App\appsettings.json" Link="appsettings.json">

@@ -13,7 +13,7 @@
 | Paso | Contenido | Estado |
 | :--- | :--- | :---: |
 | 6.0 | Confirmar las propuestas P6-1 a P6-9 | ✅ 2026-10-27, todas aprobadas (M-59 a M-67) |
-| 6.1 | Semilla de diccionarios en `Retail.Cli` (M-15, RF-23) | ⏳ |
+| 6.1 | Semilla de diccionarios en `Retail.Cli` (M-15, RF-23) | ✅ 2026-10-27 (S-1 a S-5; 30 tests) |
 | 6.2 | Comando atómico "crear categoría y registrar término" (Aplicación) | ⏳ |
 | 6.3 | Diálogo de clasificación: secciones Términos, Alias y Prefijos | ⏳ |
 | 6.4 | Equivalencias por proveedor | ⏳ |
@@ -62,8 +62,15 @@
 * **Lectura de los CSV:** `;` como separador, UTF-8 **con o sin BOM** (`ml/datos/pares.csv` lo trae, guardado desde Excel; sin contemplarlo, el encabezado se lee como `termino` precedido por el carácter U+FEFF), con un test que lo cubra; rechazar con mensaje claro una fila mal formada (número de línea), sin cargar nada (transacción).
 * **Pares (Fase 5, M-55, M-58):** `pares.csv` (`termino;segunda_palabra;categoria`, 102 pares validados, copia de `ml/datos/pares.csv`) se carga **después** de los términos y a través de `TerminoClasificacion.AsignarPar`: por M-52 (P-3) el término tiene que existir y ser ambiguo, así que un par cuyo término no lo es se informa como conflicto y no se carga.
 * **Resultado en consola:** cuántos rubros, categorías, marcas, términos, pares, alias y prefijos se crearon, cuántos ya existían y la lista de conflictos omitidos.
-* **Tests** (`Retail.Infrastructure.IntegrationTests`, base real): carga sobre base vacía; segunda corrida no crea nada (idempotencia); una categoría renombrada por el comercio no se duplica ni se pisa; un alias en conflicto se informa y el resto se carga; una fila inválida no deja nada a medias. Los tests usan CSV **inventados** en una carpeta temporal, no la semilla real.
+* **Tests** (`Retail.Infrastructure.IntegrationTests`, base real): carga sobre base vacía; segunda corrida no crea nada (idempotencia); una categoría renombrada por el comercio no se pisa y sus términos la siguen apuntando (la de la semilla vuelve a crearse vacía: S-5); un alias en conflicto se informa y el resto se carga; una fila inválida no deja nada a medias. Los tests usan CSV **inventados** en una carpeta temporal, no la semilla real.
 * **ERS:** `RF-23` ya menciona "la carga de la taxonomía semilla y de los diccionarios"; no requiere cambios.
+* **Decisiones del paso (2026-10-27):**
+  * **S-1:** un defecto del archivo (formato, texto que el Dominio rechaza, duplicado, referencia interna rota) es un **error de la semilla**: `InvalidDataException` con archivo y línea, y no se carga nada. Lo que choca con lo que el comercio cargó es un **conflicto**: la fila se omite y se informa.
+  * **S-2:** lo dado de baja cuenta como existente y no se vuelve a crear (se lee con `IgnoreQueryFilters`; los índices únicos filtrados permitirían el duplicado).
+  * **S-3:** una categoría que ya existe en otro rubro se usa tal cual y se avisa (D-8: única en el catálogo).
+  * **S-4:** un test carga la semilla versionada sobre una base vacía y exige cero conflictos. Al escribirlo detectó que el lector rechazaba los ambiguos con categoría: `consolidar_diccionarios.py` la conserva como orientación (7 términos). El lector la descarta (M-27).
+  * **S-5:** la semilla identifica las categorías por su nombre: si el comercio renombra una, una nueva corrida vuelve a crear la de la semilla, vacía. Se acepta (opción A): darla de baja impide que vuelva (S-2). Descartados un identificador de origen (YAGNI) y no crear en rubros con categorías.
+* **Implementado:** lector, semillero, resultado y comando (ver `MAPA_DEL_PROYECTO.md`); semilla en `src/Retail.Cli/Semilla/`, enlazada también en `Retail.Infrastructure.IntegrationTests` para S-4.
 
 ### 6.2 — Comando atómico de bloque (Aplicación)
 
