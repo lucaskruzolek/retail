@@ -1,4 +1,5 @@
 using FluentValidation;
+using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
@@ -31,29 +32,36 @@ public class TerminoClasificacionService : ITerminoClasificacionService
 
     private readonly IRepository<TerminoClasificacion> _repository;
     private readonly IRepository<Categoria> _categorias;
+    private readonly IRepository<Rubro> _rubros;
     private readonly IRepository<Usuario> _usuarios;
     private readonly IClasificacionQueryService _consultas;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<RegistrarTerminoDto> _registrarValidator;
+    private readonly IValidator<RegistrarTerminoConCategoriaNuevaDto> _registrarConCategoriaNuevaValidator;
     private readonly IValidator<AsignarParesDto> _asignarParesValidator;
     private readonly IValidator<QuitarParDto> _quitarParValidator;
 
     public TerminoClasificacionService(
         IRepository<TerminoClasificacion> repository,
         IRepository<Categoria> categorias,
+        IRepository<Rubro> rubros,
         IRepository<Usuario> usuarios,
         IClasificacionQueryService consultas,
         IUnitOfWork unitOfWork,
         IValidator<RegistrarTerminoDto> registrarValidator,
+        IValidator<RegistrarTerminoConCategoriaNuevaDto> registrarConCategoriaNuevaValidator,
         IValidator<AsignarParesDto> asignarParesValidator,
         IValidator<QuitarParDto> quitarParValidator)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _categorias = categorias ?? throw new ArgumentNullException(nameof(categorias));
+        _rubros = rubros ?? throw new ArgumentNullException(nameof(rubros));
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _consultas = consultas ?? throw new ArgumentNullException(nameof(consultas));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _registrarValidator = registrarValidator ?? throw new ArgumentNullException(nameof(registrarValidator));
+        _registrarConCategoriaNuevaValidator = registrarConCategoriaNuevaValidator
+            ?? throw new ArgumentNullException(nameof(registrarConCategoriaNuevaValidator));
         _asignarParesValidator = asignarParesValidator ?? throw new ArgumentNullException(nameof(asignarParesValidator));
         _quitarParValidator = quitarParValidator ?? throw new ArgumentNullException(nameof(quitarParValidator));
     }
@@ -83,24 +91,83 @@ public class TerminoClasificacionService : ITerminoClasificacionService
             }
         }
 
-        // Unicidad entre agregados: cada término es su propia raíz, así que "un término en una sola categoría" se
-        // resuelve buscándolo antes de crear. Si existe, se reasigna (como la equivalencia, M-32).
-        string termino = ReglasClasificacion.ExigirTermino(dto.Termino);
+        string termino = await RegistrarEnMemoriaAsync(dto.Termino, dto.IdCategoria, cancellationToken);
+        await PersistenciaDiccionarios.GuardarAsync(_unitOfWork, MensajeTerminoSimultaneo(termino), cancellationToken);
+    }
+
+    public async Task<CategoriaDto> RegistrarConCategoriaNuevaAsync(
+        int idActor,
+        RegistrarTerminoConCategoriaNuevaDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        await AutorizacionClasificacion.ExigirAsync(_usuarios, idActor, cancellationToken);
+        await _registrarConCategoriaNuevaValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        // T-1: el término guarda el Id de su categoría (un agregado referencia a otro por Id, no por objeto) y la
+        // categoría nueva recién lo tiene después de guardarse. Son dos guardados, así que la atomicidad la da una
+        // transacción explícita: si el término falla, la categoría tampoco queda.
+        await _unitOfWork.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            var (categoria, rubro) = await AltaCategoria.PrepararAsync(
+                _categorias,
+                _rubros,
+                dto.NombreCategoria,
+                dto.IdRubro,
+                cancellationToken);
+            await PersistenciaDiccionarios.GuardarAsync(
+                _unitOfWork,
+                $"Otro usuario creó la categoría '{categoria.NombreCategoria}' al mismo tiempo. Actualice la lista y " +
+                "vuelva a intentarlo.",
+                cancellationToken);
+
+            string termino = await RegistrarEnMemoriaAsync(dto.Termino, categoria.Id, cancellationToken);
+            await PersistenciaDiccionarios.GuardarAsync(_unitOfWork, MensajeTerminoSimultaneo(termino), cancellationToken);
+            await _unitOfWork.CommitTransactionAsync(cancellationToken);
+
+            return new CategoriaDto
+            {
+                IdCategoria = categoria.Id,
+                NombreCategoria = categoria.NombreCategoria,
+                IdRubro = rubro.Id,
+                NombreRubro = rubro.NombreRubro,
+                CantidadEnUso = 0
+            };
+        }
+        catch
+        {
+            // Sin cancelación: deshacer no debe depender de que el usuario no haya cancelado. El contexto vive
+            // mientras dura la pantalla (D-15): la categoría ya guardada en la transacción sigue en el Change
+            // Tracker aunque la base la haya revertido, y sin descartarla se guardaría con la próxima operación.
+            await _unitOfWork.RollbackTransactionAsync(CancellationToken.None);
+            _unitOfWork.DescartarCambios();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Crea el término o reasigna el existente, sin guardar; devuelve su forma de comparación. Unicidad entre
+    /// agregados: cada término es su propia raíz, así que "un término en una sola categoría" se resuelve buscándolo
+    /// antes de crear. Si existe, se reasigna (como la equivalencia, M-32).
+    /// </summary>
+    private async Task<string> RegistrarEnMemoriaAsync(string texto, int? idCategoria, CancellationToken cancellationToken)
+    {
+        string termino = ReglasClasificacion.ExigirTermino(texto);
         var existentes = await _repository.FindAsync(x => x.Termino == termino, includeDeleted: false, cancellationToken);
         var entidad = existentes.Count > 0 ? existentes[0] : null;
 
         if (entidad is null)
         {
-            entidad = dto.IdCategoria.HasValue
-                ? TerminoClasificacion.CrearConCategoria(termino, dto.IdCategoria.Value)
+            entidad = idCategoria.HasValue
+                ? TerminoClasificacion.CrearConCategoria(termino, idCategoria.Value)
                 : TerminoClasificacion.CrearAmbiguo(termino);
             await _repository.AddAsync(entidad, cancellationToken);
         }
         else
         {
-            if (dto.IdCategoria.HasValue)
+            if (idCategoria.HasValue)
             {
-                entidad.AsignarCategoria(dto.IdCategoria.Value);
+                entidad.AsignarCategoria(idCategoria.Value);
             }
             else
             {
@@ -110,10 +177,12 @@ public class TerminoClasificacionService : ITerminoClasificacionService
             await _repository.UpdateAsync(entidad, cancellationToken);
         }
 
-        await PersistenciaDiccionarios.GuardarAsync(
-            _unitOfWork,
-            $"Otro usuario registró el término '{termino}' al mismo tiempo. Actualice la lista y vuelva a intentarlo.",
-            cancellationToken);
+        return termino;
+    }
+
+    private static string MensajeTerminoSimultaneo(string termino)
+    {
+        return $"Otro usuario registró el término '{termino}' al mismo tiempo. Actualice la lista y vuelva a intentarlo.";
     }
 
     public async Task BajaAsync(int idActor, int idTermino, CancellationToken cancellationToken = default)

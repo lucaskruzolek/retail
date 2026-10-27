@@ -58,24 +58,13 @@ public class CategoriaService : ICategoriaService
         await AutorizacionClasificacion.ExigirAsync(_usuarios, idActor, cancellationToken);
         await _crearValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
-        var rubro = await ObtenerRubroActivoAsync(dto.IdRubro, cancellationToken);
-
-        // La comparación sin distinguir mayúsculas ni acentos la resuelve la colación de SQL Server (R-3) y el
-        // índice único filtrado es la garantía final ante dos altas simultáneas (D-4).
-        string nombre = ReglasTexto.NormalizarNombreClasificacion(dto.Nombre);
-        var existentes = await _repository.FindAsync(
-            x => x.NombreCategoria == nombre,
-            includeDeleted: false,
+        var (entidad, rubro) = await AltaCategoria.PrepararAsync(
+            _repository,
+            _rubros,
+            dto.Nombre,
+            dto.IdRubro,
             cancellationToken);
 
-        if (existentes.Count > 0)
-        {
-            throw new DomainException($"Ya existe una categoría activa con el nombre '{nombre}'.");
-        }
-
-        var entidad = Categoria.Crear(nombre, rubro.Id);
-
-        await _repository.AddAsync(entidad, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new CategoriaDto
@@ -99,7 +88,7 @@ public class CategoriaService : ICategoriaService
             throw new DomainException($"No se encontró la categoría con ID {dto.IdCategoria}.");
         }
 
-        var rubro = await ObtenerRubroActivoAsync(dto.IdRubro, cancellationToken);
+        var rubro = await AltaCategoria.ObtenerRubroActivoAsync(_rubros, dto.IdRubro, cancellationToken);
 
         // Se excluye el propio registro: renombrar al mismo nombre, o cambiar solo mayúsculas o acentos del
         // propio nombre, está permitido (D-8). El índice único filtrado respalda la regla (D-4).
@@ -119,19 +108,6 @@ public class CategoriaService : ICategoriaService
 
         await _repository.UpdateAsync(entidad, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
-    }
-
-    // D-23: el rubro de destino debe existir y estar activo; la FK de la base es la garantía final, pero este
-    // chequeo da un mensaje claro en lugar de un error de integridad referencial.
-    private async Task<Rubro> ObtenerRubroActivoAsync(int idRubro, CancellationToken cancellationToken)
-    {
-        var rubro = await _rubros.GetByIdAsync(idRubro, includeDeleted: false, cancellationToken);
-        if (rubro == null)
-        {
-            throw new DomainException($"No se encontró el rubro con ID {idRubro}.");
-        }
-
-        return rubro;
     }
 
     public async Task BajaAsync(int idActor, int idCategoria, CancellationToken cancellationToken = default)

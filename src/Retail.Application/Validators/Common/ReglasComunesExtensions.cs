@@ -130,6 +130,19 @@ public static class ReglasComunesExtensions
     }
 
     /// <param name="campo">Nombre del campo con su artículo, tal como aparece en el mensaje.</param>
+    /// <summary>
+    /// Término de la tabla de términos del motor de catalogación (Track 6.6, M-16): una sola palabra.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> TerminoDeClasificacion<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("Complete el término.")
+            .Must(valor => ReglasClasificacion.EsTerminoValido(valor))
+            .WithMessage(
+                $"Revise el término: debe ser una sola palabra, sin espacios, de hasta " +
+                $"{ReglasClasificacion.LongitudMaximaTermino} caracteres.");
+    }
+
     public static IRuleBuilderOptions<T, string> NombreClasificacion<T>(this IRuleBuilder<T, string> ruleBuilder, string campo)
     {
         return ruleBuilder

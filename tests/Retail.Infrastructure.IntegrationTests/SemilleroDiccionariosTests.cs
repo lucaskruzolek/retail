@@ -269,26 +269,4 @@ public class SemilleroDiccionariosTests : IAsyncLifetime, IDisposable
             .Options;
         return new RetailDbContext(options);
     }
-
-    /// <summary>
-    /// Simula una falla de la base en el guardado número <c>numeroDeGuardado</c> de una carga.
-    /// </summary>
-    private sealed class FallaEnElGuardado(int numeroDeGuardado) : SaveChangesInterceptor
-    {
-        private int _guardados;
-
-        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
-            DbContextEventData eventData,
-            InterceptionResult<int> result,
-            CancellationToken cancellationToken = default)
-        {
-            _guardados++;
-            if (_guardados == numeroDeGuardado)
-            {
-                throw new InvalidOperationException("Falla simulada de la base.");
-            }
-
-            return base.SavingChangesAsync(eventData, result, cancellationToken);
-        }
-    }
 }

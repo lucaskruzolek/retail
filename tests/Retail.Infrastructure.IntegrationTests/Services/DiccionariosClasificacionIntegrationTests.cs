@@ -322,6 +322,48 @@ public class DiccionariosClasificacionIntegrationTests : IAsyncLifetime, IDispos
         (await servicio.ListarParesPropuestosAsync(null)).Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_Exito_LaCategoriaYElTerminoQuedanEnLaBase()
+    {
+        var rubro = await GuardarAsync(Rubro.Crear("Juguetería"));
+
+        var categoria = await CrearTerminoService().RegistrarConCategoriaNuevaAsync(
+            _idGerente,
+            new RegistrarTerminoConCategoriaNuevaDto { Termino = "PELOTERO", NombreCategoria = "Pelotas", IdRubro = rubro.Id });
+
+        await using var lectura = new RetailDbContext(_options);
+        var guardada = await lectura.Categorias.SingleAsync(c => c.NombreCategoria == "Pelotas");
+        guardada.Id.Should().Be(categoria.IdCategoria);
+        guardada.IdRubro.Should().Be(rubro.Id);
+        (await lectura.TerminosClasificacion.SingleAsync(t => t.Termino == "PELOTERO")).IdCategoria
+            .Should().Be(guardada.Id);
+    }
+
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_FallaAlGuardarElTermino_NoQuedaLaCategoriaYElContextoSigueUsable()
+    {
+        var rubro = await GuardarAsync(Rubro.Crear("Juguetería"));
+        // La categoría se guarda (primer guardado, dentro de la transacción) y la base falla al guardar el término.
+        await using var contexto = new RetailDbContext(
+            new DbContextOptionsBuilder<RetailDbContext>(_options).AddInterceptors(new FallaEnElGuardado(2)).Options);
+        var servicio = CrearTerminoService(contexto);
+
+        var accion = () => servicio.RegistrarConCategoriaNuevaAsync(
+            _idGerente,
+            new RegistrarTerminoConCategoriaNuevaDto { Termino = "PELOTERO", NombreCategoria = "Pelotas", IdRubro = rubro.Id });
+
+        await accion.Should().ThrowAsync<InvalidOperationException>();
+
+        // El mismo contexto (vive lo que dura la pantalla, D-15) se usa para la operación siguiente: si la categoría
+        // revertida hubiera quedado en el Change Tracker, se guardaría acá.
+        await servicio.RegistrarAsync(_idGerente, new RegistrarTerminoDto { Termino = "GLOBO" });
+
+        await using var lectura = new RetailDbContext(_options);
+        (await lectura.Categorias.AnyAsync(c => c.NombreCategoria == "Pelotas")).Should().BeFalse();
+        (await lectura.TerminosClasificacion.AnyAsync(t => t.Termino == "PELOTERO")).Should().BeFalse();
+        (await lectura.TerminosClasificacion.AnyAsync(t => t.Termino == "GLOBO")).Should().BeTrue();
+    }
+
     private async Task GuardarArticulosAsync(int idCategoria, params string[] descripciones)
     {
         foreach (var descripcion in descripciones)
@@ -369,15 +411,18 @@ public class DiccionariosClasificacionIntegrationTests : IAsyncLifetime, IDispos
             new PrefijoMarcaValidator());
     }
 
-    private TerminoClasificacionService CrearTerminoService()
+    private TerminoClasificacionService CrearTerminoService(RetailDbContext? contexto = null)
     {
+        contexto ??= _context;
         return new TerminoClasificacionService(
-            new Repository<TerminoClasificacion>(_context),
-            new Repository<Categoria>(_context),
-            new Repository<Usuario>(_context),
-            new ClasificacionQueryService(_context),
-            new UnitOfWork(_context),
+            new Repository<TerminoClasificacion>(contexto),
+            new Repository<Categoria>(contexto),
+            new Repository<Rubro>(contexto),
+            new Repository<Usuario>(contexto),
+            new ClasificacionQueryService(contexto),
+            new UnitOfWork(contexto),
             new RegistrarTerminoValidator(),
+            new RegistrarTerminoConCategoriaNuevaValidator(),
             new AsignarParesValidator(),
             new QuitarParValidator());
     }

@@ -14,7 +14,7 @@
 | :--- | :--- | :---: |
 | 6.0 | Confirmar las propuestas P6-1 a P6-9 | ✅ 2026-10-27, todas aprobadas (M-59 a M-67) |
 | 6.1 | Semilla de diccionarios en `Retail.Cli` (M-15, RF-23) | ✅ 2026-10-27 (S-1 a S-5; 30 tests) |
-| 6.2 | Comando atómico "crear categoría y registrar término" (Aplicación) | ⏳ |
+| 6.2 | Comando atómico "crear categoría y registrar término" (Aplicación) | ✅ 2026-10-27 (T-1 a T-4) |
 | 6.3 | Diálogo de clasificación: secciones Términos, Alias y Prefijos | ⏳ |
 | 6.4 | Equivalencias por proveedor | ⏳ |
 | 6.5 | Modal de incorporación: sugerencias por ítem | ⏳ |
@@ -76,6 +76,12 @@
 
 * `ITerminoClasificacionService.RegistrarConCategoriaNuevaAsync(int idActor, RegistrarTerminoConCategoriaNuevaDto dto)`: crea la categoría (mismas validaciones que `CategoriaService.CrearAsync`, D-8 y unicidad) y registra el término apuntando a ella **en un solo `SaveChanges`**. Validador propio. Para no duplicar la lógica de alta de categoría, extraer la verificación compartida a un apoyo interno (como `PersistenciaDiccionarios`) en lugar de copiarla.
 * **Tests:** unitarios (autorización, nombre duplicado, término existente reasignado) e integración (si el término choca, la categoría tampoco queda creada).
+* **Decisiones del paso (2026-10-27):**
+  * **T-1:** "en un solo `SaveChanges`" no es posible: `TerminoClasificacion.CrearConCategoria` recibe el Id de la categoría, que una categoría nueva recién tiene después de guardarse. Se hacen **dos guardados en la transacción de `IUnitOfWork`** (primer servicio que la usa); si algo falla, `RollbackTransactionAsync` y `DescartarCambios` (el contexto vive lo que dura la pantalla, D-15). Descartado: una navegación `Categoria` en el término (un agregado referencia a otro por Id).
+  * **T-2:** el alta de categoría vive en el apoyo interno `AltaCategoria` (rubro activo, D-8), que usan `CategoriaService.CrearAsync` y el comando nuevo.
+  * **T-3:** si el término ya existe, se reasigna a la categoría nueva, como `RegistrarAsync`; si era ambiguo, sus pares se dan de baja (P-3). El aviso previo es de la UI (6.6 y 6.8).
+  * **T-4:** devuelve el `CategoriaDto` creado, para sumarlo a los combos del modal.
+* **Implementado:** `RegistrarTerminoConCategoriaNuevaDto`, su validador (la regla del término pasó a `ReglasComunesExtensions.TerminoDeClasificacion`, compartida con `RegistrarTerminoValidator`), `ITerminoClasificacionService.RegistrarConCategoriaNuevaAsync`; 7 tests unitarios y 2 de integración (`DiccionariosClasificacionIntegrationTests`, con el interceptor compartido `FallaEnElGuardado`).
 
 ### 6.3 — Diálogo de clasificación: Términos, Alias y Prefijos
 

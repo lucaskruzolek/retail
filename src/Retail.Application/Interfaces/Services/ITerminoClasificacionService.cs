@@ -1,3 +1,4 @@
+using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clasificacion;
 using Retail.Domain.Exceptions;
 
@@ -25,6 +26,18 @@ public interface ITerminoClasificacionService
     /// <see cref="DomainException"/> si la categoría no existe o si otro usuario registró el término al mismo tiempo.
     /// </summary>
     Task RegistrarAsync(int idActor, RegistrarTerminoDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Crea una categoría y registra en ella el término (o lo reasigna, si ya existe) en una sola transacción
+    /// (Track 6.6, P6-4, T-1): si cualquiera de las dos partes falla, no queda ninguna. Si el término era ambiguo, sus
+    /// pares se dan de baja (P-3). Devuelve la categoría creada. Lanza <see cref="OperacionNoAutorizadaException"/>
+    /// si el actor no tiene autoridad y <see cref="DomainException"/> si el rubro no existe, si ya hay una categoría
+    /// con ese nombre (D-8) o si otro usuario registró lo mismo al mismo tiempo.
+    /// </summary>
+    Task<CategoriaDto> RegistrarConCategoriaNuevaAsync(
+        int idActor,
+        RegistrarTerminoConCategoriaNuevaDto dto,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Baja lógica: el término pasa a ser desconocido (decisión en bloque, M-26). Lanza

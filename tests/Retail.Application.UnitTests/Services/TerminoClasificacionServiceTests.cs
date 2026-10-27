@@ -26,11 +26,14 @@ public class TerminoClasificacionServiceTests
     private const int IdOtraCategoria = 8;
     private const int IdTermino = 30;
     private const int IdOtroTermino = 31;
+    private const int IdRubro = 4;
+    private const int IdCategoriaNueva = 99;
 
     private static readonly string[] SoloKit = { "KIT" };
 
     private readonly IRepository<TerminoClasificacion> _repository = Substitute.For<IRepository<TerminoClasificacion>>();
     private readonly IRepository<Categoria> _categorias = Substitute.For<IRepository<Categoria>>();
+    private readonly IRepository<Rubro> _rubros = Substitute.For<IRepository<Rubro>>();
     private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
     private readonly IClasificacionQueryService _consultas = Substitute.For<IClasificacionQueryService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
@@ -43,15 +46,18 @@ public class TerminoClasificacionServiceTests
         RegistrarUsuario(IdCajero, RolUsuarioEnum.Cajero);
         RegistrarCategoria(IdCategoria);
         RegistrarCategoria(IdOtraCategoria);
+        RegistrarRubro(IdRubro);
         ConfigurarExistentes();
 
         _servicio = new TerminoClasificacionService(
             _repository,
             _categorias,
+            _rubros,
             _usuarios,
             _consultas,
             _unitOfWork,
             new RegistrarTerminoValidator(),
+            new RegistrarTerminoConCategoriaNuevaValidator(),
             new AsignarParesValidator(),
             new QuitarParValidator());
     }
@@ -505,6 +511,116 @@ public class TerminoClasificacionServiceTests
         propuestas[0].NombreCategoria.Should().Be($"Categoría {IdCategoria}");
     }
 
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_ConActorSinAutoridad_LanzaOperacionNoAutorizadaYNoAbreTransaccion()
+    {
+        var accion = () => _servicio.RegistrarConCategoriaNuevaAsync(IdCajero, ConCategoriaNueva("PELOTERO", "Pelotas"));
+
+        await accion.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_SinRubro_LanzaValidationExceptionYNoAbreTransaccion()
+    {
+        var dto = ConCategoriaNueva("PELOTERO", "Pelotas") with { IdRubro = 0 };
+
+        var accion = () => _servicio.RegistrarConCategoriaNuevaAsync(IdGerente, dto);
+
+        await accion.Should().ThrowAsync<ValidationException>().WithMessage("*rubro*");
+        await _unitOfWork.DidNotReceive().BeginTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_TerminoNuevo_CreaLaCategoriaYElTerminoQueLaApuntaYConfirma()
+    {
+        AsignarIdAlGuardarLaCategoria();
+
+        var categoria = await _servicio.RegistrarConCategoriaNuevaAsync(
+            IdGerente,
+            ConCategoriaNueva(" pelotero ", " Pelotas "));
+
+        categoria.IdCategoria.Should().Be(IdCategoriaNueva);
+        categoria.NombreCategoria.Should().Be("Pelotas");
+        categoria.IdRubro.Should().Be(IdRubro);
+        await _repository.Received(1).AddAsync(
+            Arg.Is<TerminoClasificacion>(t => t.Termino == "PELOTERO" && t.IdCategoria == IdCategoriaNueva),
+            Arg.Any<CancellationToken>());
+        Received.InOrder(() =>
+        {
+            _ = _unitOfWork.BeginTransactionAsync(Arg.Any<CancellationToken>());
+            _ = _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+            _ = _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>());
+            _ = _unitOfWork.CommitTransactionAsync(Arg.Any<CancellationToken>());
+        });
+        await _unitOfWork.DidNotReceive().RollbackTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_TerminoAmbiguoExistente_LoReasignaALaCategoriaNueva()
+    {
+        AsignarIdAlGuardarLaCategoria();
+        var existente = TerminoAmbiguoConId(IdTermino, "PELOTERO");
+        existente.AsignarPar("PLAYERO", IdCategoria);
+        ConfigurarExistentes(existente);
+
+        await _servicio.RegistrarConCategoriaNuevaAsync(IdGerente, ConCategoriaNueva("PELOTERO", "Pelotas"));
+
+        existente.IdCategoria.Should().Be(IdCategoriaNueva);
+        existente.Pares.Should().OnlyContain(p => p.IsDeleted, "un término con categoría no tiene pares (P-3)");
+        await _repository.Received(1).UpdateAsync(existente, Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().AddAsync(Arg.Any<TerminoClasificacion>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_NombreDeCategoriaRepetido_LanzaDomainExceptionYDeshace()
+    {
+        var accion = () => _servicio.RegistrarConCategoriaNuevaAsync(
+            IdGerente,
+            ConCategoriaNueva("PELOTERO", $"Categoría {IdCategoria}"));
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("Ya existe una categoría activa*");
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).DescartarCambios();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_RubroInexistente_LanzaDomainExceptionYDeshace()
+    {
+        var dto = ConCategoriaNueva("PELOTERO", "Pelotas") with { IdRubro = 55 };
+
+        var accion = () => _servicio.RegistrarConCategoriaNuevaAsync(IdGerente, dto);
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("No se encontró el rubro con ID 55.");
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        await _categorias.DidNotReceive().AddAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarConCategoriaNueva_OtroUsuarioRegistraElTerminoAlMismoTiempo_TraduceLaCarreraYDeshace()
+    {
+        Categoria? agregada = null;
+        _categorias.When(x => x.AddAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>()))
+            .Do(llamada => agregada = llamada.Arg<Categoria>());
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(
+            _ =>
+            {
+                agregada!.Id = IdCategoriaNueva;
+                return 1;
+            },
+            _ => throw new RestriccionDeUnicidadException("índice único", new InvalidOperationException()));
+
+        var accion = () => _servicio.RegistrarConCategoriaNuevaAsync(IdGerente, ConCategoriaNueva("PELOTERO", "Pelotas"));
+
+        await accion.Should().ThrowAsync<DomainException>()
+            .WithMessage("Otro usuario registró el término 'PELOTERO' al mismo tiempo*");
+        await _unitOfWork.Received(1).RollbackTransactionAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).DescartarCambios();
+        await _unitOfWork.DidNotReceive().CommitTransactionAsync(Arg.Any<CancellationToken>());
+    }
+
     private void ConfigurarPropuestas(
         TerminoDto[] ambiguos,
         ParDto[] enElDiccionario,
@@ -552,6 +668,40 @@ public class TerminoClasificacionServiceTests
         var usuario = Usuario.Crear($"usuario{id}", "Juan", "Pérez", "hash", rol, email);
         usuario.Id = id;
         _usuarios.GetByIdAsync(id, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(usuario);
+    }
+
+    private static RegistrarTerminoConCategoriaNuevaDto ConCategoriaNueva(string termino, string nombreCategoria)
+    {
+        return new RegistrarTerminoConCategoriaNuevaDto
+        {
+            Termino = termino,
+            NombreCategoria = nombreCategoria,
+            IdRubro = IdRubro
+        };
+    }
+
+    // Lo que hace la base al guardar: la categoría nueva recibe su Id (identidad de SQL Server).
+    private void AsignarIdAlGuardarLaCategoria()
+    {
+        Categoria? agregada = null;
+        _categorias.When(x => x.AddAsync(Arg.Any<Categoria>(), Arg.Any<CancellationToken>()))
+            .Do(llamada => agregada = llamada.Arg<Categoria>());
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            if (agregada is { Id: 0 })
+            {
+                agregada.Id = IdCategoriaNueva;
+            }
+
+            return 1;
+        });
+    }
+
+    private void RegistrarRubro(int id)
+    {
+        var rubro = Rubro.Crear("Juguetería");
+        rubro.Id = id;
+        _rubros.GetByIdAsync(id, includeDeleted: false, Arg.Any<CancellationToken>()).Returns(rubro);
     }
 
     private void RegistrarCategoria(int id)
