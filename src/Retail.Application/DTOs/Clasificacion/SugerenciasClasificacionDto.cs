@@ -11,10 +11,4 @@ public record class SugerenciasClasificacionDto
     public required IReadOnlyList<BloqueTerminoNuevoDto> Bloques { get; init; }
 
     public required IReadOnlyList<ValorSinTraducirDto> ValoresSinTraducir { get; init; }
-
-    /// <summary>
-    /// Falso en el arranque en frío (sección 7, M-37): la pantalla puede explicar por qué hay menos sugerencias y por
-    /// qué los bloques llegan sin propuesta.
-    /// </summary>
-    public required bool ModeloDisponible { get; init; }
 }

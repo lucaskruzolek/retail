@@ -9,9 +9,12 @@ SIN_SUGERENCIA = "\0"
 
 
 def segunda_palabra(descripcion):
-    """Primera palabra después del término con al menos 2 letras que no sea de relleno (sección 11.3)."""
+    """Primera palabra después del término con al menos 2 letras que no sea de relleno (sección 11.3).
+
+    Sin el punto final, como tokens_de (M-56): "ESC." y "ESC" son la misma palabra.
+    """
     for palabra in limpiar_descripcion(descripcion).split(" ")[1:]:
-        normalizada = normalizar_texto(palabra)
+        normalizada = normalizar_texto(palabra).rstrip(".")
         if sum(c.isalpha() for c in normalizada) >= 2 and normalizada not in RELLENO:
             return normalizada
     return ""

@@ -1,8 +1,9 @@
 namespace Retail.Application.DTOs.Clasificacion;
 
 /// <summary>
-/// Por qué el sistema sugiere una categoría o una marca (RF-27: "indicando el motivo"). El orden de los valores sigue
-/// la precedencia de M-14: primero lo que informó el proveedor, después los diccionarios y al final el modelo.
+/// Por qué el sistema sugiere una categoría o una marca (RF-27: "indica el motivo de cada sugerencia"). El orden de los
+/// valores sigue la precedencia de M-14: primero lo que informó el proveedor y después los diccionarios. Toda sugerencia
+/// sale de una regla aprobada por una persona (M-45, M-49).
 /// </summary>
 public enum MotivoSugerenciaEnum
 {
@@ -32,7 +33,7 @@ public enum MotivoSugerenciaEnum
     PrefijoDelCodigoDeBarras = 5,
 
     /// <summary>
-    /// El modelo de categorías, con confianza mayor o igual al umbral τ.
+    /// El término es ambiguo y el par "término + segunda palabra" del diccionario sugiere la categoría (Fase 5, M-48).
     /// </summary>
-    Modelo = 6
+    ParDelDiccionario = 6
 }

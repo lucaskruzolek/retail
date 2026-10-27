@@ -163,6 +163,18 @@ public class CategoriaService : ICategoriaService
             await _terminos.UpdateAsync(termino, cancellationToken);
         }
 
+        // Los pares hacia la categoría son de otros términos, los ambiguos (P-3). Se dan de baja por su raíz (Ley 2),
+        // que llega con sus pares (AutoInclude, M-57); EF traduce el Any a un EXISTS. Los ignorados no se tocan.
+        var conPares = await _terminos.FindAsync(
+            t => t.Pares.Any(p => p.IdCategoria == idCategoria),
+            includeDeleted: false,
+            cancellationToken);
+        foreach (var termino in conPares)
+        {
+            termino.QuitarParesHacia(idCategoria);
+            await _terminos.UpdateAsync(termino, cancellationToken);
+        }
+
         await PersistenciaDiccionarios.QuitarEquivalenciasHaciaAsync(
             _proveedores,
             _consultas,

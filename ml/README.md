@@ -43,6 +43,8 @@ python ml/scripts/consolidar_diccionarios.py ml/datos/lista-mayo-2025.csv [--des
 python ml/scripts/muestrear_etiquetado.py ml/datos/lista-mayo-2025.csv [--por-termino 25] [--oro 400] [--semilla 2026]
 # Cierre del etiquetado: valida oro-validar.csv y las planillas de ambiguos y escribe oro.csv y ambiguos.csv
 python ml/scripts/cerrar_etiquetado.py
+# Semilla de pares (Fase 5, paso 5.7): genera pares-a-validar.csv; después de validarla, --cerrar escribe pares.csv
+python ml/scripts/consolidar_pares.py [--cerrar]
 ```
 
 Desde M-20, `oro.csv` es el **conjunto de desarrollo**. El oro de prueba para la evaluación final se muestreó aparte
@@ -119,7 +121,7 @@ cd ml/scripts && python reglas_paridad.py --salida ../paridad/reglas-texto-refer
 | `e1_e2_clasificador.py` | Validación cruzada de M-22: escenario A (término ambiguo) y B (término desconocido). |
 | `e3_e4_umbrales.py` | E-3: umbral de confianza `τ` ponderado por la mezcla de producción. E-4: el sistema completo sobre el desarrollo. |
 | `e6_alternativas.py` | E-6: tabla "término ambiguo + segunda palabra", Naive Bayes y su combinación frente a la regresión logística, con la regla de M-44. Con `--extra`, suma una planilla validada de E-6b a los ejemplos manuales (escenario A ampliado). |
-| `e6_comun.py` | Tabla de pares y regla de la segunda palabra, compartidas por E-6 y E-6b. |
+| `e6_comun.py` | Tabla de pares y regla de la segunda palabra, compartidas por E-6, E-6b y `consolidar_pares.py`; la regla es la especificación de `ReglasClasificacion.SegundaPalabra` (paridad). |
 | `muestrear_e6b.py` | E-6b: muestras para etiquetar de Piatto (una fila por familia, tope común por término) y del proveedor 1 (familias no usadas). |
 | `e6b_proveedor_nuevo.py` | E-6b: los candidatos entrenados con el proveedor 1 sobre la muestra validada de Piatto, con los umbrales de E-6 sin recalibrar, y la regla de M-46. Se niega a calcular si hay filas sin validar. |
 | `e5_marca.py` | E-5: texto o prefijo primero y pureza mínima del prefijo (solo biblioteca estándar). |

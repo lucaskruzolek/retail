@@ -177,6 +177,94 @@ public class ClasificacionQueryService : IClasificacionQueryService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ParDto>> ListarParesAsync(
+        int? idTermino,
+        string? filtro,
+        bool incluirIgnorados,
+        CancellationToken cancellationToken = default)
+    {
+        // El join con los términos respeta su filtro global: los pares de un término dado de baja no aparecen.
+        var query = _context.Set<ParClasificacion>()
+            .AsNoTracking()
+            .Join(
+                _context.TerminosClasificacion,
+                p => p.IdTermino,
+                t => t.Id,
+                (p, t) => new { Par = p, t.Termino });
+
+        if (idTermino.HasValue)
+        {
+            query = query.Where(x => x.Par.IdTermino == idTermino.Value);
+        }
+
+        // Término y segunda palabra se guardan en forma de comparación: el filtro se lleva a la misma forma.
+        if (!string.IsNullOrWhiteSpace(filtro))
+        {
+            var patron = $"%{ReglasClasificacion.NormalizarTexto(filtro)}%";
+            query = query.Where(x =>
+                EF.Functions.Like(x.Termino, patron) || EF.Functions.Like(x.Par.SegundaPalabra, patron));
+        }
+
+        if (!incluirIgnorados)
+        {
+            query = query.Where(x => x.Par.IdCategoria != null);
+        }
+
+        return await query
+            .OrderBy(x => x.Termino)
+            .ThenBy(x => x.Par.SegundaPalabra)
+            .Select(x => new ParDto
+            {
+                IdTermino = x.Par.IdTermino,
+                Termino = x.Termino,
+                SegundaPalabra = x.Par.SegundaPalabra,
+                IdCategoria = x.Par.IdCategoria,
+                NombreCategoria = _context.Categorias
+                    .Where(c => c.Id == x.Par.IdCategoria)
+                    .Select(c => c.NombreCategoria)
+                    .FirstOrDefault(),
+                NombreRubro = _context.Categorias
+                    .Where(c => c.Id == x.Par.IdCategoria)
+                    .SelectMany(c => _context.Rubros.Where(r => r.Id == c.IdRubro))
+                    .Select(r => r.NombreRubro)
+                    .FirstOrDefault()
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DescripcionClasificadaDto>> ListarArticulosConTerminosAsync(
+        IReadOnlyCollection<string> terminos,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(terminos);
+        if (terminos.Count == 0)
+        {
+            return [];
+        }
+
+        // Pre-filtro en SQL (Ley 8): la descripción se guarda como la escribió el proveedor ("**Set de geometría"), así
+        // que se compara con el término en la forma del motor. FormaDeComparacion iguala la ñ con la n, como
+        // NormalizarTexto; la collation de la columna no ("NANDU" no encontraría "ÑANDÚ"). La lista viaja como un único
+        // parámetro JSON (OPENJSON). Decidir si el término es la primera palabra y cuál es la segunda queda en el Dominio.
+        return await _context.Articulos
+            .AsNoTracking()
+            .Where(a => a.IdCategoria != null && _context.Categorias.Any(c => c.Id == a.IdCategoria))
+            .Where(a => terminos.Any(t => EF.Functions.Like(
+                EF.Functions.Collate(a.Descripcion, Cotejamientos.FormaDeComparacion),
+                "%" + t + "%")))
+            .OrderBy(a => a.Id)
+            .Select(a => new DescripcionClasificadaDto
+            {
+                Descripcion = a.Descripcion,
+                IdCategoria = a.IdCategoria!.Value,
+                NombreCategoria = _context.Categorias
+                    .Where(c => c.Id == a.IdCategoria)
+                    .Select(c => c.NombreCategoria)
+                    .First()
+            })
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<AliasListadoDto>> ListarAliasAsync(
         string? filtro,
         int? idMarca,

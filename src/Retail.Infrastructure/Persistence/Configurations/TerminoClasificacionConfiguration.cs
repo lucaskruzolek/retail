@@ -50,5 +50,19 @@ public class TerminoClasificacionConfiguration : IEntityTypeConfiguration<Termin
             .HasColumnName("deleted_at");
 
         builder.Ignore(t => t.IsDeleted);
+
+        // Pares "término + segunda palabra" (Track 6.6, Fase 5): entidad interna del agregado, escrita a través de la
+        // lista privada _pares. Cascade como los hijos de una venta: nunca se ejecuta, el borrado es lógico (Ley 3).
+        builder.HasMany(t => t.Pares)
+            .WithOne(p => p.TerminoClasificacion)
+            .HasForeignKey(p => p.IdTermino)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // AutoInclude (M-57): las bajas en cascada de AsignarCategoria y MarkAsDeleted (P-3) recorren los pares en
+        // memoria, así que toda carga con tracking del término los trae. Un Include olvidado en un llamador dejaría
+        // pares vigentes sin aviso. Las proyecciones a DTO lo ignoran: el lado de lectura no lo paga.
+        builder.Navigation(t => t.Pares)
+            .UsePropertyAccessMode(PropertyAccessMode.Field)
+            .AutoInclude();
     }
 }

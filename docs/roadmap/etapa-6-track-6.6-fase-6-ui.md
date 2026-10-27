@@ -29,7 +29,7 @@
 
 | Pieza | Dónde | Uso en la Fase 6 |
 | :--- | :--- | :--- |
-| `IClasificacionService.SugerirAsync` | Aplicación (Fase 4a) | Devuelve, para un lote, las sugerencias por ítem (`SugerenciaItemDto`: categoría y marca con motivo y confianza), los bloques de términos nuevos (`BloqueTerminoNuevoDto`, M-26) y los valores del proveedor sin traducir (`ValorSinTraducirDto`, M-13) |
+| `IClasificacionService.SugerirAsync` | Aplicación (Fase 4a) | Devuelve, para un lote, las sugerencias por ítem (`SugerenciaItemDto`: categoría y marca con su motivo; sin confianza desde M-51), los bloques de términos nuevos (`BloqueTerminoNuevoDto`, M-26) y los valores del proveedor sin traducir (`ValorSinTraducirDto`, M-13) |
 | Contrato de incorporación por ítem | `ItemIncorporacionArticuloDto` (Fase 4a, R-7) | Lleva la categoría y la marca confirmadas y las sugeridas, y `SinMarcaConfirmada`; el servidor deriva el origen (M-34). Hoy el modal manda la misma categoría y marca para todos los ítems, sin sugerencia |
 | Comandos de diccionarios | `ITerminoClasificacionService`, `IEquivalenciaClasificacionService`, `IMarcaService` (alias y prefijos) (Fase 4b) | Las pestañas nuevas y las decisiones del modal los invocan; todos exigen D-5 y traducen las carreras a mensajes |
 | Diálogo de clasificación | `AdministrarClasificacionDialog` (960×640) + `AdministrarClasificacionViewModel` (≈500 líneas, secciones con `MostrandoRubros`/`MostrandoCategorias`/`MostrandoMarcas`) | Se le suman tres secciones |
@@ -49,7 +49,7 @@
 | **P6-5** | **Interruptor "Sugerir clasificación"** (M-11), activado por defecto. Apagado, el modal se comporta como hoy: una categoría y una marca para todo el lote, origen `Manual`. | Recomendada. Es M-11 tal como está |
 | **P6-6** | **Permisos:** incorporar sigue con los roles actuales; los pasos 1 y 2 escriben diccionarios y exigen D-5. Si el usuario no la tiene, esos pasos se muestran en solo lectura con una nota ("Un Gerente o un Encargado puede traducir estos valores") y la grilla funciona igual. | Recomendada. La autorización la hace igual el servidor; la UI solo evita ofrecer lo que va a fallar |
 | **P6-7** | **Dónde se administra cada diccionario:** Términos, Alias y Prefijos como secciones nuevas de `AdministrarClasificacionDialog`; las **Equivalencias**, por proveedor, en un diálogo propio (`EquivalenciasProveedorDialog`) que se abre desde la vista de Proveedores. Cada sección nueva con su propio ViewModel hijo, para no seguir agrandando `AdministrarClasificacionViewModel`. | Recomendada. Las equivalencias son de un proveedor (M-13), no del catálogo; los ViewModels hijos mantienen cada archivo con una responsabilidad (AGENTS.md, integridad de capas y archivos) |
-| **P6-8** | **Presentación de la sugerencia en la grilla:** la categoría y la marca en `ComboBox` precargados con la sugerencia; a su lado un badge con el motivo (`EnumATextoConverter` sobre `MotivoSugerenciaEnum`) y la confianza en porcentaje cuando la hay; una columna de estado (Sugerida, Corregida, Sin sugerencia, Sin marca); acciones "Aceptar todas las sugerencias" y "Aceptar seleccionadas". Nada se aplica sin la confirmación final (RF-27). | Recomendada. Cumple IU-05 de la ERS ("con su motivo y confianza, para aceptarlas o corregirlas") con los componentes existentes del sistema de diseño |
+| **P6-8** | **Presentación de la sugerencia en la grilla:** la categoría y la marca en `ComboBox` precargados con la sugerencia; a su lado un badge con el motivo (`EnumATextoConverter` sobre `MotivoSugerenciaEnum`, que incluye `ParDelDiccionario`); una columna de estado (Sugerida, Corregida, Sin sugerencia, Sin marca); acciones "Aceptar todas las sugerencias" y "Aceptar seleccionadas". Nada se aplica sin la confirmación final (RF-27). | Recomendada. Cumple IU-05 de la ERS ("con su motivo y confianza, para aceptarlas o corregirlas") con los componentes existentes del sistema de diseño |
 | **P6-9** | **Tamaño del modal:** mantener 880×640 (con `MinWidth` 720) y ganar espacio con los pasos, no con más ancho. Si la grilla no entra, ampliar a 1040×680 y **documentarlo** en `SISTEMA_DE_DISENO.md` como "modal de trabajo". | Recomendada mantener; ampliar solo con la prueba manual en la mano, porque cambia una regla del sistema de diseño |
 
 ---
@@ -60,7 +60,8 @@
 
 * **Archivos:** `src/Retail.Cli/Semilla/*.csv` (P6-1) con `CopyToOutputDirectory` en `Retail.Cli.csproj`; `src/Retail.Infrastructure/Persistence/Initialization/SemilleroDiccionarios.cs`; `src/Retail.Cli/Comandos/ComandoCargarDiccionarios.cs`; `Program.cs` (nuevo comando) y `Ayuda.cs` (texto y orden de instalación: `migrar`, `inicializar`, `cargar-diccionarios` y, opcionalmente, `datos-demo`).
 * **Lectura de los CSV:** `;` como separador, UTF-8; rechazar con mensaje claro una fila mal formada (número de línea), sin cargar nada (transacción).
-* **Resultado en consola:** cuántos rubros, categorías, marcas, términos, alias y prefijos se crearon, cuántos ya existían y la lista de conflictos omitidos.
+* **Pares (Fase 5, M-55, M-58):** `pares.csv` (`termino;segunda_palabra;categoria`, 102 pares validados, copia de `ml/datos/pares.csv`) se carga **después** de los términos y a través de `TerminoClasificacion.AsignarPar`: por M-52 (P-3) el término tiene que existir y ser ambiguo, así que un par cuyo término no lo es se informa como conflicto y no se carga.
+* **Resultado en consola:** cuántos rubros, categorías, marcas, términos, pares, alias y prefijos se crearon, cuántos ya existían y la lista de conflictos omitidos.
 * **Tests** (`Retail.Infrastructure.IntegrationTests`, base real): carga sobre base vacía; segunda corrida no crea nada (idempotencia); una categoría renombrada por el comercio no se duplica ni se pisa; un alias en conflicto se informa y el resto se carga; una fila inválida no deja nada a medias. Los tests usan CSV **inventados** en una carpeta temporal, no la semilla real.
 * **ERS:** `RF-23` ya menciona "la carga de la taxonomía semilla y de los diccionarios"; no requiere cambios.
 
@@ -85,7 +86,7 @@
 ### 6.5 — Modal de incorporación: sugerencias por ítem
 
 * **`IncorporarArticulosModalViewModel`:** recibe `IClasificacionService` (por constructor o por el método de inicialización que hoy usa `ImportadorCatalogosViewModel`; respetar la Ley 10: no tocar `MainWindow` ni el shell). Al abrir, con el interruptor activo, llama a `SugerirAsync` en segundo plano (Ley 4) con indicador de carga.
-* **`ItemIncorporarArticuloViewModel`:** suma `CategoriaSeleccionada`, `MarcaSeleccionada`, `SinMarca`, la sugerencia recibida (Id, motivo, confianza) y un `Estado` derivado (Sugerida, Corregida, Sin sugerencia).
+* **`ItemIncorporarArticuloViewModel`:** suma `CategoriaSeleccionada`, `MarcaSeleccionada`, `SinMarca`, la sugerencia recibida (Id y motivo) y un `Estado` derivado (Sugerida, Corregida, Sin sugerencia).
 * **`ObtenerDto`:** por cada ítem, confirmadas = lo seleccionado; sugeridas = lo que llegó del motor; `SinMarcaConfirmada` cuando el usuario elige "Sin marca". El servidor deriva el origen (M-34): la UI nunca lo declara.
 * **Acciones:** "Aceptar todas las sugerencias", "Aceptar seleccionadas" (P6-8). Validación antes de confirmar: los ítems sin categoría se pueden incorporar sin categoría (como hoy), pero se cuentan y se avisa.
 * **Interruptor M-11** (P6-5).

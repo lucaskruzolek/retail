@@ -4,7 +4,7 @@ namespace Retail.Application.Interfaces.Persistence;
 
 /// <summary>
 /// Puerto de lectura de los diccionarios del motor de catalogación (Track 6.6, sección 9). Lo implementa Infrastructure
-/// con proyecciones <c>AsNoTracking</c>: términos y prefijos se filtran en SQL Server por los valores del lote
+/// con proyecciones <c>AsNoTracking</c>: términos, pares (Fase 5) y prefijos se filtran en SQL Server por los valores del lote
 /// (<c>Contains</c> → <c>OPENJSON</c>, Ley 8); las marcas se leen completas porque buscar una frase dentro de la
 /// descripción no se traduce a SQL (son unos cientos de filas).
 /// </summary>

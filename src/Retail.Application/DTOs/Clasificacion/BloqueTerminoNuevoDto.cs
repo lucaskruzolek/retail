@@ -15,18 +15,6 @@ public record class BloqueTerminoNuevoDto
     public required IReadOnlyList<int> IdsCatalogo { get; init; }
 
     /// <summary>
-    /// Categoría que el modelo asigna a la mayoría del grupo, aunque no alcance el umbral por producto; nula sin modelo
-    /// (M-37). Su motivo es <see cref="MotivoSugerenciaEnum.Modelo"/> y su confianza, el promedio en esos ítems.
-    /// </summary>
-    public SugerenciaDto? Propuesta { get; init; }
-
-    /// <summary>
-    /// Cuántos ítems del grupo reciben del modelo la categoría propuesta: con <see cref="IdsCatalogo"/> forma la
-    /// consistencia que se muestra ("121 de 123").
-    /// </summary>
-    public int CoincidenConLaPropuesta { get; init; }
-
-    /// <summary>
     /// Algunas descripciones del grupo, para que la decisión sea informada.
     /// </summary>
     public required IReadOnlyList<string> Ejemplos { get; init; }

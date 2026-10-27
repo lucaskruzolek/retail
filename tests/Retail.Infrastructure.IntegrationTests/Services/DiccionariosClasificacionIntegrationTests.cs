@@ -214,6 +214,133 @@ public class DiccionariosClasificacionIntegrationTests : IAsyncLifetime, IDispos
         restantes.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task BajaCategoria_ConParesDeTerminosAmbiguos_DaDeBajaSoloLosParesHaciaElla()
+    {
+        var rubro = await GuardarAsync(Rubro.Crear("Librería"));
+        var geometria = await GuardarAsync(Categoria.Crear("Geometría", rubro.Id));
+        var escolar = await GuardarAsync(Categoria.Crear("Útiles Escolares", rubro.Id));
+        var set = TerminoClasificacion.CrearAmbiguo("SET");
+        set.AsignarPar("GEOMETRIA", geometria.Id);
+        set.AsignarPar("ESCOLAR", escolar.Id);
+        set.AsignarPar("REGALO", null);
+        await GuardarAsync(set);
+
+        await CrearCategoriaService().BajaAsync(_idGerente, geometria.Id);
+
+        await using var verificacion = new RetailDbContext(_options);
+        var pares = await verificacion.Set<ParClasificacion>().IgnoreQueryFilters().AsNoTracking().ToListAsync();
+        pares.Single(p => p.SegundaPalabra == "GEOMETRIA").IsDeleted.Should().BeTrue();
+        pares.Single(p => p.SegundaPalabra == "ESCOLAR").IsDeleted.Should().BeFalse();
+        pares.Single(p => p.SegundaPalabra == "REGALO").IsDeleted.Should().BeFalse();
+        (await verificacion.TerminosClasificacion.SingleAsync(t => t.Id == set.Id)).IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AsignarPares_LoteDeDosTerminos_LosGuardaYLaConsultaLosListaConSuCategoria()
+    {
+        var rubro = await GuardarAsync(Rubro.Crear("Librería"));
+        var geometria = await GuardarAsync(Categoria.Crear("Geometría", rubro.Id));
+        var set = await GuardarAsync(TerminoClasificacion.CrearAmbiguo("SET"));
+        var kit = await GuardarAsync(TerminoClasificacion.CrearAmbiguo("KIT"));
+
+        await CrearTerminoService().AsignarParesAsync(
+            _idGerente,
+            new AsignarParesDto
+            {
+                Pares =
+                [
+                    new AsignarParDto { IdTermino = set.Id, SegundaPalabra = "geometría", IdCategoria = geometria.Id },
+                    new AsignarParDto { IdTermino = set.Id, SegundaPalabra = "REGALO" },
+                    new AsignarParDto { IdTermino = kit.Id, SegundaPalabra = "COMPAS", IdCategoria = geometria.Id }
+                ]
+            });
+
+        await using var verificacion = new RetailDbContext(_options);
+        var consultas = new ClasificacionQueryService(verificacion);
+        var conCategoria = await consultas.ListarParesAsync(null, null, incluirIgnorados: false);
+        conCategoria.Select(p => (p.Termino, p.SegundaPalabra, p.NombreCategoria, p.NombreRubro))
+            .Should().Equal(
+                ("KIT", "COMPAS", "Geometría", "Librería"),
+                ("SET", "GEOMETRIA", "Geometría", "Librería"));
+        var todosDelSet = await consultas.ListarParesAsync(set.Id, null, incluirIgnorados: true);
+        todosDelSet.Select(p => (p.SegundaPalabra, p.EsIgnorado))
+            .Should().Equal(("GEOMETRIA", false), ("REGALO", true));
+    }
+
+    [Fact]
+    public async Task ListarPares_FiltroYTerminoDadoDeBaja_FiltraEnTerminoYSegundaPalabraYExcluyeLoDadoDeBaja()
+    {
+        var set = TerminoClasificacion.CrearAmbiguo("SET");
+        set.AsignarPar("GEOMETRIA", null);
+        set.AsignarPar("ESCOLAR", null);
+        var kit = TerminoClasificacion.CrearAmbiguo("KIT");
+        kit.AsignarPar("GEOMETRIA", null);
+        var repuesto = TerminoClasificacion.CrearAmbiguo("REPUESTO");
+        repuesto.AsignarPar("GEOMETRIA", null);
+        await GuardarAsync(set);
+        await GuardarAsync(kit);
+        await GuardarAsync(repuesto);
+        await CrearTerminoService().BajaAsync(_idGerente, repuesto.Id);
+        var consultas = new ClasificacionQueryService(_context);
+
+        var porSegundaPalabra = await consultas.ListarParesAsync(null, "geométr", incluirIgnorados: true);
+        var porTermino = await consultas.ListarParesAsync(null, "set", incluirIgnorados: true);
+
+        porSegundaPalabra.Select(p => p.Termino).Should().Equal("KIT", "SET");
+        porTermino.Select(p => p.SegundaPalabra).Should().Equal("ESCOLAR", "GEOMETRIA");
+    }
+
+    [Fact]
+    public async Task ParesPropuestos_AceptarUnoYDescartarOtro_YaNoSeVuelvenAProponer()
+    {
+        var rubro = await GuardarAsync(Rubro.Crear("Librería"));
+        var geometria = await GuardarAsync(Categoria.Crear("Geometría", rubro.Id));
+        var escolar = await GuardarAsync(Categoria.Crear("Útiles Escolares", rubro.Id));
+        var set = await GuardarAsync(TerminoClasificacion.CrearAmbiguo("SET"));
+        await GuardarArticulosAsync(geometria.Id, "**SET DE GEOMETRIA 4 PIEZAS", "SET GEOMETRÍA ESCOLAR", "set geometria x3");
+        await GuardarArticulosAsync(escolar.Id, "SET ESCOLAR RAYADO", "SET ESCOLAR LISO", "CASETE ESCOLAR");
+        var servicio = CrearTerminoService();
+
+        var propuestas = await servicio.ListarParesPropuestosAsync(null);
+
+        propuestas.Select(p => (p.SegundaPalabra, p.NombreCategoria, p.Coincidencias, p.Total))
+            .Should().Equal(("GEOMETRIA", "Geometría", 3, 3), ("ESCOLAR", "Útiles Escolares", 2, 2));
+
+        // Aceptar GEOMETRIA y descartar ESCOLAR en una sola operación, como lo hará la Fase 6.
+        await servicio.AsignarParesAsync(
+            _idGerente,
+            new AsignarParesDto
+            {
+                Pares =
+                [
+                    new AsignarParDto { IdTermino = set.Id, SegundaPalabra = "GEOMETRIA", IdCategoria = geometria.Id },
+                    new AsignarParDto { IdTermino = set.Id, SegundaPalabra = "ESCOLAR" }
+                ]
+            });
+
+        (await servicio.ListarParesPropuestosAsync(null)).Should().BeEmpty();
+    }
+
+    private async Task GuardarArticulosAsync(int idCategoria, params string[] descripciones)
+    {
+        foreach (var descripcion in descripciones)
+        {
+            var articulo = new Articulo
+            {
+                Descripcion = descripcion,
+                CostoReposicion = 100,
+                PorcentajeGanancia = 50,
+                PrecioVenta = 150,
+                StockActual = 1
+            };
+            articulo.Clasificar(idCategoria, OrigenClasificacionEnum.SugerenciaAceptada, null, null);
+            _context.Articulos.Add(articulo);
+        }
+
+        await _context.SaveChangesAsync();
+    }
+
     private CategoriaService CrearCategoriaService()
     {
         return new CategoriaService(
@@ -250,7 +377,9 @@ public class DiccionariosClasificacionIntegrationTests : IAsyncLifetime, IDispos
             new Repository<Usuario>(_context),
             new ClasificacionQueryService(_context),
             new UnitOfWork(_context),
-            new RegistrarTerminoValidator());
+            new RegistrarTerminoValidator(),
+            new AsignarParesValidator(),
+            new QuitarParValidator());
     }
 
     private EquivalenciaClasificacionService CrearEquivalenciaService()

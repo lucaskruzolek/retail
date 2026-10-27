@@ -88,6 +88,65 @@ public class ReglasClasificacionTests
     }
 
     [Theory]
+    [InlineData("SET DE GEOMETRIA", "GEOMETRIA")]
+    [InlineData("SET ESC. DIBUJO", "ESC")]
+    [InlineData("BLOCK A4 RAYADO", "RAYADO")]
+    public void SegundaPalabra_ConRellenoPuntoOPalabraDeUnaLetra_LasSalteaODepura(string descripcion, string esperado)
+    {
+        ReglasClasificacion.SegundaPalabra(descripcion).Should().Be(esperado);
+    }
+
+    [Theory]
+    [InlineData("geometría.", "GEOMETRIA")]
+    [InlineData(" C/E ", "C/E")]
+    [InlineData("250ml", "250ML")]
+    public void ExigirSegundaPalabra_PalabraSignificativa_DevuelveLaFormaQueDevuelveSegundaPalabra(
+        string segundaPalabra,
+        string esperado)
+    {
+        ReglasClasificacion.ExigirSegundaPalabra(segundaPalabra).Should().Be(esperado);
+        ReglasClasificacion.EsSegundaPalabraValida(segundaPalabra).Should().BeTrue();
+        ReglasClasificacion.SegundaPalabra($"SET {segundaPalabra}").Should().Be(esperado);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("TAPA DURA")]
+    [InlineData("con")]
+    [InlineData("A4")]
+    [InlineData("48")]
+    [InlineData("...")]
+    public void ExigirSegundaPalabra_VaciaCompuestaDeRellenoOConMenosDeDosLetras_LanzaDomainException(
+        string? segundaPalabra)
+    {
+        var accion = () => ReglasClasificacion.ExigirSegundaPalabra(segundaPalabra);
+
+        accion.Should().Throw<DomainException>();
+        ReglasClasificacion.EsSegundaPalabraValida(segundaPalabra).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ExigirSegundaPalabra_EnLongitudMaxima_LaAcepta()
+    {
+        var segundaPalabra = new string('A', ReglasClasificacion.LongitudMaximaTermino);
+
+        ReglasClasificacion.ExigirSegundaPalabra(segundaPalabra).Should().Be(segundaPalabra);
+    }
+
+    [Fact]
+    public void ExigirSegundaPalabra_SuperaLongitudMaxima_LanzaDomainException()
+    {
+        var segundaPalabra = new string('A', ReglasClasificacion.LongitudMaximaTermino + 1);
+
+        var accion = () => ReglasClasificacion.ExigirSegundaPalabra(segundaPalabra);
+
+        accion.Should().Throw<DomainException>();
+        ReglasClasificacion.EsSegundaPalabraValida(segundaPalabra).Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData("husar", "HUSAR")]
     [InlineData(" Artística  Dibu ", "ARTISTICA DIBU")]
     public void ExigirAlias_TextoValido_DevuelveFormaNormalizada(string alias, string esperado)

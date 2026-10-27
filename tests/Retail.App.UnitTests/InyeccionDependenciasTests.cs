@@ -58,7 +58,7 @@ public class InyeccionDependenciasTests
     }
 
     [Fact]
-    public void RegistrarServicios_ServicioDeClasificacion_SeResuelveConElModeloDelArranqueEnFrio()
+    public void RegistrarServicios_ServicioDeClasificacion_SeResuelveEnElScopeDeUnaPantalla()
     {
         // Arrange
         using var provider = ConstruirProveedor();
@@ -66,11 +66,9 @@ public class InyeccionDependenciasTests
 
         // Act
         var servicio = scopePantalla.ServiceProvider.GetRequiredService<Retail.Application.Interfaces.Services.IClasificacionService>();
-        var modelo = scopePantalla.ServiceProvider.GetRequiredService<Retail.Application.Interfaces.Infrastructure.IModeloCategoria>();
 
-        // Assert: hasta la Fase 5 del Track 6.6 no hay modelo entrenado (M-37)
+        // Assert: el motor solo necesita sus puertos de lectura; sin modelo desde la Fase 5 del Track 6.6 (M-45)
         servicio.Should().NotBeNull();
-        modelo.EstaDisponible.Should().BeFalse();
     }
 
     [Fact]

@@ -193,4 +193,99 @@ public class DiccionariosClasificacionValidatorTests
         result.Errors.Select(e => e.PropertyName).Should().BeEquivalentTo(
             [nameof(QuitarEquivalenciaDto.Texto), nameof(QuitarEquivalenciaDto.TextoRubro)]);
     }
+
+    [Theory]
+    [InlineData("geometría.", 3)]
+    [InlineData("C/E", null)]
+    public void AsignarParValidator_DatosValidos_DebePasarValidacion(string segundaPalabra, int? idCategoria)
+    {
+        var dto = new AsignarParDto { IdTermino = 1, SegundaPalabra = segundaPalabra, IdCategoria = idCategoria };
+
+        new AsignarParValidator().Validate(dto).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0, "GEOMETRIA", 3, nameof(AsignarParDto.IdTermino))]
+    [InlineData(1, "", 3, nameof(AsignarParDto.SegundaPalabra))]
+    [InlineData(1, "CON", 3, nameof(AsignarParDto.SegundaPalabra))]
+    [InlineData(1, "A4", 3, nameof(AsignarParDto.SegundaPalabra))]
+    [InlineData(1, "TAPA DURA", 3, nameof(AsignarParDto.SegundaPalabra))]
+    [InlineData(1, "GEOMETRIA", 0, nameof(AsignarParDto.IdCategoria))]
+    public void AsignarParValidator_DatoInvalido_DebeFallarEnEseCampo(
+        int idTermino,
+        string segundaPalabra,
+        int? idCategoria,
+        string campo)
+    {
+        var dto = new AsignarParDto { IdTermino = idTermino, SegundaPalabra = segundaPalabra, IdCategoria = idCategoria };
+
+        new AsignarParValidator().Validate(dto).Errors.Should().ContainSingle(e => e.PropertyName == campo);
+    }
+
+    [Fact]
+    public void AsignarParesValidator_ListaVacia_DebeFallar()
+    {
+        var result = new AsignarParesValidator().Validate(new AsignarParesDto { Pares = [] });
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(AsignarParesDto.Pares));
+    }
+
+    [Fact]
+    public void AsignarParesValidator_MismaSegundaPalabraEnDosTerminos_DebePasarValidacion()
+    {
+        var dto = new AsignarParesDto
+        {
+            Pares =
+            [
+                new AsignarParDto { IdTermino = 1, SegundaPalabra = "ESCOLAR", IdCategoria = 3 },
+                new AsignarParDto { IdTermino = 2, SegundaPalabra = "ESCOLAR", IdCategoria = 3 }
+            ]
+        };
+
+        new AsignarParesValidator().Validate(dto).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AsignarParesValidator_MismoParEscritoDeDosFormas_DebeFallar()
+    {
+        var dto = new AsignarParesDto
+        {
+            Pares =
+            [
+                new AsignarParDto { IdTermino = 1, SegundaPalabra = "geometria", IdCategoria = 3 },
+                new AsignarParDto { IdTermino = 1, SegundaPalabra = "GEOMETRÍA.", IdCategoria = null }
+            ]
+        };
+
+        var result = new AsignarParesValidator().Validate(dto);
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(AsignarParesDto.Pares));
+    }
+
+    [Fact]
+    public void AsignarParesValidator_ElementoInvalido_DebeFallarEnEseElemento()
+    {
+        var dto = new AsignarParesDto
+        {
+            Pares =
+            [
+                new AsignarParDto { IdTermino = 1, SegundaPalabra = "GEOMETRIA", IdCategoria = 3 },
+                new AsignarParDto { IdTermino = 1, SegundaPalabra = "DE", IdCategoria = 3 }
+            ]
+        };
+
+        var result = new AsignarParesValidator().Validate(dto);
+
+        result.Errors.Should().ContainSingle(e => e.PropertyName == "Pares[1].SegundaPalabra");
+    }
+
+    [Theory]
+    [InlineData(0, "GEOMETRIA", nameof(QuitarParDto.IdTermino))]
+    [InlineData(1, "Y", nameof(QuitarParDto.SegundaPalabra))]
+    public void QuitarParValidator_DatoInvalido_DebeFallarEnEseCampo(int idTermino, string segundaPalabra, string campo)
+    {
+        var dto = new QuitarParDto { IdTermino = idTermino, SegundaPalabra = segundaPalabra };
+
+        new QuitarParValidator().Validate(dto).Errors.Should().ContainSingle(e => e.PropertyName == campo);
+    }
 }

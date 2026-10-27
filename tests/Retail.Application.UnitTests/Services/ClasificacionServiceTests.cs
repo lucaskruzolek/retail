@@ -3,7 +3,6 @@ using FluentValidation;
 using NSubstitute;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clasificacion;
-using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.Validators.Clasificacion;
@@ -15,8 +14,8 @@ using Xunit;
 namespace Retail.Application.UnitTests.Services;
 
 /// <summary>
-/// Sugerencia de clasificación por niveles (Track 6.6, sección 4, M-14, M-25, M-26). Los diccionarios se arman por
-/// test; el modelo arranca no disponible (M-37) y cada test que lo necesita lo habilita.
+/// Sugerencia de clasificación por niveles (Track 6.6, sección 4, M-14, M-25, M-26; pares de la Fase 5, M-48). Los
+/// diccionarios se arman por test. Sin modelo desde la Fase 5 (M-45): lo que ninguna regla resuelve no se sugiere.
 /// </summary>
 public class ClasificacionServiceTests
 {
@@ -28,13 +27,14 @@ public class ClasificacionServiceTests
     private const int Rivadavia = 21;
     private const int Filgo = 22;
 
+
     private readonly ICatalogoProveedorQueryService _catalogo = Substitute.For<ICatalogoProveedorQueryService>();
     private readonly IDiccionariosClasificacionQueryService _diccionarios = Substitute.For<IDiccionariosClasificacionQueryService>();
-    private readonly IModeloCategoria _modelo = Substitute.For<IModeloCategoria>();
     private readonly ClasificacionService _servicio;
 
     private readonly List<CatalogoProveedor> _items = new();
     private readonly List<TerminoDiccionarioDto> _terminos = new();
+    private readonly List<ParDiccionarioDto> _pares = new();
     private readonly List<PrefijoDiccionarioDto> _prefijos = new();
     private readonly List<EquivalenciaDiccionarioDto> _equivalencias = new();
     private readonly List<CategoriaDto> _categorias = new()
@@ -63,14 +63,14 @@ public class ClasificacionServiceTests
             .Returns(_ => new DiccionariosClasificacionDto
             {
                 Terminos = _terminos,
+                Pares = _pares,
                 Marcas = _marcas,
                 Prefijos = _prefijos,
                 Equivalencias = _equivalencias,
                 Categorias = _categorias
             });
-        _modelo.EstaDisponible.Returns(false);
 
-        _servicio = new ClasificacionService(_catalogo, _diccionarios, _modelo, new SugerirClasificacionValidator());
+        _servicio = new ClasificacionService(_catalogo, _diccionarios, new SugerirClasificacionValidator());
     }
 
     // ---------- Validación ----------
@@ -114,7 +114,7 @@ public class ClasificacionServiceTests
         var item = (await SugerirAsync(1)).Items.Single();
 
         item.Termino.Should().Be("CUADERNO");
-        item.Categoria.Should().BeEquivalentTo(new { Id = Cuadernos, Nombre = "Cuadernos", Motivo = MotivoSugerenciaEnum.Termino, Confianza = (double?)null });
+        item.Categoria.Should().BeEquivalentTo(new { Id = Cuadernos, Nombre = "Cuadernos", Motivo = MotivoSugerenciaEnum.Termino });
     }
 
     [Fact]
@@ -162,63 +162,81 @@ public class ClasificacionServiceTests
     }
 
     [Fact]
-    public async Task Sugerir_TerminoConCategoriaDadaDeBaja_SeComportaComoAmbiguoYDecideElModelo()
+    public async Task Sugerir_TerminoConCategoriaDadaDeBaja_SeComportaComoAmbiguoYNoSugiere()
     {
         AgregarItem(1, "CUADERNO ESPIRAL");
         _terminos.Add(Termino("CUADERNO", 999));
-        HabilitarModelo(_ => Prediccion(Cuadernos, 0.97, superaUmbral: true));
-
-        var item = (await SugerirAsync(1)).Items.Single();
-
-        item.Categoria!.Motivo.Should().Be(MotivoSugerenciaEnum.Modelo);
-    }
-
-    // ---------- Categoría: modelo y bloques ----------
-
-    [Fact]
-    public async Task Sugerir_TerminoAmbiguoConModeloSeguro_SugierePorModeloConSuConfianza()
-    {
-        AgregarItem(1, "SET ESCOLAR X 6");
-        _terminos.Add(Termino("SET", null));
-        HabilitarModelo(_ => Prediccion(Juegos, 0.96, superaUmbral: true));
-
-        var item = (await SugerirAsync(1)).Items.Single();
-
-        item.Categoria.Should().BeEquivalentTo(new { Id = Juegos, Motivo = MotivoSugerenciaEnum.Modelo, Confianza = 0.96 });
-    }
-
-    [Fact]
-    public async Task Sugerir_ModeloPorDebajoDelUmbral_NoSugiere()
-    {
-        AgregarItem(1, "SET ESCOLAR X 6");
-        _terminos.Add(Termino("SET", null));
-        HabilitarModelo(_ => Prediccion(Juegos, 0.70, superaUmbral: false));
-
-        (await SugerirAsync(1)).Items.Single().Categoria.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task Sugerir_ModeloHaciaCategoriaDadaDeBaja_NoSugiere()
-    {
-        AgregarItem(1, "SET ESCOLAR X 6");
-        _terminos.Add(Termino("SET", null));
-        HabilitarModelo(_ => Prediccion(999, 0.99, superaUmbral: true));
-
-        (await SugerirAsync(1)).Items.Single().Categoria.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task Sugerir_SinModelo_NoLoConsultaEInformaQueNoEstaDisponible()
-    {
-        AgregarItem(1, "SET ESCOLAR X 6");
-        _terminos.Add(Termino("SET", null));
 
         var resultado = await SugerirAsync(1);
 
-        resultado.ModeloDisponible.Should().BeFalse();
         resultado.Items.Single().Categoria.Should().BeNull();
-        _modelo.DidNotReceive().Predecir(Arg.Any<IReadOnlyList<string>>());
+        resultado.Bloques.Should().BeEmpty("el término es conocido: no es un término nuevo para decidir en bloque");
     }
+
+    // ---------- Categoría: pares del diccionario (Fase 5) ----------
+
+    [Fact]
+    public async Task Sugerir_TerminoAmbiguoConParDelDiccionario_SugiereLaCategoriaDelPar()
+    {
+        AgregarItem(1, "SET DE GEOMETRÍA. 4 PIEZAS");
+        _terminos.Add(Termino("SET", null));
+        _pares.Add(Par("SET", "GEOMETRIA", Juegos));
+
+        var item = (await SugerirAsync(1)).Items.Single();
+
+        item.Categoria.Should().BeEquivalentTo(
+            new { Id = Juegos, Nombre = "Juegos", Motivo = MotivoSugerenciaEnum.ParDelDiccionario });
+    }
+
+    [Theory]
+    [InlineData("SET ESCOLAR X 6")]
+    [InlineData("SET")]
+    [InlineData("SET DE LA")]
+    public async Task Sugerir_TerminoAmbiguoSinParParaSuSegundaPalabra_NoSugiere(string descripcion)
+    {
+        AgregarItem(1, descripcion);
+        _terminos.Add(Termino("SET", null));
+        _pares.Add(Par("SET", "GEOMETRIA", Juegos));
+
+        (await SugerirAsync(1)).Items.Single().Categoria.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Sugerir_ParHaciaCategoriaDadaDeBaja_NoSugiere()
+    {
+        AgregarItem(1, "SET GEOMETRIA");
+        _terminos.Add(Termino("SET", null));
+        _pares.Add(Par("SET", "GEOMETRIA", 999));
+
+        (await SugerirAsync(1)).Items.Single().Categoria.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Sugerir_EquivalenciaDelProveedor_PrecedeAlPar()
+    {
+        AgregarItem(1, "SET GEOMETRIA", categoria: "Escolares");
+        _terminos.Add(Termino("SET", null));
+        _pares.Add(Par("SET", "GEOMETRIA", Juegos));
+        _equivalencias.Add(EquivalenciaCategoria(null, "ESCOLARES", Cuadernos));
+
+        var item = (await SugerirAsync(1)).Items.Single();
+
+        item.Categoria.Should().BeEquivalentTo(new { Id = Cuadernos, Motivo = MotivoSugerenciaEnum.EquivalenciaDelProveedor });
+    }
+
+    [Fact]
+    public async Task Sugerir_TerminoConCategoria_NoConsultaElPar()
+    {
+        AgregarItem(1, "SET GEOMETRIA");
+        _terminos.Add(Termino("SET", Cuadernos));
+        _pares.Add(Par("SET", "GEOMETRIA", Juegos));
+
+        var item = (await SugerirAsync(1)).Items.Single();
+
+        item.Categoria.Should().BeEquivalentTo(new { Id = Cuadernos, Motivo = MotivoSugerenciaEnum.Termino });
+    }
+
+    // ---------- Bloques de términos nuevos (M-26) ----------
 
     [Fact]
     public async Task Sugerir_CincoItemsConUnTerminoNuevo_LosAgrupaEnUnBloqueSinSugerenciaPorItem()
@@ -234,13 +252,12 @@ public class ClasificacionServiceTests
         var bloque = resultado.Bloques.Single();
         bloque.Termino.Should().Be("PELOTERO");
         bloque.IdsCatalogo.Should().Equal(ids);
-        bloque.Propuesta.Should().BeNull("sin modelo no hay propuesta (M-37)");
         bloque.Ejemplos.Should().HaveCount(3);
         resultado.Items.Should().OnlyContain(i => i.PerteneceABloque && i.Categoria == null);
     }
 
     [Fact]
-    public async Task Sugerir_CuatroItemsConUnTerminoNuevo_NoFormaBloqueYDecideElModeloPorItem()
+    public async Task Sugerir_CuatroItemsConUnTerminoNuevo_NoFormaBloqueNiSugiere()
     {
         var ids = Enumerable.Range(1, ClasificacionService.TamanoMinimoDeBloque - 1).ToArray();
         foreach (var id in ids)
@@ -248,31 +265,10 @@ public class ClasificacionServiceTests
             AgregarItem(id, $"PELOTERO MODELO {id}");
         }
 
-        HabilitarModelo(_ => Prediccion(Juegos, 0.95, superaUmbral: true));
-
         var resultado = await SugerirAsync(ids);
 
         resultado.Bloques.Should().BeEmpty();
-        resultado.Items.Should().OnlyContain(i => !i.PerteneceABloque && i.Categoria!.Motivo == MotivoSugerenciaEnum.Modelo);
-    }
-
-    [Fact]
-    public async Task Sugerir_BloqueConModelo_ProponeLaCategoriaDeLaMayoriaAunqueNoSupereElUmbral()
-    {
-        for (var id = 1; id <= 6; id++)
-        {
-            AgregarItem(id, $"PELOTERO MODELO {id}");
-        }
-
-        HabilitarModelo(descripcion => descripcion.EndsWith('6')
-            ? Prediccion(Mochilas, 0.90, superaUmbral: false)
-            : Prediccion(Juegos, 0.80, superaUmbral: false));
-
-        var bloque = (await SugerirAsync(1, 2, 3, 4, 5, 6)).Bloques.Single();
-
-        bloque.Propuesta.Should().BeEquivalentTo(new { Id = Juegos, Motivo = MotivoSugerenciaEnum.Modelo });
-        bloque.Propuesta!.Confianza.Should().BeApproximately(0.80, 1e-9);
-        bloque.CoincidenConLaPropuesta.Should().Be(5);
+        resultado.Items.Should().OnlyContain(i => !i.PerteneceABloque && i.Categoria == null);
     }
 
     // ---------- Marca ----------
@@ -410,21 +406,14 @@ public class ClasificacionServiceTests
         return item;
     }
 
-    private void HabilitarModelo(Func<string, PrediccionCategoriaDto> predecir)
-    {
-        _modelo.EstaDisponible.Returns(true);
-        _modelo.Predecir(Arg.Any<IReadOnlyList<string>>())
-            .Returns(llamada => llamada.Arg<IReadOnlyList<string>>().Select(predecir).ToList());
-    }
-
-    private static PrediccionCategoriaDto Prediccion(int idCategoria, double confianza, bool superaUmbral)
-    {
-        return new PrediccionCategoriaDto { IdCategoria = idCategoria, Confianza = confianza, SuperaUmbral = superaUmbral };
-    }
-
     private static TerminoDiccionarioDto Termino(string termino, int? idCategoria)
     {
         return new TerminoDiccionarioDto { Termino = termino, IdCategoria = idCategoria };
+    }
+
+    private static ParDiccionarioDto Par(string termino, string segundaPalabra, int idCategoria)
+    {
+        return new ParDiccionarioDto { Termino = termino, SegundaPalabra = segundaPalabra, IdCategoria = idCategoria };
     }
 
     private static EquivalenciaDiccionarioDto EquivalenciaCategoria(string? rubro, string texto, int? idCategoria)

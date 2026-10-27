@@ -942,6 +942,51 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.ParClasificacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_par");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<int?>("IdCategoria")
+                        .HasColumnType("int")
+                        .HasColumnName("id_categoria");
+
+                    b.Property<int>("IdTermino")
+                        .HasColumnType("int")
+                        .HasColumnName("id_termino");
+
+                    b.Property<string>("SegundaPalabra")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("segunda_palabra");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdCategoria");
+
+                    b.HasIndex("IdTermino", "SegundaPalabra")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.ToTable("PARES_CLASIFICACION", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_PARES_CLASIFICACION_SegundaPalabra", "LEN([segunda_palabra]) >= 2 AND CHARINDEX(' ', [segunda_palabra]) = 0");
+                        });
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.PrefijoEanMarca", b =>
                 {
                     b.Property<int>("Id")
@@ -1870,6 +1915,22 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.Navigation("Venta");
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.ParClasificacion", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Categoria", null)
+                        .WithMany()
+                        .HasForeignKey("IdCategoria")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Retail.Domain.Entities.TerminoClasificacion", "TerminoClasificacion")
+                        .WithMany("Pares")
+                        .HasForeignKey("IdTermino")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TerminoClasificacion");
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.PrefijoEanMarca", b =>
                 {
                     b.HasOne("Retail.Domain.Entities.Marca", "Marca")
@@ -2026,6 +2087,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Retail.Domain.Entities.Rol", b =>
                 {
                     b.Navigation("Usuarios");
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.TerminoClasificacion", b =>
+                {
+                    b.Navigation("Pares");
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.TurnoCaja", b =>

@@ -2,8 +2,8 @@ namespace Retail.Domain.Enums;
 
 /// <summary>
 /// Cómo se asignó la categoría o la marca de un artículo (Track 6.6, sección 8.2 y M-5). Toda asignación la confirma
-/// una persona: el origen distingue si partió de una sugerencia del sistema, y permite entrenar el modelo solo con
-/// datos vistos por alguien y medir cuántas sugerencias se aceptan o se corrigen.
+/// una persona: el origen distingue si partió de una sugerencia del sistema, y permite proponer reglas solo a partir de
+/// datos vistos por alguien (M-49) y medir cuántas sugerencias se aceptan o se corrigen.
 /// </summary>
 public enum OrigenClasificacionEnum
 {

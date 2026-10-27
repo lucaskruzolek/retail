@@ -38,6 +38,24 @@ public class DiccionariosClasificacionQueryService : IDiccionariosClasificacionQ
             .Select(t => new TerminoDiccionarioDto { Termino = t.Termino, IdCategoria = t.IdCategoria })
             .ToListAsync(cancellationToken);
 
+        // Solo los pares con categoría (los ignorados no sugieren, P-4) de los términos ambiguos del lote. Exigir el
+        // término ambiguo acá deja afuera un par que haya quedado vigente en un término con categoría por una carrera
+        // entre dos usuarios (riesgo aceptado en el paso 5.4).
+        var paresDelLote = await _context.Set<ParClasificacion>()
+            .AsNoTracking()
+            .Where(p => p.IdCategoria != null)
+            .Join(
+                _context.TerminosClasificacion.Where(t => terminos.Contains(t.Termino) && t.IdCategoria == null),
+                p => p.IdTermino,
+                t => t.Id,
+                (p, t) => new ParDiccionarioDto
+                {
+                    Termino = t.Termino,
+                    SegundaPalabra = p.SegundaPalabra,
+                    IdCategoria = p.IdCategoria!.Value
+                })
+            .ToListAsync(cancellationToken);
+
         // Completas: buscar una frase dentro de la descripción no se traduce a SQL (son unos cientos de filas). El
         // filtro global también excluye los alias dados de baja de la subconsulta.
         var marcas = await _context.Marcas
@@ -79,6 +97,7 @@ public class DiccionariosClasificacionQueryService : IDiccionariosClasificacionQ
         return new DiccionariosClasificacionDto
         {
             Terminos = terminosDelLote,
+            Pares = paresDelLote,
             Marcas = marcas,
             Prefijos = prefijosDelLote,
             Equivalencias = equivalencias,

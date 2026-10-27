@@ -150,6 +150,20 @@ public static class ReglasComunesExtensions
                 $"Revise {campo}: no puede superar los {ReglasClasificacion.LongitudMaximaTextoDeProveedor} caracteres.");
     }
 
+    /// <summary>
+    /// Segunda palabra de un par de clasificación (Track 6.6, Fase 5): la regla de
+    /// <see cref="ReglasClasificacion.ExigirSegundaPalabra"/>.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> SegundaPalabraDePar<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("Complete la segunda palabra.")
+            .Must(valor => ReglasClasificacion.EsSegundaPalabraValida(valor))
+            .WithMessage(
+                $"Revise la segunda palabra: debe ser una sola palabra de hasta {ReglasClasificacion.LongitudMaximaTermino} " +
+                "caracteres, con al menos 2 letras y que no sea de relleno (DE, CON, PARA…).");
+    }
+
     public static IRuleBuilderOptions<T, string> Cuit<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder

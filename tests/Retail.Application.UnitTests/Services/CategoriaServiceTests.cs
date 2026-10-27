@@ -399,6 +399,32 @@ public class CategoriaServiceTests
     }
 
     [Fact]
+    public async Task Baja_ConParesDeTerminosAmbiguos_DaDeBajaSoloLosParesHaciaLaCategoria()
+    {
+        var entidad = CrearCategoriaConId(IdCategoriaExistente, "Geometría");
+        ConfigurarExistente(entidad);
+        _consultas.ContarArticulosPorCategoriaAsync(IdCategoriaExistente, Arg.Any<CancellationToken>()).Returns(0);
+        var set = TerminoClasificacion.CrearAmbiguo("SET");
+        var haciaLaCategoria = set.AsignarPar("GEOMETRIA", IdCategoriaExistente);
+        var haciaOtra = set.AsignarPar("ESCOLAR", IdCategoriaExistente + 1);
+        var ignorado = set.AsignarPar("REGALO", null);
+        var kit = TerminoClasificacion.CrearAmbiguo("KIT");
+        var deOtroTermino = kit.AsignarPar("ARTE", IdCategoriaExistente + 1);
+        ConfigurarTerminosDeLaCategoria(set, kit);
+
+        await _servicio.BajaAsync(IdGerente, IdCategoriaExistente);
+
+        haciaLaCategoria.IsDeleted.Should().BeTrue();
+        haciaOtra.IsDeleted.Should().BeFalse();
+        ignorado.IsDeleted.Should().BeFalse();
+        deOtroTermino.IsDeleted.Should().BeFalse();
+        set.IsDeleted.Should().BeFalse();
+        await _terminos.Received(1).UpdateAsync(set, Arg.Any<CancellationToken>());
+        await _terminos.DidNotReceive().UpdateAsync(kit, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Baja_ConElementoEnUso_NoTocaTerminosNiEquivalencias()
     {
         ConfigurarExistente(CrearCategoriaConId(IdCategoriaExistente, "Ocupado"));
@@ -417,10 +443,16 @@ public class CategoriaServiceTests
             Arg.Any<CancellationToken>());
     }
 
+    // Aplica el predicado como lo haría el repositorio: la baja hace dos búsquedas de términos (los de la categoría y los
+    // que tienen pares hacia ella) y cada una debe recibir solo los suyos.
     private void ConfigurarTerminosDeLaCategoria(params TerminoClasificacion[] terminos)
     {
-        IReadOnlyList<TerminoClasificacion> lista = terminos.ToList();
         _terminos.FindAsync(Arg.Any<Expression<Func<TerminoClasificacion, bool>>>(), false, Arg.Any<CancellationToken>())
-            .Returns(lista);
+            .Returns(llamada =>
+            {
+                var predicado = llamada.Arg<Expression<Func<TerminoClasificacion, bool>>>().Compile();
+                IReadOnlyList<TerminoClasificacion> filtrados = terminos.Where(predicado).ToList();
+                return filtrados;
+            });
     }
 }

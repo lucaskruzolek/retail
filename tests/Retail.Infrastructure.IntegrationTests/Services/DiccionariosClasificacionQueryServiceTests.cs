@@ -5,7 +5,6 @@ using Retail.Application.Services;
 using Retail.Application.Validators.Clasificacion;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
-using Retail.Infrastructure.Clasificacion;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
 using Xunit;
@@ -21,6 +20,7 @@ public class DiccionariosClasificacionQueryServiceTests : IAsyncLifetime, IDispo
 {
     private static readonly string[] TerminosDelLote = { "CUADERNO", "SET", "INEXISTENTE" };
     private static readonly string[] PrefijosDelLote = { "7798100", "7790001" };
+    private static readonly string[] TerminosConPares = { "SET", "BOLSO" };
 
     private readonly string _dbName = $"RetailDb_Test_DicLote_{Guid.NewGuid():N}";
     private RetailDbContext _context = null!;
@@ -91,7 +91,7 @@ public class DiccionariosClasificacionQueryServiceTests : IAsyncLifetime, IDispo
     }
 
     [Fact]
-    public async Task Sugerir_ContraLaBaseReal_RecorreEquivalenciaTerminoYMarcaSinModelo()
+    public async Task Sugerir_ContraLaBaseReal_RecorreEquivalenciaTerminoYMarca()
     {
         var datos = await SembrarAsync();
         var catalogo = new CatalogoProveedor
@@ -110,7 +110,6 @@ public class DiccionariosClasificacionQueryServiceTests : IAsyncLifetime, IDispo
         var servicio = new ClasificacionService(
             new CatalogoProveedorQueryService(_context),
             new DiccionariosClasificacionQueryService(_context),
-            new ModeloCategoriaNoDisponible(),
             new SugerirClasificacionValidator());
 
         var resultado = await servicio.SugerirAsync(new SugerirClasificacionDto { IdProveedor = datos.IdProveedor, IdsCatalogo = new[] { catalogo.Id } });
@@ -118,7 +117,74 @@ public class DiccionariosClasificacionQueryServiceTests : IAsyncLifetime, IDispo
         var item = resultado.Items.Single();
         item.Categoria.Should().BeEquivalentTo(new { Id = datos.IdCuadernos, Motivo = MotivoSugerenciaEnum.EquivalenciaDelProveedor });
         item.Marca.Should().BeEquivalentTo(new { Id = datos.IdRivadavia, Motivo = MotivoSugerenciaEnum.MarcaEnLaDescripcion });
-        resultado.ModeloDisponible.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ObtenerParaLote_Pares_TraeSoloLosConCategoriaDeLosTerminosAmbiguosDelLote()
+    {
+        var (idProveedor, idCategoria) = await SembrarProveedorYCategoriaAsync();
+        var set = TerminoClasificacion.CrearAmbiguo("SET");
+        set.AsignarPar("GEOMETRIA", idCategoria);
+        set.AsignarPar("REGALO", null);
+        set.AsignarPar("ESCOLAR", idCategoria);
+        set.QuitarPar("ESCOLAR");
+        var kit = TerminoClasificacion.CrearAmbiguo("KIT");
+        kit.AsignarPar("ARTE", idCategoria);
+        var bolso = TerminoClasificacion.CrearConCategoria("BOLSO", idCategoria);
+        _context.TerminosClasificacion.AddRange(set, kit, bolso);
+        await _context.SaveChangesAsync();
+
+        // La carrera aceptada en el paso 5.4: un par vigente en un término con categoría, que el Dominio no permite.
+        await _context.Database.ExecuteSqlInterpolatedAsync(
+            $"INSERT INTO PARES_CLASIFICACION (id_termino, segunda_palabra, id_categoria, created_at) VALUES ({bolso.Id}, 'ESCOLAR', {idCategoria}, SYSUTCDATETIME())");
+
+        var resultado = await ConsultarAsync(idProveedor, TerminosConPares, Array.Empty<string>());
+
+        resultado.Pares.Should().ContainSingle().Which.Should().Be(
+            new ParDiccionarioDto { Termino = "SET", SegundaPalabra = "GEOMETRIA", IdCategoria = idCategoria },
+            "REGALO está ignorado, ESCOLAR dado de baja, KIT no es del lote y BOLSO tiene categoría");
+    }
+
+    [Fact]
+    public async Task Sugerir_ContraLaBaseReal_TerminoAmbiguoResueltoPorSuPar()
+    {
+        var (idProveedor, idCategoria) = await SembrarProveedorYCategoriaAsync();
+        var set = TerminoClasificacion.CrearAmbiguo("SET");
+        set.AsignarPar("GEOMETRIA", idCategoria);
+        _context.TerminosClasificacion.Add(set);
+        var catalogo = new CatalogoProveedor
+        {
+            IdProveedor = idProveedor,
+            CodigoProveedor = "S-1",
+            DescripcionProveedor = "SET DE GEOMETRÍA 4 PIEZAS",
+            CostoReposicion = 100m
+        };
+        _context.CatalogosProveedores.Add(catalogo);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var servicio = new ClasificacionService(
+            new CatalogoProveedorQueryService(_context),
+            new DiccionariosClasificacionQueryService(_context),
+            new SugerirClasificacionValidator());
+
+        var resultado = await servicio.SugerirAsync(new SugerirClasificacionDto { IdProveedor = idProveedor, IdsCatalogo = new[] { catalogo.Id } });
+
+        resultado.Items.Single().Categoria.Should().BeEquivalentTo(
+            new { Id = idCategoria, Nombre = "Geometría", Motivo = MotivoSugerenciaEnum.ParDelDiccionario });
+    }
+
+    private async Task<(int IdProveedor, int IdCategoria)> SembrarProveedorYCategoriaAsync()
+    {
+        var rubro = Rubro.Crear("Librería");
+        var proveedor = Proveedor.Crear("Distribuidora Valida", "20111111112");
+        _context.Rubros.Add(rubro);
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+        var geometria = Categoria.Crear("Geometría", rubro.Id);
+        _context.Categorias.Add(geometria);
+        await _context.SaveChangesAsync();
+        return (proveedor.Id, geometria.Id);
     }
 
     private Task<DiccionariosClasificacionDto> ConsultarAsync(int idProveedor, string[] terminos, string[] prefijos)

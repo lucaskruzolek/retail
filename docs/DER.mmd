@@ -18,6 +18,8 @@ erDiagram
     CATEGORIAS ||--o{ ARTICULOS : "clasifica"
     MARCAS ||--o{ ARTICULOS : "agrupa"
     CATEGORIAS |o--o{ TERMINOS_CLASIFICACION : "sugerida_por"
+    TERMINOS_CLASIFICACION ||--o{ PARES_CLASIFICACION : "se_precisa_con"
+    CATEGORIAS |o--o{ PARES_CLASIFICACION : "sugerida_por_par"
     MARCAS ||--o{ ALIAS_MARCAS : "se_escribe_como"
     MARCAS ||--o{ PREFIJOS_EAN_MARCAS : "titular_de"
     PROVEEDORES ||--o{ CATALOGOS_PROVEEDORES : "suministra"
@@ -136,6 +138,14 @@ erDiagram
         int id_termino PK
         string termino "UK filtrado, mayúsculas sin tildes (Track 6.6)"
         int id_categoria "FK nullable; NULL = término ambiguo"
+        datetime deleted_at
+    }
+
+    PARES_CLASIFICACION {
+        int id_par PK
+        int id_termino FK "solo términos ambiguos (P-3, Dominio)"
+        string segunda_palabra "UK filtrado con id_termino, CHECK una palabra"
+        int id_categoria "FK nullable; NULL = par ignorado (P-4)"
         datetime deleted_at
     }
 

@@ -32,4 +32,44 @@ public interface ITerminoClasificacionService
     /// el término no existe.
     /// </summary>
     Task BajaAsync(int idActor, int idTermino, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pares activos de los términos activos (Track 6.6, Fase 5), ordenados por término y segunda palabra. No exige
+    /// rol (D-21).
+    /// </summary>
+    Task<IReadOnlyList<ParDto>> ListarParesAsync(
+        int? idTermino,
+        string? filtro,
+        bool incluirIgnorados,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pares que los artículos confirmados respaldan y que todavía no están en el diccionario, ni con categoría ni
+    /// ignorados (Fase 5, M-49, P-5): al menos <c>SoporteMinimo</c> artículos y una categoría con al menos
+    /// <c>PurezaMinima</c> de ellos. Solo de los términos ambiguos activos, o solo de <paramref name="idTermino"/> si
+    /// se indica. No guarda nada y no exige rol (D-21).
+    /// </summary>
+    Task<IReadOnlyList<ParPropuestoDto>> ListarParesPropuestosAsync(
+        int? idTermino,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asigna un par a un término ambiguo: lo crea o reemplaza su destino; sin categoría queda ignorado (P-4). Es
+    /// <see cref="AsignarParesAsync"/> con un solo par, y lanza las mismas excepciones.
+    /// </summary>
+    Task AsignarParAsync(int idActor, AsignarParDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asigna varios pares en una sola operación (aceptar o descartar propuestas, M-49): se guardan todos o ninguno.
+    /// Lanza <see cref="OperacionNoAutorizadaException"/> si el actor no tiene autoridad y
+    /// <see cref="DomainException"/> si un término no existe o tiene categoría (P-3), si una categoría no existe, o si
+    /// otro usuario registró el mismo par al mismo tiempo.
+    /// </summary>
+    Task AsignarParesAsync(int idActor, AsignarParesDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Baja lógica del par: vuelve a poder proponerse. Lanza <see cref="OperacionNoAutorizadaException"/> si el actor
+    /// no tiene autoridad y <see cref="DomainException"/> si el término o el par no existen.
+    /// </summary>
+    Task QuitarParAsync(int idActor, QuitarParDto dto, CancellationToken cancellationToken = default);
 }

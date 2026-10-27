@@ -2,7 +2,7 @@
 
 > **Para el agente que lea esto:** este archivo es el punto de entrada para retomar, en una sesión nueva y sin contexto previo, la línea de trabajo de clasificación de artículos: el CRUD de Rubros, Categorías y Marcas (Track 6.5) y el motor de sugerencia de categoría y marca (Track 6.6). Resume el estado, las reglas acordadas con el estudiante y el flujo de trabajo paso a paso. **El diseño completo vive en los documentos de cada track; este archivo no lo repite.**
 >
-> **Estado al 26 de octubre de 2026:** el Track 6.5 está implementado y mergeado (PR #31). Del Track 6.6 están cerradas las Fases 0 a 2 (Python), la Fase 3 (dominio y persistencia de diccionarios, origen y equivalencias), la **Fase 4a** (motor de sugerencias, incorporación por ítem y columnas del importador) y la **Fase 4b** (administración de diccionarios, commit `4f11841`), todo en la rama **`feat/catalogacion-arranque-datos`**, sin publicar. El experimento E-6 descartó el modelo estadístico (M-45) y la Fase 5 pasó a ser la de **reglas de pares "término ambiguo + segunda palabra" con propuestas aprobadas por el usuario** (M-48, M-49). **El próximo paso es el paso 5.0 de su plan** (ver "Punto de partida para la Fase 5" en la sección 4).
+> **Estado al 27 de octubre de 2026:** el Track 6.5 está implementado y mergeado (PR #31). Del Track 6.6 están cerradas las Fases 0 a 2 (Python), 3 (dominio y persistencia), 4a y 4b (motor y administración de diccionarios) y la **Fase 5** (pares "término ambiguo + segunda palabra", propuestas y retiro del puerto del modelo; M-50 a M-58), en la rama **`feat/catalogacion-arranque-datos`**, sin publicar. **La Fase 5 está sin commitear** (ver la sección 2). **El próximo paso es el paso 6.0 del plan de la Fase 6** (ver "Punto de partida para la Fase 6" en la sección 4).
 >
 > **Cómo usarlo:** leer la sección 1 (reglas) y la sección 4 (flujo), ubicar el primer paso sin marcar y cargar **solo** el documento del track que ese paso indica. Al cerrar cada sesión, aplicar el protocolo de la sección 6.
 
@@ -25,7 +25,7 @@ Además de `AGENTS.md` y `CLAUDE.md`, que se cargan solos:
 
 ---
 
-## 2. Estado del Repositorio (24 de octubre de 2026)
+## 2. Estado del Repositorio (27 de octubre de 2026)
 
 * `origin/main` contiene los PR #31 (Track 6.5, `2112b37`) y #32 (Track 6.3.1, `aef89bb`). El `main` local puede estar desactualizado: no hace falta para este trabajo.
 * Rama **`feat/catalogacion-arranque-datos`** (creada sobre `main` con #31 y #32, **sin publicar**):
@@ -33,10 +33,11 @@ Además de `AGENTS.md` y `CLAUDE.md`, que se cargan solos:
   * `a9f0d14`: Fase 3 (dominio y persistencia) con dos migraciones: `20261022160838_AgregarDiccionariosYOrigenClasificacion` y `20261022173524_AgregarEquivalenciasYTextosProveedor`.
   * `45bf2e3`: Fase 4a (motor de sugerencias, incorporación por ítem, columnas del importador). Sin migraciones nuevas.
   * `4f11841`: Fase 4b (administración de diccionarios, cascadas y unicidad entre agregados). Sin migraciones nuevas.
-  * Commits de documentación posteriores: `c51a7d7` (plan de la regresión logística, hoy archivado), `ccc709d` (plan de la Fase 6 y M-43) y el siguiente (experimento E-6, M-44 a M-49, plan de la Fase 5 de pares y ajustes al de la Fase 6). Sin migraciones nuevas.
-* **Base local:** después de actualizar la rama, ejecutar `dotnet run --project src/Retail.Cli -- migrar` (las dos migraciones de la Fase 3).
+  * Commits de documentación posteriores: `c51a7d7`, `ccc709d` y `8baed48` (experimento E-6, M-44 a M-49 y plan de la Fase 5 de pares).
+  * **Fase 5, sin commitear (2026-10-27):** pasos 5.1 a 5.9 en el árbol de trabajo, con una migración nueva: `20261027024303_AgregarParesClasificacion`. Incluye tres archivos borrados (puerto del modelo, paso 5.8) y cambios en `ml/scripts/` y `ml/paridad/`. El índice está vacío: nada preparado.
+* **Base local:** después de actualizar la rama, ejecutar `dotnet run --project src/Retail.Cli -- migrar` (las dos migraciones de la Fase 3 y `AgregarParesClasificacion` de la Fase 5).
 * `wiki/.obsidian/workspace.json` puede aparecer modificado: es estado local de Obsidian y no forma parte de este trabajo.
-* Datos locales, no versionados: `ml/datos/lista-mayo-2025.csv` (exportado de `C:\Users\lucas\Proyectos\LISTA MAYO 2025.xls`, 14.876 artículos, un solo distribuidor, sin precios), `ml/datos/lista-piatto-1.csv` (validación externa) y los diccionarios consolidados (`taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv`).
+* Datos locales, no versionados: `ml/datos/pares.csv` (semilla de pares de la Fase 5, 102 pares validados; su planilla de validación es `pares-a-validar.csv`), `ml/datos/lista-mayo-2025.csv` (exportado de `C:\Users\lucas\Proyectos\LISTA MAYO 2025.xls`, 14.876 artículos, un solo distribuidor, sin precios), `ml/datos/lista-piatto-1.csv` (validación externa) y los diccionarios consolidados (`taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv`).
 
 ---
 
@@ -139,8 +140,18 @@ Formatos definitivos: `taxonomia.csv` (`rubro;categoria`), `terminos.csv` (`term
     * 4b.4: `DiccionariosClasificacionIntegrationTests` (cascada leída con un contexto nuevo, índices filtrados que liberan lo dado de baja, la ñ, M-38, M-39 y la carrera simulada con consultas que "no ven" el dato).
     * 4b.5: verificación Release (ver el Estado de Avance del track), mapa y track al día. Nota de `wiki/` propuesta y pendiente de aprobación.
   * **Historia de la decisión sobre el modelo (2026-10-24 a 2026-10-26):** M-43 puso la Fase 6 antes que la 5 y dejó la 5 en espera; **E-6** (sección 11.3 del track) mostró que la tabla "término ambiguo + segunda palabra" cubre el 58,4 % de los términos ambiguos frente al 44,6 % de la regresión logística, con la misma precisión (regla M-44); el estudiante descartó la regresión logística y Naive Bayes (**M-45**); los pares se guardan como diccionario hijo de `TerminoClasificacion`, con semilla y gestión (**M-48**); y la estadística sobre los artículos confirmados **solo propone reglas** que el usuario acepta o descarta, como en la gestión de datos maestros (**M-49**). E-6b se canceló sin ejecutar; sus planillas pre-etiquetadas quedan en `ml/datos/` como complemento opcional de la Fase 7. El plan de la regresión logística (`etapa-6-track-6.6-fase-5-modelo.md`) queda archivado.
-  * **Punto de partida para la Fase 5 (siguiente sesión):** nada está implementado. Cargar **solo** el plan [`etapa-6-track-6.6-fase-5-pares.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-pares.md) (no el track completo) y empezar por el **paso 5.0**: presentar al estudiante las propuestas **P-1 a P-6** (orden respecto de la Fase 6, retiro del puerto del modelo, pares solo en términos ambiguos, par ignorado, criterio de propuesta y semilla) y el **texto nuevo de `RF-27`, `IU-04` e `IU-05`** (sección 5 del plan), y esperar su aprobación. Antes de los pasos 5.2 y 5.3, leer `SISTEMA_DE_PERSISTENCIA.md` y `DER.mmd` (tabla nueva `PARES_CLASIFICACION`, migración `AgregarParesClasificacion`; regla 9). La ERS se edita en el paso 5.9, con el texto aprobado.
-  * **Después de la Fase 5:** la Fase 6, con su plan en [`etapa-6-track-6.6-fase-6-ui.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-6-ui.md) (ya ajustado: su paso 6.8 es la UI de pares y propuestas). Empieza por su paso 6.0 (P6-1 a P6-9) y exige leer `SISTEMA_DE_DISENO.md` y `StyleGalleryView.xaml` antes de tocar XAML (Ley 9).
+  * **Fase 5 ✅ (2026-10-27, sin commitear):** plan [`etapa-6-track-6.6-fase-5-pares.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-pares.md), decisiones M-50 a M-58 en la sección 12 del track.
+    * 5.0: P-1 a P-6 aprobadas (M-50 a M-55) y el texto nuevo de `RF-27`, `IU-04` e `IU-05`.
+    * 5.1: `ReglasClasificacion.SegundaPalabra` con paridad; M-56 quita el punto final también en `e6_comun.py` (E-6: 58,4 % → 58,7 %).
+    * 5.2 y 5.3: `ParClasificacion` hija de `TerminoClasificacion` (P-3, P-4), con `AutoInclude` (M-57); tabla `PARES_CLASIFICACION`, `CK_PARES_CLASIFICACION_SegundaPalabra` e índice único filtrado.
+    * 5.4: `AsignarParAsync`, `AsignarParesAsync` (valida todo antes de mutar), `QuitarParAsync`, `ListarParesAsync`; cascada de la baja de categoría. Carrera de P-3 aceptada.
+    * 5.5: nivel `ParDelDiccionario` del motor; la consulta exige el término ambiguo en SQL.
+    * 5.6: `ListarParesPropuestosAsync` (soporte ≥ 2, pureza ≥ 0,8; pre-filtro con `COLLATE Latin1_General_CI_AI`, excepción acotada a la Ley 8 documentada).
+    * 5.7: `ml/scripts/consolidar_pares.py` con unanimidad (M-58); 102 pares validados en `ml/datos/pares.csv`.
+    * 5.8: puerto del modelo retirado (M-51).
+    * 5.9: ERS, DER, mapa, track, plan de la Fase 6 y verificación Release (resultado en el plan de la Fase 5).
+    * Nota de `wiki/` propuesta y pendiente de aprobación.
+  * **Punto de partida para la Fase 6 (siguiente sesión):** si el estudiante no lo hizo, preparar antes el commit de la Fase 5 a su pedido. Cargar **solo** el plan [`etapa-6-track-6.6-fase-6-ui.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-6-ui.md) y empezar por su **paso 6.0** (propuestas P6-1 a P6-9). La semilla versionada de P6-1 incluye `pares.csv`, que se carga después de los términos (paso 6.1). Leer `SISTEMA_DE_DISENO.md` y `StyleGalleryView.xaml` antes de tocar XAML (Ley 9).
   * **Regla de la segunda palabra para C#:** `ml/scripts/e6_comun.py` (`segunda_palabra` y la lista de relleno) es la especificación que reproduce el paso 5.1, con paridad vía `reglas_paridad.py`. Los scripts del modelo (`modelo.py`, `vectorizador.py`, `vectores-referencia.json`) quedan solo como registro de E-1 a E-6.
   * **Datos (no versionados, en `ml/datos/`):** diccionarios para la semilla de `Retail.Cli` (M-15): `taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv`. `oro.csv` es el conjunto de desarrollo (M-20). **`oro-prueba-a-etiquetar.csv` está sellado hasta la Fase 7: no abrirlo ni mostrar su contenido.**
   * **Opcional, antes de la Fase 7:** validar `ml/datos/e6b-piatto-validar.csv` (401 filas pre-etiquetadas, M-47) y correr `e6b_proveedor_nuevo.py` para medir la tabla de pares con un proveedor nuevo.

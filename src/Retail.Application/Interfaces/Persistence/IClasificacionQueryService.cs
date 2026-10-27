@@ -57,6 +57,28 @@ public interface IClasificacionQueryService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Pares activos de los términos activos (Track 6.6, Fase 5, pestaña de pares), ordenados por término y segunda
+    /// palabra. <paramref name="idTermino"/> deja solo los de ese término; el filtro se compara, en forma de comparación,
+    /// con el término y con la segunda palabra; sin <paramref name="incluirIgnorados"/> quedan solo los que tienen
+    /// categoría (P-4).
+    /// </summary>
+    Task<IReadOnlyList<ParDto>> ListarParesAsync(
+        int? idTermino,
+        string? filtro,
+        bool incluirIgnorados,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Artículos confirmados (activos, con categoría activa) cuya descripción contiene alguno de los
+    /// <paramref name="terminos"/> en forma de comparación, ordenados por Id (Track 6.6, Fase 5, pares propuestos). Es un
+    /// pre-filtro amplio: trae también descripciones donde el término no es la primera palabra ("CASETE" para "SET"),
+    /// que el llamador descarta con <c>ReglasClasificacion.TerminoDeDescripcion</c>; nunca deja afuera una que sí lo es.
+    /// </summary>
+    Task<IReadOnlyList<DescripcionClasificadaDto>> ListarArticulosConTerminosAsync(
+        IReadOnlyCollection<string> terminos,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Alias activos de las marcas activas, ordenados por marca y alias. El filtro busca en el alias y en el nombre
     /// de la marca.
     /// </summary>

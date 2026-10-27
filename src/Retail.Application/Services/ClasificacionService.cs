@@ -1,6 +1,5 @@
 using FluentValidation;
 using Retail.Application.DTOs.Clasificacion;
-using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Application.Services.Clasificacion;
@@ -12,14 +11,14 @@ namespace Retail.Application.Services;
 
 /// <summary>
 /// Sugerencia de categoría y marca por niveles (Track 6.6, sección 4; RF-27). Cada nivel resuelve lo que puede y deja
-/// pasar el resto, de lo más confiable a lo más incierto (M-14):
+/// pasar el resto, de lo más confiable a lo menos (M-14). Todos son reglas aprobadas por una persona (M-45, M-49):
 /// <list type="number">
 /// <item>Lo que informó el proveedor: su marca coincide con una del comercio, o una equivalencia traduce su valor.</item>
-/// <item>Los diccionarios: término no ambiguo; marca nombrada en la descripción, con el prefijo EAN solo para desempatar
-/// o cuando el texto no nombra ninguna (M-25).</item>
-/// <item>Términos nuevos frecuentes: se deciden en bloque, antes que el modelo (M-26).</item>
-/// <item>El modelo, solo con confianza mayor o igual al umbral τ (sección 5.3).</item>
+/// <item>Los diccionarios: término no ambiguo, o par "término ambiguo + segunda palabra" (Fase 5, M-48); marca nombrada
+/// en la descripción, con el prefijo EAN solo para desempatar o cuando el texto no nombra ninguna (M-25).</item>
+/// <item>Términos nuevos frecuentes: se agrupan para decidirlos en bloque (M-26).</item>
 /// </list>
+/// Lo que ninguna regla resuelve queda sin sugerencia.
 /// Todo ocurre en memoria después de dos lecturas (el lote y sus diccionarios); no modifica nada (M-4).
 /// </summary>
 public class ClasificacionService : IClasificacionService
@@ -33,18 +32,15 @@ public class ClasificacionService : IClasificacionService
 
     private readonly ICatalogoProveedorQueryService _catalogo;
     private readonly IDiccionariosClasificacionQueryService _diccionarios;
-    private readonly IModeloCategoria _modelo;
     private readonly IValidator<SugerirClasificacionDto> _validator;
 
     public ClasificacionService(
         ICatalogoProveedorQueryService catalogo,
         IDiccionariosClasificacionQueryService diccionarios,
-        IModeloCategoria modelo,
         IValidator<SugerirClasificacionDto> validator)
     {
         _catalogo = catalogo;
         _diccionarios = diccionarios;
-        _modelo = modelo;
         _validator = validator;
     }
 
@@ -62,17 +58,15 @@ public class ClasificacionService : IClasificacionService
 
         var sinTraducir = new Dictionary<(TipoEquivalenciaEnum Tipo, string? Rubro, string Texto), int>();
         var marcas = items.ToDictionary(i => i.IdCatalogo, i => SugerirMarca(i, diccionarios, sinTraducir));
-        var categorias = items.ToDictionary(i => i.IdCatalogo, i => SugerirCategoriaSinModelo(i, diccionarios, sinTraducir));
+        var categorias = items.ToDictionary(i => i.IdCatalogo, i => ClasificarCategoria(i, diccionarios, sinTraducir));
 
-        // Términos nuevos frecuentes: se deciden en bloque antes que el modelo (M-26). Un ítem sin descripción no
-        // tiene término que registrar.
+        // Términos nuevos frecuentes: se deciden en bloque (M-26). Un ítem sin descripción no tiene término que
+        // registrar.
         var terminosEnBloque = items
             .Where(i => categorias[i.IdCatalogo].Estado == EstadoCategoria.TerminoDesconocido && i.Termino.Length > 0)
             .GroupBy(i => i.Termino)
             .Where(g => g.Count() >= TamanoMinimoDeBloque)
             .ToDictionary(g => g.Key, g => g.ToList());
-
-        var predicciones = Predecir(items.Where(i => categorias[i.IdCatalogo].Estado != EstadoCategoria.Resuelta).ToList());
 
         return new SugerenciasClasificacionDto
         {
@@ -81,14 +75,12 @@ public class ClasificacionService : IClasificacionService
                 IdCatalogo = i.IdCatalogo,
                 Descripcion = i.Descripcion,
                 Termino = i.Termino,
-                Categoria = terminosEnBloque.ContainsKey(i.Termino)
-                    ? null
-                    : categorias[i.IdCatalogo].Sugerencia ?? SugerirPorModelo(predicciones.GetValueOrDefault(i.IdCatalogo), diccionarios),
+                Categoria = terminosEnBloque.ContainsKey(i.Termino) ? null : categorias[i.IdCatalogo].Sugerencia,
                 Marca = marcas[i.IdCatalogo],
                 PerteneceABloque = terminosEnBloque.ContainsKey(i.Termino)
             }).ToList(),
             Bloques = terminosEnBloque
-                .Select(g => ArmarBloque(g.Key, g.Value, predicciones, diccionarios))
+                .Select(g => ArmarBloque(g.Key, g.Value))
                 .OrderByDescending(b => b.IdsCatalogo.Count)
                 .ThenBy(b => b.Termino, StringComparer.Ordinal)
                 .ToList(),
@@ -96,8 +88,7 @@ public class ClasificacionService : IClasificacionService
                 .Select(v => new ValorSinTraducirDto { Tipo = v.Key.Tipo, TextoRubro = v.Key.Rubro, Texto = v.Key.Texto, CantidadDeItems = v.Value })
                 .OrderByDescending(v => v.CantidadDeItems)
                 .ThenBy(v => v.Texto, StringComparer.Ordinal)
-                .ToList(),
-            ModeloDisponible = _modelo.EstaDisponible
+                .ToList()
         };
     }
 
@@ -183,13 +174,14 @@ public class ClasificacionService : IClasificacionService
         TerminoDesconocido
     }
 
-    private sealed record CategoriaSinModelo(EstadoCategoria Estado, SugerenciaDto? Sugerencia);
+    private sealed record CategoriaDelItem(EstadoCategoria Estado, SugerenciaDto? Sugerencia);
 
     /// <summary>
-    /// Niveles deterministas de la categoría: la equivalencia del proveedor y la tabla de términos. Lo que no resuelven
-    /// queda marcado como término ambiguo o desconocido, para el bloque o el modelo.
+    /// Niveles de la categoría: la equivalencia del proveedor, la tabla de términos y, para un término ambiguo, su par
+    /// con la segunda palabra. Lo que no resuelven queda marcado como término ambiguo (sin sugerencia) o desconocido
+    /// (candidato a un bloque).
     /// </summary>
-    private static CategoriaSinModelo SugerirCategoriaSinModelo(
+    private static CategoriaDelItem ClasificarCategoria(
         ItemAClasificar item,
         DiccionariosDelLote diccionarios,
         Dictionary<(TipoEquivalenciaEnum, string?, string), int> sinTraducir)
@@ -197,22 +189,39 @@ public class ClasificacionService : IClasificacionService
         if (ClaveDeCategoriaDelProveedor(item) is var (textoRubro, texto)
             && SugerirPorEquivalencia(TipoEquivalenciaEnum.Categoria, textoRubro, texto, diccionarios, sinTraducir) is { } porEquivalencia)
         {
-            return new CategoriaSinModelo(EstadoCategoria.Resuelta, porEquivalencia);
+            return new CategoriaDelItem(EstadoCategoria.Resuelta, porEquivalencia);
         }
 
         var termino = diccionarios.BuscarTermino(item.Termino);
         if (termino is null)
         {
-            return new CategoriaSinModelo(EstadoCategoria.TerminoDesconocido, null);
+            return new CategoriaDelItem(EstadoCategoria.TerminoDesconocido, null);
         }
 
-        // Un término cuya categoría ya no está activa no sugiere: se comporta como ambiguo y decide el modelo.
-        var porTermino = termino.IdCategoria is int idCategoria
+        // Un término cuya categoría ya no está activa no sugiere: se comporta como ambiguo. No tiene pares (P-3), así
+        // que no pasa por SugerirPorPar.
+        var sugerencia = termino.IdCategoria is int idCategoria
             ? diccionarios.SugerirCategoria(idCategoria, MotivoSugerenciaEnum.Termino)
+            : SugerirPorPar(item, diccionarios);
+        return sugerencia is null
+            ? new CategoriaDelItem(EstadoCategoria.TerminoAmbiguo, null)
+            : new CategoriaDelItem(EstadoCategoria.Resuelta, sugerencia);
+    }
+
+    /// <summary>
+    /// Par "término ambiguo + segunda palabra" del diccionario (Fase 5, M-48). Sin segunda palabra, sin par con
+    /// categoría o con la categoría dada de baja, no sugiere.
+    /// </summary>
+    private static SugerenciaDto? SugerirPorPar(ItemAClasificar item, DiccionariosDelLote diccionarios)
+    {
+        if (item.SegundaPalabra.Length == 0)
+        {
+            return null;
+        }
+
+        return diccionarios.CategoriaDelPar(item.Termino, item.SegundaPalabra) is int idCategoria
+            ? diccionarios.SugerirCategoria(idCategoria, MotivoSugerenciaEnum.ParDelDiccionario)
             : null;
-        return porTermino is null
-            ? new CategoriaSinModelo(EstadoCategoria.TerminoAmbiguo, null)
-            : new CategoriaSinModelo(EstadoCategoria.Resuelta, porTermino);
     }
 
     /// <summary>
@@ -257,59 +266,18 @@ public class ClasificacionService : IClasificacionService
         };
     }
 
-    // ---------- Modelo y bloques ----------
+    // ---------- Bloques ----------
 
     /// <summary>
-    /// Una sola llamada al modelo para todos los ítems que no resolvieron los diccionarios (también los de bloque, para
-    /// su propuesta). Sin modelo, no hay predicciones (arranque en frío, M-37).
+    /// Un bloque llega sin categoría propuesta: la decide el usuario una sola vez para todo el grupo y el término queda
+    /// registrado (M-16, M-26). Los ejemplos hacen informada la decisión.
     /// </summary>
-    private Dictionary<int, PrediccionCategoriaDto> Predecir(List<ItemAClasificar> pendientes)
+    private static BloqueTerminoNuevoDto ArmarBloque(string termino, IReadOnlyList<ItemAClasificar> items)
     {
-        if (!_modelo.EstaDisponible || pendientes.Count == 0)
-        {
-            return new Dictionary<int, PrediccionCategoriaDto>();
-        }
-
-        var predicciones = _modelo.Predecir(pendientes.Select(i => i.Descripcion).ToList());
-        return pendientes.Zip(predicciones).ToDictionary(p => p.First.IdCatalogo, p => p.Second);
-    }
-
-    private static SugerenciaDto? SugerirPorModelo(PrediccionCategoriaDto? prediccion, DiccionariosDelLote diccionarios)
-    {
-        return prediccion is { SuperaUmbral: true }
-            ? diccionarios.SugerirCategoria(prediccion.IdCategoria, MotivoSugerenciaEnum.Modelo, prediccion.Confianza)
-            : null;
-    }
-
-    /// <summary>
-    /// La propuesta del bloque es la categoría activa que el modelo asigna a la mayoría del grupo, aunque no alcance el
-    /// umbral por producto (M-26). Empate: la de mayor confianza promedio y, después, el menor Id (determinismo).
-    /// </summary>
-    private static BloqueTerminoNuevoDto ArmarBloque(
-        string termino,
-        IReadOnlyList<ItemAClasificar> items,
-        Dictionary<int, PrediccionCategoriaDto> predicciones,
-        DiccionariosDelLote diccionarios)
-    {
-        var mayoria = items
-            .Select(i => predicciones.GetValueOrDefault(i.IdCatalogo))
-            .OfType<PrediccionCategoriaDto>()
-            .Where(p => diccionarios.EsCategoriaActiva(p.IdCategoria))
-            .GroupBy(p => p.IdCategoria)
-            .Select(g => new { IdCategoria = g.Key, Cantidad = g.Count(), Confianza = g.Average(p => p.Confianza) })
-            .OrderByDescending(g => g.Cantidad)
-            .ThenByDescending(g => g.Confianza)
-            .ThenBy(g => g.IdCategoria)
-            .FirstOrDefault();
-
         return new BloqueTerminoNuevoDto
         {
             Termino = termino,
             IdsCatalogo = items.Select(i => i.IdCatalogo).ToList(),
-            Propuesta = mayoria is null
-                ? null
-                : diccionarios.SugerirCategoria(mayoria.IdCategoria, MotivoSugerenciaEnum.Modelo, mayoria.Confianza),
-            CoincidenConLaPropuesta = mayoria?.Cantidad ?? 0,
             Ejemplos = items.Take(EjemplosPorBloque).Select(i => i.Descripcion).ToList()
         };
     }

@@ -29,6 +29,16 @@ public static partial class ReglasClasificacion
     /// </summary>
     public const int LongitudMaximaTextoDeProveedor = ReglasTexto.LongitudMaximaNombreClasificacion;
 
+    /// <summary>
+    /// Palabras que no distinguen un producto de otro y que el proveedor intercala entre el término y lo que lo
+    /// precisa ("SET DE GEOMETRIA"). Es la lista de <c>RELLENO</c> de <c>ml/scripts/e6_comun.py</c>; "X", "P/" y "C/"
+    /// ya quedan afuera por tener una sola letra, y se conservan para que las dos listas se lean iguales.
+    /// </summary>
+    private static readonly HashSet<string> PalabrasDeRelleno = new(StringComparer.Ordinal)
+    {
+        "DE", "DEL", "LA", "EL", "LOS", "LAS", "Y", "CON", "PARA", "X", "P/", "C/",
+    };
+
     [GeneratedRegex(@"\s+")]
     private static partial Regex Espacios();
 
@@ -99,6 +109,51 @@ public static partial class ReglasClasificacion
             .SelectMany(palabra => palabra.TrimEnd('.').Split('/'))
             .Where(parte => parte.Length > 0)
             .ToList();
+    }
+
+    /// <summary>
+    /// Segunda palabra de un par de clasificación (Track 6.6, Fase 5): la primera palabra después del término que tenga
+    /// al menos 2 letras y no sea de relleno, en forma de comparación y sin el punto final (M-56); vacía si no hay
+    /// ninguna. Reproduce <c>segunda_palabra</c> de <c>ml/scripts/e6_comun.py</c>, con la que se midió E-6.
+    /// </summary>
+    /// <remarks>
+    /// No aplica el largo máximo de <see cref="ExigirSegundaPalabra"/>: saltear una palabra larga y tomar la siguiente
+    /// rompería la paridad. Esa palabra no coincide con ningún par guardado, así que el resultado es el mismo.
+    /// </remarks>
+    public static string SegundaPalabra(string descripcion)
+    {
+        foreach (var palabra in LimpiarDescripcion(descripcion).Split(' ').Skip(1))
+        {
+            var forma = FormaDeSegundaPalabra(palabra);
+            if (EsSegundaPalabraSignificativa(forma))
+            {
+                return forma;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    public static bool EsSegundaPalabraValida(string? valor)
+    {
+        return !string.IsNullOrWhiteSpace(valor) && EsFormaCanonicaDeSegundaPalabraValida(FormaDeSegundaPalabra(valor));
+    }
+
+    /// <summary>
+    /// Una segunda palabra guardada en un par debe ser una que <see cref="SegundaPalabra"/> pueda devolver: así todo
+    /// par del diccionario es alcanzable desde alguna descripción.
+    /// </summary>
+    public static string ExigirSegundaPalabra(string? valor)
+    {
+        var forma = string.IsNullOrWhiteSpace(valor) ? string.Empty : FormaDeSegundaPalabra(valor);
+        if (!EsFormaCanonicaDeSegundaPalabraValida(forma))
+        {
+            throw new DomainException(
+                $"La segunda palabra '{valor}' no es válida: debe ser una sola palabra de hasta " +
+                $"{LongitudMaximaTermino} caracteres, con al menos 2 letras y que no sea de relleno (DE, CON, PARA…).");
+        }
+
+        return forma;
     }
 
     public static bool EsTerminoValido(string? valor)
@@ -177,5 +232,23 @@ public static partial class ReglasClasificacion
     private static bool EsFormaCanonicaDeAliasValida(string normalizado)
     {
         return normalizado.Length > 0 && normalizado.Length <= LongitudMaximaAlias;
+    }
+
+    private static bool EsFormaCanonicaDeSegundaPalabraValida(string forma)
+    {
+        return forma.Length <= LongitudMaximaTermino
+            && !forma.Contains(' ')
+            && EsSegundaPalabraSignificativa(forma);
+    }
+
+    private static string FormaDeSegundaPalabra(string palabra)
+    {
+        return NormalizarTexto(palabra).TrimEnd('.');
+    }
+
+    // char.IsLetter acepta las mismas categorías Unicode (L*) que str.isalpha de Python.
+    private static bool EsSegundaPalabraSignificativa(string forma)
+    {
+        return forma.Count(char.IsLetter) >= 2 && !PalabrasDeRelleno.Contains(forma);
     }
 }

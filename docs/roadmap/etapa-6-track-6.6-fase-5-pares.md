@@ -12,16 +12,16 @@
 
 | Paso | Contenido | Estado |
 | :--- | :--- | :---: |
-| 5.0 | Confirmar las propuestas P-1 a P-5 y el texto de la ERS | ⏳ |
-| 5.1 | Regla de la segunda palabra (Dominio) con paridad contra Python | ⏳ |
-| 5.2 | `ParClasificacion`, hija de `TerminoClasificacion` (Dominio) | ⏳ |
-| 5.3 | Persistencia: mapeo, migración e índices | ⏳ |
-| 5.4 | Comandos y consultas de pares (Aplicación e Infraestructura) | ⏳ |
-| 5.5 | Nivel nuevo del motor: par del diccionario | ⏳ |
-| 5.6 | Pares propuestos a partir de los artículos confirmados (consulta) | ⏳ |
-| 5.7 | Semilla de pares (`ml/`) | ⏳ |
-| 5.8 | Retiro del puerto del modelo | ⏳ |
-| 5.9 | Cierre: ERS, DER, mapa, track, plan de la Fase 6, handoff, verificación Release | ⏳ |
+| 5.0 | Confirmar las propuestas P-1 a P-6 y el texto de la ERS | ✅ 2026-10-26: P-1 a P-6 y el texto de la sección 5 aprobados (M-50 a M-55) |
+| 5.1 | Regla de la segunda palabra (Dominio) con paridad contra Python | ✅ 2026-10-26: M-56 (sin el punto final, en C# y en `e6_comun.py`; E-6 pasa de 58,4 % a 58,7 % con la misma precisión) |
+| 5.2 | `ParClasificacion`, hija de `TerminoClasificacion` (Dominio) | ✅ 2026-10-26 |
+| 5.3 | Persistencia: mapeo, migración e índices | ✅ 2026-10-26: M-57 (`AutoInclude` de los pares), `CK_PARES_CLASIFICACION_SegundaPalabra`; sin test de migración sobre datos (crea una tabla vacía) |
+| 5.4 | Comandos y consultas de pares (Aplicación e Infraestructura) | ✅ 2026-10-27: cascada de la categoría con `FindAsync(t => t.Pares.Any(...))`, sin método nuevo en el puerto; carrera de P-3 entre dos usuarios aceptada (el par queda inerte, como R-5) |
+| 5.5 | Nivel nuevo del motor: par del diccionario | ✅ 2026-10-27: el motor no carga los pares ignorados; la consulta exige el término ambiguo en SQL (neutraliza la carrera de P-3); `ParDelDiccionario = 6`, `Modelo = 7` hasta el 5.8 |
+| 5.6 | Pares propuestos a partir de los artículos confirmados (consulta) | ✅ 2026-10-27: pre-filtro amplio con `COLLATE Latin1_General_CI_AI` y decisión exacta en C#; "confirmado" = artículo activo con categoría activa (cualquier origen); 3.000 artículos en ~150 ms |
+| 5.7 | Semilla de pares (`ml/`) | ✅ 2026-10-27: `consolidar_pares.py` con unanimidad y conflictos a revisión (M-58, en lugar de la pureza ≥ 0,6 de P-6); 150 candidatos validados por el estudiante (vacío = descartar; KIT BIC → Útiles Escolares, REPUESTO CUTTER → Oficina): **102 pares** en `ml/datos/pares.csv`, 48 descartados. La copia versionada y su carga son del paso 6.1 |
+| 5.8 | Retiro del puerto del modelo | ✅ 2026-10-27: borrados `IModeloCategoria`, `ModeloCategoriaNoDisponible` y `PrediccionCategoriaDto`; sin `Confianza`, `Propuesta`, `CoincidenConLaPropuesta`, `ModeloDisponible` ni el motivo `Modelo`. Ningún uso en `Retail.App` |
+| 5.9 | Cierre: ERS, DER, mapa, track, plan de la Fase 6, handoff, verificación Release | ✅ 2026-10-27: `RF-27`, `IU-04`, `IU-05` y la matriz; M-50 a M-58 en el track; verificación Release: build sin advertencias, **2.620 tests** (Dominio 733, Aplicación 857, App 541, Integración 489) y `dotnet format` en verde. **Fase 5 cerrada** |
 
 ---
 
@@ -155,6 +155,7 @@ flowchart TD
 | Un término ambiguo muy frecuente trae muchos artículos al calcular propuestas | Filtro por término en SQL, proyección de dos columnas, consulta a pedido (no en cada sugerencia); prueba de integración con volumen |
 | Perder pares al asignarle categoría a un término (P-3) | La Fase 6 muestra cuántos pares se dan de baja antes de confirmar |
 | Divergencia entre la regla de C# y la de Python | Paridad del paso 5.1 |
+| Carrera de P-3: un usuario agrega un par mientras otro le asigna categoría al término (sin `rowversion` en `TERMINOS_CLASIFICACION`) | **Aceptado** (2026-10-27, como R-5): el par queda vigente pero inerte, porque el motor (5.5) solo consulta pares de términos ambiguos y las propuestas (5.6) no lo cuentan |
 
 ---
 

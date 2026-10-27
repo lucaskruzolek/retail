@@ -48,6 +48,7 @@ public class ParidadReglasTextoTests
         ReglasClasificacion.TerminoDeDescripcion(descripcion).Should().Be(esperado.GetProperty("termino").GetString());
         ReglasClasificacion.PalabrasParaMarca(descripcion).Should().Equal(
             esperado.GetProperty("palabras_para_marca").EnumerateArray().Select(p => p.GetString()!));
+        ReglasClasificacion.SegundaPalabra(descripcion).Should().Be(esperado.GetProperty("segunda_palabra").GetString());
     }
 
     [Theory]

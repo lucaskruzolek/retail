@@ -14,6 +14,12 @@ public record class DiccionariosClasificacionDto
     public required IReadOnlyList<TerminoDiccionarioDto> Terminos { get; init; }
 
     /// <summary>
+    /// Pares con categoría de los términos ambiguos del lote (Fase 5). Un par de un término con categoría no llega:
+    /// por P-3 no debería existir, y el motor solo consulta pares de términos ambiguos.
+    /// </summary>
+    public required IReadOnlyList<ParDiccionarioDto> Pares { get; init; }
+
+    /// <summary>
     /// Todas las marcas activas con sus alias: buscar una frase dentro de la descripción no se traduce a SQL.
     /// </summary>
     public required IReadOnlyList<MarcaDiccionarioDto> Marcas { get; init; }
@@ -29,8 +35,8 @@ public record class DiccionariosClasificacionDto
     public required IReadOnlyList<EquivalenciaDiccionarioDto> Equivalencias { get; init; }
 
     /// <summary>
-    /// Categorías activas con su rubro: dan el nombre de cada sugerencia y descartan predicciones del modelo hacia
-    /// categorías dadas de baja después del entrenamiento (sección 7).
+    /// Categorías activas con su rubro: dan el nombre de cada sugerencia y descartan las reglas que apuntan a una
+    /// categoría dada de baja.
     /// </summary>
     public required IReadOnlyList<CategoriaDto> Categorias { get; init; }
 }

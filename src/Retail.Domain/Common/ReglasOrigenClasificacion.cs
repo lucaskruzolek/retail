@@ -5,7 +5,7 @@ namespace Retail.Domain.Common;
 /// <summary>
 /// Cómo se decide el origen de una clasificación confirmada por una persona (Track 6.6, M-34): compara lo que la
 /// persona confirmó con lo que había sugerido el sistema. Es la base de la tasa de aceptación y corrección (R-3) y de
-/// los datos con que se entrena el modelo (M-5).
+/// los artículos confirmados de los que salen los pares propuestos (M-5, M-49).
 /// </summary>
 public static class ReglasOrigenClasificacion
 {
