@@ -57,7 +57,7 @@
 
 ### Track 4.3: Abastecimiento — Fuentes Múltiples, Pedidos y Compras desde Pedido
 **Responsables:** Lucas Kruzolek (fuentes múltiples, comparador y pedidos) y Pablo Fernandez (compras desde pedido)  
-**Estado:** 🚧 Diseño (PR-0)
+**Estado:** 🟡 En curso (PR-0 plan ✅ / L1 y P1 ⏳)
 
 Sugerencia docente: comparar costos del mismo artículo entre distribuidores, armar pedidos desde el catálogo y registrar la compra a partir del pedido ajustándola a la factura (`RF-05`, `RF-07`, `RF-19`, `RF-28`, `RF-29`, `IU-12`).
 

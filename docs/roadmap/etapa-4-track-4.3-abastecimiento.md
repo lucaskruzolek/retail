@@ -36,7 +36,7 @@ graph LR
 
 | PR | Contenido | Dueño | Depende de | Migración | Estado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| **PR-0** | Este documento, paquetes, ERS (RF-05, RF-07, RF-19, RF-28, RF-29, IU-12), DER de Pedidos, Etapa 4, mapa | Ambos (revisión cruzada) | — | No | 🚧 En revisión |
+| **PR-0** | Este documento, paquetes, ERS (RF-05, RF-07, RF-19, RF-28, RF-29, IU-12), DER de Pedidos, Etapa 4, mapa | Ambos (revisión cruzada) | — | No | ✅ Publicado en `main` (`6a29a4b`) |
 | **P1** | Integrar `main` en la rama del Módulo 4.2 y aplicar las correcciones de revisión | Pablo | PR-0 | Sí (UK de comprobante) | ⏳ |
 | **L1** | Agregado `Pedido`: dominio, persistencia, servicio y contratos de frontera | Lucas | PR-0 | Sí (`PEDIDOS`) | ⏳ |
 | **L2a** | `PedidosView`, "Agregar al pedido" desde el catálogo, emitir y cancelar | Lucas | L1 | No | ⏳ |
