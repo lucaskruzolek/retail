@@ -2,7 +2,7 @@
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
 
-> **Para el agente que lea esto:** plan detallado de la Fase 6 del Track 6.6, escrito el 2026-10-24 para implementarse en una sesión nueva. Por decisión del estudiante (M-43), **la Fase 6 se implementa antes que la Fase 5**: la interfaz funciona con los diccionarios y el arranque en frío que ya existen (`ModeloCategoriaNoDisponible`, M-37), y lo que depende del modelo queda aislado en el paso 6.8, condicionado a la decisión pendiente sobre la Fase 5. El diseño de fondo vive en [`etapa-6-track-6.6-catalogacion-inteligente.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md) (secciones 4, 7.1 y 9; decisiones M-11, M-13, M-15, M-16, M-26, M-34). Se trabaja paso a paso (CLAUDE.md §3).
+> **Para el agente que lea esto:** plan detallado de la Fase 6 del Track 6.6, escrito el 2026-10-24 para implementarse en una sesión nueva. **Actualizado el 2026-10-26 (M-45, M-48, M-49):** no hay modelo estadístico; la Fase 5 agrega los pares "término ambiguo + segunda palabra" (diccionario y propuestas) y, si se aprueba su P-1, se implementa **antes** que esta fase. El paso 6.8 pasó a ser la revisión de pares propuestos. El diseño de fondo vive en [`etapa-6-track-6.6-catalogacion-inteligente.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md) (secciones 4, 7.1 y 9; decisiones M-11, M-13, M-15, M-16, M-26, M-34). Se trabaja paso a paso (CLAUDE.md §3).
 >
 > **Lectura obligatoria antes de tocar XAML (Ley 9):** [`SISTEMA_DE_DISENO.md`](file:///c:/Users/lucas/Proyectos/retail/docs/SISTEMA_DE_DISENO.md) y [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml). Cada `.xaml` nuevo o modificado pasa por `scripts/audit-xaml.ps1` y tiene su prueba de humo STA en `AppSmokeTests.cs`.
 
@@ -20,7 +20,7 @@
 | 6.5 | Modal de incorporación: sugerencias por ítem | ⏳ |
 | 6.6 | Modal de incorporación: traducción de valores y decisiones en bloque | ⏳ |
 | 6.7 | Prueba manual guiada | ⏳ |
-| 6.8 | (Condicional) Estado del modelo y "Actualizar modelo" | ⏳ Depende de la decisión sobre la Fase 5 |
+| 6.8 | Pares: sección de pares por término ambiguo y revisión de pares propuestos (M-49) | ⏳ Requiere la Fase 5 |
 | 6.9 | Cierre: verificación Release, mapa, track, handoff | ⏳ |
 
 ---
@@ -42,10 +42,10 @@
 
 | ID | Propuesta | Recomendación y motivo |
 | :--- | :--- | :--- |
-| **P6-1** | **Archivos de la semilla versionados** en `src/Retail.Cli/Semilla/` (`taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv`), copiados de los diccionarios consolidados de `ml/datos/` con sus formatos definitivos (sección 4 del handoff) y publicados junto al ejecutable. | Recomendada. M-15 ya decidió que nombres de categorías, marcas y prefijos son hechos públicos y que los términos (primeras palabras genéricas: `CUADERNO`, `MOCHILA`) se distribuyen; las descripciones de la lista **no**. Hay que confirmarlo porque `ml/datos/` está fuera del control de versiones a propósito: se versionan solo esos cuatro archivos, revisados antes de copiarlos |
+| **P6-1** | **Archivos de la semilla versionados** en `src/Retail.Cli/Semilla/` (`taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv` y `pares.csv`, este último de la Fase 5), copiados de los diccionarios consolidados de `ml/datos/` con sus formatos definitivos (sección 4 del handoff) y publicados junto al ejecutable. | Recomendada. M-15 ya decidió que nombres de categorías, marcas y prefijos son hechos públicos y que los términos (primeras palabras genéricas: `CUADERNO`, `MOCHILA`) se distribuyen; las descripciones de la lista **no**. Hay que confirmarlo porque `ml/datos/` está fuera del control de versiones a propósito: se versionan solo esos cuatro archivos, revisados antes de copiarlos |
 | **P6-2** | **Comando `cargar-diccionarios`**, aditivo e idempotente: crea lo que falta (rubros, categorías y marcas por nombre en forma de comparación; términos, alias y prefijos que no existan), **nunca pisa** lo que el comercio editó y no falla por un conflicto: lo informa (por ejemplo, un alias que ya es de otra marca). Todo en una transacción. Escribe con las fábricas y métodos del Dominio desde un `SemilleroDiccionarios` en Infraestructura, como `SemilleroDatosDemo`, aplicando las mismas reglas de unicidad de la Fase 4b (M-38, M-39). | Recomendada. La herramienta de línea de comandos no tiene sesión de usuario para la autorización D-5 de los servicios; el patrón del semillero ya está aceptado (Track 6.3, D-12). Idempotente permite volver a correrlo tras una actualización de la semilla |
 | **P6-3** | **Flujo del modal de incorporación en tres pasos dentro del mismo diálogo:** (1) *Traducir valores del proveedor* (solo si hay `ValoresSinTraducir`), (2) *Términos nuevos* (solo si hay `Bloques`), (3) *Revisar artículos* (la grilla con sugerencias por ítem). Después de los pasos 1 y 2 se vuelve a llamar a `SugerirAsync`: lo decidido ya cambió los diccionarios y las sugerencias mejoran solas. | Recomendada. Es el orden de M-14 y M-26 (lo explícito y lo que se decide en bloque, antes que lo individual). Volver a sugerir evita mantener en la UI una copia de la lógica del motor |
-| **P6-4** | **Acciones de un bloque de término nuevo:** asignar a una categoría existente (registra el término, M-16), **crear una categoría nueva y asignarla** (comando atómico nuevo, paso 6.2), marcar el término como ambiguo, o dejarlo sin decidir. El bloque llega precargado con la propuesta del modelo y su consistencia (M-26) cuando hay modelo; sin modelo, sin propuesta. | Recomendada. Crear la categoría y registrar el término en dos llamadas dejaría una categoría huérfana si la segunda falla; el comando atómico es una línea de Aplicación más y se prueba como el resto |
+| **P6-4** | **Acciones de un bloque de término nuevo:** asignar a una categoría existente (registra el término, M-16), **crear una categoría nueva y asignarla** (comando atómico nuevo, paso 6.2), marcar el término como ambiguo, o dejarlo sin decidir. El bloque llega sin propuesta precargada: no hay modelo (M-45). | Recomendada. Crear la categoría y registrar el término en dos llamadas dejaría una categoría huérfana si la segunda falla; el comando atómico es una línea de Aplicación más y se prueba como el resto |
 | **P6-5** | **Interruptor "Sugerir clasificación"** (M-11), activado por defecto. Apagado, el modal se comporta como hoy: una categoría y una marca para todo el lote, origen `Manual`. | Recomendada. Es M-11 tal como está |
 | **P6-6** | **Permisos:** incorporar sigue con los roles actuales; los pasos 1 y 2 escriben diccionarios y exigen D-5. Si el usuario no la tiene, esos pasos se muestran en solo lectura con una nota ("Un Gerente o un Encargado puede traducir estos valores") y la grilla funciona igual. | Recomendada. La autorización la hace igual el servidor; la UI solo evita ofrecer lo que va a fallar |
 | **P6-7** | **Dónde se administra cada diccionario:** Términos, Alias y Prefijos como secciones nuevas de `AdministrarClasificacionDialog`; las **Equivalencias**, por proveedor, en un diálogo propio (`EquivalenciasProveedorDialog`) que se abre desde la vista de Proveedores. Cada sección nueva con su propio ViewModel hijo, para no seguir agrandando `AdministrarClasificacionViewModel`. | Recomendada. Las equivalencias son de un proveedor (M-13), no del catálogo; los ViewModels hijos mantienen cada archivo con una responsabilidad (AGENTS.md, integridad de capas y archivos) |
@@ -94,7 +94,7 @@
 ### 6.6 — Modal de incorporación: traducción y bloques
 
 * **Paso 1, "Traducir valores del proveedor":** lista de `ValoresSinTraducir` con su cantidad de ítems; por cada valor, destino o "Ignorar" (`IEquivalenciaClasificacionService.AsignarAsync`).
-* **Paso 2, "Términos nuevos":** una tarjeta por bloque con el término, la cantidad de productos, los ejemplos, la propuesta (si hay modelo) con su consistencia ("56 de 56") y las acciones de P6-4.
+* **Paso 2, "Términos nuevos":** una tarjeta por bloque con el término, la cantidad de productos, los ejemplos, y las acciones de P6-4 (sin propuesta precargada: no hay modelo, M-45).
 * **Navegación:** encabezado con los tres pasos; los pasos sin contenido se saltean; "Volver a sugerir" tras cada paso (P6-3). Permisos según P6-6.
 * **Tests:** ViewModel (se saltean los pasos vacíos; asignar un bloque llama al servicio y vuelve a sugerir; sin D-5, solo lectura); prueba de humo STA.
 
@@ -102,15 +102,12 @@
 
 Guion para el estudiante, con una base cargada con `cargar-diccionarios` y una planilla de prueba **inventada** (nunca la lista del distribuidor): importar, ver las sugerencias por término y por marca, traducir un valor del proveedor, resolver un bloque creando una categoría, corregir una sugerencia, incorporar y comprobar en la base el origen de cada artículo (`Manual`, `SugerenciaAceptada`, `SugerenciaCorregida`).
 
-### 6.8 — (Condicional) Estado del modelo y "Actualizar modelo"
+### 6.8 — Pares del diccionario y pares propuestos (M-49)
 
-Depende de lo que se decida sobre la Fase 5 (experimento E-6 y la opción del modelo distribuido):
-
-| Decisión sobre el modelo | Qué agrega este paso |
-| :--- | :--- |
-| Reentrenamiento local (Fase 5 completa o una versión simplificada) | Sección "Modelo" en el diálogo de clasificación: fecha, τ, precisión y cobertura del modelo vigente, aviso de "Desactualizado" y botón "Actualizar modelo" (D-5) con progreso y cancelación |
-| Modelo distribuido con el programa | Solo información: versión del modelo y categorías de la taxonomía de referencia que cubre |
-| Sin modelo | Nada; este paso se omite |
+* **Pares por término ambiguo:** en la sección Términos (6.3), al elegir un término ambiguo, la lista de sus pares (segunda palabra → categoría, o "Ignorado") con alta, cambio y baja (`AsignarParAsync`, `QuitarParAsync`). Al asignarle una categoría a un término ambiguo, el diálogo avisa cuántos pares se dan de baja (P-3 de la Fase 5) antes de confirmar.
+* **Revisión de pares propuestos:** una lista de `ListarParesPropuestosAsync` con la evidencia ("8 de 8"), la categoría propuesta (editable) y ejemplos; acciones "Aceptar", "Descartar" (par ignorado) y en bloque (`AsignarParesAsync`), con D-5.
+* **Aviso al terminar una incorporación:** si hay pares propuestos nuevos, un mensaje con enlace a la revisión ("Hay 3 reglas nuevas para revisar"). No interrumpe el flujo.
+* **Tests:** ViewModels (aceptar y descartar llaman al servicio y refrescan; sin D-5 solo lectura) y prueba de humo STA de lo que se agregue al diálogo.
 
 ### 6.9 — Cierre
 

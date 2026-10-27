@@ -2,6 +2,9 @@
 
 ### Proyecto: Retail (Sistema ERP & Punto de Venta para Librería)
 
+> [!WARNING]
+> **Plan archivado (2026-10-26): reemplazado por M-45.** El experimento E-6 mostró que una tabla "término ambiguo + segunda palabra" cubre más que la regresión logística con la misma precisión, y el estudiante decidió no implementar ningún modelo estadístico. Este documento se conserva como registro del diseño evaluado y de las decisiones M-40 a M-42; **no se implementa**.
+
 > **Para el agente que lea esto:** plan detallado de la Fase 5 del Track 6.6, escrito el 2026-10-24 para implementarse en sesiones nuevas. El diseño de fondo (qué modelo, por qué, con qué umbral) vive en [`etapa-6-track-6.6-catalogacion-inteligente.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md), secciones 5, 7 y 10, y en sus decisiones M-1 a M-42; este documento no lo repite. Se trabaja paso a paso (CLAUDE.md §3): cada paso se explica, se muestra el diff y se espera la aprobación del estudiante antes del siguiente.
 >
 > **Decisiones de partida (aprobadas el 2026-10-24):** M-40 (MathNet.Numerics para el optimizador), M-41 (Fase 5 dividida en 5a y 5b) y M-42 (paridad del clasificador por probabilidades). Las decisiones de la 5b marcadas como **Propuesta** se confirman con el estudiante al empezar la 5b.

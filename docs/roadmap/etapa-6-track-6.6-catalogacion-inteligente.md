@@ -22,7 +22,7 @@
 | 2 | Experimentos E-1 a E-5 en Python (selección del clasificador, umbrales y orden de los niveles de marca) | ✅ 2026-10-22: regresión logística C = 100, n-gramas 3-4 sin numéricos, τ = 0,94 (sin κ, M-23); marca por texto primero y prefijos de pureza ≥ 0,6; vectores de paridad (sección 11.1) |
 | 3 | Dominio y su persistencia (M-29): `TerminoClasificacion` (M-27), alias y prefijos de `Marca`, origen de la clasificación (M-30), regla de EAN (M-28). 3b: equivalencias de `Proveedor` | ✅ 2026-10-22 (3b cerrada: migración `AgregarEquivalenciasYTextosProveedor`; verificación Release con 2.321 tests y `dotnet format` en verde). Detalle: 3.1 (reglas y enum), 3.2 (entidades) y 3.3 (mapeo, migración `AgregarDiccionariosYOrigenClasificacion`, `CHECK` e índices, baja de `Marca` con sus diccionarios) ✅; verificación Release: 2.293 tests y `dotnet format` en verde. **3b** (M-31 a M-33): 3b.1 dominio ✅ (`EquivalenciaClasificacion`, `TipoEquivalenciaEnum`, métodos de `Proveedor`, textos del proveedor en `CatalogoProveedor`); 3b.2 persistencia ✅ |
 | 4 | Aplicación: puertos, servicio de clasificación por niveles, cambio del contrato de incorporación. Dividida en 4a y 4b (M-36) | ✅ 2026-10-22: plan aprobado (M-34 a M-37); 4a.1 reglas de descripción ✅ (`ReglasClasificacion` + paridad con `reglas_paridad.py`); 4a.2 contratos ✅ (`IModeloCategoria`, `IDiccionariosClasificacionQueryService`, `DTOs/Clasificacion/`); 4a.3 `ClasificacionService` ✅ (34 tests unitarios; se registra en DI en el 4a.6); 4a.4 contrato de incorporación por ítem ✅ (R-7 resuelto: `ReglasOrigenClasificacion`, `SinMarcaConfirmada`, modal adaptado con origen `Manual`); 4a.5 columnas opcionales del importador ✅ (M-33; si la planilla no tiene la columna, se importa sin el dato, como el código de barras); 4a.6 infraestructura de los puertos y registro en DI ✅ (`DiccionariosClasificacionQueryService`, `ModeloCategoriaNoDisponible`, recorrido de `SugerirAsync` contra SQL Server). **4a cerrada**. **4b ✅ (2026-10-24):** 4b.1 `Proveedor.QuitarEquivalenciasHacia`; 4b.2 contratos y lado lectura (DTOs, validadores, `IClasificacionQueryService` ampliado y su adaptador con `COLLATE Latin1_General_CI_AI` para la forma de comparación); 4b.3 `TerminoClasificacionService`, `EquivalenciaClasificacionService`, alias y prefijos en `MarcaService` (M-38, M-39), cascadas de M-35 y traducción de carreras (`PersistenciaDiccionarios`); 4b.4 pruebas de integración de punta a punta (cascada en una transacción, índices filtrados, la ñ y la carrera); 4b.5 verificación Release: 2.520 tests (Dominio 692, Aplicación 817, App 541, Integración 470) y `dotnet format` en verde. **Fase 4 cerrada** |
-| 5 | Infraestructura: vectorizador de n-gramas, clasificador, almacenamiento del modelo, migraciones. Dividida en 5a y 5b (M-41) | ⏳ Plan detallado escrito (2026-10-24): [`etapa-6-track-6.6-fase-5-modelo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-modelo.md); M-40 a M-42 aprobadas; las propuestas P-0 a P-8 se confirman al empezar cada parte |
+| 5 | ~~Infraestructura: vectorizador de n-gramas, clasificador, almacenamiento del modelo~~ **Reemplazada por M-45 (2026-10-26): nivel de sugerencia "término ambiguo + segunda palabra"** (regla de Dominio con paridad, consulta sobre los artículos confirmados y nivel nuevo en `ClasificacionService`). Sin modelo estadístico ni dependencias nuevas | ⏳ Plan escrito (2026-10-26): [`etapa-6-track-6.6-fase-5-pares.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-pares.md); ajustado a M-49 (pares del diccionario y pares propuestos); propuestas P-1 a P-6 a confirmar. El plan anterior (regresión logística) queda archivado |
 | 6 | UI y `Retail.Cli`: sugerencias por artículo, cola de revisión, carga de diccionarios, "Actualizar modelo" | ⏳ Plan detallado escrito (2026-10-24): [`etapa-6-track-6.6-fase-6-ui.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-6-ui.md). **Se implementa antes que la Fase 5** (M-43); el paso 6.8 depende de la decisión sobre el modelo |
 | 7 | Evaluación final sobre el conjunto de oro, verificación Release, mapa y wiki | ⏳ |
 
@@ -317,6 +317,8 @@ El origen permite entrenar solo con datos vistos por una persona y medir cuánta
 
 El dígito verificador GS1 y la normalización (UPC-A, GTIN-14) son reglas puras de dominio, en una clase de reglas en `Retail.Domain/Common` al estilo de `ReglasDocumento`. Antes de implementar se verifica si el proyecto ya valida códigos de barras.
 
+**Nota sobre el prefijo (2026-10-26):** en GS1, el prefijo de empresa tiene **largo variable** (entre 4 y 12 dígitos, según la asignación); la consulta oficial del titular (registro de GS1) necesita Internet, y `RF-27` exige trabajar sin conexión. Los 7 dígitos de M-28 son una **aproximación empírica** que funcionó con los datos del arranque (pureza medida, M-25), no la regla de GS1.
+
 **Verificado (2026-10-22):** el proyecto no validaba códigos de barras. La regla vive en `ReglasCodigoBarras` (M-28).
 
 ---
@@ -467,6 +469,96 @@ estudiante en `ml/datos/piatto-kiosco.csv`), fuera del negocio. Modelo entrenado
 | 10 | 81 | 3.442 (71,0 %) | 1.406 | 127 |
 | 20 | 45 | 2.936 (60,6 %) | 1.912 | 154 |
 
+### 11.3 E-6: alternativas de entrenamiento simple (diseño fijado el 2026-10-24, antes de ejecutar)
+
+**Pregunta:** ¿hay una forma de entrenar mucho más barata que la regresión logística que rinda casi lo mismo **donde el
+modelo aporta**, es decir, en los términos ambiguos (escenario A)? Motivo: M-43 dejó la Fase 5 en espera por su costo
+frente a un aporte de 3 a 5 puntos de cobertura (E-4, sección 11.2). Si gana un método que se entrena contando, el
+reentrenamiento local (M-3, M-10) pasa a ser casi gratuito.
+
+| Id | Candidato | Detalle |
+| :--- | :--- | :--- |
+| RL | Regresión logística (línea base) | La de producción: C = 100, n-gramas 3-4, sin tokens numéricos; se vuelve a correr con las mismas particiones |
+| T | Tabla "término ambiguo + segunda palabra" | Segunda palabra: la primera después del término con al menos 2 letras que no sea `DE`, `DEL`, `LA`, `EL`, `LOS`, `LAS`, `Y`, `CON`, `PARA`, `X`, `P/`, `C/`. Sugiere la categoría mayoritaria del par si su soporte es ≥ s y su pureza ≥ p; grilla s ∈ {1, 2, 3}, p ∈ {0,6; 0,7; 0,8; 0,9; 1,0}. Aprende solo de los ejemplos manuales (los débiles no tienen términos ambiguos) y en el escenario B se abstiene siempre |
+| NB | Naive Bayes sobre los mismos n-gramas TF-IDF | `MultinomialNB` y `ComplementNB` con α ∈ {0,01; 0,1; 1}; se elige por F1-macro en A, como C en E-1 |
+| T + NB | T cuando aplica, NB en el resto | El umbral de NB se calibra sobre lo que T no cubre, para que la precisión conjunta sea ≥ 95 % |
+
+**Método:** validación cruzada de M-22 (5 particiones; A agrupado por familia y evaluado sobre los 334 ejemplos
+manuales; B agrupado por término). Para cada candidato: F1-macro en A y B; **cobertura con precisión ≥ 95 % en A**
+(métrica de decisión), calibrando τ sobre las confianzas observadas (RL, NB) o el par (s, p) (T); la precisión y la
+cobertura en B con el mismo umbral; la contribución sobre el conjunto de desarrollo como E-4 (filas con término ambiguo
+y desconocido; el oro de prueba no se toca); y el tiempo de entrenamiento. Script: `ml/scripts/e6_alternativas.py`.
+
+**Regla (M-44):** gana el candidato **más simple** (orden: T, NB, T + NB, RL) cuya cobertura con precisión ≥ 95 % en A
+alcance **al menos el 85 % de la de RL**. Si ninguno la alcanza, RL sigue como referencia y la Fase 5 se decide entre su
+plan actual, el modelo distribuido o ningún modelo. **Advertencia:** A tiene 334 ejemplos; diferencias de menos de 2 o 3
+puntos de cobertura no son significativas, por eso el margen es amplio.
+
+**Resultados (2026-10-24):** 8.734 filas de entrenamiento (334 manuales), 45 categorías (Cámaras excluida por M-9).
+
+Naive Bayes elegido por F1 en A: multinomial con α = 0,01 (F1 A 0,622; la variante complementaria quedó entre 0,454
+y 0,488).
+
+| Candidato | Umbral | F1 A | F1 B | Precisión A (IC 95 %) | Cobertura A (IC 95 %) | Precisión B | Cobertura B |
+| :--- | :--- | ---: | ---: | :--- | :--- | ---: | ---: |
+| **T** | s = 1, p = 0,6 | 0,508 | 0,000 | 96,4 % (92,8 a 98,3) | **58,4 %** (53,0 a 63,5) | — | 0 % |
+| NB | τ = 1,0000 | 0,622 | 0,272 | 95,8 % | 21,3 % | 86,5 % | 6,7 % |
+| T + NB | T y τ = 0,9989 | — | — | 95,1 % | 72,8 % (67,7 a 77,3) | 73,6 % | 15,2 % |
+| RL | τ = 0,9364 | 0,725 | 0,257 | 95,3 % (90,6 a 97,7) | 44,6 % (39,4 a 50,0) | 85,1 % | 9,0 % |
+
+Contribución sobre el conjunto de desarrollo (las 64 filas que no resuelve la tabla de términos):
+
+| Candidato | Término ambiguo (45): sugeridas / correctas | Término desconocido (19): sugeridas / correctas | Entrenar |
+| :--- | :--- | :--- | ---: |
+| **T** | 28 / 28 | 0 / 0 | < 0,01 s |
+| NB | 7 / 7 | 0 / 0 | 0,06 s |
+| T + NB | 35 / 35 | 2 / 1 | 0,06 s |
+| RL | 20 / 19 | 1 / 1 | 7,6 s |
+
+**Por la regla de M-44 gana T:** su cobertura en A (58,4 %) es el **131 %** de la de RL (44,6 %), con la misma
+precisión. Los intervalos de la cobertura no se superponen (53,0 a 63,5 frente a 39,4 a 50,0): la diferencia es
+significativa, no un efecto de los 334 ejemplos. En el desarrollo, T acierta las 28 filas que sugiere y RL 19 de 20.
+
+* **Por qué gana un conteo:** en un término ambiguo, la segunda palabra es la que desambigua (`SET GEOMETRIA`,
+  `SET MARCADORES`), y la regresión logística tiene que redescubrirlo entre miles de n-gramas aprendidos sobre todo de
+  las etiquetas débiles, que no tienen términos ambiguos.
+* **T + NB** cubre más en A (72,8 %), pero su parte de Naive Bayes llega con 73,6 % de precisión a los términos
+  desconocidos (B), muy por debajo de M-1, y suma el vectorizador. La regla elige el más simple que cumple.
+* **Ningún candidato sirve para los términos desconocidos:** la mejor precisión en B es 86,5 % (NB), por debajo de
+  M-1. Esos productos quedan para las decisiones en bloque (M-26) y la revisión manual. Confirma lo que mostró la
+  validación externa (sección 11.2).
+* **Límites:** el umbral s = 1 significa que basta un único ejemplo confirmado del par cuando su categoría es
+  unánime; con el uso, el soporte crece. Los umbrales se calibraron sobre los mismos datos que se informan (igual que τ
+  en E-3), y el conjunto de desarrollo es optimista (M-20). La evaluación sin sesgo queda para la Fase 7, con el oro de
+  prueba sellado.
+* **Consecuencias, pendientes de decisión del estudiante:** el alcance de la Fase 5 (M-43) y si `RF-27` cambia.
+
+### 11.4 E-6b: los candidatos de E-6 con un proveedor nuevo (diseño fijado el 2026-10-24, antes de ejecutar)
+
+**Pregunta:** E-6 midió sobre el mismo proveedor que entrenó. Con un proveedor nuevo, que abrevia distinto (`SET GEOM`
+en lugar de `SET GEOMETRIA`), la tabla de pares no encuentra el par y se abstiene, mientras que los n-gramas de Naive
+Bayes o de la regresión logística podrían reconocerlo. ¿Justifica eso agregar Naive Bayes a la tabla? ¿Y la tabla sigue
+siendo precisa con otro proveedor?
+
+* **Muestra principal (Piatto):** unas 400 filas con término ambiguo de `lista-piatto-1.csv` (sin los términos de
+  kiosco), **una por familia**, con un tope por término para que ninguno domine (en Piatto un término concentra 999 de
+  2.303 filas), semilla 2028. Planilla `ml/datos/e6b-piatto-validar.csv`.
+* **Muestra secundaria (proveedor 1):** una fila por familia de las filas con término ambiguo que no están en el
+  entrenamiento, el desarrollo ni el oro sellado (ni comparten familia con ellos). Amplía el escenario A de la
+  validación cruzada. Planilla `ml/datos/e6b-lista1-validar.csv`.
+* **Etiquetado (método M-19):** Claude etiqueta la categoría **a ciegas** (sin ver ninguna predicción ni la tabla de
+  pares) y el estudiante valida cada fila. **Ningún resultado se calcula antes de la validación**, para no anclarla.
+* **Evaluación en Piatto** (`ml/scripts/e6b_proveedor_nuevo.py`): los cuatro candidatos entrenados con todo el
+  proveedor 1 y aplicados con los umbrales de E-6, **sin recalibrar** (el caso real: proveedor nuevo, día uno). NB se
+  aplica solo a términos ambiguos. Precisión y cobertura con intervalo de Wilson, por candidato y por término.
+* **Evaluación ampliada del escenario A:** E-6 repetido con los ejemplos manuales más la muestra secundaria validada.
+
+**Regla (M-46):** Naive Bayes se justifica si T + NB mantiene una precisión ≥ 95 % en la muestra de Piatto y suma
+**al menos 10 puntos de cobertura** sobre T. Si no, queda T solo. Además, si la precisión de T en Piatto queda por
+debajo del 95 %, se revisan sus umbrales (s, p) antes de implementarla.
+
+**Resultado (2026-10-26): cancelado sin ejecutar.** El estudiante descartó Naive Bayes (M-45) antes de validar las muestras, así que la pregunta principal de E-6b quedó sin objeto. Las planillas pre-etiquetadas siguen en `ml/datos/` (`e6b-piatto-validar.csv`, `e6b-lista1-validar.csv`) y el script `e6b_proveedor_nuevo.py` queda listo: si se validan, miden la precisión de la tabla de pares con un proveedor nuevo, como complemento de la evaluación de la Fase 7.
+
 ---
 
 ## 12. Decisiones
@@ -512,10 +604,16 @@ estudiante en `ml/datos/piatto-kiosco.csv`), fuera del negocio. Modelo entrenado
 | M-37 | **Hasta la Fase 5, el puerto `IModeloCategoria` lo implementa `ModeloCategoriaNoDisponible`** (`EstaDisponible = false`). | Cerrada (2026-10-22) | Es el arranque en frío real de la sección 7: sugieren solo los diccionarios y los bloques de términos nuevos llegan sin propuesta. `ClasificacionService` y sus tests no cambian cuando la Fase 5 la reemplaza. |
 | M-38 | **El nombre de una marca no puede ser alias de otra** (regla simétrica de "un alias distinto del nombre de otra marca"): `MarcaService.CrearAsync` y `RenombrarAsync` lo verifican en la forma de comparación del motor. | Cerrada (2026-10-24) | Con la regla en un solo sentido, crear la marca `HUSAR` cuando `HUSAR` ya es alias de `Husares` haría que el motor encontrara dos marcas para la misma palabra, y `BuscadorDeMarcas` no sugeriría ninguna. |
 | M-39 | **El nombre de una marca debe ser distinguible para el motor:** además del control de duplicados de D-8 (`Modern_Spanish_CI_AI`, que distingue la ñ), el alta y el cambio de nombre rechazan un nombre que en la forma de comparación (`NormalizarTexto`) coincide con otra marca activa. La comparación se resuelve en SQL con `COLLATE Latin1_General_CI_AI` en la consulta, no en la columna. | Cerrada (2026-10-24) | Motivo nuevo sobre D-8, aprobado por el estudiante: "Nandu" y "Ñandú" son distintas para la búsqueda en castellano pero iguales para el motor, que no podría sugerir ninguna de las dos. Cambiar el cotejamiento de la columna rompería la búsqueda ("ano" encontraría "año"); por eso cada consulta elige su regla. Corregir la grafía de la propia marca sigue permitido. |
-| M-40 | **Se agrega `MathNet.Numerics` 5.0.0, solo en `Retail.Infrastructure`, para el optimizador L-BFGS del clasificador.** Modifica M-3: el entrenamiento sigue en el ERP y en C#, ahora con una dependencia aprobada. El vectorizador, la función objetivo y su gradiente se escriben en el proyecto. | Cerrada (2026-10-24) | El estudiante levantó la restricción de dependencias nuevas y pidió analizar alternativas. ML.NET se descartó: su vectorizador no es `char_wb` (rompe la paridad de la sección 10), escala la regularización distinto (C = 100 y τ = 0,94 dejarían de valer) y suma más de 20 MB. ONNX contradice M-3 y M-10; Accord.NET y SharpLearning están abandonados; TorchSharp es desproporcionado. MathNet resuelve la parte más riesgosa (L-BFGS con búsqueda de línea), es administrada y liviana, y queda aislada en un archivo. |
-| M-41 | **La Fase 5 se divide en 5a** (modelo puro en memoria: vectorizador, regresión logística y predicción, sin base, archivos ni DI) **y 5b** (entrenamiento en producción: datos confirmados, partición, calibración de τ y salvaguardas de M-10, almacenamiento de M-8 y reemplazo en DI). Plan en [`etapa-6-track-6.6-fase-5-modelo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-modelo.md). | Cerrada (2026-10-24) | Dos entregas revisables, como M-36. La 5a se verifica entera contra Python antes de sumar persistencia y concurrencia. |
-| M-42 | **La paridad del clasificador se verifica por probabilidades** (tolerancia 1e-4, con C = 100 y C = 1) contra una referencia de scikit-learn sobre descripciones inventadas (`ml/paridad/modelo-referencia.json`), además del valor de la función objetivo en el óptimo. Reemplaza el criterio de "métricas equivalentes" de la sección 10 para el clasificador. | Cerrada (2026-10-24) | C# minimiza la misma función objetivo que scikit-learn, estrictamente convexa por la penalización L2: el óptimo es único, así que dos implementaciones correctas dan las mismas probabilidades. Es una garantía más fuerte y hace que τ, calibrado en Python, valga igual en C#. |
+| M-40 | **Se agrega `MathNet.Numerics` 5.0.0, solo en `Retail.Infrastructure`, para el optimizador L-BFGS del clasificador.** Modifica M-3: el entrenamiento sigue en el ERP y en C#, ahora con una dependencia aprobada. El vectorizador, la función objetivo y su gradiente se escriben en el proyecto. | ~~Cerrada (2026-10-24)~~ Reemplazada por M-45 (2026-10-26) | El estudiante levantó la restricción de dependencias nuevas y pidió analizar alternativas. ML.NET se descartó: su vectorizador no es `char_wb` (rompe la paridad de la sección 10), escala la regularización distinto (C = 100 y τ = 0,94 dejarían de valer) y suma más de 20 MB. ONNX contradice M-3 y M-10; Accord.NET y SharpLearning están abandonados; TorchSharp es desproporcionado. MathNet resuelve la parte más riesgosa (L-BFGS con búsqueda de línea), es administrada y liviana, y queda aislada en un archivo. |
+| M-41 | **La Fase 5 se divide en 5a** (modelo puro en memoria: vectorizador, regresión logística y predicción, sin base, archivos ni DI) **y 5b** (entrenamiento en producción: datos confirmados, partición, calibración de τ y salvaguardas de M-10, almacenamiento de M-8 y reemplazo en DI). Plan en [`etapa-6-track-6.6-fase-5-modelo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-modelo.md). | ~~Cerrada (2026-10-24)~~ Reemplazada por M-45 (2026-10-26) | Dos entregas revisables, como M-36. La 5a se verifica entera contra Python antes de sumar persistencia y concurrencia. |
+| M-42 | **La paridad del clasificador se verifica por probabilidades** (tolerancia 1e-4, con C = 100 y C = 1) contra una referencia de scikit-learn sobre descripciones inventadas (`ml/paridad/modelo-referencia.json`), además del valor de la función objetivo en el óptimo. Reemplaza el criterio de "métricas equivalentes" de la sección 10 para el clasificador. | ~~Cerrada (2026-10-24)~~ Reemplazada por M-45 (2026-10-26) | C# minimiza la misma función objetivo que scikit-learn, estrictamente convexa por la penalización L2: el óptimo es único, así que dos implementaciones correctas dan las mismas probabilidades. Es una garantía más fuerte y hace que τ, calibrado en Python, valga igual en C#. |
 | M-43 | **La Fase 6 se implementa antes que la Fase 5.** La Fase 5 queda en espera hasta decidir el alcance del modelo con el experimento E-6 (alternativas de entrenamiento simple) y el análisis de distribuir un modelo ya entrenado con el programa. La interfaz funciona con los diccionarios y el arranque en frío (M-37); lo que depende del modelo queda en el paso 6.8 del plan de la Fase 6. | Cerrada (2026-10-24) | Análisis costo-beneficio del estudiante: según E-4 y la validación externa (sección 11.2), el modelo suma entre 3 y 5 puntos de cobertura detrás de los diccionarios y los bloques de M-26, y casi nada ante términos nuevos, mientras que la Fase 5 es la más costosa del track. La Fase 6 entrega la mayor parte del valor sin depender de esa decisión. El plan de la Fase 5 ([`etapa-6-track-6.6-fase-5-modelo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-modelo.md)) se conserva. |
+| M-44 | **Regla de decisión de E-6** (sección 11.3): gana el candidato más simple (tabla de pares, Naive Bayes, su combinación, regresión logística) cuya cobertura con precisión ≥ 95 % en el escenario A alcance al menos el 85 % de la regresión logística. | Cerrada (2026-10-24), antes de ejecutar el experimento | Fijada de antemano, como las reglas de la sección 11, para no acomodar la conclusión a los resultados. El margen del 15 % cubre la falta de significación con 334 ejemplos y compensa la simplicidad frente a un aporte que ya es chico. |
+| M-45 | **La Fase 5 se reemplaza por un nivel de sugerencia "término ambiguo + segunda palabra"** (la tabla T de E-6): para un producto cuyo término es ambiguo, se sugiere la categoría mayoritaria de los artículos confirmados que comparten término y segunda palabra, si alcanza el soporte y la pureza mínimos. **No se implementan la regresión logística ni Naive Bayes.** M-40 a M-42 (MathNet, Fase 5a/5b, paridad por probabilidades) quedan reemplazadas; `RF-27` se ajusta (texto a aprobar). | Cerrada (2026-10-26) | E-6: con la misma precisión, la tabla cubre el 58,4 % de los términos ambiguos frente al 44,6 % de la regresión logística, se "entrena" con una consulta y explica su sugerencia de forma literal. Naive Bayes sumaba unos 2 puntos de cobertura del sistema con un umbral frágil; el estudiante decidió no implementarlo. Ningún candidato servía para términos desconocidos, que siguen en las decisiones en bloque (M-26). |
+| M-48 | **Los pares se guardan como diccionario y además se calculan** (alternativa C): `ParClasificacion`, hija de `TerminoClasificacion`, guarda pares explícitos (semilla y edición del usuario) que sugieren sin umbrales; los pares calculados sobre los artículos confirmados cubren lo que el diccionario no tiene, con soporte y pureza mínimos. El explícito gana (M-14). | Cerrada (2026-10-26); los pares calculados se reemplazan por propuestas (M-49) | Con pares solo calculados, una instalación nueva no sugeriría nada hasta confirmar artículos: el 58 % de E-6 venía de 334 ejemplos etiquetados que la semilla no carga. Como diccionario, los pares se distribuyen con la semilla (M-15) y se administran como los términos, marcas y prefijos; como cálculo, aprenden solos con cada confirmación. |
+| M-49 | **Los pares calculados no sugieren: proponen reglas.** El motor sugiere solo con reglas aprobadas (términos y pares del diccionario). Sobre los artículos confirmados, una consulta detecta pares consistentes que todavía no están en el diccionario y los **propone**; el usuario los acepta (par con categoría) o los descarta (par ignorado, que no se vuelve a proponer). | Cerrada (2026-10-26) | Al contrastar el diseño con la práctica de la gestión de datos maestros (MDM/PIM): las sugerencias salen de reglas de derivación aprobadas y auditadas, y la estadística sirve para proponer reglas, no para sugerir en silencio. Evita propagar una confirmación errónea, deja un solo mecanismo en el motor y saca del camino de la sugerencia la excepción a la Ley 8 y los umbrales. |
+| M-46 | **Regla de decisión de E-6b** (sección 11.4): Naive Bayes se agrega a la tabla de pares solo si T + NB mantiene una precisión ≥ 95 % en la muestra de Piatto y suma al menos 10 puntos de cobertura sobre T; si la precisión de T en Piatto queda bajo el 95 %, se revisan sus umbrales. | Sin efecto (2026-10-26): E-6b se canceló al descartarse Naive Bayes (M-45) | E-6 dejó a NB con 2 puntos de cobertura del sistema, un umbral frágil (τ = 0,9989) y la precisión conjunta en el límite (95,1 %). El único caso donde podría valer más es un proveedor nuevo con abreviaturas, que E-6 no midió. |
+| M-47 | **El estudiante autoriza que Claude lea las descripciones de las muestras de E-6b** (unas 400 filas de Piatto y una por familia del proveedor 1) para pre-etiquetarlas con el método de M-19. Excepción acotada a la regla 6 del handoff; las listas siguen sin versionarse y ningún script imprime descripciones fuera de esas planillas. | Cerrada (2026-10-24) | Mismo motivo que M-19: costo de etiquetado. Las listas no tienen precios. |
 
 ---
 

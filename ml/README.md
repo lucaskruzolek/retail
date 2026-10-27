@@ -100,6 +100,12 @@ ml/.venv/Scripts/python -m pip install -r ml/requirements.txt
 ml/.venv/Scripts/python ml/scripts/e1_e2_clasificador.py e2      # E-2: vectorizador
 ml/.venv/Scripts/python ml/scripts/e1_e2_clasificador.py e1 --ngramas-logistica 3,4 --ngramas-centroide 3,5 --numericos-centroide
 ml/.venv/Scripts/python ml/scripts/e3_e4_umbrales.py           # E-3 y E-4 (C = 100, n-gramas 3-4)
+ml/.venv/Scripts/python ml/scripts/e6_alternativas.py          # E-6 (tabla de pares y Naive Bayes contra RL)
+python ml/scripts/muestrear_e6b.py                              # E-6b: muestras de Piatto y del proveedor 1
+ml/.venv/Scripts/python ml/scripts/e6b_proveedor_nuevo.py \
+    --extra ml/datos/e6b-lista1-validar.csv                     # E-6b (solo con las planillas validadas)
+ml/.venv/Scripts/python ml/scripts/e6_alternativas.py \
+    --extra ml/datos/e6b-lista1-validar.csv                     # E-6 con el escenario A ampliado
 python ml/scripts/e5_marca.py                                    # E-5
 ml/.venv/Scripts/python ml/scripts/vectores_paridad.py          # referencia para C# (vectorizador)
 cd ml/scripts && python reglas_paridad.py --salida ../paridad/reglas-texto-referencia.json   # referencia para C# (reglas de texto)
@@ -112,6 +118,10 @@ cd ml/scripts && python reglas_paridad.py --salida ../paridad/reglas-texto-refer
 | `datos_modelo.py` | Entrenamiento (etiquetas débiles de términos no ambiguos + `ambiguos.csv`) sin las familias del desarrollo ni de la prueba, y sin categorías con menos de 5 ejemplos (M-9). |
 | `e1_e2_clasificador.py` | Validación cruzada de M-22: escenario A (término ambiguo) y B (término desconocido). |
 | `e3_e4_umbrales.py` | E-3: umbral de confianza `τ` ponderado por la mezcla de producción. E-4: el sistema completo sobre el desarrollo. |
+| `e6_alternativas.py` | E-6: tabla "término ambiguo + segunda palabra", Naive Bayes y su combinación frente a la regresión logística, con la regla de M-44. Con `--extra`, suma una planilla validada de E-6b a los ejemplos manuales (escenario A ampliado). |
+| `e6_comun.py` | Tabla de pares y regla de la segunda palabra, compartidas por E-6 y E-6b. |
+| `muestrear_e6b.py` | E-6b: muestras para etiquetar de Piatto (una fila por familia, tope común por término) y del proveedor 1 (familias no usadas). |
+| `e6b_proveedor_nuevo.py` | E-6b: los candidatos entrenados con el proveedor 1 sobre la muestra validada de Piatto, con los umbrales de E-6 sin recalibrar, y la regla de M-46. Se niega a calcular si hay filas sin validar. |
 | `e5_marca.py` | E-5: texto o prefijo primero y pureza mínima del prefijo (solo biblioteca estándar). |
 | `diagnosticar_lista_externa.py` | Validación externa sin etiquetas sobre la lista de otro proveedor (sección 11.2): caminos, cobertura, abstención en kiosco, precisión con abreviaturas y tamaño de los grupos de M-26. |
 | `vectores_paridad.py` | Escribe `ml/paridad/vectores-referencia.json` (**versionado**): descripciones inventadas con su texto preparado, n-gramas, IDF y vector TF-IDF, para el test de paridad de C# (sección 10). |
