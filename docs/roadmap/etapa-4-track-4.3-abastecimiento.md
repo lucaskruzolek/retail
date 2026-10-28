@@ -38,7 +38,7 @@ graph LR
 | :--- | :--- | :--- | :--- | :---: | :---: |
 | **PR-0** | Este documento, paquetes, ERS (RF-05, RF-07, RF-19, RF-28, RF-29, IU-12), DER de Pedidos, Etapa 4, mapa | Ambos (revisión cruzada) | — | No | ✅ Publicado en `main` (`6a29a4b`) |
 | **P1** | Integrar `main` en la rama del Módulo 4.2 y aplicar las correcciones de revisión | Pablo | PR-0 | Sí (UK de comprobante) | ⏳ |
-| **L1** | Agregado `Pedido`: dominio, persistencia, servicio y contratos de frontera | Lucas | PR-0 | Sí (`PEDIDOS`) | ⏳ |
+| **L1** | Agregado `Pedido`: dominio, persistencia, servicio y contratos de frontera | Lucas | PR-0 | Sí (`PEDIDOS`) | 🟡 Implementado en `feat/pedidos-dominio` (migración `20261028211913_AgregarPedidos`); falta la validación de contratos por Pablo y el PR |
 | **L2a** | `PedidosView`, "Agregar al pedido" desde el catálogo, emitir y cancelar | Lucas | L1 | No | ⏳ |
 | **P2** | Compras: importar desde un pedido, ajustar a la factura y cerrar el pedido | Pablo | P1 y L1 | Sí (`COMPRAS.id_pedido_origen`) | ⏳ |
 | **L2b** | "Volver a pedir faltantes" (compara el pedido con la compra que lo cerró) | Lucas | L2a y P2 | No | ⏳ |
@@ -83,7 +83,7 @@ Las decisiones marcadas como cerradas ya fueron discutidas y aprobadas. No se vu
 | **A-10** | Al registrar la compra, el pedido pasa a `Recibido` en el **mismo `SaveChanges`**. Lo que no llegó se vuelve a pedir desde `PedidosView` con **"Volver a pedir faltantes"**, que carga la diferencia en el borrador del proveedor. | Atomicidad: no puede quedar una compra registrada con su pedido abierto (ACID, mismo criterio que `RegistrarVentaAsync`). La acción de faltantes queda del lado de Pedidos, así Compras no depende de ella. |
 | **A-11** | Una compra cierra **como máximo un** pedido, y un pedido es cerrado por **como máximo una** compra (`COMPRAS.id_pedido_origen`, FK nullable con índice único filtrado). | Es el mismo patrón que `VENTAS.id_presupuesto_origen`. Una factura que cubre dos pedidos es un caso raro: el segundo se cancela o se cierra con otra compra. |
 | **A-12** | El **único punto de entrada** para comprar desde un pedido es la pantalla de Compras (botón "Importar pedido"). `PedidosView` no navega a Compras. | Evita el acoplamiento entre pantallas de dos dueños distintos (Ley 10) y pasar parámetros por navegación. |
-| **A-13** | `PEDIDOS` tiene **`row_version`** (concurrencia optimista). | Si dos terminales importan el mismo pedido, la segunda compra falla con un conflicto en lugar de cerrar dos veces el mismo pedido (mismo criterio que D-12 en `ARTICULOS`). |
+| **A-13** | `PEDIDOS` tiene **`row_version`** (concurrencia optimista). | Si dos terminales importan el mismo pedido, la segunda compra falla con un conflicto en lugar de cerrar dos veces el mismo pedido (mismo criterio que D-12 en `ARTICULOS`). Igual que allí, se modela como **propiedad sombra** de EF Core: el dominio no la conoce (D1 de L1.1). |
 | **A-14** | Pedidos y Compras los operan el **Encargado** y el **Gerente**; el Cajero no tiene acceso. | Mismo perfil que Compras y el importador (ERS §2.3). La verificación por rol en los servicios queda para la auditoría del Track 6.1, igual que en los demás módulos operativos. |
 | **A-15** | La propuesta preliminar `docs/propuesta_modulo_pedidos_y_recepcion.md` **se descarta** y no se versiona. Este documento la reemplaza. | Proponía un diálogo de recepción, recepciones parciales y `IdArticulo` opcional (contradicen A-6, A-8 y A-9), y se apoyaba en un `CompraService` que todavía no existía en `main`. |
 
@@ -133,13 +133,12 @@ erDiagram
         int id_pedido PK
         int id_proveedor FK "UK filtrada: un Borrador por proveedor (A-7)"
         int id_usuario FK
-        int estado "EstadoPedidoEnum"
-        datetime fecha_creacion
+        string estado "EstadoPedidoEnum como texto (F1 de L1.3)"
+        datetime created_at "BaseEntity.CreatedAt (D2 de L1.1)"
         datetime fecha_emision "nullable"
         datetime fecha_cierre "nullable (Recibido o Cancelado)"
-        string observaciones "nullable"
         string motivo_cancelacion "nullable"
-        rowversion row_version "A-13"
+        rowversion row_version "A-13, propiedad sombra (D1 de L1.1)"
         datetime deleted_at
     }
     DETALLE_PEDIDOS {
@@ -157,7 +156,7 @@ erDiagram
     }
 ```
 
-* Índice único filtrado de `PEDIDOS`: `(id_proveedor) WHERE estado = 1 AND deleted_at IS NULL`.
+* Índice único filtrado de `PEDIDOS`: `(id_proveedor) WHERE estado = N'Borrador' AND deleted_at IS NULL`.
 * `DETALLE_PEDIDOS` no repite un ítem de catálogo dentro del mismo pedido: si se agrega dos veces, se **suma la cantidad**.
 * El total estimado se **calcula**; no se guarda (Σ cantidad × costo pactado, con `ReglasMonetarias`).
 * FKs con `DeleteBehavior.Restrict` y filtro global de baja lógica (Ley 3).
