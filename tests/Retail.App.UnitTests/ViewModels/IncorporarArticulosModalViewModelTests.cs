@@ -1,14 +1,30 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using Retail.App.Services;
 using Retail.App.ViewModels.Proveedores;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Application.Interfaces.Services;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
 
-public class IncorporarArticulosModalViewModelTests
+public class IncorporarArticulosModalViewModelTests : IDisposable
 {
-    private readonly IncorporarArticulosModalViewModel _sut = new();
+    private readonly IncorporarArticulosModalViewModel _sut = new(
+        Substitute.For<IClasificacionService>(),
+        Substitute.For<ITerminoClasificacionService>(),
+        Substitute.For<IEquivalenciaClasificacionService>(),
+        Substitute.For<IRubroService>(),
+        Substitute.For<ICurrentUserSession>(),
+        NullLogger<IncorporarArticulosModalViewModel>.Instance);
+
+    public void Dispose()
+    {
+        _sut.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [Fact]
     public void Inicializar_ConArticulos_CreaItemsConMargenGlobalYCalculaPrecioFinal()
@@ -94,18 +110,23 @@ public class IncorporarArticulosModalViewModelTests
         };
         _sut.Inicializar(Array.Empty<CategoriaDto>(), Array.Empty<MarcaDto>(), items);
         _sut.Items[0].PorcentajeGanancia = 30m;
-        _sut.IdCategoriaDestino = 3;
-        _sut.IdMarcaDestino = 7;
+        _sut.SugerirClasificacion = false;
+        _sut.CategoriaDelLote = new OpcionDiccionario(3, "Escolar");
+        _sut.MarcaDelLote = new OpcionDiccionario(7, "Bic");
 
         // Act
         var dto = _sut.ObtenerDto();
 
         // Assert
+        // La categoría y la marca del modal se aplican a cada ítem, sin sugerencia (Track 6.6, R-7).
         dto.Should().NotBeNull();
-        dto.IdCategoria.Should().Be(3);
-        dto.IdMarca.Should().Be(7);
-        dto.Items.Should().HaveCount(1);
-        dto.Items[0].IdCatalogo.Should().Be(5);
-        dto.Items[0].PorcentajeGanancia.Should().Be(30m);
+        dto.Items.Should().ContainSingle();
+        dto.Items[0].Should().BeEquivalentTo(new ItemIncorporacionArticuloDto
+        {
+            IdCatalogo = 5,
+            PorcentajeGanancia = 30m,
+            IdCategoria = 3,
+            IdMarca = 7
+        });
     }
 }

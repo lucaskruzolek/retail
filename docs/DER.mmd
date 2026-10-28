@@ -17,7 +17,15 @@ erDiagram
     RUBROS ||--o{ CATEGORIAS : "agrupa"
     CATEGORIAS ||--o{ ARTICULOS : "clasifica"
     MARCAS ||--o{ ARTICULOS : "agrupa"
+    CATEGORIAS |o--o{ TERMINOS_CLASIFICACION : "sugerida_por"
+    TERMINOS_CLASIFICACION ||--o{ PARES_CLASIFICACION : "se_precisa_con"
+    CATEGORIAS |o--o{ PARES_CLASIFICACION : "sugerida_por_par"
+    MARCAS ||--o{ ALIAS_MARCAS : "se_escribe_como"
+    MARCAS ||--o{ PREFIJOS_EAN_MARCAS : "titular_de"
     PROVEEDORES ||--o{ CATALOGOS_PROVEEDORES : "suministra"
+    PROVEEDORES ||--o{ EQUIVALENCIAS_CLASIFICACION : "traduce_su_clasificacion"
+    CATEGORIAS |o--o{ EQUIVALENCIAS_CLASIFICACION : "destino_categoria"
+    MARCAS |o--o{ EQUIVALENCIAS_CLASIFICACION : "destino_marca"
     CATALOGOS_PROVEEDORES |o--o| ARTICULOS : "enlace_opcional"
     ARTICULOS |o--o{ ARTICULOS : "presentacion_derivada"
     PROVEEDORES ||--o{ COMPRAS : "factura"
@@ -133,12 +141,43 @@ erDiagram
         datetime deleted_at
     }
 
+    TERMINOS_CLASIFICACION {
+        int id_termino PK
+        string termino "UK filtrado, mayúsculas sin tildes (Track 6.6)"
+        int id_categoria "FK nullable; NULL = término ambiguo"
+        datetime deleted_at
+    }
+
+    PARES_CLASIFICACION {
+        int id_par PK
+        int id_termino FK "solo términos ambiguos (P-3, Dominio)"
+        string segunda_palabra "UK filtrado con id_termino, CHECK una palabra"
+        int id_categoria "FK nullable; NULL = par ignorado (P-4)"
+        datetime deleted_at
+    }
+
+    ALIAS_MARCAS {
+        int id_alias PK
+        int id_marca FK
+        string alias "UK filtrado (una sola marca)"
+        datetime deleted_at
+    }
+
+    PREFIJOS_EAN_MARCAS {
+        int id_prefijo PK
+        int id_marca FK
+        string prefijo "varchar(7), UK filtrado, CHECK 7 dígitos sin 2 inicial"
+        datetime deleted_at
+    }
+
     ARTICULOS {
         int id_articulo PK
         string codigo_barras "UK nullable (filtered)"
         string descripcion
         int id_categoria "FK nullable"
         int id_marca "FK nullable"
+        string origen_categoria "nullable; Manual, SugerenciaAceptada o SugerenciaCorregida (Track 6.6)"
+        string origen_marca "nullable; con id_marca NULL = Sin marca confirmada"
         int id_catalogo_proveedor "FK nullable, UK (filtered)"
         int id_articulo_origen "FK nullable (self, RF-21)"
         int unidades_por_origen "nullable, >= 1 si es derivado"
@@ -167,8 +206,22 @@ erDiagram
         string codigo_proveedor "UK composite (filtered)"
         string codigo_barras "nullable"
         string descripcion_proveedor
+        string rubro_proveedor "nullable, texto del proveedor (Track 6.6, M-12)"
+        string categoria_proveedor "nullable, texto del proveedor"
+        string marca_proveedor "nullable, texto del proveedor"
         decimal precio_costo
         datetime fecha_actualizacion
+        datetime deleted_at
+    }
+
+    EQUIVALENCIAS_CLASIFICACION {
+        int id_equivalencia PK
+        int id_proveedor FK
+        string tipo "Categoria o Marca"
+        string texto_rubro "nullable, contexto (M-31)"
+        string texto "UK filtrado con id_proveedor, tipo y texto_rubro"
+        int id_categoria "FK nullable"
+        int id_marca "FK nullable; sin destino = ignorada (M-32)"
         datetime deleted_at
     }
 

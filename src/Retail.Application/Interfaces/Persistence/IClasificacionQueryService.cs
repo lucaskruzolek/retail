@@ -1,4 +1,6 @@
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Clasificacion;
+using Retail.Domain.Enums;
 
 namespace Retail.Application.Interfaces.Persistence;
 
@@ -42,4 +44,84 @@ public interface IClasificacionQueryService
     /// Cuenta los artículos de la marca, incluidos los dados de baja lógica (R-1).
     /// </summary>
     Task<int> ContarArticulosPorMarcaAsync(int idMarca, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Términos activos ordenados alfabéticamente (Track 6.6, pestaña de términos). El filtro se compara con el término
+    /// en forma de comparación; <paramref name="idCategoria"/> deja solo los de esa categoría y
+    /// <paramref name="soloAmbiguos"/>, solo los que no tienen categoría (M-27).
+    /// </summary>
+    Task<IReadOnlyList<TerminoDto>> ListarTerminosAsync(
+        string? filtro,
+        int? idCategoria,
+        bool soloAmbiguos,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pares activos de los términos activos (Track 6.6, Fase 5, pestaña de pares), ordenados por término y segunda
+    /// palabra. <paramref name="idTermino"/> deja solo los de ese término; el filtro se compara, en forma de comparación,
+    /// con el término y con la segunda palabra; sin <paramref name="incluirIgnorados"/> quedan solo los que tienen
+    /// categoría (P-4).
+    /// </summary>
+    Task<IReadOnlyList<ParDto>> ListarParesAsync(
+        int? idTermino,
+        string? filtro,
+        bool incluirIgnorados,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Artículos confirmados (activos, con categoría activa) cuya descripción contiene alguno de los
+    /// <paramref name="terminos"/> en forma de comparación, ordenados por Id (Track 6.6, Fase 5, pares propuestos). Es un
+    /// pre-filtro amplio: trae también descripciones donde el término no es la primera palabra ("CASETE" para "SET"),
+    /// que el llamador descarta con <c>ReglasClasificacion.TerminoDeDescripcion</c>; nunca deja afuera una que sí lo es.
+    /// </summary>
+    Task<IReadOnlyList<DescripcionClasificadaDto>> ListarArticulosConTerminosAsync(
+        IReadOnlyCollection<string> terminos,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Alias activos de las marcas activas, ordenados por marca y alias. El filtro busca en el alias y en el nombre
+    /// de la marca.
+    /// </summary>
+    Task<IReadOnlyList<AliasListadoDto>> ListarAliasAsync(string? filtro, int? idMarca, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Prefijos EAN activos de las marcas activas, ordenados por marca y prefijo. El filtro busca en el prefijo (que
+    /// empiece con) y en el nombre de la marca (que contenga).
+    /// </summary>
+    Task<IReadOnlyList<PrefijoListadoDto>> ListarPrefijosAsync(string? filtro, int? idMarca, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Equivalencias activas del proveedor con el nombre de su destino, opcionalmente solo las de un tipo.
+    /// </summary>
+    Task<IReadOnlyList<EquivalenciaDto>> ListarEquivalenciasAsync(
+        int idProveedor,
+        TipoEquivalenciaEnum? tipo,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Nombre de la marca activa, distinta de <paramref name="idMarcaExcluida"/>, que ya tiene el alias indicado
+    /// (en forma de comparación), o <c>null</c> si ninguna lo tiene. Base de la unicidad entre agregados (sección 8.1).
+    /// </summary>
+    Task<string?> BuscarMarcaPorAliasAsync(string aliasNormalizado, int? idMarcaExcluida, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Nombre de la marca activa, distinta de <paramref name="idMarcaExcluida"/>, cuyo nombre en forma de comparación
+    /// (mayúsculas y sin diacríticos, incluida la ñ) es <paramref name="formaComparacion"/>, o <c>null</c>.
+    /// </summary>
+    Task<string?> BuscarMarcaPorNombreAsync(string formaComparacion, int? idMarcaExcluida, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Nombre de la marca activa, distinta de <paramref name="idMarcaExcluida"/>, que ya tiene el prefijo indicado,
+    /// o <c>null</c> si ninguna lo tiene.
+    /// </summary>
+    Task<string?> BuscarMarcaPorPrefijoAsync(string prefijo, int? idMarcaExcluida, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Proveedores activos con equivalencias activas hacia la categoría o la marca indicada: los que la baja de ese
+    /// destino debe cargar para quitarlas a través de la raíz (M-35, Ley 2).
+    /// </summary>
+    Task<IReadOnlyList<int>> ListarProveedoresConEquivalenciasHaciaAsync(
+        TipoEquivalenciaEnum tipo,
+        int idDestino,
+        CancellationToken cancellationToken = default);
 }

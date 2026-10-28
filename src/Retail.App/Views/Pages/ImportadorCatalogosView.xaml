@@ -254,7 +254,8 @@
                         <DataGridTextColumn Header="Descripción (Proveedor)"
                                             Binding="{Binding DescripcionProveedor}"
                                             ElementStyle="{StaticResource TextBlockTextCell}"
-                                            Width="*" />
+                                            Width="*"
+                                            MinWidth="240" />
 
                         <!-- Precio de costo -->
                         <DataGridTextColumn Header="Costo Reposición"

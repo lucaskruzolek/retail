@@ -26,6 +26,8 @@ public class CategoriaServiceTests
 
     private readonly IRepository<Categoria> _repository = Substitute.For<IRepository<Categoria>>();
     private readonly IRepository<Rubro> _rubros = Substitute.For<IRepository<Rubro>>();
+    private readonly IRepository<TerminoClasificacion> _terminos = Substitute.For<IRepository<TerminoClasificacion>>();
+    private readonly IRepository<Proveedor> _proveedores = Substitute.For<IRepository<Proveedor>>();
     private readonly IRepository<Usuario> _usuarios = Substitute.For<IRepository<Usuario>>();
     private readonly IClasificacionQueryService _consultas = Substitute.For<IClasificacionQueryService>();
     private readonly IUnitOfWork _unitOfWork = Substitute.For<IUnitOfWork>();
@@ -40,10 +42,18 @@ public class CategoriaServiceTests
 
         ConfigurarDuplicados();
         ConfigurarRubro(IdRubroExistente, "Librería");
+        ConfigurarTerminosDeLaCategoria();
+        _consultas.ListarProveedoresConEquivalenciasHaciaAsync(
+                Arg.Any<TipoEquivalenciaEnum>(),
+                Arg.Any<int>(),
+                Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<int>());
 
         _servicio = new CategoriaService(
             _repository,
             _rubros,
+            _terminos,
+            _proveedores,
             _usuarios,
             _consultas,
             _unitOfWork,
@@ -352,5 +362,97 @@ public class CategoriaServiceTests
         entidad.IsDeleted.Should().BeTrue();
         await _repository.Received(1).UpdateAsync(entidad, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Baja_ConTerminosYEquivalencias_LosDaDeBajaEnElMismoGuardadoQueLaCategoria()
+    {
+        var entidad = CrearCategoriaConId(IdCategoriaExistente, "Mochilas");
+        ConfigurarExistente(entidad);
+        _consultas.ContarArticulosPorCategoriaAsync(IdCategoriaExistente, Arg.Any<CancellationToken>()).Returns(0);
+        var mochila = TerminoClasificacion.CrearConCategoria("MOCHILA", IdCategoriaExistente);
+        var bolso = TerminoClasificacion.CrearConCategoria("BOLSO", IdCategoriaExistente);
+        ConfigurarTerminosDeLaCategoria(mochila, bolso);
+        var proveedor = Proveedor.Crear("Distribuidora Valida", "20111111112");
+        proveedor.Id = 20;
+        var equivalencia = proveedor.AsignarEquivalenciaCategoria("ESCOLAR", "MOCHILAS", IdCategoriaExistente);
+        _consultas.ListarProveedoresConEquivalenciasHaciaAsync(
+                TipoEquivalenciaEnum.Categoria,
+                IdCategoriaExistente,
+                Arg.Any<CancellationToken>())
+            .Returns([proveedor.Id]);
+        _proveedores.GetByIdWithIncludesAsync(
+                proveedor.Id,
+                Arg.Any<CancellationToken>(),
+                Arg.Any<Expression<Func<Proveedor, object>>[]>())
+            .Returns(proveedor);
+
+        await _servicio.BajaAsync(IdGerente, IdCategoriaExistente);
+
+        mochila.IsDeleted.Should().BeTrue();
+        bolso.IsDeleted.Should().BeTrue();
+        equivalencia.IsDeleted.Should().BeTrue();
+        entidad.IsDeleted.Should().BeTrue();
+        await _terminos.Received(2).UpdateAsync(Arg.Any<TerminoClasificacion>(), Arg.Any<CancellationToken>());
+        await _proveedores.Received(1).UpdateAsync(proveedor, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Baja_ConParesDeTerminosAmbiguos_DaDeBajaSoloLosParesHaciaLaCategoria()
+    {
+        var entidad = CrearCategoriaConId(IdCategoriaExistente, "Geometría");
+        ConfigurarExistente(entidad);
+        _consultas.ContarArticulosPorCategoriaAsync(IdCategoriaExistente, Arg.Any<CancellationToken>()).Returns(0);
+        var set = TerminoClasificacion.CrearAmbiguo("SET");
+        var haciaLaCategoria = set.AsignarPar("GEOMETRIA", IdCategoriaExistente);
+        var haciaOtra = set.AsignarPar("ESCOLAR", IdCategoriaExistente + 1);
+        var ignorado = set.AsignarPar("REGALO", null);
+        var kit = TerminoClasificacion.CrearAmbiguo("KIT");
+        var deOtroTermino = kit.AsignarPar("ARTE", IdCategoriaExistente + 1);
+        ConfigurarTerminosDeLaCategoria(set, kit);
+
+        await _servicio.BajaAsync(IdGerente, IdCategoriaExistente);
+
+        haciaLaCategoria.IsDeleted.Should().BeTrue();
+        haciaOtra.IsDeleted.Should().BeFalse();
+        ignorado.IsDeleted.Should().BeFalse();
+        deOtroTermino.IsDeleted.Should().BeFalse();
+        set.IsDeleted.Should().BeFalse();
+        await _terminos.Received(1).UpdateAsync(set, Arg.Any<CancellationToken>());
+        await _terminos.DidNotReceive().UpdateAsync(kit, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Baja_ConElementoEnUso_NoTocaTerminosNiEquivalencias()
+    {
+        ConfigurarExistente(CrearCategoriaConId(IdCategoriaExistente, "Ocupado"));
+        _consultas.ContarArticulosPorCategoriaAsync(IdCategoriaExistente, Arg.Any<CancellationToken>()).Returns(1);
+
+        var accion = () => _servicio.BajaAsync(IdGerente, IdCategoriaExistente);
+
+        await accion.Should().ThrowAsync<ClasificacionEnUsoException>();
+        await _terminos.DidNotReceive().FindAsync(
+            Arg.Any<Expression<Func<TerminoClasificacion, bool>>>(),
+            Arg.Any<bool>(),
+            Arg.Any<CancellationToken>());
+        await _consultas.DidNotReceive().ListarProveedoresConEquivalenciasHaciaAsync(
+            Arg.Any<TipoEquivalenciaEnum>(),
+            Arg.Any<int>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    // Aplica el predicado como lo haría el repositorio: la baja hace dos búsquedas de términos (los de la categoría y los
+    // que tienen pares hacia ella) y cada una debe recibir solo los suyos.
+    private void ConfigurarTerminosDeLaCategoria(params TerminoClasificacion[] terminos)
+    {
+        _terminos.FindAsync(Arg.Any<Expression<Func<TerminoClasificacion, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(llamada =>
+            {
+                var predicado = llamada.Arg<Expression<Func<TerminoClasificacion, bool>>>().Compile();
+                IReadOnlyList<TerminoClasificacion> filtrados = terminos.Where(predicado).ToList();
+                return filtrados;
+            });
     }
 }

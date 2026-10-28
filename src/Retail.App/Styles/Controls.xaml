@@ -572,6 +572,43 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Acción secundaria de texto dentro de una fila o tarjeta (p. ej. "Restablecer" en una fila corregida, M-70):
+         ícono + texto carmín sin borde ni fondo; en hover, fondo carmín suave. Más visible que un ícono suelto y más
+         liviano que un Keycap, para no competir con los controles de la fila. -->
+    <Style x:Key="GhostPrimaryButtonStyle" TargetType="Button">
+        <Setter Property="Padding" Value="6,3" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Cuadrado carmín junto al botón de cobro (D-24): en reposo rosa claro con borde e ícono carmín, para no competir
          con el primario; en hover toma el carmín sólido del botón Cobrar. Deshabilitado igual que Cobrar. -->
     <Style x:Key="IconPrimarySquareButtonStyle" TargetType="Button" BasedOn="{StaticResource IconDangerButtonStyle}">
@@ -688,6 +725,14 @@
         <Setter Property="ColumnHeaderStyle" Value="{StaticResource DataGridColumnHeaderRetailStyle}" />
         <Setter Property="CellStyle" Value="{StaticResource DataGridCellRetailStyle}" />
         <Setter Property="RowStyle" Value="{StaticResource DataGridRowRetailStyle}" />
+        <!-- Scroll por píxeles sin perder la virtualización (RNF-03): CanContentScroll queda en True; con False
+             se dibujarían todas las filas. La barra horizontal aparece cuando las columnas no entran en el ancho,
+             para lo cual cada columna "*" declara su MinWidth en la vista. -->
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
     </Style>
 
     <!-- ================================================================= -->

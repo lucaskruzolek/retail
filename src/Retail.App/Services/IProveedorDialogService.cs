@@ -23,6 +23,9 @@ public interface IProveedorDialogService
     /// <summary>Abre la ventana del importador de catálogos para el proveedor dado (o catálogo general si es null).</summary>
     Task AbrirImportadorCatalogosAsync(ProveedorDto? proveedor = null);
 
+    /// <summary>Abre el diálogo modal de equivalencias de clasificación del proveedor (Track 6.6, P6-7).</summary>
+    Task AbrirEquivalenciasProveedorAsync(ProveedorDto proveedor);
+
     /// <summary>Abre el diálogo modal de importación de planillas de un distribuidor. Retorna el resultado si se importó.</summary>
     Task<ResultadoImportacionDto?> AbrirImportarPlanillaAsync(ProveedorDto proveedor);
 }

@@ -17,6 +17,7 @@ public class AdministrarClasificacionViewModelTests : IDisposable
     private readonly IRubroService _rubroService = Substitute.For<IRubroService>();
     private readonly ICategoriaService _categoriaService = Substitute.For<ICategoriaService>();
     private readonly IMarcaService _marcaService = Substitute.For<IMarcaService>();
+    private readonly ITerminoClasificacionService _terminoService = Substitute.For<ITerminoClasificacionService>();
     private readonly IClasificacionDialogService _dialogService = Substitute.For<IClasificacionDialogService>();
     private readonly ICurrentUserSession _session = Substitute.For<ICurrentUserSession>();
     private readonly AdministrarClasificacionViewModel _sut;
@@ -51,7 +52,7 @@ public class AdministrarClasificacionViewModelTests : IDisposable
             .Returns(Task.FromResult<IReadOnlyList<MarcaDto>>(_marcas));
 
         _sut = new AdministrarClasificacionViewModel(
-            _rubroService, _categoriaService, _marcaService, _dialogService, _session);
+            _rubroService, _categoriaService, _marcaService, _terminoService, _dialogService, _session);
     }
 
     public void Dispose()
@@ -178,6 +179,50 @@ public class AdministrarClasificacionViewModelTests : IDisposable
         _sut.TieneError.Should().BeTrue();
         _sut.MensajeError.Should().Contain("Bic").And.Contain("3 artículos");
         _sut.HuboCambios.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task InicializarAsync_ConMarcas_SeleccionaLaPrimeraSinCargarSuDetalleConLaSeccionOculta()
+    {
+        await _sut.InicializarAsync();
+
+        _sut.MarcaSeleccionada.Should().BeSameAs(_marcas[0]);
+        await _marcaService.DidNotReceiveWithAnyArgs().ListarAliasAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task MostrandoMarcas_ConMarcaSeleccionada_CargaElDetalleDeEsaMarca()
+    {
+        _marcaService.ListarAliasAsync(Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Retail.Application.DTOs.Clasificacion.AliasListadoDto>>(
+                [new() { IdMarca = 20, NombreMarca = "Bic", Alias = "BIC CRISTAL" }]));
+        _marcaService.ListarPrefijosAsync(Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Retail.Application.DTOs.Clasificacion.PrefijoListadoDto>>([]));
+        await _sut.InicializarAsync();
+
+        _sut.MostrandoMarcas = true;
+
+        await EsperarAsync(() => _sut.DetalleMarca.Alias.Count == 1);
+        _sut.DetalleMarca.Marca.Should().BeSameAs(_marcas[0]);
+        await _marcaService.Received().ListarAliasAsync(null, 20, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CargarMarcas_AlRecargar_ConservaLaMarcaSeleccionadaPorId()
+    {
+        var otra = new MarcaDto { IdMarca = 21, NombreMarca = "Faber" };
+        _marcaService.ListarAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .Returns(
+                Task.FromResult<IReadOnlyList<MarcaDto>>([_marcas[0], otra]),
+                Task.FromResult<IReadOnlyList<MarcaDto>>([_marcas[0], new MarcaDto { IdMarca = 21, NombreMarca = "Faber-Castell" }]));
+        _dialogService.AbrirFormularioMarca(Arg.Any<MarcaDto?>()).Returns(true);
+        await _sut.InicializarAsync();
+        _sut.MarcaSeleccionada = _sut.Marcas[1];
+
+        await _sut.EditarMarcaCommand.ExecuteAsync(_sut.Marcas[1]);
+
+        _sut.MarcaSeleccionada!.IdMarca.Should().Be(21);
+        _sut.MarcaSeleccionada.NombreMarca.Should().Be("Faber-Castell");
     }
 
     [Fact]

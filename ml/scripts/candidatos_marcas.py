@@ -20,7 +20,7 @@ aprobado y guarda el resultado como marcas.csv y prefijos.csv.
 import argparse
 from collections import Counter, defaultdict
 
-from comun import escribir_csv, leer_lista, limpiar_descripcion, normalizar_ean, primera_palabra
+from comun import escribir_csv, leer_lista, limpiar_descripcion, normalizar_ean, primera_palabra, tokens_de
 
 parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
 parser.add_argument("lista")
@@ -38,11 +38,6 @@ argumentos = parser.parse_args()
 PALABRAS_VACIAS = {"X", "C/", "DE", "CON", "P/", "Y", "LA", "EL", "S/", "CM", "MM", "ML", "HJ", "HJS",
                    "AZUL", "NEGRO", "ROJO", "VERDE", "BLANCO", "SURTIDO", "SURTIDA", "COLOR", "COLORES",
                    "PARA", "POR", "SIN", "LOS", "LAS", "UNID", "UNIDAD", "UNIDADES", "GRS", "KG", "LTS"}
-
-
-def tokens_de(descripcion):
-    """Palabras de la descripción sin la primera (el término) y sin el punto final."""
-    return [t.rstrip(".") for t in descripcion.split(" ")[1:]]
 
 
 def es_forma_valida(token):
@@ -65,7 +60,10 @@ for d in descripciones:
         ejemplo.setdefault(t, d)
     crudas.update(d.split(" ")[1:])
 
-candidatas = [(t, n) for t, n in frecuencia.most_common() if n >= argumentos.min_frecuencia]
+# Los empates se ordenan alfabéticamente. Counter.most_common los deja en orden de inserción, que viene de recorrer
+# un set y cambia en cada ejecución (hash randomization): sin este orden, dos corridas no dan el mismo archivo.
+candidatas = [(t, n) for t, n in sorted(frecuencia.items(), key=lambda par: (-par[1], par[0]))
+              if n >= argumentos.min_frecuencia]
 if argumentos.top:
     candidatas = candidatas[:argumentos.top]
 conjunto_candidatas = {t for t, _ in candidatas}
@@ -105,7 +103,7 @@ for prefijo, conjuntos in grupos.items():
     cuenta = Counter(t for c in conjuntos for t in c)
     if not cuenta:
         continue
-    marca, n = cuenta.most_common(1)[0]
+    marca, n = min(cuenta.items(), key=lambda par: (-par[1], par[0]))  # empate: la primera alfabéticamente
     pureza = n / soporte
     if pureza >= argumentos.min_pureza:
         prefijos.append([prefijo, marca, soporte, f"{pureza:.2f}", ""])

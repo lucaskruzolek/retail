@@ -4,6 +4,7 @@ using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Common;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.Application.Services;
@@ -16,6 +17,8 @@ public class CategoriaService : ICategoriaService
 {
     private readonly IRepository<Categoria> _repository;
     private readonly IRepository<Rubro> _rubros;
+    private readonly IRepository<TerminoClasificacion> _terminos;
+    private readonly IRepository<Proveedor> _proveedores;
     private readonly IRepository<Usuario> _usuarios;
     private readonly IClasificacionQueryService _consultas;
     private readonly IUnitOfWork _unitOfWork;
@@ -25,6 +28,8 @@ public class CategoriaService : ICategoriaService
     public CategoriaService(
         IRepository<Categoria> repository,
         IRepository<Rubro> rubros,
+        IRepository<TerminoClasificacion> terminos,
+        IRepository<Proveedor> proveedores,
         IRepository<Usuario> usuarios,
         IClasificacionQueryService consultas,
         IUnitOfWork unitOfWork,
@@ -33,6 +38,8 @@ public class CategoriaService : ICategoriaService
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _rubros = rubros ?? throw new ArgumentNullException(nameof(rubros));
+        _terminos = terminos ?? throw new ArgumentNullException(nameof(terminos));
+        _proveedores = proveedores ?? throw new ArgumentNullException(nameof(proveedores));
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _consultas = consultas ?? throw new ArgumentNullException(nameof(consultas));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
@@ -51,24 +58,13 @@ public class CategoriaService : ICategoriaService
         await AutorizacionClasificacion.ExigirAsync(_usuarios, idActor, cancellationToken);
         await _crearValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
-        var rubro = await ObtenerRubroActivoAsync(dto.IdRubro, cancellationToken);
-
-        // La comparación sin distinguir mayúsculas ni acentos la resuelve la colación de SQL Server (R-3) y el
-        // índice único filtrado es la garantía final ante dos altas simultáneas (D-4).
-        string nombre = ReglasTexto.NormalizarNombreClasificacion(dto.Nombre);
-        var existentes = await _repository.FindAsync(
-            x => x.NombreCategoria == nombre,
-            includeDeleted: false,
+        var (entidad, rubro) = await AltaCategoria.PrepararAsync(
+            _repository,
+            _rubros,
+            dto.Nombre,
+            dto.IdRubro,
             cancellationToken);
 
-        if (existentes.Count > 0)
-        {
-            throw new DomainException($"Ya existe una categoría activa con el nombre '{nombre}'.");
-        }
-
-        var entidad = Categoria.Crear(nombre, rubro.Id);
-
-        await _repository.AddAsync(entidad, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         return new CategoriaDto
@@ -92,7 +88,7 @@ public class CategoriaService : ICategoriaService
             throw new DomainException($"No se encontró la categoría con ID {dto.IdCategoria}.");
         }
 
-        var rubro = await ObtenerRubroActivoAsync(dto.IdRubro, cancellationToken);
+        var rubro = await AltaCategoria.ObtenerRubroActivoAsync(_rubros, dto.IdRubro, cancellationToken);
 
         // Se excluye el propio registro: renombrar al mismo nombre, o cambiar solo mayúsculas o acentos del
         // propio nombre, está permitido (D-8). El índice único filtrado respalda la regla (D-4).
@@ -114,19 +110,6 @@ public class CategoriaService : ICategoriaService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
-    // D-23: el rubro de destino debe existir y estar activo; la FK de la base es la garantía final, pero este
-    // chequeo da un mensaje claro en lugar de un error de integridad referencial.
-    private async Task<Rubro> ObtenerRubroActivoAsync(int idRubro, CancellationToken cancellationToken)
-    {
-        var rubro = await _rubros.GetByIdAsync(idRubro, includeDeleted: false, cancellationToken);
-        if (rubro == null)
-        {
-            throw new DomainException($"No se encontró el rubro con ID {idRubro}.");
-        }
-
-        return rubro;
-    }
-
     public async Task BajaAsync(int idActor, int idCategoria, CancellationToken cancellationToken = default)
     {
         await AutorizacionClasificacion.ExigirAsync(_usuarios, idActor, cancellationToken);
@@ -145,6 +128,35 @@ public class CategoriaService : ICategoriaService
         {
             throw new ClasificacionEnUsoException("la categoría", entidad.NombreCategoria, enUso, "artículos");
         }
+
+        // M-35 y M-27: los términos y las equivalencias que apuntan a la categoría son reglas derivadas que no tienen
+        // sentido sin ella. Se dan de baja en el mismo guardado que la categoría: la baja ocurre completa o no ocurre.
+        // El término pasa a ser desconocido y vuelve a la decisión en bloque de la incorporación (M-26).
+        var terminos = await _terminos.FindAsync(t => t.IdCategoria == idCategoria, includeDeleted: false, cancellationToken);
+        foreach (var termino in terminos)
+        {
+            termino.MarkAsDeleted();
+            await _terminos.UpdateAsync(termino, cancellationToken);
+        }
+
+        // Los pares hacia la categoría son de otros términos, los ambiguos (P-3). Se dan de baja por su raíz (Ley 2),
+        // que llega con sus pares (AutoInclude, M-57); EF traduce el Any a un EXISTS. Los ignorados no se tocan.
+        var conPares = await _terminos.FindAsync(
+            t => t.Pares.Any(p => p.IdCategoria == idCategoria),
+            includeDeleted: false,
+            cancellationToken);
+        foreach (var termino in conPares)
+        {
+            termino.QuitarParesHacia(idCategoria);
+            await _terminos.UpdateAsync(termino, cancellationToken);
+        }
+
+        await PersistenciaDiccionarios.QuitarEquivalenciasHaciaAsync(
+            _proveedores,
+            _consultas,
+            TipoEquivalenciaEnum.Categoria,
+            idCategoria,
+            cancellationToken);
 
         entidad.MarkAsDeleted();
 

@@ -1,4 +1,5 @@
 using Retail.Domain.Common;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.Domain.Entities;
@@ -13,13 +14,30 @@ public class Articulo : BaseEntity, IAggregateRoot
 
     public string Descripcion { get; set; } = string.Empty;
 
-    public int? IdCategoria { get; set; }
+    /// <summary>
+    /// Solo cambia con <see cref="Clasificar"/> o <see cref="ActualizarDatos"/>, que registran el origen (M-30).
+    /// </summary>
+    public int? IdCategoria { get; private set; }
 
     public Categoria? Categoria { get; set; }
 
-    public int? IdMarca { get; set; }
+    /// <summary>
+    /// Solo cambia con <see cref="Clasificar"/> o <see cref="ActualizarDatos"/>, que registran el origen (M-30).
+    /// </summary>
+    public int? IdMarca { get; private set; }
 
     public Marca? Marca { get; set; }
+
+    /// <summary>
+    /// Cómo se asignó la categoría (Track 6.6, sección 8.2). Tiene valor si y solo si hay categoría.
+    /// </summary>
+    public OrigenClasificacionEnum? OrigenCategoria { get; private set; }
+
+    /// <summary>
+    /// Cómo se asignó la marca. Con <see cref="IdMarca"/> nulo, un origen indica "Sin marca" confirmada por una
+    /// persona (Track 6.5, D-18); sin origen, el artículo todavía no tiene la marca clasificada.
+    /// </summary>
+    public OrigenClasificacionEnum? OrigenMarca { get; private set; }
 
     public int? IdCatalogoProveedor { get; set; }
 
@@ -116,16 +134,15 @@ public class Articulo : BaseEntity, IAggregateRoot
         int? idCatalogoProveedor = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(descripcion);
+        ValidarIdentificadoresDeClasificacion(idCategoria, idMarca);
 
-        if (idCategoria.HasValue && idCategoria.Value <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(idCategoria), "La categoría debe ser válida.");
-        }
-
-        if (idMarca.HasValue && idMarca.Value <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(idMarca), "La marca debe ser válida.");
-        }
+        // Edición manual (M-30): lo que cambia lo eligió una persona; lo que no cambia conserva su origen, para que
+        // editar el precio no borre que la marca vino de una sugerencia aceptada. Quitar la marca a mano es "Sin
+        // marca" confirmada; quitar la categoría deja el artículo sin clasificar.
+        var origenCategoria = idCategoria == IdCategoria
+            ? OrigenCategoria
+            : idCategoria.HasValue ? OrigenClasificacionEnum.Manual : null;
+        var origenMarca = idMarca == IdMarca ? OrigenMarca : OrigenClasificacionEnum.Manual;
 
         if (EsDerivado && idCatalogoProveedor.HasValue)
         {
@@ -142,7 +159,9 @@ public class Articulo : BaseEntity, IAggregateRoot
 
         Descripcion = descripcion.Trim();
         IdCategoria = idCategoria;
+        OrigenCategoria = origenCategoria;
         IdMarca = idMarca;
+        OrigenMarca = origenMarca;
         CodigoBarras = string.IsNullOrWhiteSpace(codigoBarras) ? null : codigoBarras.Trim();
         CostoReposicion = costoReposicion;
         PorcentajeGanancia = porcentajeGanancia;
@@ -151,6 +170,37 @@ public class Articulo : BaseEntity, IAggregateRoot
         StockActual = esServicio ? 0 : Math.Max(0, stockActual);
         StockMinimo = esServicio ? 0 : Math.Max(0, stockMinimo);
         IdCatalogoProveedor = idCatalogoProveedor;
+    }
+
+    /// <summary>
+    /// Asigna categoría y marca con el origen que indique quien confirma la clasificación (Track 6.6, sección 8.2):
+    /// la incorporación de catálogo, con la sugerencia aceptada o corregida. Un origen nulo deja ese dato sin
+    /// clasificar.
+    /// </summary>
+    public void Clasificar(
+        int? idCategoria,
+        OrigenClasificacionEnum? origenCategoria,
+        int? idMarca,
+        OrigenClasificacionEnum? origenMarca)
+    {
+        ValidarIdentificadoresDeClasificacion(idCategoria, idMarca);
+        ValidarOrigen(origenCategoria);
+        ValidarOrigen(origenMarca);
+
+        if (idCategoria.HasValue != origenCategoria.HasValue)
+        {
+            throw new DomainException("La categoría y su origen se asignan juntos: no hay categoría sin origen ni origen sin categoría.");
+        }
+
+        if (idMarca.HasValue && !origenMarca.HasValue)
+        {
+            throw new DomainException("Una marca asignada debe indicar su origen.");
+        }
+
+        IdCategoria = idCategoria;
+        OrigenCategoria = origenCategoria;
+        IdMarca = idMarca;
+        OrigenMarca = origenMarca;
     }
 
     public void VincularCatalogoProveedor(int idCatalogoProveedor, decimal nuevoCosto)
@@ -282,5 +332,26 @@ public class Articulo : BaseEntity, IAggregateRoot
     private static decimal RedondearMoneda(decimal importe)
     {
         return ReglasMonetarias.Redondear(importe);
+    }
+
+    private static void ValidarIdentificadoresDeClasificacion(int? idCategoria, int? idMarca)
+    {
+        if (idCategoria.HasValue && idCategoria.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idCategoria), "La categoría debe ser válida.");
+        }
+
+        if (idMarca.HasValue && idMarca.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idMarca), "La marca debe ser válida.");
+        }
+    }
+
+    private static void ValidarOrigen(OrigenClasificacionEnum? origen)
+    {
+        if (origen.HasValue && !Enum.IsDefined(origen.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(origen), "El origen de la clasificación no es válido.");
+        }
     }
 }

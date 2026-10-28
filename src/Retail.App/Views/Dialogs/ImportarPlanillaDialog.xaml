@@ -4,10 +4,10 @@
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                     Title="Importar Planilla de Proveedor"
-                    Width="540"
-                    Height="640"
+                    Width="580"
+                    Height="660"
                     MinWidth="480"
-                    MinHeight="560"
+                    MinHeight="600"
                     WindowStartupLocation="CenterOwner"
                     ExtendsContentIntoTitleBar="True"
                     WindowBackdropType="Mica"
@@ -134,63 +134,14 @@
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,10" />
 
-                        <Grid>
+                        <!-- Fila de Encabezado (H-05): las planillas suelen traer filas de título antes de los encabezados.
+                             Va primero porque define dónde se buscan todos los nombres de columna. -->
+                        <Grid Margin="0,0,0,14">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-
-                            <!-- Columna Código -->
-                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,10">
-                                <TextBlock Text="Columna Código *"
-                                           Style="{StaticResource TextBlockCaption}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding ColumnaCodigo, UpdateSourceTrigger=PropertyChanged}"
-                                         FontFamily="{StaticResource FontFamilyMonospace}"
-                                         Height="32" />
-                            </StackPanel>
-
-                            <!-- Columna Código Barras -->
-                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,10">
-                                <TextBlock Text="Columna Cód. Barras (Opcional)"
-                                           Style="{StaticResource TextBlockCaption}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding ColumnaCodigoBarras, UpdateSourceTrigger=PropertyChanged}"
-                                         FontFamily="{StaticResource FontFamilyMonospace}"
-                                         Height="32" />
-                            </StackPanel>
-
-                            <!-- Columna Descripción -->
-                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,10">
-                                <TextBlock Text="Columna Descripción *"
-                                           Style="{StaticResource TextBlockCaption}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding ColumnaDescripcion, UpdateSourceTrigger=PropertyChanged}"
-                                         FontFamily="{StaticResource FontFamilyMonospace}"
-                                         Height="32" />
-                            </StackPanel>
-
-                            <!-- Columna Precio -->
-                            <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,10">
-                                <TextBlock Text="Columna Precio Costo *"
-                                           Style="{StaticResource TextBlockCaption}"
-                                           Foreground="{DynamicResource TextSecondaryBrush}"
-                                           Margin="0,0,0,4" />
-                                <TextBox Text="{Binding ColumnaPrecio, UpdateSourceTrigger=PropertyChanged}"
-                                         FontFamily="{StaticResource FontFamilyMonospace}"
-                                         Height="32" />
-                            </StackPanel>
-
-                            <!-- Fila de Encabezado (H-05): las planillas suelen traer filas de título antes de los encabezados -->
-                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,8,0">
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                 <TextBlock Text="Fila de Encabezado *"
                                            Style="{StaticResource TextBlockCaption}"
                                            Foreground="{DynamicResource TextSecondaryBrush}"
@@ -199,7 +150,7 @@
                                          FontFamily="{StaticResource FontFamilyMonospace}"
                                          Height="32" />
                             </StackPanel>
-                            <TextBlock Grid.Row="2" Grid.Column="1"
+                            <TextBlock Grid.Column="1"
                                        Margin="8,0,0,0"
                                        VerticalAlignment="Bottom"
                                        Text="Número de fila (como en Excel) donde están los nombres de las columnas."
@@ -207,6 +158,119 @@
                                        Foreground="{DynamicResource TextMutedBrush}"
                                        TextWrapping="Wrap" />
                         </Grid>
+
+                        <!-- Columnas obligatorias: sin ellas no se puede importar -->
+                        <TextBlock Text="Columnas obligatorias"
+                                   Style="{StaticResource TextBlockCaption}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   Margin="0,0,0,6" />
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Código *"
+                                           Style="{StaticResource TextBlockCaption}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding ColumnaCodigo, UpdateSourceTrigger=PropertyChanged}"
+                                         FontFamily="{StaticResource FontFamilyMonospace}"
+                                         Height="32" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Margin="4,0,4,0">
+                                <TextBlock Text="Descripción *"
+                                           Style="{StaticResource TextBlockCaption}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding ColumnaDescripcion, UpdateSourceTrigger=PropertyChanged}"
+                                         FontFamily="{StaticResource FontFamilyMonospace}"
+                                         Height="32" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                                <TextBlock Text="Precio Costo *"
+                                           Style="{StaticResource TextBlockCaption}"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding ColumnaPrecio, UpdateSourceTrigger=PropertyChanged}"
+                                         FontFamily="{StaticResource FontFamilyMonospace}"
+                                         Height="32" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Columnas opcionales (M-12): si la planilla no las trae, se importa sin ese dato -->
+                        <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="Columnas opcionales"
+                                           Style="{StaticResource TextBlockCaption}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           Margin="0,0,0,2" />
+                                <TextBlock Text="Rubro, categoría y marca son la clasificación del proveedor: el sistema las traduce con las equivalencias del proveedor. Deje vacía la que la planilla no tenga."
+                                           Style="{StaticResource TextBlockCaption}"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,8" />
+
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,10">
+                                        <TextBlock Text="Cód. Barras"
+                                                   Style="{StaticResource TextBlockCaption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding ColumnaCodigoBarras, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"
+                                                 Height="32" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,10">
+                                        <TextBlock Text="Rubro"
+                                                   Style="{StaticResource TextBlockCaption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding ColumnaRubro, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"
+                                                 Height="32" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Categoría"
+                                                   Style="{StaticResource TextBlockCaption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding ColumnaCategoria, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"
+                                                 Height="32" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="Marca"
+                                                   Style="{StaticResource TextBlockCaption}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding ColumnaMarca, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontFamily="{StaticResource FontFamilyMonospace}"
+                                                 Height="32" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
 

@@ -1,4 +1,5 @@
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Clasificacion;
 
 namespace Retail.App.Services;
 
@@ -25,6 +26,30 @@ public interface IClasificacionDialogService
     /// Retorna true si se guardó o dio de baja algún elemento, para que el llamador recargue sus combos.
     /// </summary>
     bool AbrirAdministracion();
+
+    /// <summary>
+    /// Abre el formulario de término (Track 6.6): el texto y la categoría, o ninguna si queda ambiguo. Con
+    /// <paramref name="existente"/> solo cambia la categoría. Retorna lo cargado, o null si se canceló.
+    /// </summary>
+    ResultadoFormularioDiccionario? AbrirFormularioTermino(TerminoDto? existente, IReadOnlyList<CategoriaDto> categorias);
+
+    /// <summary>
+    /// Abre el formulario de alias de <paramref name="marca"/>, la seleccionada en la sección Marcas (M-68). Retorna
+    /// lo cargado, o null si se canceló.
+    /// </summary>
+    ResultadoFormularioDiccionario? AbrirFormularioAlias(MarcaDto marca);
+
+    /// <summary>
+    /// Abre el formulario de prefijo EAN de <paramref name="marca"/>, la seleccionada en la sección Marcas (M-68).
+    /// Retorna lo cargado, o null si se canceló.
+    /// </summary>
+    ResultadoFormularioDiccionario? AbrirFormularioPrefijo(MarcaDto marca);
+
+    /// <summary>
+    /// Abre el formulario de par de un término ambiguo: la segunda palabra y su categoría, o ninguna si queda ignorado.
+    /// Con <paramref name="existente"/> solo cambia el destino. Retorna lo cargado, o null si se canceló.
+    /// </summary>
+    ResultadoFormularioDiccionario? AbrirFormularioPar(TerminoDto termino, ParDto? existente, IReadOnlyList<CategoriaDto> categorias);
 
     /// <summary>Muestra una confirmación Sí/No de advertencia. Retorna true si el usuario confirma.</summary>
     bool Confirmar(string titulo, string mensaje);

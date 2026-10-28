@@ -20,6 +20,18 @@
     <SolidColorBrush x:Key="SystemAccentBrushDark2" Color="{StaticResource SystemAccentColorDark2}" />
     <SolidColorBrush x:Key="SystemAccentBrushDark3" Color="{StaticResource SystemAccentColorDark3}" />
 
+    <!-- Cada ventana mergea ui:ThemesDictionary y ui:ControlsDictionary, que reponen el acento azul de Windows sobre el
+         que App.xaml.cs aplica a la aplicación (ApplicationAccentColorManager). Este diccionario se mergea después en
+         todas las ventanas, así que redefine acá los recursos de acento que usan los controles de WPF-UI (el
+         ToggleSwitch encendido, por ejemplo) y el carmín llega a todos los diálogos. -->
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="{StaticResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="{StaticResource SystemAccentColorDark1}" />
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="{StaticResource SystemAccentColorDark2}" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{StaticResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{StaticResource SystemAccentColorDark1}" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="{StaticResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="{StaticResource SystemAccentColorDark1}" />
+
     <!-- ================================================================= -->
     <!-- TOKENS SEMÁNTICOS DE MARCA Y ACCIÓN PRINCIPAL (RETAIL)            -->
     <!-- ================================================================= -->

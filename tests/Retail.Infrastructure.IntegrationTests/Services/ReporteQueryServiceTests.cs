@@ -437,10 +437,13 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
             PrecioVenta = precio,
             StockActual = stock,
             StockMinimo = minimo,
-            IdCategoria = categoria,
-            IdMarca = marca,
             EsServicio = servicio
         };
+        articulo.Clasificar(
+            categoria,
+            categoria.HasValue ? OrigenClasificacionEnum.Manual : null,
+            marca,
+            marca.HasValue ? OrigenClasificacionEnum.Manual : null);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();

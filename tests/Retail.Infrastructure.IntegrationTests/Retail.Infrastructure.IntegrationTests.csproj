@@ -11,6 +11,11 @@
     <ProjectReference Include="..\..\src\Retail.Infrastructure\Retail.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- La semilla versionada de Retail.Cli (M-59), para verificar que se carga sin errores ni conflictos (S-4). -->
+  <ItemGroup>
+    <None Include="..\..\src\Retail.Cli\Semilla\*.csv" Link="Semilla\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.2">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

@@ -13,12 +13,14 @@ namespace Retail.App.ViewModels.Articulos;
 
 /// <summary>
 /// ViewModel del diálogo de administración de la clasificación comercial (Track 6.5, RF-04, D-26):
-/// rubros a la izquierda y categorías del rubro seleccionado a la derecha, o bien las marcas,
-/// alternando ambas secciones con dos botones de conmutación.
+/// rubros a la izquierda y categorías del rubro seleccionado a la derecha, o bien las marcas con sus alias y prefijos
+/// (M-68), y desde el Track 6.6 los términos con sus pares y pares propuestos (M-71), alternando las secciones con
+/// botones de conmutación. Cada diccionario tiene su propio ViewModel hijo (P6-7).
 /// </summary>
 /// <remarks>
 /// Todas las lecturas pasan por una única <see cref="CargaSerializada"/>: el diálogo comparte el DbContext
-/// de la pantalla de artículos y EF Core no admite dos operaciones simultáneas sobre un mismo contexto (H-19).
+/// de la pantalla de artículos y EF Core no admite dos operaciones simultáneas sobre un mismo contexto (H-19);
+/// los ViewModels hijos reciben esa misma instancia.
 /// </remarks>
 public partial class AdministrarClasificacionViewModel : ObservableObject, IDisposable
 {
@@ -55,11 +57,18 @@ public partial class AdministrarClasificacionViewModel : ObservableObject, IDisp
     [ObservableProperty]
     private string _filtroMarca = string.Empty;
 
+    /// <summary>Marca cuyo detalle (alias y prefijos EAN) se muestra al lado de la lista (M-68).</summary>
+    [ObservableProperty]
+    private MarcaDto? _marcaSeleccionada;
+
     [ObservableProperty]
     private bool _mostrandoRubros = true;
 
     [ObservableProperty]
     private bool _mostrandoMarcas;
+
+    [ObservableProperty]
+    private bool _mostrandoTerminos;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneError))]
@@ -80,6 +89,12 @@ public partial class AdministrarClasificacionViewModel : ObservableObject, IDisp
     [NotifyCanExecuteChangedFor(nameof(BajaMarcaCommand))]
     private bool _isBusy;
 
+    /// <summary>Sección Términos: los pares y pares propuestos del término ambiguo seleccionado (Track 6.6, M-71).</summary>
+    public TerminosClasificacionViewModel Terminos { get; }
+
+    /// <summary>Alias y prefijos EAN de la marca seleccionada, dentro de la sección Marcas (Track 6.6, M-68).</summary>
+    public DetalleMarcaViewModel DetalleMarca { get; }
+
     public bool HayRubroSeleccionado => RubroSeleccionado is not null;
 
     public bool TieneError => !string.IsNullOrWhiteSpace(MensajeError);
@@ -91,6 +106,7 @@ public partial class AdministrarClasificacionViewModel : ObservableObject, IDisp
         IRubroService rubroService,
         ICategoriaService categoriaService,
         IMarcaService marcaService,
+        ITerminoClasificacionService terminoService,
         IClasificacionDialogService dialogService,
         ICurrentUserSession session,
         ILogger<AdministrarClasificacionViewModel>? logger = null)
@@ -102,6 +118,10 @@ public partial class AdministrarClasificacionViewModel : ObservableObject, IDisp
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _logger = logger ?? NullLogger<AdministrarClasificacionViewModel>.Instance;
         _carga = new CargaSerializada(_logger);
+
+        ArgumentNullException.ThrowIfNull(terminoService);
+        Terminos = new TerminosClasificacionViewModel(terminoService, categoriaService, dialogService, session, _carga, _logger);
+        DetalleMarca = new DetalleMarcaViewModel(marcaService, dialogService, session, _carga, _logger);
     }
 
     /// <summary>Carga inicial: rubros (selecciona el primero con sus categorías) y marcas.</summary>
@@ -111,29 +131,62 @@ public partial class AdministrarClasificacionViewModel : ObservableObject, IDisp
         await CargarMarcasAsync(TimeSpan.Zero);
     }
 
-    // Las dos secciones son mutuamente excluyentes y siempre hay una visible.
+    private enum Seccion
+    {
+        Rubros,
+        Marcas,
+        Terminos
+    }
+
+    // Las secciones son mutuamente excluyentes y siempre hay una visible. Las del Track 6.6 se recargan cada vez
+    // que se muestran: lo que listan puede haber cambiado desde la última vez.
     partial void OnMostrandoRubrosChanged(bool value)
     {
-        if (value)
-        {
-            MostrandoMarcas = false;
-        }
-        else if (!MostrandoMarcas)
-        {
-            MostrandoRubros = true;
-        }
+        AlternarSeccion(Seccion.Rubros, value);
     }
 
     partial void OnMostrandoMarcasChanged(bool value)
     {
+        if (AlternarSeccion(Seccion.Marcas, value))
+        {
+            _ = DetalleMarca.MostrarAsync(MarcaSeleccionada);
+        }
+    }
+
+    partial void OnMostrandoTerminosChanged(bool value)
+    {
+        if (AlternarSeccion(Seccion.Terminos, value))
+        {
+            _ = Terminos.InicializarAsync();
+        }
+    }
+
+    /// <summary>Devuelve true cuando <paramref name="seccion"/> acaba de pasar a mostrarse.</summary>
+    private bool AlternarSeccion(Seccion seccion, bool value)
+    {
+        var estados = new (Seccion Seccion, bool Visible, Action<bool> Asignar)[]
+        {
+            (Seccion.Rubros, MostrandoRubros, v => MostrandoRubros = v),
+            (Seccion.Marcas, MostrandoMarcas, v => MostrandoMarcas = v),
+            (Seccion.Terminos, MostrandoTerminos, v => MostrandoTerminos = v)
+        };
+
         if (value)
         {
-            MostrandoRubros = false;
+            foreach (var otra in estados.Where(e => e.Seccion != seccion && e.Visible))
+            {
+                otra.Asignar(false);
+            }
+
+            return true;
         }
-        else if (!MostrandoRubros)
+
+        if (!estados.Any(e => e.Visible))
         {
-            MostrandoMarcas = true;
+            estados[(int)seccion].Asignar(true);
         }
+
+        return false;
     }
 
     partial void OnRubroSeleccionadoChanged(RubroDto? value)
@@ -157,6 +210,16 @@ public partial class AdministrarClasificacionViewModel : ObservableObject, IDisp
     partial void OnFiltroMarcaChanged(string value)
     {
         _ = CargarMarcasAsync(EsperaFiltro);
+    }
+
+    // El detalle se carga solo con la sección visible: oculta, una carga de otra sección lo cancelaría (carga
+    // reemplazable) y quedaría vacío. Al volver a mostrarse, OnMostrandoMarcasChanged lo recarga.
+    partial void OnMarcaSeleccionadaChanged(MarcaDto? value)
+    {
+        if (MostrandoMarcas)
+        {
+            _ = DetalleMarca.MostrarAsync(value);
+        }
     }
 
     // ------------------------------------------------------------------ Rubros
@@ -345,16 +408,24 @@ public partial class AdministrarClasificacionViewModel : ObservableObject, IDisp
         IsBusy = _carga.EnCurso;
     }
 
+    /// <summary>
+    /// Recarga la lista de marcas y conserva la selección por Id (o elige la primera), como la sección de rubros.
+    /// </summary>
     private async Task CargarMarcasAsync(TimeSpan espera)
     {
         string? filtro = NormalizarFiltro(FiltroMarca);
+        int? idPreferido = MarcaSeleccionada?.IdMarca;
 
         IsBusy = true;
         MensajeError = null;
 
         await _carga.EjecutarAsync(
             token => Task.Run(() => _marcaService.ListarAsync(filtro, token), token),
-            marcas => EjecutarEnDispatcher(() => Reemplazar(Marcas, marcas)),
+            marcas => EjecutarEnDispatcher(() =>
+            {
+                Reemplazar(Marcas, marcas);
+                MarcaSeleccionada = Marcas.FirstOrDefault(m => m.IdMarca == idPreferido) ?? Marcas.FirstOrDefault();
+            }),
             ex => InformarError("cargar las marcas", ex),
             espera);
 

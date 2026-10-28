@@ -269,8 +269,7 @@ public class ProveedorServiceTests
             {
                 new() { IdCatalogo = 1, PorcentajeGanancia = 50m },
                 new() { IdCatalogo = 2, PorcentajeGanancia = 25m }
-            },
-            PorcentajeGananciaSugerido = 40m
+            }
         };
 
         _articuloRepoMock.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
@@ -293,6 +292,52 @@ public class ProveedorServiceTests
         art2.PrecioVenta.Should().Be(2500m); // 2000 * 1.25 = 2500
 
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConClasificacionDelProveedor_LaGuardaEnElItemNuevoYEnElExistente()
+    {
+        // Arrange (Track 6.6, M-12)
+        var existente = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "VIEJO", DescripcionProveedor = "Viejo", CostoReposicion = 10m };
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto>
+            {
+                Fila("NUEVO") with { RubroProveedor = "Escolar", CategoriaProveedor = "Cuadernos T/D", MarcaProveedor = "Rivadavia" },
+                Fila("VIEJO", precio: 20m) with { RubroProveedor = "Oficina", MarcaProveedor = "Filgo" }
+            },
+            new Dictionary<string, CatalogoProveedor> { ["VIEJO"] = existente });
+
+        var agregados = new List<CatalogoProveedor>();
+        await _catalogoQueryMock.AgregarAsync(Arg.Do<CatalogoProveedor>(c => agregados.Add(c)), Arg.Any<CancellationToken>());
+
+        // Act
+        await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        var nuevo = agregados.Should().ContainSingle().Subject;
+        (nuevo.RubroProveedor, nuevo.CategoriaProveedor, nuevo.MarcaProveedor).Should().Be(("Escolar", "Cuadernos T/D", "Rivadavia"));
+        (existente.RubroProveedor, existente.CategoriaProveedor, existente.MarcaProveedor).Should().Be(("Oficina", null, "Filgo"));
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConTextoDeClasificacionExcedido_ReportaLaFilaYNoCreaElItem()
+    {
+        // Arrange
+        PrepararImportacion(new List<ItemCatalogoImportadoDto>
+        {
+            Fila("LARGO") with { CategoriaProveedor = new string('A', 101) },
+            Fila("OK-1")
+        });
+
+        var agregados = new List<CatalogoProveedor>();
+        await _catalogoQueryMock.AgregarAsync(Arg.Do<CatalogoProveedor>(c => agregados.Add(c)), Arg.Any<CancellationToken>());
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert
+        agregados.Should().ContainSingle().Which.CodigoProveedor.Should().Be("OK-1");
+        resultado.ErroresDetalle.Should().ContainSingle(e => e.StartsWith("Fila 2:") && e.Contains("categoría del proveedor"));
     }
 
     private static ItemCatalogoImportadoDto Fila(string codigo, string descripcion = "Producto", decimal precio = 100m, string? codigoBarras = null)
