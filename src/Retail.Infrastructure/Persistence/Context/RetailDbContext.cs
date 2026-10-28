@@ -57,6 +57,8 @@ public class RetailDbContext : DbContext, IRetailDbContext
 
     public DbSet<DetalleCompra> DetallesCompra => Set<DetalleCompra>();
 
+    public DbSet<Pedido> Pedidos => Set<Pedido>();
+
     public DbSet<RegistroBackup> RegistrosBackup => Set<RegistroBackup>();
 
     public DbSet<RegistroRestauracion> RegistrosRestauracion => Set<RegistroRestauracion>();

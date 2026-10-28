@@ -641,6 +641,75 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.DetallePedido", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_detalle_pedido");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("int")
+                        .HasColumnName("cantidad");
+
+                    b.Property<string>("CodigoProveedor")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("codigo_proveedor");
+
+                    b.Property<decimal>("CostoPactado")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("costo_pactado");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)")
+                        .HasColumnName("descripcion");
+
+                    b.Property<int>("IdArticulo")
+                        .HasColumnType("int")
+                        .HasColumnName("id_articulo");
+
+                    b.Property<int>("IdCatalogoProveedor")
+                        .HasColumnType("int")
+                        .HasColumnName("id_catalogo_proveedor");
+
+                    b.Property<int>("IdPedido")
+                        .HasColumnType("int")
+                        .HasColumnName("id_pedido");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdArticulo");
+
+                    b.HasIndex("IdCatalogoProveedor");
+
+                    b.HasIndex("IdPedido", "IdCatalogoProveedor")
+                        .IsUnique()
+                        .HasDatabaseName("UX_DETALLE_PEDIDOS_pedido_catalogo")
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.ToTable("DETALLE_PEDIDOS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_DETALLE_PEDIDOS_Cantidad", "[cantidad] >= 1");
+
+                            t.HasCheckConstraint("CK_DETALLE_PEDIDOS_Costo", "[costo_pactado] > 0");
+                        });
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.DetallePresupuesto", b =>
                 {
                     b.Property<int>("Id")
@@ -985,6 +1054,68 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_PARES_CLASIFICACION_SegundaPalabra", "LEN([segunda_palabra]) >= 2 AND CHARINDEX(' ', [segunda_palabra]) = 0");
                         });
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.Pedido", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_pedido");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("estado");
+
+                    b.Property<DateTime?>("FechaCierre")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_cierre");
+
+                    b.Property<DateTime?>("FechaEmision")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_emision");
+
+                    b.Property<int>("IdProveedor")
+                        .HasColumnType("int")
+                        .HasColumnName("id_proveedor");
+
+                    b.Property<int>("IdUsuario")
+                        .HasColumnType("int")
+                        .HasColumnName("id_usuario");
+
+                    b.Property<string>("MotivoCancelacion")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)")
+                        .HasColumnName("motivo_cancelacion");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdProveedor")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PEDIDOS_borrador_por_proveedor")
+                        .HasFilter("[estado] = N'Borrador' AND [deleted_at] IS NULL");
+
+                    b.HasIndex("IdUsuario");
+
+                    b.ToTable("PEDIDOS", (string)null);
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.PrefijoEanMarca", b =>
@@ -1834,6 +1965,33 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.Navigation("Compra");
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.DetallePedido", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Articulo", "Articulo")
+                        .WithMany()
+                        .HasForeignKey("IdArticulo")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Retail.Domain.Entities.CatalogoProveedor", "CatalogoProveedor")
+                        .WithMany()
+                        .HasForeignKey("IdCatalogoProveedor")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Retail.Domain.Entities.Pedido", "Pedido")
+                        .WithMany("Detalles")
+                        .HasForeignKey("IdPedido")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Articulo");
+
+                    b.Navigation("CatalogoProveedor");
+
+                    b.Navigation("Pedido");
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.DetallePresupuesto", b =>
                 {
                     b.HasOne("Retail.Domain.Entities.Articulo", "Articulo")
@@ -1929,6 +2087,25 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("TerminoClasificacion");
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.Pedido", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Proveedor", "Proveedor")
+                        .WithMany()
+                        .HasForeignKey("IdProveedor")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Retail.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("IdUsuario")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Proveedor");
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.PrefijoEanMarca", b =>
@@ -2066,6 +2243,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.Navigation("Articulos");
 
                     b.Navigation("Prefijos");
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.Pedido", b =>
+                {
+                    b.Navigation("Detalles");
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Presupuesto", b =>
