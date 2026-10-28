@@ -27,10 +27,8 @@ public enum MotivoSugerenciaEnum
     /// </summary>
     MarcaEnLaDescripcion = 4,
 
-    /// <summary>
-    /// El prefijo del código de barras pertenece a la marca (M-25).
-    /// </summary>
-    PrefijoDelCodigoDeBarras = 5,
+    // El valor 5 (prefijo del código de barras) se retiró con M-69: el prefijo solo desempata entre marcas que nombra
+    // el texto, y entonces el motivo es MarcaEnLaDescripcion.
 
     /// <summary>
     /// El término es ambiguo y el par "término + segunda palabra" del diccionario sugiere la categoría (Fase 5, M-48).

@@ -3,11 +3,12 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                    xmlns:converters="clr-namespace:Retail.App.Converters"
                     Title="Confirmar Incorporación de Artículos a Tienda"
-                    Width="880"
-                    Height="640"
-                    MinWidth="720"
-                    MinHeight="500"
+                    Width="1040"
+                    Height="680"
+                    MinWidth="900"
+                    MinHeight="560"
                     WindowStartupLocation="CenterOwner"
                     ExtendsContentIntoTitleBar="True"
                     WindowBackdropType="Mica"
@@ -25,6 +26,66 @@
                 <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+            <converters:InverseBooleanToVisibilityConverter x:Key="BooleanToInverseVisibilityConverter" />
+
+            <!-- Indicador de pasos (P6-3): círculo numerado + título, sin borde de pastilla para que no parezca un
+                 botón. Carmín sólido el actual, carmín suave con tilde los completados, gris los pendientes. -->
+            <Style x:Key="PasoCirculoStyle" TargetType="Border">
+                <Setter Property="Width" Value="22" />
+                <Setter Property="Height" Value="22" />
+                <Setter Property="CornerRadius" Value="11" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding EsCompletado}" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding EsActual}" Value="True">
+                        <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <Style x:Key="PasoNumeroStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding EsActual}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding EsCompletado}" Value="True">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <Style x:Key="PasoTituloStyle" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Margin" Value="8,0,0,0" />
+                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding EsCompletado}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding EsActual}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- Encabezado de columna de la tabla del paso 1 -->
+            <Style x:Key="PasoColumnaStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCaption}">
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            </Style>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
@@ -54,6 +115,7 @@
                        IsHitTestVisible="False" />
         </Grid>
 
+
         <!-- Contenido Central -->
         <Grid Grid.Row="1" Margin="24,12">
             <Grid.RowDefinitions>
@@ -77,159 +139,743 @@
                            TextWrapping="Wrap" />
             </Border>
 
-            <!-- Parámetros Generales / Margen Global -->
-            <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="16,12" Margin="0,0,0,12">
+
+            <!-- Tarjeta 1: ganancia global -->
+            <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="16,10" Margin="0,0,0,12">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Ganancia global"
+                               Style="{StaticResource TextBlockHeader2}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,24,0" />
+                    <ui:TextBox Text="{Binding PorcentajeGananciaGlobal, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
+                                FontFamily="{StaticResource FontFamilyNumeric}"
+                                Typography.NumeralAlignment="Tabular"
+                                FontSize="14"
+                                VerticalContentAlignment="Center"
+                                TextAlignment="Right"
+                                Width="96"
+                                Height="34" />
+                    <TextBlock Text="%"
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               VerticalAlignment="Center"
+                               Margin="6,0,16,0" />
+                    <Button Command="{Binding AplicarGananciaGlobalCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Padding="10,6"
+                            VerticalAlignment="Center"
+                            ToolTip="Aplicar este porcentaje a todos los artículos">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Aplicar a todos" FontSize="12" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- Tarjeta 2: clasificación (ocupa el espacio restante) -->
+            <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}" Padding="16,12">
                 <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="260" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                    <!-- Margen Global + Botón Aplicar -->
-                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                        <TextBlock Text="% Ganancia Global"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,4" />
-                        <DockPanel LastChildFill="True">
-                            <Button DockPanel.Dock="Right"
-                                    Command="{Binding AplicarGananciaGlobalCommand}"
-                                    Style="{StaticResource KeycapButtonStyle}"
-                                    Padding="10,6"
-                                    Margin="8,0,0,0"
-                                    ToolTip="Aplicar este porcentaje a todos los artículos seleccionados">
-                                <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Aplicar a todos" FontSize="11" VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Button>
-                            <ui:TextBox Text="{Binding PorcentajeGananciaGlobal, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
-                                        FontFamily="{StaticResource FontFamilyNumeric}"
-                                        Typography.NumeralAlignment="Tabular"
-                                        FontSize="14"
-                                        VerticalContentAlignment="Center"
-                                        Height="34" />
-                        </DockPanel>
-                    </StackPanel>
+                    <!-- Encabezado en una sola fila (M-70): título, indicador de pasos e interruptor M-11 -->
+                    <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Left"
+                                   Text="Clasificación"
+                                   Style="{StaticResource TextBlockHeader2}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,24,0" />
+                        <ui:ToggleSwitch DockPanel.Dock="Right"
+                                         Content="Sugerir clasificación"
+                                         IsChecked="{Binding SugerirClasificacion}"
+                                         VerticalAlignment="Center"
+                                         Margin="16,0,0,0"
+                                         ToolTip="El sistema propone categoría y marca para cada artículo, con su motivo. Nada se aplica hasta que confirme." />
 
-                    <!-- Categoría Destino -->
-                    <StackPanel Grid.Column="1" Margin="0,0,16,0">
-                        <TextBlock Text="Categoría Destino (Opcional)"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,4" />
-                        <ComboBox ItemsSource="{Binding CategoriasDisponibles}"
-                                  DisplayMemberPath="NombreCategoria"
-                                  SelectedValuePath="IdCategoria"
-                                  SelectedValue="{Binding IdCategoriaDestino}"
-                                  Height="34" />
-                    </StackPanel>
+                        <!-- Indicador de pasos (P6-3): solo los pasos con contenido; informa el recorrido, no navega -->
+                        <ItemsControl ItemsSource="{Binding Pasos}"
+                                      VerticalAlignment="Center"
+                                      IsHitTestVisible="False"
+                                      Focusable="False"
+                                      Visibility="{Binding MostrarEncabezadoDePasos, Converter={StaticResource BoolToVisConverter}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Border Style="{StaticResource PasoCirculoStyle}">
+                                            <Grid>
+                                                <TextBlock Text="{Binding Numero}" Style="{StaticResource PasoNumeroStyle}" />
+                                                <iconPacks:PackIconBoxIcons Kind="RegularCheck"
+                                                                            Width="12"
+                                                                            Height="12"
+                                                                            HorizontalAlignment="Center"
+                                                                            VerticalAlignment="Center"
+                                                                            Foreground="{DynamicResource PrimaryBrush}"
+                                                                            Visibility="{Binding EsCompletado, Converter={StaticResource BoolToVisConverter}}" />
+                                            </Grid>
+                                        </Border>
+                                        <TextBlock Text="{Binding Titulo}" Style="{StaticResource PasoTituloStyle}" />
+                                        <Rectangle Width="20"
+                                                   Height="1"
+                                                   Margin="8,0"
+                                                   VerticalAlignment="Center"
+                                                   Fill="{DynamicResource SurfaceBorderBrush}"
+                                                   Visibility="{Binding EsUltimo, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
 
-                    <!-- Marca Destino -->
-                    <StackPanel Grid.Column="2">
-                        <TextBlock Text="Marca Destino (Opcional)"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,4" />
-                        <ComboBox ItemsSource="{Binding MarcasDisponibles}"
-                                  DisplayMemberPath="NombreMarca"
-                                  SelectedValuePath="IdMarca"
-                                  SelectedValue="{Binding IdMarcaDestino}"
-                                  Height="34" />
-                    </StackPanel>
+                    <!-- Categoría y marca del lote (solo sin sugerencias: una para todo el lote) -->
+                    <Grid Grid.Row="1"
+                          Margin="0,0,0,12"
+                          Visibility="{Binding MostrarClasificacionDelLote, Converter={StaticResource BoolToVisConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <TextBlock Text="Categoría para todo el lote"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,4" />
+                            <ComboBox ItemsSource="{Binding OpcionesCategoria}"
+                                      DisplayMemberPath="Nombre"
+                                      SelectedItem="{Binding CategoriaDelLote}"
+                                      MinHeight="34" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Marca para todo el lote"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,4" />
+                            <ComboBox ItemsSource="{Binding OpcionesMarca}"
+                                      DisplayMemberPath="Nombre"
+                                      SelectedItem="{Binding MarcaDelLote}"
+                                      MinHeight="34" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Cuerpo: cada panel se muestra según el modo y el paso actual -->
+                    <Grid Grid.Row="2">
+
+                        <!-- Calculando sugerencias (en segundo plano) -->
+                        <StackPanel HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Orientation="Horizontal"
+                                    Visibility="{Binding CargandoSugerencias, Converter={StaticResource BoolToVisConverter}}">
+                            <ui:ProgressRing Width="22" Height="22" Margin="0,0,10,0" IsIndeterminate="True" />
+                            <TextBlock Text="Calculando sugerencias de clasificación..."
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Paso 1: asociar categorías y marcas del proveedor (D-5, P6-6) -->
+                        <Border Visibility="{Binding MostrarPasoTraducirValores, Converter={StaticResource BoolToVisConverter}}">
+                            <DockPanel LastChildFill="True">
+
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" DataContext="{Binding PasoTraducirValores}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource TextBlockCaption}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,2,0,10"
+                                                   Text="La planilla del proveedor trae sus propias categorías y marcas. Indique a cuál de su comercio equivale cada una: queda guardado como equivalencia del proveedor y en las próximas importaciones se asocia sola. Si no le sirve, ignórela. Puede seguir sin asociar: esos artículos se clasifican a mano en el último paso." />
+
+                                        <Border Style="{StaticResource BadgeWarningStyle}"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,0,0,10"
+                                                Visibility="{Binding SoloLectura, Converter={StaticResource BoolToVisConverter}}">
+                                            <TextBlock Text="Un Gerente o un Encargado puede asociar estas categorías y marcas."
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource WarningForegroundBrush}" />
+                                        </Border>
+
+                                        <Border Background="{DynamicResource DangerBackgroundBrush}"
+                                                BorderBrush="{DynamicResource DangerBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="6"
+                                                Padding="12,8"
+                                                Margin="0,0,0,10"
+                                                Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                                            <TextBlock Text="{Binding MensajeError}"
+                                                       Foreground="{DynamicResource DangerForegroundBrush}"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap" />
+                                        </Border>
+
+                                        <!-- Tabla de valores: encabezado de columnas y una fila por valor, como una grilla -->
+                                        <Border Background="{DynamicResource SurfaceCardBrush}"
+                                                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="8"
+                                                Grid.IsSharedSizeScope="True">
+                                            <StackPanel>
+                                                <Border Background="{DynamicResource SurfaceBackgroundBrush}"
+                                                        CornerRadius="8,8,0,0"
+                                                        Padding="12,8">
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="86" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="80" />
+                                                            <ColumnDefinition Width="220" />
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="AccionesValor" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="Tipo" Style="{StaticResource PasoColumnaStyle}" />
+                                                        <TextBlock Grid.Column="1" Text="Nombre en la planilla" Style="{StaticResource PasoColumnaStyle}" />
+                                                        <TextBlock Grid.Column="2" Text="Artículos" Style="{StaticResource PasoColumnaStyle}" HorizontalAlignment="Right" Margin="0,0,12,0" />
+                                                        <TextBlock Grid.Column="3" Text="Equivale a" Style="{StaticResource PasoColumnaStyle}" />
+                                                    </Grid>
+                                                </Border>
+
+                                                <TextBlock Text="No quedan categorías ni marcas por asociar."
+                                                   Style="{StaticResource TextBlockBodyMuted}"
+                                                   Margin="0,0,0,10"
+                                                   Visibility="{Binding HasItems, ElementName=ListaValores, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+
+                                        <ItemsControl x:Name="ListaValores" ItemsSource="{Binding Valores}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                                                    BorderThickness="0,1,0,0"
+                                                                    Padding="12,8">
+                                                    <Grid MinHeight="34">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="86" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="80" />
+                                                            <ColumnDefinition Width="220" />
+                                                            <ColumnDefinition Width="Auto" SharedSizeGroup="AccionesValor" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <Border Grid.Column="0" Style="{StaticResource BadgeNeutralStyle}" HorizontalAlignment="Left">
+                                                            <TextBlock Text="{Binding TipoTexto}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                        </Border>
+
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding Texto}"
+                                                                   Style="{StaticResource TextBlockTextCell}"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   ToolTip="{Binding Texto}"
+                                                                   Margin="0,0,8,0" />
+
+                                                        <TextBlock Grid.Column="2"
+                                                                   Style="{StaticResource TextBlockNumericCell}"
+                                                                   HorizontalAlignment="Right"
+                                                                   Margin="0,0,12,0"
+                                                                   Text="{Binding CantidadDeItems, StringFormat='{}{0} art.'}" />
+
+                                                        <Grid Grid.Column="3"
+                                                              Visibility="{Binding Pendiente, Converter={StaticResource BoolToVisConverter}}"
+                                                              IsEnabled="{Binding DataContext.PuedeAdministrar, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                            <ComboBox ItemsSource="{Binding DataContext.Categorias, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                      DisplayMemberPath="NombreCategoria"
+                                                                      SelectedItem="{Binding CategoriaDestino}"
+                                                                      MinHeight="34"
+                                                                      Margin="0,0,8,0"
+                                                                      Visibility="{Binding EsCategoria, Converter={StaticResource BoolToVisConverter}}" />
+                                                            <ComboBox ItemsSource="{Binding DataContext.Marcas, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                      DisplayMemberPath="NombreMarca"
+                                                                      SelectedItem="{Binding MarcaDestino}"
+                                                                      MinHeight="34"
+                                                                      Margin="0,0,8,0"
+                                                                      Visibility="{Binding EsCategoria, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+                                                        </Grid>
+
+                                                        <StackPanel Grid.Column="4"
+                                                                    Orientation="Horizontal"
+                                                                    Visibility="{Binding Pendiente, Converter={StaticResource BoolToVisConverter}}"
+                                                                    IsEnabled="{Binding DataContext.PuedeAdministrar, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                            <Button Command="{Binding DataContext.TraducirCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Style="{StaticResource KeycapButtonStyle}"
+                                                                    Padding="10,6"
+                                                                    Margin="0,0,6,0">
+                                                                <TextBlock Text="Asociar" FontSize="12" VerticalAlignment="Center" />
+                                                            </Button>
+                                                            <Button Command="{Binding DataContext.IgnorarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                    CommandParameter="{Binding}"
+                                                                    Style="{StaticResource KeycapButtonStyle}"
+                                                                    Padding="10,6"
+                                                                    ToolTip="No es una categoría ni una marca útil: se deja de ofrecer en esta y en las próximas importaciones">
+                                                                <TextBlock Text="Ignorar" FontSize="12" VerticalAlignment="Center" />
+                                                            </Button>
+                                                        </StackPanel>
+
+                                                        <Border Grid.Column="3"
+                                                                Grid.ColumnSpan="2"
+                                                                Style="{StaticResource BadgeSuccessStyle}"
+                                                                HorizontalAlignment="Left"
+                                                                Visibility="{Binding Resuelto, Converter={StaticResource BoolToVisConverter}}">
+                                                            <TextBlock Text="{Binding Resultado}" FontSize="12" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                                                        </Border>
+                                                    </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Paso 2: términos nuevos, una tarjeta por bloque (D-5, P6-4, P6-6) -->
+                        <Border Visibility="{Binding MostrarPasoTerminosNuevos, Converter={StaticResource BoolToVisConverter}}">
+                            <DockPanel LastChildFill="True">
+
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" DataContext="{Binding PasoTerminosNuevos}">
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource TextBlockCaption}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,2,0,10"
+                                                   Text="Estas palabras aparecen varias veces en el lote y el sistema no las conoce. Decida la categoría una sola vez para todo el grupo: queda registrada para las próximas importaciones. Lo que no decida se clasifica a mano en el paso siguiente." />
+
+                                        <Border Style="{StaticResource BadgeWarningStyle}"
+                                                HorizontalAlignment="Left"
+                                                Margin="0,0,0,10"
+                                                Visibility="{Binding SoloLectura, Converter={StaticResource BoolToVisConverter}}">
+                                            <TextBlock Text="Un Gerente o un Encargado puede decidir estos términos."
+                                                       FontSize="12"
+                                                       Foreground="{DynamicResource WarningForegroundBrush}" />
+                                        </Border>
+
+                                        <Border Background="{DynamicResource DangerBackgroundBrush}"
+                                                BorderBrush="{DynamicResource DangerBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="6"
+                                                Padding="12,8"
+                                                Margin="0,0,0,10"
+                                                Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                                            <TextBlock Text="{Binding MensajeError}"
+                                                       Foreground="{DynamicResource DangerForegroundBrush}"
+                                                       FontSize="12"
+                                                       TextWrapping="Wrap" />
+                                        </Border>
+
+                                        <TextBlock Text="No quedan términos por decidir."
+                                                   Style="{StaticResource TextBlockBodyMuted}"
+                                                   Visibility="{Binding HasItems, ElementName=ListaBloques, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+
+                                        <ItemsControl x:Name="ListaBloques" ItemsSource="{Binding Bloques}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Style="{StaticResource CardBorderStyle}"
+                                                            Background="{DynamicResource SurfaceBackgroundBrush}"
+                                                            Padding="12,10"
+                                                            Margin="0,0,0,8">
+                                                        <StackPanel>
+                                                            <DockPanel LastChildFill="True">
+                                                                <TextBlock DockPanel.Dock="Right"
+                                                                           Style="{StaticResource TextBlockBodySecondary}"
+                                                                           Text="{Binding CantidadTexto}" />
+                                                                <TextBlock Text="{Binding Termino}" Style="{StaticResource TextBlockHeader2}" />
+                                                            </DockPanel>
+                                                            <TextBlock Text="{Binding Ejemplos}"
+                                                                       Style="{StaticResource TextBlockCaption}"
+                                                                       TextWrapping="Wrap"
+                                                                       Margin="0,2,0,8" />
+
+                                                            <!-- Acciones del bloque -->
+                                                            <StackPanel Visibility="{Binding Pendiente, Converter={StaticResource BoolToVisConverter}}"
+                                                                        IsEnabled="{Binding DataContext.PuedeAdministrar, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                                <CheckBox Content="Crear una categoría nueva"
+                                                                          IsChecked="{Binding CrearCategoriaNueva}"
+                                                                          Margin="0,0,0,6" />
+
+                                                                <!-- Categoría existente -->
+                                                                <StackPanel Orientation="Horizontal"
+                                                                            Visibility="{Binding UsaCategoriaExistente, Converter={StaticResource BoolToVisConverter}}">
+                                                                    <ComboBox ItemsSource="{Binding DataContext.Categorias, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                              DisplayMemberPath="NombreCategoria"
+                                                                              SelectedItem="{Binding CategoriaSeleccionada}"
+                                                                              Width="240"
+                                                                              MinHeight="34"
+                                                                              Margin="0,0,8,0" />
+                                                                    <Button Command="{Binding DataContext.AsignarCategoriaExistenteCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            Style="{StaticResource KeycapButtonStyle}"
+                                                                            Padding="10,6"
+                                                                            Margin="0,0,8,0">
+                                                                        <TextBlock Text="Asignar" FontSize="12" VerticalAlignment="Center" />
+                                                                    </Button>
+                                                                    <Button Command="{Binding DataContext.MarcarAmbiguoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            Style="{StaticResource KeycapButtonStyle}"
+                                                                            Padding="10,6"
+                                                                            ToolTip="La palabra se conoce pero por sí sola no alcanza para sugerir una categoría">
+                                                                        <TextBlock Text="Marcar como ambiguo" FontSize="12" VerticalAlignment="Center" />
+                                                                    </Button>
+                                                                </StackPanel>
+
+                                                                <!-- Categoría nueva (comando atómico, P6-4) -->
+                                                                <StackPanel Orientation="Horizontal"
+                                                                            Visibility="{Binding CrearCategoriaNueva, Converter={StaticResource BoolToVisConverter}}">
+                                                                    <ui:TextBox Text="{Binding NombreCategoriaNueva, UpdateSourceTrigger=PropertyChanged}"
+                                                                                PlaceholderText="Nombre de la categoría"
+                                                                                Width="200"
+                                                                                Height="32"
+                                                                                Margin="0,0,8,0" />
+                                                                    <ComboBox ItemsSource="{Binding DataContext.Rubros, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                              DisplayMemberPath="NombreRubro"
+                                                                              SelectedItem="{Binding RubroSeleccionado}"
+                                                                              Width="180"
+                                                                              MinHeight="34"
+                                                                              Margin="0,0,8,0"
+                                                                              ToolTip="Rubro de la categoría nueva" />
+                                                                    <Button Command="{Binding DataContext.CrearCategoriaYAsignarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            Style="{StaticResource KeycapButtonStyle}"
+                                                                            Padding="10,6">
+                                                                        <TextBlock Text="Crear y asignar" FontSize="12" VerticalAlignment="Center" />
+                                                                    </Button>
+                                                                </StackPanel>
+                                                            </StackPanel>
+
+                                                            <Border Style="{StaticResource BadgeSuccessStyle}"
+                                                                    HorizontalAlignment="Left"
+                                                                    Visibility="{Binding Resuelto, Converter={StaticResource BoolToVisConverter}}">
+                                                                <TextBlock Text="{Binding Resultado}" FontSize="12" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </DockPanel>
+                        </Border>
+
+                        <!-- Paso 3 con sugerencias: revisar artículo por artículo -->
+                        <Grid Visibility="{Binding MostrarGrillaConSugerencias, Converter={StaticResource BoolToVisConverter}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Barra de acciones: restablecer todas las sugerencias y resumen -->
+                            <DockPanel Grid.Row="0" Margin="0,0,0,8" LastChildFill="False">
+                                <Button DockPanel.Dock="Left"
+                                        Command="{Binding RestablecerSugerenciasCommand}"
+                                        Style="{StaticResource KeycapButtonStyle}"
+                                        Padding="10,6"
+                                        ToolTip="Vuelve a la sugerencia del sistema en todos los artículos, descartando sus correcciones">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularRefreshCcw" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Restablecer todas las sugerencias" FontSize="12" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock DockPanel.Dock="Right"
+                                           Text="{Binding ResumenClasificacion}"
+                                           Style="{StaticResource TextBlockBodySecondary}"
+                                           FontSize="12"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <Border Grid.Row="1"
+                                    Background="{DynamicResource SurfaceCardBrush}"
+                                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Padding="0">
+                                <DataGrid x:Name="GrillaConSugerencias"
+                                          ItemsSource="{Binding Items}"
+                                          Style="{StaticResource DataGridRetailStyle}"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          SelectionMode="Single"
+                                          BorderThickness="0">
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowRetailStyle}">
+                                            <Setter Property="Height" Value="NaN" />
+                                            <Setter Property="MinHeight" Value="72" />
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+
+                                        <!-- Descripción + códigos (Cascadia Code: son códigos) -->
+                                        <DataGridTemplateColumn Header="Descripción" Width="*" MinWidth="130">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Descripcion}"
+                                                                   Style="{StaticResource TextBlockTextCell}"
+                                                                   FontSize="13"
+                                                                   TextWrapping="Wrap"
+                                                                   MaxHeight="36"
+                                                                   ToolTip="{Binding Descripcion}" />
+                                                        <TextBlock FontFamily="{StaticResource FontFamilyMonospace}"
+                                                                   FontSize="10"
+                                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                                   Text="{Binding CodigosTexto, Mode=OneWay}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- Categoría elegida + motivo -->
+                                        <DataGridTemplateColumn Header="Categoría" Width="200">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <ComboBox ItemsSource="{Binding DataContext.OpcionesCategoria, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                  DisplayMemberPath="Nombre"
+                                                                  SelectedItem="{Binding CategoriaSeleccionada, UpdateSourceTrigger=PropertyChanged}"
+                                                                  FontSize="13"
+                                                                  MinHeight="34" />
+                                                        <Grid Margin="0,4,0,0"
+                                                              ToolTip="{Binding MotivoCategoriaTexto}"
+                                                              Visibility="{Binding TieneMotivoCategoria, Converter={StaticResource BoolToVisConverter}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <iconPacks:PackIconBoxIcons Kind="RegularLightBulb"
+                                                                                        Width="12"
+                                                                                        Height="12"
+                                                                                        Margin="0,1,4,0"
+                                                                                        VerticalAlignment="Top"
+                                                                                        Foreground="{DynamicResource TextMutedBrush}" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding MotivoCategoriaTexto}"
+                                                                       Style="{StaticResource TextBlockCaption}"
+                                                                       TextWrapping="Wrap" />
+                                                        </Grid>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- Marca elegida + motivo -->
+                                        <DataGridTemplateColumn Header="Marca" Width="200">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <ComboBox ItemsSource="{Binding DataContext.OpcionesMarca, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                  DisplayMemberPath="Nombre"
+                                                                  SelectedItem="{Binding MarcaSeleccionada, UpdateSourceTrigger=PropertyChanged}"
+                                                                  FontSize="13"
+                                                                  MinHeight="34" />
+                                                        <Grid Margin="0,4,0,0"
+                                                              ToolTip="{Binding MotivoMarcaTexto}"
+                                                              Visibility="{Binding TieneMotivoMarca, Converter={StaticResource BoolToVisConverter}}">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <iconPacks:PackIconBoxIcons Kind="RegularLightBulb"
+                                                                                        Width="12"
+                                                                                        Height="12"
+                                                                                        Margin="0,1,4,0"
+                                                                                        VerticalAlignment="Top"
+                                                                                        Foreground="{DynamicResource TextMutedBrush}" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding MotivoMarcaTexto}"
+                                                                       Style="{StaticResource TextBlockCaption}"
+                                                                       TextWrapping="Wrap" />
+                                                        </Grid>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- Estado de la sugerencia y, en filas corregidas, la acción de volver a ella (M-70) -->
+                                        <DataGridTemplateColumn Header="Estado" Width="120">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left">
+                                                        <Border HorizontalAlignment="Left">
+                                                            <Border.Style>
+                                                                <Style TargetType="Border" BasedOn="{StaticResource BadgeNeutralStyle}">
+                                                                    <Setter Property="HorizontalAlignment" Value="Left" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Estado}" Value="Sugerida">
+                                                                            <Setter Property="Background" Value="{DynamicResource SuccessBackgroundBrush}" />
+                                                                            <Setter Property="BorderBrush" Value="{DynamicResource SuccessBorderBrush}" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding Estado}" Value="Corregida">
+                                                                            <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
+                                                                            <Setter Property="BorderBrush" Value="{DynamicResource WarningBorderBrush}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Border.Style>
+                                                            <TextBlock Text="{Binding EstadoTexto}"
+                                                                       FontSize="11"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        </Border>
+                                                        <Button Command="{Binding VolverALaSugerenciaCommand}"
+                                                                Style="{StaticResource GhostPrimaryButtonStyle}"
+                                                                HorizontalAlignment="Left"
+                                                                Margin="-6,4,0,0"
+                                                                ToolTip="Volver a la sugerencia del sistema"
+                                                                Visibility="{Binding PuedeVolverALaSugerencia, Converter={StaticResource BoolToVisConverter}}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <iconPacks:PackIconBoxIcons Kind="RegularUndo" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                                <TextBlock Text="Restablecer" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- Costo de reposición -->
+                                        <DataGridTemplateColumn Header="Costo" Width="100">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding CostoReposicion, StringFormat=C2}"
+                                                               Style="{StaticResource TextBlockCurrencyCell}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- % Ganancia Editable -->
+                                        <DataGridTemplateColumn Header="% Gan." Width="75">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
+                                                             FontFamily="{StaticResource FontFamilyNumeric}"
+                                                             Typography.NumeralAlignment="Tabular"
+                                                             FontSize="13"
+                                                             TextAlignment="Right"
+                                                             Padding="4,2"
+                                                             Height="28"
+                                                             VerticalContentAlignment="Center"
+                                                             Margin="0" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                        <!-- Precio Venta Final Calculado -->
+                                        <DataGridTemplateColumn Header="Precio Final" Width="105">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding PrecioVenta, StringFormat=C2}"
+                                                               FontFamily="{StaticResource FontFamilyNumeric}"
+                                                               Typography.NumeralAlignment="Tabular"
+                                                               FontWeight="Bold"
+                                                               FontSize="13"
+                                                               Foreground="{DynamicResource PrimaryBrush}"
+                                                               HorizontalAlignment="Right"
+                                                               VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Border>
+                        </Grid>
+
+                        <!-- Grilla clásica (interruptor apagado): una categoría y una marca para todo el lote -->
+                        <Border Background="{DynamicResource SurfaceCardBrush}"
+                                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Padding="0"
+                                Visibility="{Binding MostrarGrillaClasica, Converter={StaticResource BoolToVisConverter}}">
+                            <DataGrid ItemsSource="{Binding Items}"
+                                      Style="{StaticResource DataGridRetailStyle}"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      SelectionMode="Single"
+                                      BorderThickness="0">
+                                <DataGrid.Columns>
+
+                                    <!-- Código Proveedor -->
+                                    <DataGridTemplateColumn Header="Cód. Proveedor" Width="120">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding CodigoProveedor}"
+                                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                                           FontSize="12"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="10,0" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <!-- Código Barras -->
+                                    <DataGridTextColumn Header="Cód. Barras"
+                                                        Binding="{Binding CodigoBarras}"
+                                                        ElementStyle="{StaticResource TextBlockMonospaceCell}"
+                                                        Width="120"
+                                                        IsReadOnly="True" />
+
+                                    <!-- Descripción -->
+                                    <DataGridTextColumn Header="Descripción"
+                                                        Binding="{Binding Descripcion}"
+                                                        ElementStyle="{StaticResource TextBlockTextCell}"
+                                                        Width="*"
+                                                        MinWidth="240"
+                                                        IsReadOnly="True" />
+
+                                    <!-- Costo Reposición -->
+                                    <DataGridTextColumn Header="Costo Reposición"
+                                                        Binding="{Binding CostoReposicion, StringFormat=C2}"
+                                                        ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                        Width="130"
+                                                        IsReadOnly="True" />
+
+                                    <!-- % Ganancia Editable -->
+                                    <DataGridTemplateColumn Header="% Ganancia" Width="120">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
+                                                         FontFamily="{StaticResource FontFamilyNumeric}"
+                                                         Typography.NumeralAlignment="Tabular"
+                                                         FontSize="13"
+                                                         TextAlignment="Right"
+                                                         Padding="4,2"
+                                                         Height="28"
+                                                         VerticalContentAlignment="Center"
+                                                         Margin="4,0" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                    <!-- Precio Venta Final Calculado -->
+                                    <DataGridTemplateColumn Header="Precio Venta Final" Width="140">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding PrecioVenta, StringFormat=C2}"
+                                                           FontFamily="{StaticResource FontFamilyNumeric}"
+                                                           Typography.NumeralAlignment="Tabular"
+                                                           FontWeight="Bold"
+                                                           FontSize="13"
+                                                           Foreground="{DynamicResource PrimaryBrush}"
+                                                           HorizontalAlignment="Right"
+                                                           VerticalAlignment="Center"
+                                                           Margin="10,0" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+
+                    </Grid>
                 </Grid>
             </Border>
-
-            <!-- Grilla Interactiva de Artículos Seleccionados -->
-            <Border Grid.Row="2"
-                    Background="{DynamicResource SurfaceCardBrush}"
-                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="0">
-                <DataGrid ItemsSource="{Binding Items}"
-                          Style="{StaticResource DataGridRetailStyle}"
-                          AutoGenerateColumns="False"
-                          CanUserAddRows="False"
-                          CanUserDeleteRows="False"
-                          SelectionMode="Single"
-                          BorderThickness="0">
-                    <DataGrid.Columns>
-
-                        <!-- Código Proveedor -->
-                        <DataGridTemplateColumn Header="Cód. Proveedor" Width="120">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding CodigoProveedor}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                               VerticalAlignment="Center"
-                                               Margin="10,0" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-
-                        <!-- Código Barras -->
-                        <DataGridTextColumn Header="Cód. Barras"
-                                            Binding="{Binding CodigoBarras}"
-                                            ElementStyle="{StaticResource TextBlockMonospaceCell}"
-                                            Width="120"
-                                            IsReadOnly="True" />
-
-                        <!-- Descripción -->
-                        <DataGridTextColumn Header="Descripción"
-                                            Binding="{Binding Descripcion}"
-                                            ElementStyle="{StaticResource TextBlockTextCell}"
-                                            Width="*"
-                                            IsReadOnly="True" />
-
-                        <!-- Costo Reposición -->
-                        <DataGridTextColumn Header="Costo Reposición"
-                                            Binding="{Binding CostoReposicion, StringFormat=C2}"
-                                            ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="130"
-                                            IsReadOnly="True" />
-
-                        <!-- % Ganancia Editable -->
-                        <DataGridTemplateColumn Header="% Ganancia" Width="120">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
-                                             FontFamily="{StaticResource FontFamilyNumeric}"
-                                             Typography.NumeralAlignment="Tabular"
-                                             FontSize="13"
-                                             TextAlignment="Right"
-                                             Padding="4,2"
-                                             Height="28"
-                                             VerticalContentAlignment="Center"
-                                             Margin="4,0" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-
-                        <!-- Precio Venta Final Calculado -->
-                        <DataGridTemplateColumn Header="Precio Venta Final" Width="140">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding PrecioVenta, StringFormat=C2}"
-                                               FontFamily="{StaticResource FontFamilyNumeric}"
-                                               Typography.NumeralAlignment="Tabular"
-                                               FontWeight="Bold"
-                                               FontSize="13"
-                                               Foreground="{DynamicResource PrimaryBrush}"
-                                               HorizontalAlignment="Right"
-                                               VerticalAlignment="Center"
-                                               Margin="10,0" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Border>
-
         </Grid>
 
         <!-- Barra Inferior de Acciones -->
@@ -239,7 +885,7 @@
                 BorderThickness="0,1,0,0"
                 Padding="16,12">
             <DockPanel LastChildFill="True">
-                <!-- Conteo Total -->
+                <!-- Conteo Total y aviso de artículos sin categoría -->
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="Artículos a incorporar:"
                                Style="{StaticResource TextBlockBodySecondary}"
@@ -247,6 +893,13 @@
                     <TextBlock Text="{Binding TotalArticulos}"
                                FontWeight="Bold"
                                Foreground="{DynamicResource PrimaryBrush}" />
+                    <Border Style="{StaticResource BadgeWarningStyle}"
+                            Margin="12,0,0,0"
+                            Visibility="{Binding HayArticulosSinCategoria, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding AvisoSinCategoria}"
+                                   FontSize="12"
+                                   Foreground="{DynamicResource WarningForegroundBrush}" />
+                    </Border>
                 </StackPanel>
 
                 <!-- Botones de Acción -->
@@ -257,17 +910,37 @@
                             Margin="0,0,10,0"
                             IsCancel="True">
                         <StackPanel Orientation="Horizontal">
-                            
+
                             <TextBlock Text="Cancelar" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding AnteriorCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="0,0,10,0"
+                            Visibility="{Binding MostrarBotonAnterior, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularChevronLeft" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Anterior" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding SiguienteCommand}"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            Visibility="{Binding MostrarBotonSiguiente, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding TextoSiguiente}" VerticalAlignment="Center" />
+                            <iconPacks:PackIconBoxIcons Kind="RegularChevronRight" Width="16" Height="16" Margin="6,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
                     <Button Command="{Binding AceptarCommand}"
                             CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                             Style="{StaticResource PrimaryActionButtonStyle}"
-                            IsDefault="True">
+                            IsDefault="True"
+                            Visibility="{Binding MostrarBotonConfirmar, Converter={StaticResource BoolToVisConverter}}">
                         <StackPanel Orientation="Horizontal">
-                            
+
                             <TextBlock Text="Confirmar Incorporación" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

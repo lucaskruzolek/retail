@@ -132,6 +132,7 @@ public partial class App : System.Windows.Application
         services.AddScoped<Retail.App.Services.IProveedorDialogService, Retail.App.Services.ProveedorDialogService>();
         services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedoresViewModel>();
         services.AddTransient<Retail.App.ViewModels.Proveedores.ImportadorCatalogosViewModel>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.EquivalenciasProveedorViewModel>();
         services.AddTransient<Retail.App.Views.Pages.ProveedoresView>();
         services.AddTransient<Retail.App.Views.Pages.ImportadorCatalogosView>();
         services.AddTransient<Retail.App.Views.Dialogs.IncorporarArticulosModalDialog>();

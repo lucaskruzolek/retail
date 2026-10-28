@@ -1,0 +1,224 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.EquivalenciasProveedorDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 Title="Equivalencias del proveedor"
+                 Width="580"
+                 Height="660"
+                 MinWidth="540"
+                 MinHeight="560"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 Background="{DynamicResource SurfaceBackgroundBrush}"
+                 ResizeMode="NoResize">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Colors.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Typography.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Icons.xaml" />
+                <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Barra de Título Fluent -->
+        <Grid Grid.Row="0">
+            <ui:TitleBar Height="32"
+                         Padding="8,0"
+                         Background="{DynamicResource SurfaceBackgroundBrush}"
+                         ShowMaximize="False"
+                         CanMaximize="False" />
+            <TextBlock Text="{Binding TituloVentana}"
+                       FontFamily="{StaticResource FontFamilyText}"
+                       FontSize="12"
+                       FontWeight="SemiBold"
+                       Foreground="{DynamicResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="48,0"
+                       TextTrimming="CharacterEllipsis"
+                       IsHitTestVisible="False" />
+        </Grid>
+
+        <!-- Contenido Central -->
+        <Grid Grid.Row="1" Margin="24,12,24,12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Alerta de error (regla de negocio, validación, permisos) -->
+            <Border Grid.Row="0"
+                    Background="{DynamicResource DangerBackgroundBrush}"
+                    BorderBrush="{DynamicResource DangerBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="12,8"
+                    Margin="0,0,0,12"
+                    Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="{Binding MensajeError}"
+                           Foreground="{DynamicResource DangerForegroundBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <!-- Nota de solo lectura (P6-6): escribir diccionarios exige Gerente o Encargado (D-5) -->
+            <Border Grid.Row="1"
+                    Background="{DynamicResource WarningBackgroundBrush}"
+                    BorderBrush="{DynamicResource WarningBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="12,8"
+                    Margin="0,0,0,12"
+                    Visibility="{Binding SoloLectura, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="Un Gerente o un Encargado puede cambiar estas equivalencias."
+                           Foreground="{DynamicResource WarningForegroundBrush}"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <!-- Equivalencias del proveedor -->
+            <Border Grid.Row="2" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
+                        <TextBlock Text="Equivalencias" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
+                        <StackPanel DockPanel.Dock="Right"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
+                            <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
+                            <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding Equivalencias}"
+                              SelectedItem="{Binding FilaSeleccionada, Mode=TwoWay}"
+                              Style="{StaticResource DataGridRetailStyle}"
+                              AutoGenerateColumns="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Tipo"
+                                                Binding="{Binding TipoTexto}"
+                                                Width="80"
+                                                ElementStyle="{StaticResource TextBlockTextCell}" />
+                            <DataGridTextColumn Header="Texto del proveedor"
+                                                Binding="{Binding TextoProveedor}"
+                                                Width="*"
+                                                ElementStyle="{StaticResource TextBlockTextCell}" />
+                            <DataGridTextColumn Header="Destino"
+                                                Binding="{Binding DestinoTexto}"
+                                                Width="130"
+                                                ElementStyle="{StaticResource TextBlockTextCell}" />
+                            <DataGridTemplateColumn Header="" Width="48">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding DataContext.QuitarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource IconDangerButtonStyle}"
+                                                Visibility="{Binding DataContext.PuedeEditar, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisConverter}}"
+                                                ToolTip="Quitar equivalencia">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                        </Button>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!-- Formulario de asignación: solo para quien puede escribir diccionarios -->
+            <Border Grid.Row="3"
+                    Style="{StaticResource CardBorderStyle}"
+                    Padding="16"
+                    Visibility="{Binding PuedeEditar, Converter={StaticResource BoolToVisConverter}}">
+                <StackPanel>
+                    <TextBlock Text="Asignar destino" Style="{StaticResource TextBlockHeader2}" Margin="0,0,0,12" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,12,12">
+                            <TextBlock Text="Tipo" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                            <ComboBox ItemsSource="{Binding TiposDisponibles}"
+                                      SelectedItem="{Binding TipoSeleccionado}"
+                                      DisplayMemberPath="Nombre" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    Margin="0,0,0,12"
+                                    Visibility="{Binding EsTipoCategoria, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="Rubro del proveedor (opcional)" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                            <ui:TextBox Text="{Binding TextoRubro, UpdateSourceTrigger=PropertyChanged}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Texto del proveedor *" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                    <ui:TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
+
+                    <TextBlock Text="Destino en el comercio" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding Destinos}"
+                              SelectedItem="{Binding DestinoSeleccionado}"
+                              DisplayMemberPath="Nombre"
+                              Margin="0,0,0,12" />
+
+                    <Button Command="{Binding AsignarCommand}"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="SolidCheckCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Asignar" FontWeight="Bold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- Barra Inferior de Acciones -->
+        <Border Grid.Row="2"
+                Background="{DynamicResource SurfaceCardBrush}"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                BorderThickness="0,1,0,0"
+                Padding="16,12">
+            <DockPanel LastChildFill="False">
+                <Border DockPanel.Dock="Left"
+                        Style="{StaticResource BadgeSuccessStyle}"
+                        Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{Binding MensajeEstado}"
+                               FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource SuccessForegroundBrush}" />
+                </Border>
+
+                <Button DockPanel.Dock="Right"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        IsCancel="True">
+                    <TextBlock Text="Cerrar" VerticalAlignment="Center" />
+                </Button>
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

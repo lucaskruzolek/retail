@@ -225,6 +225,7 @@
                     <DataGridTextColumn Header="Descripción"
                                         Binding="{Binding Descripcion}"
                                         Width="*"
+                                        MinWidth="240"
                                         ElementStyle="{StaticResource TextBlockTextCell}" />
 
                     <!-- Categoría -->

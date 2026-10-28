@@ -42,6 +42,9 @@ public class ImportarPlanillaViewModelTests
         _sut.ColumnaCodigoBarras.Should().Be("EAN");
         _sut.ColumnaDescripcion.Should().Be("DESCRIPCION");
         _sut.ColumnaPrecio.Should().Be("PRECIO");
+        _sut.ColumnaRubro.Should().Be("RUBRO");
+        _sut.ColumnaCategoria.Should().Be("CATEGORIA");
+        _sut.ColumnaMarca.Should().Be("MARCA");
         _sut.FilaEncabezado.Should().Be(1);
         _sut.TieneErroresDetalle.Should().BeFalse();
         _sut.HayArchivoSeleccionado.Should().BeFalse();
@@ -118,6 +121,89 @@ public class ImportarPlanillaViewModelTests
         {
             File.Delete(rutaTemporal);
         }
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConColumnasDeClasificacion_LasTransmiteEnElMapeo()
+    {
+        // Arrange
+        var rutaTemporal = Path.GetTempFileName();
+        try
+        {
+            _sut.Inicializar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" });
+            _sut.RutaArchivo = rutaTemporal;
+            _sut.ColumnaRubro = " rubro ";
+            _sut.ColumnaCategoria = "Familia";
+            _sut.ColumnaMarca = "Fabricante";
+            ConfigurarImportacionExitosa();
+
+            // Act
+            await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+            // Assert
+            await _proveedorService.Received(1).ImportarPlanillaProveedorAsync(
+                Arg.Any<Stream>(),
+                Arg.Is<MapeoColumnasDto>(m =>
+                    m.ColumnaRubro == "rubro" &&
+                    m.ColumnaCategoria == "Familia" &&
+                    m.ColumnaMarca == "Fabricante"),
+                Arg.Any<IProgress<int>?>(),
+                Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            File.Delete(rutaTemporal);
+        }
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConColumnasOpcionalesVacias_LasTransmiteNulas()
+    {
+        // Arrange
+        var rutaTemporal = Path.GetTempFileName();
+        try
+        {
+            _sut.Inicializar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" });
+            _sut.RutaArchivo = rutaTemporal;
+            _sut.ColumnaCodigoBarras = "";
+            _sut.ColumnaRubro = "   ";
+            _sut.ColumnaCategoria = null;
+            _sut.ColumnaMarca = "";
+            ConfigurarImportacionExitosa();
+
+            // Act
+            await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+            // Assert
+            await _proveedorService.Received(1).ImportarPlanillaProveedorAsync(
+                Arg.Any<Stream>(),
+                Arg.Is<MapeoColumnasDto>(m =>
+                    m.ColumnaCodigoBarras == null &&
+                    m.ColumnaRubro == null &&
+                    m.ColumnaCategoria == null &&
+                    m.ColumnaMarca == null),
+                Arg.Any<IProgress<int>?>(),
+                Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            File.Delete(rutaTemporal);
+        }
+    }
+
+    private void ConfigurarImportacionExitosa()
+    {
+        _proveedorService.ImportarPlanillaProveedorAsync(
+                Arg.Any<Stream>(), Arg.Any<MapeoColumnasDto>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .Returns(new ResultadoImportacionDto
+            {
+                TotalFilasProcesadas = 1,
+                PreciosActualizados = 0,
+                NuevosRegistros = 1,
+                FilasConError = 0,
+                ErroresDetalle = new List<string>(),
+                TiempoTranscurrido = TimeSpan.FromSeconds(1)
+            });
     }
 
     [Fact]

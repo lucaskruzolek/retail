@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Data;
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Reportes;
 using Retail.Domain.Enums;
 
@@ -61,6 +62,11 @@ public class EnumATextoConverter : IValueConverter
             AgrupacionRentabilidadEnum.Categoria => "Categoría",
             AgrupacionRentabilidadEnum.Marca => "Marca",
             AgrupacionRentabilidadEnum.Articulo => "Artículo",
+            MotivoSugerenciaEnum.EquivalenciaDelProveedor => "Equivalencia del proveedor",
+            MotivoSugerenciaEnum.MarcaInformadaPorElProveedor => "Marca informada por el proveedor",
+            MotivoSugerenciaEnum.Termino => "Término del diccionario",
+            MotivoSugerenciaEnum.MarcaEnLaDescripcion => "Marca en la descripción",
+            MotivoSugerenciaEnum.ParDelDiccionario => "Par del diccionario",
             _ => valor.ToString()
         };
     }

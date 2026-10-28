@@ -1,14 +1,30 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using Retail.App.Services;
 using Retail.App.ViewModels.Proveedores;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Application.Interfaces.Services;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
 
-public class IncorporarArticulosModalViewModelTests
+public class IncorporarArticulosModalViewModelTests : IDisposable
 {
-    private readonly IncorporarArticulosModalViewModel _sut = new();
+    private readonly IncorporarArticulosModalViewModel _sut = new(
+        Substitute.For<IClasificacionService>(),
+        Substitute.For<ITerminoClasificacionService>(),
+        Substitute.For<IEquivalenciaClasificacionService>(),
+        Substitute.For<IRubroService>(),
+        Substitute.For<ICurrentUserSession>(),
+        NullLogger<IncorporarArticulosModalViewModel>.Instance);
+
+    public void Dispose()
+    {
+        _sut.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     [Fact]
     public void Inicializar_ConArticulos_CreaItemsConMargenGlobalYCalculaPrecioFinal()
@@ -94,8 +110,9 @@ public class IncorporarArticulosModalViewModelTests
         };
         _sut.Inicializar(Array.Empty<CategoriaDto>(), Array.Empty<MarcaDto>(), items);
         _sut.Items[0].PorcentajeGanancia = 30m;
-        _sut.IdCategoriaDestino = 3;
-        _sut.IdMarcaDestino = 7;
+        _sut.SugerirClasificacion = false;
+        _sut.CategoriaDelLote = new OpcionDiccionario(3, "Escolar");
+        _sut.MarcaDelLote = new OpcionDiccionario(7, "Bic");
 
         // Act
         var dto = _sut.ObtenerDto();

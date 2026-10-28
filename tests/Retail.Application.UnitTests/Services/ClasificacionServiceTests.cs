@@ -239,7 +239,7 @@ public class ClasificacionServiceTests
     // ---------- Bloques de términos nuevos (M-26) ----------
 
     [Fact]
-    public async Task Sugerir_CincoItemsConUnTerminoNuevo_LosAgrupaEnUnBloqueSinSugerenciaPorItem()
+    public async Task Sugerir_TresItemsConUnTerminoNuevo_LosAgrupaEnUnBloqueSinSugerenciaPorItem()
     {
         var ids = Enumerable.Range(1, ClasificacionService.TamanoMinimoDeBloque).ToArray();
         foreach (var id in ids)
@@ -257,7 +257,7 @@ public class ClasificacionServiceTests
     }
 
     [Fact]
-    public async Task Sugerir_CuatroItemsConUnTerminoNuevo_NoFormaBloqueNiSugiere()
+    public async Task Sugerir_DosItemsConUnTerminoNuevo_NoFormaBloqueNiSugiere()
     {
         var ids = Enumerable.Range(1, ClasificacionService.TamanoMinimoDeBloque - 1).ToArray();
         foreach (var id in ids)
@@ -284,15 +284,12 @@ public class ClasificacionServiceTests
     }
 
     [Fact]
-    public async Task Sugerir_SinMarcaEnElTextoConPrefijoRegistrado_LaSugierePorPrefijo()
+    public async Task Sugerir_SinMarcaEnElTextoConPrefijoRegistrado_NoSugiereMarca()
     {
         AgregarItem(1, "LAPIZ NEGRO HB", codigoBarras: "7798100123455");
         _prefijos.Add(new PrefijoDiccionarioDto { Prefijo = "7798100", IdMarca = Filgo });
 
-        var marca = (await SugerirAsync(1)).Items.Single().Marca;
-
-        marca!.Id.Should().Be(Filgo);
-        marca.Motivo.Should().Be(MotivoSugerenciaEnum.PrefijoDelCodigoDeBarras);
+        (await SugerirAsync(1)).Items.Single().Marca.Should().BeNull();
     }
 
     [Fact]
@@ -318,7 +315,7 @@ public class ClasificacionServiceTests
     [Fact]
     public async Task Sugerir_CodigoDeBarrasIgualAlCodigoInterno_NoUsaElPrefijo()
     {
-        AgregarItem(1, "LAPIZ NEGRO HB", codigoBarras: "7798100123455").CodigoProveedor = "7798100123455";
+        AgregarItem(1, "SET BIC FILGO X 3", codigoBarras: "7798100123455").CodigoProveedor = "7798100123455";
         _prefijos.Add(new PrefijoDiccionarioDto { Prefijo = "7798100", IdMarca = Filgo });
 
         (await SugerirAsync(1)).Items.Single().Marca.Should().BeNull();

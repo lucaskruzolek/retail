@@ -37,6 +37,13 @@ public class ImportadorCatalogosViewModelTests : IDisposable
             _dialogService,
             _inventarioService,
             _navigationService,
+            new IncorporarArticulosModalViewModel(
+                Substitute.For<IClasificacionService>(),
+                Substitute.For<ITerminoClasificacionService>(),
+                Substitute.For<IEquivalenciaClasificacionService>(),
+                Substitute.For<IRubroService>(),
+                Substitute.For<ICurrentUserSession>(),
+                NullLogger<IncorporarArticulosModalViewModel>.Instance),
             NullLogger<ImportadorCatalogosViewModel>.Instance);
     }
 

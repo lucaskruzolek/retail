@@ -15,13 +15,13 @@
 | 6.0 | Confirmar las propuestas P6-1 a P6-9 | ✅ 2026-10-27, todas aprobadas (M-59 a M-67) |
 | 6.1 | Semilla de diccionarios en `Retail.Cli` (M-15, RF-23) | ✅ 2026-10-27 (S-1 a S-5; 30 tests) |
 | 6.2 | Comando atómico "crear categoría y registrar término" (Aplicación) | ✅ 2026-10-27 (T-1 a T-4) |
-| 6.3 | Diálogo de clasificación: secciones Términos, Alias y Prefijos | ⏳ |
-| 6.4 | Equivalencias por proveedor | ⏳ |
-| 6.5 | Modal de incorporación: sugerencias por ítem | ⏳ |
-| 6.6 | Modal de incorporación: traducción de valores y decisiones en bloque | ⏳ |
-| 6.7 | Prueba manual guiada | ⏳ |
-| 6.8 | Pares: sección de pares por término ambiguo y revisión de pares propuestos (M-49) | ⏳ (Fase 5 cerrada: desbloqueado) |
-| 6.9 | Cierre: verificación Release, mapa, track, handoff | ⏳ |
+| 6.3 | Diálogo de clasificación: secciones Términos, Alias y Prefijos | ✅ 2026-10-27 |
+| 6.4 | Equivalencias por proveedor | ✅ 2026-10-27 |
+| 6.5 | Modal de incorporación: sugerencias por ítem | ✅ 2026-10-27 |
+| 6.6 | Modal de incorporación: traducción de valores y decisiones en bloque | ✅ 2026-10-27 |
+| 6.7 | Prueba manual guiada | ⏳ Guion listo (sección 4); la ejecuta el estudiante |
+| 6.8 | Pares: sección de pares por término ambiguo y revisión de pares propuestos (M-49) | ✅ 2026-10-27 |
+| 6.9 | Cierre: verificación Release, mapa, track, handoff | ✅ 2026-10-27 (salvo la nota de `wiki/`, propuesta) |
 
 ---
 
@@ -33,7 +33,7 @@
 | Contrato de incorporación por ítem | `ItemIncorporacionArticuloDto` (Fase 4a, R-7) | Lleva la categoría y la marca confirmadas y las sugeridas, y `SinMarcaConfirmada`; el servidor deriva el origen (M-34). Hoy el modal manda la misma categoría y marca para todos los ítems, sin sugerencia |
 | Comandos de diccionarios | `ITerminoClasificacionService`, `IEquivalenciaClasificacionService`, `IMarcaService` (alias y prefijos) (Fase 4b) | Las pestañas nuevas y las decisiones del modal los invocan; todos exigen D-5 y traducen las carreras a mensajes |
 | Diálogo de clasificación | `AdministrarClasificacionDialog` (960×640) + `AdministrarClasificacionViewModel` (≈500 líneas, secciones con `MostrandoRubros`/`MostrandoCategorias`/`MostrandoMarcas`) | Se le suman tres secciones |
-| Modal de incorporación | `IncorporarArticulosModalDialog` (880×640) + `IncorporarArticulosModalViewModel` + `ItemIncorporarArticuloViewModel`; lo abre `ImportadorCatalogosViewModel` | Se rediseña |
+| Modal de incorporación | `IncorporarArticulosModalDialog` (1040×680 desde la prueba manual, P6-9) + `IncorporarArticulosModalViewModel` + `ItemIncorporarArticuloViewModel`; lo abre `ImportadorCatalogosViewModel` | Se rediseña |
 | Semillero de demostración | `SemilleroDatosDemo` (Infraestructura) + `ComandoDatosDemo` (`Retail.Cli`) | Patrón para la semilla de diccionarios |
 
 ---
@@ -50,7 +50,7 @@
 | **P6-6** | **Permisos:** incorporar sigue con los roles actuales; los pasos 1 y 2 escriben diccionarios y exigen D-5. Si el usuario no la tiene, esos pasos se muestran en solo lectura con una nota ("Un Gerente o un Encargado puede traducir estos valores") y la grilla funciona igual. | Recomendada. La autorización la hace igual el servidor; la UI solo evita ofrecer lo que va a fallar |
 | **P6-7** | **Dónde se administra cada diccionario:** Términos, Alias y Prefijos como secciones nuevas de `AdministrarClasificacionDialog`; las **Equivalencias**, por proveedor, en un diálogo propio (`EquivalenciasProveedorDialog`) que se abre desde la vista de Proveedores. Cada sección nueva con su propio ViewModel hijo, para no seguir agrandando `AdministrarClasificacionViewModel`. | Recomendada. Las equivalencias son de un proveedor (M-13), no del catálogo; los ViewModels hijos mantienen cada archivo con una responsabilidad (AGENTS.md, integridad de capas y archivos) |
 | **P6-8** | **Presentación de la sugerencia en la grilla:** la categoría y la marca en `ComboBox` precargados con la sugerencia; a su lado un badge con el motivo (`EnumATextoConverter` sobre `MotivoSugerenciaEnum`, que incluye `ParDelDiccionario`); una columna de estado (Sugerida, Corregida, Sin sugerencia, Sin marca); acciones "Aceptar todas las sugerencias" y "Aceptar seleccionadas". Nada se aplica sin la confirmación final (RF-27). | Recomendada. Cumple IU-05 de la ERS ("con su motivo, para aceptarlas o corregirlas"; la confianza se retiró con M-51) con los componentes existentes del sistema de diseño |
-| **P6-9** | **Tamaño del modal:** mantener 880×640 (con `MinWidth` 720) y ganar espacio con los pasos, no con más ancho. Si la grilla no entra, ampliar a 1040×680 y **documentarlo** en `SISTEMA_DE_DISENO.md` como "modal de trabajo". | Recomendada mantener; ampliar solo con la prueba manual en la mano, porque cambia una regla del sistema de diseño |
+| **P6-9** | **Tamaño del modal:** mantener 880×640 (con `MinWidth` 720) y ganar espacio con los pasos, no con más ancho. Si la grilla no entra, ampliar a 1040×680 y **documentarlo** en `SISTEMA_DE_DISENO.md` como "modal de trabajo". | ✅ Decidida en la prueba manual (2026-10-28): **1040×680**, documentado en `SISTEMA_DE_DISENO.md` como "Modal de Trabajo" |
 
 ---
 
@@ -86,7 +86,7 @@
 ### 6.3 — Diálogo de clasificación: Términos, Alias y Prefijos
 
 * **XAML:** tres botones de sección más en la fila de `AdministrarClasificacionDialog` (mismo patrón de conmutación que Rubros/Categorías/Marcas) y tres grillas con `DataGridRetailStyle`; filtro de texto; en Términos, filtro por categoría y casilla "Solo ambiguos"; códigos y prefijos en `Cascadia Code` (Ley 9, tipografía dual).
-* **ViewModels hijos** (P6-7): `TerminosClasificacionViewModel`, `AliasMarcasViewModel`, `PrefijosMarcasViewModel`, en `ViewModels/Articulos/`, con carga asíncrona serializada (`CargaSerializada`, como el ViewModel actual) y sus comandos.
+* **ViewModels hijos** (P6-7): `TerminosClasificacionViewModel`, `AliasMarcasViewModel`, `PrefijosMarcasViewModel` (fusionados en `DetalleMarcaViewModel` por M-68), en `ViewModels/Articulos/`, con carga asíncrona serializada (`CargaSerializada`, como el ViewModel actual) y sus comandos.
 * **Formularios de alta:** reutilizar `ClasificacionFormDialog` si su contrato lo permite; si no, un `DiccionarioFormDialog` (modal compacto o estándar según el sistema de diseño) con: término + categoría (o "Ambiguo"); marca + alias; marca + prefijo.
 * **Quitar:** `IconDangerButtonStyle` con confirmación.
 * **Tests:** ViewModels (carga, filtro, alta y baja llaman al servicio correcto; un `DomainException` se muestra como error sin cerrar el diálogo); prueba de humo STA del diálogo modificado y de cada diálogo nuevo; `audit-xaml.ps1`.
@@ -101,7 +101,7 @@
 * **`IncorporarArticulosModalViewModel`:** recibe `IClasificacionService` (por constructor o por el método de inicialización que hoy usa `ImportadorCatalogosViewModel`; respetar la Ley 10: no tocar `MainWindow` ni el shell). Al abrir, con el interruptor activo, llama a `SugerirAsync` en segundo plano (Ley 4) con indicador de carga.
 * **`ItemIncorporarArticuloViewModel`:** suma `CategoriaSeleccionada`, `MarcaSeleccionada`, `SinMarca`, la sugerencia recibida (Id y motivo) y un `Estado` derivado (Sugerida, Corregida, Sin sugerencia).
 * **`ObtenerDto`:** por cada ítem, confirmadas = lo seleccionado; sugeridas = lo que llegó del motor; `SinMarcaConfirmada` cuando el usuario elige "Sin marca". El servidor deriva el origen (M-34): la UI nunca lo declara.
-* **Acciones:** "Aceptar todas las sugerencias", "Aceptar seleccionadas" (P6-8). Validación antes de confirmar: los ítems sin categoría se pueden incorporar sin categoría (como hoy), pero se cuentan y se avisa.
+* **Acciones:** "Restablecer todas las sugerencias" y, por fila, "Volver a la sugerencia" en las corregidas (P6-8; la selección múltiple se descartó en la prueba manual). Validación antes de confirmar: los ítems sin categoría se pueden incorporar sin categoría (como hoy), pero se cuentan y se avisa.
 * **Interruptor M-11** (P6-5).
 * **Tests:** ViewModel (precarga desde las sugerencias; corregir cambia el estado; el DTO lleva confirmadas y sugeridas; interruptor apagado reproduce el comportamiento actual); prueba de humo STA; `audit-xaml.ps1`.
 
@@ -112,14 +112,57 @@
 * **Navegación:** encabezado con los tres pasos; los pasos sin contenido se saltean; "Volver a sugerir" tras cada paso (P6-3). Permisos según P6-6.
 * **Tests:** ViewModel (se saltean los pasos vacíos; asignar un bloque llama al servicio y vuelve a sugerir; sin D-5, solo lectura); prueba de humo STA.
 
+### 6.3 a 6.6 y 6.8 — Implementación (2026-10-27)
+
+Implementados por tres subagentes en paralelo, cada uno con su propio conjunto de archivos, e integrados y revisados por la conversación principal (CLAUDE.md §5). Detalle por archivo en `MAPA_DEL_PROYECTO.md` (fila "Catalogación"). Lo que difiere del texto de los pasos:
+
+* **6.3:** el formulario es `DiccionarioFormDialog` (compacto, 460 px): `ClasificacionFormDialog` solo captura un nombre. Sin D-5 los botones de escritura quedan deshabilitados, sin nota de texto (P6-6 la pide en el modal). El indicador "Cargando…" del encabezado refleja solo la carga del padre.
+* **6.4:** el diálogo (580×660, modal amplio) se abre con `IProveedorDialogService`, el mismo mecanismo de los demás diálogos de Proveedores.
+* **6.5:** con el interruptor activo, la grilla no muestra las columnas de código de barras y costo de reposición (el código va en una segunda línea de la descripción) para entrar en 880×640 (P6-9). Decidir en la prueba manual si se amplía a 1040×680. El combo de categoría no tiene opción "vacío": para descartar una sugerencia se elige otra categoría. **Ambos puntos se resolvieron en las correcciones de la prueba manual** (1040×680 con la columna de costo; opción "Sin categoría").
+* **6.6:** "Volver a sugerir" se hace al pulsar *Continuar* al final de cada paso (P6-3), no después de cada decisión individual.
+* **6.8:** la revisión de propuestas fue primero una sección propia, "Reglas propuestas"; desde M-71 es la pestaña "Pares propuestos" del término ambiguo. El aviso al terminar una incorporación va en el mensaje de estado del importador, sin enlace, y nombra los términos.
+* **Hallazgo de la integración:** dos íconos (`RegularTransfer`, `RegularListCheck`) no existen en el paquete BoxIcons: rompen la vista al dibujar la primera fila y ni `audit-xaml.ps1` ni las pruebas de humo lo detectan. Se reemplazaron y se verificaron los 123 íconos contra el enum del paquete. Propuesto: sumar esa verificación a `audit-xaml.ps1`.
+
+### Correcciones de la prueba manual (2026-10-28)
+
+La primera pasada del guion 6.7 encontró un error y varios problemas de uso. Todo es de la capa de presentación: Aplicación y Dominio no cambian.
+
+| Hallazgo | Causa | Corrección |
+| :--- | :--- | :--- |
+| Una equivalencia del rubro (`ESCOLAR`) no se aplicaba al incorporar | El diálogo *Importar planilla* nunca pedía las columnas opcionales de rubro, categoría y marca (M-12): `MapeoColumnasDto` las admitía desde la Fase 1, pero llegaban nulas y el parser las ignoraba. Los tests armaban el DTO a mano | El diálogo agrupa los campos: fila de encabezado, columnas obligatorias y columnas opcionales (código de barras, rubro, categoría, marca; por defecto `RUBRO`, `CATEGORIA`, `MARCA`). Pasa al tamaño "Modal Amplio" (580×660). Tests del mapeo enviado |
+| "Aceptar seleccionadas" sin forma visible de seleccionar | La selección y el hover tienen el mismo color, y un clic en un combo no selecciona la fila | Se quita; botón ↺ por fila (solo en las corregidas) y "Restablecer todas las sugerencias". La grilla pasa a selección simple |
+| Combos que recortan el texto | Alto fijo de 30 px, menor que el de la plantilla de WPF-UI | `MinHeight` 34; la fila crece |
+| El motivo de la sugerencia no se lee | Pastilla de 10 px con ancho máximo de 80 | Línea con ícono y texto completo, que se ajusta en varias líneas |
+| Casilla "Sin marca" aparte, sin equivalente para la categoría | — | "Sin marca" (confirmación, M-7) y "Sin categoría" (pendiente) como primera opción de cada combo (`OpcionDiccionario` con `Id` nulo). Cierra el desvío de 6.5 "el combo no tiene opción vacía" |
+| Casilla "Sugerir clasificación" desalineada y en azul | Alineada abajo; los diccionarios de WPF-UI que mergea la ventana reponen el acento de Windows | `ui:ToggleSwitch` en el encabezado de la tarjeta; la ventana redefine los recursos de acento con `SystemAccentColor*`. Los otros 24 diálogos tienen el mismo merge: hoy no usan controles que dependan del acento |
+| **Segunda pasada:** "Restablecer todas las sugerencias" no hacía nada | **Error de datos, no solo visual:** el combo de una celda de `DataGrid` sin `UpdateSourceTrigger` explícito queda retenido en el `BindingGroup` de la fila, que nunca confirma en una grilla de solo lectura. La corrección del usuario no llegaba al ViewModel: se habría incorporado la sugerencia y no lo elegido. Mismo error en el combo de "Reglas propuestas" | `UpdateSourceTrigger=PropertyChanged` en los tres combos; regla en `SISTEMA_DE_DISENO.md`; `EdicionEnCeldasDeGrillaTests` elige la opción en el combo de la celda (falla sin la corrección) |
+| **Segunda pasada:** con un valor sin traducir la grilla "no aparecía", y las pastillas de pasos parecían botones | El paso 1 se muestra primero (P6-3), pero nada indicaba que había un paso siguiente | Indicador de pasos numerado que no parece botón, "Paso N de M" sobre cada título, botón "Continuar: …" con su destino, aviso de que se puede continuar sin traducir; el paso 1 como tabla con encabezado de columnas y filas separadas |
+| **Tercera pasada:** Alias y Prefijos como secciones propias del diálogo de clasificación | Son entidades internas del agregado `Marca`, pero la pantalla las mostraba como conceptos independientes | **M-68:** Marcas pasa a maestro-detalle (lista a la izquierda; alias y prefijos de la seleccionada a la derecha). `AliasMarcasViewModel` y `PrefijosMarcasViewModel`, idénticos salvo los nombres, se fusionan en `DetalleMarcaViewModel`, que trae los dos en **una sola carga**: dos cargas reemplazables sobre la `CargaSerializada` compartida se cancelarían entre sí. El detalle se carga solo con la sección visible y se recarga al mostrarla. El formulario recibe la marca ya elegida (opción única, no editable) |
+| **Cuarta pasada:** combos vacíos sin sugerencia; "Confirmar" disponible desde el paso 1; sin forma de volver a un paso; la grilla mostraba unas 3 filas | El combo vacío no distinguía "no lo miré" de "no tiene"; el título de cada paso y los botones dentro de los pasos ocupaban la altura de la grilla | **M-70:** "Sin clasificar" inicial (más "Sin marca" en marca, sin "Sin categoría"); pie de asistente con Anterior / Siguiente y "Confirmar" solo en la revisión (con el interruptor encendido); encabezado en una fila. ↺ pasa a "Restablecer" (`GhostPrimaryButtonStyle`) bajo el estado y desaparece su columna |
+| **Cuarta pasada:** con el interruptor apagado, elegir una categoría o marca del lote no tenía vuelta atrás; "Traducir valores del proveedor" no se entendía | Los combos del lote listaban el catálogo sin opción vacía; el paso hablaba de "valores" cuando son categorías y marcas del proveedor | Ajuste de **M-70:** combos del lote con "Sin clasificar" y "Sin marca" (confirmada para el lote); el paso 1 se llama "Asociar categorías y marcas", con textos de equivalencia |
+| **Cuarta pasada:** "Reglas propuestas" vacía tras incorporar sin clasificar | No era un error: las propuestas piden artículos **con categoría** y términos **ambiguos** (M-49), y no proponen términos nuevos | **M-71:** la revisión pasa a la pestaña "Pares propuestos" del término; se descarta "Términos propuestos" |
+| **Tercera pasada:** "Solo ambiguos" como casilla; columnas maestro-detalle de distinto ancho | — | `ui:ToggleSwitch`; Rubros/Categorías, Términos/Pares y Marcas/detalle en `*,*`. El carmín del interruptor pasa de una copia local del modal a `Colors.xaml`, que todas las ventanas mergean después de WPF-UI: llega a los 25 diálogos |
+| **Segunda pasada:** "789 ·" en la línea de códigos | Separador fijo aunque no haya código de barras | `CodigosTexto` lo omite |
+| Ganancia y clasificación mezcladas | Una sola tarjeta para todo | Dos tarjetas: "Ganancia global" y "Clasificación" (interruptor, pasos, acciones y grilla). Con 1040×680 vuelve la columna de costo de reposición |
+
 ### 6.7 — Prueba manual guiada
 
 Guion para el estudiante, con una base cargada con `cargar-diccionarios` y una planilla de prueba **inventada** (nunca la lista del distribuidor): importar, ver las sugerencias por término y por marca, traducir un valor del proveedor, resolver un bloque creando una categoría, corregir una sugerencia, incorporar y comprobar en la base el origen de cada artículo (`Manual`, `SugerenciaAceptada`, `SugerenciaCorregida`).
 
+1. `dotnet run --project src/Retail.Cli -- cargar-diccionarios` y revisar el resumen (sobre la base local: no debería informar conflictos).
+2. Artículos → Clasificación: recorrer Términos (interruptor "Solo ambiguos", elegir `BASE` y ver sus pares), Marcas (elegir una marca y agregarle y quitarle un alias y un prefijo) y, en `GOMA`, la pestaña "Pares propuestos" (con dos artículos "goma arabiga …" en Adhesivos debe proponer `GOMA + ARABIGA`, M-71). Dar de alta y de baja un término de prueba.
+3. Proveedores → botón de equivalencias en una fila: asignar `ESCOLAR` → una categoría y otra como "Ignorar"; quitarlas.
+4. Armar una planilla inventada de unas 10 filas con: una columna `RUBRO` con un valor nuevo (p. ej. `ESCOLAR`), descripciones con términos conocidos (`CUADERNO …`), una con término ambiguo + par (`BASE ACRILICA …`), una marca en la descripción, y 3 o más filas que empiecen con un término inexistente (`PELOTERO …`) para formar un bloque (M-26, revisado por M-69). Un artículo sin marca en el texto pero con prefijo registrado debe llegar sin marca sugerida (M-69).
+5. Importarla (en *Importar planilla*, la columna opcional *Rubro* debe coincidir con el encabezado de la planilla) y abrir *Incorporar*: paso 1 asociar el valor del proveedor a una categoría; paso 2 resolver `PELOTERO` creando la categoría "Pelotas"; paso 3 verificar que las sugerencias mejoraron, corregir una, elegir "Sin marca" en otra, usar "Restablecer" en una corregida, volver con "Anterior" al paso 1 y avanzar de nuevo, y confirmar ("Confirmar" solo aparece en este paso, M-70).
+6. Comprobar en la base el origen de cada artículo: `SELECT descripcion, origen_categoria, origen_marca FROM ARTICULOS ORDER BY id_articulo DESC`.
+7. Repetir el paso 5 con el interruptor apagado: una categoría y una marca para todo el lote; elegir una y volver a "Sin clasificar", y probar "Sin marca" para el lote (M-70).
+8. Con un usuario Cajero: los pasos 1 y 2 en solo lectura con su nota; la grilla funciona.
+9. P6-9 quedó decidida (1040×680). Decidir si "Cargando…" y la nota de permisos del diálogo de clasificación hacen falta.
+
 ### 6.8 — Pares del diccionario y pares propuestos (M-49)
 
 * **Pares por término ambiguo:** en la sección Términos (6.3), al elegir un término ambiguo, la lista de sus pares (segunda palabra → categoría, o "Ignorado") con alta, cambio y baja (`AsignarParAsync`, `QuitarParAsync`). Al asignarle una categoría a un término ambiguo, el diálogo avisa cuántos pares se dan de baja (P-3 de la Fase 5) antes de confirmar.
-* **Revisión de pares propuestos:** una lista de `ListarParesPropuestosAsync` con la evidencia ("8 de 8"), la categoría propuesta (editable) y ejemplos; acciones "Aceptar", "Descartar" (par ignorado) y en bloque (`AsignarParesAsync`), con D-5.
+* **Revisión de pares propuestos** (pestaña del término ambiguo desde M-71): una lista de `ListarParesPropuestosAsync` con la evidencia ("8 de 8"), la categoría propuesta (editable) y ejemplos; acciones "Aceptar", "Descartar" (par ignorado) y en bloque (`AsignarParesAsync`), con D-5.
 * **Aviso al terminar una incorporación:** si hay pares propuestos nuevos, un mensaje con enlace a la revisión ("Hay 3 reglas nuevas para revisar"). No interrumpe el flujo.
 * **Tests:** ViewModels (aceptar y descartar llaman al servicio y refrescan; sin D-5 solo lectura) y prueba de humo STA de lo que se agregue al diálogo.
 
@@ -166,7 +209,7 @@ sequenceDiagram
 | `AdministrarClasificacionViewModel` crece sin control | ViewModels hijos por sección (P6-7) |
 | La semilla pisa ediciones del comercio | P6-2: aditiva, nunca actualiza lo existente; tests de idempotencia y de categoría renombrada |
 | La UI se bloquea con lotes grandes al sugerir | `SugerirAsync` en `Task.Run` con indicador de carga (Ley 4); el motor ya hace dos lecturas por lote |
-| El modal no entra en 880×640 | P6-9: decidir con la prueba manual y documentar si se amplía |
+| El modal no entra en 880×640 | ✅ P6-9 decidida en la prueba manual: 1040×680, "Modal de Trabajo" en `SISTEMA_DE_DISENO.md` |
 | Un usuario sin D-5 queda bloqueado en los pasos 1 y 2 | P6-6: solo lectura con nota; la grilla sigue funcionando |
 | Archivos troncales del shell | Ley 10: no se tocan `MainWindow` ni `App.xaml.cs`; los diálogos se abren desde los ViewModels que ya los abren |
 

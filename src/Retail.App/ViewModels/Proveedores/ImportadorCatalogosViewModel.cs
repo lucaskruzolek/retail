@@ -23,6 +23,9 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     private readonly IProveedorDialogService _dialogService;
     private readonly IInventarioService _inventarioService;
     private readonly INavigationService _navigationService;
+
+    // Se resuelve por DI (con los servicios de clasificación de esta pantalla) y se reinicia en cada apertura del modal.
+    private readonly IncorporarArticulosModalViewModel _incorporarModalViewModel;
     private readonly ILogger<ImportadorCatalogosViewModel> _logger;
 
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
@@ -123,8 +126,10 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         IProveedorDialogService dialogService,
         IInventarioService inventarioService,
         INavigationService navigationService,
+        IncorporarArticulosModalViewModel incorporarModalViewModel,
         ILogger<ImportadorCatalogosViewModel> logger)
     {
+        _incorporarModalViewModel = incorporarModalViewModel ?? throw new ArgumentNullException(nameof(incorporarModalViewModel));
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
@@ -399,7 +404,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
             var categorias = await _inventarioService.ListarCategoriasAsync();
             var marcas = await _inventarioService.ListarMarcasAsync();
 
-            var modalVm = new IncorporarArticulosModalViewModel();
+            var modalVm = _incorporarModalViewModel;
             modalVm.Inicializar(categorias, marcas, itemsSeleccionados);
 
             var dialog = new IncorporarArticulosModalDialog
@@ -408,7 +413,10 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
                 Owner = System.Windows.Application.Current.MainWindow
             };
 
+            // Las sugerencias se calculan en segundo plano mientras el diálogo ya está abierto (Ley 4).
+            _ = modalVm.IniciarAsync();
             var dialogRes = dialog.ShowDialog();
+            modalVm.Finalizar();
             if (dialogRes != true || !modalVm.DialogResult)
             {
                 return;
@@ -420,9 +428,13 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
             var dto = modalVm.ObtenerDto();
 
             var resultado = await Task.Run(() => _proveedorService.IncorporarArticulosATiendaAsync(dto));
-            MensajeEstado = resultado.OmitidosYaVinculados > 0
+            string mensaje = resultado.OmitidosYaVinculados > 0
                 ? $"{resultado.Incorporados} artículo(s) incorporados a la tienda. {resultado.OmitidosYaVinculados} omitido(s) porque ya estaban en la tienda."
                 : $"{resultado.Incorporados} artículo(s) incorporados a la tienda correctamente.";
+
+            // Aviso no bloqueante de reglas nuevas para revisar (Track 6.6, paso 6.8): un fallo no afecta lo ya incorporado.
+            string? avisoReglas = await modalVm.ObtenerAvisoReglasPropuestasAsync();
+            MensajeEstado = avisoReglas is null ? mensaje : $"{mensaje} {avisoReglas}";
             TieneItemsSeleccionados = false;
             SeleccionarTodos = false;
             await CargarCatalogoAsync();

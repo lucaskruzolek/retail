@@ -165,7 +165,7 @@
                                             Width="220" />
 
                         <!-- Acciones -->
-                        <DataGridTemplateColumn Header="Acciones" Width="180" CanUserSort="False">
+                        <DataGridTemplateColumn Header="Acciones" Width="220" CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
@@ -186,6 +186,15 @@
                                                 Margin="0,0,6,0"
                                                 ToolTip="Ver y gestionar catálogo [F6]">
                                             <iconPacks:PackIconBoxIcons Kind="RegularFileDetail" Width="13" Height="13" />
+                                        </Button>
+                                        <!-- Equivalencias de clasificación (Track 6.6) -->
+                                        <Button Command="{Binding DataContext.AbrirEquivalenciasCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource KeycapButtonStyle}"
+                                                Padding="8,5"
+                                                Margin="0,0,6,0"
+                                                ToolTip="Equivalencias de clasificación del proveedor">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularTranslate" Width="13" Height="13" />
                                         </Button>
                                         <!-- Eliminar (soft delete) -->
                                         <Button Command="{Binding DataContext.EliminarProveedorCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"

@@ -98,6 +98,31 @@ public class ProveedorDialogService : IProveedorDialogService
         await Task.CompletedTask;
     }
 
+    public async Task AbrirEquivalenciasProveedorAsync(ProveedorDto proveedor)
+    {
+        ArgumentNullException.ThrowIfNull(proveedor);
+
+        var vm = _serviceProvider.GetRequiredService<EquivalenciasProveedorViewModel>();
+        try
+        {
+            vm.Configurar(proveedor);
+
+            var dialog = new EquivalenciasProveedorDialog
+            {
+                DataContext = vm,
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            dialog.ShowDialog();
+        }
+        finally
+        {
+            vm.Dispose();
+        }
+
+        await Task.CompletedTask;
+    }
+
     public async Task<ResultadoImportacionDto?> AbrirImportarPlanillaAsync(ProveedorDto proveedor)
     {
         ArgumentNullException.ThrowIfNull(proveedor);

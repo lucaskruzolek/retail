@@ -15,7 +15,7 @@ namespace Retail.Application.Services;
 /// <list type="number">
 /// <item>Lo que informó el proveedor: su marca coincide con una del comercio, o una equivalencia traduce su valor.</item>
 /// <item>Los diccionarios: término no ambiguo, o par "término ambiguo + segunda palabra" (Fase 5, M-48); marca nombrada
-/// en la descripción, con el prefijo EAN solo para desempatar o cuando el texto no nombra ninguna (M-25).</item>
+/// en la descripción, con el prefijo EAN solo para desempatar (M-25, M-69).</item>
 /// <item>Términos nuevos frecuentes: se agrupan para decidirlos en bloque (M-26).</item>
 /// </list>
 /// Lo que ninguna regla resuelve queda sin sugerencia.
@@ -26,7 +26,7 @@ public class ClasificacionService : IClasificacionService
     /// <summary>
     /// Cantidad mínima de ítems con el mismo término nuevo para decidirlos en bloque (M-26).
     /// </summary>
-    public const int TamanoMinimoDeBloque = 5;
+    public const int TamanoMinimoDeBloque = 3;
 
     private const int EjemplosPorBloque = 3;
 
@@ -146,21 +146,19 @@ public class ClasificacionService : IClasificacionService
     }
 
     /// <summary>
-    /// Texto primero; el prefijo del titular decide si el texto no nombra ninguna marca y desempata si nombra varias
-    /// (M-25). Si nombra varias y el prefijo no es de ninguna, no sugiere.
+    /// Solo el texto sugiere la marca; el prefijo del titular desempata si el texto nombra varias (M-25). Si el texto no
+    /// nombra ninguna, el prefijo no decide (M-69): identifica a la empresa titular, no a la marca. Si nombra varias y el
+    /// prefijo no es de ninguna, no sugiere.
     /// </summary>
     private static SugerenciaDto? SugerirMarcaPorDescripcion(ItemAClasificar item, DiccionariosDelLote diccionarios)
     {
         var enLaDescripcion = diccionarios.Marcas.MarcasEn(item.PalabrasParaMarca);
-        var delPrefijo = diccionarios.MarcaDelPrefijo(item.PrefijoTitular);
 
         return enLaDescripcion.Count switch
         {
             1 => diccionarios.SugerirMarca(enLaDescripcion.Single(), MotivoSugerenciaEnum.MarcaEnLaDescripcion),
-            > 1 when delPrefijo is int desempate && enLaDescripcion.Contains(desempate) =>
+            > 1 when diccionarios.MarcaDelPrefijo(item.PrefijoTitular) is int desempate && enLaDescripcion.Contains(desempate) =>
                 diccionarios.SugerirMarca(desempate, MotivoSugerenciaEnum.MarcaEnLaDescripcion),
-            > 1 => null,
-            _ when delPrefijo is int idMarca => diccionarios.SugerirMarca(idMarca, MotivoSugerenciaEnum.PrefijoDelCodigoDeBarras),
             _ => null
         };
     }
