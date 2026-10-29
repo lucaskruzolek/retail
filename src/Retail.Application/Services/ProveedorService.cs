@@ -382,37 +382,25 @@ public class ProveedorService : IProveedorService
 
         var catalogos = await _catalogoQueryService.ObtenerPorIdsAsync(ids, cancellationToken);
 
-        var yaVinculados = await _articuloRepository.FindAsync(
-            a => a.IdCatalogoProveedor != null && ids.Contains(a.IdCatalogoProveedor.Value),
-            includeDeleted: false,
-            cancellationToken);
-        var idsYaVinculados = yaVinculados.Select(a => a.IdCatalogoProveedor!.Value).ToHashSet();
-
         int incorporados = 0;
         int omitidosYaVinculados = 0;
 
         foreach (var catalogo in catalogos)
         {
-            // Un ítem que ya tiene artículo en la tienda no se duplica, pero se informa (H-11).
-            if (idsYaVinculados.Contains(catalogo.Id))
+            // Un ítem que ya es fuente de un artículo, principal o adicional, no se duplica, pero se informa (H-11, J6).
+            if (catalogo.EstaVinculado)
             {
                 omitidosYaVinculados++;
                 continue;
             }
 
             var item = itemPorCatalogo[catalogo.Id];
-            var porcentajeGanancia = item.PorcentajeGanancia;
-
-            var precioVenta = Articulo.CalcularPrecioVenta(catalogo.CostoReposicion, porcentajeGanancia);
 
             var nuevoArticulo = new Articulo
             {
                 Descripcion = catalogo.DescripcionProveedor,
                 CodigoBarras = catalogo.CodigoBarras,
-                IdCatalogoProveedor = catalogo.Id,
-                CostoReposicion = catalogo.CostoReposicion,
-                PorcentajeGanancia = porcentajeGanancia,
-                PrecioVenta = precioVenta,
+                PorcentajeGanancia = item.PorcentajeGanancia,
                 StockActual = 0,
                 StockMinimo = 5
             };
@@ -429,6 +417,11 @@ public class ProveedorService : IProveedorService
                     ? ReglasOrigenClasificacion.Derivar(item.IdMarcaSugerida, item.IdMarca)
                     : null);
 
+            // El ítem pasa a ser fuente y principal del artículo nuevo (A-16, J1), y la principal fija el costo y el
+            // precio. El artículo aún no tiene id: EF Core completa la FK del ítem al guardar.
+            catalogo.AsignarArticulo(nuevoArticulo);
+            nuevoArticulo.MarcarFuentePrincipal(catalogo);
+
             await _articuloRepository.AddAsync(nuevoArticulo, cancellationToken);
             incorporados++;
         }
@@ -442,7 +435,11 @@ public class ProveedorService : IProveedorService
         };
     }
 
-    public async Task VincularArticuloACatalogoAsync(int idArticulo, int idCatalogoProveedor, CancellationToken cancellationToken = default)
+    public async Task VincularArticuloACatalogoAsync(
+        int idArticulo,
+        int idCatalogoProveedor,
+        bool comoPrincipal,
+        CancellationToken cancellationToken = default)
     {
         var articulo = await _articuloRepository.GetByIdAsync(idArticulo, includeDeleted: false, cancellationToken);
         if (articulo == null)
@@ -456,20 +453,29 @@ public class ProveedorService : IProveedorService
             throw new DomainException($"No se encontró el ítem de catálogo con ID {idCatalogoProveedor}.");
         }
 
-        // Un ítem de catálogo se vincula a un solo artículo de la tienda, igual que en la incorporación (H-17).
-        // Revincular el mismo artículo sigue permitido.
-        var vinculadosAOtroArticulo = await _articuloRepository.FindAsync(
-            a => a.IdCatalogoProveedor == idCatalogoProveedor && a.Id != idArticulo,
-            includeDeleted: false,
-            cancellationToken);
-        if (vinculadosAOtroArticulo.Count > 0)
+        // Un ítem es fuente de un solo artículo (A-1, H-17). El dominio lo vuelve a verificar; acá se adelanta solo
+        // para nombrar en el mensaje al artículo que ya lo tiene.
+        if (catalogo.EstaVinculado && !catalogo.EsFuenteDe(articulo))
         {
+            var duenio = catalogo.IdArticulo.HasValue
+                ? await _articuloRepository.GetByIdAsync(catalogo.IdArticulo.Value, includeDeleted: false, cancellationToken)
+                : null;
             throw new DomainException(
-                $"El ítem '{catalogo.CodigoProveedor}' ya está vinculado al artículo '{vinculadosAOtroArticulo[0].Descripcion}'. " +
+                $"El ítem '{catalogo.CodigoProveedor}' ya está vinculado al artículo '{duenio?.Descripcion ?? "otro artículo"}'. " +
                 "Desvincúlelo antes de vincularlo a otro artículo.");
         }
 
-        articulo.VincularCatalogoProveedor(catalogo.Id, catalogo.CostoReposicion);
+        catalogo.AsignarArticulo(articulo);
+
+        // Una fuente adicional no toca el costo: solo lo fija la principal (A-2). Un artículo sin principal no tiene
+        // quién le fije el costo, así que su primera fuente lo es sin preguntar (J4).
+        if (!comoPrincipal && articulo.IdCatalogoProveedor.HasValue)
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        articulo.MarcarFuentePrincipal(catalogo);
 
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
 
@@ -487,17 +493,27 @@ public class ProveedorService : IProveedorService
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
-    public async Task DesvincularArticuloDeCatalogoAsync(int idArticulo, CancellationToken cancellationToken = default)
+    public async Task DesvincularFuenteAsync(int idCatalogoProveedor, CancellationToken cancellationToken = default)
     {
-        var articulo = await _articuloRepository.GetByIdAsync(idArticulo, includeDeleted: false, cancellationToken);
-        if (articulo == null)
+        var catalogo = await _catalogoQueryService.ObtenerPorIdAsync(idCatalogoProveedor, cancellationToken);
+        if (catalogo == null)
         {
-            throw new DomainException($"No se encontró el artículo con ID {idArticulo}.");
+            throw new DomainException($"No se encontró el ítem de catálogo con ID {idCatalogoProveedor}.");
         }
 
-        articulo.QuitarFuentePrincipal();
+        // Si era la principal, el artículo queda sin principal y conserva su último costo: no se elige otra sola,
+        // porque cambiar la principal cambia el precio de venta (J5).
+        if (catalogo.IdArticulo is int idArticulo)
+        {
+            var articulo = await _articuloRepository.GetByIdAsync(idArticulo, includeDeleted: false, cancellationToken);
+            if (articulo?.IdCatalogoProveedor == catalogo.Id)
+            {
+                articulo.QuitarFuentePrincipal();
+                await _articuloRepository.UpdateAsync(articulo, cancellationToken);
+            }
+        }
 
-        await _articuloRepository.UpdateAsync(articulo, cancellationToken);
+        catalogo.LiberarArticulo();
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
 }

@@ -136,6 +136,11 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
         return await _context.CatalogosProveedores.Where(c => idList.Contains(c.Id)).ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<CatalogoProveedor>> ObtenerFuentesDeArticuloAsync(int idArticulo, CancellationToken cancellationToken = default)
+    {
+        return await _context.CatalogosProveedores.Where(c => c.IdArticulo == idArticulo).ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyDictionary<string, CatalogoProveedor>> ObtenerMapaPorCodigosProveedorAsync(
         int idProveedor,
         IEnumerable<string> codigos,

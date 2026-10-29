@@ -7,6 +7,7 @@ using Retail.Domain.Entities;
 using Retail.Domain.Exceptions;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
+using Retail.Infrastructure.Persistence.Services;
 using Xunit;
 
 namespace Retail.Infrastructure.IntegrationTests.Services;
@@ -39,7 +40,8 @@ public class InventarioPresentacionesIntegrationTests : IAsyncLifetime, IDisposa
             new CrearArticuloValidator(),
             new ActualizarArticuloValidator(),
             new CrearPresentacionValidator(),
-            new FraccionarValidator());
+            new FraccionarValidator(),
+            new CatalogoProveedorQueryService(_context));
     }
 
     public async Task DisposeAsync()

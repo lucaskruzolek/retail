@@ -134,8 +134,7 @@ public class Articulo : BaseEntity, IAggregateRoot
         decimal porcentajeGanancia,
         int stockActual,
         int stockMinimo,
-        bool esServicio,
-        int? idCatalogoProveedor = null)
+        bool esServicio)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(descripcion);
         ValidarIdentificadoresDeClasificacion(idCategoria, idMarca);
@@ -147,11 +146,6 @@ public class Articulo : BaseEntity, IAggregateRoot
             ? OrigenCategoria
             : idCategoria.HasValue ? OrigenClasificacionEnum.Manual : null;
         var origenMarca = idMarca == IdMarca ? OrigenMarca : OrigenClasificacionEnum.Manual;
-
-        if (EsDerivado && idCatalogoProveedor.HasValue)
-        {
-            throw new DomainException("Una presentación derivada no puede vincularse a un catálogo de proveedor: solo se vincula su artículo de origen.");
-        }
 
         if (EsDerivado && esServicio)
         {
@@ -173,7 +167,6 @@ public class Articulo : BaseEntity, IAggregateRoot
         EsServicio = esServicio;
         StockActual = esServicio ? 0 : Math.Max(0, stockActual);
         StockMinimo = esServicio ? 0 : Math.Max(0, stockMinimo);
-        IdCatalogoProveedor = idCatalogoProveedor;
     }
 
     /// <summary>
@@ -205,22 +198,6 @@ public class Articulo : BaseEntity, IAggregateRoot
         OrigenCategoria = origenCategoria;
         IdMarca = idMarca;
         OrigenMarca = origenMarca;
-    }
-
-    public void VincularCatalogoProveedor(int idCatalogoProveedor, decimal nuevoCosto)
-    {
-        if (idCatalogoProveedor <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(idCatalogoProveedor), "El identificador de catálogo de proveedor debe ser mayor a cero.");
-        }
-
-        if (EsDerivado)
-        {
-            throw new DomainException("Una presentación derivada no puede vincularse a un catálogo de proveedor: solo se vincula su artículo de origen.");
-        }
-
-        ActualizarCostoYRecalcularPrecio(nuevoCosto);
-        IdCatalogoProveedor = idCatalogoProveedor;
     }
 
     /// <summary>

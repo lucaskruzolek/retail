@@ -20,6 +20,7 @@ public class InventarioServiceTests
     private readonly IRepository<Categoria> _categoriaRepository;
     private readonly IRepository<Marca> _marcaRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICatalogoProveedorQueryService _catalogoQueryService;
     private readonly CrearArticuloValidator _crearValidator;
     private readonly ActualizarArticuloValidator _actualizarValidator;
     private readonly InventarioService _sut;
@@ -30,6 +31,7 @@ public class InventarioServiceTests
         _categoriaRepository = Substitute.For<IRepository<Categoria>>();
         _marcaRepository = Substitute.For<IRepository<Marca>>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
+        _catalogoQueryService = Substitute.For<ICatalogoProveedorQueryService>();
         _crearValidator = new CrearArticuloValidator();
         _actualizarValidator = new ActualizarArticuloValidator();
 
@@ -41,7 +43,8 @@ public class InventarioServiceTests
             _crearValidator,
             _actualizarValidator,
             new CrearPresentacionValidator(),
-            new FraccionarValidator());
+            new FraccionarValidator(),
+            _catalogoQueryService);
     }
 
     [Fact]
@@ -647,6 +650,154 @@ public class InventarioServiceTests
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    // ---------- El formulario elige solo la fuente principal (Track 4.3, J2-a) ----------
+
+    [Fact]
+    public async Task CrearArticuloAsync_ConFuenteElegida_LaRegistraComoFuenteYPrincipal()
+    {
+        // Arrange
+        var fuente = CrearFuente(25, costo: 800m);
+        _catalogoQueryService.ObtenerPorIdAsync(25, Arg.Any<CancellationToken>()).Returns(fuente);
+        _articuloRepository.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns([]);
+        var dto = new CrearArticuloDto
+        {
+            Descripcion = "Marcador Edding 700",
+            CostoReposicion = 800m,
+            PorcentajeGanancia = 50m,
+            StockActual = 0,
+            StockMinimo = 1,
+            EsServicio = false,
+            IdCatalogoProveedor = 25
+        };
+
+        // Act
+        await _sut.CrearArticuloAsync(dto);
+
+        // Assert: el artículo todavía no tiene id; el ítem lo reconoce por la instancia
+        await _articuloRepository.Received(1).AddAsync(
+            Arg.Is<Articulo>(a => a.IdCatalogoProveedor == 25 && fuente.EsFuenteDe(a)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_CambiaLaPrincipal_LaAnteriorSigueComoFuenteYTomaElCostoDeLaNueva()
+    {
+        // Arrange
+        var (articulo, anterior) = PrepararArticuloConPrincipal();
+        var nueva = CrearFuente(26, costo: 750m);
+        _catalogoQueryService.ObtenerPorIdAsync(26, Arg.Any<CancellationToken>()).Returns(nueva);
+        var edicion = EdicionDe(articulo, costo: 800m, esServicio: false, idCatalogoProveedor: 26);
+
+        // Act
+        await _sut.ActualizarArticuloAsync(edicion);
+
+        // Assert
+        articulo.IdCatalogoProveedor.Should().Be(26);
+        articulo.CostoReposicion.Should().Be(750m);
+        nueva.EsFuenteDe(articulo).Should().BeTrue();
+        anterior.EsFuenteDe(articulo).Should().BeTrue();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_MismaPrincipal_ConservaElCostoEditadoAMano()
+    {
+        // Arrange
+        var (articulo, _) = PrepararArticuloConPrincipal();
+        var edicion = EdicionDe(articulo, costo: 820m, esServicio: false, idCatalogoProveedor: 25);
+
+        // Act
+        await _sut.ActualizarArticuloAsync(edicion);
+
+        // Assert
+        articulo.CostoReposicion.Should().Be(820m);
+        articulo.IdCatalogoProveedor.Should().Be(25);
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_SinFuenteElegida_LiberaLaPrincipalAnterior()
+    {
+        // Arrange
+        var (articulo, anterior) = PrepararArticuloConPrincipal();
+        var edicion = EdicionDe(articulo, costo: 800m, esServicio: false);
+
+        // Act
+        await _sut.ActualizarArticuloAsync(edicion);
+
+        // Assert
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        anterior.EstaVinculado.Should().BeFalse();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_FuenteDeOtroArticulo_LanzaDomainExceptionYDescartaLosCambios()
+    {
+        // Arrange
+        var (articulo, _) = PrepararArticuloConPrincipal();
+        var ajena = CrearFuente(26, costo: 750m);
+        ajena.AsignarArticulo(new Articulo { Id = 99, Descripcion = "Otro" });
+        _catalogoQueryService.ObtenerPorIdAsync(26, Arg.Any<CancellationToken>()).Returns(ajena);
+        var edicion = EdicionDe(articulo, costo: 800m, esServicio: false, idCatalogoProveedor: 26);
+
+        // Act
+        var act = () => _sut.ActualizarArticuloAsync(edicion);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*ya es fuente de otro artículo*");
+        _unitOfWork.Received(1).DescartarCambios();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BajaArticuloAsync_ConFuentes_LasLiberaYQuitaLaPrincipal()
+    {
+        // Arrange (J3)
+        var (articulo, principal) = PrepararArticuloConPrincipal();
+        var adicional = CrearFuente(26, costo: 750m);
+        adicional.AsignarArticulo(articulo);
+        _catalogoQueryService.ObtenerFuentesDeArticuloAsync(10, Arg.Any<CancellationToken>())
+            .Returns([principal, adicional]);
+
+        // Act
+        await _sut.BajaArticuloAsync(10);
+
+        // Assert
+        articulo.IsDeleted.Should().BeTrue();
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        principal.EstaVinculado.Should().BeFalse();
+        adicional.EstaVinculado.Should().BeFalse();
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// Artículo 10 con el ítem 25 (costo 800) como fuente y principal, armado con las operaciones del dominio y
+    /// registrado en la tienda simulada y en el catálogo simulado.
+    /// </summary>
+    private (Articulo Articulo, CatalogoProveedor Principal) PrepararArticuloConPrincipal()
+    {
+        var articulo = new Articulo { Id = 10, Descripcion = "Marcador Edding 700", CostoReposicion = 500m, PorcentajeGanancia = 50m };
+        var principal = CrearFuente(25, costo: 800m);
+        principal.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(principal);
+        PrepararTienda(articulo);
+        _catalogoQueryService.ObtenerPorIdAsync(25, Arg.Any<CancellationToken>()).Returns(principal);
+        return (articulo, principal);
+    }
+
+    private static CatalogoProveedor CrearFuente(int id, decimal costo)
+    {
+        return new CatalogoProveedor
+        {
+            Id = id,
+            IdProveedor = id,
+            CodigoProveedor = $"COD-{id}",
+            DescripcionProveedor = "Edding 700",
+            CostoReposicion = costo
+        };
+    }
+
     [Fact]
     public async Task ActualizarCostoYPrecioAsync_OrigenConPresentaciones_PropagaElCosto()
     {
@@ -721,7 +872,7 @@ public class InventarioServiceTests
         };
     }
 
-    private static ActualizarArticuloDto EdicionDe(Articulo articulo, decimal costo, bool esServicio)
+    private static ActualizarArticuloDto EdicionDe(Articulo articulo, decimal costo, bool esServicio, int? idCatalogoProveedor = null)
     {
         return new ActualizarArticuloDto
         {
@@ -733,7 +884,8 @@ public class InventarioServiceTests
             PorcentajeGanancia = articulo.PorcentajeGanancia,
             StockActual = articulo.StockActual,
             StockMinimo = articulo.StockMinimo,
-            EsServicio = esServicio
+            EsServicio = esServicio,
+            IdCatalogoProveedor = idCatalogoProveedor
         };
     }
 

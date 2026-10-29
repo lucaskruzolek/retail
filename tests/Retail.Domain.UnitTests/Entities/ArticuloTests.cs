@@ -214,55 +214,6 @@ public class ArticuloTests
     }
 
     [Fact]
-    public void VincularCatalogoProveedor_IdInvalido_LanzaArgumentOutOfRangeException()
-    {
-        // Arrange
-        var articulo = new Articulo { Descripcion = "Lapicera Azul", CostoReposicion = 100m, PorcentajeGanancia = 50m };
-
-        // Act
-        var act = () => articulo.VincularCatalogoProveedor(0, 120m);
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*identificador de catálogo*");
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_CostoNegativo_LanzaArgumentOutOfRangeException()
-    {
-        // Arrange
-        var articulo = new Articulo { Descripcion = "Lapicera Azul", CostoReposicion = 100m, PorcentajeGanancia = 50m };
-
-        // Act
-        var act = () => articulo.VincularCatalogoProveedor(10, -5m);
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*costo*");
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_DatosValidos_ActualizaIdCostoYPrecioVenta()
-    {
-        // Arrange
-        var articulo = new Articulo
-        {
-            Descripcion = "Cuaderno Rivadavia",
-            CostoReposicion = 1000m,
-            PorcentajeGanancia = 50m,
-            PrecioVenta = 1500m
-        };
-
-        // Act
-        articulo.VincularCatalogoProveedor(42, 1200m);
-
-        // Assert
-        articulo.IdCatalogoProveedor.Should().Be(42);
-        articulo.CostoReposicion.Should().Be(1200m);
-        articulo.PrecioVenta.Should().Be(1800m); // 1200 + 50%
-    }
-
-    [Fact]
     public void QuitarFuentePrincipal_ArticuloConPrincipal_QuedaSinPrincipalYConservaElCosto()
     {
         // Arrange
@@ -674,45 +625,6 @@ public class ArticuloTests
 
         // Assert
         act.Should().Throw<InvalidOperationException>();
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_ArticuloDerivado_LanzaDomainException()
-    {
-        // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad" };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
-
-        // Act
-        var act = () => derivado.VincularCatalogoProveedor(42, 100m);
-
-        // Assert
-        act.Should().Throw<DomainException>().WithMessage("*catálogo de proveedor*");
-        derivado.IdCatalogoProveedor.Should().BeNull();
-    }
-
-    [Fact]
-    public void ActualizarDatos_DerivadoConCatalogo_LanzaDomainException()
-    {
-        // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad" };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
-
-        // Act
-        var act = () => derivado.ActualizarDatos(
-            descripcion: "Unidad",
-            idCategoria: null,
-            idMarca: null,
-            codigoBarras: null,
-            costoReposicion: 10m,
-            porcentajeGanancia: 50m,
-            stockActual: 0,
-            stockMinimo: 0,
-            esServicio: false,
-            idCatalogoProveedor: 42);
-
-        // Assert
-        act.Should().Throw<DomainException>().WithMessage("*catálogo de proveedor*");
     }
 
     [Fact]

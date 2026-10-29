@@ -152,7 +152,7 @@ public class ProveedorServiceTests
     }
 
     [Fact]
-    public async Task VincularArticuloACatalogoAsync_ConArticuloYCatalogoExistentes_ActualizaCostoYRecalcula()
+    public async Task VincularArticuloACatalogoAsync_ArticuloSinPrincipal_LoHacePrincipalAunqueNoSePidaYRecalcula()
     {
         // Arrange
         var articulo = new Articulo
@@ -181,16 +181,114 @@ public class ProveedorServiceTests
         _catalogoQueryMock.ObtenerPorIdAsync(25, Arg.Any<CancellationToken>())
             .Returns(catalogo);
 
-        // Act
-        await _service.VincularArticuloACatalogoAsync(10, 25);
+        // Act: sin principal, la primera fuente lo es aunque no se pida (J4)
+        await _service.VincularArticuloACatalogoAsync(10, 25, comoPrincipal: false);
 
         // Assert
+        catalogo.IdArticulo.Should().Be(10);
         articulo.IdCatalogoProveedor.Should().Be(25);
         articulo.CostoReposicion.Should().Be(800m);
         articulo.PrecioVenta.Should().Be(1120m); // 800 * 1.40 = 1120
 
         await _articuloRepoMock.Received(1).UpdateAsync(articulo, Arg.Any<CancellationToken>());
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VincularArticuloACatalogoAsync_ArticuloConPrincipalSinPedirla_QuedaComoAdicionalSinTocarElCosto()
+    {
+        // Arrange
+        var (articulo, _) = PrepararArticuloConPrincipal();
+        var otraFuente = new CatalogoProveedor { Id = 26, IdProveedor = 2, CodigoProveedor = "MN-700", DescripcionProveedor = "Edding 700 (Norte)", CostoReposicion = 750m };
+        PrepararArticulosParaVincular(articulo, otraFuente, new List<Articulo> { articulo });
+
+        // Act
+        await _service.VincularArticuloACatalogoAsync(10, 26, comoPrincipal: false);
+
+        // Assert
+        otraFuente.IdArticulo.Should().Be(10);
+        articulo.IdCatalogoProveedor.Should().Be(25);
+        articulo.CostoReposicion.Should().Be(800m);
+        await _articuloRepoMock.DidNotReceive().UpdateAsync(Arg.Any<Articulo>(), Arg.Any<CancellationToken>());
+        await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task VincularArticuloACatalogoAsync_ArticuloConPrincipalComoPrincipal_CambiaLaPrincipalYTomaSuCosto()
+    {
+        // Arrange
+        var (articulo, anterior) = PrepararArticuloConPrincipal();
+        var nueva = new CatalogoProveedor { Id = 26, IdProveedor = 2, CodigoProveedor = "MN-700", DescripcionProveedor = "Edding 700 (Norte)", CostoReposicion = 750m };
+        PrepararArticulosParaVincular(articulo, nueva, new List<Articulo> { articulo });
+
+        // Act
+        await _service.VincularArticuloACatalogoAsync(10, 26, comoPrincipal: true);
+
+        // Assert: la anterior sigue siendo fuente (J2-a también vale acá)
+        articulo.IdCatalogoProveedor.Should().Be(26);
+        articulo.CostoReposicion.Should().Be(750m);
+        anterior.EsFuenteDe(articulo).Should().BeTrue();
+        await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    // ---------- Desvincular una fuente (J5) ----------
+
+    [Fact]
+    public async Task DesvincularFuenteAsync_FuentePrincipal_LiberaElItemYDejaElArticuloSinPrincipal()
+    {
+        // Arrange
+        var (articulo, principal) = PrepararArticuloConPrincipal();
+        _catalogoQueryMock.ObtenerPorIdAsync(25, Arg.Any<CancellationToken>()).Returns(principal);
+        _articuloRepoMock.GetByIdAsync(10, false, Arg.Any<CancellationToken>()).Returns(articulo);
+
+        // Act
+        await _service.DesvincularFuenteAsync(25);
+
+        // Assert: conserva el último costo; no se elige otra principal sola
+        principal.EstaVinculado.Should().BeFalse();
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        articulo.CostoReposicion.Should().Be(800m);
+        await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DesvincularFuenteAsync_FuenteAdicional_LiberaElItemSinTocarLaPrincipal()
+    {
+        // Arrange
+        var (articulo, _) = PrepararArticuloConPrincipal();
+        var adicional = new CatalogoProveedor { Id = 26, IdProveedor = 2, CodigoProveedor = "MN-700", DescripcionProveedor = "Edding 700 (Norte)", CostoReposicion = 750m };
+        adicional.AsignarArticulo(articulo);
+        _catalogoQueryMock.ObtenerPorIdAsync(26, Arg.Any<CancellationToken>()).Returns(adicional);
+        _articuloRepoMock.GetByIdAsync(10, false, Arg.Any<CancellationToken>()).Returns(articulo);
+
+        // Act
+        await _service.DesvincularFuenteAsync(26);
+
+        // Assert
+        adicional.EstaVinculado.Should().BeFalse();
+        articulo.IdCatalogoProveedor.Should().Be(25);
+        await _articuloRepoMock.DidNotReceive().UpdateAsync(Arg.Any<Articulo>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DesvincularFuenteAsync_ItemInexistente_LanzaDomainExceptionSinGuardar()
+    {
+        var accion = () => _service.DesvincularFuenteAsync(999);
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("*999*");
+        await _unitOfWorkMock.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// Artículo 10 con el ítem 25 (costo 800) como fuente y principal, armado con las operaciones del dominio.
+    /// </summary>
+    private static (Articulo Articulo, CatalogoProveedor Principal) PrepararArticuloConPrincipal()
+    {
+        var articulo = new Articulo { Id = 10, Descripcion = "Marcador Edding 700", CostoReposicion = 500m, PorcentajeGanancia = 40m };
+        var principal = new CatalogoProveedor { Id = 25, IdProveedor = 1, CodigoProveedor = "EDD-700", DescripcionProveedor = "Edding 700", CostoReposicion = 800m };
+        principal.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(principal);
+        return (articulo, principal);
     }
 
     [Fact]
@@ -528,8 +626,8 @@ public class ProveedorServiceTests
         _catalogoQueryMock.ObtenerPorIdsAsync(Arg.Any<IEnumerable<int>>(), Arg.Any<CancellationToken>())
             .Returns(catalogos);
 
-        _articuloRepoMock.FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), false, Arg.Any<CancellationToken>())
-            .Returns(new List<Articulo> { new() { Id = 99, Descripcion = "Ya existe", IdCatalogoProveedor = 1 } });
+        // El ítem 1 ya es fuente (principal o adicional) de un artículo de la tienda (J6).
+        catalogos[0].AsignarArticulo(new Articulo { Id = 99, Descripcion = "Ya existe" });
 
         var dto = new IncorporarCatalogoArticulosDto
         {
@@ -547,7 +645,9 @@ public class ProveedorServiceTests
         var resultado = await _service.IncorporarArticulosATiendaAsync(dto);
 
         // Assert
-        agregados.Should().ContainSingle().Which.IdCatalogoProveedor.Should().Be(2);
+        var nuevo = agregados.Should().ContainSingle().Subject;
+        nuevo.IdCatalogoProveedor.Should().Be(2);
+        catalogos[1].EsFuenteDe(nuevo).Should().BeTrue();
         resultado.Incorporados.Should().Be(1);
         resultado.OmitidosYaVinculados.Should().Be(1);
     }
@@ -633,33 +733,36 @@ public class ProveedorServiceTests
     {
         // Arrange
         var catalogo = new CatalogoProveedor { Id = 25, IdProveedor = 1, CodigoProveedor = "EDD-700", DescripcionProveedor = "Edding 700", CostoReposicion = 800m };
-        var duenio = new Articulo { Id = 5, Descripcion = "Marcador Edding", IdCatalogoProveedor = 25 };
+        var duenio = new Articulo { Id = 5, Descripcion = "Marcador Edding" };
+        catalogo.AsignarArticulo(duenio);
         var articulo = new Articulo { Id = 10, Descripcion = "Marcador Permanente Negro", CostoReposicion = 500m, PorcentajeGanancia = 40m };
         PrepararArticulosParaVincular(articulo, catalogo, new List<Articulo> { duenio, articulo });
+        _articuloRepoMock.GetByIdAsync(5, false, Arg.Any<CancellationToken>()).Returns(duenio);
 
         // Act
-        var accion = () => _service.VincularArticuloACatalogoAsync(10, 25);
+        var accion = () => _service.VincularArticuloACatalogoAsync(10, 25, comoPrincipal: true);
 
         // Assert
         await accion.Should().ThrowAsync<DomainException>()
             .WithMessage("*EDD-700*Marcador Edding*");
         articulo.IdCatalogoProveedor.Should().BeNull();
+        catalogo.IdArticulo.Should().Be(5);
         await _unitOfWorkMock.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task VincularArticuloACatalogoAsync_RevinculandoElMismoArticulo_ActualizaSinError()
     {
-        // Arrange: el único artículo vinculado al ítem es el mismo que se revincula
-        var catalogo = new CatalogoProveedor { Id = 25, IdProveedor = 1, CodigoProveedor = "EDD-700", DescripcionProveedor = "Edding 700", CostoReposicion = 800m };
-        var articulo = new Articulo { Id = 10, Descripcion = "Marcador Permanente Negro", IdCatalogoProveedor = 25, CostoReposicion = 500m, PorcentajeGanancia = 40m };
+        // Arrange: el ítem ya es la principal del mismo artículo y la planilla cambió su costo después
+        var (articulo, catalogo) = PrepararArticuloConPrincipal();
+        catalogo.ActualizarPrecio(900m);
         PrepararArticulosParaVincular(articulo, catalogo, new List<Articulo> { articulo });
 
         // Act
-        await _service.VincularArticuloACatalogoAsync(10, 25);
+        await _service.VincularArticuloACatalogoAsync(10, 25, comoPrincipal: true);
 
         // Assert
-        articulo.CostoReposicion.Should().Be(800m);
+        articulo.CostoReposicion.Should().Be(900m);
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -736,7 +839,7 @@ public class ProveedorServiceTests
         PrepararArticulosParaVincular(articulo, catalogo, new List<Articulo> { articulo, unidad });
 
         // Act
-        await _service.VincularArticuloACatalogoAsync(10, 25);
+        await _service.VincularArticuloACatalogoAsync(10, 25, comoPrincipal: false);
 
         // Assert
         unidad.CostoReposicion.Should().Be(80m);

@@ -27,7 +27,18 @@ public interface IProveedorService
 
     Task<ResultadoIncorporacionDto> IncorporarArticulosATiendaAsync(IncorporarCatalogoArticulosDto dto, CancellationToken cancellationToken = default);
 
-    Task VincularArticuloACatalogoAsync(int idArticulo, int idCatalogoProveedor, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Registra el ítem como fuente del artículo (Track 4.3, J4). Con <paramref name="comoPrincipal"/>, además lo hace
+    /// principal y toma su costo; la primera fuente de un artículo es principal aunque no se pida.
+    /// </summary>
+    Task VincularArticuloACatalogoAsync(
+        int idArticulo,
+        int idCatalogoProveedor,
+        bool comoPrincipal,
+        CancellationToken cancellationToken = default);
 
-    Task DesvincularArticuloDeCatalogoAsync(int idArticulo, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Quita el ítem de las fuentes de su artículo (J5). Si era la principal, el artículo queda sin principal.
+    /// </summary>
+    Task DesvincularFuenteAsync(int idCatalogoProveedor, CancellationToken cancellationToken = default);
 }
