@@ -116,25 +116,64 @@ Métodos internos de `IPedidoService`:
 
 ---
 
-## Fase L2a — `PedidosView` y "Agregar al pedido"
+## Fase L2a — Pedidos en la UI (dos PR)
 
-**Depende de:** L1. **Rama sugerida:** `feat/pedidos-ui`. **Migración:** no.  
+**Depende de:** L1. **Migración:** no. **Decisiones del rector:** A-17 y A-18.
 **Lectura obligatoria:** `docs/SISTEMA_DE_DISENO.md` y `StyleGalleryView.xaml` (Ley 9).
+
+**Decisiones de diseño de L2a** (aprobadas por el estudiante el 2026-10-28; no tocan la frontera de §5):
+
+| # | Decisión | Razón |
+| :--- | :--- | :--- |
+| G1 | La entrada "Pedidos" del Sidebar se ve solo con `EsGerente \|\| EsEncargado` (propiedad `PuedeAbastecer` de `MainViewModel`) | A-14 literal. Compras y Catálogos hoy usan `PuedeOperarNegocio`, que incluye al Cajero |
+| G2 | El motivo de cancelación se escribe en un `TextBox` del panel de detalle y se confirma con un diálogo de confirmación | No justifica otra ventana |
+| G3 | La cantidad editada de un renglón se guarda con una acción explícita ("Aplicar" o Enter) que aparece cuando la fila tiene cambios | Un cambio de foco accidental no escribe en la base |
+| G4 | "Pedir" va por fila (columna Acción) y "Pedir seleccionados" en la barra; pedir una fila es un lote de uno | Un solo camino de código y un solo modal |
+| G5 | La apertura de `IncorporarArticulosModalDialog` pasa a `IProveedorDialogService.MostrarIncorporacion`, y su orquestación a un método privado que comparten "Incorporar seleccionados" y "Pedir seleccionados" | Sin esto el flujo "no vinculado → incorporar → pedir" no se puede testear, y la incorporación quedaría duplicada |
+
+**Decisiones de Aplicación de L2a-1** (aprobadas por el estudiante el 2026-10-28; no tocan la frontera de §5):
+
+| # | Decisión | Razón |
+| :--- | :--- | :--- |
+| H1 | Se eliminan `AgregarAlPedidoAsync`, `AgregarAlPedidoDto` y `AgregarAlPedidoValidator`; sus escenarios de test pasan al lote | Con G4, pedir una fila es un lote de uno: el método unitario quedaría sin llamadores |
+| H2 | Los ítems inexistentes o sin incorporar se **omiten e informan**; no abortan el lote. Si todos se omiten, no se guarda nada | El modal ya se los mostró al usuario antes de confirmar |
+| H3 | La vista previa informa la cantidad que ya figura en el borrador (`CantidadEnBorrador`) | `AgregarRenglon` suma la cantidad: sin el dato, el usuario pide de más sin saberlo |
+| H4 | `ObtenerIdArticuloVinculadoAsync` se reemplaza por `ObtenerArticulosVinculadosAsync` (lote) | Una consulta por lote en vez de una por ítem, y sigue siendo el único punto que cambia en L3 (E4) |
+
+**Manejo de errores en la UI** (orden de los `catch`): `TransicionPedidoInvalidaException` → alerta y recarga (el pedido cambió de estado en otra terminal); `ConflictoDeConcurrenciaException` (no hereda de `DomainException`) → alerta y recarga; `ValidationException` → mensaje en línea; `DomainException` → alerta con su mensaje; `Exception` → log y mensaje genérico.
+
+### L2a-1 — Lote, `PedidosView`, modal de pedido y Sidebar
+
+**Rama sugerida:** `feat/pedidos-ui`.
+
+| Capa | Pieza | Contenido |
+| :--- | :--- | :--- |
+| Aplicación | `DTOs/Pedidos/AgregarVariosAlPedidoDto`, `RenglonAAgregarDto`, `ResultadoAgregarAlPedidoDto`, `Validators/Pedidos/AgregarVariosAlPedidoValidator` | Lote: `IdUsuario` y renglones (`IdCatalogoProveedor`, `Cantidad`). Resultado: un `PedidoResumenDto` por borrador tocado y los ítems omitidos con su motivo (inexistente, no vinculado) |
+| Aplicación | `IPedidoService.AgregarVariosAlPedidoAsync` | Agrupa por proveedor, relee cada borrador **una vez** (o lo crea), agrega los renglones y guarda todo en **un solo `SaveChanges`** (A-17). Reintento único de E3. Reemplaza a `AgregarAlPedidoAsync`, su DTO y su validador, que se eliminan (H1) |
+| Aplicación | `IPedidoService.ObtenerVistaPreviaAsync` (delega en `IPedidoQueryService`, E1) con `VistaPreviaPedidoDto`, `DestinoPedidoDto`, `RenglonVistaPreviaDto`, `RenglonOmitidoDto` y `MotivoOmisionPedidoEnum` | Por cada ítem: su proveedor, el borrador de destino (existente con su cantidad de renglones, o "se creará"), el artículo vinculado con su stock actual y mínimo, la cantidad que ya figura en el borrador (H3), o el motivo por el que no se puede pedir. Consulta `AsNoTracking` con proyección (Ley 8) |
+| UI | `Views/Pages/PedidosView.xaml` + `ViewModels/Pedidos/PedidosViewModel.cs` (con `PedidoFila`, `RenglonPedidoFila`, `OpcionEstadoPedido`) | Filtro por estado (Todos, Borradores, Emitidos, Recibidos, Cancelados) y por proveedor. Grilla con número, proveedor, fecha, antigüedad (`TimeProvider`), cantidad de renglones, total estimado y badge de estado. Panel de detalle con los renglones (badge de artículo dado de baja). En `Borrador`: editar cantidad (G3), quitar renglón, **Emitir**, **Cancelar**. En `Emitido`: **Cancelar** con motivo (G2). Sin navegación a Compras (A-12) |
+| UI | Modal de pedido `PedirArticulosDialog` + `PedirArticulosViewModel` | Renglones agrupados por proveedor con el **destino informado** (A-17), cantidad por renglón (1 por defecto), stock actual y mínimo, subtotal y total estimado. Aviso de los ítems que no se pueden pedir. Es una `FluentWindow`: test de humo STA. En L2a-1 se prueba desde sus tests; las entradas llegan en L2a-2 |
+| UI | `Services/IPedidoDialogService` + `PedidoDialogService` | Confirmación, alertas, errores y apertura del modal de pedido |
+| UI | Navegación | Entrada "Pedidos" en el Sidebar después de Compras (G1), `NavegarPedidos` en `MainViewModel` y registro en `App.xaml.cs` (solo agregar). Textos de `EstadoPedidoEnum` en `EnumATextoConverter` |
+
+Todo acceso a datos por `CargaSerializada` + `Task.Run` (Ley 4). En `PedidosView` la grilla usa la carga reemplazable y el detalle `EjecutarOperacionAsync`, aplicado solo si esa fila sigue seleccionada: hay una sola `CargaSerializada` por pantalla y dos cargas reemplazables se cancelarían entre sí.
+
+**Tests:** del servicio (lote con uno y con varios proveedores, borrador existente y nuevo, ítems omitidos, todos omitidos, reintento), del validador, de integración (el lote se guarda en una transacción; la vista previa), `PedidosViewModelTests` (filtros, acciones habilitadas por estado, confirmaciones, manejo de cada excepción, antigüedad), `PedirArticulosViewModelTests` (agrupación, cantidades, omitidos, total), `MainViewModelTests` (navegación y visibilidad por rol) y el humo STA de `PedidosView` y `PedirArticulosDialog`.
+
+### L2a-2 — Pedir desde Artículos y desde el importador
+
+**Depende de:** L2a-1.
 
 | Pieza | Contenido |
 | :--- | :--- |
-| `Views/Pages/PedidosView.xaml` + `ViewModels/Pedidos/PedidosViewModel.cs` | Filtro por estado (Todos, Borradores, Emitidos, Recibidos, Cancelados) y por proveedor. Grilla con número, proveedor, fecha, antigüedad, cantidad de renglones, total estimado y badge de estado. Panel de detalle con los renglones. En `Borrador`: editar la cantidad, quitar renglón, **Emitir**, **Cancelar**. En `Emitido`: **Cancelar** con motivo. Sin navegación a Compras (A-12) |
-| Diálogo `AgregarAlPedidoDialog` + ViewModel | Pide la cantidad (por defecto 1) y muestra proveedor, código, descripción y costo actual. Es una `FluentWindow`: necesita test de humo STA |
-| `ImportadorCatalogosView` / `ImportadorCatalogosViewModel` | **Solo** un comando y un botón "Agregar al pedido" para el ítem seleccionado (R-2 del rector). Si el ítem no está vinculado, ofrecer primero la incorporación con el modal existente (`IncorporarArticulosModalDialog`) y, si se confirma, continuar |
-| Navegación | Entrada "Pedidos" en el Sidebar (`MainViewModel`, zona de Lucas según §6) y registro en `App.xaml.cs` (solo agregar) |
+| `ImportadorCatalogosView` / `ImportadorCatalogosViewModel` | "Pedir" por fila y "Pedir seleccionados" (R-2: solo comandos y botones). Si hay ítems no incorporados, el modal de pedido ofrece **incorporarlos primero** con el modal existente (G5) o pedir solo los vinculados; si la incorporación se cancela, vuelve con los vinculados. **No** se agrega la columna de stock (A-17) |
+| `ArticulosView` / `ArticulosViewModel` | Columna de selección (la selección vive en el ViewModel, no en el DTO), "Seleccionar todos", "Pedir" por fila y "Pedir seleccionados". Los artículos sin proveedor vinculado y los servicios quedan con la acción deshabilitada y un tooltip, y se informan como omitidos en el modal |
 
-Reglas: todo acceso a datos por `CargaSerializada` + `Task.Run` (Ley 4); los errores de dominio se muestran como alertas; las vistas usan solo recursos existentes (`scripts/audit-xaml.ps1`).
-
-**Tests:** `PedidosViewModelTests` y `AgregarAlPedidoViewModelTests` (filtros, transiciones habilitadas por estado, confirmación de cancelación, flujo de "no vinculado → incorporar → agregar"), los tests nuevos de `ImportadorCatalogosViewModelTests` y el humo STA de `PedidosView` y `AgregarAlPedidoDialog` en `AppSmokeTests.cs`.
+**Tests:** `ImportadorCatalogosViewModelTests` (vinculado → pide; no vinculado → incorpora → pide; rechaza incorporar → pide solo vinculados; incorporación cancelada; modal cancelado; error del servicio; sin usuario en sesión) y `ArticulosViewModelTests` (selección, pedir fila, pedir selección, sin proveedor y servicio excluidos).
 
 ## Fase L2b — "Volver a pedir faltantes"
 
-**Depende de:** L2a y **P2** (necesita `COMPRAS.id_pedido_origen`).
+**Depende de:** L2a-1 y **P2** (necesita `COMPRAS.id_pedido_origen`).
 
 * `IPedidoService.VolverAPedirFaltantesAsync(int idPedido, int idUsuario)`: solo para pedidos `Recibido`. Compara los renglones del pedido con los de la compra que lo cerró (consulta de lectura sobre `DETALLE_COMPRAS` por `id_pedido_origen`; leer otra tabla en una consulta está permitido, modificar el agregado `Compra` no). Por cada artículo con `cantidad comprada < cantidad pedida`, agrega la diferencia al borrador del proveedor con el costo **actual** del catálogo. Devuelve cuántos renglones agregó.
 * En `PedidosView`, la acción se habilita solo en pedidos `Recibido` y pide confirmación.
@@ -150,19 +189,19 @@ Reglas: todo acceso a datos por `CargaSerializada` + `Task.Run` (Ley 4); los err
 2. Dominio: el vínculo deja de ser 1:1. Reglas: un ítem se vincula a lo sumo a un artículo (A-1); nunca a una presentación derivada (RF-21); a lo sumo una fuente principal por artículo (A-2). Operaciones: vincular como fuente adicional, marcar como principal, desvincular (si se desvincula la principal, el artículo queda sin principal hasta que el usuario elija otra; no se elige sola).
 3. Migración de datos: todo vínculo existente pasa a ser **la fuente principal** de su artículo. Test de integración que lo verifique sobre datos sembrados.
 4. Importador (RF-07): propaga costo y precio **solo** a través de las fuentes principales.
-5. `AgregarAlPedidoAsync`: cambiar únicamente la resolución ítem → artículo (L1.2).
-6. UI: `VincularArticuloModalDialog` permite vincular a un artículo que ya tiene fuentes, indicando si queda como principal.
+5. `AgregarVariosAlPedidoAsync` y la vista previa del modal: cambiar únicamente la resolución ítem → artículo (L1.2). Desde Artículos, cada renglón se pide por defecto a la **fuente principal**; el modal de pedido agrega un combo de fuente por renglón (proveedor · costo · fecha, ordenado por costo, la principal marcada) y, al cambiarla, el renglón pasa al grupo de su proveedor (A-18).
+6. UI: `VincularArticuloModalDialog` permite vincular a un artículo que ya tiene fuentes, indicando si queda como principal. La grilla de Artículos sigue con **una fila por artículo** (A-18).
 7. Actualizar el DER (las fuentes múltiples no están en PR-0) y el mapa.
 
-## Fase L4 — Comparador de costos (RF-28)
+## Fase L4 — Modal "Fuentes del artículo" (RF-28)
 
-**Depende de:** L3. Se hace después de la Fase 6 (UI) del Track 6.6 (R-2).
+**Depende de:** L3. **Decisión del rector:** A-18.
 
-* Panel "Fuentes del artículo" en `ImportadorCatalogosView` para el ítem seleccionado, si está vinculado: todas las fuentes del mismo artículo con proveedor, código, descripción del proveedor, costo, fecha de actualización de la planilla y badge de principal. Se ordena por costo.
-* Acciones por fila: **Agregar al pedido** (al borrador de **ese** proveedor) y **Marcar como principal**.
+* Modal **"Fuentes del artículo"**: todas las fuentes del artículo con proveedor, código, descripción del proveedor, costo, fecha de actualización de la lista y badge de principal, ordenadas por costo. La fecha de cada lista es visible: una lista vieja y barata es la trampa que motivó A-2.
+* Acciones por fila: **Marcar como principal** (con confirmación, porque recalcula el precio de venta) y **Pedir** (cierra este modal y abre el modal de pedido con esa fuente elegida).
+* Se abre desde el badge **"N fuentes"** de la grilla de Artículos (sin indicador de "fuente más barata") y desde un aviso en el importador para los ítems vinculados con otras fuentes. Es un único componente.
 * Consulta `AsNoTracking` por `IdArticulo`, con proyección a DTO (Ley 8).
-* La fecha de cada lista es visible: una lista vieja y barata es la trampa que motivó A-2.
-* Tests de ViewModel, de la consulta (integración) y de humo STA si se agrega un control nuevo.
+* Tests de ViewModel, de la consulta (integración) y de humo STA del modal.
 
 ---
 
