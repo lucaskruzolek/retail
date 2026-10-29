@@ -185,17 +185,18 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
 ```
 
 ### 2. Convención Semántica de Glifos (Regular vs Solid)
-* **`Solid...` (Relleno):** Utilizado para el ítem activo de navegación en Sidebar, botón principal de cobro, cabeceras de diálogo y badges semáforo.
-  * Punto de Venta (POS): `Kind="SolidStoreAlt2"`
-  * Catálogo de Artículos: `Kind="SolidBook"`
-  * Clientes y Ctas. Ctes.: `Kind="SolidUser"`
-  * Caja y Cobros: `Kind="SolidDollarCircle"`
-  * Compras a Distribuidores: `Kind="SolidCart"`
-  * Proveedores: `Kind="SolidTruck"`
-  * Operadores y Roles: `Kind="SolidUserIdCard"`
-  * Consola Fiscal ARCA: `Kind="SolidBadgeCheck"`
+* **`Solid...` (Relleno):** Utilizado para el botón principal de cobro, cabeceras de diálogo, badges semáforo y el avatar del operador en el Sidebar.
   * Alertas de Incidencia / Stock: `Kind="SolidAlertTriangle"`
-* **`Regular...` (Línea):** Utilizado para acciones secundarias, botones de grillas de datos y búsquedas.
+  * Avatar del operador (Sidebar, glifo oscuro sobre círculo blanco): `Kind="SolidUser"`
+* **`Regular...` (Línea):** Utilizado para los ítems de navegación del Sidebar, acciones secundarias, botones de grillas de datos y búsquedas. En el Sidebar todos los módulos usan la variante de línea, para que el ítem activo se distinga por la píldora carmín y no por el grosor del glifo.
+  * Punto de Venta (POS): `Kind="RegularStoreAlt2"`
+  * Catálogo de Artículos: `Kind="RegularBook"`
+  * Clientes y Ctas. Ctes.: `Kind="RegularUser"`
+  * Caja y Cobros: `Kind="RegularDollarCircle"`
+  * Compras a Distribuidores: `Kind="RegularCart"`
+  * Proveedores: `Kind="RegularTruck"`
+  * Operadores y Roles: `Kind="RegularUserIdCard"`
+  * Consola Fiscal ARCA: `Kind="RegularBadgeCheck"`
   * Búsqueda en inputs (`ui:TextBox`): `<ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}" Width="16" Height="16" />`
   * Refrescar datos: `Kind="RegularRefreshCw"`
   * Modificar / Editar fila: `Kind="RegularEdit"`

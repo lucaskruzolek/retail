@@ -752,7 +752,7 @@
     <Style x:Key="SidebarItemButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
