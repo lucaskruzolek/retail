@@ -54,7 +54,7 @@
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0"
-                       Text="Revise las cantidades. Cada renglón se agrega al borrador de su proveedor; si el ítem ya figura en él, la cantidad se suma."
+                       Text="Revise las cantidades y, si un artículo tiene varias fuentes, a qué proveedor pedirlo. Cada renglón se agrega al borrador de su proveedor; si el ítem ya figura en él, la cantidad se suma."
                        Style="{StaticResource TextBlockBodySecondary}"
                        TextWrapping="Wrap"
                        Margin="0,0,0,12" />
@@ -145,6 +145,40 @@
                                                         <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                                             <TextBlock Text="{Binding CodigoProveedor}" FontFamily="{StaticResource FontFamilyMonospace}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
                                                             <TextBlock Text="{Binding Descripcion}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Descripcion}" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                            <!-- Fuente del renglón (Track 4.3, A-18): solo si el artículo tiene varias, ordenadas por costo; al cambiarla,
+                                                                 el renglón pasa al grupo de su proveedor (K3) -->
+                                                            <ComboBox Margin="0,4,0,0"
+                                                                      Padding="8,4"
+                                                                      HorizontalAlignment="Stretch"
+                                                                      ItemsSource="{Binding Opciones}"
+                                                                      SelectedValuePath="Fuente"
+                                                                      SelectedValue="{Binding Fuente, Mode=TwoWay, UpdateSourceTrigger=Explicit}"
+                                                                      SelectionChanged="ComboFuente_SelectionChanged"
+                                                                      Visibility="{Binding TieneVariasFuentes, Converter={StaticResource BoolToVisConverter}}"
+                                                                      ToolTip="Proveedor al que se pide este artículo: costo y fecha de su lista">
+                                                                <ComboBox.ItemTemplate>
+                                                                    <DataTemplate>
+                                                                        <StackPanel Orientation="Horizontal">
+                                                                            <TextBlock FontSize="12" VerticalAlignment="Center">
+                                                                                <Run Text="{Binding RazonSocialProveedor, Mode=OneWay}" FontWeight="SemiBold" />
+                                                                                <Run Text=" · " Foreground="{DynamicResource TextMutedBrush}" />
+                                                                                <Run Text="{Binding CostoActual, StringFormat=C2, Mode=OneWay}"
+                                                                                     FontFamily="{StaticResource FontFamilyNumeric}"
+                                                                                     Typography.NumeralAlignment="Tabular" />
+                                                                                <Run Text=" · " Foreground="{DynamicResource TextMutedBrush}" />
+                                                                                <Run Text="{Binding FechaLocal, StringFormat={}{0:dd/MM/yyyy}, Mode=OneWay}"
+                                                                                     Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                                            </TextBlock>
+                                                                            <Border Style="{StaticResource BadgeNeutralStyle}"
+                                                                                    Margin="6,0,0,0"
+                                                                                    VerticalAlignment="Center"
+                                                                                    Visibility="{Binding EsPrincipal, Converter={StaticResource BoolToVisConverter}}">
+                                                                                <TextBlock Text="Principal" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                                            </Border>
+                                                                        </StackPanel>
+                                                                    </DataTemplate>
+                                                                </ComboBox.ItemTemplate>
+                                                            </ComboBox>
                                                             <Border Style="{StaticResource BadgeNeutralStyle}"
                                                                     HorizontalAlignment="Left"
                                                                     Margin="0,3,0,0"

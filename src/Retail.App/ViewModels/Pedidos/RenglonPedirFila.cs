@@ -20,12 +20,19 @@ public partial class RenglonPedirFila : ObservableObject
         // Una vista previa sin fuentes (un artículo con una sola, armado a mano) se trata como una lista de una.
         Fuentes = renglon.Fuentes.Count > 0 ? renglon.Fuentes : [FuenteDelRenglon(renglon)];
         _fuente = Fuentes.FirstOrDefault(f => f.IdCatalogoProveedor == renglon.IdCatalogoProveedor) ?? Fuentes[0];
+        Opciones = Fuentes.Select(f => new OpcionFuente(f)).ToList();
     }
 
     public RenglonVistaPreviaDto Renglon { get; }
 
     /// <summary>Las fuentes del artículo, ordenadas por costo (A-18).</summary>
     public IReadOnlyList<FuenteRenglonDto> Fuentes { get; }
+
+    /// <summary>
+    /// Lo que muestra el combo, en el mismo orden que <see cref="Fuentes"/>. El combo elige por
+    /// <see cref="OpcionFuente.Fuente"/>, así la selección sigue siendo <see cref="Fuente"/>.
+    /// </summary>
+    public IReadOnlyList<OpcionFuente> Opciones { get; }
 
     /// <summary>El combo solo se muestra si hay entre qué elegir.</summary>
     public bool TieneVariasFuentes => Fuentes.Count > 1;

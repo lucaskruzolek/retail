@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Threading;
 using Retail.App.ViewModels.Pedidos;
 using Wpf.Ui.Controls;
 
@@ -51,5 +52,23 @@ public partial class PedirArticulosDialog : FluentWindow
     {
         DialogResult = false;
         Close();
+    }
+
+    /// <summary>
+    /// Pasa la fuente elegida al renglón cuando el combo terminó de procesar la selección (Track 4.3, K3). Al cambiar
+    /// de fuente, el renglón cambia de grupo y su contenedor, con este combo adentro, se destruye: hacerlo durante el
+    /// propio evento deja al combo con la selección a medio actualizar (InvalidOperationException). Por eso el binding
+    /// es Explicit y se confirma en el siguiente ciclo del Dispatcher, como difiere su reformateo SelectorFechaCorta.
+    /// La prioridad Normal corre antes que la entrada del usuario: un clic en "Agregar al pedido" ya ve la fuente nueva.
+    /// </summary>
+    private void ComboFuente_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.ComboBox combo
+            || combo.GetBindingExpression(System.Windows.Controls.Primitives.Selector.SelectedValueProperty) is not { } binding)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Normal, binding.UpdateSource);
     }
 }
