@@ -382,18 +382,20 @@
 
                     <!-- Costo de Reposición -->
                     <DataGridTextColumn Header="Costo ($)"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                         Binding="{Binding Articulo.CostoReposicion, StringFormat={}{0:N2}}"
                                         Width="95"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                     <!-- Margen Ganancia -->
                     <DataGridTextColumn Header="Margen (%)"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                         Binding="{Binding Articulo.PorcentajeGanancia, StringFormat={}{0:N1}}"
                                         Width="85"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                     <!-- Precio de Venta (Destacado Carmín) -->
-                    <DataGridTemplateColumn Header="Precio Venta ($)" Width="120">
+                    <DataGridTemplateColumn Header="Precio Venta ($)" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Articulo.PrecioVenta, StringFormat={}{0:N2}}"

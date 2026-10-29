@@ -155,6 +155,7 @@
                                                 ElementStyle="{StaticResource TextBlockNumericCell}"
                                                 Width="86" />
                             <DataGridTextColumn Header="Total est."
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                 Binding="{Binding TotalEstimado, StringFormat=C2}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="116" />
@@ -308,6 +309,7 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Subtotal"
+                                                    HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                     Binding="{Binding Subtotal, StringFormat=C2}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                     Width="104" />

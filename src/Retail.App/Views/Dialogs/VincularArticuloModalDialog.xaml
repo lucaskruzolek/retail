@@ -119,10 +119,12 @@
                                              ElementStyle="{StaticResource TextBlockTextCell}"
                                              Width="*" />
                         <DataGridTextColumn Header="Precio Venta"
+                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                              Binding="{Binding PrecioVenta, StringFormat={}{0:C2}}"
                                              ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                              Width="100" />
                         <DataGridTextColumn Header="Stock"
+                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                              Binding="{Binding StockActual}"
                                              ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                              Width="70" />

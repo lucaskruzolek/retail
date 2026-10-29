@@ -156,6 +156,7 @@
 
                         <!-- Costo Reposición -->
                         <DataGridTextColumn Header="Costo ($)"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding CostoReposicion, StringFormat={}{0:N2}}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="100" />

@@ -542,7 +542,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- Precio de Venta (Alineado a la derecha con Cascadia Code) -->
-                        <DataGridTemplateColumn Header="Precio Venta" Width="140">
+                        <DataGridTemplateColumn Header="Precio Venta" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="140">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding PrecioVentaFormateado}"

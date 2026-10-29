@@ -152,6 +152,7 @@
                     <DataGrid.Columns>
                         <!-- ID Cliente -->
                         <DataGridTextColumn Header="ID"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding IdCliente, StringFormat=#{0:D4}}"
                                             Width="65"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
@@ -215,12 +216,13 @@
 
                         <!-- Límite de Crédito -->
                         <DataGridTextColumn Header="Límite Crédito"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding LimiteCredito, StringFormat={}{0:C}}"
                                             Width="120"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                         <!-- Saldo Deudor -->
-                        <DataGridTemplateColumn Header="Saldo Deudor" Width="130">
+                        <DataGridTemplateColumn Header="Saldo Deudor" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="130">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding SaldoCuentaCorriente, StringFormat={}{0:C}}"
@@ -247,7 +249,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- Crédito Disponible -->
-                        <DataGridTemplateColumn Header="Crédito Disp." Width="120">
+                        <DataGridTemplateColumn Header="Crédito Disp." HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="120">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding CreditoDisponible, StringFormat={}{0:C}}"

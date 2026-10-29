@@ -303,6 +303,7 @@
 
                         <!-- Precio de costo -->
                         <DataGridTextColumn Header="Costo Reposición"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding CostoReposicion, StringFormat=C2}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="130" />
@@ -353,6 +354,7 @@
 
                         <!-- Precio de venta tienda -->
                         <DataGridTextColumn Header="Precio Venta"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding PrecioVentaTienda, StringFormat=C2}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="110" />

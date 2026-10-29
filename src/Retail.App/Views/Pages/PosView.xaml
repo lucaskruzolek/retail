@@ -236,22 +236,26 @@
                                                 IsReadOnly="True" />
 
                             <!-- Cantidad con botones + / - -->
-                            <DataGridTemplateColumn Header="Cantidad" Width="140">
+                            <DataGridTemplateColumn Header="Cantidad" HeaderStyle="{StaticResource DataGridColumnHeaderCenterStyle}" Width="140">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Button Command="{Binding DataContext.DecrementarCantidadCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{StaticResource KeycapButtonStyle}"
-                                                    Padding="6,2"
-                                                    Margin="0,0,4,0">
-                                                <TextBlock Text="-" FontWeight="Bold" FontSize="13" />
+                                                    Click="OnAjusteCantidadClick"
+                                                    Width="24"
+                                                    Height="24"
+                                                    Padding="0"
+                                                    Margin="0,0,4,0"
+                                                    ToolTip="Restar una unidad">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularMinus" Width="12" Height="12" />
                                             </Button>
                                             <!-- Cantidad editable por teclado (100 hojas sueltas sin 100 clics). Se confirma con
                                                  Enter, Tab o al salir; un valor inválido vuelve al anterior (D-25). -->
                                             <TextBox Text="{Binding Cantidad, UpdateSourceTrigger=LostFocus}"
                                                      Width="56"
-                                                     Height="28"
+                                                     Height="24"
                                                      MinHeight="0"
                                                      Padding="2,0"
                                                      HorizontalContentAlignment="Center"
@@ -267,9 +271,13 @@
                                             <Button Command="{Binding DataContext.IncrementarCantidadCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{StaticResource KeycapButtonStyle}"
-                                                    Padding="6,2"
-                                                    Margin="4,0,0,0">
-                                                <TextBlock Text="+" FontWeight="Bold" FontSize="13" />
+                                                    Click="OnAjusteCantidadClick"
+                                                    Width="24"
+                                                    Height="24"
+                                                    Padding="0"
+                                                    Margin="4,0,0,0"
+                                                    ToolTip="Sumar una unidad">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="12" Height="12" />
                                             </Button>
                                         </StackPanel>
                                     </DataTemplate>
@@ -278,6 +286,7 @@
 
                             <!-- Precio Unitario -->
                             <DataGridTextColumn Header="Precio Unit."
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                 Binding="{Binding PrecioUnitarioFormateado}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="130"
@@ -285,6 +294,7 @@
 
                             <!-- Subtotal Línea -->
                             <DataGridTextColumn Header="Subtotal"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                 Binding="{Binding SubtotalItemFormateado}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="130"

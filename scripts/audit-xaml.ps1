@@ -35,9 +35,20 @@ $xamlFiles = Get-ChildItem -Path $appDir -Filter "*.xaml" -Recurse | Where-Objec
 $unresolvedStatic = @{}
 $unresolvedDynamic = @{}
 $localThemeMerges = [System.Collections.Generic.List[string]]::new()
+$headersSinAlinear = [System.Collections.Generic.List[string]]::new()
 
 foreach ($file in $xamlFiles) {
     $content = Get-Content $file.FullName -Raw
+
+    # El encabezado sigue la alineacion de su celda: una columna de texto con celda a la derecha declara su HeaderStyle
+    foreach ($columna in [regex]::Matches($content, '<DataGridTextColumn\b[^>]*>')) {
+        $etiqueta = $columna.Value
+        if ($etiqueta -match 'ElementStyle="\{StaticResource (TextBlockCurrencyCell|CeldaNumericaDerecha|CeldaMonedaChica)\}"' -and
+            $etiqueta -notmatch '\bHeaderStyle=') {
+            $titulo = if ($etiqueta -match 'Header="([^"]*)"') { $Matches[1] } else { '(sin encabezado)' }
+            $headersSinAlinear.Add("$($file.Name): $titulo")
+        }
+    }
 
     # Los diccionarios de WPF-UI se cargan solo en App.xaml: una copia por ventana tapa el acento de la aplicacion
     if ($file.Name -ne "App.xaml" -and $content -match '<ui:(ThemesDictionary|ControlsDictionary)\b') {
@@ -115,6 +126,18 @@ else {
     Write-Host "[ERROR] Ventanas o vistas que vuelven a mergear los diccionarios de WPF-UI (heredan los de App.xaml):" -ForegroundColor Red
     foreach ($name in $localThemeMerges) {
         Write-Host "  * $name" -ForegroundColor Red
+    }
+}
+
+Write-Host "`n--- REVISION DE ENCABEZADOS DE COLUMNAS A LA DERECHA ---" -ForegroundColor Yellow
+if ($headersSinAlinear.Count -eq 0) {
+    Write-Host "[OK] Todo encabezado sobre una celda a la derecha declara HeaderStyle." -ForegroundColor Green
+}
+else {
+    $hasErrors = $true
+    Write-Host "[ERROR] Columnas con celda a la derecha y encabezado a la izquierda (use DataGridColumnHeaderRightStyle):" -ForegroundColor Red
+    foreach ($item in $headersSinAlinear) {
+        Write-Host "  * $item" -ForegroundColor Red
     }
 }
 

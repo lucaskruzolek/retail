@@ -437,6 +437,17 @@
         <Setter Property="Padding" Value="12,10" />
     </Style>
 
+    <!-- El encabezado sigue la alineación de su celda: a la derecha sobre importes y números (así el título queda sobre
+         los dígitos), centrado sobre controles centrados (cantidad, acciones). El relleno de 12 coincide con el de la
+         celda, de modo que los bordes derechos del título y del dato quedan en la misma vertical. -->
+    <Style x:Key="DataGridColumnHeaderRightStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRetailStyle}">
+        <Setter Property="HorizontalContentAlignment" Value="Right" />
+    </Style>
+
+    <Style x:Key="DataGridColumnHeaderCenterStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRetailStyle}">
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
     <!-- Celda sin bordes verticales ni halos azules al seleccionarse -->
     <Style x:Key="DataGridCellRetailStyle" TargetType="DataGridCell">
         <Setter Property="Padding" Value="12,8" />

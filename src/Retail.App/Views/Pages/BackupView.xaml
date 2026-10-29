@@ -209,6 +209,7 @@
 
                         <!-- Tamaño del archivo -->
                         <DataGridTextColumn Header="Tamaño"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding TamanoTexto}"
                                             Width="110"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />

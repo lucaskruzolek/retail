@@ -95,16 +95,16 @@
                 <DataGridTextColumn Header="Descripción del Artículo" Binding="{Binding DescripcionArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="*" />
                 
                 <!-- Costo Reposición Unitario (Monospace Cascadia Code) -->
-                <DataGridTextColumn Header="Costo Unitario" Binding="{Binding CostoUnitario, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
+                <DataGridTextColumn Header="Costo Unitario" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding CostoUnitario, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
                 
                 <!-- Cantidad Adquirida -->
                 <DataGridTextColumn Header="Cantidad" Binding="{Binding Cantidad}" ElementStyle="{StaticResource TextBlockTextCell}" Width="100" />
                 
                 <!-- Subtotal Ítem -->
-                <DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
+                <DataGridTextColumn Header="Subtotal" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding Subtotal, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
 
                 <!-- Precio Venta Sugerido Recalculado por Markup -->
-                <DataGridTextColumn Header="Nuevo Precio Venta" Binding="{Binding NuevoPrecioVentaSugerido, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="150" />
+                <DataGridTextColumn Header="Nuevo Precio Venta" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding NuevoPrecioVentaSugerido, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="150" />
             </DataGrid.Columns>
         </DataGrid>
 
