@@ -127,6 +127,13 @@ public class ArticuloQueryService : IArticuloQueryService
                 CostoCatalogoProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.CostoReposicion : null,
                 // Subconsulta correlacionada, solo para las filas de la página (A-19); el filtro global omite las bajas.
                 CantidadFuentes = _context.CatalogosProveedores.Count(c => c.IdArticulo == a.Id),
+                // Sin principal se pide a la más barata, con el mismo orden que el combo del modal (costo, id).
+                IdFuentePedido = a.IdCatalogoProveedor ?? _context.CatalogosProveedores
+                    .Where(c => c.IdArticulo == a.Id)
+                    .OrderBy(c => c.CostoReposicion)
+                    .ThenBy(c => c.Id)
+                    .Select(c => (int?)c.Id)
+                    .FirstOrDefault(),
                 CostoReposicion = a.CostoReposicion,
                 PorcentajeGanancia = a.PorcentajeGanancia,
                 PrecioVenta = a.PrecioVenta,

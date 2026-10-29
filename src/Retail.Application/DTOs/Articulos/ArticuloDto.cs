@@ -26,6 +26,13 @@ public record class ArticuloDto : BaseDto
     /// completa la consulta paginada.
     /// </summary>
     public int CantidadFuentes { get; init; }
+
+    /// <summary>
+    /// Fuente a la que se pide desde la grilla (Track 4.3, L4, paso 3c): la principal o, si no hay, la más barata. No
+    /// convierte a la más barata en principal: solo queda preseleccionada en el modal de pedido (K2). Solo la completa la
+    /// consulta paginada.
+    /// </summary>
+    public int? IdFuentePedido { get; init; }
     public int? IdArticuloOrigen { get; init; }
     public int? UnidadesPorOrigen { get; init; }
     public bool EsDerivado => IdArticuloOrigen.HasValue && IdArticuloOrigen.Value > 0;

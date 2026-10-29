@@ -436,6 +436,28 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
             .Should().Equal(new Dictionary<string, int> { ["Cuaderno"] = 2, ["Lápiz"] = 1, ["Artesanal"] = 0 });
     }
 
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_FuenteParaPedir_EsLaPrincipalOLaMasBarataVigente()
+    {
+        // Arrange (Track 4.3, L4, paso 3c): el cuaderno pierde la principal; Este (50) es más barata pero está dada
+        // de baja, así que se pide a Norte (90)
+        var (idCuaderno, _, norte) = await SembrarCuadernoConFuentesAsync();
+        var cuaderno = await _context.Articulos.SingleAsync(a => a.Id == idCuaderno);
+        cuaderno.QuitarFuentePrincipal();
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var pagina = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto());
+
+        // Assert
+        var porDescripcion = pagina.Items.ToDictionary(i => i.Descripcion);
+        porDescripcion["Cuaderno"].IdCatalogoProveedor.Should().BeNull("pedir no convierte a la más barata en principal");
+        porDescripcion["Cuaderno"].IdFuentePedido.Should().Be(norte);
+        porDescripcion["Lápiz"].IdFuentePedido.Should().Be(porDescripcion["Lápiz"].IdCatalogoProveedor);
+        porDescripcion["Artesanal"].IdFuentePedido.Should().BeNull();
+    }
+
     /// <summary>
     /// "Cuaderno" con Sur (100) como principal, Norte (90) como adicional y Este (50) como adicional dada de baja;
     /// "Lápiz" con Oeste como principal; "Artesanal" sin fuentes.

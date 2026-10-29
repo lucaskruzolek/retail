@@ -766,8 +766,9 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Pide los artículos que tienen proveedor vinculado; los demás se informan en el modal con su motivo. Aquí no
-    /// se ofrece incorporar: un artículo ya está en la tienda, lo que le falta es la fuente (A-17).
+    /// Pide los artículos que tienen alguna fuente, a la principal o, sin ella, a la más barata (paso 3c); los demás se
+    /// informan en el modal con su motivo. Aquí no se ofrece incorporar: un artículo ya está en la tienda, lo que le
+    /// falta es la fuente (A-17).
     /// </summary>
     private async Task PedirAsync(IReadOnlyList<ArticuloFila> filas)
     {
@@ -778,7 +779,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
         var idsCatalogo = filas
             .Where(f => f.SePuedePedir)
-            .Select(f => f.Articulo.IdCatalogoProveedor!.Value)
+            .Select(f => f.IdFuenteParaPedir!.Value)
             .Distinct()
             .ToList();
         var avisosPrevios = filas

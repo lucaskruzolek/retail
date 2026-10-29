@@ -705,7 +705,7 @@ public class ArticulosViewModelTests : IDisposable
 
     private static readonly string[] AvisosEsperadosDeExcluidos =
     [
-        "Bolígrafo Bic Cristal: no tiene proveedor vinculado",
+        "Bolígrafo Bic Cristal: no tiene fuentes",
         "Fotocopia simple faz: es un servicio: no se pide a proveedores"
     ];
 
@@ -812,6 +812,25 @@ public class ArticulosViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task PedirArticuloCommand_SinPrincipalConFuentes_PideLaFuenteMasBarataDeLaConsulta()
+    {
+        // Track 4.3, L4, paso 3c: la consulta trae la más barata (26); el modal la preselecciona (K2)
+        var sinPrincipal = _articulosEjemplo[1] with { IdCatalogoProveedor = null, IdFuentePedido = 26, CantidadFuentes = 2 };
+        _inventarioService.ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>())
+            .Returns(new ArticulosPaginadosDto { Items = [sinPrincipal], TotalRegistros = 1, TotalArticulos = 1, PaginaActual = 1, TamanoPagina = 10 });
+        using var escenario = new EscenarioPedido(_inventarioService, _dialogService);
+        await escenario.Sut.CargarArticulosAsync();
+        ConfigurarPedidoConfirmado(escenario);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Is<IReadOnlyCollection<int>>(ids => ids.Count == 1 && ids.Contains(26)),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task PedirArticuloCommand_SinFiltroDeDistribuidor_NoPasaProveedorPreferido()
     {
         using var escenario = await CrearEscenarioPedidoAsync();
@@ -874,7 +893,7 @@ public class ArticulosViewModelTests : IDisposable
 
         await escenario.Sut.PedirSeleccionadosCommand.ExecuteAsync(null);
 
-        escenario.PedidoDialogService.Received(1).MostrarAlerta("No hay nada para pedir", Arg.Is<string>(m => m.Contains("Bolígrafo Bic Cristal: no tiene proveedor vinculado")));
+        escenario.PedidoDialogService.Received(1).MostrarAlerta("No hay nada para pedir", Arg.Is<string>(m => m.Contains("Bolígrafo Bic Cristal: no tiene fuentes")));
         await escenario.PedidoService.DidNotReceiveWithAnyArgs().ObtenerVistaPreviaAsync(default!, default);
         escenario.PedidoDialogService.DidNotReceiveWithAnyArgs().MostrarPedirArticulos(default!, default!, default);
     }

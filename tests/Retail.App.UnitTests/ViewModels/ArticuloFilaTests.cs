@@ -7,13 +7,18 @@ namespace Retail.App.UnitTests.ViewModels;
 
 public class ArticuloFilaTests
 {
-    private static ArticuloDto CrearArticulo(int? idCatalogoProveedor = null, bool esServicio = false, int? idArticuloOrigen = null)
+    private static ArticuloDto CrearArticulo(
+        int? idCatalogoProveedor = null,
+        bool esServicio = false,
+        int? idArticuloOrigen = null,
+        int? idFuentePedido = null)
     {
         return new ArticuloDto
         {
             IdArticulo = 1,
             Descripcion = "Cuaderno A4",
             IdCatalogoProveedor = idCatalogoProveedor,
+            IdFuentePedido = idFuentePedido,
             IdArticuloOrigen = idArticuloOrigen,
             UnidadesPorOrigen = idArticuloOrigen is null ? null : 12,
             CostoReposicion = 100m,
@@ -36,12 +41,33 @@ public class ArticuloFilaTests
     }
 
     [Fact]
-    public void Constructor_SinProveedorVinculado_NoSePuedePedirConSuMotivo()
+    public void Constructor_SinFuentes_NoSePuedePedirConSuMotivo()
     {
         var sut = new ArticuloFila(CrearArticulo());
 
         sut.SePuedePedir.Should().BeFalse();
-        sut.MotivoNoSePuedePedir.Should().Be("no tiene proveedor vinculado");
+        sut.MotivoNoSePuedePedir.Should().Be("no tiene fuentes");
+        sut.IdFuenteParaPedir.Should().BeNull();
+    }
+
+    [Fact]
+    public void Constructor_SinPrincipalConFuentes_SePidePorLaFuenteQueEligioLaConsulta()
+    {
+        // Track 4.3, L4, paso 3c: la consulta elige la más barata; la fila no la convierte en principal
+        var sut = new ArticuloFila(CrearArticulo(idFuentePedido: 26));
+
+        sut.SePuedePedir.Should().BeTrue();
+        sut.MotivoNoSePuedePedir.Should().BeNull();
+        sut.IdFuenteParaPedir.Should().Be(26);
+        sut.Articulo.EstaVinculadoAProveedor.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IdFuenteParaPedir_ConPrincipalSinDatoDeLaConsulta_UsaLaPrincipal()
+    {
+        var sut = new ArticuloFila(CrearArticulo(idCatalogoProveedor: 40));
+
+        sut.IdFuenteParaPedir.Should().Be(40);
     }
 
     [Fact]
