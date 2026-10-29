@@ -9,10 +9,22 @@ namespace Retail.Application.Interfaces.Persistence;
 public interface IPedidoQueryService
 {
     /// <summary>
-    /// Artículo vigente vinculado al ítem de catálogo, o <c>null</c> si ninguno lo está. Hoy es el artículo con
-    /// <c>Articulo.IdCatalogoProveedor</c> igual al ítem; es el único punto que cambia en L3 (multifuente).
+    /// Artículo vigente vinculado a cada ítem de catálogo, indexado por el id del ítem. Los ítems sin vincular no
+    /// figuran. Hoy es el artículo con <c>Articulo.IdCatalogoProveedor</c> igual al ítem; es el único punto que
+    /// cambia en L3 (multifuente, E4).
     /// </summary>
-    Task<int?> ObtenerIdArticuloVinculadoAsync(int idCatalogoProveedor, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<int, int>> ObtenerArticulosVinculadosAsync(
+        IReadOnlyCollection<int> idsCatalogoProveedor,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Vista previa de un lote antes de confirmarlo (A-17): destino de cada proveedor, ítems que se pueden pedir con
+    /// su stock y la cantidad que ya figura en el borrador, e ítems omitidos con su motivo. Los renglones respetan el
+    /// orden recibido.
+    /// </summary>
+    Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(
+        IReadOnlyCollection<int> idsCatalogoProveedor,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Identificador del borrador vigente del proveedor, o <c>null</c> si no tiene (A-7: a lo sumo uno).

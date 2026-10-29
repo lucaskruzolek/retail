@@ -21,7 +21,7 @@ public class PedidoService : IPedidoService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPedidoQueryService _consultas;
     private readonly ICatalogoProveedorQueryService _catalogo;
-    private readonly IValidator<AgregarAlPedidoDto> _agregarValidator;
+    private readonly IValidator<AgregarVariosAlPedidoDto> _agregarValidator;
     private readonly IValidator<CambiarCantidadRenglonDto> _cambiarCantidadValidator;
     private readonly IValidator<CancelarPedidoDto> _cancelarValidator;
 
@@ -30,7 +30,7 @@ public class PedidoService : IPedidoService
         IUnitOfWork unitOfWork,
         IPedidoQueryService consultas,
         ICatalogoProveedorQueryService catalogo,
-        IValidator<AgregarAlPedidoDto> agregarValidator,
+        IValidator<AgregarVariosAlPedidoDto> agregarValidator,
         IValidator<CambiarCantidadRenglonDto> cambiarCantidadValidator,
         IValidator<CancelarPedidoDto> cancelarValidator)
     {
@@ -43,38 +43,69 @@ public class PedidoService : IPedidoService
         _cancelarValidator = cancelarValidator ?? throw new ArgumentNullException(nameof(cancelarValidator));
     }
 
-    public async Task<PedidoResumenDto> AgregarAlPedidoAsync(AgregarAlPedidoDto dto, CancellationToken cancellationToken = default)
+    public async Task<ResultadoAgregarAlPedidoDto> AgregarVariosAlPedidoAsync(AgregarVariosAlPedidoDto dto, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(dto);
         await _agregarValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
-        var item = await _catalogo.ObtenerPorIdAsync(dto.IdCatalogoProveedor, cancellationToken)
-            ?? throw new DomainException($"El ítem de catálogo {dto.IdCatalogoProveedor} no existe.");
+        var ids = dto.Renglones.Select(r => r.IdCatalogoProveedor).ToList();
+        var items = (await _catalogo.ObtenerPorIdsAsync(ids, cancellationToken)).ToDictionary(i => i.Id);
+        var articulos = await _consultas.ObtenerArticulosVinculadosAsync(ids, cancellationToken);
 
-        var idArticulo = await _consultas.ObtenerIdArticuloVinculadoAsync(item.Id, cancellationToken)
-            ?? throw new DomainException(
-                $"El ítem '{item.DescripcionProveedor}' (código {item.CodigoProveedor}) todavía no es un artículo. " +
-                "Incorpórelo al catálogo de artículos antes de pedirlo.");
-
-        // Dos terminales pueden crear a la vez el primer borrador de un proveedor (violan el índice único filtrado,
-        // A-7) o agregar al mismo borrador (chocan en row_version, E2). En ambos casos se relee y se reintenta una vez:
-        // la segunda pasada ve el borrador ajeno y suma su renglón encima.
-        for (var intento = 1; ; intento++)
+        // Los ítems que no se pueden pedir se informan y no abortan el lote: el modal ya se los mostró al usuario
+        // antes de confirmar (H2).
+        var resueltos = new List<RenglonResuelto>();
+        var omitidos = new List<RenglonOmitidoDto>();
+        foreach (var renglon in dto.Renglones)
         {
-            try
+            if (!items.TryGetValue(renglon.IdCatalogoProveedor, out var item))
             {
-                return await AgregarUnaVezAsync(dto, item, idArticulo, cancellationToken);
-            }
-            catch (Exception ex) when (ex is RestriccionDeUnicidadException or ConflictoDeConcurrenciaException)
-            {
-                if (intento >= MaximoIntentosAgregar)
+                omitidos.Add(new RenglonOmitidoDto
                 {
-                    throw new DomainException("Otro usuario está modificando el pedido de este proveedor. Intente de nuevo.", ex);
-                }
-
-                _unitOfWork.DescartarCambios();
+                    IdCatalogoProveedor = renglon.IdCatalogoProveedor,
+                    Motivo = MotivoOmisionPedidoEnum.ItemInexistente
+                });
+            }
+            else if (!articulos.TryGetValue(item.Id, out var idArticulo))
+            {
+                omitidos.Add(new RenglonOmitidoDto
+                {
+                    IdCatalogoProveedor = item.Id,
+                    CodigoProveedor = item.CodigoProveedor,
+                    Descripcion = item.DescripcionProveedor,
+                    Motivo = MotivoOmisionPedidoEnum.SinIncorporar
+                });
+            }
+            else
+            {
+                resueltos.Add(new RenglonResuelto(item, idArticulo, renglon.Cantidad));
             }
         }
+
+        if (resueltos.Count == 0)
+        {
+            // ObtenerPorIdsAsync rastrea los ítems: el contexto no debe retenerlos (D-15).
+            _unitOfWork.DescartarCambios();
+            return new ResultadoAgregarAlPedidoDto { Omitidos = omitidos };
+        }
+
+        var idsPedidos = await AgregarConReintentoAsync(dto.IdUsuario, resueltos, cancellationToken);
+
+        var pedidos = new List<PedidoResumenDto>();
+        foreach (var idPedido in idsPedidos)
+        {
+            pedidos.Add(await _consultas.ObtenerResumenAsync(idPedido, cancellationToken)
+                ?? throw new InvalidOperationException($"El pedido {idPedido} recién guardado no se pudo leer."));
+        }
+
+        return new ResultadoAgregarAlPedidoDto { Pedidos = pedidos, Omitidos = omitidos };
+    }
+
+    public Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(IReadOnlyCollection<int> idsCatalogoProveedor, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(idsCatalogoProveedor);
+
+        return _consultas.ObtenerVistaPreviaAsync(idsCatalogoProveedor, cancellationToken);
     }
 
     public Task<PedidosPaginadosDto> ListarPedidosAsync(ConsultaPedidosDto consulta, CancellationToken cancellationToken = default)
@@ -175,55 +206,85 @@ public class PedidoService : IPedidoService
         }
     }
 
-    /// <summary>
-    /// Un intento de agregar el renglón: relee el borrador del proveedor (o crea uno), agrega, guarda y devuelve el
-    /// resumen. Los errores de concurrencia y unicidad los resuelve quien lo llama.
-    /// </summary>
-    private async Task<PedidoResumenDto> AgregarUnaVezAsync(
-        AgregarAlPedidoDto dto,
-        CatalogoProveedor item,
-        int idArticulo,
+    private async Task<IReadOnlyList<int>> AgregarConReintentoAsync(
+        int idUsuario,
+        IReadOnlyList<RenglonResuelto> renglones,
         CancellationToken cancellationToken)
     {
-        int idPedido;
+        // Dos terminales pueden crear a la vez el primer borrador de un proveedor (violan el índice único filtrado,
+        // A-7) o agregar al mismo borrador (chocan en row_version, E2). En ambos casos se relee y se reintenta una vez
+        // el lote entero: la segunda pasada ve el borrador ajeno y suma sus renglones encima.
+        for (var intento = 1; ; intento++)
+        {
+            try
+            {
+                return await AgregarUnaVezAsync(idUsuario, renglones, cancellationToken);
+            }
+            catch (Exception ex) when (ex is RestriccionDeUnicidadException or ConflictoDeConcurrenciaException)
+            {
+                if (intento >= MaximoIntentosAgregar)
+                {
+                    throw new DomainException("Otro usuario está modificando el pedido de este proveedor. Intente de nuevo.", ex);
+                }
+            }
+        }
+    }
 
+    /// <summary>
+    /// Un intento de agregar el lote: por cada proveedor relee su borrador (o crea uno) y le agrega sus renglones;
+    /// después guarda todos los borradores en un único <c>SaveChanges</c>, es decir, en una sola transacción (A-17).
+    /// Devuelve los ids de los pedidos tocados. Los errores de concurrencia y unicidad los resuelve quien lo llama.
+    /// </summary>
+    private async Task<IReadOnlyList<int>> AgregarUnaVezAsync(
+        int idUsuario,
+        IReadOnlyList<RenglonResuelto> renglones,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            var idBorrador = await _consultas.ObtenerIdBorradorAsync(item.IdProveedor, cancellationToken);
-            var existente = idBorrador.HasValue
-                ? await CargarPedidoAsync(idBorrador.Value, cancellationToken)
-                : null;
-            var pedido = existente ?? Pedido.CrearBorrador(item.IdProveedor, dto.IdUsuario);
-
-            // La foto del renglón (código, descripción y costo) es la del catálogo en este momento.
-            pedido.AgregarRenglon(
-                idArticulo,
-                item.Id,
-                item.CodigoProveedor,
-                item.DescripcionProveedor,
-                dto.Cantidad,
-                item.CostoReposicion);
-
-            if (existente is null)
+            var pedidos = new List<Pedido>();
+            foreach (var grupo in renglones.GroupBy(r => r.Item.IdProveedor))
             {
-                await _pedidos.AddAsync(pedido, cancellationToken);
-                await _unitOfWork.SaveChangesAsync(cancellationToken);
-            }
-            else
-            {
-                await GuardarRaizAsync(pedido, cancellationToken);
+                var idBorrador = await _consultas.ObtenerIdBorradorAsync(grupo.Key, cancellationToken);
+                var existente = idBorrador.HasValue
+                    ? await CargarPedidoAsync(idBorrador.Value, cancellationToken)
+                    : null;
+                var pedido = existente ?? Pedido.CrearBorrador(grupo.Key, idUsuario);
+
+                // La foto de cada renglón (código, descripción y costo) es la del catálogo en este momento.
+                foreach (var renglon in grupo)
+                {
+                    pedido.AgregarRenglon(
+                        renglon.IdArticulo,
+                        renglon.Item.Id,
+                        renglon.Item.CodigoProveedor,
+                        renglon.Item.DescripcionProveedor,
+                        renglon.Cantidad,
+                        renglon.Item.CostoReposicion);
+                }
+
+                if (existente is null)
+                {
+                    await _pedidos.AddAsync(pedido, cancellationToken);
+                }
+                else
+                {
+                    // E2: ver GuardarRaizAsync. Acá no se guarda todavía: el lote se guarda junto, abajo.
+                    await _pedidos.UpdateAsync(pedido, cancellationToken);
+                }
+
+                pedidos.Add(pedido);
             }
 
-            idPedido = pedido.Id;
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return pedidos.Select(p => p.Id).ToList();
         }
         finally
         {
-            // D-15: éxito o fallo, el contexto no retiene el agregado (si el guardado falló, ya se descartó solo).
+            // D-15: éxito o fallo, el contexto no retiene los agregados (si el guardado falló, ya se descartó solo).
             _unitOfWork.DescartarCambios();
         }
-
-        return await _consultas.ObtenerResumenAsync(idPedido, cancellationToken)
-            ?? throw new InvalidOperationException($"El pedido {idPedido} recién guardado no se pudo leer.");
     }
 
     private async Task<Pedido> CargarPedidoAsync(int idPedido, CancellationToken cancellationToken)
@@ -240,4 +301,9 @@ public class PedidoService : IPedidoService
         await _pedidos.UpdateAsync(pedido, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
     }
+
+    /// <summary>
+    /// Renglón del lote ya validado: el ítem de catálogo existe y está vinculado a un artículo.
+    /// </summary>
+    private sealed record RenglonResuelto(CatalogoProveedor Item, int IdArticulo, int Cantidad);
 }

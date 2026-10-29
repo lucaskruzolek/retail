@@ -8,14 +8,28 @@ namespace Retail.Application.UnitTests.Validators;
 
 public class PedidoValidatorTests
 {
-    private readonly AgregarAlPedidoValidator _agregarValidator = new();
+    private readonly AgregarVariosAlPedidoValidator _agregarValidator = new();
     private readonly CambiarCantidadRenglonValidator _cambiarValidator = new();
     private readonly CancelarPedidoValidator _cancelarValidator = new();
 
-    [Fact]
-    public void AgregarAlPedido_ConDatosValidos_DebeAprobar()
+    private static AgregarVariosAlPedidoDto CrearLote(int idUsuario = 1, params RenglonAAgregarDto[] renglones)
     {
-        var dto = new AgregarAlPedidoDto { IdCatalogoProveedor = 1, Cantidad = 1, IdUsuario = 1 };
+        return new AgregarVariosAlPedidoDto
+        {
+            IdUsuario = idUsuario,
+            Renglones = renglones.Length == 0
+                ? new[] { new RenglonAAgregarDto { IdCatalogoProveedor = 1, Cantidad = 1 } }
+                : renglones
+        };
+    }
+
+    [Fact]
+    public void AgregarVariosAlPedido_ConDatosValidos_DebeAprobar()
+    {
+        var dto = CrearLote(
+            1,
+            new RenglonAAgregarDto { IdCatalogoProveedor = 1, Cantidad = 1 },
+            new RenglonAAgregarDto { IdCatalogoProveedor = 2, Cantidad = 5 });
 
         _agregarValidator.Validate(dto).IsValid.Should().BeTrue();
     }
@@ -23,31 +37,54 @@ public class PedidoValidatorTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void AgregarAlPedido_IdCatalogoInvalido_DebeFallar(int id)
+    public void AgregarVariosAlPedido_IdUsuarioInvalido_DebeFallar(int id)
     {
-        var dto = new AgregarAlPedidoDto { IdCatalogoProveedor = id, Cantidad = 1, IdUsuario = 1 };
-
-        _agregarValidator.Validate(dto).Errors.Should().ContainSingle(e => e.PropertyName == nameof(AgregarAlPedidoDto.IdCatalogoProveedor));
+        _agregarValidator.Validate(CrearLote(id)).Errors
+            .Should().ContainSingle(e => e.PropertyName == nameof(AgregarVariosAlPedidoDto.IdUsuario));
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(-3)]
-    public void AgregarAlPedido_CantidadInvalida_DebeFallar(int cantidad)
+    [Fact]
+    public void AgregarVariosAlPedido_SinRenglones_DebeFallar()
     {
-        var dto = new AgregarAlPedidoDto { IdCatalogoProveedor = 1, Cantidad = cantidad, IdUsuario = 1 };
+        var dto = new AgregarVariosAlPedidoDto { IdUsuario = 1 };
 
-        _agregarValidator.Validate(dto).Errors.Should().ContainSingle(e => e.PropertyName == nameof(AgregarAlPedidoDto.Cantidad));
+        _agregarValidator.Validate(dto).Errors
+            .Should().ContainSingle(e => e.PropertyName == nameof(AgregarVariosAlPedidoDto.Renglones));
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void AgregarAlPedido_IdUsuarioInvalido_DebeFallar(int id)
+    public void AgregarVariosAlPedido_IdCatalogoInvalido_DebeFallar(int id)
     {
-        var dto = new AgregarAlPedidoDto { IdCatalogoProveedor = 1, Cantidad = 1, IdUsuario = id };
+        var dto = CrearLote(1, new RenglonAAgregarDto { IdCatalogoProveedor = id, Cantidad = 1 });
 
-        _agregarValidator.Validate(dto).Errors.Should().ContainSingle(e => e.PropertyName == nameof(AgregarAlPedidoDto.IdUsuario));
+        _agregarValidator.Validate(dto).Errors
+            .Should().ContainSingle(e => e.PropertyName.EndsWith(nameof(RenglonAAgregarDto.IdCatalogoProveedor)));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void AgregarVariosAlPedido_CantidadInvalida_DebeFallar(int cantidad)
+    {
+        var dto = CrearLote(1, new RenglonAAgregarDto { IdCatalogoProveedor = 1, Cantidad = cantidad });
+
+        _agregarValidator.Validate(dto).Errors
+            .Should().ContainSingle(e => e.PropertyName.EndsWith(nameof(RenglonAAgregarDto.Cantidad)));
+    }
+
+    [Fact]
+    public void AgregarVariosAlPedido_ItemRepetido_DebeFallar()
+    {
+        var dto = CrearLote(
+            1,
+            new RenglonAAgregarDto { IdCatalogoProveedor = 7, Cantidad = 1 },
+            new RenglonAAgregarDto { IdCatalogoProveedor = 7, Cantidad = 2 });
+
+        _agregarValidator.Validate(dto).Errors
+            .Should().ContainSingle(e => e.PropertyName == nameof(AgregarVariosAlPedidoDto.Renglones)
+                && e.ErrorMessage.Contains("repetirse"));
     }
 
     [Fact]

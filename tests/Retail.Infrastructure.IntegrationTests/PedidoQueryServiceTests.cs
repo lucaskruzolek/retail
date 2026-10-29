@@ -110,33 +110,125 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
     }
 
     [Fact]
-    public async Task ObtenerIdArticuloVinculado_ItemVinculado_DevuelveArticulo()
+    public async Task ObtenerArticulosVinculados_VinculadoYSinVincular_SoloDevuelveElVinculado()
+    {
+        // Arrange
+        var proveedor = await SembrarProveedorAsync();
+        var vinculado = await SembrarItemAsync(proveedor);
+        var sinVincular = await SembrarItemAsync(proveedor, vincularArticulo: false);
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var articulos = await servicio.ObtenerArticulosVinculadosAsync(new[] { vinculado.Catalogo.Id, sinVincular.Catalogo.Id });
+
+        // Assert
+        articulos.Should().Equal(new Dictionary<int, int> { [vinculado.Catalogo.Id] = vinculado.Articulo!.Id });
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosVinculados_ArticuloDadoDeBaja_NoLoDevuelve()
     {
         // Arrange
         var proveedor = await SembrarProveedorAsync();
         var item = await SembrarItemAsync(proveedor);
+        item.Articulo!.MarkAsDeleted();
+        await Contexto.SaveChangesAsync();
         var servicio = new PedidoQueryService(NuevoContexto());
 
         // Act
-        var id = await servicio.ObtenerIdArticuloVinculadoAsync(item.Catalogo.Id);
+        var articulos = await servicio.ObtenerArticulosVinculadosAsync(new[] { item.Catalogo.Id });
 
         // Assert
-        id.Should().Be(item.Articulo!.Id);
+        articulos.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task ObtenerIdArticuloVinculado_ItemSinVincular_DevuelveNull()
+    public async Task ObtenerVistaPrevia_ConBorradorExistente_InformaDestinoStockYCantidadYaPedida()
     {
         // Arrange
         var proveedor = await SembrarProveedorAsync();
-        var item = await SembrarItemAsync(proveedor, vincularArticulo: false);
+        var enBorrador = await SembrarItemAsync(proveedor, costo: 80m);
+        var nuevo = await SembrarItemAsync(proveedor, costo: 120m);
+        var borrador = await SembrarBorradorAsync(proveedor, (enBorrador.Articulo!, enBorrador.Catalogo));
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act: el orden pedido se respeta en los renglones.
+        var vista = await servicio.ObtenerVistaPreviaAsync(new[] { nuevo.Catalogo.Id, enBorrador.Catalogo.Id });
+
+        // Assert
+        vista.Omitidos.Should().BeEmpty();
+        vista.Destinos.Should().ContainSingle().Which.Should().BeEquivalentTo(new DestinoPedidoDto
+        {
+            IdProveedor = proveedor.Id,
+            RazonSocialProveedor = proveedor.RazonSocial,
+            IdBorrador = borrador.Id,
+            CantidadRenglonesBorrador = 1
+        });
+        vista.Renglones.Select(r => r.IdCatalogoProveedor).Should().Equal(nuevo.Catalogo.Id, enBorrador.Catalogo.Id);
+        vista.Renglones[0].Should().BeEquivalentTo(new RenglonVistaPreviaDto
+        {
+            IdCatalogoProveedor = nuevo.Catalogo.Id,
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = nuevo.Catalogo.CodigoProveedor,
+            Descripcion = nuevo.Catalogo.DescripcionProveedor,
+            CostoActual = 120m,
+            IdArticulo = nuevo.Articulo!.Id,
+            StockActual = 5,
+            StockMinimo = 1,
+            CantidadEnBorrador = 0
+        });
+        vista.Renglones[1].CantidadEnBorrador.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ObtenerVistaPrevia_SinBorradorEItemsNoPedibles_InformaDestinoNuevoYOmitidos()
+    {
+        // Arrange
+        var proveedor = await SembrarProveedorAsync();
+        var pedible = await SembrarItemAsync(proveedor);
+        var sinIncorporar = await SembrarItemAsync(proveedor, vincularArticulo: false);
+        const int inexistente = 999_999;
         var servicio = new PedidoQueryService(NuevoContexto());
 
         // Act
-        var id = await servicio.ObtenerIdArticuloVinculadoAsync(item.Catalogo.Id);
+        var vista = await servicio.ObtenerVistaPreviaAsync(new[] { pedible.Catalogo.Id, sinIncorporar.Catalogo.Id, inexistente });
 
         // Assert
-        id.Should().BeNull();
+        var destino = vista.Destinos.Should().ContainSingle().Which;
+        destino.IdBorrador.Should().BeNull("el proveedor no tiene borrador: se creará al confirmar");
+        destino.CantidadRenglonesBorrador.Should().Be(0);
+        vista.Renglones.Should().ContainSingle().Which.IdCatalogoProveedor.Should().Be(pedible.Catalogo.Id);
+        vista.Omitidos.Should().BeEquivalentTo(new[]
+        {
+            new RenglonOmitidoDto
+            {
+                IdCatalogoProveedor = sinIncorporar.Catalogo.Id,
+                CodigoProveedor = sinIncorporar.Catalogo.CodigoProveedor,
+                Descripcion = sinIncorporar.Catalogo.DescripcionProveedor,
+                Motivo = MotivoOmisionPedidoEnum.SinIncorporar
+            },
+            new RenglonOmitidoDto { IdCatalogoProveedor = inexistente, Motivo = MotivoOmisionPedidoEnum.ItemInexistente }
+        });
+    }
+
+    [Fact]
+    public async Task ObtenerVistaPrevia_RenglonQuitadoDelBorrador_NoCuentaComoYaPedido()
+    {
+        // Arrange
+        var proveedor = await SembrarProveedorAsync();
+        var quitado = await SembrarItemAsync(proveedor);
+        var queda = await SembrarItemAsync(proveedor);
+        var borrador = await SembrarBorradorAsync(proveedor, (quitado.Articulo!, quitado.Catalogo), (queda.Articulo!, queda.Catalogo));
+        borrador.QuitarRenglon(quitado.Catalogo.Id);
+        await Contexto.SaveChangesAsync();
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var vista = await servicio.ObtenerVistaPreviaAsync(new[] { quitado.Catalogo.Id });
+
+        // Assert: la baja lógica del renglón (D4) lo saca de la cantidad ya pedida y del conteo de renglones.
+        vista.Renglones.Single().CantidadEnBorrador.Should().Be(0);
+        vista.Destinos.Single().CantidadRenglonesBorrador.Should().Be(1);
     }
 
     [Fact]
