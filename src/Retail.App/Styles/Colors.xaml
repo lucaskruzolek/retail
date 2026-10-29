@@ -105,7 +105,5 @@
     <SolidColorBrush x:Key="SidebarAccentBrush" Color="#F36F8E" />
     <SolidColorBrush x:Key="SidebarActiveBackgroundBrush" Color="#9D0F33" />
     <SolidColorBrush x:Key="SidebarActiveForegroundBrush" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="SidebarCardBrush" Color="#27272A" />
-    <SolidColorBrush x:Key="SidebarCardBorderBrush" Color="#3F3F46" />
 
 </ResourceDictionary>

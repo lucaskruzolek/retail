@@ -856,16 +856,15 @@
     <!-- ================================================================= -->
     <!-- BOTÓN FANTASMA SOBRE EL SIDEBAR (SidebarGhostButton)              -->
     <!-- ================================================================= -->
-    <!-- Acción secundaria del pie ("Cambiar Operador"): sin relleno, borde sutil y texto claro; en hover se enciende como
-         un ítem del menú. -->
+    <!-- Acción secundaria del pie ("Cambiar Operador"): sin relleno ni borde y con texto claro; en hover se enciende como
+         un ítem del menú. Sin borde: el relleno de hover delimita el botón. -->
     <Style x:Key="SidebarGhostButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
         <Setter Property="FontSize" Value="12" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SidebarCardBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="6,6" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -907,7 +906,10 @@
     <!-- La barra vertical flota sobre el contenido (no le quita ancho a los ítems) y solo se ve mientras el mouse está
          sobre el menú. Sin desborde, ComputedVerticalScrollBarVisibility la colapsa por completo. -->
     <Style x:Key="SidebarScrollBarStyle" TargetType="ScrollBar">
-        <Setter Property="Width" Value="8" />
+        <!-- MinWidth en 0: el estilo de tema de WPF sigue aportando el ancho del scrollbar del sistema (17 px) por debajo
+             de este estilo, y sin esto el Width nunca baja de ese valor. -->
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Width" Value="4" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Template">
             <Setter.Value>
@@ -937,8 +939,7 @@
                                     <ControlTemplate TargetType="Thumb">
                                         <Border x:Name="thumb"
                                                 Background="{DynamicResource SidebarPressedBrush}"
-                                                CornerRadius="3"
-                                                Margin="1,0" />
+                                                CornerRadius="2" />
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
                                                 <Setter TargetName="thumb" Property="Background" Value="{DynamicResource SidebarTextMutedBrush}" />
