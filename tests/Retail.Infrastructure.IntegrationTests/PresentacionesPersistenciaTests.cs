@@ -76,8 +76,8 @@ public class PresentacionesPersistenciaTests : IAsyncLifetime, IDisposable
         var derivado = NuevoArticulo("Unidad con catálogo");
         derivado.IdArticuloOrigen = origen.Id;
         derivado.UnidadesPorOrigen = 10;
-        derivado.IdCatalogoProveedor = catalogo.Id;
         _context.Articulos.Add(derivado);
+        EscribirPrincipalSinDominio(derivado, catalogo.Id);
 
         // Act
         var act = () => _context.SaveChangesAsync();
@@ -175,13 +175,13 @@ public class PresentacionesPersistenciaTests : IAsyncLifetime, IDisposable
         // Arrange
         var catalogo = await GuardarCatalogoAsync("SOB-1");
         var primero = NuevoArticulo("Sobre manila (pack)");
-        primero.IdCatalogoProveedor = catalogo.Id;
         _context.Articulos.Add(primero);
+        EscribirPrincipalSinDominio(primero, catalogo.Id);
         await _context.SaveChangesAsync();
 
         var segundo = NuevoArticulo("Sobre manila (otro pack)");
-        segundo.IdCatalogoProveedor = catalogo.Id;
         _context.Articulos.Add(segundo);
+        EscribirPrincipalSinDominio(segundo, catalogo.Id);
 
         // Act
         var act = () => _context.SaveChangesAsync();
@@ -196,16 +196,16 @@ public class PresentacionesPersistenciaTests : IAsyncLifetime, IDisposable
         // Arrange
         var catalogo = await GuardarCatalogoAsync("SOB-1");
         var anterior = NuevoArticulo("Sobre manila (pack discontinuado)");
-        anterior.IdCatalogoProveedor = catalogo.Id;
         _context.Articulos.Add(anterior);
+        EscribirPrincipalSinDominio(anterior, catalogo.Id);
         await _context.SaveChangesAsync();
 
         anterior.MarkAsDeleted();
         await _context.SaveChangesAsync();
 
         var nuevo = NuevoArticulo("Sobre manila (pack nuevo)");
-        nuevo.IdCatalogoProveedor = catalogo.Id;
         _context.Articulos.Add(nuevo);
+        EscribirPrincipalSinDominio(nuevo, catalogo.Id);
 
         // Act
         await _context.SaveChangesAsync();
@@ -217,6 +217,16 @@ public class PresentacionesPersistenciaTests : IAsyncLifetime, IDisposable
             .ToListAsync();
         vinculados.Should().HaveCount(2);
         vinculados.Should().ContainSingle(a => a.DeletedAt == null).Which.Id.Should().Be(nuevo.Id);
+    }
+
+    /// <summary>
+    /// Escribe la fuente principal salteando el dominio, a propósito: estos tests verifican que la base rechace o
+    /// tolere estados que el dominio ya impide (defensa en profundidad, Ley 7 de persistencia). EF Core asigna la
+    /// propiedad aunque su setter sea privado.
+    /// </summary>
+    private void EscribirPrincipalSinDominio(Articulo articulo, int idCatalogo)
+    {
+        _context.Entry(articulo).Property(a => a.IdCatalogoProveedor).CurrentValue = idCatalogo;
     }
 
     private static Articulo NuevoArticulo(string descripcion)

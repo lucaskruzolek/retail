@@ -143,6 +143,29 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
     }
 
     [Fact]
+    public async Task ObtenerArticulosVinculados_FuenteAdicional_DevuelveElArticuloDelQueEsFuente()
+    {
+        // Arrange: el artículo tiene su principal en Sur y una fuente adicional en Norte (Track 4.3, J6)
+        var sur = await SembrarProveedorAsync();
+        var norte = await SembrarProveedorAsync("Mayorista Norte", "30-50001091-2");
+        var principal = await SembrarItemAsync(sur);
+        var adicional = await SembrarItemAsync(norte, vincularArticulo: false);
+        adicional.Catalogo.AsignarArticulo(principal.Articulo!);
+        await Contexto.SaveChangesAsync();
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var articulos = await servicio.ObtenerArticulosVinculadosAsync(new[] { principal.Catalogo.Id, adicional.Catalogo.Id });
+
+        // Assert
+        articulos.Should().Equal(new Dictionary<int, int>
+        {
+            [principal.Catalogo.Id] = principal.Articulo!.Id,
+            [adicional.Catalogo.Id] = principal.Articulo!.Id
+        });
+    }
+
+    [Fact]
     public async Task ObtenerVistaPrevia_ConBorradorExistente_InformaDestinoStockYCantidadYaPedida()
     {
         // Arrange

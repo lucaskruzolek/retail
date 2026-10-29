@@ -47,6 +47,13 @@ public class ArticuloQueryService : IArticuloQueryService
             query = query.Where(a => a.IdCategoria == consulta.IdCategoria.Value);
         }
 
+        if (consulta.IdRubro.HasValue && consulta.IdRubro.Value > 0)
+        {
+            // El rubro se deriva de la categoría (RF-04): se resuelve con un JOIN a CATEGORIAS en SQL Server.
+            int idRubro = consulta.IdRubro.Value;
+            query = query.Where(a => a.Categoria != null && a.Categoria.IdRubro == idRubro);
+        }
+
         if (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0)
         {
             query = query.Where(a => a.IdMarca == consulta.IdMarca.Value);
@@ -78,6 +85,7 @@ public class ArticuloQueryService : IArticuloQueryService
 
         bool esConsultaFiltrada = !string.IsNullOrWhiteSpace(consulta.TerminoBusqueda) ||
             (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0) ||
+            (consulta.IdRubro.HasValue && consulta.IdRubro.Value > 0) ||
             (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0) ||
             (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value != 0) ||
             consulta.FiltroStock != FiltroStockArticuloEnum.Todos;

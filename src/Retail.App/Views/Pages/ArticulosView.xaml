@@ -134,7 +134,22 @@
                         </ui:TextBox.Icon>
                     </ui:TextBox>
 
-                    <!-- Filtro por Categoría -->
+                    <!-- Filtro por Rubro (RF-04): acota las opciones de Categoría a las del rubro -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
+                        <TextBlock Text="Rubro:"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,6,0" />
+                        <ComboBox ItemsSource="{Binding RubrosFiltro}"
+                                  SelectedValue="{Binding IdRubroFiltro}"
+                                  SelectedValuePath="IdRubro"
+                                  DisplayMemberPath="NombreRubro"
+                                  Width="150"
+                                  Height="35"
+                                  VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Filtro por Categoría (del rubro elegido, o todas) -->
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
                         <TextBlock Text="Categoría:"
                                    Style="{StaticResource TextBlockBodySecondary}"

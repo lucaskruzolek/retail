@@ -15,6 +15,12 @@ public interface ICatalogoProveedorQueryService
 
     Task<IReadOnlyList<CatalogoProveedor>> ObtenerPorIdsAsync(IEnumerable<int> ids, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Ítems vigentes que son fuente del artículo, principal o adicional (Track 4.3, A-16). Vuelven con tracking
+    /// porque se cargan para modificarlos (J3).
+    /// </summary>
+    Task<IReadOnlyList<CatalogoProveedor>> ObtenerFuentesDeArticuloAsync(int idArticulo, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyDictionary<string, CatalogoProveedor>> ObtenerMapaPorCodigosProveedorAsync(int idProveedor, IEnumerable<string> codigos, CancellationToken cancellationToken = default);
 
     Task AgregarAsync(CatalogoProveedor catalogo, CancellationToken cancellationToken = default);

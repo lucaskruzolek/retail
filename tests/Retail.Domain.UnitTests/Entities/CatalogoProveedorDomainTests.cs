@@ -152,6 +152,105 @@ public class CatalogoProveedorDomainTests
         item.CategoriaProveedor.Should().BeNull();
     }
 
+    // ---------- Fuentes múltiples (Track 4.3, A-1, A-16, J1) ----------
+
+    [Fact]
+    public void AsignarArticulo_ItemLibre_LoRegistraComoFuenteDelArticulo()
+    {
+        var item = CrearItem();
+        var articulo = new Articulo { Id = 7, Descripcion = "Resma A4" };
+
+        item.AsignarArticulo(articulo);
+
+        item.IdArticulo.Should().Be(7);
+        item.EstaVinculado.Should().BeTrue();
+        item.EsFuenteDe(articulo).Should().BeTrue();
+    }
+
+    [Fact]
+    public void AsignarArticulo_ArticuloNuevoSinId_LoEnlazaPorLaNavegacion()
+    {
+        var item = CrearItem();
+        var articulo = new Articulo { Descripcion = "Resma A4" };
+
+        item.AsignarArticulo(articulo);
+
+        item.IdArticulo.Should().BeNull();
+        item.Articulo.Should().BeSameAs(articulo);
+        item.EstaVinculado.Should().BeTrue();
+        item.EsFuenteDe(articulo).Should().BeTrue();
+    }
+
+    [Fact]
+    public void AsignarArticulo_MismoArticulo_NoCambiaNada()
+    {
+        var item = CrearItem();
+        var articulo = new Articulo { Id = 7, Descripcion = "Resma A4" };
+        item.AsignarArticulo(articulo);
+
+        var act = () => item.AsignarArticulo(articulo);
+
+        act.Should().NotThrow();
+        item.IdArticulo.Should().Be(7);
+    }
+
+    [Fact]
+    public void AsignarArticulo_ItemFuenteDeOtroArticulo_LanzaDomainExceptionYConservaElVinculo()
+    {
+        var item = CrearItem();
+        item.AsignarArticulo(new Articulo { Id = 7, Descripcion = "Resma A4" });
+
+        var act = () => item.AsignarArticulo(new Articulo { Id = 8, Descripcion = "Resma A4 Autor" });
+
+        act.Should().Throw<DomainException>().WithMessage("*ya es fuente de otro artículo*");
+        item.IdArticulo.Should().Be(7);
+    }
+
+    [Fact]
+    public void AsignarArticulo_PresentacionDerivada_LanzaDomainException()
+    {
+        var item = CrearItem();
+        var derivado = new Articulo { Id = 9, Descripcion = "Hoja suelta", IdArticuloOrigen = 7, UnidadesPorOrigen = 500 };
+
+        var act = () => item.AsignarArticulo(derivado);
+
+        act.Should().Throw<DomainException>().WithMessage("*presentación derivada*");
+        item.EstaVinculado.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AsignarArticulo_ArticuloNulo_LanzaArgumentNullException()
+    {
+        var item = CrearItem();
+
+        var act = () => item.AsignarArticulo(null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void EsFuenteDe_OtraInstanciaConElMismoId_DevuelveTrue()
+    {
+        // Simula el artículo materializado de nuevo por EF Core: misma fila, otra instancia.
+        var item = CrearItem();
+        item.AsignarArticulo(new Articulo { Id = 7, Descripcion = "Resma A4" });
+
+        item.EsFuenteDe(new Articulo { Id = 7, Descripcion = "Resma A4" }).Should().BeTrue();
+        item.EsFuenteDe(new Articulo { Id = 8, Descripcion = "Otra" }).Should().BeFalse();
+    }
+
+    [Fact]
+    public void LiberarArticulo_ItemVinculado_QuedaLibreYSePuedeAsignarAOtro()
+    {
+        var item = CrearItem();
+        item.AsignarArticulo(new Articulo { Id = 7, Descripcion = "Resma A4" });
+
+        item.LiberarArticulo();
+        item.AsignarArticulo(new Articulo { Id = 8, Descripcion = "Resma A4 Autor" });
+
+        item.IdArticulo.Should().Be(8);
+    }
+
     private static CatalogoProveedor CrearItem()
     {
         return new CatalogoProveedor

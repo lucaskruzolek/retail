@@ -132,6 +132,42 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_ConFiltroRubro_IncluyeTodasLasCategoriasDelRubroYAcotaConLaCategoria()
+    {
+        // Arrange: Escolar con dos categorías, Oficina con una y un artículo sin categoría.
+        var escolar = Rubro.Crear("Escolar");
+        var oficina = Rubro.Crear("Oficina");
+        _context.Rubros.AddRange(escolar, oficina);
+        await _context.SaveChangesAsync();
+
+        var cuadernos = Categoria.Crear("Cuadernos", escolar.Id);
+        var lapices = Categoria.Crear("Lápices", escolar.Id);
+        var resmas = Categoria.Crear("Resmas", oficina.Id);
+        _context.Categorias.AddRange(cuadernos, lapices, resmas);
+        await _context.SaveChangesAsync();
+
+        var cuaderno = CrearArticulo("Cuaderno A4");
+        var lapiz = CrearArticulo("Lápiz HB");
+        var resma = CrearArticulo("Resma A4");
+        var sinCategoria = CrearArticulo("Señalador");
+        cuaderno.Clasificar(cuadernos.Id, OrigenClasificacionEnum.Manual, null, null);
+        lapiz.Clasificar(lapices.Id, OrigenClasificacionEnum.Manual, null, null);
+        resma.Clasificar(resmas.Id, OrigenClasificacionEnum.Manual, null, null);
+        _context.Articulos.AddRange(cuaderno, lapiz, resma, sinCategoria);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var delRubro = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdRubro = escolar.Id });
+        var delRubroYCategoria = await _sut.ObtenerArticulosPaginadosAsync(
+            new ConsultaArticulosDto { IdRubro = escolar.Id, IdCategoria = lapices.Id });
+
+        // Assert
+        delRubro.Items.Select(a => a.Descripcion).Should().Equal("Cuaderno A4", "Lápiz HB");
+        delRubro.TotalRegistros.Should().Be(2, "el conteo filtrado también se resuelve con el rubro");
+        delRubroYCategoria.Items.Should().ContainSingle().Which.Descripcion.Should().Be("Lápiz HB");
+    }
+
+    [Fact]
     public async Task BuscarParaVentaAsync_MasCoincidenciasQueElLimite_DevuelveLasPrimerasPorDescripcionSinTracking()
     {
         // Arrange
@@ -307,7 +343,8 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
 
         var articulo = CrearArticulo("Cuaderno Rivadavia");
         articulo.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
-        articulo.IdCatalogoProveedor = catalogo.Id;
+        catalogo.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(catalogo);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();

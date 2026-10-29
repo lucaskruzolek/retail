@@ -27,16 +27,16 @@ public class PedidoQueryService : IPedidoQueryService
     {
         ArgumentNullException.ThrowIfNull(idsCatalogoProveedor);
 
-        // Único punto que cambia en L3 (multifuente): hoy el vínculo es Articulo.IdCatalogoProveedor. El filtro global
-        // ya descarta los artículos dados de baja, y el índice único filtrado de ARTICULOS garantiza a lo sumo un
-        // artículo activo por ítem (RF-05), así que la clave del diccionario no se repite.
+        // Con fuentes múltiples (L3, J6) el artículo de un ítem es el de CATALOGOS_PROVEEDORES.id_articulo: una fuente
+        // adicional también se puede pedir. La subconsulta aplica el filtro global, así un artículo dado de baja no
+        // cuenta aunque el ítem todavía lo apunte. Cada ítem es una fila, así que la clave del diccionario no se repite.
         var ids = idsCatalogoProveedor.Distinct().ToList();
 
-        return await _context.Articulos
+        return await _context.CatalogosProveedores
             .AsNoTracking()
-            .Where(a => a.IdCatalogoProveedor != null && ids.Contains(a.IdCatalogoProveedor.Value))
-            .Select(a => new { IdCatalogoProveedor = a.IdCatalogoProveedor!.Value, a.Id })
-            .ToDictionaryAsync(a => a.IdCatalogoProveedor, a => a.Id, cancellationToken);
+            .Where(c => ids.Contains(c.Id) && _context.Articulos.Any(a => a.Id == c.IdArticulo))
+            .Select(c => new { c.Id, IdArticulo = c.IdArticulo!.Value })
+            .ToDictionaryAsync(c => c.Id, c => c.IdArticulo, cancellationToken);
     }
 
     public async Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(
