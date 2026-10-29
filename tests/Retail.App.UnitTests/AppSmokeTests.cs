@@ -138,12 +138,24 @@ public class AppSmokeTests
         {
             var inventarioServiceMock = Substitute.For<IInventarioService>();
             var dialogServiceMock = Substitute.For<IArticuloDialogService>();
-            var viewModel = new ArticulosViewModel(inventarioServiceMock, dialogServiceMock);
+
+            // Con un Gerente en sesión, para que también se dibujen la columna de selección y las acciones de pedir.
+            var gerente = Substitute.For<ICurrentUserSession>();
+            gerente.EsGerente.Returns(true);
+            var viewModel = new ArticulosViewModel(
+                inventarioServiceMock,
+                dialogServiceMock,
+                session: gerente,
+                flujoPedir: new Retail.App.ViewModels.Pedidos.FlujoPedirArticulos(
+                    Substitute.For<IPedidoService>(),
+                    Substitute.For<IPedidoDialogService>(),
+                    gerente,
+                    Substitute.For<ILogger<Retail.App.ViewModels.Pedidos.FlujoPedirArticulos>>()));
 
             try
             {
                 view = new ArticulosView(viewModel);
-                viewModel.Articulos.Add(new Retail.Application.DTOs.Articulos.ArticuloDto
+                viewModel.Articulos.Add(new ArticuloFila(new Retail.Application.DTOs.Articulos.ArticuloDto
                 {
                     IdArticulo = 1,
                     Descripcion = "Artículo de Prueba",
@@ -154,10 +166,13 @@ public class AppSmokeTests
                     PrecioVenta = 100m,
                     StockActual = 5,
                     StockMinimo = 10,
-                    EsServicio = false
-                });
-                // Una presentación derivada (RF-21) activa los triggers del badge y del botón Fraccionar.
-                viewModel.Articulos.Add(ArticuloDeEjemplo(idArticulo: 2, idArticuloOrigen: 1));
+                    EsServicio = false,
+                    IdCatalogoProveedor = 40,
+                    ProveedorNombre = "Distribuidora Sur"
+                }));
+                // Una presentación derivada (RF-21) activa los triggers del badge y del botón Fraccionar, y el
+                // tooltip de "no se puede pedir".
+                viewModel.Articulos.Add(new ArticuloFila(ArticuloDeEjemplo(idArticulo: 2, idArticuloOrigen: 1)));
                 view.Measure(new System.Windows.Size(1024, 768));
                 view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
                 view.UpdateLayout();
@@ -1160,6 +1175,10 @@ public class AppSmokeTests
             var inventarioServiceMock = Substitute.For<IInventarioService>();
             var navigationServiceMock = Substitute.For<INavigationService>();
             var loggerMock = Substitute.For<ILogger<ImportadorCatalogosViewModel>>();
+
+            // Con un Gerente en sesión, para que también se dibujen las acciones de pedir (A-14).
+            var gerente = Substitute.For<ICurrentUserSession>();
+            gerente.EsGerente.Returns(true);
             var modalViewModel = new IncorporarArticulosModalViewModel(
                 Substitute.For<IClasificacionService>(),
                 Substitute.For<ITerminoClasificacionService>(),
@@ -1173,6 +1192,11 @@ public class AppSmokeTests
                 inventarioServiceMock,
                 navigationServiceMock,
                 modalViewModel,
+                new Retail.App.ViewModels.Pedidos.FlujoPedirArticulos(
+                    Substitute.For<IPedidoService>(),
+                    Substitute.For<IPedidoDialogService>(),
+                    gerente,
+                    Substitute.For<ILogger<Retail.App.ViewModels.Pedidos.FlujoPedirArticulos>>()),
                 TimeProvider.System,
                 loggerMock);
 
@@ -1917,7 +1941,11 @@ public class AppSmokeTests
 
             try
             {
-                dialog = new PedirArticulosDialog(new Retail.App.ViewModels.Pedidos.PedirArticulosViewModel(vistaPrevia));
+                // Con la oferta de incorporar, para que también se dibuje el botón "Incorporar primero".
+                dialog = new PedirArticulosDialog(new Retail.App.ViewModels.Pedidos.PedirArticulosViewModel(
+                    vistaPrevia,
+                    ["Señalador: no tiene proveedor vinculado"],
+                    ofrecerIncorporar: true));
                 dialog.Measure(new System.Windows.Size(580, 660));
                 dialog.Arrange(new System.Windows.Rect(0, 0, 580, 660));
                 dialog.UpdateLayout();

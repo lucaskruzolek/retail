@@ -58,6 +58,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0"
@@ -87,6 +88,19 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!-- Recorrido en dos pasos (A-17): incorporar con el modal existente y volver a este -->
+                    <Button HorizontalAlignment="Left"
+                            Margin="16,8,0,0"
+                            Click="BtnIncorporarPrimero_Click"
+                            Style="{StaticResource GhostPrimaryButtonStyle}"
+                            Visibility="{Binding PuedeIncorporarPrimero, Converter={StaticResource BoolToVisConverter}}"
+                            ToolTip="Abre el modal de incorporación con estos ítems y después vuelve a este pedido">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPlusCircle" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding TextoIncorporarPrimero}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Border>
 
@@ -210,6 +224,23 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+
+            <!-- Total del lote: es contenido del pedido, no una acción, por eso va fuera de la barra de botones -->
+            <Border Grid.Row="3"
+                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="0,1,0,0"
+                    Padding="0,10,0,0">
+                <DockPanel LastChildFill="False">
+                    <TextBlock DockPanel.Dock="Left"
+                               Text="Total estimado"
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               VerticalAlignment="Center" />
+                    <TextBlock DockPanel.Dock="Right"
+                               Text="{Binding TotalEstimado, StringFormat=C2}"
+                               Style="{StaticResource TextBlockCurrencyLarge}"
+                               VerticalAlignment="Center" />
+                </DockPanel>
+            </Border>
         </Grid>
 
         <!-- Barra inferior: total y acciones -->
@@ -236,11 +267,6 @@
                         <TextBlock Text="Agregar al pedido" FontWeight="Bold" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
-
-                <StackPanel DockPanel.Dock="Right" Margin="0,0,16,0" VerticalAlignment="Center">
-                    <TextBlock Text="Total estimado" Style="{StaticResource TextBlockCaptionSecondary}" HorizontalAlignment="Right" />
-                    <TextBlock Text="{Binding TotalEstimado, StringFormat=C2}" Style="{StaticResource TextBlockCurrencyLarge}" HorizontalAlignment="Right" />
-                </StackPanel>
             </DockPanel>
         </Border>
     </Grid>

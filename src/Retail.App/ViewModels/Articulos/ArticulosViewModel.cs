@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Pedidos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
@@ -27,6 +29,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     private readonly ILogger<ArticulosViewModel> _logger;
     private readonly IClasificacionDialogService? _clasificacionDialogService;
     private readonly ICurrentUserSession? _session;
+    private readonly FlujoPedirArticulos? _flujoPedir;
 
     // Selección de los combos a restaurar cuando el diálogo de clasificación cambió sus listas.
     private int? _idCategoriaARestaurar;
@@ -42,7 +45,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     // tiempo, solo la vigente actualiza la grilla y al salir de la pantalla se cancela (H-19).
     private readonly CargaSerializada _cargaArticulos;
 
-    public ObservableCollection<ArticuloDto> Articulos { get; } = new();
+    public ObservableCollection<ArticuloFila> Articulos { get; } = new();
 
     public ObservableCollection<CategoriaDto> CategoriasFiltro { get; } = new();
 
@@ -54,6 +57,15 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private ArticuloDto? _articuloSeleccionado;
+
+    /// <summary>Encabezado de la columna de selección: <c>null</c> cuando hay algunas filas marcadas y otras no.</summary>
+    [ObservableProperty]
+    private bool? _seleccionarTodos = false;
+
+    [ObservableProperty]
+    private bool _tieneArticulosSeleccionados;
+
+    private bool _actualizandoSeleccion;
 
     [ObservableProperty]
     private string _textoBusqueda = string.Empty;
@@ -130,13 +142,17 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         _session is not null &&
         (_session.EsGerente || _session.EsEncargado);
 
+    /// <summary>Solo el Gerente y el Encargado ven las acciones de pedir (A-14).</summary>
+    public bool PuedePedir => _flujoPedir?.PuedePedir == true;
+
     public ArticulosViewModel(
         IInventarioService inventarioService,
         IArticuloDialogService dialogService,
         IProveedorService? proveedorService = null,
         ILogger<ArticulosViewModel>? logger = null,
         IClasificacionDialogService? clasificacionDialogService = null,
-        ICurrentUserSession? session = null)
+        ICurrentUserSession? session = null,
+        FlujoPedirArticulos? flujoPedir = null)
     {
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
@@ -145,6 +161,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         _cargaArticulos = new CargaSerializada(_logger);
         _clasificacionDialogService = clasificacionDialogService;
         _session = session;
+        _flujoPedir = flujoPedir;
 
         InicializarOpcionesFiltroEstaticas();
     }
@@ -385,11 +402,15 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
         EjecutarEnDispatcher(() =>
         {
-            Articulos.Clear();
+            LimpiarFilas();
             foreach (var art in resultado.Items)
             {
-                Articulos.Add(art);
+                var fila = new ArticuloFila(art);
+                fila.PropertyChanged += Fila_PropertyChanged;
+                Articulos.Add(fila);
             }
+
+            ActualizarEstadoSeleccion();
         });
 
         TotalArticulos = resultado.TotalArticulos;
@@ -630,6 +651,122 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
             _logger.LogError(ex, "Error inesperado al fraccionar: {Mensaje}", ex.Message);
             _dialogService.MostrarError("Error Inesperado", ex.Message);
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Selección y pedido al proveedor (Track 4.3, A-17)                  //
+    // ------------------------------------------------------------------ //
+
+    /// <summary>"Pedir" de una fila: es un lote de uno (G4).</summary>
+    [RelayCommand]
+    private Task PedirArticuloAsync(ArticuloFila? fila)
+    {
+        return fila is null ? Task.CompletedTask : PedirAsync([fila]);
+    }
+
+    [RelayCommand]
+    private Task PedirSeleccionadosAsync()
+    {
+        var seleccionadas = Articulos.Where(f => f.EstaSeleccionado).ToList();
+        return seleccionadas.Count == 0 ? Task.CompletedTask : PedirAsync(seleccionadas);
+    }
+
+    /// <summary>
+    /// Pide los artículos que tienen proveedor vinculado; los demás se informan en el modal con su motivo. Aquí no
+    /// se ofrece incorporar: un artículo ya está en la tienda, lo que le falta es la fuente (A-17).
+    /// </summary>
+    private async Task PedirAsync(IReadOnlyList<ArticuloFila> filas)
+    {
+        if (_flujoPedir is null || !PuedePedir)
+        {
+            return;
+        }
+
+        var idsCatalogo = filas
+            .Where(f => f.SePuedePedir)
+            .Select(f => f.Articulo.IdCatalogoProveedor!.Value)
+            .Distinct()
+            .ToList();
+        var avisosPrevios = filas
+            .Where(f => !f.SePuedePedir)
+            .Select(f => $"{f.Articulo.Descripcion}: {f.MotivoNoSePuedePedir}")
+            .ToList();
+
+        var resultado = await _flujoPedir.PedirAsync(idsCatalogo, avisosPrevios, ofrecerIncorporar: false, _cargaArticulos);
+
+        if (resultado.MensajeError is not null)
+        {
+            _dialogService.MostrarError("No se pudo pedir", resultado.MensajeError);
+            return;
+        }
+
+        if (resultado.Accion == AccionPedirArticulosEnum.Confirmar)
+        {
+            foreach (var fila in Articulos)
+            {
+                fila.EstaSeleccionado = false;
+            }
+
+            _dialogService.MostrarInformacion("Pedido a proveedor", resultado.MensajeEstado!);
+        }
+    }
+
+    partial void OnSeleccionarTodosChanged(bool? value)
+    {
+        if (_actualizandoSeleccion || value is null)
+        {
+            return;
+        }
+
+        _actualizandoSeleccion = true;
+        try
+        {
+            foreach (var fila in Articulos)
+            {
+                fila.EstaSeleccionado = value.Value;
+            }
+        }
+        finally
+        {
+            _actualizandoSeleccion = false;
+        }
+
+        ActualizarEstadoSeleccion();
+    }
+
+    private void Fila_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ArticuloFila.EstaSeleccionado) && !_actualizandoSeleccion)
+        {
+            ActualizarEstadoSeleccion();
+        }
+    }
+
+    /// <summary>Recalcula el encabezado (todas, ninguna o algunas) y si hay algo para pedir.</summary>
+    private void ActualizarEstadoSeleccion()
+    {
+        int seleccionadas = Articulos.Count(f => f.EstaSeleccionado);
+        TieneArticulosSeleccionados = seleccionadas > 0;
+
+        _actualizandoSeleccion = true;
+        try
+        {
+            SeleccionarTodos = seleccionadas == 0 ? false : seleccionadas == Articulos.Count ? true : null;
+        }
+        finally
+        {
+            _actualizandoSeleccion = false;
+        }
+    }
+
+    private void LimpiarFilas()
+    {
+        foreach (var fila in Articulos)
+        {
+            fila.PropertyChanged -= Fila_PropertyChanged;
+        }
+
+        Articulos.Clear();
     }
 
     [RelayCommand]

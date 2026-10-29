@@ -144,4 +144,22 @@ public class ProveedorDialogService : IProveedorDialogService
 
         return await Task.FromResult<ResultadoImportacionDto?>(null);
     }
+
+    public bool MostrarIncorporacion(IncorporarArticulosModalViewModel modal)
+    {
+        ArgumentNullException.ThrowIfNull(modal);
+
+        var dialog = new IncorporarArticulosModalDialog
+        {
+            DataContext = modal,
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        // Las sugerencias se calculan en segundo plano mientras el diálogo ya está abierto (Ley 4).
+        _ = modal.IniciarAsync();
+        var resultado = dialog.ShowDialog();
+        modal.Finalizar();
+
+        return resultado == true && modal.DialogResult;
+    }
 }

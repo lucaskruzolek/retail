@@ -69,6 +69,20 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- Pedir los seleccionados (Track 4.3, A-17): solo Encargado y Gerente (A-14) -->
+                    <Button Command="{Binding PedirSeleccionadosCommand}"
+                            IsEnabled="{Binding TieneArticulosSeleccionados}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Padding="16,8"
+                            Margin="0,0,10,0"
+                            Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
+                            ToolTip="Agregar los artículos seleccionados al borrador de pedido de su proveedor">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Pedir Seleccionados" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
                     <!-- Botón Nuevo Artículo (F2) -->
                     <Button Command="{Binding NuevoArticuloCommand}"
                             Style="{StaticResource PrimaryActionButtonStyle}"
@@ -214,16 +228,58 @@
                 <!-- ========================================================= -->
                 <DataGrid Grid.Row="1"
                           ItemsSource="{Binding Articulos}"
-                          SelectedItem="{Binding ArticuloSeleccionado, Mode=TwoWay}"
+                          SelectedValuePath="Articulo"
+                          SelectedValue="{Binding ArticuloSeleccionado, Mode=TwoWay}"
                           Style="{StaticResource DataGridRetailStyle}"
                           AutoGenerateColumns="False"
                           BorderThickness="1"
                           Margin="16,0,16,8">
                 <DataGrid.Columns>
+                    <!-- Selección para pedir (Track 4.3, A-17): la casilla vive en ArticuloFila, no en el DTO -->
+                    <!-- Su visibilidad la fija el code-behind: una columna no está en el árbol visual y no hereda el DataContext -->
+                    <DataGridTemplateColumn x:Name="ColumnaSeleccion"
+                                            Width="48"
+                                            CanUserResize="False"
+                                            CanUserSort="False">
+                        <DataGridTemplateColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRetailStyle}">
+                                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </DataGridTemplateColumn.HeaderStyle>
+                        <DataGridTemplateColumn.CellStyle>
+                            <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </DataGridTemplateColumn.CellStyle>
+                        <DataGridTemplateColumn.Header>
+                            <CheckBox IsChecked="{Binding DataContext.SeleccionarTodos, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      ToolTip="Seleccionar / deseleccionar todos los de esta página"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      MinWidth="0"
+                                      MinHeight="0"
+                                      Padding="0"
+                                      Margin="0" />
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding EstaSeleccionado, UpdateSourceTrigger=PropertyChanged}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          MinWidth="0"
+                                          MinHeight="0"
+                                          Padding="0"
+                                          Margin="0" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
                     <!-- Descripción (el código de barras no se muestra en la grilla para aliviarla;
                          la búsqueda por código sigue disponible y el dato se ve al editar el artículo) -->
                     <DataGridTextColumn Header="Descripción"
-                                        Binding="{Binding Descripcion}"
+                                        Binding="{Binding Articulo.Descripcion}"
                                         Width="*"
                                         MinWidth="240"
                                         ElementStyle="{StaticResource TextBlockTextCell}" />
@@ -233,7 +289,7 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <Border Style="{StaticResource BadgeNeutralStyle}">
-                                    <TextBlock Text="{Binding CategoriaNombre}"
+                                    <TextBlock Text="{Binding Articulo.CategoriaNombre}"
                                                FontSize="11"
                                                FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -244,7 +300,7 @@
 
                     <!-- Marca -->
                     <DataGridTextColumn Header="Marca"
-                                        Binding="{Binding MarcaNombre}"
+                                        Binding="{Binding Articulo.MarcaNombre}"
                                         Width="110"
                                         ElementStyle="{StaticResource TextBlockTextCell}" />
 
@@ -266,15 +322,15 @@
                                         <Border.ToolTip>
                                             <ToolTip>
                                                 <StackPanel>
-                                                    <TextBlock Text="{Binding ProveedorNombre}" FontWeight="Bold" />
-                                                    <TextBlock Text="{Binding CodigoProveedor, StringFormat={}Cód: {0}}" />
-                                                    <TextBlock Text="{Binding DescripcionProveedor}" FontStyle="Italic" />
+                                                    <TextBlock Text="{Binding Articulo.ProveedorNombre}" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding Articulo.CodigoProveedor, StringFormat={}Cód: {0}}" />
+                                                    <TextBlock Text="{Binding Articulo.DescripcionProveedor}" FontStyle="Italic" />
                                                 </StackPanel>
                                             </ToolTip>
                                         </Border.ToolTip>
                                         <StackPanel Orientation="Horizontal">
                                             <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="11" Height="11" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding ProveedorNombre}"
+                                            <TextBlock Text="{Binding Articulo.ProveedorNombre}"
                                                        FontSize="11"
                                                        FontWeight="SemiBold"
                                                        Foreground="{DynamicResource PrimaryPressedBrush}"
@@ -301,7 +357,7 @@
                                             Visibility="Collapsed">
                                         <StackPanel Orientation="Horizontal">
                                             <iconPacks:PackIconBoxIcons Kind="RegularGitBranch" Width="11" Height="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding UnidadesPorOrigen, StringFormat={}Presentación ×{0}}"
+                                            <TextBlock Text="{Binding Articulo.UnidadesPorOrigen, StringFormat={}Presentación ×{0}}"
                                                        FontSize="11"
                                                        FontWeight="SemiBold"
                                                        Foreground="{DynamicResource TextSecondaryBrush}"
@@ -311,11 +367,11 @@
                                 </Grid>
 
                                 <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding EstaVinculadoAProveedor}" Value="True">
+                                    <DataTrigger Binding="{Binding Articulo.EstaVinculadoAProveedor}" Value="True">
                                         <Setter TargetName="BadgeVinculado" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
-                                    <DataTrigger Binding="{Binding EsDerivado}" Value="True">
+                                    <DataTrigger Binding="{Binding Articulo.EsDerivado}" Value="True">
                                         <Setter TargetName="BadgePresentacion" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
@@ -326,13 +382,13 @@
 
                     <!-- Costo de Reposición -->
                     <DataGridTextColumn Header="Costo ($)"
-                                        Binding="{Binding CostoReposicion, StringFormat={}{0:N2}}"
+                                        Binding="{Binding Articulo.CostoReposicion, StringFormat={}{0:N2}}"
                                         Width="95"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                     <!-- Margen Ganancia -->
                     <DataGridTextColumn Header="Margen (%)"
-                                        Binding="{Binding PorcentajeGanancia, StringFormat={}{0:N1}}"
+                                        Binding="{Binding Articulo.PorcentajeGanancia, StringFormat={}{0:N1}}"
                                         Width="85"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
@@ -340,7 +396,7 @@
                     <DataGridTemplateColumn Header="Precio Venta ($)" Width="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding PrecioVenta, StringFormat={}{0:N2}}"
+                                <TextBlock Text="{Binding Articulo.PrecioVenta, StringFormat={}{0:N2}}"
                                            FontFamily="{StaticResource FontFamilyNumeric}"
                                            Typography.NumeralAlignment="Tabular"
                                            FontWeight="Bold"
@@ -374,8 +430,8 @@
                                             Visibility="Collapsed">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="⚠ " Foreground="{DynamicResource WarningForegroundBrush}" FontWeight="Bold" FontSize="11" />
-                                            <TextBlock Text="{Binding StockActual}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource WarningForegroundBrush}" />
-                                            <TextBlock Text="{Binding StockMinimo, StringFormat={} (Mín: {0})}" FontSize="10" Foreground="{DynamicResource WarningForegroundBrush}" />
+                                            <TextBlock Text="{Binding Articulo.StockActual}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource WarningForegroundBrush}" />
+                                            <TextBlock Text="{Binding Articulo.StockMinimo, StringFormat={} (Mín: {0})}" FontSize="10" Foreground="{DynamicResource WarningForegroundBrush}" />
                                         </StackPanel>
                                     </Border>
 
@@ -383,7 +439,7 @@
                                     <Border x:Name="BadgeNormal"
                                             Style="{StaticResource BadgeSuccessStyle}"
                                             Visibility="Visible">
-                                        <TextBlock Text="{Binding StockActual, StringFormat={}{0} unid.}"
+                                        <TextBlock Text="{Binding Articulo.StockActual, StringFormat={}{0} unid.}"
                                                    FontSize="11"
                                                    FontWeight="SemiBold"
                                                    Foreground="{DynamicResource SuccessForegroundBrush}" />
@@ -391,12 +447,12 @@
                                 </Grid>
 
                                 <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding EsServicio}" Value="True">
+                                    <DataTrigger Binding="{Binding Articulo.EsServicio}" Value="True">
                                         <Setter TargetName="BadgeServicio" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="BadgeAlerta" Property="Visibility" Value="Collapsed" />
                                         <Setter TargetName="BadgeNormal" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
-                                    <DataTrigger Binding="{Binding StockBajo}" Value="True">
+                                    <DataTrigger Binding="{Binding Articulo.StockBajo}" Value="True">
                                         <Setter TargetName="BadgeAlerta" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="BadgeNormal" Property="Visibility" Value="Collapsed" />
                                         <Setter TargetName="BadgeServicio" Property="Visibility" Value="Collapsed" />
@@ -407,14 +463,40 @@
                     </DataGridTemplateColumn>
 
                     <!-- Acciones Contextuales -->
-                    <DataGridTemplateColumn Header="Acciones" Width="140">
+                    <DataGridTemplateColumn Header="Acciones" Width="172">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <!-- Pedir al proveedor (A-17, G4): deshabilitado con su motivo si no tiene fuente -->
+                                    <Button Command="{Binding DataContext.PedirArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            IsEnabled="{Binding SePuedePedir}"
+                                            Style="{StaticResource KeycapButtonStyle}"
+                                            Padding="6,4"
+                                            Margin="0,0,4,0"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            Visibility="{Binding DataContext.PuedePedir, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisConverter}}">
+                                        <Button.ToolTip>
+                                            <TextBlock>
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Agregar al borrador de pedido del proveedor" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SePuedePedir}" Value="False">
+                                                                <Setter Property="Text" Value="{Binding MotivoNoSePuedePedir, StringFormat=No se puede pedir: {0}}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Button.ToolTip>
+                                        <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    </Button>
+
                                     <!-- Crear presentación (RF-21): solo en artículos de compra que no son servicios -->
                                     <Button x:Name="BtnCrearPresentacion"
                                             Command="{Binding DataContext.CrearPresentacionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
+                                            CommandParameter="{Binding Articulo}"
                                             Style="{StaticResource KeycapButtonStyle}"
                                             Padding="6,4"
                                             Margin="0,0,4,0"
@@ -425,7 +507,7 @@
                                     <!-- Fraccionar (RF-21): solo en presentaciones derivadas -->
                                     <Button x:Name="BtnFraccionar"
                                             Command="{Binding DataContext.FraccionarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
+                                            CommandParameter="{Binding Articulo}"
                                             Style="{StaticResource KeycapButtonStyle}"
                                             Padding="6,4"
                                             Margin="0,0,4,0"
@@ -436,7 +518,7 @@
 
                                     <!-- Editar -->
                                     <Button Command="{Binding DataContext.EditarArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
+                                            CommandParameter="{Binding Articulo}"
                                             Style="{StaticResource KeycapButtonStyle}"
                                             Padding="6,4"
                                             Margin="0,0,4,0"
@@ -446,7 +528,7 @@
 
                                     <!-- Baja Lógica -->
                                     <Button Command="{Binding DataContext.BajaArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
+                                            CommandParameter="{Binding Articulo}"
                                             Style="{StaticResource KeycapButtonStyle}"
                                             Padding="6,4"
                                             ToolTip="Dar de baja artículo (Soft Delete)">
@@ -456,11 +538,11 @@
 
                                 <!-- Un derivado no puede ser origen de otro (un solo nivel) y un servicio no tiene presentaciones -->
                                 <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding EsDerivado}" Value="True">
+                                    <DataTrigger Binding="{Binding Articulo.EsDerivado}" Value="True">
                                         <Setter TargetName="BtnCrearPresentacion" Property="Visibility" Value="Collapsed" />
                                         <Setter TargetName="BtnFraccionar" Property="Visibility" Value="Visible" />
                                     </DataTrigger>
-                                    <DataTrigger Binding="{Binding EsServicio}" Value="True">
+                                    <DataTrigger Binding="{Binding Articulo.EsServicio}" Value="True">
                                         <Setter TargetName="BtnCrearPresentacion" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </DataTemplate.Triggers>

@@ -117,14 +117,15 @@ public class PedirArticulosViewModelTests
     }
 
     [Fact]
-    public void ObtenerRenglones_ConCantidadesEditadas_DevuelveLoteEnElOrdenMostrado()
+    public void ObtenerRespuesta_ConCantidadesEditadas_ConfirmaElLoteEnElOrdenMostrado()
     {
         var sut = new PedirArticulosViewModel(CrearVistaPrevia());
         sut.Grupos[0].Renglones[1].Cantidad = 6;
 
-        var renglones = sut.ObtenerRenglones();
+        var respuesta = sut.ObtenerRespuesta();
 
-        renglones.Should().BeEquivalentTo(
+        respuesta.Accion.Should().Be(AccionPedirArticulosEnum.Confirmar);
+        respuesta.Renglones.Should().BeEquivalentTo(
             new[]
             {
                 new RenglonAAgregarDto { IdCatalogoProveedor = 10, Cantidad = 1 },
@@ -151,5 +152,86 @@ public class PedirArticulosViewModelTests
         sut.Omitidos.Should().Equal(
             "Ítem 99: ya no existe en el catálogo",
             "COD-30 · Lápiz HB: no está incorporado a la tienda");
+    }
+
+    [Fact]
+    public void Omitidos_ConAvisosPrevios_LosMuestraAntesQueLosDeLaVistaPrevia()
+    {
+        var sut = new PedirArticulosViewModel(
+            CrearVistaPrevia(new RenglonOmitidoDto { IdCatalogoProveedor = 99, Motivo = MotivoOmisionPedidoEnum.ItemInexistente }),
+            avisosPrevios: ["Señalador: no tiene proveedor vinculado"]);
+
+        sut.Omitidos.Should().Equal(
+            "Señalador: no tiene proveedor vinculado",
+            "Ítem 99: ya no existe en el catálogo");
+    }
+
+    [Fact]
+    public void PuedeIncorporarPrimero_SeOfreceYHaySinIncorporar_EsVerdadero()
+    {
+        var sut = new PedirArticulosViewModel(CrearVistaPrevia(CrearSinIncorporar(30), CrearSinIncorporar(31)), ofrecerIncorporar: true);
+
+        sut.PuedeIncorporarPrimero.Should().BeTrue();
+        sut.TextoIncorporarPrimero.Should().Be("Incorporar los 2 ítems y volver");
+    }
+
+    [Fact]
+    public void PuedeIncorporarPrimero_NoSeOfrece_EsFalso()
+    {
+        var sut = new PedirArticulosViewModel(CrearVistaPrevia(CrearSinIncorporar(30)), ofrecerIncorporar: false);
+
+        sut.PuedeIncorporarPrimero.Should().BeFalse();
+    }
+
+    [Fact]
+    public void PuedeIncorporarPrimero_SoloOmitidosInexistentes_EsFalso()
+    {
+        var sut = new PedirArticulosViewModel(
+            CrearVistaPrevia(new RenglonOmitidoDto { IdCatalogoProveedor = 99, Motivo = MotivoOmisionPedidoEnum.ItemInexistente }),
+            ofrecerIncorporar: true);
+
+        sut.PuedeIncorporarPrimero.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ObtenerRespuesta_SolicitoIncorporar_DevuelveIncorporarPrimeroSinRenglones()
+    {
+        var sut = new PedirArticulosViewModel(CrearVistaPrevia(CrearSinIncorporar(30)), ofrecerIncorporar: true);
+
+        sut.SolicitarIncorporacion();
+        var respuesta = sut.ObtenerRespuesta();
+
+        respuesta.Accion.Should().Be(AccionPedirArticulosEnum.IncorporarPrimero);
+        respuesta.Renglones.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ObtenerRespuesta_SolicitoIncorporarSinOferta_IgnoraLaSolicitudYConfirma()
+    {
+        var sut = new PedirArticulosViewModel(CrearVistaPrevia(CrearSinIncorporar(30)), ofrecerIncorporar: false);
+
+        sut.SolicitarIncorporacion();
+
+        sut.ObtenerRespuesta().Accion.Should().Be(AccionPedirArticulosEnum.Confirmar);
+    }
+
+    [Fact]
+    public void ObtenerRespuesta_SinRenglonesPedibles_DevuelveCancelada()
+    {
+        var soloOmitidos = new VistaPreviaPedidoDto { Omitidos = [CrearSinIncorporar(30)] };
+        var sut = new PedirArticulosViewModel(soloOmitidos);
+
+        sut.ObtenerRespuesta().Should().Be(RespuestaPedirArticulos.Cancelada);
+    }
+
+    private static RenglonOmitidoDto CrearSinIncorporar(int idCatalogo)
+    {
+        return new RenglonOmitidoDto
+        {
+            IdCatalogoProveedor = idCatalogo,
+            CodigoProveedor = $"COD-{idCatalogo}",
+            Descripcion = $"Ítem {idCatalogo}",
+            Motivo = MotivoOmisionPedidoEnum.SinIncorporar
+        };
     }
 }

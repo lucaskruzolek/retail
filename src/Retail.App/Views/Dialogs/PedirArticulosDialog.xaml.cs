@@ -5,8 +5,9 @@ using Wpf.Ui.Controls;
 namespace Retail.App.Views.Dialogs;
 
 /// <summary>
-/// Modal de pedido (A-17): el usuario revisa el lote agrupado por proveedor, ajusta cantidades y confirma. El
-/// guardado lo hace quien abre el modal con los renglones de <see cref="PedirArticulosViewModel.ObtenerRenglones"/>.
+/// Modal de pedido (A-17): el usuario revisa el lote agrupado por proveedor, ajusta cantidades y confirma, o elige
+/// incorporar primero los ítems sin incorporar. El guardado lo hace quien abre el modal con
+/// <see cref="PedirArticulosViewModel.ObtenerRespuesta"/>.
 /// </summary>
 public partial class PedirArticulosDialog : FluentWindow
 {
@@ -30,6 +31,18 @@ public partial class PedirArticulosDialog : FluentWindow
             return;
         }
 
+        DialogResult = true;
+        Close();
+    }
+
+    private void BtnIncorporarPrimero_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.PuedeIncorporarPrimero)
+        {
+            return;
+        }
+
+        ViewModel.SolicitarIncorporacion();
         DialogResult = true;
         Close();
     }
