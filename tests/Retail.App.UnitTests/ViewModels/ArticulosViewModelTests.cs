@@ -754,6 +754,37 @@ public class ArticulosViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task PedirArticuloCommand_FiltradoPorDistribuidor_LoPasaComoProveedorPreferido()
+    {
+        // Track 4.3, K6: filtrar por un distribuidor es elegir a quién reponer.
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+        var fila = escenario.Sut.Articulos[0];
+        escenario.Sut.IdDistribuidorFiltro = 5;
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(fila);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Any<IReadOnlyCollection<int>>(),
+            5,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_SinFiltroDeDistribuidor_NoPasaProveedorPreferido()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Any<IReadOnlyCollection<int>>(),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task PedirArticuloCommand_ArticuloVinculado_PideSuItemDeCatalogoSinOfrecerIncorporar()
     {
         using var escenario = await CrearEscenarioPedidoAsync();

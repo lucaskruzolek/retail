@@ -33,6 +33,13 @@ public partial class VincularArticuloModalViewModel : ObservableObject
 
     public bool TieneError => !string.IsNullOrWhiteSpace(MensajeError);
 
+    /// <summary>
+    /// Si el ítem pasa a ser la fuente principal del artículo y fija su costo (Track 4.3, J4). Desmarcado, queda como
+    /// fuente adicional; si el artículo no tiene principal, lo será de todos modos.
+    /// </summary>
+    [ObservableProperty]
+    private bool _comoPrincipal;
+
     public ObservableCollection<ArticuloVentaDto> ArticulosEncontrados { get; } = new();
 
     public bool DialogResult { get; private set; }
@@ -53,6 +60,7 @@ public partial class VincularArticuloModalViewModel : ObservableObject
 
         ArticuloSeleccionado = null;
         MensajeError = null;
+        ComoPrincipal = false;
 
         await BuscarArticulosAsync();
     }

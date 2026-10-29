@@ -779,7 +779,13 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
             .Select(f => $"{f.Articulo.Descripcion}: {f.MotivoNoSePuedePedir}")
             .ToList();
 
-        var resultado = await _flujoPedir.PedirAsync(idsCatalogo, avisosPrevios, ofrecerIncorporar: false, _cargaArticulos);
+        // Filtrar por un distribuidor es elegir a quién reponer: el modal arranca en su fuente (Track 4.3, K6).
+        var resultado = await _flujoPedir.PedirAsync(
+            idsCatalogo,
+            avisosPrevios,
+            ofrecerIncorporar: false,
+            _cargaArticulos,
+            idProveedorPreferido: IdDistribuidorFiltro > 0 ? IdDistribuidorFiltro : null);
 
         if (resultado.MensajeError is not null)
         {
