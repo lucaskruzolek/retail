@@ -100,9 +100,10 @@ public abstract class PedidosPruebaBase : IAsyncLifetime
             PorcentajeGanancia = 40m,
             PrecioVenta = costo * 1.4m,
             StockActual = 5,
-            StockMinimo = 1,
-            IdCatalogoProveedor = catalogo.Id
+            StockMinimo = 1
         };
+        catalogo.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(catalogo);
         Contexto.Articulos.Add(articulo);
         await Contexto.SaveChangesAsync();
         return (articulo, catalogo);

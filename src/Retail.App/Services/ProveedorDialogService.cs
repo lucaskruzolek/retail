@@ -68,7 +68,11 @@ public class ProveedorDialogService : IProveedorDialogService
         if (resultado == true && vm.DialogResult && vm.IdArticuloSeleccionado.HasValue)
         {
             var proveedorService = _serviceProvider.GetRequiredService<IProveedorService>();
-            await proveedorService.VincularArticuloACatalogoAsync(vm.IdArticuloSeleccionado.Value, itemCatalogo.Id);
+            // Hasta que L3b agregue la elección en el modal, el ítem es principal solo si el artículo no tiene una (J4).
+            await proveedorService.VincularArticuloACatalogoAsync(
+                vm.IdArticuloSeleccionado.Value,
+                itemCatalogo.Id,
+                comoPrincipal: false);
             return true;
         }
 

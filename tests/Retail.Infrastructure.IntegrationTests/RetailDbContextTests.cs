@@ -660,7 +660,6 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         {
             Descripcion = "Cuaderno Espiral A4 Tienda",
             CodigoBarras = eanCompartido,
-            IdCatalogoProveedor = null,
             CostoReposicion = 1000m,
             PorcentajeGanancia = 40m,
             PrecioVenta = 1400m,

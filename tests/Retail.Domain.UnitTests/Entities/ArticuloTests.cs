@@ -214,74 +214,120 @@ public class ArticuloTests
     }
 
     [Fact]
-    public void VincularCatalogoProveedor_IdInvalido_LanzaArgumentOutOfRangeException()
-    {
-        // Arrange
-        var articulo = new Articulo { Descripcion = "Lapicera Azul", CostoReposicion = 100m, PorcentajeGanancia = 50m };
-
-        // Act
-        var act = () => articulo.VincularCatalogoProveedor(0, 120m);
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*identificador de catálogo*");
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_CostoNegativo_LanzaArgumentOutOfRangeException()
-    {
-        // Arrange
-        var articulo = new Articulo { Descripcion = "Lapicera Azul", CostoReposicion = 100m, PorcentajeGanancia = 50m };
-
-        // Act
-        var act = () => articulo.VincularCatalogoProveedor(10, -5m);
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*costo*");
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_DatosValidos_ActualizaIdCostoYPrecioVenta()
+    public void QuitarFuentePrincipal_ArticuloConPrincipal_QuedaSinPrincipalYConservaElCosto()
     {
         // Arrange
         var articulo = new Articulo
         {
-            Descripcion = "Cuaderno Rivadavia",
-            CostoReposicion = 1000m,
-            PorcentajeGanancia = 50m,
-            PrecioVenta = 1500m
+            Descripcion = "Resma A4",
+            CostoReposicion = 5000m,
+            PorcentajeGanancia = 30m,
+            PrecioVenta = 6500m
         };
+        var fuente = CrearFuente(id: 15, costo: 5000m);
+        fuente.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(fuente);
 
         // Act
-        articulo.VincularCatalogoProveedor(42, 1200m);
+        articulo.QuitarFuentePrincipal();
 
         // Assert
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        articulo.CostoReposicion.Should().Be(5000m); // Preserva el último costo
+        articulo.PrecioVenta.Should().Be(6500m);
+    }
+
+    // ---------- Fuentes múltiples y fuente principal (Track 4.3, A-16, J1) ----------
+
+    [Fact]
+    public void MarcarFuentePrincipal_FuenteDelArticulo_LaHacePrincipalYTomaSuCosto()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
+
+        articulo.MarcarFuentePrincipal(fuente);
+
         articulo.IdCatalogoProveedor.Should().Be(42);
         articulo.CostoReposicion.Should().Be(1200m);
         articulo.PrecioVenta.Should().Be(1800m); // 1200 + 50%
     }
 
     [Fact]
-    public void DesvincularCatalogoProveedor_ArticuloPreviamenteVinculado_RemueveEnlaceYPasaAManual()
+    public void MarcarFuentePrincipal_ArticuloNuevoSinId_ReconoceLaFuentePorLaInstancia()
     {
-        // Arrange
-        var articulo = new Articulo
-        {
-            Descripcion = "Resma A4",
-            IdCatalogoProveedor = 15,
-            CostoReposicion = 5000m,
-            PorcentajeGanancia = 30m,
-            PrecioVenta = 6500m
-        };
+        var articulo = CrearArticuloConFuentes(id: 0);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
 
-        // Act
-        articulo.DesvincularCatalogoProveedor();
+        articulo.MarcarFuentePrincipal(fuente);
 
-        // Assert
+        articulo.IdCatalogoProveedor.Should().Be(42);
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_CambioDePrincipal_LaAnteriorSigueSiendoFuente()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var anterior = CrearFuente(id: 42, costo: 1200m);
+        var nueva = CrearFuente(id: 43, costo: 1100m);
+        anterior.AsignarArticulo(articulo);
+        nueva.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(anterior);
+
+        articulo.MarcarFuentePrincipal(nueva);
+
+        articulo.IdCatalogoProveedor.Should().Be(43);
+        articulo.CostoReposicion.Should().Be(1100m);
+        anterior.EsFuenteDe(articulo).Should().BeTrue();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemQueNoEsFuente_LanzaDomainExceptionSinModificarElArticulo()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var ajena = CrearFuente(id: 42, costo: 1200m);
+
+        var act = () => articulo.MarcarFuentePrincipal(ajena);
+
+        act.Should().Throw<DomainException>().WithMessage("*no es fuente de este artículo*");
         articulo.IdCatalogoProveedor.Should().BeNull();
-        articulo.CostoReposicion.Should().Be(5000m); // Preserva el último costo
-        articulo.PrecioVenta.Should().Be(6500m);
+        articulo.CostoReposicion.Should().Be(1000m);
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemFuenteDeOtroArticulo_LanzaDomainException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(CrearArticuloConFuentes(id: 8));
+
+        var act = () => articulo.MarcarFuentePrincipal(fuente);
+
+        act.Should().Throw<DomainException>();
+        articulo.IdCatalogoProveedor.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemSinGuardar_LanzaArgumentOutOfRangeException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 0, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
+
+        var act = () => articulo.MarcarFuentePrincipal(fuente);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_FuenteNula_LanzaArgumentNullException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+
+        var act = () => articulo.MarcarFuentePrincipal(null!);
+
+        act.Should().Throw<ArgumentNullException>();
     }
 
     // ---------- Redondeo (D-06) ----------
@@ -489,7 +535,10 @@ public class ArticuloTests
     public void DefinirComoPresentacionDe_ArticuloVinculadoACatalogo_LanzaDomainException()
     {
         // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad", IdCatalogoProveedor = 15 };
+        var derivado = new Articulo { Descripcion = "Unidad" };
+        var fuente = CrearFuente(id: 15, costo: 100m);
+        fuente.AsignarArticulo(derivado);
+        derivado.MarcarFuentePrincipal(fuente);
 
         // Act
         var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
@@ -581,45 +630,6 @@ public class ArticuloTests
 
         // Assert
         act.Should().Throw<InvalidOperationException>();
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_ArticuloDerivado_LanzaDomainException()
-    {
-        // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad" };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
-
-        // Act
-        var act = () => derivado.VincularCatalogoProveedor(42, 100m);
-
-        // Assert
-        act.Should().Throw<DomainException>().WithMessage("*catálogo de proveedor*");
-        derivado.IdCatalogoProveedor.Should().BeNull();
-    }
-
-    [Fact]
-    public void ActualizarDatos_DerivadoConCatalogo_LanzaDomainException()
-    {
-        // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad" };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
-
-        // Act
-        var act = () => derivado.ActualizarDatos(
-            descripcion: "Unidad",
-            idCategoria: null,
-            idMarca: null,
-            codigoBarras: null,
-            costoReposicion: 10m,
-            porcentajeGanancia: 50m,
-            stockActual: 0,
-            stockMinimo: 0,
-            esServicio: false,
-            idCatalogoProveedor: 42);
-
-        // Assert
-        act.Should().Throw<DomainException>().WithMessage("*catálogo de proveedor*");
     }
 
     [Fact]
@@ -977,6 +987,30 @@ public class ArticuloTests
             stockActual: 1,
             stockMinimo: 0,
             esServicio: false);
+    }
+
+    private static Articulo CrearArticuloConFuentes(int id)
+    {
+        return new Articulo
+        {
+            Id = id,
+            Descripcion = "Cuaderno Rivadavia",
+            CostoReposicion = 1000m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 1500m
+        };
+    }
+
+    private static CatalogoProveedor CrearFuente(int id, decimal costo)
+    {
+        return new CatalogoProveedor
+        {
+            Id = id,
+            IdProveedor = 1,
+            CodigoProveedor = $"COD-{id}",
+            DescripcionProveedor = "Cuaderno Rivadavia ABC",
+            CostoReposicion = costo
+        };
     }
 
     private static Articulo CrearOrigen(int id = 1, decimal costo = 1000m)

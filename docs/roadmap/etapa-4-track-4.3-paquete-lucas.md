@@ -202,19 +202,44 @@ Todo acceso a datos por `CargaSerializada` + `Task.Run` (Ley 4). En `PedidosView
 
 ## Fase L3 — Fuentes múltiples y fuente principal
 
-**Depende de:** L1 y cierre de la fase en curso del Track 6.6 (migraciones de `CatalogoProveedor`). **Migración:** sí, con migración de datos.
+L3 se partió en **L3a** (back-end y migración) y **L3b** (UI) el 2026-10-29: la migración con datos se revisa sola. **A-16 está cerrada con la opción A** (rector): `ARTICULOS.id_catalogo_proveedor` es la fuente principal y `CATALOGOS_PROVEEDORES.id_articulo` registra todas las fuentes.
 
-1. **Cerrar A-16 con el estudiante** (opción A o B del rector), con el impacto real medido sobre el código del Track 6.6 ya integrado. Actualizar el rector.
-2. Dominio: el vínculo deja de ser 1:1. Reglas: un ítem se vincula a lo sumo a un artículo (A-1); nunca a una presentación derivada (RF-21); a lo sumo una fuente principal por artículo (A-2). Operaciones: vincular como fuente adicional, marcar como principal, desvincular (si se desvincula la principal, el artículo queda sin principal hasta que el usuario elija otra; no se elige sola).
-3. Migración de datos: todo vínculo existente pasa a ser **la fuente principal** de su artículo. Test de integración que lo verifique sobre datos sembrados.
-4. Importador (RF-07): propaga costo y precio **solo** a través de las fuentes principales.
-5. `AgregarVariosAlPedidoAsync` y la vista previa del modal: cambiar únicamente la resolución ítem → artículo (L1.2). Desde Artículos, cada renglón se pide por defecto a la **fuente principal**; el modal de pedido agrega un combo de fuente por renglón (proveedor · costo · fecha, ordenado por costo, la principal marcada) y, al cambiarla, el renglón pasa al grupo de su proveedor (A-18).
-6. UI: `VincularArticuloModalDialog` permite vincular a un artículo que ya tiene fuentes, indicando si queda como principal. La grilla de Artículos sigue con **una fila por artículo** (A-18).
-7. Actualizar el DER (las fuentes múltiples no están en PR-0) y el mapa.
+### Decisiones de diseño de L3 (aprobadas el 2026-10-29)
+
+| Id | Propuesta | Fundamento |
+| :--- | :--- | :--- |
+| J1 | Las reglas del vínculo viven en el dominio y reciben las entidades, no los ids. `CatalogoProveedor.AsignarArticulo(Articulo)` rechaza la presentación derivada (RF-21) y el ítem que ya es fuente de **otro** artículo (A-1). `CatalogoProveedor.LiberarArticulo()` lo desvincula. `Articulo.MarcarFuentePrincipal(CatalogoProveedor)` exige que el ítem ya sea fuente de este artículo (invariante de A-16) y toma su costo. `Articulo.QuitarFuentePrincipal()` lo deja sin principal | Con la opción A, A-1 deja de ser una consulta ("¿hay otro artículo con este ítem?") y pasa a ser un dato del propio ítem. Recibir la entidad permite verificar en el dominio el invariante que la base no declara |
+| J2 | El formulario de artículo maneja **un solo vínculo: la fuente principal**; no administra varias fuentes. Al crear o editar, `InventarioService` asigna la fuente y la marca como principal (J1) en el mismo `SaveChanges`. Si se cambia la principal, la anterior **sigue como fuente adicional** (variante J2-a; se descartó J2-b, que la liberaba). Elegir un ítem que ya es fuente adicional del artículo lo promueve; uno que es fuente de otro artículo se rechaza (J1). "Desvincular" en el formulario libera la principal | Sin este cambio, el formulario escribiría `id_catalogo_proveedor` sin `id_articulo` y rompería el invariante: es el tercer camino de escritura del vínculo. Administrar varias fuentes desde el formulario duplicaría el modal de L4 (A-18) y haría que un Guardar modifique ítems de varios proveedores. Las fuentes adicionales nacen en el importador (J4). J2-a no pierde vínculos en silencio; su costo es que, hasta L4, una adicional solo se quita con el desvincular del importador (J5). Idea para L4, no comprometida: acceso al modal "Fuentes del artículo" desde el formulario en edición |
+| J3 | La **baja lógica** de un artículo libera todas sus fuentes en el mismo `SaveChanges` | Sin liberarlas, los ítems figurarían vinculados a un artículo dado de baja y no se podrían volver a incorporar (A-1) |
+| J4 | `VincularArticuloACatalogoAsync` recibe `comoPrincipal`. Si el artículo no tiene principal, el ítem queda como principal sin preguntar. Si ya tiene una, el valor por defecto es "adicional", que **no** toca el costo. Vincular como principal recalcula el costo del artículo y el de sus presentaciones, como hoy | El costo solo lo fija la principal (A-2). Un artículo sin principal no tiene a quién preguntarle el costo |
+| J5 | `DesvincularArticuloDeCatalogoAsync(idArticulo)` se reemplaza por `DesvincularFuenteAsync(idCatalogoProveedor)`. Si era la principal, el artículo queda sin principal (no se elige otra sola) | Con varias fuentes, "desvincular el artículo" es ambiguo: lo que se quita es una fuente |
+| J6 | "Está vinculado" pasa a leer `CATALOGOS_PROVEEDORES.id_articulo` en `CatalogoProveedorQueryService`, en la incorporación y en la resolución ítem → artículo de pedidos (H4) | Una fuente adicional también está vinculada: se puede pedir y no se vuelve a incorporar |
+
+### Fase L3a — Back-end, migración e importador
+
+**Depende de:** L1 y Track 6.6 (✅ en `main`). **Migración:** sí, con migración de datos.
+
+1. ✅ Cerrar A-16 (opción A) y actualizar el rector (2026-10-29).
+2. ✅ **Dominio** (J1): `CatalogoProveedor.IdArticulo` con sus operaciones y las de `Articulo`, más tests de dominio de cada regla. (`f6a2014`)
+3. ✅ **Persistencia y migración:** FK `CATALOGOS_PROVEEDORES.id_articulo → ARTICULOS` nullable, `Restrict`, con índice. La migración con datos copia cada vínculo activo actual a `id_articulo`: todo vínculo existente pasa a ser **la fuente principal** de su artículo. Test de integración sobre datos sembrados, que cubre también que un artículo dado de baja no se migra. Antes de aplicarla a `RetailDb` local se hace un respaldo. (`f6a2014`)
+4. ✅ **Servicios** (J2-J6): incorporación, vincular, desvincular, formulario de artículo y baja. La propagación del importador (RF-07) **no cambia**: ya recorre solo la fuente principal. Escrituras en `67006d8` (4a). En 4b se cerró el `set` de `Articulo.IdCatalogoProveedor`: la principal solo cambia por `MarcarFuentePrincipal` y `QuitarFuentePrincipal`, y los tests que verifican restricciones de la base la escriben con `Entry(...).Property(...)` a propósito.
+5. ✅ **Consultas (J6):** "vinculado" pasa a leer `CATALOGOS_PROVEEDORES.id_articulo` con artículo activo en `CatalogoProveedorQueryService` y en la resolución ítem → artículo de pedidos (H4). La consulta de las fuentes de un artículo (proveedor · costo · fecha, la principal marcada) **se trasladó a L3b**, donde está su primer consumidor (el combo del modal de pedido): agregarla antes dejaba una API sin uso (YAGNI).
+6. ✅ DER y mapa actualizados.
+
+### Fase L3b — Interfaz
+
+**Depende de:** L3a. **Migración:** no.
+
+0. Consulta `AsNoTracking` de las fuentes de un artículo, proyectada a DTO (Ley 8), con su test de integración (trasladada desde L3a).
+1. `VincularArticuloModalDialog` permite vincular a un artículo que ya tiene fuentes e indicar si queda como principal (J4).
+2. Modal de pedido: desde Artículos, cada renglón se pide por defecto a la **fuente principal**. Un combo de fuente por renglón (proveedor · costo · fecha, ordenado por costo, la principal marcada) permite cambiarla, y al cambiarla el renglón pasa al grupo de su proveedor (A-18).
+3. La grilla de Artículos sigue con **una fila por artículo** (A-18). El badge "N fuentes" es de L4.
+4. Tests de ViewModel, auditoría XAML y prueba de humo STA si se crea una vista nueva.
+5. **Decisiones pendientes para el estudiante** (no las cambió L3a, porque modifican comportamiento visible): (a) la coincidencia por código de barras del importador sigue ofreciendo solo artículos **sin principal**; con fuentes múltiples, un artículo que ya tiene principal también podría recibir el ítem como fuente adicional. (b) El filtro "por distribuidor" de Artículos sigue mirando solo la **principal**; ¿debe incluir los artículos que tienen a ese distribuidor como fuente adicional?
 
 ## Fase L4 — Modal "Fuentes del artículo" (RF-28)
 
-**Depende de:** L3. **Decisión del rector:** A-18.
+**Depende de:** L3b. **Decisión del rector:** A-18.
 
 * Modal **"Fuentes del artículo"**: todas las fuentes del artículo con proveedor, código, descripción del proveedor, costo, fecha de actualización de la lista y badge de principal, ordenadas por costo. La fecha de cada lista es visible: una lista vieja y barata es la trampa que motivó A-2.
 * Acciones por fila: **Marcar como principal** (con confirmación, porque recalcula el precio de venta) y **Pedir** (cierra este modal y abre el modal de pedido con esa fuente elegida).

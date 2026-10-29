@@ -236,6 +236,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha_actualizacion");
 
+                    b.Property<int?>("IdArticulo")
+                        .HasColumnType("int")
+                        .HasColumnName("id_articulo");
+
                     b.Property<int>("IdProveedor")
                         .HasColumnType("int")
                         .HasColumnName("id_proveedor");
@@ -251,6 +255,8 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnName("rubro_proveedor");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdArticulo");
 
                     b.HasIndex("IdProveedor", "CodigoProveedor")
                         .IsUnique()
@@ -1871,11 +1877,18 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Retail.Domain.Entities.CatalogoProveedor", b =>
                 {
+                    b.HasOne("Retail.Domain.Entities.Articulo", "Articulo")
+                        .WithMany()
+                        .HasForeignKey("IdArticulo")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Retail.Domain.Entities.Proveedor", "Proveedor")
                         .WithMany("Catalogos")
                         .HasForeignKey("IdProveedor")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Articulo");
 
                     b.Navigation("Proveedor");
                 });

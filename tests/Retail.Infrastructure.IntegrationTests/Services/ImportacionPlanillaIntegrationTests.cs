@@ -95,16 +95,20 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
         _context.CatalogosProveedores.AddRange(catalogos);
         await _context.SaveChangesAsync();
 
-        _context.Articulos.AddRange(catalogos.Select(c => new Articulo
+        foreach (var catalogo in catalogos)
         {
-            Descripcion = c.DescripcionProveedor,
-            IdCatalogoProveedor = c.Id,
-            CostoReposicion = 100m,
-            PorcentajeGanancia = 50m,
-            PrecioVenta = 150m,
-            StockActual = 10,
-            StockMinimo = 2
-        }));
+            var articulo = new Articulo
+            {
+                Descripcion = catalogo.DescripcionProveedor,
+                PorcentajeGanancia = 50m,
+                StockActual = 10,
+                StockMinimo = 2
+            };
+            catalogo.AsignarArticulo(articulo);
+            articulo.MarcarFuentePrincipal(catalogo);
+            _context.Articulos.Add(articulo);
+        }
+
         await _context.SaveChangesAsync();
     }
 

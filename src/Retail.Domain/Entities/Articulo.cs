@@ -39,7 +39,12 @@ public class Articulo : BaseEntity, IAggregateRoot
     /// </summary>
     public OrigenClasificacionEnum? OrigenMarca { get; private set; }
 
-    public int? IdCatalogoProveedor { get; set; }
+    /// <summary>
+    /// Fuente principal (Track 4.3, A-16): el único ítem de catálogo cuya planilla fija el costo y el precio (A-2,
+    /// RF-07). Siempre es una de las fuentes del artículo: solo cambia con <see cref="MarcarFuentePrincipal"/> y
+    /// <see cref="QuitarFuentePrincipal"/>.
+    /// </summary>
+    public int? IdCatalogoProveedor { get; private set; }
 
     public CatalogoProveedor? CatalogoProveedor { get; set; }
 
@@ -130,8 +135,7 @@ public class Articulo : BaseEntity, IAggregateRoot
         decimal porcentajeGanancia,
         int stockActual,
         int stockMinimo,
-        bool esServicio,
-        int? idCatalogoProveedor = null)
+        bool esServicio)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(descripcion);
         ValidarIdentificadoresDeClasificacion(idCategoria, idMarca);
@@ -143,11 +147,6 @@ public class Articulo : BaseEntity, IAggregateRoot
             ? OrigenCategoria
             : idCategoria.HasValue ? OrigenClasificacionEnum.Manual : null;
         var origenMarca = idMarca == IdMarca ? OrigenMarca : OrigenClasificacionEnum.Manual;
-
-        if (EsDerivado && idCatalogoProveedor.HasValue)
-        {
-            throw new DomainException("Una presentación derivada no puede vincularse a un catálogo de proveedor: solo se vincula su artículo de origen.");
-        }
 
         if (EsDerivado && esServicio)
         {
@@ -169,7 +168,6 @@ public class Articulo : BaseEntity, IAggregateRoot
         EsServicio = esServicio;
         StockActual = esServicio ? 0 : Math.Max(0, stockActual);
         StockMinimo = esServicio ? 0 : Math.Max(0, stockMinimo);
-        IdCatalogoProveedor = idCatalogoProveedor;
     }
 
     /// <summary>
@@ -203,23 +201,34 @@ public class Articulo : BaseEntity, IAggregateRoot
         OrigenMarca = origenMarca;
     }
 
-    public void VincularCatalogoProveedor(int idCatalogoProveedor, decimal nuevoCosto)
+    /// <summary>
+    /// Hace principal una fuente que ya es de este artículo (A-16, J1) y toma su costo, porque solo la principal fija
+    /// el costo (A-2). La fuente anterior, si había, sigue siendo fuente (J2). Las presentaciones derivadas las
+    /// recalcula Application, que las conoce.
+    /// </summary>
+    public void MarcarFuentePrincipal(CatalogoProveedor fuente)
     {
-        if (idCatalogoProveedor <= 0)
+        ArgumentNullException.ThrowIfNull(fuente);
+
+        if (fuente.Id <= 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(idCatalogoProveedor), "El identificador de catálogo de proveedor debe ser mayor a cero.");
+            throw new ArgumentOutOfRangeException(nameof(fuente), "La fuente principal debe ser un ítem de catálogo ya guardado.");
         }
 
-        if (EsDerivado)
+        if (!fuente.EsFuenteDe(this))
         {
-            throw new DomainException("Una presentación derivada no puede vincularse a un catálogo de proveedor: solo se vincula su artículo de origen.");
+            throw new DomainException(
+                $"El ítem '{fuente.CodigoProveedor}' no es fuente de este artículo: vincúlelo antes de marcarlo como principal.");
         }
 
-        ActualizarCostoYRecalcularPrecio(nuevoCosto);
-        IdCatalogoProveedor = idCatalogoProveedor;
+        ActualizarCostoYRecalcularPrecio(fuente.CostoReposicion);
+        IdCatalogoProveedor = fuente.Id;
     }
 
-    public void DesvincularCatalogoProveedor()
+    /// <summary>
+    /// Deja el artículo sin fuente principal; conserva el último costo. No se elige otra sola (J5).
+    /// </summary>
+    public void QuitarFuentePrincipal()
     {
         IdCatalogoProveedor = null;
         CatalogoProveedor = null;
