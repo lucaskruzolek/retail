@@ -25,9 +25,14 @@ public interface IPedidoService
     Task<ResultadoAgregarAlPedidoDto> AgregarVariosAlPedidoAsync(AgregarVariosAlPedidoDto dto, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lo que el modal de pedido muestra antes de confirmar el lote: destinos, stock, cantidad ya pedida y omitidos.
+    /// Lo que el modal de pedido muestra antes de confirmar el lote: destinos, stock, cantidad ya pedida, fuentes de
+    /// cada artículo y omitidos. Con <paramref name="idProveedorPreferido"/>, cada renglón arranca en la fuente de ese
+    /// proveedor si el artículo la tiene (Track 4.3, K6).
     /// </summary>
-    Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(IReadOnlyCollection<int> idsCatalogoProveedor, CancellationToken cancellationToken = default);
+    Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(
+        IReadOnlyCollection<int> idsCatalogoProveedor,
+        int? idProveedorPreferido = null,
+        CancellationToken cancellationToken = default);
 
     Task<PedidosPaginadosDto> ListarPedidosAsync(ConsultaPedidosDto consulta, CancellationToken cancellationToken = default);
 

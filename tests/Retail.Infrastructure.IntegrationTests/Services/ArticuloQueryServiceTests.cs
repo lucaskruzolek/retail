@@ -361,6 +361,43 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         item.CostoCatalogoProveedor.Should().Be(77m);
     }
 
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_FiltroPorProveedor_IncluyeFuentesAdicionalesYPresentaciones()
+    {
+        // Arrange (Track 4.3, K5): Norte es la principal de "Lápiz" y una fuente adicional de "Cuaderno"; "Unidad" es
+        // una presentación derivada del cuaderno y "Artesanal" no tiene fuentes.
+        var sur = Proveedor.Crear("Distribuidora Sur", "30-12345678-1");
+        var norte = Proveedor.Crear("Mayorista Norte", "30-50001091-2");
+        var cuadernoSur = new CatalogoProveedor { Proveedor = sur, CodigoProveedor = "S-1", DescripcionProveedor = "Cuaderno", CostoReposicion = 100m };
+        var cuadernoNorte = new CatalogoProveedor { Proveedor = norte, CodigoProveedor = "N-1", DescripcionProveedor = "Cuaderno", CostoReposicion = 90m };
+        var lapizNorte = new CatalogoProveedor { Proveedor = norte, CodigoProveedor = "N-2", DescripcionProveedor = "Lápiz", CostoReposicion = 10m };
+        _context.AddRange(cuadernoSur, cuadernoNorte, lapizNorte);
+        await _context.SaveChangesAsync();
+
+        var cuaderno = CrearArticulo("Cuaderno");
+        cuadernoSur.AsignarArticulo(cuaderno);
+        cuaderno.MarcarFuentePrincipal(cuadernoSur);
+        cuadernoNorte.AsignarArticulo(cuaderno);
+        var lapiz = CrearArticulo("Lápiz");
+        lapizNorte.AsignarArticulo(lapiz);
+        lapiz.MarcarFuentePrincipal(lapizNorte);
+        _context.Articulos.AddRange(cuaderno, lapiz, CrearArticulo("Artesanal"));
+        await _context.SaveChangesAsync();
+        var unidad = CrearArticulo("Unidad");
+        unidad.DefinirComoPresentacionDe(cuaderno, 10);
+        _context.Articulos.Add(unidad);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var deNorte = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdProveedor = norte.Id });
+        var sinFuentes = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdProveedor = -1 });
+
+        // Assert
+        deNorte.Items.Select(i => i.Descripcion).Should().BeEquivalentTo("Cuaderno", "Lápiz", "Unidad");
+        sinFuentes.Items.Select(i => i.Descripcion).Should().Equal("Artesanal");
+    }
+
     private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int stock = 10)
     {
         return new Articulo

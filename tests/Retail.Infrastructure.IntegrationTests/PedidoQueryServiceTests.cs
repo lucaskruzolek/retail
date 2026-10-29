@@ -166,6 +166,79 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
     }
 
     [Fact]
+    public async Task ObtenerVistaPrevia_ArticuloConVariasFuentes_LasTraeOrdenadasPorCostoConSuBorrador()
+    {
+        // Arrange (Track 4.3, K1): principal en Sur a 100 y adicional en Norte a 80, con 2 unidades ya pedidas a Norte
+        var (sur, norte, principal, adicional) = await SembrarArticuloConDosFuentesAsync();
+        var borradorNorte = await SembrarBorradorAsync(norte, (principal.Articulo!, adicional));
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act: se pide la principal, como desde Artículos (K2)
+        var vista = await servicio.ObtenerVistaPreviaAsync(new[] { principal.Catalogo.Id });
+
+        // Assert
+        var renglon = vista.Renglones.Should().ContainSingle().Subject;
+        renglon.IdCatalogoProveedor.Should().Be(principal.Catalogo.Id);
+        renglon.Fuentes.Select(f => (f.IdCatalogoProveedor, f.EsPrincipal, f.CantidadEnBorrador)).Should().Equal(
+            (adicional.Id, false, 2),
+            (principal.Catalogo.Id, true, 0));
+        vista.Destinos.Select(d => (d.IdProveedor, d.IdBorrador)).Should().BeEquivalentTo(new (int, int?)[]
+        {
+            (sur.Id, null),
+            (norte.Id, borradorNorte.Id)
+        });
+    }
+
+    [Fact]
+    public async Task ObtenerVistaPrevia_ConProveedorPreferido_ArrancaEnLaFuenteDeEseProveedor()
+    {
+        // Arrange (K6)
+        var (_, norte, principal, adicional) = await SembrarArticuloConDosFuentesAsync();
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var vista = await servicio.ObtenerVistaPreviaAsync(new[] { principal.Catalogo.Id }, idProveedorPreferido: norte.Id);
+
+        // Assert
+        var renglon = vista.Renglones.Should().ContainSingle().Subject;
+        renglon.IdCatalogoProveedor.Should().Be(adicional.Id);
+        renglon.IdProveedor.Should().Be(norte.Id);
+        renglon.CostoActual.Should().Be(80m);
+        renglon.Fuentes.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task ObtenerVistaPrevia_ProveedorPreferidoSinFuenteDelArticulo_ArrancaEnElItemPedido()
+    {
+        // Arrange (K2 cuando K6 no aplica)
+        var sur = await SembrarProveedorAsync();
+        var norte = await SembrarProveedorAsync("Mayorista Norte", "30-50001091-2");
+        var item = await SembrarItemAsync(sur);
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var vista = await servicio.ObtenerVistaPreviaAsync(new[] { item.Catalogo.Id }, idProveedorPreferido: norte.Id);
+
+        // Assert
+        vista.Renglones.Should().ContainSingle().Which.IdCatalogoProveedor.Should().Be(item.Catalogo.Id);
+    }
+
+    /// <summary>
+    /// Un artículo con su principal en Sur (costo 100) y una fuente adicional en Norte (costo 80).
+    /// </summary>
+    private async Task<(Proveedor Sur, Proveedor Norte, (Articulo? Articulo, CatalogoProveedor Catalogo) Principal, CatalogoProveedor Adicional)>
+        SembrarArticuloConDosFuentesAsync()
+    {
+        var sur = await SembrarProveedorAsync();
+        var norte = await SembrarProveedorAsync("Mayorista Norte", "30-50001091-2");
+        var principal = await SembrarItemAsync(sur, costo: 100m);
+        var adicional = await SembrarItemAsync(norte, vincularArticulo: false, costo: 80m);
+        adicional.Catalogo.AsignarArticulo(principal.Articulo!);
+        await Contexto.SaveChangesAsync();
+        return (sur, norte, principal, adicional.Catalogo);
+    }
+
+    [Fact]
     public async Task ObtenerVistaPrevia_ConBorradorExistente_InformaDestinoStockYCantidadYaPedida()
     {
         // Arrange
@@ -199,7 +272,7 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
             StockActual = 5,
             StockMinimo = 1,
             CantidadEnBorrador = 0
-        });
+        }, opciones => opciones.Excluding(r => r.Fuentes));
         vista.Renglones[1].CantidadEnBorrador.Should().Be(2);
     }
 

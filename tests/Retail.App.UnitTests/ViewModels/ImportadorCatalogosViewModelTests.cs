@@ -509,7 +509,7 @@ public class ImportadorCatalogosViewModelTests : IDisposable
 
     private void ConfigurarVistaPrevia(params int[] idsSinIncorporar)
     {
-        _pedidoService.ObtenerVistaPreviaAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+        _pedidoService.ObtenerVistaPreviaAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .Returns(new VistaPreviaPedidoDto
             {
                 Omitidos = idsSinIncorporar
@@ -548,7 +548,7 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         // Assert
         await _pedidoService.Received(1).ObtenerVistaPreviaAsync(
             Arg.Is<IReadOnlyCollection<int>>(ids => ids.Single() == 50),
-            Arg.Any<CancellationToken>());
+            Arg.Any<int?>(), Arg.Any<CancellationToken>());
         await _pedidoService.Received(1).AgregarVariosAlPedidoAsync(
             Arg.Is<AgregarVariosAlPedidoDto>(d => d.IdUsuario == 7 && d.Renglones.Single().IdCatalogoProveedor == 50 && d.Renglones.Single().Cantidad == 3),
             Arg.Any<CancellationToken>());

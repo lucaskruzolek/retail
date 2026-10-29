@@ -256,9 +256,9 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task ObtenerCatalogoPaginadoAsync_ConArticuloYaVinculadoConElMismoCodigoDeBarras_NoMarcaCoincidencia()
+    public async Task ObtenerCatalogoPaginadoAsync_ConArticuloConOtraFuenteYElMismoCodigoDeBarras_MarcaLaCoincidencia()
     {
-        // Arrange: un artículo vinculado a otro ítem no cuenta como "propio no vinculado"
+        // Arrange: el artículo ya tiene otra fuente, y el ítem se le puede sumar como adicional (Track 4.3, K4)
         var proveedor = await CrearProveedorAsync();
         var otro = CrearItem(proveedor.Id, "O1", "Otro");
         var candidato = CrearItem(proveedor.Id, "C1", "Candidato", "555");
@@ -272,7 +272,29 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var res = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id });
 
         // Assert
-        res.Items.Single(i => i.CodigoProveedor == "C1").CoincideConArticuloTienda.Should().BeFalse();
+        res.Items.Single(i => i.CodigoProveedor == "C1").CoincideConArticuloTienda.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConPresentacionDerivadaConElMismoCodigoDeBarras_NoMarcaCoincidencia()
+    {
+        // Arrange: una presentación derivada no puede tener fuentes (RF-21), así que no es candidata
+        var proveedor = await CrearProveedorAsync();
+        _context.CatalogosProveedores.Add(CrearItem(proveedor.Id, "C1", "Candidato", "555"));
+        var origen = CrearArticulo("Pack");
+        _context.Articulos.Add(origen);
+        await _context.SaveChangesAsync();
+        var derivado = CrearArticulo("Unidad", "555");
+        derivado.DefinirComoPresentacionDe(origen, 10);
+        _context.Articulos.Add(derivado);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var res = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id });
+
+        // Assert
+        res.Items.Single().CoincideConArticuloTienda.Should().BeFalse();
     }
 
     [Fact]

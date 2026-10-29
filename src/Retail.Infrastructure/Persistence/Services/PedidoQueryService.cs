@@ -41,6 +41,7 @@ public class PedidoQueryService : IPedidoQueryService
 
     public async Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(
         IReadOnlyCollection<int> idsCatalogoProveedor,
+        int? idProveedorPreferido = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(idsCatalogoProveedor);
@@ -54,31 +55,36 @@ public class PedidoQueryService : IPedidoQueryService
         var items = await _context.CatalogosProveedores
             .AsNoTracking()
             .Where(c => ids.Contains(c.Id))
+            .Select(c => new { c.Id, c.CodigoProveedor, c.DescripcionProveedor })
+            .ToDictionaryAsync(c => c.Id, cancellationToken);
+
+        var articulosPorItem = await ObtenerArticulosVinculadosAsync(items.Keys.ToList(), cancellationToken);
+        var idsArticulos = articulosPorItem.Values.Distinct().ToList();
+        var articulos = await _context.Articulos
+            .AsNoTracking()
+            .Where(a => idsArticulos.Contains(a.Id))
+            .Select(a => new { a.Id, a.StockActual, a.StockMinimo, a.IdCatalogoProveedor })
+            .ToDictionaryAsync(a => a.Id, cancellationToken);
+
+        // Todas las fuentes de los artículos del lote en una sola consulta (Track 4.3, K1): el combo del modal cambia de
+        // fuente sin volver a la base. El filtro global descarta los ítems dados de baja.
+        var fuentes = await _context.CatalogosProveedores
+            .AsNoTracking()
+            .Where(c => c.IdArticulo != null && idsArticulos.Contains(c.IdArticulo.Value))
             .Select(c => new
             {
                 c.Id,
+                IdArticulo = c.IdArticulo!.Value,
                 c.IdProveedor,
                 RazonSocialProveedor = c.Proveedor!.RazonSocial,
                 c.CodigoProveedor,
                 c.DescripcionProveedor,
-                c.CostoReposicion
+                c.CostoReposicion,
+                c.FechaActualizacion
             })
-            .ToDictionaryAsync(c => c.Id, cancellationToken);
+            .ToListAsync(cancellationToken);
 
-        // La resolución ítem → artículo se reutiliza para que siga habiendo un solo punto que cambia en L3.
-        var articulosPorItem = await ObtenerArticulosVinculadosAsync(items.Keys.ToList(), cancellationToken);
-        var idsArticulos = articulosPorItem.Values.ToList();
-        var stocks = await _context.Articulos
-            .AsNoTracking()
-            .Where(a => idsArticulos.Contains(a.Id))
-            .Select(a => new { a.Id, a.StockActual, a.StockMinimo })
-            .ToDictionaryAsync(a => a.Id, cancellationToken);
-
-        var idsProveedores = items.Values
-            .Where(i => articulosPorItem.ContainsKey(i.Id))
-            .Select(i => i.IdProveedor)
-            .Distinct()
-            .ToList();
+        var idsProveedores = fuentes.Select(f => f.IdProveedor).Distinct().ToList();
         var borradores = await _context.Pedidos
             .AsNoTracking()
             .Where(p => idsProveedores.Contains(p.IdProveedor) && p.Estado == EstadoPedidoEnum.Borrador)
@@ -86,13 +92,32 @@ public class PedidoQueryService : IPedidoQueryService
             .ToDictionaryAsync(p => p.IdProveedor, cancellationToken);
 
         // Al agregar, la cantidad se suma a la que ya tiene el borrador: el modal la muestra para no pedir de más (H3).
-        // El filtro global oculta los renglones quitados (D4).
+        // Se calcula para cada fuente, porque el renglón puede cambiar de fuente. El filtro global oculta los renglones
+        // quitados (D4).
         var idsBorradores = borradores.Values.Select(b => b.Id).ToList();
+        var idsFuentes = fuentes.Select(f => f.Id).ToList();
         var cantidadesEnBorrador = await _context.Set<DetallePedido>()
             .AsNoTracking()
-            .Where(d => idsBorradores.Contains(d.IdPedido) && ids.Contains(d.IdCatalogoProveedor))
+            .Where(d => idsBorradores.Contains(d.IdPedido) && idsFuentes.Contains(d.IdCatalogoProveedor))
             .Select(d => new { d.IdCatalogoProveedor, d.Cantidad })
             .ToDictionaryAsync(d => d.IdCatalogoProveedor, d => d.Cantidad, cancellationToken);
+
+        // Ordenadas por costo, como las muestra el combo (A-18); el id desempata para que el orden sea estable.
+        var fuentesPorArticulo = fuentes
+            .OrderBy(f => f.CostoReposicion)
+            .ThenBy(f => f.Id)
+            .ToLookup(f => f.IdArticulo, f => new FuenteRenglonDto
+            {
+                IdCatalogoProveedor = f.Id,
+                IdProveedor = f.IdProveedor,
+                RazonSocialProveedor = f.RazonSocialProveedor,
+                CodigoProveedor = f.CodigoProveedor,
+                Descripcion = f.DescripcionProveedor,
+                CostoActual = f.CostoReposicion,
+                FechaActualizacion = f.FechaActualizacion,
+                EsPrincipal = articulos.TryGetValue(f.IdArticulo, out var articulo) && articulo.IdCatalogoProveedor == f.Id,
+                CantidadEnBorrador = cantidadesEnBorrador.GetValueOrDefault(f.Id)
+            });
 
         var renglones = new List<RenglonVistaPreviaDto>();
         var omitidos = new List<RenglonOmitidoDto>();
@@ -101,9 +126,15 @@ public class PedidoQueryService : IPedidoQueryService
             if (!items.TryGetValue(id, out var item))
             {
                 omitidos.Add(new RenglonOmitidoDto { IdCatalogoProveedor = id, Motivo = MotivoOmisionPedidoEnum.ItemInexistente });
+                continue;
             }
-            // El segundo TryGetValue cubre un artículo dado de baja entre las dos consultas: queda sin vincular.
-            else if (!articulosPorItem.TryGetValue(id, out var idArticulo) || !stocks.TryGetValue(idArticulo, out var stock))
+
+            // Un artículo dado de baja entre las consultas queda sin vincular: se informa como sin incorporar.
+            var opciones = articulosPorItem.TryGetValue(id, out var idArticulo)
+                ? fuentesPorArticulo[idArticulo].ToList()
+                : new List<FuenteRenglonDto>();
+            var pedida = opciones.FirstOrDefault(f => f.IdCatalogoProveedor == id);
+            if (pedida is null || !articulos.TryGetValue(idArticulo, out var stock))
             {
                 omitidos.Add(new RenglonOmitidoDto
                 {
@@ -112,37 +143,41 @@ public class PedidoQueryService : IPedidoQueryService
                     Descripcion = item.DescripcionProveedor,
                     Motivo = MotivoOmisionPedidoEnum.SinIncorporar
                 });
+                continue;
             }
-            else
+
+            // El renglón arranca en el ítem pedido (K2), salvo que el artículo tenga una fuente del proveedor preferido:
+            // entonces en la más barata de ese proveedor (K6).
+            var porDefecto = idProveedorPreferido is int preferido && pedida.IdProveedor != preferido
+                ? opciones.FirstOrDefault(f => f.IdProveedor == preferido) ?? pedida
+                : pedida;
+
+            renglones.Add(new RenglonVistaPreviaDto
             {
-                renglones.Add(new RenglonVistaPreviaDto
-                {
-                    IdCatalogoProveedor = id,
-                    IdProveedor = item.IdProveedor,
-                    CodigoProveedor = item.CodigoProveedor,
-                    Descripcion = item.DescripcionProveedor,
-                    CostoActual = item.CostoReposicion,
-                    IdArticulo = idArticulo,
-                    StockActual = stock.StockActual,
-                    StockMinimo = stock.StockMinimo,
-                    CantidadEnBorrador = cantidadesEnBorrador.GetValueOrDefault(id)
-                });
-            }
+                IdCatalogoProveedor = porDefecto.IdCatalogoProveedor,
+                IdProveedor = porDefecto.IdProveedor,
+                CodigoProveedor = porDefecto.CodigoProveedor,
+                Descripcion = porDefecto.Descripcion,
+                CostoActual = porDefecto.CostoActual,
+                IdArticulo = idArticulo,
+                StockActual = stock.StockActual,
+                StockMinimo = stock.StockMinimo,
+                CantidadEnBorrador = porDefecto.CantidadEnBorrador,
+                Fuentes = opciones
+            });
         }
 
-        var razonesSociales = items.Values
-            .GroupBy(i => i.IdProveedor)
-            .ToDictionary(g => g.Key, g => g.First().RazonSocialProveedor);
+        // Un destino por cada proveedor al que el combo puede mover un renglón, no solo por los de la fuente por defecto.
         var destinos = renglones
-            .Select(r => r.IdProveedor)
-            .Distinct()
-            .Select(idProveedor =>
+            .SelectMany(r => r.Fuentes)
+            .GroupBy(f => f.IdProveedor)
+            .Select(g =>
             {
-                var borrador = borradores.GetValueOrDefault(idProveedor);
+                var borrador = borradores.GetValueOrDefault(g.Key);
                 return new DestinoPedidoDto
                 {
-                    IdProveedor = idProveedor,
-                    RazonSocialProveedor = razonesSociales[idProveedor],
+                    IdProveedor = g.Key,
+                    RazonSocialProveedor = g.First().RazonSocialProveedor,
                     IdBorrador = borrador?.Id,
                     CantidadRenglonesBorrador = borrador?.CantidadRenglones ?? 0
                 };

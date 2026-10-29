@@ -1,16 +1,21 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
+using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Proveedores;
 using Retail.App.Views.Dialogs;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clasificacion;
+using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 using Xunit;
@@ -139,6 +144,104 @@ public class EdicionEnCeldasDeGrillaTests
         enLaPropuesta.Should().Be(elegida, "la categoría elegida en la celda debe llegar a la propuesta");
     }
 
+    [Fact]
+    public void ComboFuente_PedirArticulos_ElegirOtraFuente_MueveElRenglonAlGrupoDeSuProveedor()
+    {
+        // Arrange (Track 4.3, A-18, K3): el artículo se pide a Alfa y también se compra a Beta
+        int? fuenteEnLaFila = null;
+        string[] grupos = [];
+        Exception? error = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var alfa = new FuenteRenglonDto { IdCatalogoProveedor = 10, IdProveedor = 1, RazonSocialProveedor = "Alfa", CostoActual = 100m, EsPrincipal = true };
+            var beta = new FuenteRenglonDto { IdCatalogoProveedor = 30, IdProveedor = 3, RazonSocialProveedor = "Beta", CostoActual = 80m };
+            var viewModel = new PedirArticulosViewModel(new VistaPreviaPedidoDto
+            {
+                Destinos = new[]
+                {
+                    new DestinoPedidoDto { IdProveedor = 1, RazonSocialProveedor = "Alfa" },
+                    new DestinoPedidoDto { IdProveedor = 3, RazonSocialProveedor = "Beta" }
+                },
+                Renglones = new[]
+                {
+                    new RenglonVistaPreviaDto { IdCatalogoProveedor = 10, IdProveedor = 1, CostoActual = 100m, Fuentes = [beta, alfa] }
+                }
+            });
+            var fila = viewModel.Grupos[0].Renglones[0];
+            var raiz = Montar(new PedirArticulosDialog(viewModel), 580, 660);
+            var combo = Descendientes<ComboBox>(raiz).First(c => ReferenceEquals(c.ItemsSource, fila.Opciones));
+
+            // Act: como un clic real (ComboBoxItem.OnMouseLeftButtonUp → NotifyComboBoxItemMouseUp). Asignar
+            // SelectedItem por código no pasa por SelectionChanger.End() y no detectaba la reentrancia: mover el renglón
+            // destruía el combo mientras este terminaba de procesar el clic.
+            try
+            {
+                var opcionBeta = fila.Opciones.Single(o => o.Fuente.IdCatalogoProveedor == 30);
+                var item = AbrirYObtenerOpcion(combo, opcionBeta);
+                item.RaiseEvent(new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+                {
+                    RoutedEvent = UIElement.MouseLeftButtonUpEvent
+                });
+                ProcesarPendientesDelDispatcher();
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            fuenteEnLaFila = fila.Fuente.IdCatalogoProveedor;
+            grupos = viewModel.Grupos.Select(g => g.RazonSocialProveedor).ToArray();
+        });
+
+        // Assert
+        error.Should().BeNull("elegir otra fuente con el mouse no debe romper el combo");
+        fuenteEnLaFila.Should().Be(30, "la fuente elegida en el combo debe llegar al renglón");
+        grupos.Should().Equal("Beta");
+    }
+
+    [Fact]
+    public void VincularArticulo_AlAbrir_LaGrillaMuestraLosResultadosYLaCasillaLlegaAlViewModel()
+    {
+        // Arrange: la grilla y el buscador enlazaban propiedades que el ViewModel no tiene, y se vinculaba un
+        // artículo que el usuario nunca veía (corregido en Track 4.3, L3b).
+        int filasEnLaGrilla = 0;
+        string? textoDelBuscador = null;
+        bool comoPrincipal = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var inventario = Substitute.For<IInventarioService>();
+            inventario.BuscarArticulosParaVentaAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IReadOnlyList<ArticuloVentaDto>>(
+                [
+                    new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Cuaderno A4", PrecioVenta = 1500m, StockActual = 3, EsServicio = false },
+                    new ArticuloVentaDto { IdArticulo = 2, Descripcion = "Cuaderno A5", PrecioVenta = 1200m, StockActual = 5, EsServicio = false }
+                ]));
+            var viewModel = new VincularArticuloModalViewModel(inventario);
+            viewModel.InicializarAsync(new CatalogoProveedorDto
+            {
+                Id = 30,
+                IdProveedor = 3,
+                CodigoProveedor = "MN-A4",
+                DescripcionProveedor = "Cuaderno A4 (Norte)",
+                CostoReposicion = 900m
+            }).GetAwaiter().GetResult();
+            var raiz = Montar(new VincularArticuloModalDialog { DataContext = viewModel }, 580, 600);
+
+            // Act
+            Descendientes<CheckBox>(raiz).Single().IsChecked = true;
+            filasEnLaGrilla = Descendientes<DataGrid>(raiz).Single().Items.Count;
+            textoDelBuscador = Descendientes<TextBox>(raiz).First().Text;
+            comoPrincipal = viewModel.ComoPrincipal;
+        });
+
+        // Assert
+        filasEnLaGrilla.Should().Be(2, "el usuario tiene que ver entre qué artículos elige");
+        textoDelBuscador.Should().Be("Cuaderno A4 (Norte)");
+        comoPrincipal.Should().BeTrue();
+    }
+
     /// <summary>
     /// Monta el contenido de la ventana en un elemento suelto, con los mismos recursos y DataContext, y lo mide: una
     /// ventana sin mostrar no arma el árbol visual de su contenido, y mostrarla procesa mensajes que en el proceso de
@@ -169,6 +272,30 @@ public class EdicionEnCeldasDeGrillaTests
         return grillas
             .SelectMany(g => Descendientes<ComboBox>(g))
             .First(c => ReferenceEquals(c.ItemsSource, opciones));
+    }
+
+    /// <summary>
+    /// Abre el desplegable y devuelve el contenedor de la opción. Sin ventana real el Popup no se muestra y WPF no genera
+    /// los contenedores, así que se mide su contenido a mano: es lo que haría al mostrarlo.
+    /// </summary>
+    private static ComboBoxItem AbrirYObtenerOpcion(ComboBox combo, object opcion)
+    {
+        combo.ApplyTemplate();
+        combo.IsDropDownOpen = true;
+        var popup = Descendientes<Popup>(combo).First();
+        popup.Child.Measure(new Size(400, 400));
+        popup.Child.Arrange(new Rect(0, 0, 400, 400));
+        popup.Child.UpdateLayout();
+        return (ComboBoxItem)combo.ItemContainerGenerator.ContainerFromItem(opcion);
+    }
+
+    /// <summary>
+    /// Ejecuta lo que la vista dejó encolado en el Dispatcher (por ejemplo, un binding diferido), como pasaría al
+    /// terminar el evento en la aplicación.
+    /// </summary>
+    private static void ProcesarPendientesDelDispatcher()
+    {
+        Dispatcher.CurrentDispatcher.Invoke(DispatcherPriority.Background, new Action(() => { }));
     }
 
     private static IEnumerable<T> Descendientes<T>(DependencyObject raiz) where T : DependencyObject

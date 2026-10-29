@@ -711,7 +711,7 @@ public class ArticulosViewModelTests : IDisposable
 
     private static void ConfigurarPedidoConfirmado(EscenarioPedido escenario)
     {
-        escenario.PedidoService.ObtenerVistaPreviaAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+        escenario.PedidoService.ObtenerVistaPreviaAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .Returns(new VistaPreviaPedidoDto());
         escenario.PedidoDialogService.MostrarPedirArticulos(default!, default!, default)
             .ReturnsForAnyArgs(RespuestaPedirArticulos.Confirmada([new RenglonAAgregarDto { IdCatalogoProveedor = 40, Cantidad = 2 }]));
@@ -754,6 +754,37 @@ public class ArticulosViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task PedirArticuloCommand_FiltradoPorDistribuidor_LoPasaComoProveedorPreferido()
+    {
+        // Track 4.3, K6: filtrar por un distribuidor es elegir a quién reponer.
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+        var fila = escenario.Sut.Articulos[0];
+        escenario.Sut.IdDistribuidorFiltro = 5;
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(fila);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Any<IReadOnlyCollection<int>>(),
+            5,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_SinFiltroDeDistribuidor_NoPasaProveedorPreferido()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Any<IReadOnlyCollection<int>>(),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task PedirArticuloCommand_ArticuloVinculado_PideSuItemDeCatalogoSinOfrecerIncorporar()
     {
         using var escenario = await CrearEscenarioPedidoAsync();
@@ -763,7 +794,7 @@ public class ArticulosViewModelTests : IDisposable
 
         await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
             Arg.Is<IReadOnlyCollection<int>>(ids => ids.Single() == 40),
-            Arg.Any<CancellationToken>());
+            Arg.Any<int?>(), Arg.Any<CancellationToken>());
         escenario.PedidoDialogService.Received(1).MostrarPedirArticulos(
             Arg.Any<VistaPreviaPedidoDto>(),
             Arg.Is<IReadOnlyList<string>>(avisos => avisos.Count == 0),
@@ -785,7 +816,7 @@ public class ArticulosViewModelTests : IDisposable
 
         await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
             Arg.Is<IReadOnlyCollection<int>>(ids => ids.Single() == 40),
-            Arg.Any<CancellationToken>());
+            Arg.Any<int?>(), Arg.Any<CancellationToken>());
         escenario.PedidoDialogService.Received(1).MostrarPedirArticulos(
             Arg.Any<VistaPreviaPedidoDto>(),
             Arg.Is<IReadOnlyList<string>>(avisos => avisos.SequenceEqual(AvisosEsperadosDeExcluidos)),

@@ -16,6 +16,9 @@ namespace Retail.App.ViewModels.Pedidos;
 /// </summary>
 public partial class PedirArticulosViewModel : ObservableObject
 {
+    // Destino de cada proveedor al que el combo puede mover un renglón, aunque hoy no tenga grupo (K1, K3).
+    private readonly Dictionary<int, DestinoPedidoDto> _destinos;
+    private readonly List<int> _ordenDestinos;
     private bool _incorporarPrimeroSolicitado;
 
     /// <param name="vistaPrevia">Lo que devolvió la vista previa del lote.</param>
@@ -34,12 +37,21 @@ public partial class PedirArticulosViewModel : ObservableObject
     {
         ArgumentNullException.ThrowIfNull(vistaPrevia);
 
+        _destinos = vistaPrevia.Destinos.ToDictionary(d => d.IdProveedor);
+        _ordenDestinos = vistaPrevia.Destinos.Select(d => d.IdProveedor).ToList();
+
+        // Los destinos vienen ordenados por proveedor; solo se muestran los que tienen renglones al abrir.
         foreach (var destino in vistaPrevia.Destinos)
         {
             var filas = vistaPrevia.Renglones
                 .Where(r => r.IdProveedor == destino.IdProveedor)
                 .Select(r => new RenglonPedirFila(r))
                 .ToList();
+            if (filas.Count == 0)
+            {
+                continue;
+            }
+
             foreach (var fila in filas)
             {
                 fila.PropertyChanged += Fila_PropertyChanged;
@@ -130,9 +142,12 @@ public partial class PedirArticulosViewModel : ObservableObject
             return RespuestaPedirArticulos.Cancelada;
         }
 
+        // Dos renglones que terminaron en la misma fuente se suman: el lote no admite un ítem repetido (K3). GroupBy
+        // conserva el orden de la primera aparición.
         var renglones = Grupos
             .SelectMany(g => g.Renglones)
-            .Select(r => new RenglonAAgregarDto { IdCatalogoProveedor = r.IdCatalogoProveedor, Cantidad = r.Cantidad })
+            .GroupBy(r => r.IdCatalogoProveedor)
+            .Select(g => new RenglonAAgregarDto { IdCatalogoProveedor = g.Key, Cantidad = g.Sum(r => r.Cantidad) })
             .ToList();
 
         return RespuestaPedirArticulos.Confirmada(renglones);
@@ -140,13 +155,77 @@ public partial class PedirArticulosViewModel : ObservableObject
 
     private void Fila_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(RenglonPedirFila.Cantidad) || sender is not RenglonPedirFila fila)
+        if (sender is not RenglonPedirFila fila)
         {
             return;
         }
 
-        Grupos.FirstOrDefault(g => g.Renglones.Contains(fila))?.NotificarSubtotal();
+        if (e.PropertyName == nameof(RenglonPedirFila.Fuente))
+        {
+            MoverAlGrupoDeSuProveedor(fila);
+        }
+        else if (e.PropertyName == nameof(RenglonPedirFila.Cantidad))
+        {
+            Grupos.FirstOrDefault(g => g.Renglones.Contains(fila))?.NotificarSubtotal();
+        }
+        else
+        {
+            return;
+        }
+
         NotificarTotales();
+    }
+
+    /// <summary>
+    /// Lleva el renglón al grupo del proveedor de su nueva fuente (A-18, K3): lo crea si no existe, en el orden de los
+    /// destinos, y quita el grupo que queda vacío. Si la fuente es del mismo proveedor, solo cambia el subtotal.
+    /// </summary>
+    private void MoverAlGrupoDeSuProveedor(RenglonPedirFila fila)
+    {
+        var origen = Grupos.FirstOrDefault(g => g.Renglones.Contains(fila));
+        if (origen is null)
+        {
+            return;
+        }
+
+        if (origen.Destino.IdProveedor == fila.IdProveedor)
+        {
+            origen.NotificarSubtotal();
+            return;
+        }
+
+        origen.Renglones.Remove(fila);
+        if (origen.Renglones.Count == 0)
+        {
+            Grupos.Remove(origen);
+        }
+        else
+        {
+            origen.NotificarSubtotal();
+        }
+
+        var destino = Grupos.FirstOrDefault(g => g.Destino.IdProveedor == fila.IdProveedor);
+        if (destino is null)
+        {
+            // La vista previa trae un destino por cada proveedor de las fuentes; el respaldo cubre una armada a mano.
+            var datosDestino = _destinos.GetValueOrDefault(fila.IdProveedor)
+                ?? new DestinoPedidoDto { IdProveedor = fila.IdProveedor, RazonSocialProveedor = fila.Fuente.RazonSocialProveedor };
+            destino = new GrupoPedidoProveedor(datosDestino, []);
+            Grupos.Insert(Grupos.Count(g => PosicionDelDestino(g) < PosicionDelDestino(destino)), destino);
+        }
+
+        destino.Renglones.Add(fila);
+        destino.NotificarSubtotal();
+    }
+
+    /// <summary>
+    /// Posición del grupo en el orden en que la vista previa entregó los destinos (por proveedor, con la intercalación
+    /// de la base): un grupo nuevo se inserta donde estaría si hubiera existido al abrir.
+    /// </summary>
+    private int PosicionDelDestino(GrupoPedidoProveedor grupo)
+    {
+        var posicion = _ordenDestinos.IndexOf(grupo.Destino.IdProveedor);
+        return posicion < 0 ? int.MaxValue : posicion;
     }
 
     private void NotificarTotales()

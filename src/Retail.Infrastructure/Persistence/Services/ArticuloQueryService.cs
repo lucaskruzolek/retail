@@ -61,17 +61,18 @@ public class ArticuloQueryService : IArticuloQueryService
 
         if (consulta.IdProveedor == -1)
         {
-            // Ninguno (o manual): ni el artículo ni su artículo origen tienen proveedor asignado
+            // Ninguno (o manual): ni el artículo ni su artículo origen tienen fuentes, ni principal ni adicionales
+            // (Track 4.3, K5). La presentación derivada se compra a través de su origen (RF-21).
             query = query.Where(a =>
-                (a.IdArticuloOrigen == null && a.IdCatalogoProveedor == null) ||
-                (a.IdArticuloOrigen != null && a.ArticuloOrigen!.IdCatalogoProveedor == null));
+                !_context.CatalogosProveedores.Any(c => c.IdArticulo == (a.IdArticuloOrigen ?? a.Id)));
         }
         else if (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value > 0)
         {
             int idProv = consulta.IdProveedor.Value;
+            // El distribuidor puede ser cualquier fuente del artículo, o de su origen si es una presentación derivada, no
+            // solo la principal (Track 4.3, K5).
             query = query.Where(a =>
-                (a.CatalogoProveedor != null && a.CatalogoProveedor.IdProveedor == idProv) ||
-                (a.ArticuloOrigen != null && a.ArticuloOrigen.CatalogoProveedor != null && a.ArticuloOrigen.CatalogoProveedor.IdProveedor == idProv));
+                _context.CatalogosProveedores.Any(c => c.IdProveedor == idProv && c.IdArticulo == (a.IdArticuloOrigen ?? a.Id)));
         }
 
         if (consulta.FiltroStock == FiltroStockArticuloEnum.StockCritico)
