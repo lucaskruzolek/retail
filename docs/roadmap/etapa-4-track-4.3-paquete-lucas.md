@@ -288,6 +288,7 @@ Vista aprobada: renglones de dos líneas en un `ItemsControl` (opción A), con l
 * Exportar el pedido emitido a Excel o PDF para enviarlo al distribuidor (podría reutilizar MiniExcel o `IS-05`).
 * Sugerir la cantidad a pedir según el stock crítico (RF-08).
 * Recepciones parciales (A-6).
+* Aviso en el importador para los ítems vinculados con otras fuentes, que abra el formulario del artículo (deuda de L4, M7).
 
 ## Formato del Reporte del Agente al Terminar Cada Fase
 

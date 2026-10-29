@@ -44,8 +44,8 @@ graph LR
 | **P2** | Compras: importar desde un pedido, ajustar a la factura y cerrar el pedido | Pablo | P1 y L1 | Sí (`COMPRAS.id_pedido_origen`) | ⏳ |
 | **L2b** | "Volver a pedir faltantes" (compara el pedido con la compra que lo cerró) | Lucas | L2a-1 y P2 | No | ⏳ |
 | **L3a** | Fuentes múltiples y fuente principal: dominio, migración con datos, servicios e importador (A-16, opción A) | Lucas | L1 y Track 6.6 (✅ en `main`) | Sí | ✅ Mergeado en `main` (PR #38, migración `20261029080028_AgregarFuentesMultiples`) |
-| **L3b** | Fuentes múltiples en la UI: vincular como fuente adicional o principal y combo de fuente en el modal de pedido (A-18) | Lucas | L3a | No | 🟡 Implementado en `feat/fuentes-multiples-ui`; PR en revisión |
-| **L4** | Sección **Fuentes** del formulario de artículo (comparador RF-28; agregar y quitar fuentes y elegir la principal, todo al Guardar), indicador "+n" en la columna Distribuidor y selector de catálogo unificado con "Vincular" (A-19) | Lucas | L3b | No | 🟡 en curso (`feat/fuentes-en-formulario`) |
+| **L3b** | Fuentes múltiples en la UI: vincular como fuente adicional o principal y combo de fuente en el modal de pedido (A-18) | Lucas | L3a | No | ✅ Mergeado en `main` (PR #40) |
+| **L4** | Sección **Fuentes** del formulario de artículo (comparador RF-28; agregar y quitar fuentes y elegir la principal, todo al Guardar), indicador "+n" en la columna Distribuidor y selector de catálogo unificado con "Vincular" (A-19) | Lucas | L3b | No | 🟡 Implementado en `feat/fuentes-en-formulario` (M1-M8); PR en revisión |
 
 ```mermaid
 graph LR
@@ -323,7 +323,7 @@ sequenceDiagram
 | Id | Riesgo | Mitigación |
 | :--- | :--- | :--- |
 | R-1 | Conflicto de migraciones entre L1, P1 y el Track 6.6 | Sección 7, regla 2 |
-| R-2 | `ImportadorCatalogosView` lo tocan L2a-2, L4 y la Fase 6 (UI) del Track 6.6 | La UI del Track 6.6 ya está en `main`. L2a-2 agrega solo los comandos y botones de pedir; L4, solo el aviso que abre el formulario del artículo con sus fuentes (A-19) |
+| R-2 | `ImportadorCatalogosView` lo tocan L2a-2, L4 y la Fase 6 (UI) del Track 6.6 | La UI del Track 6.6 ya está en `main`. L2a-2 agrega solo los comandos y botones de pedir; L4 no lo tocó: el aviso que abriría el formulario del artículo quedó como deuda (M7) |
 | R-3 | Fuente principal con otra unidad de venta (A-3) | Riesgo aceptado: ya existe con el vínculo 1:1 actual. El comparador muestra los datos para que el usuario lo detecte |
 | R-4 | Un pedido emitido nunca se recibe y queda abierto | `PedidosView` muestra la fecha de emisión y permite cancelarlo con motivo (la columna de antigüedad se quitó en L2a-2 a pedido del estudiante: la fecha alcanza para detectarlo) |
 | R-5 | Una factura cubre dos pedidos | Riesgo aceptado (A-11): se cierra uno con la compra y el otro se cancela con un motivo que lo indique |
