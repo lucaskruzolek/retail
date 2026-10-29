@@ -158,7 +158,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidReceipt"
+                                                                Kind="SolidStoreAlt2"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
