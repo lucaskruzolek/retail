@@ -17,14 +17,6 @@
 
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ui:ThemesDictionary Theme="Light" />
-                <ui:ControlsDictionary />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Colors.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Typography.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Icons.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
-            </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
             <converters:InverseBooleanToVisibilityConverter x:Key="BooleanToInverseVisibilityConverter" />
 

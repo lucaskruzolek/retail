@@ -34,9 +34,15 @@ $xamlFiles = Get-ChildItem -Path $appDir -Filter "*.xaml" -Recurse | Where-Objec
 
 $unresolvedStatic = @{}
 $unresolvedDynamic = @{}
+$localThemeMerges = [System.Collections.Generic.List[string]]::new()
 
 foreach ($file in $xamlFiles) {
     $content = Get-Content $file.FullName -Raw
+
+    # Los diccionarios de WPF-UI se cargan solo en App.xaml: una copia por ventana tapa el acento de la aplicacion
+    if ($file.Name -ne "App.xaml" -and $content -match '<ui:(ThemesDictionary|ControlsDictionary)\b') {
+        $localThemeMerges.Add($file.Name)
+    }
 
     $localKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $locMatches = [regex]::Matches($content, 'x:Key="([^"]+)"')
@@ -97,6 +103,18 @@ else {
     Write-Host "[ERROR] Se detectaron DynamicResources NO resueltos:" -ForegroundColor Red
     foreach ($entry in $unresolvedDynamic.GetEnumerator()) {
         Write-Host "  * $($entry.Key)  -->  en archivo(s): $($entry.Value -join ', ')" -ForegroundColor Red
+    }
+}
+
+Write-Host "`n--- REVISION DE DICCIONARIOS DE TEMA LOCALES ---" -ForegroundColor Yellow
+if ($localThemeMerges.Count -eq 0) {
+    Write-Host "[OK] Solo App.xaml carga ui:ThemesDictionary y ui:ControlsDictionary." -ForegroundColor Green
+}
+else {
+    $hasErrors = $true
+    Write-Host "[ERROR] Ventanas o vistas que vuelven a mergear los diccionarios de WPF-UI (heredan los de App.xaml):" -ForegroundColor Red
+    foreach ($name in $localThemeMerges) {
+        Write-Host "  * $name" -ForegroundColor Red
     }
 }
 
