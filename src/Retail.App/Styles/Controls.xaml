@@ -754,7 +754,7 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Height" Value="40" />
@@ -782,14 +782,6 @@
                                           RecognizesAccessKey="True" />
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
-                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.45" />
                             <Setter Property="Cursor" Value="No" />
@@ -798,7 +790,17 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <!-- Hover y pressed van acá y no en el template: los estilos derivados (el ítem activo de MainWindow) declaran sus
+             triggers después de estos y así su fondo carmín prevalece sobre el hover. -->
         <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SidebarPressedBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+            </Trigger>
             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
             </DataTrigger>
@@ -810,12 +812,12 @@
     <!-- ================================================================= -->
     <Style x:Key="SidebarHamburgerButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="8,6" />
-        <Setter Property="Height" Value="34" />
-        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Width" Value="36" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
@@ -838,12 +840,60 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarPressedBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- BOTÓN FANTASMA SOBRE EL SIDEBAR (SidebarGhostButton)              -->
+    <!-- ================================================================= -->
+    <!-- Acción secundaria del pie ("Cambiar Operador"): sin relleno, borde sutil y texto claro; en hover se enciende como
+         un ítem del menú. -->
+    <Style x:Key="SidebarGhostButtonStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SidebarCardBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="6,6" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarPressedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="No" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

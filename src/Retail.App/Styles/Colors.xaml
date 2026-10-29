@@ -90,4 +90,22 @@
     <!-- Elevación de superficies flotantes (popups, desplegables): color de la sombra de DropShadowEffect -->
     <Color x:Key="ElevationShadowColor">#18181B</Color>
 
+    <!-- ================================================================= -->
+    <!-- TOKENS DEL SIDEBAR (SUPERFICIE OSCURA)                            -->
+    <!-- ================================================================= -->
+    <!-- El carmín de marca (#9D0F33) da solo 2,15:1 sobre este fondo: sirve de relleno (la píldora activa, con texto blanco
+         a 8,24:1) pero nunca como color de texto o ícono; para eso está SidebarAccentBrush (6,31:1). -->
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#18181B" />
+    <SolidColorBrush x:Key="SidebarBorderBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SidebarPressedBrush" Color="#3F3F46" />
+    <SolidColorBrush x:Key="SidebarTextBrush" Color="#D4D4D8" />
+    <SolidColorBrush x:Key="SidebarTextStrongBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="SidebarTextMutedBrush" Color="#A1A1AA" />
+    <SolidColorBrush x:Key="SidebarAccentBrush" Color="#F36F8E" />
+    <SolidColorBrush x:Key="SidebarActiveBackgroundBrush" Color="#9D0F33" />
+    <SolidColorBrush x:Key="SidebarActiveForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="SidebarCardBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SidebarCardBorderBrush" Color="#3F3F46" />
+
 </ResourceDictionary>
