@@ -144,14 +144,8 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     private bool _isBusy;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TieneMensajeEstado))]
-    private string? _mensajeEstado;
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneMensajeError))]
     private string? _mensajeError;
-
-    public bool TieneMensajeEstado => !string.IsNullOrWhiteSpace(MensajeEstado);
 
     public bool TieneMensajeError => !string.IsNullOrWhiteSpace(MensajeError);
 
@@ -185,7 +179,6 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         await CargarPedidosAsync();
     }
 
-    [RelayCommand]
     public async Task CargarPedidosAsync(CancellationToken cancellationToken = default)
     {
         var consulta = new ConsultaPedidosDto
@@ -300,8 +293,7 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         }
 
         await EjecutarComandoAsync(
-            token => _pedidoService.EmitirAsync(pedido.IdPedido, token),
-            $"Pedido #{pedido.IdPedido} emitido.");
+            token => _pedidoService.EmitirAsync(pedido.IdPedido, token));
     }
 
     [RelayCommand(CanExecute = nameof(PuedeCancelar))]
@@ -317,8 +309,7 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         }
 
         await EjecutarComandoAsync(
-            token => _pedidoService.CancelarAsync(new CancelarPedidoDto { IdPedido = pedido.IdPedido, Motivo = motivo }, token),
-            $"Pedido #{pedido.IdPedido} cancelado.");
+            token => _pedidoService.CancelarAsync(new CancelarPedidoDto { IdPedido = pedido.IdPedido, Motivo = motivo }, token));
     }
 
     /// <summary>Guarda la cantidad editada de un renglón (G3): solo si la fila tiene un cambio válido.</summary>
@@ -338,8 +329,7 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         };
 
         await EjecutarComandoAsync(
-            token => _pedidoService.CambiarCantidadAsync(dto, token),
-            $"Cantidad de {fila.CodigoProveedor} actualizada a {fila.Cantidad}.");
+            token => _pedidoService.CambiarCantidadAsync(dto, token));
     }
 
     [RelayCommand]
@@ -357,8 +347,7 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         }
 
         await EjecutarComandoAsync(
-            token => _pedidoService.QuitarRenglonAsync(idPedido, fila.IdCatalogoProveedor, token),
-            $"Se quitó {fila.CodigoProveedor} del pedido #{idPedido}.");
+            token => _pedidoService.QuitarRenglonAsync(idPedido, fila.IdCatalogoProveedor, token));
     }
 
     /// <summary>
@@ -366,11 +355,10 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     /// no: tras un error de estado o de concurrencia, la pantalla tiene que mostrar lo que hay realmente en la base.
     /// La única excepción es un rechazo de validación, que no tocó la base: recargar solo borraría su mensaje.
     /// </summary>
-    private async Task EjecutarComandoAsync(Func<CancellationToken, Task> comando, string mensajeExito)
+    private async Task EjecutarComandoAsync(Func<CancellationToken, Task> comando)
     {
         IsBusy = true;
         MensajeError = null;
-        MensajeEstado = null;
         var recargar = true;
 
         await _carga.EjecutarOperacionAsync(
@@ -379,7 +367,7 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
                 await Task.Run(() => comando(token), token);
                 return true;
             },
-            _ => MensajeEstado = mensajeExito,
+            _ => { },
             ex => recargar = ManejarError(ex));
 
         if (recargar)
