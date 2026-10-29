@@ -5,7 +5,7 @@
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              Background="{DynamicResource SurfaceBackgroundBrush}">
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Border Style="{StaticResource CardBorderStyle}"
                 MaxWidth="680"
                 HorizontalAlignment="Center"

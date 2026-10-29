@@ -36,6 +36,7 @@ $unresolvedStatic = @{}
 $unresolvedDynamic = @{}
 $localThemeMerges = [System.Collections.Generic.List[string]]::new()
 $headersSinAlinear = [System.Collections.Generic.List[string]]::new()
+$margenesLiterales = [System.Collections.Generic.List[string]]::new()
 
 foreach ($file in $xamlFiles) {
     $content = Get-Content $file.FullName -Raw
@@ -48,6 +49,12 @@ foreach ($file in $xamlFiles) {
             $titulo = if ($etiqueta -match 'Header="([^"]*)"') { $Matches[1] } else { '(sin encabezado)' }
             $headersSinAlinear.Add("$($file.Name): $titulo")
         }
+    }
+
+    # El margen de pagina es un token (PageMargin): cambiarlo en Spacing.xaml lo cambia en todas las vistas
+    if ($file.Name -like '*View.xaml' -and $file.DirectoryName -match '\\Views\\Pages$' -and
+        $content -match '(?m)^    <Grid Margin="[0-9, ]+"') {
+        $margenesLiterales.Add($file.Name)
     }
 
     # Los diccionarios de WPF-UI se cargan solo en App.xaml: una copia por ventana tapa el acento de la aplicacion
@@ -138,6 +145,18 @@ else {
     Write-Host "[ERROR] Columnas con celda a la derecha y encabezado a la izquierda (use DataGridColumnHeaderRightStyle):" -ForegroundColor Red
     foreach ($item in $headersSinAlinear) {
         Write-Host "  * $item" -ForegroundColor Red
+    }
+}
+
+Write-Host "`n--- REVISION DEL MARGEN DE PAGINA ---" -ForegroundColor Yellow
+if ($margenesLiterales.Count -eq 0) {
+    Write-Host "[OK] Toda pagina usa {StaticResource PageMargin} en su Grid raiz." -ForegroundColor Green
+}
+else {
+    $hasErrors = $true
+    Write-Host "[ERROR] Paginas con margen raiz literal (use {StaticResource PageMargin}):" -ForegroundColor Red
+    foreach ($name in $margenesLiterales) {
+        Write-Host "  * $name" -ForegroundColor Red
     }
 }
 

@@ -134,12 +134,25 @@ Definidos en [`src/Retail.App/Styles/Colors.xaml`](file:///c:/Users/lucas/Proyec
 | `SidebarTextMutedBrush` | `#A1A1AA` | 6,91:1 | Títulos de sección. |
 | `SidebarAccentBrush` | `#F36F8E` | 6,31:1 | Carmín claro para íconos o texto de acento. |
 | `SidebarActiveBackgroundBrush` / `SidebarActiveForegroundBrush` | `#9D0F33` / `#FFFFFF` | 8,24:1 | Píldora del ítem activo. |
-| `SidebarCardBrush` / `SidebarCardBorderBrush` | `#27272A` / `#3F3F46` | — | Ficha del operador y borde del botón fantasma. |
 
 * **El carmín de marca `#9D0F33` solo da 2,15:1 sobre el fondo oscuro:** sirve de relleno (la píldora activa) pero jamás como color de texto o ícono; para eso existe `SidebarAccentBrush`.
 * **Hover y pressed de `SidebarItemButtonStyle` viven en `Style.Triggers`**, no en el template, para que el trigger del ítem activo declarado en la vista prevalezca.
 * **Botón hamburguesa:** anclado a la izquierda, sobre el eje de los íconos de los ítems (no se desplaza al animar el ancho). El ícono indica la acción: `RegularMenu` (expandir) cuando está colapsado y `RegularDockLeftArrow` (contraer) cuando está expandido; el ToolTip dice "Expandir menú lateral" o "Contraer menú lateral" más `Ctrl+B`.
 * **Scroll con autoocultado (`SidebarScrollViewerStyle`):** la barra vertical flota sobre el contenido (no quita ancho a los ítems) y solo aparece mientras el mouse está sobre el menú.
+
+### 8. Espaciado Estructural (Grilla de 4 px)
+Definidos en [`Styles/Spacing.xaml`](../src/Retail.App/Styles/Spacing.xaml) como `StaticResource` (no cambian en ejecución). Regla de proximidad: lo relacionado va más junto que lo no relacionado.
+
+| Token XAML | Valor | Uso Semántico |
+| :--- | :---: | :--- |
+| `PageMargin` | 20 | Margen del `Grid` raíz de **toda** página (`Views/Pages`), hasta el borde de la ventana y el Sidebar. |
+| `SectionSpacing` | 16 (inferior) | Entre secciones apiladas: encabezado, filtros y cuerpo. |
+| `CardSpacing` | 8 (inferior) | Entre tarjetas relacionadas de un mismo grupo (cliente y totales del POS). |
+| `ColumnSpacing` / `ColumnGap` | 16 | Entre dos columnas de contenido: como margen derecho de la primera, o como columna espaciadora (`GridLength`). |
+
+* **Alcance:** solo se tokeniza el espaciado entre bloques de una página. Los micro-márgenes internos de un control (4 a 8 px) se escriben a mano.
+* **Excepción documentada:** el Dashboard conserva su separación propia de 12 entre bloques (más denso por las tarjetas KPI), pero usa `PageMargin`.
+* **Auditoría:** `scripts/audit-xaml.ps1` rechaza una página cuyo `Grid` raíz declare un margen numérico literal.
 
 ---
 

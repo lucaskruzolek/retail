@@ -23,7 +23,7 @@
         <KeyBinding Key="Delete" Command="{Binding EliminarItemCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -35,7 +35,7 @@
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
                 Padding="20,16"
-                Margin="0,0,0,16">
+                Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
@@ -112,7 +112,7 @@
                     BorderBrush="{DynamicResource SurfaceBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Margin="0,0,16,0">
+                    Margin="{StaticResource ColumnSpacing}">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <!-- 1. SearchBar unificado -->
@@ -332,7 +332,7 @@
                 <Border Grid.Row="0"
                         Style="{StaticResource CardBorderStyle}"
                         Padding="20"
-                        Margin="0,0,0,8">
+                        Margin="{StaticResource CardSpacing}">
                     <StackPanel>
                         <DockPanel LastChildFill="True">
                             <Button DockPanel.Dock="Right"

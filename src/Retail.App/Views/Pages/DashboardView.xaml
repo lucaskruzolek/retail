@@ -225,7 +225,7 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid Margin="20,16">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -466,7 +466,14 @@
                     <RowDefinition Height="*" MinHeight="150" />
                 </Grid.RowDefinitions>
 
-                    <UniformGrid Grid.Row="0" Columns="4" Margin="-4,0,-4,4">
+                    <!-- Contra qué fechas se comparan las variaciones de las tarjetas (D-31): va entre los filtros y las tarjetas -->
+                    <TextBlock Grid.Row="0"
+                               Text="{Binding TextoComparacion}"
+                               Style="{StaticResource TextBlockCaption}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Margin="0,0,0,8" />
+
+                    <UniformGrid Grid.Row="1" Columns="4" Margin="-4,0,-4,8">
                         <!-- Total vendido -->
                         <Border Style="{StaticResource CardBorderStyle}" Padding="14,12" Margin="4">
                             <StackPanel>
@@ -532,13 +539,6 @@
                             </StackPanel>
                         </Border>
                     </UniformGrid>
-
-                    <!-- Contra qué fechas se comparan las variaciones de las tarjetas (D-31) -->
-                    <TextBlock Grid.Row="1"
-                               Text="{Binding TextoComparacion}"
-                               Style="{StaticResource TextBlockCaption}"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               Margin="0,0,0,8" />
 
                     <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>

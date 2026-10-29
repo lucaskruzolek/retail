@@ -34,6 +34,7 @@ public static class WpfTestHelper
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Colors.xaml", UriKind.Absolute) });
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Typography.xaml", UriKind.Absolute) });
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Icons.xaml", UriKind.Absolute) });
+                app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Spacing.xaml", UriKind.Absolute) });
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Controls.xaml", UriKind.Absolute) });
 
                 // Igual que App.OnStartup: aplicar el acento antes de crear la primera ventana. Sin este paso, el

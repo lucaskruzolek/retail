@@ -20,7 +20,7 @@
     </Style>
   </UserControl.Resources>
 
-    <Grid Margin="25">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -28,7 +28,7 @@
         </Grid.RowDefinitions>
 
         <!-- 1. Encabezado y Acciones Principales -->
-        <DockPanel Grid.Row="0" Margin="0,0,0,20">
+        <DockPanel Grid.Row="0" Margin="{StaticResource SectionSpacing}">
             <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
                 <TextBlock Text="Gestión de Caja y Tesorería" FontSize="22" FontWeight="Bold" Foreground="#1F1F1F"/>
                 <TextBlock Text="Control de turno actual, arqueos y movimientos de efectivo." FontSize="13" Foreground="#606060" Margin="0,3,0,0"/>
@@ -51,7 +51,7 @@
         </DockPanel>
 
         <!-- 2. Estado del Turno / Tarjetas de Resumen -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="20" Margin="0,0,0,20">
+        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="20" Margin="{StaticResource SectionSpacing}">
             <Border.Effect>
                 <DropShadowEffect Color="#CCCCCC" BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
             </Border.Effect>

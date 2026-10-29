@@ -14,7 +14,7 @@
         <KeyBinding Key="F12" Command="{Binding RegistrarCompraCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -25,7 +25,7 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO DE MÓDULO                                       -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Padding="20,14" Margin="0,0,0,16">
+        <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Padding="20,14" Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
@@ -43,7 +43,7 @@
         <!-- ============================================================= -->
         <!-- 2. CABECERA DE LA FACTURA / REMITO                            -->
         <!-- ============================================================= -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="20,16" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="20,16" Margin="{StaticResource SectionSpacing}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -89,7 +89,7 @@
                   Style="{StaticResource DataGridRetailStyle}"
                   AutoGenerateColumns="False"
                   BorderThickness="0,1,0,1"
-                  Margin="0,0,0,16">
+                  Margin="{StaticResource SectionSpacing}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Código" Binding="{Binding CodigoArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="140" />
                 <DataGridTextColumn Header="Descripción del Artículo" Binding="{Binding DescripcionArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="*" />

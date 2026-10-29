@@ -19,7 +19,7 @@
         <KeyBinding Key="F9" Command="{Binding ImportarPlanillaCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -31,7 +31,7 @@
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
                 Padding="20,14"
-                Margin="0,0,0,16">
+                Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <iconPacks:PackIconBoxIcons Kind="RegularFileDetail"
