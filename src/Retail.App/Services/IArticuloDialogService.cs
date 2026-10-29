@@ -1,3 +1,4 @@
+using Retail.App.ViewModels.Articulos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
 
@@ -20,13 +21,26 @@ public interface IArticuloDialogService
         IReadOnlyList<MarcaDto> marcas,
         Func<CrearArticuloDto, Task>? onGuardarAsync = null);
 
+    /// <summary>
+    /// Edición del artículo con sus fuentes de la base (Track 4.3, A-19, M5). Devuelve los datos guardados o null si
+    /// se canceló.
+    /// </summary>
     ActualizarArticuloDto? MostrarDialogoModificar(
         ArticuloDto articulo,
+        IReadOnlyList<FuenteArticuloDto> fuentes,
         IReadOnlyList<CategoriaDto> categorias,
         IReadOnlyList<MarcaDto> marcas,
         Func<ActualizarArticuloDto, Task>? onGuardarAsync = null);
 
-    Task<CatalogoProveedorDto?> AbrirSelectorCatalogoProveedorAsync(string? textoInicial = null, int? idProveedor = null);
+    /// <summary>
+    /// Selector de "Agregar fuente" (Track 4.3, A-19): oculta los ítems que el formulario ya tiene, deshabilita los
+    /// de otro artículo (A-1) y admite los de este mismo artículo quitados sin guardar (M6). Devuelve el ítem
+    /// elegido o null si se canceló.
+    /// </summary>
+    Task<CatalogoProveedorDto?> AbrirSelectorCatalogoProveedorAsync(
+        ContextoSelectorFuente contexto,
+        string? textoInicial = null,
+        int? idProveedor = null);
 
     /// <summary>
     /// Alta de una presentación derivada del artículo indicado (RF-21). Devuelve los datos guardados o null si se canceló.

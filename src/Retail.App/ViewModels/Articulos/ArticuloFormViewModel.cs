@@ -28,31 +28,28 @@ public partial class ArticuloFormViewModel : ObservableObject
     [ObservableProperty]
     private int? _idMarca;
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(EstaVinculadoAProveedor))]
-    [NotifyPropertyChangedFor(nameof(NoEstaVinculadoAProveedor))]
-    [NotifyPropertyChangedFor(nameof(TextoBotonVinculacion))]
-    private int? _idCatalogoProveedor;
+    /// <summary>
+    /// Fuentes del artículo ordenadas por costo, con la principal marcada (Track 4.3, A-19). Son el estado deseado:
+    /// agregar, quitar o cambiar la principal no tiene efecto hasta Guardar, y Cancelar lo descarta todo.
+    /// </summary>
+    public ObservableCollection<FuenteFormularioFila> Fuentes { get; } = new();
 
-    [ObservableProperty]
-    private string? _proveedorRazonSocial;
+    public bool TieneFuentes => Fuentes.Count > 0;
 
-    [ObservableProperty]
-    private string? _codigoProveedor;
+    public bool NoTieneFuentes => !TieneFuentes;
 
-    [ObservableProperty]
-    private string? _descripcionProveedor;
+    public string TextoCantidadFuentes => Fuentes.Count == 1 ? "1 fuente" : $"{Fuentes.Count} fuentes";
 
-    [ObservableProperty]
-    private decimal? _costoProveedor;
+    /// <summary>
+    /// La fuente principal elegida, o <c>null</c> si el artículo no tiene principal.
+    /// </summary>
+    public int? IdCatalogoProveedor => Fuentes.FirstOrDefault(f => f.EsPrincipal)?.IdCatalogoProveedor;
 
-    public bool EstaVinculadoAProveedor => IdCatalogoProveedor.HasValue && IdCatalogoProveedor.Value > 0;
-
-    public bool NoEstaVinculadoAProveedor => !EstaVinculadoAProveedor;
-
-    public string TextoBotonVinculacion => EstaVinculadoAProveedor ? "Cambiar..." : "Vincular con Distribuidor...";
-
-    public Func<string?, int?, Task<CatalogoProveedorDto?>>? OnAbrirSelectorProveedorAsync { get; set; }
+    /// <summary>
+    /// Abre el selector de ítems de catálogo con el término inicial y los ítems que ya están en el formulario, que no
+    /// se ofrecen. Devuelve el ítem elegido o <c>null</c> si se canceló.
+    /// </summary>
+    public Func<string?, IReadOnlyCollection<int>, Task<CatalogoProveedorDto?>>? OnAbrirSelectorProveedorAsync { get; set; }
 
     [ObservableProperty]
     private decimal _costoReposicion;
@@ -127,8 +124,11 @@ public partial class ArticuloFormViewModel : ObservableObject
 
     public Func<Task>? OnGuardarAsync { get; set; }
 
-    public ArticuloFormViewModel()
+    private readonly TimeProvider _reloj;
+
+    public ArticuloFormViewModel(TimeProvider? reloj = null)
     {
+        _reloj = reloj ?? TimeProvider.System;
         RecalcularPrecioVenta();
     }
 
@@ -175,11 +175,7 @@ public partial class ArticuloFormViewModel : ObservableObject
         EsServicio = false;
         EsDerivado = false;
         UnidadesPorOrigen = null;
-        IdCatalogoProveedor = null;
-        ProveedorRazonSocial = null;
-        CodigoProveedor = null;
-        DescripcionProveedor = null;
-        CostoProveedor = null;
+        CargarFuentes([]);
         MensajeError = null;
         IsBusy = false;
         OnGuardarAsync = null;
@@ -188,9 +184,18 @@ public partial class ArticuloFormViewModel : ObservableObject
         RecalcularPrecioVenta();
     }
 
-    public void ConfigurarEdicion(ArticuloDto articulo, IReadOnlyList<CategoriaDto> categorias, IReadOnlyList<MarcaDto> marcas)
+    /// <summary>
+    /// Carga el artículo a editar con sus fuentes de la base (M5). Las fuentes no tocan el costo: el formulario muestra
+    /// el guardado, que puede haberse editado a mano.
+    /// </summary>
+    public void ConfigurarEdicion(
+        ArticuloDto articulo,
+        IReadOnlyList<FuenteArticuloDto> fuentes,
+        IReadOnlyList<CategoriaDto> categorias,
+        IReadOnlyList<MarcaDto> marcas)
     {
         ArgumentNullException.ThrowIfNull(articulo);
+        ArgumentNullException.ThrowIfNull(fuentes);
 
         EsModoEdicion = true;
         IdArticulo = articulo.IdArticulo;
@@ -198,11 +203,7 @@ public partial class ArticuloFormViewModel : ObservableObject
         Descripcion = articulo.Descripcion;
         IdCategoria = articulo.IdCategoria ?? 0;
         IdMarca = articulo.IdMarca ?? 0;
-        IdCatalogoProveedor = articulo.IdCatalogoProveedor;
-        ProveedorRazonSocial = articulo.ProveedorNombre;
-        CodigoProveedor = articulo.CodigoProveedor;
-        DescripcionProveedor = articulo.DescripcionProveedor;
-        CostoProveedor = articulo.CostoCatalogoProveedor;
+        CargarFuentes(fuentes);
         CostoReposicion = articulo.CostoReposicion;
         PorcentajeGanancia = articulo.PorcentajeGanancia;
         StockActual = articulo.StockActual;
@@ -290,8 +291,12 @@ public partial class ArticuloFormViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>
+    /// Agrega una fuente elegida en el selector, en su lugar según el costo. Si el artículo no tenía principal, la nueva
+    /// lo es (M1). En el alta completa la descripción y el código de barras vacíos con los del ítem.
+    /// </summary>
     [RelayCommand]
-    public async Task VincularCatalogoAsync()
+    public async Task AgregarFuenteAsync()
     {
         if (OnAbrirSelectorProveedorAsync == null)
         {
@@ -301,39 +306,100 @@ public partial class ArticuloFormViewModel : ObservableObject
         var termino = !string.IsNullOrWhiteSpace(CodigoBarras)
             ? CodigoBarras
             : Descripcion;
+        var idsEnFormulario = Fuentes.Select(f => f.IdCatalogoProveedor).ToList();
 
-        var item = await OnAbrirSelectorProveedorAsync(termino, null);
-        if (item != null)
+        var item = await OnAbrirSelectorProveedorAsync(termino, idsEnFormulario);
+        if (item == null || idsEnFormulario.Contains(item.Id))
         {
-            IdCatalogoProveedor = item.Id;
-            ProveedorRazonSocial = item.ProveedorRazonSocial;
-            CodigoProveedor = item.CodigoProveedor;
-            DescripcionProveedor = item.DescripcionProveedor;
-            CostoProveedor = item.CostoReposicion;
+            return;
+        }
 
-            CostoReposicion = item.CostoReposicion;
-            RecalcularPrecioVenta();
+        var fila = FuenteFormularioFila.DesdeItemDeCatalogo(item, _reloj);
+        Fuentes.Insert(PosicionPorCosto(fila), fila);
+        NotificarFuentes();
 
-            if (string.IsNullOrWhiteSpace(Descripcion))
-            {
-                Descripcion = item.DescripcionProveedor;
-            }
+        if (IdCatalogoProveedor == null)
+        {
+            MarcarPrincipal(fila);
+        }
 
-            if (string.IsNullOrWhiteSpace(CodigoBarras) && !string.IsNullOrWhiteSpace(item.CodigoBarras))
-            {
-                CodigoBarras = item.CodigoBarras;
-            }
+        if (string.IsNullOrWhiteSpace(Descripcion))
+        {
+            Descripcion = item.DescripcionProveedor;
+        }
+
+        if (string.IsNullOrWhiteSpace(CodigoBarras) && !string.IsNullOrWhiteSpace(item.CodigoBarras))
+        {
+            CodigoBarras = item.CodigoBarras;
         }
     }
 
+    /// <summary>
+    /// Quita la fuente del estado deseado. Si era la principal, el artículo queda sin principal y conserva el costo (M3).
+    /// </summary>
     [RelayCommand]
-    public void DesvincularCatalogo()
+    public void QuitarFuente(FuenteFormularioFila? fila)
     {
-        IdCatalogoProveedor = null;
-        ProveedorRazonSocial = null;
-        CodigoProveedor = null;
-        DescripcionProveedor = null;
-        CostoProveedor = null;
+        if (fila == null || !Fuentes.Remove(fila))
+        {
+            return;
+        }
+
+        NotificarFuentes();
+    }
+
+    /// <summary>
+    /// Elige la principal y muestra su costo en el formulario como vista previa (M2); al guardar lo fija el dominio (A-2).
+    /// </summary>
+    [RelayCommand]
+    public void MarcarPrincipal(FuenteFormularioFila? fila)
+    {
+        if (fila == null || fila.EsPrincipal || !Fuentes.Contains(fila))
+        {
+            return;
+        }
+
+        foreach (var fuente in Fuentes)
+        {
+            fuente.EsPrincipal = ReferenceEquals(fuente, fila);
+        }
+
+        CostoReposicion = fila.CostoActual;
+        OnPropertyChanged(nameof(IdCatalogoProveedor));
+    }
+
+    private void CargarFuentes(IReadOnlyList<FuenteArticuloDto> fuentes)
+    {
+        Fuentes.Clear();
+        foreach (var fuente in fuentes.OrderBy(f => f.CostoActual).ThenBy(f => f.IdCatalogoProveedor))
+        {
+            Fuentes.Add(FuenteFormularioFila.DesdeFuente(fuente, _reloj));
+        }
+
+        NotificarFuentes();
+    }
+
+    private int PosicionPorCosto(FuenteFormularioFila nueva)
+    {
+        for (int i = 0; i < Fuentes.Count; i++)
+        {
+            var actual = Fuentes[i];
+            if (actual.CostoActual > nueva.CostoActual
+                || (actual.CostoActual == nueva.CostoActual && actual.IdCatalogoProveedor > nueva.IdCatalogoProveedor))
+            {
+                return i;
+            }
+        }
+
+        return Fuentes.Count;
+    }
+
+    private void NotificarFuentes()
+    {
+        OnPropertyChanged(nameof(TieneFuentes));
+        OnPropertyChanged(nameof(NoTieneFuentes));
+        OnPropertyChanged(nameof(TextoCantidadFuentes));
+        OnPropertyChanged(nameof(IdCatalogoProveedor));
     }
 
     public CrearArticuloDto ObtenerCrearDto() => new()
@@ -343,6 +409,7 @@ public partial class ArticuloFormViewModel : ObservableObject
         IdCategoria = (IdCategoria.HasValue && IdCategoria.Value > 0) ? IdCategoria.Value : null,
         IdMarca = (IdMarca.HasValue && IdMarca.Value > 0) ? IdMarca.Value : null,
         IdCatalogoProveedor = IdCatalogoProveedor,
+        IdsFuentes = Fuentes.Select(f => f.IdCatalogoProveedor).ToList(),
         CostoReposicion = CostoReposicion,
         PorcentajeGanancia = PorcentajeGanancia,
         StockActual = EsServicio ? 0 : StockActual,
@@ -358,6 +425,7 @@ public partial class ArticuloFormViewModel : ObservableObject
         IdCategoria = (IdCategoria.HasValue && IdCategoria.Value > 0) ? IdCategoria.Value : null,
         IdMarca = (IdMarca.HasValue && IdMarca.Value > 0) ? IdMarca.Value : null,
         IdCatalogoProveedor = IdCatalogoProveedor,
+        IdsFuentes = Fuentes.Select(f => f.IdCatalogoProveedor).ToList(),
         CostoReposicion = CostoReposicion,
         PorcentajeGanancia = PorcentajeGanancia,
         StockActual = EsServicio ? 0 : StockActual,

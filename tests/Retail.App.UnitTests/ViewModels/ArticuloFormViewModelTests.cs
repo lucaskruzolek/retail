@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
@@ -168,7 +169,7 @@ public class ArticuloFormViewModelTests
         };
 
         // Act
-        _sut.ConfigurarEdicion(articulo, _categorias, _marcas);
+        _sut.ConfigurarEdicion(articulo, [], _categorias, _marcas);
 
         // Assert
         _sut.EsModoEdicion.Should().BeTrue();
@@ -263,151 +264,258 @@ public class ArticuloFormViewModelTests
         dto.IdMarca.Should().BeNull();
     }
 
+    // ---------- Sección Fuentes: estado deseado hasta Guardar (Track 4.3, A-19) ----------
+
     [Fact]
-    public void ConfigurarEdicion_ConArticuloVinculado_CargaCamposDeProveedorYEstado()
+    public void ConfigurarEdicion_ConFuentes_LasOrdenaPorCostoConLaPrincipalYConservaElCostoGuardado()
     {
-        // Arrange
-        var articulo = new ArticuloDto
-        {
-            IdArticulo = 10,
-            Descripcion = "Cuaderno Espiral A4",
-            IdCatalogoProveedor = 99,
-            ProveedorNombre = "Laprida Distribuidora S.A.",
-            CodigoProveedor = "LAP-445",
-            DescripcionProveedor = "Cuaderno Espiral 80H A4 Rayado",
-            CostoCatalogoProveedor = 1250m,
-            CostoReposicion = 1250m,
-            PorcentajeGanancia = 40m,
-            PrecioVenta = 1750m,
-            StockActual = 10,
-            StockMinimo = 2,
-            EsServicio = false
-        };
+        // Arrange: el costo guardado (1300) se editó a mano; cargar las fuentes no lo pisa
+        var articulo = ArticuloConCosto(1300m);
+        IReadOnlyList<FuenteArticuloDto> fuentes =
+        [
+            Fuente(25, "Distribuidora Sur", 1250m, esPrincipal: true),
+            Fuente(26, "Mayorista Norte", 1100m)
+        ];
 
         // Act
-        _sut.ConfigurarEdicion(articulo, _categorias, _marcas);
+        _sut.ConfigurarEdicion(articulo, fuentes, _categorias, _marcas);
 
         // Assert
-        _sut.EstaVinculadoAProveedor.Should().BeTrue();
-        _sut.NoEstaVinculadoAProveedor.Should().BeFalse();
-        _sut.IdCatalogoProveedor.Should().Be(99);
-        _sut.ProveedorRazonSocial.Should().Be("Laprida Distribuidora S.A.");
-        _sut.CodigoProveedor.Should().Be("LAP-445");
-        _sut.DescripcionProveedor.Should().Be("Cuaderno Espiral 80H A4 Rayado");
-        _sut.CostoProveedor.Should().Be(1250m);
-        _sut.TextoBotonVinculacion.Should().Be("Cambiar...");
+        _sut.Fuentes.Select(f => f.IdCatalogoProveedor).Should().Equal(26, 25);
+        _sut.IdCatalogoProveedor.Should().Be(25);
+        _sut.TieneFuentes.Should().BeTrue();
+        _sut.TextoCantidadFuentes.Should().Be("2 fuentes");
+        _sut.CostoReposicion.Should().Be(1300m);
     }
 
     [Fact]
-    public async Task VincularCatalogoAsync_SeleccionValida_ActualizaPropiedadesYCosto()
+    public void ConfigurarEdicion_FechaDeLista_SeMuestraEnHoraLocalYMarcaLaListaVieja()
     {
-        // Arrange
-        _sut.ConfigurarAlta(_categorias, _marcas);
-        _sut.PorcentajeGanancia = 50m;
-        _sut.Descripcion = "Cuaderno";
-
-        var catalogoItem = new CatalogoProveedorDto
-        {
-            Id = 55,
-            IdProveedor = 3,
-            ProveedorRazonSocial = "Distribuidora Papelera",
-            CodigoProveedor = "PAP-001",
-            DescripcionProveedor = "Cuaderno A4 80H Rayado",
-            CodigoBarras = "7798888888888",
-            CostoReposicion = 1000m
-        };
-
-        _sut.OnAbrirSelectorProveedorAsync = (termino, idProv) => Task.FromResult<CatalogoProveedorDto?>(catalogoItem);
+        // Arrange: el reloj está en UTC-3 el 29/10/2026; una lista de 01:00 UTC es del 28/10 local
+        var sut = new ArticuloFormViewModel(new RelojDePrueba(new DateTimeOffset(2026, 10, 29, 15, 0, 0, TimeSpan.Zero)));
+        IReadOnlyList<FuenteArticuloDto> fuentes =
+        [
+            Fuente(25, "Distribuidora Sur", 100m, esPrincipal: true, fechaUtc: new DateTime(2026, 10, 29, 1, 0, 0)),
+            Fuente(26, "Mayorista Norte", 200m, fechaUtc: new DateTime(2026, 9, 20, 12, 0, 0))
+        ];
 
         // Act
-        await _sut.VincularCatalogoCommand.ExecuteAsync(null);
+        sut.ConfigurarEdicion(ArticuloConCosto(100m), fuentes, _categorias, _marcas);
 
         // Assert
-        _sut.EstaVinculadoAProveedor.Should().BeTrue();
+        sut.Fuentes[0].FechaLocal.Date.Should().Be(new DateTime(2026, 10, 28));
+        sut.Fuentes[0].ListaDesactualizada.Should().BeFalse();
+        sut.Fuentes[1].ListaDesactualizada.Should().BeTrue("tiene 39 días y el umbral es 30");
+    }
+
+    [Fact]
+    public async Task AgregarFuenteAsync_SinPrincipal_LaPrimeraQuedaPrincipalTomaSuCostoYCompletaElAlta()
+    {
+        // Arrange (M1)
+        _sut.ConfigurarAlta(_categorias, _marcas);
+        _sut.PorcentajeGanancia = 50m;
+        _sut.OnAbrirSelectorProveedorAsync = (termino, ids) => Task.FromResult<CatalogoProveedorDto?>(Item(55, 1000m));
+
+        // Act
+        await _sut.AgregarFuenteCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.Fuentes.Should().ContainSingle().Which.EsPrincipal.Should().BeTrue();
         _sut.IdCatalogoProveedor.Should().Be(55);
-        _sut.ProveedorRazonSocial.Should().Be("Distribuidora Papelera");
-        _sut.CodigoProveedor.Should().Be("PAP-001");
-        _sut.DescripcionProveedor.Should().Be("Cuaderno A4 80H Rayado");
-        _sut.CostoProveedor.Should().Be(1000m);
         _sut.CostoReposicion.Should().Be(1000m);
-        _sut.PrecioVentaCalculado.Should().Be(1500m); // 1000 + 50%
+        _sut.PrecioVentaCalculado.Should().Be(1500m);
+        _sut.Descripcion.Should().Be("Cuaderno A4 80H Rayado");
         _sut.CodigoBarras.Should().Be("7798888888888");
     }
 
     [Fact]
-    public async Task VincularCatalogoAsync_SeleccionCancelada_MantieneValoresPrevios()
+    public async Task AgregarFuenteAsync_ConPrincipal_LaUbicaPorCostoSinCambiarLaPrincipalNiElCosto()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(1250m), [Fuente(25, "Distribuidora Sur", 1250m, esPrincipal: true)], _categorias, _marcas);
+        _sut.OnAbrirSelectorProveedorAsync = (termino, ids) => Task.FromResult<CatalogoProveedorDto?>(Item(55, 1000m));
+
+        // Act
+        await _sut.AgregarFuenteCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.Fuentes.Select(f => f.IdCatalogoProveedor).Should().Equal(55, 25);
+        _sut.IdCatalogoProveedor.Should().Be(25);
+        _sut.CostoReposicion.Should().Be(1250m);
+        _sut.TextoCantidadFuentes.Should().Be("2 fuentes");
+    }
+
+    [Fact]
+    public async Task AgregarFuenteAsync_InformaAlSelectorLasFuentesDelFormularioEIgnoraUnaRepetida()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(1250m), [Fuente(25, "Distribuidora Sur", 1250m, esPrincipal: true)], _categorias, _marcas);
+        IReadOnlyCollection<int>? idsInformados = null;
+        string? terminoInformado = null;
+        _sut.OnAbrirSelectorProveedorAsync = (termino, ids) =>
+        {
+            terminoInformado = termino;
+            idsInformados = ids;
+            return Task.FromResult<CatalogoProveedorDto?>(Item(25, 1250m));
+        };
+
+        // Act
+        await _sut.AgregarFuenteCommand.ExecuteAsync(null);
+
+        // Assert
+        terminoInformado.Should().Be("Cuaderno Espiral A4");
+        idsInformados.Should().Equal(25);
+        _sut.Fuentes.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task AgregarFuenteAsync_SeleccionCancelada_NoCambiaNada()
     {
         // Arrange
         _sut.ConfigurarAlta(_categorias, _marcas);
         _sut.CostoReposicion = 600m;
-        _sut.OnAbrirSelectorProveedorAsync = (termino, idProv) => Task.FromResult<CatalogoProveedorDto?>(null);
+        _sut.OnAbrirSelectorProveedorAsync = (termino, ids) => Task.FromResult<CatalogoProveedorDto?>(null);
 
         // Act
-        await _sut.VincularCatalogoCommand.ExecuteAsync(null);
+        await _sut.AgregarFuenteCommand.ExecuteAsync(null);
 
         // Assert
-        _sut.EstaVinculadoAProveedor.Should().BeFalse();
+        _sut.NoTieneFuentes.Should().BeTrue();
         _sut.IdCatalogoProveedor.Should().BeNull();
         _sut.CostoReposicion.Should().Be(600m);
     }
 
     [Fact]
-    public void DesvincularCatalogo_ArticuloVinculado_LimpiaCamposProveedorYPreservaCosto()
+    public void MarcarPrincipal_OtraFuente_LaVuelvePrincipalYMuestraSuCosto()
     {
-        // Arrange
-        _sut.ConfigurarAlta(_categorias, _marcas);
-        _sut.IdCatalogoProveedor = 12;
-        _sut.ProveedorRazonSocial = "Laprida";
-        _sut.CodigoProveedor = "L-01";
-        _sut.DescripcionProveedor = "Item Laprida";
-        _sut.CostoProveedor = 850m;
-        _sut.CostoReposicion = 850m;
+        // Arrange (M2)
+        _sut.ConfigurarEdicion(ArticuloConCosto(1250m), DosFuentes(), _categorias, _marcas);
+        _sut.PorcentajeGanancia = 50m;
+        var norte = _sut.Fuentes.Single(f => f.IdCatalogoProveedor == 26);
 
         // Act
-        _sut.DesvincularCatalogoCommand.Execute(null);
+        _sut.MarcarPrincipalCommand.Execute(norte);
 
         // Assert
-        _sut.EstaVinculadoAProveedor.Should().BeFalse();
-        _sut.NoEstaVinculadoAProveedor.Should().BeTrue();
+        _sut.IdCatalogoProveedor.Should().Be(26);
+        _sut.Fuentes.Count(f => f.EsPrincipal).Should().Be(1);
+        _sut.CostoReposicion.Should().Be(1100m);
+        _sut.PrecioVentaCalculado.Should().Be(1650m);
+    }
+
+    [Fact]
+    public void QuitarFuente_LaPrincipal_QuedaSinPrincipalYConservaElCosto()
+    {
+        // Arrange (M3)
+        _sut.ConfigurarEdicion(ArticuloConCosto(1250m), DosFuentes(), _categorias, _marcas);
+        var sur = _sut.Fuentes.Single(f => f.IdCatalogoProveedor == 25);
+
+        // Act
+        _sut.QuitarFuenteCommand.Execute(sur);
+
+        // Assert
+        _sut.Fuentes.Select(f => f.IdCatalogoProveedor).Should().Equal(26);
         _sut.IdCatalogoProveedor.Should().BeNull();
-        _sut.ProveedorRazonSocial.Should().BeNull();
-        _sut.CodigoProveedor.Should().BeNull();
-        _sut.DescripcionProveedor.Should().BeNull();
-        _sut.CostoProveedor.Should().BeNull();
-        _sut.CostoReposicion.Should().Be(850m);
+        _sut.CostoReposicion.Should().Be(1250m);
+        _sut.TextoCantidadFuentes.Should().Be("1 fuente");
     }
 
     [Fact]
-    public void ObtenerCrearDto_ConVinculacionAProveedor_IncluyeIdCatalogoProveedor()
+    public void ObtenerActualizarDto_ConFuentes_EnviaElEstadoDeseadoConLaPrincipal()
     {
         // Arrange
-        _sut.ConfigurarAlta(_categorias, _marcas);
-        _sut.Descripcion = "Producto Vinculado";
-        _sut.IdCatalogoProveedor = 77;
-        _sut.CostoReposicion = 300m;
-
-        // Act
-        var dto = _sut.ObtenerCrearDto();
-
-        // Assert
-        dto.IdCatalogoProveedor.Should().Be(77);
-    }
-
-    [Fact]
-    public void ObtenerActualizarDto_ConVinculacionAProveedor_IncluyeIdCatalogoProveedor()
-    {
-        // Arrange
-        _sut.ConfigurarAlta(_categorias, _marcas);
-        _sut.IdArticulo = 5;
-        _sut.Descripcion = "Producto Actualizado";
-        _sut.IdCatalogoProveedor = 88;
-        _sut.CostoReposicion = 400m;
+        _sut.ConfigurarEdicion(ArticuloConCosto(1250m), DosFuentes(), _categorias, _marcas);
 
         // Act
         var dto = _sut.ObtenerActualizarDto();
 
         // Assert
-        dto.IdCatalogoProveedor.Should().Be(88);
+        dto.IdsFuentes.Should().BeEquivalentTo([25, 26]);
+        dto.IdCatalogoProveedor.Should().Be(25);
+    }
+
+    [Fact]
+    public void ObtenerCrearDto_SinFuentes_EnviaListaVaciaYSinPrincipal()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
+        _sut.Descripcion = "Producto artesanal";
+
+        // Act
+        var dto = _sut.ObtenerCrearDto();
+
+        // Assert
+        dto.IdsFuentes.Should().BeEmpty();
+        dto.IdCatalogoProveedor.Should().BeNull();
+    }
+
+    [Fact]
+    public void ConfigurarAlta_DespuesDeEditarConFuentes_LasDescarta()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(1250m), DosFuentes(), _categorias, _marcas);
+
+        // Act
+        _sut.ConfigurarAlta(_categorias, _marcas);
+
+        // Assert
+        _sut.NoTieneFuentes.Should().BeTrue();
+        _sut.IdCatalogoProveedor.Should().BeNull();
+    }
+
+    private static ArticuloDto ArticuloConCosto(decimal costo)
+    {
+        return new ArticuloDto
+        {
+            IdArticulo = 10,
+            Descripcion = "Cuaderno Espiral A4",
+            CostoReposicion = costo,
+            PorcentajeGanancia = 40m,
+            PrecioVenta = costo * 1.4m,
+            StockActual = 10,
+            StockMinimo = 2,
+            EsServicio = false
+        };
+    }
+
+    /// <summary>Sur (25, costo 1250) es la principal; Norte (26, costo 1100) es adicional.</summary>
+    private static IReadOnlyList<FuenteArticuloDto> DosFuentes()
+    {
+        return
+        [
+            Fuente(25, "Distribuidora Sur", 1250m, esPrincipal: true),
+            Fuente(26, "Mayorista Norte", 1100m)
+        ];
+    }
+
+    private static FuenteArticuloDto Fuente(int id, string proveedor, decimal costo, bool esPrincipal = false, DateTime? fechaUtc = null)
+    {
+        return new FuenteArticuloDto
+        {
+            IdCatalogoProveedor = id,
+            IdProveedor = id,
+            RazonSocialProveedor = proveedor,
+            CodigoProveedor = $"COD-{id}",
+            Descripcion = "Cuaderno Espiral 80H A4",
+            CostoActual = costo,
+            FechaActualizacion = fechaUtc ?? DateTime.UtcNow,
+            EsPrincipal = esPrincipal
+        };
+    }
+
+    private static CatalogoProveedorDto Item(int id, decimal costo)
+    {
+        return new CatalogoProveedorDto
+        {
+            Id = id,
+            IdProveedor = 3,
+            ProveedorRazonSocial = "Distribuidora Papelera",
+            CodigoProveedor = "PAP-001",
+            DescripcionProveedor = "Cuaderno A4 80H Rayado",
+            CodigoBarras = "7798888888888",
+            CostoReposicion = costo,
+            FechaActualizacion = DateTime.UtcNow
+        };
     }
 
     // ---------- Edición de una presentación derivada (RF-21) ----------
@@ -416,7 +524,7 @@ public class ArticuloFormViewModelTests
     public void ConfigurarEdicion_PresentacionDerivada_ActivaModoDerivadoConAvisoDeCosto()
     {
         // Act
-        _sut.ConfigurarEdicion(PresentacionDerivada(), _categorias, _marcas);
+        _sut.ConfigurarEdicion(PresentacionDerivada(), [], _categorias, _marcas);
 
         // Assert
         _sut.EsDerivado.Should().BeTrue();
@@ -433,7 +541,7 @@ public class ArticuloFormViewModelTests
         var articulo = PresentacionDerivada() with { IdArticuloOrigen = null, UnidadesPorOrigen = null };
 
         // Act
-        _sut.ConfigurarEdicion(articulo, _categorias, _marcas);
+        _sut.ConfigurarEdicion(articulo, [], _categorias, _marcas);
 
         // Assert
         _sut.EsDerivado.Should().BeFalse();
@@ -445,7 +553,7 @@ public class ArticuloFormViewModelTests
     public void ConfigurarAlta_DespuesDeEditarUnaPresentacion_SaleDelModoDerivado()
     {
         // Arrange
-        _sut.ConfigurarEdicion(PresentacionDerivada(), _categorias, _marcas);
+        _sut.ConfigurarEdicion(PresentacionDerivada(), [], _categorias, _marcas);
 
         // Act
         _sut.ConfigurarAlta(_categorias, _marcas);
@@ -459,7 +567,7 @@ public class ArticuloFormViewModelTests
     public void ObtenerActualizarDto_PresentacionConCostoEditado_EnviaElCostoManualSinCatalogoNiServicio()
     {
         // Arrange: la regla 4 permite editar el costo de un derivado
-        _sut.ConfigurarEdicion(PresentacionDerivada(), _categorias, _marcas);
+        _sut.ConfigurarEdicion(PresentacionDerivada(), [], _categorias, _marcas);
         _sut.CostoReposicion = 12.5m;
 
         // Act

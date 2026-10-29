@@ -341,6 +341,7 @@ public class ArticulosViewModelTests : IDisposable
 
         _dialogService.MostrarDialogoModificar(
             Arg.Any<ArticuloDto>(),
+            Arg.Any<IReadOnlyList<FuenteArticuloDto>>(),
             Arg.Any<IReadOnlyList<CategoriaDto>>(),
             Arg.Any<IReadOnlyList<MarcaDto>>(),
             Arg.Any<Func<ActualizarArticuloDto, Task>>())
@@ -357,6 +358,46 @@ public class ArticulosViewModelTests : IDisposable
         // Assert
         await _inventarioService.Received(1).ActualizarArticuloAsync(modDto, Arg.Any<CancellationToken>());
         await _inventarioService.Received(2).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task EditarArticuloAsync_ArticuloDeCompra_AbreElFormularioConSusFuentes()
+    {
+        // Arrange (Track 4.3, A-19, M5)
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        IReadOnlyList<FuenteArticuloDto> fuentes = [new FuenteArticuloDto { IdCatalogoProveedor = 40, EsPrincipal = true }];
+        _inventarioService.ObtenerFuentesDeArticuloAsync(1, Arg.Any<CancellationToken>()).Returns(fuentes);
+
+        // Act
+        await _sut.EditarArticuloCommand.ExecuteAsync(_articulosEjemplo[0]);
+
+        // Assert
+        _dialogService.Received(1).MostrarDialogoModificar(
+            _articulosEjemplo[0],
+            fuentes,
+            Arg.Any<IReadOnlyList<CategoriaDto>>(),
+            Arg.Any<IReadOnlyList<MarcaDto>>(),
+            Arg.Any<Func<ActualizarArticuloDto, Task>>());
+    }
+
+    [Fact]
+    public async Task EditarArticuloAsync_PresentacionDerivada_NoConsultaFuentes()
+    {
+        // Arrange: una presentación no tiene fuentes propias (RF-21)
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        var derivado = _articulosEjemplo[0] with { IdArticulo = 9, IdArticuloOrigen = 1, UnidadesPorOrigen = 10 };
+
+        // Act
+        await _sut.EditarArticuloCommand.ExecuteAsync(derivado);
+
+        // Assert
+        await _inventarioService.DidNotReceive().ObtenerFuentesDeArticuloAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarDialogoModificar(
+            derivado,
+            Arg.Is<IReadOnlyList<FuenteArticuloDto>>(f => f.Count == 0),
+            Arg.Any<IReadOnlyList<CategoriaDto>>(),
+            Arg.Any<IReadOnlyList<MarcaDto>>(),
+            Arg.Any<Func<ActualizarArticuloDto, Task>>());
     }
 
     [Fact]
@@ -664,7 +705,7 @@ public class ArticulosViewModelTests : IDisposable
 
     private static readonly string[] AvisosEsperadosDeExcluidos =
     [
-        "Bolígrafo Bic Cristal: no tiene proveedor vinculado",
+        "Bolígrafo Bic Cristal: no tiene fuentes",
         "Fotocopia simple faz: es un servicio: no se pide a proveedores"
     ];
 
@@ -771,6 +812,25 @@ public class ArticulosViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task PedirArticuloCommand_SinPrincipalConFuentes_PideLaFuenteMasBarataDeLaConsulta()
+    {
+        // Track 4.3, L4, paso 3c: la consulta trae la más barata (26); el modal la preselecciona (K2)
+        var sinPrincipal = _articulosEjemplo[1] with { IdCatalogoProveedor = null, IdFuentePedido = 26, CantidadFuentes = 2 };
+        _inventarioService.ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>())
+            .Returns(new ArticulosPaginadosDto { Items = [sinPrincipal], TotalRegistros = 1, TotalArticulos = 1, PaginaActual = 1, TamanoPagina = 10 });
+        using var escenario = new EscenarioPedido(_inventarioService, _dialogService);
+        await escenario.Sut.CargarArticulosAsync();
+        ConfigurarPedidoConfirmado(escenario);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Is<IReadOnlyCollection<int>>(ids => ids.Count == 1 && ids.Contains(26)),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task PedirArticuloCommand_SinFiltroDeDistribuidor_NoPasaProveedorPreferido()
     {
         using var escenario = await CrearEscenarioPedidoAsync();
@@ -833,7 +893,7 @@ public class ArticulosViewModelTests : IDisposable
 
         await escenario.Sut.PedirSeleccionadosCommand.ExecuteAsync(null);
 
-        escenario.PedidoDialogService.Received(1).MostrarAlerta("No hay nada para pedir", Arg.Is<string>(m => m.Contains("Bolígrafo Bic Cristal: no tiene proveedor vinculado")));
+        escenario.PedidoDialogService.Received(1).MostrarAlerta("No hay nada para pedir", Arg.Is<string>(m => m.Contains("Bolígrafo Bic Cristal: no tiene fuentes")));
         await escenario.PedidoService.DidNotReceiveWithAnyArgs().ObtenerVistaPreviaAsync(default!, default);
         escenario.PedidoDialogService.DidNotReceiveWithAnyArgs().MostrarPedirArticulos(default!, default!, default);
     }

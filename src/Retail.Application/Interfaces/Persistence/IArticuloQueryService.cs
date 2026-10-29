@@ -25,4 +25,10 @@ public interface IArticuloQueryService
     /// Precio, stock y datos del origen de los artículos activos indicados. Los dados de baja no se devuelven.
     /// </summary>
     Task<IReadOnlyList<DisponibilidadArticuloDto>> ObtenerDisponibilidadAsync(IReadOnlyCollection<int> idsArticulos, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Fuentes vigentes del artículo, principal y adicionales, ordenadas por costo (comparador de RF-28, A-19). El id
+    /// desempata para que el orden sea estable. Los ítems dados de baja no se devuelven.
+    /// </summary>
+    Task<IReadOnlyList<FuenteArticuloDto>> ObtenerFuentesAsync(int idArticulo, CancellationToken cancellationToken = default);
 }

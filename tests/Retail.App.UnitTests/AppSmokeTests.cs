@@ -721,6 +721,45 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void ArticuloFormDialog_EdicionConFuentes_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange (Track 4.3, A-19): dos fuentes, una con la lista vieja, para que se resuelvan todos los recursos de
+        // la plantilla de renglones
+        Exception? xamlException = null;
+        ArticuloFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ArticuloFormViewModel();
+            viewModel.ConfigurarEdicion(
+                ArticuloDeEjemplo(idArticulo: 7, idArticuloOrigen: null),
+                new[]
+                {
+                    new FuenteArticuloDto { IdCatalogoProveedor = 25, RazonSocialProveedor = "Distribuidora Sur", CodigoProveedor = "S-1", CostoActual = 1000m, FechaActualizacion = DateTime.UtcNow, EsPrincipal = true },
+                    new FuenteArticuloDto { IdCatalogoProveedor = 26, RazonSocialProveedor = "Mayorista Norte", CodigoProveedor = "N-1", CostoActual = 950m, FechaActualizacion = DateTime.UtcNow.AddDays(-90) }
+                },
+                Array.Empty<CategoriaDto>(),
+                Array.Empty<MarcaDto>());
+
+            try
+            {
+                dialog = new ArticuloFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(640, 750));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 640, 750));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("la sección Fuentes de ArticuloFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
     public void ArticuloFormDialog_EdicionDePresentacionDerivada_DebeCargarXAMLSinExcepciones()
     {
         // Arrange: el modo derivado oculta servicio y distribuidor y muestra el aviso de costo (RF-21)
@@ -732,6 +771,7 @@ public class AppSmokeTests
             var viewModel = new ArticuloFormViewModel();
             viewModel.ConfigurarEdicion(
                 ArticuloDeEjemplo(idArticulo: 8, idArticuloOrigen: 7),
+                Array.Empty<FuenteArticuloDto>(),
                 Array.Empty<CategoriaDto>(),
                 Array.Empty<MarcaDto>());
 
@@ -1474,19 +1514,55 @@ public class AppSmokeTests
     }
 
     [Fact]
-    public void SeleccionarCatalogoProveedorModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    public async Task SeleccionarCatalogoProveedorModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
         Exception? xamlException = null;
         SeleccionarCatalogoProveedorModalDialog? dialog = null;
 
+        var proveedorService = Substitute.For<IProveedorService>();
+        proveedorService.ListarProveedoresAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<ProveedorDto>());
+        proveedorService.ListarItemsCatalogoAsync(Arg.Any<ConsultaCatalogoProveedorDto>(), Arg.Any<CancellationToken>())
+            .Returns(new CatalogoPaginadoDto
+            {
+                Items =
+                [
+                    new CatalogoProveedorDto
+                    {
+                        Id = 1,
+                        IdProveedor = 1,
+                        ProveedorRazonSocial = "Distribuidora Norte",
+                        CodigoProveedor = "N-001",
+                        DescripcionProveedor = "Cuaderno A4 rayado",
+                        CostoReposicion = 1500m,
+                        FechaActualizacion = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc)
+                    },
+                    new CatalogoProveedorDto
+                    {
+                        Id = 2,
+                        IdProveedor = 1,
+                        ProveedorRazonSocial = "Distribuidora Norte",
+                        CodigoProveedor = "N-002",
+                        DescripcionProveedor = "Lapicera azul",
+                        CostoReposicion = 300m,
+                        FechaActualizacion = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc),
+                        EstaVinculado = true,
+                        IdArticuloVinculado = 99,
+                        NombreArticuloTienda = "Lapicera Bic"
+                    }
+                ],
+                TotalRegistros = 2
+            });
+        var viewModel = new SeleccionarCatalogoProveedorModalViewModel(proveedorService);
+        await viewModel.InicializarAsync(new ContextoSelectorFuente(7, "Cuaderno A4", "7790001112223", []));
+
         WpfTestHelper.Run(() =>
         {
             try
             {
-                dialog = new SeleccionarCatalogoProveedorModalDialog();
-                dialog.Measure(new System.Windows.Size(750, 520));
-                dialog.Arrange(new System.Windows.Rect(0, 0, 750, 520));
+                dialog = new SeleccionarCatalogoProveedorModalDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(760, 560));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 760, 560));
                 dialog.UpdateLayout();
             }
             catch (Exception ex)

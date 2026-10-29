@@ -30,8 +30,43 @@ public partial class ArticuloFila : ObservableObject
     public bool SePuedePedir => MotivoNoSePuedePedir is null;
 
     /// <summary>
-    /// El pedido se arma sobre el ítem de catálogo del proveedor (A-8): sin ese vínculo no hay qué pedir. Una
-    /// presentación derivada nunca está vinculada (RF-21), pero su motivo es otro y vale nombrarlo.
+    /// Ítem de catálogo que se envía al modal de pedido: el que eligió la consulta (la principal o la más barata) o,
+    /// si el artículo no vino de ella, la principal (Track 4.3, L4, paso 3c).
+    /// </summary>
+    public int? IdFuenteParaPedir => Articulo.IdFuentePedido ?? Articulo.IdCatalogoProveedor;
+
+    /// <summary>
+    /// Fuentes del artículo además de la principal (Track 4.3, A-19). <see cref="ArticuloDto.CantidadFuentes"/> cuenta
+    /// todas, principal incluida; sin principal, todas son adicionales. Nunca es negativo.
+    /// </summary>
+    public int FuentesAdicionales =>
+        Math.Max(0, Articulo.CantidadFuentes - (Articulo.EstaVinculadoAProveedor ? 1 : 0));
+
+    /// <summary>Indica si la grilla debe mostrar el botón "+n" (Track 4.3, A-19).</summary>
+    public bool TieneFuentesAdicionales => FuentesAdicionales > 0;
+
+    /// <summary>Texto del botón de fuentes adicionales, por ejemplo "+2" (Track 4.3, A-19).</summary>
+    public string TextoFuentesAdicionales => $"+{FuentesAdicionales}";
+
+    /// <summary>
+    /// Hay fuentes pero ninguna es la principal: el costo no se actualiza solo y conviene elegirla (Track 4.3, A-19).
+    /// </summary>
+    public bool TieneFuentesSinPrincipal => !Articulo.EstaVinculadoAProveedor && Articulo.CantidadFuentes > 0;
+
+    /// <summary>Tooltip del botón "+n": aclara que las fuentes se ven y se cambian al abrir el artículo (A-19).</summary>
+    public string TooltipFuentes
+    {
+        get
+        {
+            string cantidad = FuentesAdicionales == 1 ? "1 fuente adicional" : $"{FuentesAdicionales} fuentes adicionales";
+            return $"{cantidad}. Abrir el artículo para verlas o cambiar la principal.";
+        }
+    }
+
+    /// <summary>
+    /// El pedido se arma sobre el ítem de catálogo del proveedor (A-8): sin ninguna fuente no hay qué pedir. Alcanza
+    /// una adicional, aunque no haya principal (paso 3c). Una presentación derivada nunca tiene fuentes (RF-21), pero
+    /// su motivo es otro y vale nombrarlo.
     /// </summary>
     private static string? DeterminarMotivoNoSePuedePedir(ArticuloDto articulo)
     {
@@ -45,6 +80,6 @@ public partial class ArticuloFila : ObservableObject
             return "es una presentación derivada: se pide su artículo de origen";
         }
 
-        return articulo.EstaVinculadoAProveedor ? null : "no tiene proveedor vinculado";
+        return (articulo.IdFuentePedido ?? articulo.IdCatalogoProveedor) is null ? "no tiene fuentes" : null;
     }
 }
