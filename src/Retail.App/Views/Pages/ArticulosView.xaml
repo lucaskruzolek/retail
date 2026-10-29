@@ -249,6 +249,12 @@
                           AutoGenerateColumns="False"
                           BorderThickness="1"
                           Margin="16,0,16,8">
+                <!-- Doble clic en la fila abre la edición; el estilo base conserva el aspecto de fila del sistema de diseño -->
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowRetailStyle}">
+                        <EventSetter Event="MouseDoubleClick" Handler="Fila_MouseDoubleClick" />
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
                     <!-- Selección para pedir (Track 4.3, A-17): la casilla vive en ArticuloFila, no en el DTO -->
                     <!-- Su visibilidad la fija el code-behind: una columna no está en el árbol visual y no hereda el DataContext -->
@@ -320,9 +326,10 @@
                                         ElementStyle="{StaticResource TextBlockTextCell}" />
 
                     <!-- Distribuidor / Enlace (RF-05) -->
-                    <DataGridTemplateColumn Header="Distribuidor" Width="140">
+                    <DataGridTemplateColumn Header="Distribuidor" Width="170">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Grid VerticalAlignment="Center">
                                     <!-- Caso 1: Vinculado a Distribuidor -->
                                     <Border x:Name="BadgeVinculado"
@@ -364,6 +371,15 @@
                                                VerticalAlignment="Center"
                                                Visibility="Visible" />
 
+                                    <!-- Caso 2b: tiene fuentes pero ninguna es la principal (Track 4.3, A-19) -->
+                                    <TextBlock x:Name="TextoSinPrincipal"
+                                               Text="Sin principal"
+                                               FontStyle="Italic"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Visibility="Collapsed" />
+
                                     <!-- Caso 3: Presentación derivada (RF-21): su costo sale del artículo de origen -->
                                     <Border x:Name="BadgePresentacion"
                                             Style="{StaticResource BadgeNeutralStyle}"
@@ -381,14 +397,39 @@
                                     </Border>
                                 </Grid>
 
+                                <!-- Fuentes adicionales (Track 4.3, A-19): abre el artículo, donde se ven y se cambia la principal -->
+                                <Button x:Name="BtnFuentesAdicionales"
+                                        Content="{Binding TextoFuentesAdicionales}"
+                                        Command="{Binding DataContext.EditarArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding Articulo}"
+                                        Style="{StaticResource GhostPrimaryButtonStyle}"
+                                        FontSize="11"
+                                        Padding="4,0"
+                                        MinHeight="20"
+                                        Margin="4,0,0,0"
+                                        VerticalAlignment="Center"
+                                        ToolTip="{Binding TooltipFuentes}"
+                                        Visibility="Collapsed" />
+                                </StackPanel>
+
                                 <DataTemplate.Triggers>
                                     <DataTrigger Binding="{Binding Articulo.EstaVinculadoAProveedor}" Value="True">
                                         <Setter TargetName="BadgeVinculado" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
+                                    <DataTrigger Binding="{Binding TieneFuentesSinPrincipal}" Value="True">
+                                        <Setter TargetName="TextoSinPrincipal" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding TieneFuentesAdicionales}" Value="True">
+                                        <Setter TargetName="BtnFuentesAdicionales" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <!-- Un derivado no tiene fuentes propias (RF-21): nunca muestra "+n" -->
                                     <DataTrigger Binding="{Binding Articulo.EsDerivado}" Value="True">
                                         <Setter TargetName="BadgePresentacion" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="TextoSinPrincipal" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="BtnFuentesAdicionales" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </DataTemplate.Triggers>
                             </DataTemplate>

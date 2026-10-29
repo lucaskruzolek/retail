@@ -65,7 +65,9 @@ public class ArticuloDialogService : IArticuloDialogService
         vm.ConfigurarAlta(categorias, marcas);
         vm.OnAbrirSelectorProveedorAsync = async (texto, idsEnFormulario) =>
         {
-            return await AbrirSelectorCatalogoProveedorAsync(texto);
+            return await AbrirSelectorCatalogoProveedorAsync(
+                new ContextoSelectorFuente(vm.IdArticulo, vm.Descripcion, vm.CodigoBarras, idsEnFormulario),
+                texto);
         };
 
         if (onGuardarAsync != null)
@@ -99,7 +101,9 @@ public class ArticuloDialogService : IArticuloDialogService
         vm.ConfigurarEdicion(articulo, fuentes, categorias, marcas);
         vm.OnAbrirSelectorProveedorAsync = async (texto, idsEnFormulario) =>
         {
-            return await AbrirSelectorCatalogoProveedorAsync(texto);
+            return await AbrirSelectorCatalogoProveedorAsync(
+                new ContextoSelectorFuente(vm.IdArticulo, vm.Descripcion, vm.CodigoBarras, idsEnFormulario),
+                texto);
         };
 
         if (onGuardarAsync != null)
@@ -173,7 +177,10 @@ public class ArticuloDialogService : IArticuloDialogService
         return result == true ? vm.UnidadesObtenidas ?? vm.UnidadesResultantes : null;
     }
 
-    public async Task<CatalogoProveedorDto?> AbrirSelectorCatalogoProveedorAsync(string? textoInicial = null, int? idProveedor = null)
+    public async Task<CatalogoProveedorDto?> AbrirSelectorCatalogoProveedorAsync(
+        ContextoSelectorFuente contexto,
+        string? textoInicial = null,
+        int? idProveedor = null)
     {
         if (_serviceProvider == null)
         {
@@ -181,7 +188,7 @@ public class ArticuloDialogService : IArticuloDialogService
         }
 
         var vm = _serviceProvider.GetRequiredService<SeleccionarCatalogoProveedorModalViewModel>();
-        await vm.InicializarAsync(textoInicial, idProveedor);
+        await vm.InicializarAsync(contexto, textoInicial, idProveedor);
 
         var dialog = new SeleccionarCatalogoProveedorModalDialog(vm);
         if (System.Windows.Application.Current?.MainWindow is { IsVisible: true } owner)

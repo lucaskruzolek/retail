@@ -1514,19 +1514,55 @@ public class AppSmokeTests
     }
 
     [Fact]
-    public void SeleccionarCatalogoProveedorModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    public async Task SeleccionarCatalogoProveedorModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
         Exception? xamlException = null;
         SeleccionarCatalogoProveedorModalDialog? dialog = null;
 
+        var proveedorService = Substitute.For<IProveedorService>();
+        proveedorService.ListarProveedoresAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<ProveedorDto>());
+        proveedorService.ListarItemsCatalogoAsync(Arg.Any<ConsultaCatalogoProveedorDto>(), Arg.Any<CancellationToken>())
+            .Returns(new CatalogoPaginadoDto
+            {
+                Items =
+                [
+                    new CatalogoProveedorDto
+                    {
+                        Id = 1,
+                        IdProveedor = 1,
+                        ProveedorRazonSocial = "Distribuidora Norte",
+                        CodigoProveedor = "N-001",
+                        DescripcionProveedor = "Cuaderno A4 rayado",
+                        CostoReposicion = 1500m,
+                        FechaActualizacion = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc)
+                    },
+                    new CatalogoProveedorDto
+                    {
+                        Id = 2,
+                        IdProveedor = 1,
+                        ProveedorRazonSocial = "Distribuidora Norte",
+                        CodigoProveedor = "N-002",
+                        DescripcionProveedor = "Lapicera azul",
+                        CostoReposicion = 300m,
+                        FechaActualizacion = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc),
+                        EstaVinculado = true,
+                        IdArticuloVinculado = 99,
+                        NombreArticuloTienda = "Lapicera Bic"
+                    }
+                ],
+                TotalRegistros = 2
+            });
+        var viewModel = new SeleccionarCatalogoProveedorModalViewModel(proveedorService);
+        await viewModel.InicializarAsync(new ContextoSelectorFuente(7, "Cuaderno A4", "7790001112223", []));
+
         WpfTestHelper.Run(() =>
         {
             try
             {
-                dialog = new SeleccionarCatalogoProveedorModalDialog();
-                dialog.Measure(new System.Windows.Size(750, 520));
-                dialog.Arrange(new System.Windows.Rect(0, 0, 750, 520));
+                dialog = new SeleccionarCatalogoProveedorModalDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(760, 560));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 760, 560));
                 dialog.UpdateLayout();
             }
             catch (Exception ex)

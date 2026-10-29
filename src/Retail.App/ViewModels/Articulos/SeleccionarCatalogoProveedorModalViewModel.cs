@@ -10,15 +10,19 @@ namespace Retail.App.ViewModels.Articulos;
 
 /// <summary>
 /// ViewModel para el diálogo modal de búsqueda y selección de ítems de catálogo mayorista (Vía B, RF-05).
-/// Permite explorar distribuidores y seleccionar un ítem para vincular a un artículo propio.
+/// Es el selector de "Agregar fuente" del formulario de artículo (Track 4.3, A-19): oculta los ítems que el
+/// formulario ya tiene y deshabilita los que son fuente de otro artículo (A-1); el ítem que en la base sigue
+/// siendo de este artículo, pero el usuario quitó sin guardar, se puede volver a elegir (M6).
 /// </summary>
 public partial class SeleccionarCatalogoProveedorModalViewModel : ObservableObject
 {
     private readonly IProveedorService _proveedorService;
+    private readonly TimeProvider _reloj;
+    private ContextoSelectorFuente _contexto = new(0, null, null, []);
 
     public ObservableCollection<ProveedorDto> Proveedores { get; } = new();
 
-    public ObservableCollection<CatalogoProveedorDto> ItemsCatalogo { get; } = new();
+    public ObservableCollection<ItemCatalogoSelectorFila> ItemsCatalogo { get; } = new();
 
     [ObservableProperty]
     private ProveedorDto? _proveedorSeleccionado;
@@ -27,7 +31,9 @@ public partial class SeleccionarCatalogoProveedorModalViewModel : ObservableObje
     private string _textoBusqueda = string.Empty;
 
     [ObservableProperty]
-    private CatalogoProveedorDto? _itemSeleccionado;
+    [NotifyPropertyChangedFor(nameof(ItemSeleccionado))]
+    [NotifyPropertyChangedFor(nameof(HayItemSeleccionado))]
+    private ItemCatalogoSelectorFila? _filaSeleccionada;
 
     [ObservableProperty]
     private bool _isBusy;
@@ -40,23 +46,51 @@ public partial class SeleccionarCatalogoProveedorModalViewModel : ObservableObje
 
     public bool DialogResult { get; private set; }
 
-    public bool HayItemSeleccionado => ItemSeleccionado != null;
+    /// <summary>
+    /// Ítem elegido (el DTO que devuelve el diálogo); nulo si no hay fila elegida.
+    /// </summary>
+    public CatalogoProveedorDto? ItemSeleccionado => FilaSeleccionada?.Item;
 
-    public SeleccionarCatalogoProveedorModalViewModel(IProveedorService proveedorService)
+    public bool HayItemSeleccionado => FilaSeleccionada is { EsSeleccionable: true };
+
+    /// <summary>
+    /// Caption de la tarjeta de arriba: "Artículo" si ya existe, "Artículo nuevo" en el alta.
+    /// </summary>
+    public string TituloArticulo => _contexto.IdArticulo > 0 ? "Artículo" : "Artículo nuevo";
+
+    public string DescripcionArticulo =>
+        string.IsNullOrWhiteSpace(_contexto.Descripcion) ? "(sin descripción todavía)" : _contexto.Descripcion.Trim();
+
+    public string? CodigoBarrasArticulo =>
+        string.IsNullOrWhiteSpace(_contexto.CodigoBarras) ? null : _contexto.CodigoBarras.Trim();
+
+    public bool TieneCodigoBarrasArticulo => CodigoBarrasArticulo != null;
+
+    public SeleccionarCatalogoProveedorModalViewModel(IProveedorService proveedorService, TimeProvider? reloj = null)
     {
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
+        _reloj = reloj ?? TimeProvider.System;
     }
 
-    partial void OnItemSeleccionadoChanged(CatalogoProveedorDto? value)
+    /// <summary>
+    /// Prepara el selector para el artículo del formulario (Track 4.3, A-19) y hace la primera búsqueda.
+    /// </summary>
+    public async Task InicializarAsync(
+        ContextoSelectorFuente contexto,
+        string? textoInicial = null,
+        int? idProveedorInicial = null)
     {
-        OnPropertyChanged(nameof(HayItemSeleccionado));
-    }
+        ArgumentNullException.ThrowIfNull(contexto);
 
-    public async Task InicializarAsync(string? textoInicial = null, int? idProveedorInicial = null)
-    {
+        _contexto = contexto;
+        OnPropertyChanged(nameof(TituloArticulo));
+        OnPropertyChanged(nameof(DescripcionArticulo));
+        OnPropertyChanged(nameof(CodigoBarrasArticulo));
+        OnPropertyChanged(nameof(TieneCodigoBarrasArticulo));
+
         IsBusy = true;
         MensajeError = null;
-        ItemSeleccionado = null;
+        FilaSeleccionada = null;
         DialogResult = false;
         TextoBusqueda = textoInicial?.Trim() ?? string.Empty;
 
@@ -116,20 +150,15 @@ public partial class SeleccionarCatalogoProveedorModalViewModel : ObservableObje
             };
 
             var resultado = await _proveedorService.ListarItemsCatalogoAsync(consulta);
+            var idsEnFormulario = _contexto.IdsEnFormulario.ToHashSet();
+
             ItemsCatalogo.Clear();
-            foreach (var item in resultado.Items)
+            foreach (var item in resultado.Items.Where(i => !idsEnFormulario.Contains(i.Id)))
             {
-                ItemsCatalogo.Add(item);
+                ItemsCatalogo.Add(new ItemCatalogoSelectorFila(item, EsSeleccionable(item), _reloj));
             }
 
-            if (ItemsCatalogo.Count > 0)
-            {
-                ItemSeleccionado = ItemsCatalogo[0];
-            }
-            else
-            {
-                ItemSeleccionado = null;
-            }
+            FilaSeleccionada = ItemsCatalogo.FirstOrDefault(f => f.EsSeleccionable);
         }
         catch (Exception ex)
         {
@@ -141,12 +170,28 @@ public partial class SeleccionarCatalogoProveedorModalViewModel : ObservableObje
         }
     }
 
+    /// <summary>
+    /// Libre, o vinculado a este mismo artículo (M6: el usuario lo quitó del formulario sin guardar). En el alta
+    /// (id 0) un ítem vinculado nunca es elegible; el de otro artículo tampoco (A-1).
+    /// </summary>
+    private bool EsSeleccionable(CatalogoProveedorDto item)
+    {
+        return !item.EstaVinculado
+            || (_contexto.IdArticulo > 0 && item.IdArticuloVinculado == _contexto.IdArticulo);
+    }
+
     [RelayCommand]
     private void Seleccionar(Window? window)
     {
-        if (ItemSeleccionado == null)
+        if (FilaSeleccionada == null)
         {
             MensajeError = "Debe seleccionar un ítem de la lista.";
+            return;
+        }
+
+        if (!FilaSeleccionada.EsSeleccionable)
+        {
+            MensajeError = $"Ese ítem no se puede agregar: {FilaSeleccionada.TextoEstado}.";
             return;
         }
 
