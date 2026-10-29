@@ -63,9 +63,9 @@ public class ArticuloDialogService : IArticuloDialogService
     {
         var vm = new ArticuloFormViewModel();
         vm.ConfigurarAlta(categorias, marcas);
-        vm.OnAbrirSelectorProveedorAsync = async (texto, idProv) =>
+        vm.OnAbrirSelectorProveedorAsync = async (texto, idsEnFormulario) =>
         {
-            return await AbrirSelectorCatalogoProveedorAsync(texto, idProv);
+            return await AbrirSelectorCatalogoProveedorAsync(texto);
         };
 
         if (onGuardarAsync != null)
@@ -88,6 +88,7 @@ public class ArticuloDialogService : IArticuloDialogService
 
     public ActualizarArticuloDto? MostrarDialogoModificar(
         ArticuloDto articulo,
+        IReadOnlyList<FuenteArticuloDto> fuentes,
         IReadOnlyList<CategoriaDto> categorias,
         IReadOnlyList<MarcaDto> marcas,
         Func<ActualizarArticuloDto, Task>? onGuardarAsync = null)
@@ -95,10 +96,10 @@ public class ArticuloDialogService : IArticuloDialogService
         ArgumentNullException.ThrowIfNull(articulo);
 
         var vm = new ArticuloFormViewModel();
-        vm.ConfigurarEdicion(articulo, categorias, marcas);
-        vm.OnAbrirSelectorProveedorAsync = async (texto, idProv) =>
+        vm.ConfigurarEdicion(articulo, fuentes, categorias, marcas);
+        vm.OnAbrirSelectorProveedorAsync = async (texto, idsEnFormulario) =>
         {
-            return await AbrirSelectorCatalogoProveedorAsync(texto, idProv);
+            return await AbrirSelectorCatalogoProveedorAsync(texto);
         };
 
         if (onGuardarAsync != null)

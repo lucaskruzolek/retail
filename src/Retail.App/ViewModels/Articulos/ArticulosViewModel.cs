@@ -567,8 +567,15 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                 _cacheMarcas = (await _inventarioService.ListarMarcasAsync()).ToList();
             }
 
+            // Se leen al abrir y no se cachean: otra pantalla pudo cambiar las fuentes (A-19). Una presentación derivada
+            // no tiene fuentes propias (RF-21).
+            IReadOnlyList<FuenteArticuloDto> fuentes = target.EsDerivado
+                ? []
+                : await _inventarioService.ObtenerFuentesDeArticuloAsync(target.IdArticulo);
+
             var modificadoDto = _dialogService.MostrarDialogoModificar(
                 target,
+                fuentes,
                 _cacheCategorias,
                 _cacheMarcas,
                 async (actDto) =>

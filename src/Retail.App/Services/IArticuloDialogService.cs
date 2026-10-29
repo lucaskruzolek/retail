@@ -20,8 +20,13 @@ public interface IArticuloDialogService
         IReadOnlyList<MarcaDto> marcas,
         Func<CrearArticuloDto, Task>? onGuardarAsync = null);
 
+    /// <summary>
+    /// Edición del artículo con sus fuentes de la base (Track 4.3, A-19, M5). Devuelve los datos guardados o null si
+    /// se canceló.
+    /// </summary>
     ActualizarArticuloDto? MostrarDialogoModificar(
         ArticuloDto articulo,
+        IReadOnlyList<FuenteArticuloDto> fuentes,
         IReadOnlyList<CategoriaDto> categorias,
         IReadOnlyList<MarcaDto> marcas,
         Func<ActualizarArticuloDto, Task>? onGuardarAsync = null);

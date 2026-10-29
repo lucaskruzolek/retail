@@ -341,6 +341,7 @@ public class ArticulosViewModelTests : IDisposable
 
         _dialogService.MostrarDialogoModificar(
             Arg.Any<ArticuloDto>(),
+            Arg.Any<IReadOnlyList<FuenteArticuloDto>>(),
             Arg.Any<IReadOnlyList<CategoriaDto>>(),
             Arg.Any<IReadOnlyList<MarcaDto>>(),
             Arg.Any<Func<ActualizarArticuloDto, Task>>())
@@ -357,6 +358,46 @@ public class ArticulosViewModelTests : IDisposable
         // Assert
         await _inventarioService.Received(1).ActualizarArticuloAsync(modDto, Arg.Any<CancellationToken>());
         await _inventarioService.Received(2).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task EditarArticuloAsync_ArticuloDeCompra_AbreElFormularioConSusFuentes()
+    {
+        // Arrange (Track 4.3, A-19, M5)
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        IReadOnlyList<FuenteArticuloDto> fuentes = [new FuenteArticuloDto { IdCatalogoProveedor = 40, EsPrincipal = true }];
+        _inventarioService.ObtenerFuentesDeArticuloAsync(1, Arg.Any<CancellationToken>()).Returns(fuentes);
+
+        // Act
+        await _sut.EditarArticuloCommand.ExecuteAsync(_articulosEjemplo[0]);
+
+        // Assert
+        _dialogService.Received(1).MostrarDialogoModificar(
+            _articulosEjemplo[0],
+            fuentes,
+            Arg.Any<IReadOnlyList<CategoriaDto>>(),
+            Arg.Any<IReadOnlyList<MarcaDto>>(),
+            Arg.Any<Func<ActualizarArticuloDto, Task>>());
+    }
+
+    [Fact]
+    public async Task EditarArticuloAsync_PresentacionDerivada_NoConsultaFuentes()
+    {
+        // Arrange: una presentación no tiene fuentes propias (RF-21)
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        var derivado = _articulosEjemplo[0] with { IdArticulo = 9, IdArticuloOrigen = 1, UnidadesPorOrigen = 10 };
+
+        // Act
+        await _sut.EditarArticuloCommand.ExecuteAsync(derivado);
+
+        // Assert
+        await _inventarioService.DidNotReceive().ObtenerFuentesDeArticuloAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarDialogoModificar(
+            derivado,
+            Arg.Is<IReadOnlyList<FuenteArticuloDto>>(f => f.Count == 0),
+            Arg.Any<IReadOnlyList<CategoriaDto>>(),
+            Arg.Any<IReadOnlyList<MarcaDto>>(),
+            Arg.Any<Func<ActualizarArticuloDto, Task>>());
     }
 
     [Fact]

@@ -721,6 +721,45 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void ArticuloFormDialog_EdicionConFuentes_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange (Track 4.3, A-19): dos fuentes, una con la lista vieja, para que se resuelvan todos los recursos de
+        // la plantilla de renglones
+        Exception? xamlException = null;
+        ArticuloFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ArticuloFormViewModel();
+            viewModel.ConfigurarEdicion(
+                ArticuloDeEjemplo(idArticulo: 7, idArticuloOrigen: null),
+                new[]
+                {
+                    new FuenteArticuloDto { IdCatalogoProveedor = 25, RazonSocialProveedor = "Distribuidora Sur", CodigoProveedor = "S-1", CostoActual = 1000m, FechaActualizacion = DateTime.UtcNow, EsPrincipal = true },
+                    new FuenteArticuloDto { IdCatalogoProveedor = 26, RazonSocialProveedor = "Mayorista Norte", CodigoProveedor = "N-1", CostoActual = 950m, FechaActualizacion = DateTime.UtcNow.AddDays(-90) }
+                },
+                Array.Empty<CategoriaDto>(),
+                Array.Empty<MarcaDto>());
+
+            try
+            {
+                dialog = new ArticuloFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(640, 750));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 640, 750));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("la sección Fuentes de ArticuloFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
     public void ArticuloFormDialog_EdicionDePresentacionDerivada_DebeCargarXAMLSinExcepciones()
     {
         // Arrange: el modo derivado oculta servicio y distribuidor y muestra el aviso de costo (RF-21)
@@ -732,6 +771,7 @@ public class AppSmokeTests
             var viewModel = new ArticuloFormViewModel();
             viewModel.ConfigurarEdicion(
                 ArticuloDeEjemplo(idArticulo: 8, idArticuloOrigen: 7),
+                Array.Empty<FuenteArticuloDto>(),
                 Array.Empty<CategoriaDto>(),
                 Array.Empty<MarcaDto>());
 

@@ -242,6 +242,76 @@ public class EdicionEnCeldasDeGrillaTests
         comoPrincipal.Should().BeTrue();
     }
 
+    [Fact]
+    public void FuentesDelFormulario_ClicEnLaPrincipalYEnQuitar_LleganAlViewModelSinRomperLaLista()
+    {
+        // Arrange (Track 4.3, A-19): Sur (1000) es la principal y Norte (950) una adicional
+        int? principal = null;
+        decimal costo = 0m;
+        bool radioDeSurMarcado = true;
+        int[] fuentesRestantes = [];
+        Exception? error = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ArticuloFormViewModel();
+            viewModel.ConfigurarEdicion(
+                new ArticuloDto { IdArticulo = 7, Descripcion = "Marcador", CostoReposicion = 1000m, PorcentajeGanancia = 40m, PrecioVenta = 1400m, StockActual = 1, StockMinimo = 1, EsServicio = false },
+                new[]
+                {
+                    new FuenteArticuloDto { IdCatalogoProveedor = 25, RazonSocialProveedor = "Distribuidora Sur", CostoActual = 1000m, FechaActualizacion = DateTime.UtcNow, EsPrincipal = true },
+                    new FuenteArticuloDto { IdCatalogoProveedor = 26, RazonSocialProveedor = "Mayorista Norte", CostoActual = 950m, FechaActualizacion = DateTime.UtcNow }
+                },
+                Array.Empty<CategoriaDto>(),
+                Array.Empty<MarcaDto>());
+            var raiz = Montar(new ArticuloFormDialog(viewModel), 580, 720);
+            var radios = Descendientes<RadioButton>(raiz).ToList();
+            var radioNorte = radios.Single(r => ((FuenteFormularioFila)r.DataContext).IdCatalogoProveedor == 26);
+            var radioSur = radios.Single(r => ((FuenteFormularioFila)r.DataContext).IdCatalogoProveedor == 25);
+
+            // Act: OnClick es lo que ejecuta el botón al soltar el mouse (marca el radio y luego ejecuta el comando).
+            // Quitar destruye el contenedor del botón mientras termina de procesar su propio clic.
+            try
+            {
+                Clic(radioNorte);
+                ProcesarPendientesDelDispatcher();
+                principal = viewModel.IdCatalogoProveedor;
+                costo = viewModel.CostoReposicion;
+                radioDeSurMarcado = radioSur.IsChecked == true;
+
+                var quitarSur = Descendientes<Button>(raiz)
+                    .Single(b => b.DataContext is FuenteFormularioFila { IdCatalogoProveedor: 25 } && b.Command == viewModel.QuitarFuenteCommand);
+                Clic(quitarSur);
+                ProcesarPendientesDelDispatcher();
+                raiz.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+
+            fuentesRestantes = viewModel.Fuentes.Select(f => f.IdCatalogoProveedor).ToArray();
+        });
+
+        // Assert
+        error.Should().BeNull("elegir la principal y quitar una fuente con el mouse no debe romper la lista");
+        principal.Should().Be(26);
+        costo.Should().Be(950m, "la principal muestra su costo como vista previa (M2)");
+        radioDeSurMarcado.Should().BeFalse("el radio de la principal anterior sigue al ViewModel");
+        fuentesRestantes.Should().Equal(26);
+    }
+
+    /// <summary>
+    /// El clic de un <see cref="ButtonBase"/>, tal como lo dispara al soltar el mouse: alterna el estado (si es un
+    /// <see cref="ToggleButton"/>), levanta Click y ejecuta su comando.
+    /// </summary>
+    private static void Clic(ButtonBase boton)
+    {
+        typeof(ButtonBase)
+            .GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .Invoke(boton, null);
+    }
+
     /// <summary>
     /// Monta el contenido de la ventana en un elemento suelto, con los mismos recursos y DataContext, y lo mide: una
     /// ventana sin mostrar no arma el árbol visual de su contenido, y mostrarla procesa mensajes que en el proceso de

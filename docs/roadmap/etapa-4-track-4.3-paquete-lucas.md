@@ -269,8 +269,8 @@ Vista aprobada: renglones de dos líneas en un `ItemsControl` (opción A), con l
 **Pasos:**
 
 1. ✅ **Aplicación:** `IdsFuentes` en `CrearArticuloDto` / `ActualizarArticuloDto`, reglas del validador (principal entre las fuentes, sin repetidos) y `AplicarFuentesDelFormularioAsync` en `InventarioService` (reemplaza a la J2-a), con `DescartarCambios` también en el alta.
-2. 🟡 **Infraestructura:** `FuenteArticuloDto`, `ObtenerFuentesAsync` y `ArticuloDto.CantidadFuentes` por subconsulta, con tests de integración.
-3. ⏳ **UI:** sección Fuentes, selector unificado, "+n" en la grilla, tests de ViewModel, de binding con clic real y de humo STA.
+2. ✅ **Infraestructura:** `FuenteArticuloDto`, `ObtenerFuentesAsync` y `ArticuloDto.CantidadFuentes` por subconsulta, con tests de integración.
+3. 🟡 **UI**, en dos partes. **3a** (hecha): sección Fuentes del formulario con `FuenteFormularioFila`, carga de las fuentes desde `ArticulosViewModel` (M5), tests de ViewModel, de clic real (◉ y ✕) y de humo STA. **3b**: selector unificado (excluidos, deshabilitados con el artículo dueño, M6) y "+n" en la grilla.
 
 * **Sección Fuentes** en `ArticuloFormDialog` (alta y edición): lista ordenada por costo con proveedor, código, costo, fecha de la lista (en hora local) y la principal marcada. La fecha visible es la defensa contra la lista vieja y barata que motivó A-2.
 * **Agregar fuente:** abre `SeleccionarCatalogoProveedorDialog`, de a un ítem. Los ítems vinculados a otro artículo aparecen deshabilitados con el nombre de ese artículo (A-1), y los ya agregados en este formulario no se ofrecen. El selector se alinea con "Vincular ítem a artículo": tarjeta con el lado opuesto (aquí el artículo), buscador, grilla `DataGridRetailStyle` y pie de acciones, con las medidas de `SISTEMA_DE_DISENO.md`.
