@@ -39,6 +39,10 @@ public class Articulo : BaseEntity, IAggregateRoot
     /// </summary>
     public OrigenClasificacionEnum? OrigenMarca { get; private set; }
 
+    /// <summary>
+    /// Fuente principal (Track 4.3, A-16): el único ítem de catálogo cuya planilla fija el costo y el precio (A-2,
+    /// RF-07). Siempre es una de las fuentes del artículo; ver <see cref="MarcarFuentePrincipal"/>.
+    /// </summary>
     public int? IdCatalogoProveedor { get; set; }
 
     public CatalogoProveedor? CatalogoProveedor { get; set; }
@@ -219,7 +223,34 @@ public class Articulo : BaseEntity, IAggregateRoot
         IdCatalogoProveedor = idCatalogoProveedor;
     }
 
-    public void DesvincularCatalogoProveedor()
+    /// <summary>
+    /// Hace principal una fuente que ya es de este artículo (A-16, J1) y toma su costo, porque solo la principal fija
+    /// el costo (A-2). La fuente anterior, si había, sigue siendo fuente (J2). Las presentaciones derivadas las
+    /// recalcula Application, que las conoce.
+    /// </summary>
+    public void MarcarFuentePrincipal(CatalogoProveedor fuente)
+    {
+        ArgumentNullException.ThrowIfNull(fuente);
+
+        if (fuente.Id <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(fuente), "La fuente principal debe ser un ítem de catálogo ya guardado.");
+        }
+
+        if (!fuente.EsFuenteDe(this))
+        {
+            throw new DomainException(
+                $"El ítem '{fuente.CodigoProveedor}' no es fuente de este artículo: vincúlelo antes de marcarlo como principal.");
+        }
+
+        ActualizarCostoYRecalcularPrecio(fuente.CostoReposicion);
+        IdCatalogoProveedor = fuente.Id;
+    }
+
+    /// <summary>
+    /// Deja el artículo sin fuente principal; conserva el último costo. No se elige otra sola (J5).
+    /// </summary>
+    public void QuitarFuentePrincipal()
     {
         IdCatalogoProveedor = null;
         CatalogoProveedor = null;

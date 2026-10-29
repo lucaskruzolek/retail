@@ -82,5 +82,17 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
             .WithMany(p => p.Catalogos)
             .HasForeignKey(cp => cp.IdProveedor)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Fuente del artículo, principal o adicional (Track 4.3, A-1 y A-16). ARTICULOS.id_catalogo_proveedor guarda
+        // solo la principal; que esta sea una de estas fuentes lo garantiza el dominio (J1). Se declara explícita
+        // porque hay dos relaciones entre las mismas tablas, y Restrict porque el borrado físico está prohibido.
+        builder.Property(cp => cp.IdArticulo)
+            .HasColumnName("id_articulo");
+
+        builder.HasOne(cp => cp.Articulo)
+            .WithMany()
+            .HasForeignKey(cp => cp.IdArticulo)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

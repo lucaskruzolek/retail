@@ -263,7 +263,7 @@ public class ArticuloTests
     }
 
     [Fact]
-    public void DesvincularCatalogoProveedor_ArticuloPreviamenteVinculado_RemueveEnlaceYPasaAManual()
+    public void QuitarFuentePrincipal_ArticuloConPrincipal_QuedaSinPrincipalYConservaElCosto()
     {
         // Arrange
         var articulo = new Articulo
@@ -276,12 +276,105 @@ public class ArticuloTests
         };
 
         // Act
-        articulo.DesvincularCatalogoProveedor();
+        articulo.QuitarFuentePrincipal();
 
         // Assert
         articulo.IdCatalogoProveedor.Should().BeNull();
         articulo.CostoReposicion.Should().Be(5000m); // Preserva el último costo
         articulo.PrecioVenta.Should().Be(6500m);
+    }
+
+    // ---------- Fuentes múltiples y fuente principal (Track 4.3, A-16, J1) ----------
+
+    [Fact]
+    public void MarcarFuentePrincipal_FuenteDelArticulo_LaHacePrincipalYTomaSuCosto()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
+
+        articulo.MarcarFuentePrincipal(fuente);
+
+        articulo.IdCatalogoProveedor.Should().Be(42);
+        articulo.CostoReposicion.Should().Be(1200m);
+        articulo.PrecioVenta.Should().Be(1800m); // 1200 + 50%
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ArticuloNuevoSinId_ReconoceLaFuentePorLaInstancia()
+    {
+        var articulo = CrearArticuloConFuentes(id: 0);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
+
+        articulo.MarcarFuentePrincipal(fuente);
+
+        articulo.IdCatalogoProveedor.Should().Be(42);
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_CambioDePrincipal_LaAnteriorSigueSiendoFuente()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var anterior = CrearFuente(id: 42, costo: 1200m);
+        var nueva = CrearFuente(id: 43, costo: 1100m);
+        anterior.AsignarArticulo(articulo);
+        nueva.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(anterior);
+
+        articulo.MarcarFuentePrincipal(nueva);
+
+        articulo.IdCatalogoProveedor.Should().Be(43);
+        articulo.CostoReposicion.Should().Be(1100m);
+        anterior.EsFuenteDe(articulo).Should().BeTrue();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemQueNoEsFuente_LanzaDomainExceptionSinModificarElArticulo()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var ajena = CrearFuente(id: 42, costo: 1200m);
+
+        var act = () => articulo.MarcarFuentePrincipal(ajena);
+
+        act.Should().Throw<DomainException>().WithMessage("*no es fuente de este artículo*");
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        articulo.CostoReposicion.Should().Be(1000m);
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemFuenteDeOtroArticulo_LanzaDomainException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(CrearArticuloConFuentes(id: 8));
+
+        var act = () => articulo.MarcarFuentePrincipal(fuente);
+
+        act.Should().Throw<DomainException>();
+        articulo.IdCatalogoProveedor.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemSinGuardar_LanzaArgumentOutOfRangeException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 0, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
+
+        var act = () => articulo.MarcarFuentePrincipal(fuente);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_FuenteNula_LanzaArgumentNullException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+
+        var act = () => articulo.MarcarFuentePrincipal(null!);
+
+        act.Should().Throw<ArgumentNullException>();
     }
 
     // ---------- Redondeo (D-06) ----------
@@ -977,6 +1070,30 @@ public class ArticuloTests
             stockActual: 1,
             stockMinimo: 0,
             esServicio: false);
+    }
+
+    private static Articulo CrearArticuloConFuentes(int id)
+    {
+        return new Articulo
+        {
+            Id = id,
+            Descripcion = "Cuaderno Rivadavia",
+            CostoReposicion = 1000m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 1500m
+        };
+    }
+
+    private static CatalogoProveedor CrearFuente(int id, decimal costo)
+    {
+        return new CatalogoProveedor
+        {
+            Id = id,
+            IdProveedor = 1,
+            CodigoProveedor = $"COD-{id}",
+            DescripcionProveedor = "Cuaderno Rivadavia ABC",
+            CostoReposicion = costo
+        };
     }
 
     private static Articulo CrearOrigen(int id = 1, decimal costo = 1000m)

@@ -26,7 +26,8 @@ erDiagram
     PROVEEDORES ||--o{ EQUIVALENCIAS_CLASIFICACION : "traduce_su_clasificacion"
     CATEGORIAS |o--o{ EQUIVALENCIAS_CLASIFICACION : "destino_categoria"
     MARCAS |o--o{ EQUIVALENCIAS_CLASIFICACION : "destino_marca"
-    CATALOGOS_PROVEEDORES |o--o| ARTICULOS : "enlace_opcional"
+    CATALOGOS_PROVEEDORES |o--o| ARTICULOS : "fuente_principal"
+    ARTICULOS |o--o{ CATALOGOS_PROVEEDORES : "fuentes"
     ARTICULOS |o--o{ ARTICULOS : "presentacion_derivada"
     PROVEEDORES ||--o{ COMPRAS : "factura"
 
@@ -178,7 +179,7 @@ erDiagram
         int id_marca "FK nullable"
         string origen_categoria "nullable; Manual, SugerenciaAceptada o SugerenciaCorregida (Track 6.6)"
         string origen_marca "nullable; con id_marca NULL = Sin marca confirmada"
-        int id_catalogo_proveedor "FK nullable, UK (filtered)"
+        int id_catalogo_proveedor "FK nullable, UK (filtered): fuente principal (A-16)"
         int id_articulo_origen "FK nullable (self, RF-21)"
         int unidades_por_origen "nullable, >= 1 si es derivado"
         decimal costo_reposicion
@@ -209,6 +210,7 @@ erDiagram
         string rubro_proveedor "nullable, texto del proveedor (Track 6.6, M-12)"
         string categoria_proveedor "nullable, texto del proveedor"
         string marca_proveedor "nullable, texto del proveedor"
+        int id_articulo "FK nullable: articulo del que es fuente, principal o adicional (Track 4.3, A-1)"
         decimal precio_costo
         datetime fecha_actualizacion
         datetime deleted_at

@@ -38,7 +38,71 @@ public class CatalogoProveedor : BaseEntity
     /// </summary>
     public string? MarcaProveedor { get; private set; }
 
+    /// <summary>
+    /// Artículos que tienen este ítem como fuente principal (A-16). El índice único filtrado de ARTICULOS admite a lo
+    /// sumo uno activo.
+    /// </summary>
     public ICollection<Articulo> Articulos { get; set; } = new List<Articulo>();
+
+    /// <summary>
+    /// Artículo del que este ítem es fuente, principal o adicional (Track 4.3, A-1 y A-16). Nulo si el ítem no está
+    /// vinculado. Solo cambia con <see cref="AsignarArticulo"/> y <see cref="LiberarArticulo"/>.
+    /// </summary>
+    public int? IdArticulo { get; private set; }
+
+    public Articulo? Articulo { get; private set; }
+
+    public bool EstaVinculado => IdArticulo.HasValue || Articulo is not null;
+
+    /// <summary>
+    /// Indica si este ítem es fuente del artículo. Compara también la instancia: un artículo recién incorporado no
+    /// tiene id hasta el SaveChanges.
+    /// </summary>
+    public bool EsFuenteDe(Articulo articulo)
+    {
+        ArgumentNullException.ThrowIfNull(articulo);
+
+        return ReferenceEquals(Articulo, articulo) || (articulo.Id > 0 && IdArticulo == articulo.Id);
+    }
+
+    /// <summary>
+    /// Registra este ítem como fuente del artículo (J1). Un ítem es fuente de un solo artículo (A-1) y nunca de una
+    /// presentación derivada (RF-21). Volver a asignarlo al mismo artículo no cambia nada. La navegación se asigna
+    /// junto con el id para que EF Core complete la FK de un artículo nuevo, por eso los dos deben pertenecer a la
+    /// misma unidad de trabajo.
+    /// </summary>
+    public void AsignarArticulo(Articulo articulo)
+    {
+        ArgumentNullException.ThrowIfNull(articulo);
+
+        if (articulo.EsDerivado)
+        {
+            throw new DomainException("Una presentación derivada no puede vincularse a un catálogo de proveedor: solo se vincula su artículo de origen.");
+        }
+
+        if (EsFuenteDe(articulo))
+        {
+            return;
+        }
+
+        if (EstaVinculado)
+        {
+            throw new DomainException(
+                $"El ítem '{CodigoProveedor}' ya es fuente de otro artículo. Desvincúlelo antes de vincularlo a otro.");
+        }
+
+        Articulo = articulo;
+        IdArticulo = articulo.Id > 0 ? articulo.Id : null;
+    }
+
+    /// <summary>
+    /// Deja el ítem sin artículo (J5). Si era la fuente principal, Application también se la quita al artículo.
+    /// </summary>
+    public void LiberarArticulo()
+    {
+        IdArticulo = null;
+        Articulo = null;
+    }
 
     /// <summary>
     /// Actualiza el ítem con una fila de la planilla. Un texto vacío conserva el valor anterior: una planilla que no

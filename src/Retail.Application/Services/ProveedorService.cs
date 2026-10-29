@@ -495,7 +495,7 @@ public class ProveedorService : IProveedorService
             throw new DomainException($"No se encontró el artículo con ID {idArticulo}.");
         }
 
-        articulo.DesvincularCatalogoProveedor();
+        articulo.QuitarFuentePrincipal();
 
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
