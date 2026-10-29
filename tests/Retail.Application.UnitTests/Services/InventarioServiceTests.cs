@@ -362,6 +362,22 @@ public class InventarioServiceTests
     }
 
     [Fact]
+    public async Task ListarCategoriasAsync_CategoriaDeUnRubro_InformaSuRubro()
+    {
+        // Arrange: el filtro por rubro de Artículos acota las categorías con este dato (RF-04).
+        var categoria = Categoria.Crear("Cuadernos", 7);
+        categoria.Id = 3;
+        _categoriaRepository.ListAllAsync(includeDeleted: false, Arg.Any<CancellationToken>())
+            .Returns(new List<Categoria> { categoria });
+
+        // Act
+        var resultado = await _sut.ListarCategoriasAsync();
+
+        // Assert
+        resultado.Single().IdRubro.Should().Be(7);
+    }
+
+    [Fact]
     public async Task ListarMarcasAsync_DebeRetornarMarcasOrdenadas()
     {
         // Arrange

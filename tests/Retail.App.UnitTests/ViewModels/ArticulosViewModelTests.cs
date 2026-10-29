@@ -837,4 +837,73 @@ public class ArticulosViewModelTests : IDisposable
     {
         _sut.PuedePedir.Should().BeFalse();
     }
+
+    // ------------------------------------------------------------------ //
+    // Filtro por rubro (RF-04)                                           //
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Escolar (Cuadernos, Lápices) y Oficina (Resmas).</summary>
+    private async Task<ArticulosViewModel> CrearSutConRubrosAsync()
+    {
+        var rubroService = Substitute.For<IRubroService>();
+        rubroService.ListarAsync(null, Arg.Any<CancellationToken>()).Returns(
+        [
+            new RubroDto { IdRubro = 1, NombreRubro = "Escolar" },
+            new RubroDto { IdRubro = 2, NombreRubro = "Oficina" }
+        ]);
+        _inventarioService.ListarCategoriasAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new CategoriaDto { IdCategoria = 10, NombreCategoria = "Cuadernos", IdRubro = 1 },
+            new CategoriaDto { IdCategoria = 11, NombreCategoria = "Lápices", IdRubro = 1 },
+            new CategoriaDto { IdCategoria = 20, NombreCategoria = "Resmas", IdRubro = 2 }
+        ]);
+
+        var sut = new ArticulosViewModel(_inventarioService, _dialogService, _proveedorService, rubroService: rubroService);
+        await sut.CargarArticulosAsync();
+        return sut;
+    }
+
+    [Fact]
+    public async Task CargarArticulosAsync_ConRubros_OfreceTodosLosRubrosYTodasLasCategorias()
+    {
+        using var sut = await CrearSutConRubrosAsync();
+
+        sut.RubrosFiltro.Select(r => r.NombreRubro).Should().Equal("Todos los Rubros", "Escolar", "Oficina");
+        sut.CategoriasFiltro.Select(c => c.NombreCategoria).Should().Equal("Todas las Categorías", "Cuadernos", "Lápices", "Resmas");
+    }
+
+    [Fact]
+    public async Task IdRubroFiltro_ElegirRubro_AcotaLasCategoriasReiniciaLaCategoriaYConsultaPorRubro()
+    {
+        using var sut = await CrearSutConRubrosAsync();
+        sut.IdCategoriaFiltro = 20;
+        await sut.CargarArticulosAsync();
+        _inventarioService.ClearReceivedCalls();
+
+        sut.IdRubroFiltro = 1;
+        await sut.CargarArticulosAsync();
+
+        sut.CategoriasFiltro.Select(c => c.NombreCategoria).Should().Equal("Todas las Categorías", "Cuadernos", "Lápices");
+        sut.IdCategoriaFiltro.Should().Be(0, "\"Todas las Categorías\" pasa a significar todas las del rubro");
+        sut.HayFiltrosActivos.Should().BeTrue();
+        await _inventarioService.Received().ListarArticulosPaginadosAsync(
+            Arg.Is<ConsultaArticulosDto>(c => c.IdRubro == 1 && c.IdCategoria == null),
+            Arg.Any<CancellationToken>());
+        await _inventarioService.DidNotReceive().ListarArticulosPaginadosAsync(
+            Arg.Is<ConsultaArticulosDto>(c => c.IdRubro == 1 && c.IdCategoria == 20),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LimpiarFiltros_ConRubroElegido_VuelveATodosLosRubrosYTodasLasCategorias()
+    {
+        using var sut = await CrearSutConRubrosAsync();
+        sut.IdRubroFiltro = 2;
+
+        sut.LimpiarFiltros();
+
+        sut.IdRubroFiltro.Should().Be(0);
+        sut.CategoriasFiltro.Should().HaveCount(4);
+        sut.HayFiltrosActivos.Should().BeFalse();
+    }
 }

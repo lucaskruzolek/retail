@@ -458,7 +458,8 @@ public class InventarioService : IInventarioService
             .Select(c => new CategoriaDto
             {
                 IdCategoria = c.Id,
-                NombreCategoria = c.NombreCategoria
+                NombreCategoria = c.NombreCategoria,
+                IdRubro = c.IdRubro
             })
             .ToList();
     }

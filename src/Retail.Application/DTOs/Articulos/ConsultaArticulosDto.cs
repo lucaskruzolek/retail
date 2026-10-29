@@ -11,6 +11,12 @@ public record class ConsultaArticulosDto
 
     public int? IdCategoria { get; init; }
 
+    /// <summary>
+    /// Rubro para filtrar: incluye los artículos de todas las categorías del rubro (RF-04, Rubro → Categoría). Nulo o
+    /// cero = todos los rubros. Si además se indica <see cref="IdCategoria"/>, esa categoría acota el resultado.
+    /// </summary>
+    public int? IdRubro { get; init; }
+
     public int? IdMarca { get; init; }
 
     /// <summary>
