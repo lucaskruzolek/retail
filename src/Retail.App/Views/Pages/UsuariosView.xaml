@@ -15,7 +15,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
     </UserControl.Resources>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -27,7 +27,7 @@
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
                 Padding="20,16"
-                Margin="0,0,0,16">
+                Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Administración de Usuarios y Roles (RBAC)"
@@ -121,6 +121,7 @@
                 <DataGrid.Columns>
                     <!-- ID -->
                     <DataGridTextColumn Header="ID"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                         Binding="{Binding IdUsuario}"
                                         Width="60"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
@@ -200,6 +201,7 @@
 
                     <!-- Fecha de Alta -->
                     <DataGridTextColumn Header="Fecha Alta"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                         Binding="{Binding CreatedAt, StringFormat='{}{0:dd/MM/yyyy}'}"
                                         Width="110"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />

@@ -17,14 +17,6 @@
 
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ui:ThemesDictionary Theme="Light" />
-                <ui:ControlsDictionary />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Colors.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Typography.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Icons.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
-            </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
             <converters:InverseBooleanToVisibilityConverter x:Key="BooleanToInverseVisibilityConverter" />
 
@@ -736,7 +728,7 @@
                                         </DataGridTemplateColumn>
 
                                         <!-- Costo de reposición -->
-                                        <DataGridTemplateColumn Header="Costo" Width="100">
+                                        <DataGridTemplateColumn Header="Costo" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="100">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <TextBlock Text="{Binding CostoReposicion, StringFormat=C2}"
@@ -746,7 +738,7 @@
                                         </DataGridTemplateColumn>
 
                                         <!-- % Ganancia Editable -->
-                                        <DataGridTemplateColumn Header="% Gan." Width="75">
+                                        <DataGridTemplateColumn Header="% Gan." HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="75">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
@@ -763,7 +755,7 @@
                                         </DataGridTemplateColumn>
 
                                         <!-- Precio Venta Final Calculado -->
-                                        <DataGridTemplateColumn Header="Precio Final" Width="105">
+                                        <DataGridTemplateColumn Header="Precio Final" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="105">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <TextBlock Text="{Binding PrecioVenta, StringFormat=C2}"
@@ -830,13 +822,14 @@
 
                                     <!-- Costo Reposición -->
                                     <DataGridTextColumn Header="Costo Reposición"
+                                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                         Binding="{Binding CostoReposicion, StringFormat=C2}"
                                                         ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                         Width="130"
                                                         IsReadOnly="True" />
 
                                     <!-- % Ganancia Editable -->
-                                    <DataGridTemplateColumn Header="% Ganancia" Width="120">
+                                    <DataGridTemplateColumn Header="% Ganancia" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="120">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat=N1}"
@@ -853,7 +846,7 @@
                                     </DataGridTemplateColumn>
 
                                     <!-- Precio Venta Final Calculado -->
-                                    <DataGridTemplateColumn Header="Precio Venta Final" Width="140">
+                                    <DataGridTemplateColumn Header="Precio Venta Final" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="140">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <TextBlock Text="{Binding PrecioVenta, StringFormat=C2}"

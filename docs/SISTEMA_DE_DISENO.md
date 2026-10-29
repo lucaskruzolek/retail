@@ -18,6 +18,7 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 ### 2. Contenedor Obligatorio (`ui:FluentWindow` + `ui:TitleBar`)
 * Toda ventana principal o secundaria (incluyendo ventanas modales independientes) debe heredar de `ui:FluentWindow` en lugar de la clase base clásica `System.Windows.Window`.
 * Debe incluir la directiva de extensión en la barra de título: `ExtendsContentIntoTitleBar="True"` y `WindowBackdropType="Mica"`.
+* **No mergea diccionarios propios:** `ui:ThemesDictionary`, `ui:ControlsDictionary` y los diccionarios de `Styles/` se cargan una sola vez en [`App.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/App.xaml) y toda ventana los hereda. `<ui:FluentWindow.Resources>` queda solo para las claves propias de la ventana (convertidores, constantes). Una copia local de `ui:ThemesDictionary` tapa el acento carmín que aplica `ApplicationAccentColorManager` en `App.xaml.cs` y repone en esa ventana el azul de Windows. `scripts/audit-xaml.ps1` lo rechaza.
 * Debe incrustar en su primera fila (`Grid.Row="0"`) el control **`<ui:TitleBar>`**:
   * **Ventana Principal (Shell):** `Height="32"`, `MinHeight="32"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, título alineado a la izquierda estilizado con `FontFamily="{StaticResource FontFamilyText}"`, `FontSize="12"`, `FontWeight="SemiBold"` y `Foreground="{DynamicResource TextSecondaryBrush}"`. Provee botones de Minimizar, Maximizar (con soporte para **Snap Layouts** de Windows 11) y Cerrar.
   * **Ventanas Modales y Diálogos:** Deben configurar su `<ui:TitleBar>` con `Height="32"`, `Padding="8,0"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, `ShowMaximize="False"` y `CanMaximize="False"`, sin ícono, y con el título centrado mediante `<ui:TitleBar.CenterContent>` (`FontFamily="{StaticResource FontFamilyText}"`, `FontSize="12"`, `FontWeight="SemiBold"`), conservando el botón de cierre nativo y el template visual del framework.
@@ -42,12 +43,15 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
   * Botones estándar de función: `Style="{StaticResource KeycapButtonStyle}"` conteniendo una pastilla `<Border Style="{StaticResource KeycapBadgeStyle}">`.
   * Botones de conmutación y filtro de mostrador (`ToggleButton`): `Style="{StaticResource KeycapToggleButtonStyle}"` para filtros con estado activo/inactivo persistente (ej. `Solo con Deuda`). Los filtros **no llevan atajo de teclado** ni pastilla de tecla.
   * Botón principal de cobro / confirmación: `Style="{StaticResource PrimaryActionButtonStyle}"` conteniendo la pastilla carmín `<Border Style="{StaticResource KeycapPrimaryBadgeStyle}">`.
+  * **Excepción, tarjeta de la venta del POS:** "Cobrar venta" (`PrimaryActionButtonStyle`, solo texto) y "Cancelar" (`KeycapButtonStyle` con `RegularX`) van dentro de la tarjeta del total, bajo una línea interna, con `Height="42"` y **sin pastilla**: el atajo (`[F12]`, `[F8]`) va en el `ToolTip`. Así el total sigue siendo lo más destacado de la columna.
 * Las tablas deben implementar obligatoriamente `Style="{StaticResource DataGridRetailStyle}"`, sus filas `DataGridRowRetailStyle` y sus celdas `DataGridCellRetailStyle`, garantizando selección suave horizontal sin bordes verticales divisorios. El estilo desplaza **por píxeles** (`VirtualizingPanel.ScrollUnit="Pixel"`) sin perder la virtualización: `ScrollViewer.CanContentScroll` queda en `True`, porque con `False` la grilla dibuja todas las filas (RNF-03). La barra horizontal es automática y solo aparece si las columnas no entran: por eso **toda columna `Width="*"` declara su `MinWidth`** (240 para una descripción), y no se usa `MinColumnWidth` global, que ensancharía las columnas de íconos.
+* **Encabezados alineados con su celda:** el título de una columna sigue la alineación de sus datos. Las columnas de importes y números (`TextBlockCurrencyCell`, `CeldaNumericaDerecha`) declaran `HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"`, para que el título quede sobre los dígitos; las que centran controles (cantidad con `-` / `+`, acciones) usan `DataGridColumnHeaderCenterStyle`. Las grillas compactas del Tablero usan `EncabezadoMuyCompactoDerecha` / `EncabezadoCompactoDerecha`, que conservan su relleno reducido. `scripts/audit-xaml.ps1` rechaza una `DataGridTextColumn` con celda a la derecha y sin `HeaderStyle`; no alcanza a las `DataGridTemplateColumn`, donde se declara a mano.
+* **Contador de cantidad del POS:** `-` y `+` son `KeycapButtonStyle` de 24×24 con `RegularMinus` / `RegularPlus`, de la misma altura que el cuadro de la cantidad. Los tres miden 24 px porque es el alto útil de la celda (fila de 42 px menos sus bordes y el relleno de 8 px): un control más alto se recorta. Tras el clic el foco vuelve al buscador (`OnAjusteCantidadClick`), igual que con Enter o Esc: el botón no queda marcado y el cajero sigue escaneando.
 * **Controles editables dentro de celdas de `DataGrid`** (`ComboBox`, `TextBox`, `CheckBox` en un `CellTemplate`): su binding declara siempre `UpdateSourceTrigger=PropertyChanged`. La grilla agrupa los bindings de cada fila en un `BindingGroup` y, sin el trigger explícito, retiene el valor hasta que la fila confirma la edición, cosa que nunca pasa con `DataGridRetailStyle` (`IsReadOnly=True`): la pantalla muestra lo elegido pero el ViewModel no lo recibe. Lo verifica [`EdicionEnCeldasDeGrillaTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/EdicionEnCeldasDeGrillaTests.cs).
 * **Indicador de pasos** (diálogos con recorrido, p. ej. la incorporación con sugerencias): círculos numerados unidos por una línea, carmín sólido el paso actual, carmín suave con tilde los completados y gris los pendientes; sin borde de pastilla ni cursor de mano, porque informa y no navega. El indicador va en la **misma fila** que el título de la tarjeta y su interruptor, y los pasos no repiten título propio. La navegación va en el **pie, como en un asistente**: `Cancelar · ← Anterior · Siguiente: <destino> →` en los pasos previos y `Cancelar · ← Anterior · Confirmar` en el último (M-70); "Confirmar" no aparece antes del último paso.
 * Los estados de negocio (stock bajo, éxito fiscal, errores) deben representarse con los badges semáforo: `BadgeWarningStyle`, `BadgeDangerStyle` y `BadgeSuccessStyle`.
 * **Desplegables de resultados de búsqueda** (buscador del POS): contenedor flotante con borde `SurfaceBorderBrush` y sombra (`DropShadowEffect` con `ElevationShadowColor`) para despegarlo de la página; filas con `ItemContainerStyle="{StaticResource SearchResultListBoxItemStyle}"` (fila completa, cursor de mano, carmín sólido al seleccionarse) y textos con `SearchResultTitleTextStyle`, `SearchResultAmountTextStyle` y `SearchResultMetaTextStyle`, que pasan a `PrimaryForegroundBrush` / `PrimaryLightBrush` sobre el carmín. El hover selecciona la fila: mouse y teclado comparten un único estado de selección. Ver la sección 6.1 de [`StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml).
-* **Botones de ícono:** para eliminar una fila de grilla o lista, `IconDangerButtonStyle` (28×28, sin borde ni fondo, ícono gris `TextMutedBrush` que pasa a `DangerForegroundBrush` sobre `DangerBackgroundBrush` en hover); para una acción secundaria junto a un botón primario (ej. `Limpiar venta [F8]` a la derecha de `Cobrar`), `IconPrimarySquareButtonStyle` (56×56, `PrimaryLightBrush` con borde e ícono carmín; en hover, el carmín sólido del botón primario; deshabilitado con opacidad 0,45 y cursor de prohibido, igual que `PrimaryActionButtonStyle`). El ícono **no** fija `Foreground`: lo hereda del botón. Siempre con `ToolTip` que nombre la acción y su atajo. Ver la sección 6.2 de la galería.
+* **Botones de ícono:** para eliminar una fila de grilla o lista, `IconDangerButtonStyle` (28×28, sin borde ni fondo, ícono gris `TextMutedBrush` que pasa a `DangerForegroundBrush` sobre `DangerBackgroundBrush` en hover); para una acción secundaria de solo ícono junto a un botón primario, `IconPrimarySquareButtonStyle` (56×56, `PrimaryLightBrush` con borde e ícono carmín; en hover, el carmín sólido del botón primario; deshabilitado con opacidad 0,45 y cursor de prohibido, igual que `PrimaryActionButtonStyle`). El ícono **no** fija `Foreground`: lo hereda del botón. Siempre con `ToolTip` que nombre la acción y su atajo. Ver la sección 6.2 de la galería.
 * **Enums en pantalla:** nunca se muestra el nombre de un enum del Dominio (`TarjetaDebito`). Los `ComboBox` usan `ItemTemplate="{StaticResource EnumTextoItemTemplate}"` y los `TextBlock` `Converter={StaticResource EnumATextoConverter}`, ambos en `Controls.xaml`. Los textos se definen en [`EnumATextoConverter.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Converters/EnumATextoConverter.cs) (presentación, no Dominio).
 * **Visibilidad invertida:** el `BooleanToVisibilityConverter` de WPF **ignora** `ConverterParameter`. Para ocultar con `true` se usa `InverseBooleanToVisibilityConverter` (declarado en los recursos de la vista, como `CajaView` y `PosView`), y un `string` nunca se enlaza a un conversor booleano: se expone una propiedad `bool` (`TieneError`).
 
@@ -58,7 +62,7 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
   * **Modal Estándar (ABM Clientes / Usuarios / Cobranzas):** `Width="520-540"`, `Height="620-640"`.
   * **Modal Amplio (Catálogo Artículos / Fórmulas / Importar planilla):** `Width="580"`, `Height="660"`.
   * **Modal de Trabajo (Incorporar artículos con sugerencias):** `Width="1040"`, `Height="680"`, redimensionable. Reservado a diálogos donde se revisa una grilla editable fila por fila (Track 6.6, P6-9); el contenido se agrupa en tarjetas por tema (p. ej. "Ganancia global" y "Clasificación").
-* **Interruptor de modo (`ui:ToggleSwitch`):** para activar o desactivar un modo de trabajo dentro de un diálogo (p. ej. "Sugerir clasificación"), en el encabezado de la tarjeta que controla, y también para filtros de lista sí/no (p. ej. "Solo ambiguos"). Cada ventana mergea `ui:ThemesDictionary` y `ui:ControlsDictionary`, que reponen el acento azul de Windows; por eso [`Colors.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Colors.xaml), que todas las ventanas mergean después, redefine `AccentFillColor*Brush` y `ToggleSwitchFillOn*` / `ToggleSwitchStrokeOn*` con los colores `SystemAccentColor*`. Una ventana nueva debe respetar ese orden de merge.
+* **Interruptor de modo (`ui:ToggleSwitch`):** para activar o desactivar un modo de trabajo dentro de un diálogo (p. ej. "Sugerir clasificación"), en el encabezado de la tarjeta que controla, y también para filtros de lista sí/no (p. ej. "Solo ambiguos"). Encendido toma el carmín exacto de marca, porque [`Colors.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Colors.xaml) redefine `ToggleSwitchFillOn*` / `ToggleSwitchStrokeOn*` con los colores `SystemAccentColor*`; el resto de los acentos de WPF-UI (`AccentFillColor*Brush`) los calcula `ApplicationAccentColorManager` a partir del carmín.
 * **Opciones "Sin …" en selectores:** cuando "ninguno" es una elección válida, va como opción del combo (`OpcionDiccionario` con `Id` nulo), no como casilla aparte. El combo **nunca se ve vacío**: empieza en `OpcionDiccionario.SinClasificar` ("Sin clasificar", nadie decidió). Solo se ofrece una opción "Sin …" confirmada si el dato la distingue de "sin clasificar": "Sin marca" sí (M-7, D-18); "Sin categoría" no, porque se guardaría igual (M-70).
 * **Acción de texto en una fila** (`GhostPrimaryButtonStyle`): ícono de 12 y texto carmín de 12, sin borde ni fondo, fondo carmín suave en hover. Para acciones secundarias que conviven con los controles de la fila (p. ej. "Restablecer" bajo el estado de una fila corregida). No reemplaza a `IconDangerButtonStyle` para eliminar.
 * **Estilos Globales de Formularios:**
@@ -119,6 +123,37 @@ Definidos en [`src/Retail.App/Styles/Colors.xaml`](file:///c:/Users/lucas/Proyec
 | :--- | :--- | :--- |
 | `ElevationShadowColor` | `#18181B` | `Color` (no pincel) para `DropShadowEffect` de superficies flotantes: desplegables y popups. Opacidad recomendada 0.18. |
 
+### 7. Sidebar (Superficie Oscura)
+| Token XAML | Valor Hex | Contraste | Uso Semántico |
+| :--- | :--- | :--- | :--- |
+| `SidebarBackgroundBrush` | `#18181B` | — | Fondo del menú lateral. |
+| `SidebarBorderBrush` / `SidebarHoverBrush` | `#27272A` | — | Borde derecho, separadores y fondo de hover. |
+| `SidebarPressedBrush` | `#3F3F46` | — | Fondo al presionar y pulgar del scroll. |
+| `SidebarTextBrush` | `#D4D4D8` | 11,99:1 | Texto e íconos de los ítems en reposo. |
+| `SidebarTextStrongBrush` | `#FAFAFA` | 16,97:1 | Texto en hover y nombre del operador. |
+| `SidebarTextMutedBrush` | `#A1A1AA` | 6,91:1 | Títulos de sección. |
+| `SidebarAccentBrush` | `#F36F8E` | 6,31:1 | Carmín claro para íconos o texto de acento. |
+| `SidebarActiveBackgroundBrush` / `SidebarActiveForegroundBrush` | `#9D0F33` / `#FFFFFF` | 8,24:1 | Píldora del ítem activo. |
+
+* **El carmín de marca `#9D0F33` solo da 2,15:1 sobre el fondo oscuro:** sirve de relleno (la píldora activa) pero jamás como color de texto o ícono; para eso existe `SidebarAccentBrush`.
+* **Hover y pressed de `SidebarItemButtonStyle` viven en `Style.Triggers`**, no en el template, para que el trigger del ítem activo declarado en la vista prevalezca.
+* **Botón hamburguesa:** anclado a la izquierda, sobre el eje de los íconos de los ítems (no se desplaza al animar el ancho). El ícono indica la acción: `RegularMenu` (expandir) cuando está colapsado y `RegularDockLeftArrow` (contraer) cuando está expandido; el ToolTip dice "Expandir menú lateral" o "Contraer menú lateral" más `Ctrl+B`.
+* **Scroll con autoocultado (`SidebarScrollViewerStyle`):** la barra vertical flota sobre el contenido (no quita ancho a los ítems) y solo aparece mientras el mouse está sobre el menú.
+
+### 8. Espaciado Estructural (Grilla de 4 px)
+Definidos en [`Styles/Spacing.xaml`](../src/Retail.App/Styles/Spacing.xaml) como `StaticResource` (no cambian en ejecución). Regla de proximidad: lo relacionado va más junto que lo no relacionado.
+
+| Token XAML | Valor | Uso Semántico |
+| :--- | :---: | :--- |
+| `PageMargin` | 20 | Margen del `Grid` raíz de **toda** página (`Views/Pages`), hasta el borde de la ventana y el Sidebar. |
+| `SectionSpacing` | 16 (inferior) | Entre secciones apiladas: encabezado, filtros y cuerpo. |
+| `CardSpacing` | 8 (inferior) | Entre tarjetas relacionadas de un mismo grupo (cliente y totales del POS). |
+| `ColumnSpacing` / `ColumnGap` | 16 | Entre dos columnas de contenido: como margen derecho de la primera, o como columna espaciadora (`GridLength`). |
+
+* **Alcance:** solo se tokeniza el espaciado entre bloques de una página. Los micro-márgenes internos de un control (4 a 8 px) se escriben a mano.
+* **Excepción documentada:** el Dashboard conserva su separación propia de 12 entre bloques (más denso por las tarjetas KPI), pero usa `PageMargin`.
+* **Auditoría:** `scripts/audit-xaml.ps1` rechaza una página cuyo `Grid` raíz declare un margen numérico literal.
+
 ---
 
 ## 🔤 Jerarquía Tipográfica y Estilos de Texto
@@ -151,7 +186,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
 
 ### 2. Convención Semántica de Glifos (Regular vs Solid)
 * **`Solid...` (Relleno):** Utilizado para el ítem activo de navegación en Sidebar, botón principal de cobro, cabeceras de diálogo y badges semáforo.
-  * Punto de Venta (POS): `Kind="SolidReceipt"`
+  * Punto de Venta (POS): `Kind="SolidStoreAlt2"`
   * Catálogo de Artículos: `Kind="SolidBook"`
   * Clientes y Ctas. Ctes.: `Kind="SolidUser"`
   * Caja y Cobros: `Kind="SolidDollarCircle"`

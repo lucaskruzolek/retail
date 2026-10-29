@@ -1705,6 +1705,37 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void AdministrarClasificacionDialog_SinDiccionariosPropios_DebeHeredarElAcentoCarminDeLaAplicacion()
+    {
+        // Arrange
+        var carmin = System.Windows.Media.Color.FromRgb(0x9D, 0x0F, 0x33);
+
+        // Act
+        var (diccionariosPropios, rellenoToggle, acentoDeLaVentana, acentoDeLaAplicacion) = WpfTestHelper.Run(() =>
+        {
+            var vm = new AdministrarClasificacionViewModel(
+                Substitute.For<IRubroService>(),
+                Substitute.For<ICategoriaService>(),
+                Substitute.For<IMarcaService>(),
+                Substitute.For<ITerminoClasificacionService>(),
+                Substitute.For<IClasificacionDialogService>(),
+                Substitute.For<ICurrentUserSession>());
+            var dialog = new AdministrarClasificacionDialog { DataContext = vm };
+
+            return (
+                dialog.Resources.MergedDictionaries.Count,
+                ((System.Windows.Media.SolidColorBrush)dialog.FindResource("ToggleSwitchFillOn")).Color,
+                dialog.FindResource("AccentFillColorDefaultBrush"),
+                System.Windows.Application.Current.FindResource("AccentFillColorDefaultBrush"));
+        });
+
+        // Assert
+        diccionariosPropios.Should().Be(0, "la ventana hereda los diccionarios de App.xaml: volver a mergearlos tapa el acento de la aplicación");
+        rellenoToggle.Should().Be(carmin, "el ToggleSwitch \"Solo ambiguos\" debe encenderse en carmín y no en el azul de Windows");
+        acentoDeLaVentana.Should().BeSameAs(acentoDeLaAplicacion, "el acento que aplica ApplicationAccentColorManager debe llegar a la ventana");
+    }
+
+    [Fact]
     public void DiccionarioFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange

@@ -19,7 +19,7 @@
         <KeyBinding Key="F5" Command="{Binding CargarArticulosCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -31,7 +31,7 @@
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
                 Padding="20,16"
-                Margin="0,0,0,16">
+                Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
@@ -397,18 +397,20 @@
 
                     <!-- Costo de Reposición -->
                     <DataGridTextColumn Header="Costo ($)"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                         Binding="{Binding Articulo.CostoReposicion, StringFormat={}{0:N2}}"
                                         Width="95"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                     <!-- Margen Ganancia -->
                     <DataGridTextColumn Header="Margen (%)"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                         Binding="{Binding Articulo.PorcentajeGanancia, StringFormat={}{0:N1}}"
                                         Width="85"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                     <!-- Precio de Venta (Destacado Carmín) -->
-                    <DataGridTemplateColumn Header="Precio Venta ($)" Width="120">
+                    <DataGridTemplateColumn Header="Precio Venta ($)" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="120">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding Articulo.PrecioVenta, StringFormat={}{0:N2}}"

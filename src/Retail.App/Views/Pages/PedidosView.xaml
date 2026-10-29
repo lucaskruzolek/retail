@@ -49,7 +49,7 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -61,7 +61,7 @@
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
                 Padding="20,16"
-                Margin="0,0,0,16">
+                Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Pedidos a Proveedores"
@@ -84,7 +84,7 @@
             <Grid.ColumnDefinitions>
                 <!-- Grilla y detalle en partes iguales (50/50) -->
                 <ColumnDefinition Width="*" MinWidth="520" />
-                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="{StaticResource ColumnGap}" />
                 <ColumnDefinition Width="*" MinWidth="440" />
             </Grid.ColumnDefinitions>
 
@@ -155,6 +155,7 @@
                                                 ElementStyle="{StaticResource TextBlockNumericCell}"
                                                 Width="86" />
                             <DataGridTextColumn Header="Total est."
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                 Binding="{Binding TotalEstimado, StringFormat=C2}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="116" />
@@ -308,6 +309,7 @@
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Subtotal"
+                                                    HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                     Binding="{Binding Subtotal, StringFormat=C2}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                     Width="104" />

@@ -14,7 +14,7 @@
         <KeyBinding Key="F12" Command="{Binding RegistrarCompraCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -25,7 +25,7 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO DE MÓDULO                                       -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Padding="20,14" Margin="0,0,0,16">
+        <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Padding="20,14" Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
@@ -43,7 +43,7 @@
         <!-- ============================================================= -->
         <!-- 2. CABECERA DE LA FACTURA / REMITO                            -->
         <!-- ============================================================= -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="20,16" Margin="0,0,0,16">
+        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="20,16" Margin="{StaticResource SectionSpacing}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -89,22 +89,22 @@
                   Style="{StaticResource DataGridRetailStyle}"
                   AutoGenerateColumns="False"
                   BorderThickness="0,1,0,1"
-                  Margin="0,0,0,16">
+                  Margin="{StaticResource SectionSpacing}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Código" Binding="{Binding CodigoArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="140" />
                 <DataGridTextColumn Header="Descripción del Artículo" Binding="{Binding DescripcionArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="*" />
                 
                 <!-- Costo Reposición Unitario (Monospace Cascadia Code) -->
-                <DataGridTextColumn Header="Costo Unitario" Binding="{Binding CostoUnitario, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
+                <DataGridTextColumn Header="Costo Unitario" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding CostoUnitario, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
                 
                 <!-- Cantidad Adquirida -->
                 <DataGridTextColumn Header="Cantidad" Binding="{Binding Cantidad}" ElementStyle="{StaticResource TextBlockTextCell}" Width="100" />
                 
                 <!-- Subtotal Ítem -->
-                <DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
+                <DataGridTextColumn Header="Subtotal" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding Subtotal, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
 
                 <!-- Precio Venta Sugerido Recalculado por Markup -->
-                <DataGridTextColumn Header="Nuevo Precio Venta" Binding="{Binding NuevoPrecioVentaSugerido, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="150" />
+                <DataGridTextColumn Header="Nuevo Precio Venta" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding NuevoPrecioVentaSugerido, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="150" />
             </DataGrid.Columns>
         </DataGrid>
 

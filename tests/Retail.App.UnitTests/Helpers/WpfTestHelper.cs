@@ -34,7 +34,14 @@ public static class WpfTestHelper
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Colors.xaml", UriKind.Absolute) });
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Typography.xaml", UriKind.Absolute) });
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Icons.xaml", UriKind.Absolute) });
+                app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Spacing.xaml", UriKind.Absolute) });
                 app.Resources.MergedDictionaries.Add(new ResourceDictionary { Source = new Uri("pack://application:,,,/Retail.App;component/Styles/Controls.xaml", UriKind.Absolute) });
+
+                // Igual que App.OnStartup: aplicar el acento antes de crear la primera ventana. Sin este paso, el
+                // primer ui:TitleBar instanciado carga el acento azul de Windows en toda la aplicación.
+                Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(
+                    System.Windows.Media.Color.FromRgb(0x9D, 0x0F, 0x33),
+                    Wpf.Ui.Appearance.ApplicationTheme.Light);
             }
 
             tcs.SetResult(Dispatcher.CurrentDispatcher);

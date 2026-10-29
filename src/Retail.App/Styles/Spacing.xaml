@@ -1,0 +1,24 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ================================================================= -->
+    <!-- TOKENS DE ESPACIADO ESTRUCTURAL (GRILLA DE 4 PX)                  -->
+    <!-- ================================================================= -->
+    <!-- Regla: lo relacionado va más junto que lo no relacionado. 8 entre tarjetas del mismo grupo, 16 entre secciones y
+         columnas, 20 hasta el borde de la ventana. Solo se tokeniza el espaciado entre bloques de una página; los
+         micro-márgenes internos de un control (4 a 8 px) se escriben a mano. Son StaticResource: no cambian en ejecución. -->
+
+    <!-- Margen entre el borde de la ventana (o el Sidebar) y el contenido de toda página -->
+    <Thickness x:Key="PageMargin">20</Thickness>
+
+    <!-- Separación vertical entre secciones de una página (encabezado, filtros, cuerpo) -->
+    <Thickness x:Key="SectionSpacing">0,0,0,16</Thickness>
+
+    <!-- Separación vertical entre tarjetas relacionadas de un mismo grupo (cliente y totales del POS) -->
+    <Thickness x:Key="CardSpacing">0,0,0,8</Thickness>
+
+    <!-- Separación horizontal entre dos columnas de contenido: como margen derecho de la primera, o como columna espaciadora -->
+    <Thickness x:Key="ColumnSpacing">0,0,16,0</Thickness>
+    <GridLength x:Key="ColumnGap">16</GridLength>
+
+</ResourceDictionary>
