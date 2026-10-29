@@ -173,6 +173,23 @@ Todo acceso a datos por `CargaSerializada` + `Task.Run` (Ley 4). En `PedidosView
 
 **Tests:** `ImportadorCatalogosViewModelTests` (vinculado → pide; no vinculado → incorpora → pide; rechaza incorporar → pide solo vinculados; incorporación cancelada; modal cancelado; error del servicio; sin usuario en sesión) y `ArticulosViewModelTests` (selección, pedir fila, pedir selección, sin proveedor y servicio excluidos).
 
+**Decisiones de implementación de L2a-2** (aprobadas por el estudiante el 2026-10-29; no tocan la frontera de §5):
+
+| # | Decisión | Razón |
+| :--- | :--- | :--- |
+| I1 | La oferta de incorporar es un botón **dentro del modal de pedido** ("Incorporar los N ítems y volver"). El modal responde `RespuestaPedirArticulos` con tres acciones (cancelar, confirmar, incorporar primero) en lugar de una lista nula | Es lo que dice A-17, y el usuario decide viendo el lote completo. Un `null` no distingue "canceló" de "quiere incorporar" |
+| I2 | El segundo paso del recorrido reabre el modal **sin** la oferta, haya confirmado o cancelado la incorporación | El recorrido tiene un final |
+| I3 | Lo que se incorpora son los ítems que la **vista previa** informó `SinIncorporar`, no los que la grilla marca como no vinculados | El servidor decide (H2); la grilla puede estar desactualizada |
+| I4 | `FlujoPedirArticulos` (UI, sin interfaz) coordina vista previa → modal → guardado para las dos pantallas, en la `CargaSerializada` de cada una | Un caso de uso con dos adaptadores de UI no duplica la interacción (A-17). No decide reglas de negocio: es un coordinador de presentación, no un segundo caso de uso |
+| I5 | Selección en Artículos con `ArticuloFila` (envoltura del DTO), **por página**. Los excluidos (servicio, derivado, sin proveedor) se pueden marcar y se informan como avisos previos; si todo queda excluido, no se abre el modal | La selección es estado de WPF y no va en el DTO. Seleccionar entre páginas no lo pide la ERS (YAGNI) |
+| I6 | Las acciones de pedir se ocultan al Cajero (`PuedePedir`). La verificación en el servicio queda registrada como deuda del Track 6.1 (A-14) | A-14 y G1 |
+| I7 | En el importador y en Artículos los errores se informan con la convención de cada pantalla (en línea o `MostrarError`), no con alertas de recarga | Las alertas de `PedidosView` existen para recargar una grilla de pedidos; agregar a un borrador no produce `TransicionPedidoInvalidaException` |
+| I8 | Ajustes de `PedidosView` pedidos por el estudiante: grilla y detalle 50/50; se quitan la columna Antigüedad (y `PedidoFila.Antiguedad`), el botón Actualizar con su atajo F5 y el mensaje de éxito de las acciones; la columna Renglones pasa a llamarse Productos. En el modal de pedido, el total estimado pasa de la barra de botones al contenido | La fecha alcanza para ver un pedido demorado (R-4). La grilla ya se recarga al entrar, al filtrar y tras cada comando; para ver cambios de otra terminal hay que volver a entrar a la pantalla. El total es contenido, no una acción |
+
+**Corrección incluida:** la incorporación del importador (`IncorporarAsync`, compartida por G5) leía categorías y marcas en el Dispatcher y no pasaba por la `CargaSerializada`. Ahora sus dos accesos a datos esperan su turno y corren en `Task.Run` (Ley 4, H-19), con un test que lo demuestra.
+
+**Siguiente mejora fuera de L2a-2:** filtro por rubro en Artículos (combo "Todos los rubros" que acota el combo de categorías, filtro en SQL con `ConsultaArticulosDto.IdRubro`). Es RF-04 y va en un PR propio.
+
 ## Fase L2b — "Volver a pedir faltantes"
 
 **Depende de:** L2a-1 y **P2** (necesita `COMPRAS.id_pedido_origen`).

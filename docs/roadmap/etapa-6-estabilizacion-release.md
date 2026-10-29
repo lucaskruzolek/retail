@@ -15,6 +15,7 @@
 
 * **Experiencia de Mostrador Mouse-less:** auditoría de accesibilidad y navegación 100% por teclado en POS y cajas (tabulación cíclica, foco garantizado y atajos F1-F12).
 * **Manejo Global de Diálogos:** unificación visual de alertas amigables y registro de errores de interfaz con Serilog rotativo (`logs/retail-.log`).
+* **Autorización por rol en servicios operativos (deuda registrada el 2026-10-29):** los servicios de ventas, caja, compras, pedidos y artículos todavía no verifican el rol del actor; la restricción es solo de navegación o de interfaz (A-14 del Track 4.3; nota de navegación del Track 6.3). Se aplica el patrón ya implementado en `ReporteService.AutorizarGerenteAsync`: el servicio relee al actor por su id desde la base y lanza `OperacionNoAutorizadaException`; la UI la traduce a un mensaje. Exige que los comandos que hoy no reciben el actor (por ejemplo, `EmitirAsync` y `CancelarAsync` de pedidos) pasen a recibirlo.
 * **Pruebas de Flujos E2E:** validación de escenarios límite (venta sin stock, cliente con límite de crédito superado, presupuesto con precios desactualizados, corte fiscal).
 * **Documentación:** manual de operación de mostrador y guía visual para defensa académica.
 
