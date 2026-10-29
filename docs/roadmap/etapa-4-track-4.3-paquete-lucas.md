@@ -230,12 +230,23 @@ L3 se partió en **L3a** (back-end y migración) y **L3b** (UI) el 2026-10-29: l
 
 **Depende de:** L3a. **Migración:** no.
 
+#### Decisiones de diseño de L3b (aprobadas el 2026-10-29)
+
+| Id | Decisión | Fundamento |
+| :--- | :--- | :--- |
+| K1 | La consulta de fuentes se integra en la vista previa: cada `RenglonVistaPreviaDto` trae sus `Fuentes` (proveedor, código, costo, fecha de la lista, si es principal, cantidad en el borrador de su proveedor) y `Destinos` incluye a todos los proveedores de todas las fuentes. Una consulta por lote, proyectada a DTO | El combo cambia de fuente sin volver a la base; una consulta por renglón sería N+1 (Ley 8). L4 reutiliza la proyección para un artículo |
+| K2 | La fuente por defecto de cada renglón es el ítem pedido: desde Artículos, la principal (A-18); desde el importador, el ítem elegido | Respeta lo que el usuario eligió en la pantalla de origen |
+| K3 | El combo cambia la fuente del renglón y lo mueve al grupo de su proveedor (crea el grupo si no existe y quita el que queda vacío). Dos renglones que terminan en la misma fuente se suman al confirmar | A-18; el validador del lote rechaza un ítem repetido |
+| K4 | Decisión (a) del estudiante: la coincidencia por código de barras del importador también ofrece artículos que ya tienen fuentes; el ítem se vincula como adicional (J4) | Con fuentes múltiples, un artículo con principal puede sumar otra fuente |
+| K5 | Decisión (b) del estudiante: el filtro por distribuidor de Artículos incluye los artículos con ese distribuidor como cualquier fuente (y sus presentaciones derivadas); "Ninguno" pasa a ser "sin ninguna fuente" | Coherencia entre los dos filtros |
+| K6 | Si Artículos está filtrado por un distribuidor, el modal de pedido preselecciona la fuente de ese distribuidor (proveedor preferido en la vista previa) | Filtrar por X para reponer y recibir otro proveedor por defecto sería confuso; coherente con K5 |
+
 0. Consulta `AsNoTracking` de las fuentes de un artículo, proyectada a DTO (Ley 8), con su test de integración (trasladada desde L3a).
 1. `VincularArticuloModalDialog` permite vincular a un artículo que ya tiene fuentes e indicar si queda como principal (J4).
 2. Modal de pedido: desde Artículos, cada renglón se pide por defecto a la **fuente principal**. Un combo de fuente por renglón (proveedor · costo · fecha, ordenado por costo, la principal marcada) permite cambiarla, y al cambiarla el renglón pasa al grupo de su proveedor (A-18).
 3. La grilla de Artículos sigue con **una fila por artículo** (A-18). El badge "N fuentes" es de L4.
 4. Tests de ViewModel, auditoría XAML y prueba de humo STA si se crea una vista nueva.
-5. **Decisiones pendientes para el estudiante** (no las cambió L3a, porque modifican comportamiento visible): (a) la coincidencia por código de barras del importador sigue ofreciendo solo artículos **sin principal**; con fuentes múltiples, un artículo que ya tiene principal también podría recibir el ítem como fuente adicional. (b) El filtro "por distribuidor" de Artículos sigue mirando solo la **principal**; ¿debe incluir los artículos que tienen a ese distribuidor como fuente adicional?
+5. Las decisiones (a) y (b) que L3a dejó pendientes se cerraron como K4 y K5.
 
 ## Fase L4 — Modal "Fuentes del artículo" (RF-28)
 

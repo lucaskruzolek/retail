@@ -47,11 +47,15 @@ public sealed class FlujoPedirArticulos
     /// <param name="avisosPrevios">Lo que la pantalla ya excluyó, con su motivo.</param>
     /// <param name="ofrecerIncorporar">Si el modal ofrece incorporar primero los ítems sin incorporar.</param>
     /// <param name="carga">La fila de accesos a datos de la pantalla de origen.</param>
+    /// <param name="idProveedorPreferido">
+    /// El distribuidor por el que está filtrada la pantalla de origen: cada renglón arranca en su fuente (Track 4.3, K6).
+    /// </param>
     public async Task<ResultadoPedirArticulos> PedirAsync(
         IReadOnlyCollection<int> idsCatalogoProveedor,
         IReadOnlyList<string> avisosPrevios,
         bool ofrecerIncorporar,
-        CargaSerializada carga)
+        CargaSerializada carga,
+        int? idProveedorPreferido = null)
     {
         ArgumentNullException.ThrowIfNull(idsCatalogoProveedor);
         ArgumentNullException.ThrowIfNull(avisosPrevios);
@@ -73,7 +77,7 @@ public sealed class FlujoPedirArticulos
         VistaPreviaPedidoDto? vistaPrevia = null;
         Exception? error = null;
         await carga.EjecutarOperacionAsync(
-            token => Task.Run(() => _pedidoService.ObtenerVistaPreviaAsync(idsCatalogoProveedor, token), token),
+            token => Task.Run(() => _pedidoService.ObtenerVistaPreviaAsync(idsCatalogoProveedor, idProveedorPreferido, token), token),
             resultado => vistaPrevia = resultado,
             ex => error = ex);
 

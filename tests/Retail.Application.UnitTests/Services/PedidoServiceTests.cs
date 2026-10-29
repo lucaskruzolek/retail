@@ -285,13 +285,13 @@ public class PedidoServiceTests
     }
 
     [Fact]
-    public async Task ObtenerVistaPreviaAsync_DelegaEnQueryService()
+    public async Task ObtenerVistaPreviaAsync_DelegaEnQueryServiceConElProveedorPreferido()
     {
         var ids = new[] { IdCatalogo };
         var esperado = new VistaPreviaPedidoDto();
-        _consultas.ObtenerVistaPreviaAsync(ids, Arg.Any<CancellationToken>()).Returns(esperado);
+        _consultas.ObtenerVistaPreviaAsync(ids, 7, Arg.Any<CancellationToken>()).Returns(esperado);
 
-        var resultado = await _service.ObtenerVistaPreviaAsync(ids);
+        var resultado = await _service.ObtenerVistaPreviaAsync(ids, idProveedorPreferido: 7);
 
         resultado.Should().BeSameAs(esperado);
     }

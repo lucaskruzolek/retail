@@ -61,7 +61,9 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
         // id_articulo apunta a un solo artículo (A-1), por lo que FirstOrDefault nunca elige entre varios candidatos.
         // Coincidencia por código de barras (RF-05): igualdad en SQL en lugar de Trim + OrdinalIgnoreCase en memoria.
         // Es equivalente porque la importación guarda los códigos ya recortados (ProveedorService.FiltrarFilasValidas)
-        // y las columnas codigo_barras usan la intercalación por defecto de la base, insensible a mayúsculas.
+        // y las columnas codigo_barras usan la intercalación por defecto de la base, insensible a mayúsculas. Con fuentes
+        // múltiples coincide también un artículo que ya tiene fuentes: el ítem se le suma como adicional (Track 4.3, K4).
+        // Una presentación derivada no cuenta, porque no puede tener fuentes (RF-21).
         var dtos = await query
             .OrderBy(c => c.DescripcionProveedor)
             .ThenBy(c => c.Id)
@@ -82,7 +84,7 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
                     !_context.Articulos.Any(a => a.Id == c.IdArticulo) &&
                     c.CodigoBarras != null &&
                     c.CodigoBarras != "" &&
-                    _context.Articulos.Any(a => a.IdCatalogoProveedor == null && a.CodigoBarras == c.CodigoBarras),
+                    _context.Articulos.Any(a => a.IdArticuloOrigen == null && a.CodigoBarras == c.CodigoBarras),
                 IdArticuloVinculado = _context.Articulos
                     .Where(a => a.Id == c.IdArticulo)
                     .Select(a => (int?)a.Id)

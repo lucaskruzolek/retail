@@ -711,7 +711,7 @@ public class ArticulosViewModelTests : IDisposable
 
     private static void ConfigurarPedidoConfirmado(EscenarioPedido escenario)
     {
-        escenario.PedidoService.ObtenerVistaPreviaAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+        escenario.PedidoService.ObtenerVistaPreviaAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .Returns(new VistaPreviaPedidoDto());
         escenario.PedidoDialogService.MostrarPedirArticulos(default!, default!, default)
             .ReturnsForAnyArgs(RespuestaPedirArticulos.Confirmada([new RenglonAAgregarDto { IdCatalogoProveedor = 40, Cantidad = 2 }]));
@@ -763,7 +763,7 @@ public class ArticulosViewModelTests : IDisposable
 
         await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
             Arg.Is<IReadOnlyCollection<int>>(ids => ids.Single() == 40),
-            Arg.Any<CancellationToken>());
+            Arg.Any<int?>(), Arg.Any<CancellationToken>());
         escenario.PedidoDialogService.Received(1).MostrarPedirArticulos(
             Arg.Any<VistaPreviaPedidoDto>(),
             Arg.Is<IReadOnlyList<string>>(avisos => avisos.Count == 0),
@@ -785,7 +785,7 @@ public class ArticulosViewModelTests : IDisposable
 
         await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
             Arg.Is<IReadOnlyCollection<int>>(ids => ids.Single() == 40),
-            Arg.Any<CancellationToken>());
+            Arg.Any<int?>(), Arg.Any<CancellationToken>());
         escenario.PedidoDialogService.Received(1).MostrarPedirArticulos(
             Arg.Any<VistaPreviaPedidoDto>(),
             Arg.Is<IReadOnlyList<string>>(avisos => avisos.SequenceEqual(AvisosEsperadosDeExcluidos)),

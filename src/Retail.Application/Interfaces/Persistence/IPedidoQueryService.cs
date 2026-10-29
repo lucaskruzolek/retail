@@ -20,10 +20,12 @@ public interface IPedidoQueryService
     /// <summary>
     /// Vista previa de un lote antes de confirmarlo (A-17): destino de cada proveedor, ítems que se pueden pedir con
     /// su stock y la cantidad que ya figura en el borrador, e ítems omitidos con su motivo. Los renglones respetan el
-    /// orden recibido.
+    /// orden recibido. Cada renglón trae todas las fuentes de su artículo (K1) y arranca en el ítem pedido (K2), salvo
+    /// que el artículo tenga una fuente de <paramref name="idProveedorPreferido"/>: entonces arranca en esa (K6).
     /// </summary>
     Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(
         IReadOnlyCollection<int> idsCatalogoProveedor,
+        int? idProveedorPreferido = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

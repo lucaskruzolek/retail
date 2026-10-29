@@ -101,11 +101,14 @@ public class PedidoService : IPedidoService
         return new ResultadoAgregarAlPedidoDto { Pedidos = pedidos, Omitidos = omitidos };
     }
 
-    public Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(IReadOnlyCollection<int> idsCatalogoProveedor, CancellationToken cancellationToken = default)
+    public Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(
+        IReadOnlyCollection<int> idsCatalogoProveedor,
+        int? idProveedorPreferido = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(idsCatalogoProveedor);
 
-        return _consultas.ObtenerVistaPreviaAsync(idsCatalogoProveedor, cancellationToken);
+        return _consultas.ObtenerVistaPreviaAsync(idsCatalogoProveedor, idProveedorPreferido, cancellationToken);
     }
 
     public Task<PedidosPaginadosDto> ListarPedidosAsync(ConsultaPedidosDto consulta, CancellationToken cancellationToken = default)

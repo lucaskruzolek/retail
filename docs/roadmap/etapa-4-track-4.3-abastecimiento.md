@@ -43,8 +43,8 @@ graph LR
 | **L2a-2** | Entradas "Pedir" y "Pedir seleccionados" en Artículos y en el importador, con la incorporación previa (A-17) | Lucas | L2a-1 | No | ✅ Mergeado en `main` (PR #36) |
 | **P2** | Compras: importar desde un pedido, ajustar a la factura y cerrar el pedido | Pablo | P1 y L1 | Sí (`COMPRAS.id_pedido_origen`) | ⏳ |
 | **L2b** | "Volver a pedir faltantes" (compara el pedido con la compra que lo cerró) | Lucas | L2a-1 y P2 | No | ⏳ |
-| **L3a** | Fuentes múltiples y fuente principal: dominio, migración con datos, servicios e importador (A-16, opción A) | Lucas | L1 y Track 6.6 (✅ en `main`) | Sí | 🟡 En curso en `feat/fuentes-multiples` |
-| **L3b** | Fuentes múltiples en la UI: vincular como fuente adicional o principal y combo de fuente en el modal de pedido (A-18) | Lucas | L3a | No | ⏳ |
+| **L3a** | Fuentes múltiples y fuente principal: dominio, migración con datos, servicios e importador (A-16, opción A) | Lucas | L1 y Track 6.6 (✅ en `main`) | Sí | ✅ Mergeado en `main` (PR #38, migración `20261029080028_AgregarFuentesMultiples`) |
+| **L3b** | Fuentes múltiples en la UI: vincular como fuente adicional o principal y combo de fuente en el modal de pedido (A-18) | Lucas | L3a | No | 🟡 En curso en `feat/fuentes-multiples-ui` |
 | **L4** | Modal "Fuentes del artículo" (comparador de costos, RF-28) abierto desde Artículos y desde el importador (A-18) | Lucas | L3b | No | ⏳ |
 
 ```mermaid
