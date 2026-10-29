@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows.Data;
 using FluentAssertions;
 using Retail.App.Converters;
+using Retail.Application.DTOs.Pedidos;
 using Retail.Domain.Enums;
 using Xunit;
 
@@ -79,6 +80,16 @@ public class EnumATextoConverterTests
         }
 
         foreach (var valor in Enum.GetValues<CondicionIvaEnum>())
+        {
+            datos.Add(valor);
+        }
+
+        foreach (var valor in Enum.GetValues<EstadoPedidoEnum>())
+        {
+            datos.Add(valor);
+        }
+
+        foreach (var valor in Enum.GetValues<MotivoOmisionPedidoEnum>())
         {
             datos.Add(valor);
         }
