@@ -22,7 +22,7 @@
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO Y ACCIONES (solo el Gerente opera, D-3)         -->
+        <!-- 1. ENCABEZADO Y ACCIONES (Gerente y Administrador operan, D-30 y D-32)         -->
         <!-- ============================================================= -->
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
@@ -35,7 +35,7 @@
                     <TextBlock Text="Historial de copias completas de la base de datos y restauración desde una copia verificada (RF-22)"
                                Style="{StaticResource TextBlockBodySecondary}"
                                Margin="0,4,0,0" />
-                    <TextBlock Text="Modo solo lectura: únicamente un Gerente puede crear o restaurar copias."
+                    <TextBlock Text="Modo solo lectura: únicamente un Gerente o un Administrador pueden crear o restaurar copias."
                                Style="{StaticResource TextBlockBodyMuted}"
                                Margin="0,4,0,0"
                                Visibility="{Binding EsSoloLectura, Converter={StaticResource BoolToVisConverter}}" />
@@ -114,6 +114,23 @@
                 </Grid.RowDefinitions>
 
                 <DockPanel Grid.Row="0" LastChildFill="False" Margin="16,14,16,12">
+                    <!-- Selector de pestaña (D-34): el sistema de diseño no tiene TabControl, se usa el toggle de mostrador -->
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0">
+                        <RadioButton GroupName="VistaRespaldos"
+                                     IsChecked="{Binding MostrandoCopias, Mode=TwoWay}"
+                                     Style="{StaticResource KeycapToggleButtonStyle}"
+                                     Padding="12,6"
+                                     Margin="0,0,8,0">
+                            <TextBlock Text="Copias" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </RadioButton>
+                        <RadioButton GroupName="VistaRespaldos"
+                                     IsChecked="{Binding MostrandoRestauraciones, Mode=TwoWay}"
+                                     Style="{StaticResource KeycapToggleButtonStyle}"
+                                     Padding="12,6">
+                            <TextBlock Text="Restauraciones" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </RadioButton>
+                    </StackPanel>
+
                     <TextBlock Text="{Binding MensajeEstado}"
                                Style="{StaticResource TextBlockBodySecondary}"
                                VerticalAlignment="Center" />
@@ -129,6 +146,7 @@
                 </DockPanel>
 
                 <DataGrid Grid.Row="1"
+                          Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}"
                           ItemsSource="{Binding Copias}"
                           SelectedItem="{Binding CopiaSeleccionada, Mode=TwoWay}"
                           Style="{StaticResource DataGridRetailStyle}"
@@ -214,6 +232,54 @@
                         </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
+
+                <!-- Historial de restauraciones (D-34): solo lectura -->
+                <Grid Grid.Row="1"
+                      Visibility="{Binding MostrandoRestauraciones, Converter={StaticResource BoolToVisConverter}}">
+                    <DataGrid ItemsSource="{Binding Restauraciones}"
+                              Style="{StaticResource DataGridRetailStyle}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              BorderThickness="1"
+                              Margin="16,0,16,16">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Fecha"
+                                                Binding="{Binding FechaLocal, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}"
+                                                Width="150"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}" />
+                            <DataGridTextColumn Header="Origen"
+                                                Binding="{Binding OrigenTexto}"
+                                                Width="110"
+                                                ElementStyle="{StaticResource TextBlockTextCell}" />
+                            <DataGridTextColumn Header="Ejecutada por"
+                                                Binding="{Binding EjecutadaPor}"
+                                                Width="*"
+                                                ElementStyle="{StaticResource TextBlockTextCell}" />
+                            <DataGridTextColumn Header="Autorizada por"
+                                                Binding="{Binding AutorizadaPor}"
+                                                Width="*"
+                                                ElementStyle="{StaticResource TextBlockTextCell}" />
+                            <DataGridTextColumn Header="Copia restaurada"
+                                                Binding="{Binding ArchivoCopia}"
+                                                Width="2*"
+                                                ElementStyle="{StaticResource TextBlockMonospaceCell}" />
+                            <DataGridTextColumn Header="Copia previa"
+                                                Binding="{Binding CopiaPreviaTexto}"
+                                                Width="100"
+                                                ElementStyle="{StaticResource TextBlockTextCell}" />
+                            <DataGridTextColumn Header="Base anterior"
+                                                Binding="{Binding BaseAnteriorTexto}"
+                                                Width="2*"
+                                                ElementStyle="{StaticResource TextBlockMonospaceCell}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Text="No se registraron restauraciones"
+                               Style="{StaticResource TextBlockBodyMuted}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding NoHayRestauraciones, Converter={StaticResource BoolToVisConverter}}" />
+                </Grid>
             </Grid>
         </Border>
     </Grid>

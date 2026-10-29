@@ -87,7 +87,8 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
     /// <summary>
     /// Copia el historial de la vigente a la temporal: primero borra de la temporal los registros cuya
     /// <c>Referencia</c> también está en la vigente (la vigente es la versión más reciente de ese hecho, R-18) y luego
-    /// inserta todos los de la vigente, incluidos los dados de baja. Ambas tablas se tocan en una misma transacción.
+    /// inserta todos los de la vigente, incluidos los dados de baja. Después pasa la auditoría de accesos (AUDITORIA_ACCESOS)
+    /// posterior a la copia. Las tres tablas se tocan en una misma transacción.
     /// </summary>
     public async Task ImportarHistorialDeLaBaseVigenteAsync(CancellationToken cancellationToken = default)
     {
@@ -95,6 +96,8 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
 
         await ImportarTablaAsync<RegistroBackup>(cancellationToken);
         await ImportarTablaAsync<RegistroRestauracion>(cancellationToken);
+
+        await ImportarAuditoriaDeAccesosAsync(cancellationToken);
 
         await transaccion.CommitAsync(cancellationToken);
     }
@@ -239,6 +242,27 @@ public sealed class BaseRestauradaSqlServer : IBaseRestaurada
             // Liberar nunca lanza: queda la base temporal, que la próxima restauración descarta.
             _logger.LogError(ex, "No se pudo eliminar la base temporal {Base}.", _temporal);
         }
+    }
+
+    /// <summary>
+    /// La auditoría de accesos no está en el modelo de EF (la crea una migración con SQL), así que se importa con SQL propio.
+    /// Solo pasan las filas posteriores a la última que la copia ya tenía: las de la copia son anteriores a su fecha, y
+    /// así un segundo restore no las duplica. <c>id_usuario</c> queda NULL porque en la base restaurada el mismo Id puede
+    /// ser otra persona (mismo criterio que REGISTROS_RESTAURACION): el nombre queda como foto del momento del hecho.
+    /// </summary>
+    private async Task ImportarAuditoriaDeAccesosAsync(CancellationToken cancellationToken)
+    {
+        var origen = ComandosSqlServer.Delimitar(_vigente);
+
+        // El identificador de la vigente sale de la configuración y está delimitado; ningún valor del operador entra en el SQL.
+#pragma warning disable EF1002
+        await _context.Database.ExecuteSqlRawAsync(
+            "INSERT INTO [dbo].[AUDITORIA_ACCESOS] (fecha_hora, nombre_usuario, id_usuario, resultado, nombre_equipo, tipo_evento, detalle) " +
+            "SELECT v.fecha_hora, v.nombre_usuario, NULL, v.resultado, v.nombre_equipo, v.tipo_evento, v.detalle " +
+            $"FROM {origen}.[dbo].[AUDITORIA_ACCESOS] v " +
+            "WHERE v.fecha_hora > ISNULL((SELECT MAX(fecha_hora) FROM [dbo].[AUDITORIA_ACCESOS]), '0001-01-01');",
+            cancellationToken);
+#pragma warning restore EF1002
     }
 
     private async Task ImportarTablaAsync<TEntidad>(CancellationToken cancellationToken)

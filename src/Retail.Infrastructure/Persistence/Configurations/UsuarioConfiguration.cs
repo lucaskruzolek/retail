@@ -9,7 +9,13 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
 {
     public void Configure(EntityTypeBuilder<Usuario> builder)
     {
-        builder.ToTable("USUARIOS");
+        builder.ToTable("USUARIOS", tabla =>
+        {
+            // Defensa en profundidad: el contador de D-31 nunca es negativo.
+            tabla.HasCheckConstraint(
+                "CK_USUARIOS_IntentosAutorizacionFallidos",
+                "[intentos_autorizacion_fallidos] >= 0");
+        });
 
         builder.HasKey(u => u.Id);
 
@@ -54,6 +60,14 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.Property(u => u.DebeCambiarPassword)
             .HasColumnName("debe_cambiar_password")
             .IsRequired();
+
+        // Persistido en la base y no en la sesión: cerrar la aplicación no reinicia el contador (D-31).
+        builder.Property(u => u.IntentosAutorizacionFallidos)
+            .HasColumnName("intentos_autorizacion_fallidos")
+            .IsRequired();
+
+        // Derivada del contador: no tiene columna propia.
+        builder.Ignore(u => u.EstaBloqueada);
 
         builder.Property(u => u.IdRol)
             .HasColumnName("id_rol")

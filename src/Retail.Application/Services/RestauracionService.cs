@@ -1,3 +1,4 @@
+using Retail.Application.DTOs.Auth;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
@@ -40,6 +41,7 @@ public class RestauracionService : IRestauracionService
     private readonly IArchivosBackup _archivos;
     private readonly IEsquemaBaseDatos _esquema;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IRegistroAccesosService _registroAccesos;
 
     public RestauracionService(
         IRepository<Usuario> usuarios,
@@ -52,7 +54,8 @@ public class RestauracionService : IRestauracionService
         IBloqueoRestauracion bloqueo,
         IArchivosBackup archivos,
         IEsquemaBaseDatos esquema,
-        IPasswordHasher passwordHasher)
+        IPasswordHasher passwordHasher,
+        IRegistroAccesosService registroAccesos)
     {
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _registros = registros ?? throw new ArgumentNullException(nameof(registros));
@@ -65,6 +68,7 @@ public class RestauracionService : IRestauracionService
         _archivos = archivos ?? throw new ArgumentNullException(nameof(archivos));
         _esquema = esquema ?? throw new ArgumentNullException(nameof(esquema));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
+        _registroAccesos = registroAccesos ?? throw new ArgumentNullException(nameof(registroAccesos));
     }
 
     public async Task<ResultadoRestauracionDto> RestaurarDesdeHistorialAsync(
@@ -86,27 +90,125 @@ public class RestauracionService : IRestauracionService
 
         await _authService.VerificarCredencialAsync(idActor, password, cancellationToken);
 
-        var encontrados = await _registros.FindAsync(r => r.Referencia == referenciaCopia, includeDeleted: false, cancellationToken);
-        var registro = encontrados.SingleOrDefault();
-        if (registro is null || !registro.EsRestaurable)
-        {
-            throw new RestauracionFallidaException(
-                "La copia elegida no es restaurable: solo se restauran copias verificadas cuyo archivo se conserva.");
-        }
-
-        var copia = new CopiaARestaurar(
-            registro.Referencia,
-            registro.RutaArchivo,
-            registro.TamanoBytes!.Value,
-            registro.HashSha256!,
-            registro.UltimaMigracion);
+        var copia = await BuscarCopiaRestaurableAsync(referenciaCopia, cancellationToken);
 
         return await RestaurarAsync(
             OrigenRestauracionEnum.Aplicacion,
             copia,
             (temporal, ct) => ExigirGerenteEnLaCopiaAsync(temporal, actor, ct),
+            operador: null,
             progreso,
             cancellationToken);
+    }
+
+    public async Task<ResultadoRestauracionDto> RestaurarConAutorizacionDeGerenteAsync(
+        int idActor,
+        string passwordActor,
+        CredencialAutorizanteDto autorizante,
+        Guid referenciaCopia,
+        IProgress<int>? progreso = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(passwordActor);
+        ArgumentNullException.ThrowIfNull(autorizante);
+
+        var actor = idActor > 0
+            ? await _usuarios.GetByIdAsync(idActor, includeDeleted: false, cancellationToken)
+            : null;
+
+        // Control dual (D-30): ejecuta un Administrador. El Gerente usa RestaurarDesdeHistorialAsync (D-8), y a quien no
+        // puede ejecutar no se le verifica ninguna contraseña.
+        if (actor is null || !actor.EsAdministrador())
+        {
+            throw new OperacionNoAutorizadaException("Solo un Administrador puede restaurar con la autorización de un Gerente.");
+        }
+
+        // D-31 / §3.1: el intento se cuenta y se guarda ANTES de verificar la credencial (conteo pesimista). Lanza
+        // CuentaBloqueadaException si la cuenta ya agotó sus intentos, sin llegar a verificar ninguna contraseña.
+        try
+        {
+            actor.RegistrarIntentoDeAutorizacion();
+        }
+        catch (CuentaBloqueadaException)
+        {
+            await RegistrarAutorizacionAsync(actor, ResultadoEventoAccesoEnum.Bloqueado, "Cuenta ya bloqueada", cancellationToken);
+            throw;
+        }
+
+        await _usuarios.UpdateAsync(actor, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // D-33: el Administrador también demuestra quién es (step-up). No se usa IAuthService.VerificarCredencialAsync: lanza
+        // CuentaBloqueadaException si la cuenta EstaBloqueada y, en el 3.er intento, el contador ya vale 3 antes de
+        // verificar, así que bloquearía aunque ambas contraseñas fueran correctas. Si falla, no se evalúa la del Gerente.
+        if (string.IsNullOrEmpty(passwordActor) || !_passwordHasher.VerifyPassword(passwordActor, actor.PasswordHash))
+        {
+            // Después de guardar el contador: el hecho se registra con el desenlace que ya decidió el dominio. Nunca la contraseña.
+            await RegistrarAutorizacionAsync(actor, ResultadoDeUnFallo(actor), "Contraseña del Administrador incorrecta", cancellationToken);
+
+            if (actor.EstaBloqueada)
+            {
+                throw CuentaBloqueadaException.PorAutorizacionesFallidas();
+            }
+
+            throw new CredencialesInvalidasException("Su contraseña es incorrecta.");
+        }
+
+        Usuario gerenteAutorizante;
+        try
+        {
+            var candidato = await BuscarAutorizanteAsync(autorizante, cancellationToken);
+            gerenteAutorizante = ExigirGerenteConCredencial(candidato, autorizante.Password, "Usuario o contraseña del Gerente incorrectos.");
+        }
+        catch (CredencialesInvalidasException)
+        {
+            // El contador ya está guardado: se audita el intento (sin contraseñas) y se decide qué respuesta recibe el Administrador.
+            await RegistrarAutorizacionAsync(
+                actor,
+                ResultadoDeUnFallo(actor),
+                $"Gerente intentado: {ReglasTexto.NormalizarNombreUsuario(autorizante.NombreUsuario)}",
+                cancellationToken);
+
+            if (actor.EstaBloqueada)
+            {
+                throw CuentaBloqueadaException.PorAutorizacionesFallidas();
+            }
+
+            throw;
+        }
+
+        // Autorización válida: los intentos son consecutivos, así que el contador vuelve a cero aunque la restauración
+        // falle después por otra causa.
+        actor.RegistrarAutorizacionExitosa();
+        await _usuarios.UpdateAsync(actor, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // La fila se escribe ANTES de restaurar: así ya está en la base vigente cuando se importa su auditoría a la restaurada.
+        await RegistrarAutorizacionAsync(
+            actor, ResultadoEventoAccesoEnum.Aceptado, $"Gerente: {gerenteAutorizante.NombreUsuario}", cancellationToken);
+
+        var copia = await BuscarCopiaRestaurableAsync(referenciaCopia, cancellationToken);
+
+        return await RestaurarAsync(
+            OrigenRestauracionEnum.Aplicacion,
+            copia,
+            (temporal, ct) => ExigirGerenteEnLaCopiaAsync(temporal, gerenteAutorizante, ct),
+            operador: actor,
+            progreso,
+            cancellationToken);
+    }
+
+    private static ResultadoEventoAccesoEnum ResultadoDeUnFallo(Usuario actor) =>
+        actor.EstaBloqueada ? ResultadoEventoAccesoEnum.Bloqueado : ResultadoEventoAccesoEnum.Rechazado;
+
+    private Task RegistrarAutorizacionAsync(
+        Usuario actor,
+        ResultadoEventoAccesoEnum resultado,
+        string detalle,
+        CancellationToken cancellationToken)
+    {
+        return _registroAccesos.RegistrarEventoAsync(
+            TipoEventoAccesoEnum.AutorizacionRestauracion, resultado, actor.NombreUsuario, actor.Id, detalle, cancellationToken);
     }
 
     public async Task<ResultadoRestauracionDto> RestaurarDesdeArchivoAsync(
@@ -161,11 +263,27 @@ public class RestauracionService : IRestauracionService
             OrigenRestauracionEnum.Consola,
             copia,
             (temporal, ct) => VerificarCredencialEnLaCopiaAsync(temporal, nombreUsuario, password, ct),
+            operador: null,
             progreso,
             cancellationToken);
     }
 
     public async Task<RegistroRestauracionDto?> ObtenerUltimaRestauracionAsync(int idActor, CancellationToken cancellationToken = default)
+    {
+        var restauraciones = await ConsultarRestauracionesAsync(idActor, cancellationToken);
+
+        return restauraciones.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<RegistroRestauracionDto>> ListarRestauracionesAsync(int idActor, CancellationToken cancellationToken = default)
+    {
+        return await ConsultarRestauracionesAsync(idActor, cancellationToken);
+    }
+
+    /// <summary>
+    /// Autoriza al actor (Gerente o Administrador) y devuelve las restauraciones de la más reciente a la más antigua.
+    /// </summary>
+    private async Task<List<RegistroRestauracionDto>> ConsultarRestauracionesAsync(int idActor, CancellationToken cancellationToken)
     {
         var actor = idActor > 0
             ? await _usuarios.GetByIdAsync(idActor, includeDeleted: false, cancellationToken)
@@ -188,11 +306,13 @@ public class RestauracionService : IRestauracionService
                 Fecha = r.Fecha,
                 Origen = r.Origen,
                 NombreUsuario = r.NombreUsuario,
+                NombreOperador = r.NombreOperador,
                 ReferenciaCopia = r.ReferenciaCopia,
                 RutaArchivo = r.RutaArchivo,
+                TuvoCopiaPrevia = r.ReferenciaCopiaPrevia is not null,
                 BaseAnterior = r.BaseAnterior
             })
-            .FirstOrDefault();
+            .ToList();
     }
 
     /// <summary>
@@ -204,12 +324,13 @@ public class RestauracionService : IRestauracionService
         OrigenRestauracionEnum origen,
         CopiaARestaurar copia,
         Func<IBaseRestaurada, CancellationToken, Task<Usuario>> autorizarEnLaCopia,
+        Usuario? operador,
         IProgress<int>? progreso,
         CancellationToken cancellationToken)
     {
         try
         {
-            return await EjecutarRestauracionAsync(origen, copia, autorizarEnLaCopia, progreso, cancellationToken);
+            return await EjecutarRestauracionAsync(origen, copia, autorizarEnLaCopia, operador, progreso, cancellationToken);
         }
         catch (Exception ex) when (DebeEnvolverse(ex))
         {
@@ -222,6 +343,7 @@ public class RestauracionService : IRestauracionService
         OrigenRestauracionEnum origen,
         CopiaARestaurar copia,
         Func<IBaseRestaurada, CancellationToken, Task<Usuario>> autorizarEnLaCopia,
+        Usuario? operador,
         IProgress<int>? progreso,
         CancellationToken cancellationToken)
     {
@@ -311,7 +433,9 @@ public class RestauracionService : IRestauracionService
             copia.RutaArchivo,
             copia.UltimaMigracion,
             referenciaCopiaPrevia,
-            temporal.NombreBaseAnterior);
+            temporal.NombreBaseAnterior,
+            idOperador: operador?.Id,
+            nombreOperador: operador?.NombreUsuario);
 
         await temporal.AgregarRestauracionAsync(restauracion, cancellationToken);
         await temporal.GuardarCambiosAsync(cancellationToken);
@@ -382,10 +506,47 @@ public class RestauracionService : IRestauracionService
     {
         var usuario = await temporal.BuscarUsuarioActivoAsync(ReglasTexto.NormalizarNombreUsuario(nombreUsuario), cancellationToken);
 
+        return ExigirGerenteConCredencial(usuario, password);
+    }
+
+    /// <summary>
+    /// D-30: el autorizante se busca en la base vigente por nombre normalizado, entre los usuarios no dados de baja.
+    /// </summary>
+    private async Task<Usuario?> BuscarAutorizanteAsync(CredencialAutorizanteDto autorizante, CancellationToken cancellationToken)
+    {
+        var nombre = ReglasTexto.NormalizarNombreUsuario(autorizante.NombreUsuario);
+        var encontrados = await _usuarios.FindAsync(u => u.NombreUsuario == nombre, includeDeleted: false, cancellationToken);
+        return encontrados.SingleOrDefault();
+    }
+
+    private async Task<CopiaARestaurar> BuscarCopiaRestaurableAsync(Guid referenciaCopia, CancellationToken cancellationToken)
+    {
+        var encontrados = await _registros.FindAsync(r => r.Referencia == referenciaCopia, includeDeleted: false, cancellationToken);
+        var registro = encontrados.SingleOrDefault();
+        if (registro is null || !registro.EsRestaurable)
+        {
+            throw new RestauracionFallidaException(
+                "La copia elegida no es restaurable: solo se restauran copias verificadas cuyo archivo se conserva.");
+        }
+
+        return new CopiaARestaurar(
+            registro.Referencia,
+            registro.RutaArchivo,
+            registro.TamanoBytes!.Value,
+            registro.HashSha256!,
+            registro.UltimaMigracion);
+    }
+
+    /// <summary>
+    /// Regla común de credencial de Gerente (D-18, D-30): un usuario inexistente, que no es Gerente, con cambio de
+    /// contraseña pendiente (la eligió otra persona) o con contraseña incorrecta recibe siempre la misma respuesta.
+    /// </summary>
+    private Usuario ExigirGerenteConCredencial(Usuario? usuario, string password, string? mensaje = null)
+    {
         if (usuario is null || !usuario.EsGerente() || usuario.DebeCambiarPassword || string.IsNullOrEmpty(password)
             || !_passwordHasher.VerifyPassword(password, usuario.PasswordHash))
         {
-            throw new CredencialesInvalidasException();
+            throw mensaje is null ? new CredencialesInvalidasException() : new CredencialesInvalidasException(mensaje);
         }
 
         return usuario;

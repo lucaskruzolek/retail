@@ -129,6 +129,17 @@ public static class ReglasComunesExtensions
                 $"{ReglasTexto.LongitudMaximaRazonSocial} caracteres.");
     }
 
+    /// <param name="campo">Nombre del campo con su artículo, tal como aparece en el mensaje.</param>
+    public static IRuleBuilderOptions<T, string> NombreClasificacion<T>(this IRuleBuilder<T, string> ruleBuilder, string campo)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage($"Complete {campo}.")
+            .Must(valor => ReglasTexto.EsNombreClasificacionValido(valor))
+            .WithMessage(
+                $"Revise {campo}: no puede estar vacío ni superar los " +
+                $"{ReglasTexto.LongitudMaximaNombreClasificacion} caracteres.");
+    }
+
     public static IRuleBuilderOptions<T, string> Cuit<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder

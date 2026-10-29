@@ -215,13 +215,24 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("deleted_at");
 
+                    b.Property<int>("IdRubro")
+                        .HasColumnType("int")
+                        .HasColumnName("id_rubro");
+
                     b.Property<string>("NombreCategoria")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
-                        .HasColumnName("nombre_categoria");
+                        .HasColumnName("nombre_categoria")
+                        .UseCollation("Modern_Spanish_CI_AI");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdRubro");
+
+                    b.HasIndex("NombreCategoria")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("CATEGORIAS", (string)null);
                 });
@@ -691,9 +702,14 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)")
-                        .HasColumnName("nombre_marca");
+                        .HasColumnName("nombre_marca")
+                        .UseCollation("Modern_Spanish_CI_AI");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NombreMarca")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("MARCAS", (string)null);
                 });
@@ -1045,6 +1061,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha");
 
+                    b.Property<int?>("IdOperador")
+                        .HasColumnType("int")
+                        .HasColumnName("id_operador");
+
                     b.Property<int>("IdUsuario")
                         .HasColumnType("int")
                         .HasColumnName("id_usuario");
@@ -1054,6 +1074,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)")
                         .HasColumnName("migracion_copia");
+
+                    b.Property<string>("NombreOperador")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasColumnName("nombre_operador");
 
                     b.Property<string>("NombreUsuario")
                         .IsRequired()
@@ -1096,6 +1121,8 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.ToTable("REGISTROS_RESTAURACION", null, t =>
                         {
                             t.HasCheckConstraint("CK_REGISTROS_RESTAURACION_IdUsuario", "[id_usuario] > 0");
+
+                            t.HasCheckConstraint("CK_REGISTROS_RESTAURACION_Operador", "([id_operador] IS NULL AND [nombre_operador] IS NULL) OR ([id_operador] > 0 AND [nombre_operador] IS NOT NULL AND [id_operador] <> [id_usuario])");
                         });
                 });
 
@@ -1131,6 +1158,39 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ROLES", (string)null);
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.Rubro", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_rubro");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("NombreRubro")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)")
+                        .HasColumnName("nombre_rubro")
+                        .UseCollation("Modern_Spanish_CI_AI");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NombreRubro")
+                        .IsUnique()
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.ToTable("RUBROS", (string)null);
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.TurnoCaja", b =>
@@ -1265,6 +1325,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_rol");
 
+                    b.Property<int>("IntentosAutorizacionFallidos")
+                        .HasColumnType("int")
+                        .HasColumnName("intentos_autorizacion_fallidos");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1292,7 +1356,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasFilter("[deleted_at] IS NULL");
 
-                    b.ToTable("USUARIOS", (string)null);
+                    b.ToTable("USUARIOS", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_USUARIOS_IntentosAutorizacionFallidos", "[intentos_autorizacion_fallidos] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.Venta", b =>
@@ -1415,6 +1482,15 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Proveedor");
+                });
+
+            modelBuilder.Entity("Retail.Domain.Entities.Categoria", b =>
+                {
+                    b.HasOne("Retail.Domain.Entities.Rubro", null)
+                        .WithMany()
+                        .HasForeignKey("IdRubro")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Retail.Domain.Entities.CobranzaCliente", b =>

@@ -42,6 +42,24 @@ public class Usuario : BaseEntity, IAggregateRoot
     /// </summary>
     public bool DebeCambiarPassword { get; private set; }
 
+    /// <summary>
+    /// Cantidad de autorizaciones fallidas consecutivas que admite un Administrador al pedir la credencial de un
+    /// Gerente antes de quedar bloqueado (D-31).
+    /// </summary>
+    public const int MaximoIntentosAutorizacion = 3;
+
+    /// <summary>
+    /// Autorizaciones fallidas consecutivas de un Administrador al pedir la credencial de un Gerente (D-31).
+    /// Se cuenta antes de verificar la contraseña, y vuelve a cero con una autorización exitosa o un desbloqueo.
+    /// </summary>
+    public int IntentosAutorizacionFallidos { get; private set; }
+
+    /// <summary>
+    /// Indica que la cuenta agotó sus intentos de autorización. Es derivada de <see cref="IntentosAutorizacionFallidos"/>:
+    /// un solo dato almacenado evita estados contradictorios (un contador en cero con un indicador de bloqueo activo).
+    /// </summary>
+    public bool EstaBloqueada => IntentosAutorizacionFallidos >= MaximoIntentosAutorizacion;
+
     public int IdRol { get; private set; }
 
     public Rol? Rol { get; private set; }
@@ -130,9 +148,64 @@ public class Usuario : BaseEntity, IAggregateRoot
         DebeCambiarPassword = false;
     }
 
+    /// <summary>
+    /// Cuenta un intento de autorización del Administrador. Se registra antes de verificar la contraseña: así,
+    /// una caída del proceso a mitad de la verificación no regala un intento gratis. Si la verificación tiene éxito,
+    /// <see cref="RegistrarAutorizacionExitosa"/> lo descuenta. El Gerente nunca se bloquea (D-5), por eso solo
+    /// se cuentan intentos de cuentas de Administrador.
+    /// </summary>
+    /// <exception cref="CuentaBloqueadaException">La cuenta ya agotó sus intentos.</exception>
+    public void RegistrarIntentoDeAutorizacion()
+    {
+        if (!EsAdministrador())
+        {
+            throw new DomainException("Solo se cuentan intentos de autorización de cuentas de Administrador.");
+        }
+
+        if (EstaBloqueada)
+        {
+            throw CuentaBloqueadaException.PorAutorizacionesFallidas();
+        }
+
+        IntentosAutorizacionFallidos++;
+    }
+
+    /// <summary>
+    /// La contraseña del Gerente fue verificada: los intentos son consecutivos, no acumulados, así que el contador
+    /// vuelve a cero. No lanza aunque <see cref="EstaBloqueada"/> sea verdadera: el tercer intento deja el contador
+    /// en el máximo antes de verificar la contraseña, y si esta es correcta debe poder limpiarse.
+    /// </summary>
+    public void RegistrarAutorizacionExitosa()
+    {
+        IntentosAutorizacionFallidos = 0;
+    }
+
+    /// <summary>
+    /// Levanta el bloqueo. Que solo un Gerente pueda hacerlo se exige en la capa de Aplicación (D-9);
+    /// el dominio solo protege la invariante del estado.
+    /// </summary>
+    public void Desbloquear()
+    {
+        if (!EstaBloqueada)
+        {
+            throw new DomainException("La cuenta no está bloqueada.");
+        }
+
+        IntentosAutorizacionFallidos = 0;
+    }
+
     public bool EsGerente() => IdRol == (int)RolUsuarioEnum.Gerente;
 
     public bool EsAdministrador() => IdRol == (int)RolUsuarioEnum.Administrador;
+
+    /// <summary>
+    /// Autoridad para administrar rubros, categorías y marcas (Track 6.5, D-5): solo el Gerente y el Encargado.
+    /// El Administrador, que gestiona cuentas, no decide sobre el catálogo comercial; el Cajero solo lo consulta.
+    /// </summary>
+    public bool PuedeAdministrarClasificacion()
+    {
+        return IdRol == (int)RolUsuarioEnum.Gerente || IdRol == (int)RolUsuarioEnum.Encargado;
+    }
 
     /// <summary>
     /// Matriz de autoridad sobre cuentas (RF-03): el Gerente gestiona cualquier rol; el Administrador solo

@@ -5,7 +5,7 @@ using Retail.App.ViewModels.Backups;
 namespace Retail.App.Views.Dialogs;
 
 /// <summary>
-/// Pide la contraseña del Gerente y ejecuta la operación sensible (copia o restauración) con su progreso (D-8).
+/// Pide la credencial (la contraseña propia o el usuario y la contraseña del Gerente que autoriza) y ejecuta la operación sensible (copia o restauración) con su progreso (D-8).
 /// </summary>
 public partial class ConfirmarCredencialDialog : Wpf.Ui.Controls.FluentWindow
 {
@@ -16,13 +16,6 @@ public partial class ConfirmarCredencialDialog : Wpf.Ui.Controls.FluentWindow
         InitializeComponent();
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         DataContext = ViewModel;
-
-        // La restauración muestra más texto (alcance, aviso fiscal y palabra de confirmación).
-        if (ViewModel.ExigeFrase)
-        {
-            Height = 640;
-            MinHeight = 560;
-        }
 
         MaxHeight = SystemParameters.WorkArea.Height;
         MaxWidth = SystemParameters.WorkArea.Width;
@@ -48,15 +41,24 @@ public partial class ConfirmarCredencialDialog : Wpf.Ui.Controls.FluentWindow
         }
     }
 
+    private void TxtPasswordActor_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        if (sender is Wpf.Ui.Controls.PasswordBox pb)
+        {
+            ViewModel.PasswordActor = pb.Password;
+        }
+    }
+
     private async void BtnConfirmar_Click(object sender, RoutedEventArgs e)
     {
         var debeCerrar = await ViewModel.EjecutarAsync();
 
         if (!debeCerrar)
         {
-            // Una contraseña incorrecta se vació en el ViewModel (el campo la refleja); un dato faltante la conserva.
+            // Una contraseña incorrecta se vació en el ViewModel (los campos la reflejan); un dato faltante la conserva.
             TxtPassword.Password = ViewModel.Password;
-            TxtPassword.Focus();
+            TxtPasswordActor.Password = ViewModel.PasswordActor;
+            (ViewModel.PideUsuarioAutorizante ? TxtPasswordActor : TxtPassword).Focus();
             return;
         }
 

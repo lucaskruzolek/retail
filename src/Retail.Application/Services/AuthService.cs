@@ -55,6 +55,22 @@ public class AuthService : IAuthService
         if (usuarioActivo != null)
         {
             var passwordValido = _passwordHasher.VerifyPassword(request.Password, usuarioActivo.PasswordHash);
+
+            // Bloqueo por autorizaciones fallidas (D-31), distinto del bloqueo temporal de inicio de sesión. Se informa
+            // solo con la contraseña correcta, para no revelar qué cuentas están bloqueadas a quien no la conoce, y
+            // antes de llamar al SP: informarle un login válido registraría "Aceptado" y reiniciaría su contador.
+            if (passwordValido && usuarioActivo.EstaBloqueada)
+            {
+                await _registroAccesosService.RegistrarEventoAsync(
+                    TipoEventoAccesoEnum.InicioSesion,
+                    ResultadoEventoAccesoEnum.Bloqueado,
+                    usuarioActivo.NombreUsuario,
+                    usuarioActivo.Id,
+                    "Bloqueada por autorizaciones fallidas (D-31)",
+                    cancellationToken);
+                throw CuentaBloqueadaException.PorAutorizacionesFallidas();
+            }
+
             var intento = await _registroAccesosService.RegistrarIntentoAsync(
                 usuarioActivo.NombreUsuario,
                 usuarioActivo.Id,
@@ -107,6 +123,12 @@ public class AuthService : IAuthService
             || !_passwordHasher.VerifyPassword(password, usuario.PasswordHash))
         {
             throw new CredencialesInvalidasException();
+        }
+
+        // Mismo orden que en el login: el bloqueo solo se revela a quien demostró conocer la contraseña (D-31).
+        if (usuario.EstaBloqueada)
+        {
+            throw CuentaBloqueadaException.PorAutorizacionesFallidas();
         }
     }
 }

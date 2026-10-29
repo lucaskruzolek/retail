@@ -17,6 +17,18 @@ public class UsuarioTests
         return Usuario.Crear("operador", "Juan", "Pérez", "hash_inicial", rol, emailEfectivo);
     }
 
+    [Theory]
+    [InlineData(RolUsuarioEnum.Cajero, false)]
+    [InlineData(RolUsuarioEnum.Encargado, true)]
+    [InlineData(RolUsuarioEnum.Gerente, true)]
+    [InlineData(RolUsuarioEnum.Administrador, false)]
+    public void PuedeAdministrarClasificacion_SegunRol_SoloGerenteYEncargado(RolUsuarioEnum rol, bool esperado)
+    {
+        var usuario = CrearOperador(rol);
+
+        usuario.PuedeAdministrarClasificacion().Should().Be(esperado);
+    }
+
     [Fact]
     public void Crear_DatosSinFormato_NormalizaLoginNombreApellidoYEmail()
     {
@@ -322,5 +334,101 @@ public class UsuarioTests
 
         // Assert
         esAdministrador.Should().Be(esperado);
+    }
+
+    private static Usuario CrearAdministradorConIntentos(int intentos)
+    {
+        var administrador = CrearOperador(RolUsuarioEnum.Administrador);
+        for (var i = 0; i < intentos; i++)
+        {
+            administrador.RegistrarIntentoDeAutorizacion();
+        }
+
+        return administrador;
+    }
+
+    [Fact]
+    public void RegistrarIntentoDeAutorizacion_TercerIntento_DejaLaCuentaBloqueada()
+    {
+        // Arrange
+        var administrador = CrearAdministradorConIntentos(Usuario.MaximoIntentosAutorizacion - 1);
+        administrador.EstaBloqueada.Should().BeFalse();
+
+        // Act
+        administrador.RegistrarIntentoDeAutorizacion();
+
+        // Assert
+        administrador.IntentosAutorizacionFallidos.Should().Be(Usuario.MaximoIntentosAutorizacion);
+        administrador.EstaBloqueada.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RegistrarIntentoDeAutorizacion_CuentaDeGerente_LanzaDomainException()
+    {
+        var gerente = CrearOperador(RolUsuarioEnum.Gerente);
+
+        var act = () => gerente.RegistrarIntentoDeAutorizacion();
+
+        act.Should().Throw<DomainException>().WithMessage("Solo se cuentan intentos*Administrador*");
+        gerente.IntentosAutorizacionFallidos.Should().Be(0);
+    }
+
+    [Fact]
+    public void RegistrarIntentoDeAutorizacion_CuentaBloqueada_LanzaCuentaBloqueadaException()
+    {
+        var administrador = CrearAdministradorConIntentos(Usuario.MaximoIntentosAutorizacion);
+
+        var act = () => administrador.RegistrarIntentoDeAutorizacion();
+
+        act.Should().Throw<CuentaBloqueadaException>();
+        administrador.IntentosAutorizacionFallidos.Should().Be(Usuario.MaximoIntentosAutorizacion);
+    }
+
+    [Fact]
+    public void RegistrarAutorizacionExitosa_ConIntentosPrevios_VuelveACero()
+    {
+        var administrador = CrearAdministradorConIntentos(2);
+
+        administrador.RegistrarAutorizacionExitosa();
+
+        administrador.IntentosAutorizacionFallidos.Should().Be(0);
+        administrador.EstaBloqueada.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RegistrarAutorizacionExitosa_TrasElTercerIntentoConPasswordCorrecta_VuelveACero()
+    {
+        // Arrange: el servicio cuenta el intento antes de verificar la contraseña.
+        var administrador = CrearAdministradorConIntentos(2);
+        administrador.RegistrarIntentoDeAutorizacion();
+        administrador.EstaBloqueada.Should().BeTrue();
+
+        // Act: la contraseña resultó correcta, así que el intento se descuenta.
+        administrador.RegistrarAutorizacionExitosa();
+
+        // Assert
+        administrador.IntentosAutorizacionFallidos.Should().Be(0);
+        administrador.EstaBloqueada.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Desbloquear_CuentaBloqueada_QuedaActivaConContadorEnCero()
+    {
+        var administrador = CrearAdministradorConIntentos(Usuario.MaximoIntentosAutorizacion);
+
+        administrador.Desbloquear();
+
+        administrador.EstaBloqueada.Should().BeFalse();
+        administrador.IntentosAutorizacionFallidos.Should().Be(0);
+    }
+
+    [Fact]
+    public void Desbloquear_CuentaNoBloqueada_LanzaDomainException()
+    {
+        var administrador = CrearAdministradorConIntentos(1);
+
+        var act = () => administrador.Desbloquear();
+
+        act.Should().Throw<DomainException>().WithMessage("La cuenta no está bloqueada.");
     }
 }

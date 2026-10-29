@@ -31,11 +31,23 @@ public class RegistroRestauracion : BaseEntity, IAggregateRoot
     public OrigenRestauracionEnum Origen { get; private set; }
 
     /// <summary>
-    /// Gerente que autorizó la restauración. Desde la consola es el Gerente verificado dentro de la copia (D-18).
+    /// Gerente que autorizó la restauración (sigue siendo el autorizante aunque la ejecute otro operador, D-30).
+    /// Desde la consola es el Gerente verificado dentro de la copia (D-18).
     /// </summary>
     public int IdUsuario { get; private set; }
 
     public string NombreUsuario { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Usuario que ejecutó la restauración cuando es distinto del Gerente que la autorizó (control dual, D-30);
+    /// <c>null</c> si la ejecutó el mismo Gerente o la consola.
+    /// </summary>
+    public int? IdOperador { get; private set; }
+
+    /// <summary>
+    /// Foto del nombre de <see cref="IdOperador"/>; <c>null</c> cuando no hubo un operador distinto.
+    /// </summary>
+    public string? NombreOperador { get; private set; }
 
     public DateTime Fecha { get; private set; }
 
@@ -70,7 +82,9 @@ public class RegistroRestauracion : BaseEntity, IAggregateRoot
         string rutaArchivo,
         string migracionCopia,
         Guid? referenciaCopiaPrevia,
-        string? baseAnterior)
+        string? baseAnterior,
+        int? idOperador = null,
+        string? nombreOperador = null)
     {
         if (!Enum.IsDefined(origen))
         {
@@ -93,12 +107,34 @@ public class RegistroRestauracion : BaseEntity, IAggregateRoot
             throw new DomainException("La referencia de la copia previa no puede estar vacía: si no hubo copia, es nula.");
         }
 
+        // El operador se guarda como foto (Id y nombre) o no se guarda: un dato sin el otro no identifica a nadie.
+        var hayNombreOperador = !string.IsNullOrWhiteSpace(nombreOperador);
+        if (idOperador.HasValue != hayNombreOperador)
+        {
+            throw new DomainException("Deben indicarse el Id y el nombre del operador, o ninguno de los dos.");
+        }
+
+        if (idOperador <= 0)
+        {
+            throw new DomainException("El Id del operador debe ser un usuario válido.");
+        }
+
+        // El control dual exige dos personas: quien ejecuta no puede ser quien autorizó.
+        if (idOperador == idUsuario)
+        {
+            throw new DomainException("El operador debe ser distinto del Gerente que autorizó la restauración.");
+        }
+
         return new RegistroRestauracion
         {
             Referencia = Guid.NewGuid(),
             Origen = origen,
             IdUsuario = idUsuario,
             NombreUsuario = ExigirTexto(nombreUsuario, "el nombre del Gerente", ReglasTexto.LongitudMaximaNombreUsuario),
+            IdOperador = idOperador,
+            NombreOperador = hayNombreOperador
+                ? ExigirTexto(nombreOperador!, "el nombre del operador", ReglasTexto.LongitudMaximaNombreUsuario)
+                : null,
             Fecha = DateTime.UtcNow,
             ReferenciaCopia = referenciaCopia,
             RutaArchivo = ExigirTexto(rutaArchivo, "la ruta del archivo restaurado", RegistroBackup.LongitudMaximaRuta),

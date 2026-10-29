@@ -237,7 +237,7 @@ La aplicación **no modifica la base al arrancar**. [`App.xaml.cs`](file:///c:/U
 ### Siembra de Datos
 * **Roles** (`Cajero`, `Encargado`, `Gerente`, `Administrador`): los siembra la migración `AgregarRolAdministradorYCuentasDeUsuario`. Son datos de referencia del esquema y su `id_rol` debe ser el valor del enum (se insertan con `IDENTITY_INSERT` solo si no existen).
 * **Primer Gerente:** `Retail.Cli inicializar` (interactivo, con email obligatorio). Ya no existe un usuario `admin` con contraseña fija.
-* **Datos de demostración:** `Retail.Cli datos-demo` ejecuta [`SemilleroDatosDemo`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Initialization/SemilleroDatosDemo.cs): un proveedor, categorías y marcas, idempotente elemento por elemento. Sin artículos: la demostración los incorpora importando la planilla del proveedor.
+* **Datos de demostración:** `Retail.Cli datos-demo` ejecuta [`SemilleroDatosDemo`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.Infrastructure/Persistence/Initialization/SemilleroDatosDemo.cs): un proveedor, siete rubros con sus categorías (Track 6.5, D-25) y marcas, idempotente elemento por elemento. Sin artículos: la demostración los incorpora importando la planilla del proveedor.
 
 ### Comando Canónico para Generar Futuras Migraciones
 Cuando se añadan columnas o relaciones en etapas posteriores, ejecutar siempre desde la raíz de la solución especificando proyectos exactos para evitar colisiones con compilaciones intermedias de WPF:

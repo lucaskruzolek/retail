@@ -619,6 +619,63 @@ public class UsuarioServiceTests
         await _usuarioRepository.DidNotReceive().DeleteAsync(Arg.Any<Usuario>(), Arg.Any<CancellationToken>());
     }
 
+    // ───────────────────────────── Desbloqueo (D-31) ─────────────────────────────
+
+    private static Usuario Bloquear(Usuario administrador)
+    {
+        for (var i = 0; i < Usuario.MaximoIntentosAutorizacion; i++)
+        {
+            administrador.RegistrarIntentoDeAutorizacion();
+        }
+
+        return administrador;
+    }
+
+    [Fact]
+    public async Task DesbloquearUsuarioAsync_Gerente_DesbloqueaAlAdministrador()
+    {
+        // Arrange
+        var bloqueado = RegistrarEnRepositorio(Bloquear(CrearUsuario(7, "bloqueado", RolUsuarioEnum.Administrador)));
+
+        // Act
+        await _sut.DesbloquearUsuarioAsync(IdGerente, 7);
+
+        // Assert
+        bloqueado.IntentosAutorizacionFallidos.Should().Be(0);
+        bloqueado.EstaBloqueada.Should().BeFalse();
+        await _usuarioRepository.Received(1).UpdateAsync(bloqueado, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DesbloquearUsuarioAsync_Administrador_LanzaOperacionNoAutorizada()
+    {
+        // Arrange: un Administrador bloqueado no puede desbloquearse a sí mismo ni a otro.
+        Bloquear(RegistrarEnRepositorio(CrearUsuario(7, "bloqueado", RolUsuarioEnum.Administrador)));
+
+        // Act
+        var act = async () => await _sut.DesbloquearUsuarioAsync(IdAdministrador, 7);
+
+        // Assert: la autoridad se verifica antes de buscar al objetivo.
+        await act.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _usuarioRepository.DidNotReceive().GetByIdAsync(7, Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DesbloquearUsuarioAsync_CuentaNoBloqueada_LanzaDomainException()
+    {
+        // Arrange
+        RegistrarEnRepositorio(CrearUsuario(7, "libre", RolUsuarioEnum.Administrador));
+
+        // Act
+        var act = async () => await _sut.DesbloquearUsuarioAsync(IdGerente, 7);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*no está bloqueada*");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
     // ───────────────────────────── Contraseñas ─────────────────────────────
 
     [Fact]

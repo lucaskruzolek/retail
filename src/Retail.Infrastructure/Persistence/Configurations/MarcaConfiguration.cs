@@ -18,7 +18,13 @@ public class MarcaConfiguration : IEntityTypeConfiguration<Marca>
         builder.Property(m => m.NombreMarca)
             .HasColumnName("nombre_marca")
             .HasMaxLength(100)
+            .UseCollation(Cotejamientos.BusquedaEnCastellano)
             .IsRequired();
+
+        // Único entre las activas (D-4): una marca dada de baja libera su nombre.
+        builder.HasIndex(m => m.NombreMarca)
+            .IsUnique()
+            .HasFilter("[deleted_at] IS NULL");
 
         builder.Property(m => m.CreatedAt)
             .HasColumnName("created_at")

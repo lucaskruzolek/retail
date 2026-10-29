@@ -543,6 +543,94 @@ public class ArticulosViewModelTests : IDisposable
         _dialogService.Received(1).MostrarError(Arg.Any<string>(), Arg.Is<string>(m => m.Contains("dado de baja")));
     }
 
+    private ArticulosViewModel CrearConClasificacion(
+        IClasificacionDialogService? dialogoClasificacion,
+        bool esGerente = false,
+        bool esEncargado = false)
+    {
+        var sesion = Substitute.For<ICurrentUserSession>();
+        sesion.EsGerente.Returns(esGerente);
+        sesion.EsEncargado.Returns(esEncargado);
+        return new ArticulosViewModel(
+            _inventarioService, _dialogService, _proveedorService, null, dialogoClasificacion, sesion);
+    }
+
+    [Theory]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(false, false, false)]
+    public void PuedeAdministrarClasificacion_SegunElRol_SoloGerenteYEncargado(bool esGerente, bool esEncargado, bool esperado)
+    {
+        using var sut = CrearConClasificacion(Substitute.For<IClasificacionDialogService>(), esGerente, esEncargado);
+
+        sut.PuedeAdministrarClasificacion.Should().Be(esperado);
+        sut.AdministrarClasificacionCommand.CanExecute(null).Should().Be(esperado);
+    }
+
+    [Fact]
+    public void PuedeAdministrarClasificacion_SinServicioDeDialogo_EsFalso()
+    {
+        using var sut = CrearConClasificacion(null, esGerente: true);
+
+        sut.PuedeAdministrarClasificacion.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AdministrarClasificacion_ConCambios_RecargaCombosYConservaLaSeleccion()
+    {
+        var dialogoClasificacion = Substitute.For<IClasificacionDialogService>();
+        dialogoClasificacion.AbrirAdministracion().Returns(true);
+        using var sut = CrearConClasificacion(dialogoClasificacion, esGerente: true);
+        await sut.CargarArticulosCommand.ExecuteAsync(null);
+        sut.IdCategoriaFiltro = 2;
+        sut.IdMarcaFiltro = 3;
+
+        // El diálogo agregó una categoría y dio de baja otra marca (la 1).
+        _inventarioService.ListarCategoriasAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<CategoriaDto>(_categoriasEjemplo) { new() { IdCategoria = 9, NombreCategoria = "Nueva" } });
+        _inventarioService.ListarMarcasAsync(Arg.Any<CancellationToken>())
+            .Returns(_marcasEjemplo.Where(m => m.IdMarca != 1).ToList());
+
+        await sut.AdministrarClasificacionCommand.ExecuteAsync(null);
+
+        sut.CategoriasFiltro.Should().Contain(c => c.IdCategoria == 9);
+        sut.MarcasFiltro.Should().NotContain(m => m.IdMarca == 1);
+        sut.IdCategoriaFiltro.Should().Be(2);
+        sut.IdMarcaFiltro.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task AdministrarClasificacion_SeleccionEliminada_VuelveATodas()
+    {
+        var dialogoClasificacion = Substitute.For<IClasificacionDialogService>();
+        dialogoClasificacion.AbrirAdministracion().Returns(true);
+        using var sut = CrearConClasificacion(dialogoClasificacion, esEncargado: true);
+        await sut.CargarArticulosCommand.ExecuteAsync(null);
+        sut.IdMarcaFiltro = 2;
+
+        _inventarioService.ListarMarcasAsync(Arg.Any<CancellationToken>())
+            .Returns(_marcasEjemplo.Where(m => m.IdMarca != 2).ToList());
+
+        await sut.AdministrarClasificacionCommand.ExecuteAsync(null);
+
+        sut.IdMarcaFiltro.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task AdministrarClasificacion_SinCambios_NoRecargaLosCombos()
+    {
+        var dialogoClasificacion = Substitute.For<IClasificacionDialogService>();
+        dialogoClasificacion.AbrirAdministracion().Returns(false);
+        using var sut = CrearConClasificacion(dialogoClasificacion, esGerente: true);
+        await sut.CargarArticulosCommand.ExecuteAsync(null);
+        _inventarioService.ClearReceivedCalls();
+
+        await sut.AdministrarClasificacionCommand.ExecuteAsync(null);
+
+        await _inventarioService.DidNotReceive().ListarCategoriasAsync(Arg.Any<CancellationToken>());
+        await _inventarioService.DidNotReceive().ListarMarcasAsync(Arg.Any<CancellationToken>());
+    }
+
     private static ArticuloDto Presentacion(int idOrigen)
     {
         return new ArticuloDto
