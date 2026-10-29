@@ -154,6 +154,11 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.ViewModels.Compras.ComprasViewModel>();
         services.AddTransient<ICajaDialogService, CajaDialogService>();
 
+        // Pedidos a Proveedores (Track 4.3, L2a-1)
+        services.AddScoped<Retail.App.Services.IPedidoDialogService, Retail.App.Services.PedidoDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Pedidos.PedidosViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.PedidosView>();
+
         // Módulos en Construcción (Cortesía informativa de Roadmap)
 
         services.AddTransient<Retail.App.Views.Pages.ModuloEnConstruccionView>();

@@ -21,15 +21,136 @@ public class PedidoQueryService : IPedidoQueryService
         _context = context ?? throw new ArgumentNullException(nameof(context));
     }
 
-    public async Task<int?> ObtenerIdArticuloVinculadoAsync(int idCatalogoProveedor, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyDictionary<int, int>> ObtenerArticulosVinculadosAsync(
+        IReadOnlyCollection<int> idsCatalogoProveedor,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(idsCatalogoProveedor);
+
         // Único punto que cambia en L3 (multifuente): hoy el vínculo es Articulo.IdCatalogoProveedor. El filtro global
-        // ya descarta los artículos dados de baja.
+        // ya descarta los artículos dados de baja, y el índice único filtrado de ARTICULOS garantiza a lo sumo un
+        // artículo activo por ítem (RF-05), así que la clave del diccionario no se repite.
+        var ids = idsCatalogoProveedor.Distinct().ToList();
+
         return await _context.Articulos
             .AsNoTracking()
-            .Where(a => a.IdCatalogoProveedor == idCatalogoProveedor)
-            .Select(a => (int?)a.Id)
-            .FirstOrDefaultAsync(cancellationToken);
+            .Where(a => a.IdCatalogoProveedor != null && ids.Contains(a.IdCatalogoProveedor.Value))
+            .Select(a => new { IdCatalogoProveedor = a.IdCatalogoProveedor!.Value, a.Id })
+            .ToDictionaryAsync(a => a.IdCatalogoProveedor, a => a.Id, cancellationToken);
+    }
+
+    public async Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(
+        IReadOnlyCollection<int> idsCatalogoProveedor,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(idsCatalogoProveedor);
+
+        var ids = idsCatalogoProveedor.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return new VistaPreviaPedidoDto();
+        }
+
+        var items = await _context.CatalogosProveedores
+            .AsNoTracking()
+            .Where(c => ids.Contains(c.Id))
+            .Select(c => new
+            {
+                c.Id,
+                c.IdProveedor,
+                RazonSocialProveedor = c.Proveedor!.RazonSocial,
+                c.CodigoProveedor,
+                c.DescripcionProveedor,
+                c.CostoReposicion
+            })
+            .ToDictionaryAsync(c => c.Id, cancellationToken);
+
+        // La resolución ítem → artículo se reutiliza para que siga habiendo un solo punto que cambia en L3.
+        var articulosPorItem = await ObtenerArticulosVinculadosAsync(items.Keys.ToList(), cancellationToken);
+        var idsArticulos = articulosPorItem.Values.ToList();
+        var stocks = await _context.Articulos
+            .AsNoTracking()
+            .Where(a => idsArticulos.Contains(a.Id))
+            .Select(a => new { a.Id, a.StockActual, a.StockMinimo })
+            .ToDictionaryAsync(a => a.Id, cancellationToken);
+
+        var idsProveedores = items.Values
+            .Where(i => articulosPorItem.ContainsKey(i.Id))
+            .Select(i => i.IdProveedor)
+            .Distinct()
+            .ToList();
+        var borradores = await _context.Pedidos
+            .AsNoTracking()
+            .Where(p => idsProveedores.Contains(p.IdProveedor) && p.Estado == EstadoPedidoEnum.Borrador)
+            .Select(p => new { p.Id, p.IdProveedor, CantidadRenglones = p.Detalles.Count })
+            .ToDictionaryAsync(p => p.IdProveedor, cancellationToken);
+
+        // Al agregar, la cantidad se suma a la que ya tiene el borrador: el modal la muestra para no pedir de más (H3).
+        // El filtro global oculta los renglones quitados (D4).
+        var idsBorradores = borradores.Values.Select(b => b.Id).ToList();
+        var cantidadesEnBorrador = await _context.Set<DetallePedido>()
+            .AsNoTracking()
+            .Where(d => idsBorradores.Contains(d.IdPedido) && ids.Contains(d.IdCatalogoProveedor))
+            .Select(d => new { d.IdCatalogoProveedor, d.Cantidad })
+            .ToDictionaryAsync(d => d.IdCatalogoProveedor, d => d.Cantidad, cancellationToken);
+
+        var renglones = new List<RenglonVistaPreviaDto>();
+        var omitidos = new List<RenglonOmitidoDto>();
+        foreach (var id in ids)
+        {
+            if (!items.TryGetValue(id, out var item))
+            {
+                omitidos.Add(new RenglonOmitidoDto { IdCatalogoProveedor = id, Motivo = MotivoOmisionPedidoEnum.ItemInexistente });
+            }
+            // El segundo TryGetValue cubre un artículo dado de baja entre las dos consultas: queda sin vincular.
+            else if (!articulosPorItem.TryGetValue(id, out var idArticulo) || !stocks.TryGetValue(idArticulo, out var stock))
+            {
+                omitidos.Add(new RenglonOmitidoDto
+                {
+                    IdCatalogoProveedor = id,
+                    CodigoProveedor = item.CodigoProveedor,
+                    Descripcion = item.DescripcionProveedor,
+                    Motivo = MotivoOmisionPedidoEnum.SinIncorporar
+                });
+            }
+            else
+            {
+                renglones.Add(new RenglonVistaPreviaDto
+                {
+                    IdCatalogoProveedor = id,
+                    IdProveedor = item.IdProveedor,
+                    CodigoProveedor = item.CodigoProveedor,
+                    Descripcion = item.DescripcionProveedor,
+                    CostoActual = item.CostoReposicion,
+                    IdArticulo = idArticulo,
+                    StockActual = stock.StockActual,
+                    StockMinimo = stock.StockMinimo,
+                    CantidadEnBorrador = cantidadesEnBorrador.GetValueOrDefault(id)
+                });
+            }
+        }
+
+        var razonesSociales = items.Values
+            .GroupBy(i => i.IdProveedor)
+            .ToDictionary(g => g.Key, g => g.First().RazonSocialProveedor);
+        var destinos = renglones
+            .Select(r => r.IdProveedor)
+            .Distinct()
+            .Select(idProveedor =>
+            {
+                var borrador = borradores.GetValueOrDefault(idProveedor);
+                return new DestinoPedidoDto
+                {
+                    IdProveedor = idProveedor,
+                    RazonSocialProveedor = razonesSociales[idProveedor],
+                    IdBorrador = borrador?.Id,
+                    CantidadRenglonesBorrador = borrador?.CantidadRenglones ?? 0
+                };
+            })
+            .OrderBy(d => d.RazonSocialProveedor)
+            .ToList();
+
+        return new VistaPreviaPedidoDto { Destinos = destinos, Renglones = renglones, Omitidos = omitidos };
     }
 
     public async Task<int?> ObtenerIdBorradorAsync(int idProveedor, CancellationToken cancellationToken = default)

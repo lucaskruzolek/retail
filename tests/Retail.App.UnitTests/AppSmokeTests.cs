@@ -1173,6 +1173,7 @@ public class AppSmokeTests
                 inventarioServiceMock,
                 navigationServiceMock,
                 modalViewModel,
+                TimeProvider.System,
                 loggerMock);
 
             try
@@ -1808,6 +1809,127 @@ public class AppSmokeTests
 
         // Assert
         xamlException.Should().BeNull("el XAML del modal con sugerencias y pasos debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PedidosView_InstanciacionEnHiloSTAConPedidoYDetalle_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PedidosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var reloj = new RelojDePrueba(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
+            var viewModel = new Retail.App.ViewModels.Pedidos.PedidosViewModel(
+                Substitute.For<IPedidoService>(),
+                Substitute.For<IProveedorService>(),
+                Substitute.For<IPedidoDialogService>(),
+                reloj,
+                Substitute.For<ILogger<Retail.App.ViewModels.Pedidos.PedidosViewModel>>());
+
+            try
+            {
+                view = new PedidosView(viewModel);
+
+                // Una fila por estado, para que la plantilla del badge resuelva sus cuatro variantes.
+                foreach (var estado in Enum.GetValues<EstadoPedidoEnum>())
+                {
+                    viewModel.Pedidos.Add(new Retail.App.ViewModels.Pedidos.PedidoFila(
+                        new Retail.Application.DTOs.Pedidos.PedidoResumenDto
+                        {
+                            IdPedido = (int)estado,
+                            RazonSocialProveedor = "Distribuidora Sur",
+                            Estado = estado,
+                            FechaCreacion = new DateTime(2026, 10, 20, 15, 0, 0),
+                            CantidadRenglones = 2,
+                            TotalEstimado = 4500m
+                        },
+                        reloj));
+                }
+
+                // El detalle de un borrador muestra la cantidad editable, el quitar y las acciones.
+                viewModel.Detalle = new Retail.Application.DTOs.Pedidos.PedidoDetalleDto
+                {
+                    IdPedido = 1,
+                    RazonSocialProveedor = "Distribuidora Sur",
+                    Estado = EstadoPedidoEnum.Borrador,
+                    FechaCreacion = new DateTime(2026, 10, 20, 15, 0, 0),
+                    CantidadRenglones = 1,
+                    TotalEstimado = 4500m
+                };
+                viewModel.Renglones.Add(new Retail.App.ViewModels.Pedidos.RenglonPedidoFila(
+                    new Retail.Application.DTOs.Pedidos.RenglonPedidoDto
+                    {
+                        IdCatalogoProveedor = 3,
+                        IdArticulo = 4,
+                        CodigoProveedor = "CU-A4",
+                        Descripcion = "Cuaderno A4 rayado",
+                        Cantidad = 3,
+                        CostoPactado = 1500m,
+                        Subtotal = 4500m,
+                        ArticuloDadoDeBaja = true
+                    },
+                    esEditable: true));
+
+                view.Measure(new System.Windows.Size(1280, 800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1280, 800));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PedidosView debe resolver todos sus recursos (badges de estado, grillas y detalle)");
+        view.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PedirArticulosDialog_InstanciacionEnHiloSTAConGruposYOmitidos_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PedirArticulosDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var vistaPrevia = new Retail.Application.DTOs.Pedidos.VistaPreviaPedidoDto
+            {
+                Destinos = new[]
+                {
+                    new Retail.Application.DTOs.Pedidos.DestinoPedidoDto { IdProveedor = 1, RazonSocialProveedor = "Distribuidora Sur", IdBorrador = 7, CantidadRenglonesBorrador = 2 },
+                    new Retail.Application.DTOs.Pedidos.DestinoPedidoDto { IdProveedor = 2, RazonSocialProveedor = "Papelera Norte" }
+                },
+                Renglones = new[]
+                {
+                    new Retail.Application.DTOs.Pedidos.RenglonVistaPreviaDto { IdCatalogoProveedor = 10, IdProveedor = 1, CodigoProveedor = "CU-A4", Descripcion = "Cuaderno A4", CostoActual = 1500m, StockActual = 1, StockMinimo = 3, CantidadEnBorrador = 4 },
+                    new Retail.Application.DTOs.Pedidos.RenglonVistaPreviaDto { IdCatalogoProveedor = 20, IdProveedor = 2, CodigoProveedor = "LAP-HB", Descripcion = "Lápiz HB", CostoActual = 200m, StockActual = 50, StockMinimo = 10 }
+                },
+                Omitidos = new[]
+                {
+                    new Retail.Application.DTOs.Pedidos.RenglonOmitidoDto { IdCatalogoProveedor = 30, CodigoProveedor = "GOM-1", Descripcion = "Goma", Motivo = Retail.Application.DTOs.Pedidos.MotivoOmisionPedidoEnum.SinIncorporar }
+                }
+            };
+
+            try
+            {
+                dialog = new PedirArticulosDialog(new Retail.App.ViewModels.Pedidos.PedirArticulosViewModel(vistaPrevia));
+                dialog.Measure(new System.Windows.Size(580, 660));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 580, 660));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML del modal de pedido debe resolver sus recursos y plantillas");
         dialog.Should().NotBeNull();
     }
 }

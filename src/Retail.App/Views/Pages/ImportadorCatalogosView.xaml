@@ -49,19 +49,48 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- Selector de Distribuidor -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
-                        <TextBlock Text="Distribuidor:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0" />
-                        <ComboBox ItemsSource="{Binding ProveedoresDisponibles}"
-                                  SelectedItem="{Binding ProveedorActivo, Mode=TwoWay}"
-                                  DisplayMemberPath="RazonSocial"
-                                  Width="220"
-                                  Height="36"
-                                  VerticalAlignment="Center" />
+                    <!-- Selector de Distribuidor y antigüedad de su lista -->
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock Text="Distribuidor:"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0" />
+                            <ComboBox ItemsSource="{Binding ProveedoresDisponibles}"
+                                      SelectedItem="{Binding ProveedorActivo, Mode=TwoWay}"
+                                      DisplayMemberPath="RazonSocial"
+                                      Width="220"
+                                      Height="36"
+                                      VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Fecha de la última planilla del proveedor; en ámbar si supera el umbral (A-2) -->
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    Margin="0,6,0,0"
+                                    Visibility="{Binding TieneProveedorActivo, Converter={StaticResource BoolToVisConverter}}">
+                            <iconPacks:PackIconBoxIcons Kind="SolidAlertTriangle"
+                                                        Width="12" Height="12"
+                                                        Margin="0,0,6,0"
+                                                        VerticalAlignment="Center"
+                                                        Foreground="{DynamicResource WarningForegroundBrush}"
+                                                        ToolTip="{Binding AvisoListaDesactualizada}"
+                                                        Visibility="{Binding ListaDesactualizada, Converter={StaticResource BoolToVisConverter}}" />
+                            <TextBlock Text="{Binding TextoUltimaPlanilla}" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockCaptionSecondary}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ListaDesactualizada}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                <Setter Property="ToolTip" Value="{Binding AvisoListaDesactualizada}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Importar Planilla (F9) -->

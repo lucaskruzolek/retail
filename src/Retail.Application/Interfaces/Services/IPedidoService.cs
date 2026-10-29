@@ -18,9 +18,16 @@ public interface IPedidoService
     Task<PedidoParaCompraDto?> ObtenerParaCompraAsync(int idPedido, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Agrega el ítem al borrador de su proveedor, creándolo si no existe. Devuelve el resumen del pedido.
+    /// Agrega cada ítem al borrador de su proveedor, creándolo si no existe, y guarda todos los borradores en una
+    /// única transacción (A-17). Los ítems inexistentes o sin incorporar se omiten e informan; si todos se omiten,
+    /// no se guarda nada.
     /// </summary>
-    Task<PedidoResumenDto> AgregarAlPedidoAsync(AgregarAlPedidoDto dto, CancellationToken cancellationToken = default);
+    Task<ResultadoAgregarAlPedidoDto> AgregarVariosAlPedidoAsync(AgregarVariosAlPedidoDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lo que el modal de pedido muestra antes de confirmar el lote: destinos, stock, cantidad ya pedida y omitidos.
+    /// </summary>
+    Task<VistaPreviaPedidoDto> ObtenerVistaPreviaAsync(IReadOnlyCollection<int> idsCatalogoProveedor, CancellationToken cancellationToken = default);
 
     Task<PedidosPaginadosDto> ListarPedidosAsync(ConsultaPedidosDto consulta, CancellationToken cancellationToken = default);
 

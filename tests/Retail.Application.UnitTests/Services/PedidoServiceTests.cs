@@ -35,26 +35,32 @@ public class PedidoServiceTests
             _unitOfWork,
             _consultas,
             _catalogo,
-            new AgregarAlPedidoValidator(),
+            new AgregarVariosAlPedidoValidator(),
             new CambiarCantidadRenglonValidator(),
             new CancelarPedidoValidator());
     }
 
-    private static CatalogoProveedor CrearItem()
+    private static CatalogoProveedor CrearItem(int id = IdCatalogo, int idProveedor = IdProveedor)
     {
         return new CatalogoProveedor
         {
-            Id = IdCatalogo,
-            IdProveedor = IdProveedor,
-            CodigoProveedor = "LIB-001",
-            DescripcionProveedor = "Cuaderno rayado",
+            Id = id,
+            IdProveedor = idProveedor,
+            CodigoProveedor = id == IdCatalogo ? "LIB-001" : $"LIB-{id}",
+            DescripcionProveedor = id == IdCatalogo ? "Cuaderno rayado" : $"Ítem {id}",
             CostoReposicion = 1500m
         };
     }
 
-    private static AgregarAlPedidoDto CrearDtoAgregar()
+    private static AgregarVariosAlPedidoDto CrearLote(params int[] idsCatalogo)
     {
-        return new AgregarAlPedidoDto { IdCatalogoProveedor = IdCatalogo, Cantidad = 4, IdUsuario = IdUsuario };
+        var ids = idsCatalogo.Length == 0 ? new[] { IdCatalogo } : idsCatalogo;
+
+        return new AgregarVariosAlPedidoDto
+        {
+            IdUsuario = IdUsuario,
+            Renglones = ids.Select(id => new RenglonAAgregarDto { IdCatalogoProveedor = id, Cantidad = 4 }).ToList()
+        };
     }
 
     private static Pedido CrearBorrador(int id = 100)
@@ -71,10 +77,21 @@ public class PedidoServiceTests
         return new PedidoResumenDto { IdPedido = id, IdProveedor = IdProveedor, Estado = EstadoPedidoEnum.Borrador };
     }
 
+    /// <summary>
+    /// Prepara el catálogo con los ítems dados y vincula a un artículo solo los indicados en <paramref name="vinculados"/>
+    /// (el artículo de cada ítem es su id + 10).
+    /// </summary>
+    private void PrepararCatalogo(IReadOnlyList<CatalogoProveedor> items, params int[] vinculados)
+    {
+        _catalogo.ObtenerPorIdsAsync(Arg.Any<IEnumerable<int>>(), Arg.Any<CancellationToken>()).Returns(items);
+        IReadOnlyDictionary<int, int> articulos = vinculados.ToDictionary(id => id, id => id + 10);
+        _consultas.ObtenerArticulosVinculadosAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<CancellationToken>())
+            .Returns(articulos);
+    }
+
     private void PrepararCatalogoYArticulo()
     {
-        _catalogo.ObtenerPorIdAsync(IdCatalogo, Arg.Any<CancellationToken>()).Returns(CrearItem());
-        _consultas.ObtenerIdArticuloVinculadoAsync(IdCatalogo, Arg.Any<CancellationToken>()).Returns(IdArticulo);
+        PrepararCatalogo(new[] { CrearItem() }, IdCatalogo);
     }
 
     private void PrepararPedidoExistente(Pedido pedido)
@@ -84,15 +101,16 @@ public class PedidoServiceTests
     }
 
     [Fact]
-    public async Task AgregarAlPedidoAsync_SinBorrador_CreaBorradorYAgregaRenglon()
+    public async Task AgregarVariosAlPedidoAsync_SinBorrador_CreaBorradorConElRenglon()
     {
         PrepararCatalogoYArticulo();
         _consultas.ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns((int?)null);
         _consultas.ObtenerResumenAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(CrearResumen(0));
 
-        var resumen = await _service.AgregarAlPedidoAsync(CrearDtoAgregar());
+        var resultado = await _service.AgregarVariosAlPedidoAsync(CrearLote());
 
-        resumen.Should().NotBeNull();
+        resultado.Pedidos.Should().ContainSingle();
+        resultado.Omitidos.Should().BeEmpty();
         await _pedidos.Received(1).AddAsync(
             Arg.Is<Pedido>(p => p.Estado == EstadoPedidoEnum.Borrador
                 && p.IdProveedor == IdProveedor
@@ -109,7 +127,7 @@ public class PedidoServiceTests
     }
 
     [Fact]
-    public async Task AgregarAlPedidoAsync_BorradorExistente_AgregaAlMismoPedido()
+    public async Task AgregarVariosAlPedidoAsync_BorradorExistente_AgregaAlMismoPedido()
     {
         PrepararCatalogoYArticulo();
         var existente = CrearBorrador();
@@ -117,9 +135,9 @@ public class PedidoServiceTests
         _consultas.ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns(existente.Id);
         _consultas.ObtenerResumenAsync(existente.Id, Arg.Any<CancellationToken>()).Returns(CrearResumen());
 
-        var resumen = await _service.AgregarAlPedidoAsync(CrearDtoAgregar());
+        var resultado = await _service.AgregarVariosAlPedidoAsync(CrearLote());
 
-        resumen.IdPedido.Should().Be(existente.Id);
+        resultado.Pedidos.Single().IdPedido.Should().Be(existente.Id);
         existente.Detalles.Single().Cantidad.Should().Be(6);
         await _pedidos.Received(1).UpdateAsync(existente, Arg.Any<CancellationToken>());
         await _pedidos.DidNotReceive().AddAsync(Arg.Any<Pedido>(), Arg.Any<CancellationToken>());
@@ -127,40 +145,98 @@ public class PedidoServiceTests
     }
 
     [Fact]
-    public async Task AgregarAlPedidoAsync_ItemInexistente_LanzaDomainException()
+    public async Task AgregarVariosAlPedidoAsync_DosProveedores_GuardaAmbosBorradoresEnUnSoloSaveChanges()
     {
-        _catalogo.ObtenerPorIdAsync(IdCatalogo, Arg.Any<CancellationToken>()).Returns((CatalogoProveedor?)null);
+        const int otroProveedor = 8;
+        const int otroItem = 12;
+        PrepararCatalogo(new[] { CrearItem(), CrearItem(otroItem, otroProveedor) }, IdCatalogo, otroItem);
+        var existente = CrearBorrador();
+        PrepararPedidoExistente(existente);
+        _consultas.ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns(existente.Id);
+        _consultas.ObtenerIdBorradorAsync(otroProveedor, Arg.Any<CancellationToken>()).Returns((int?)null);
+        _consultas.ObtenerResumenAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(CrearResumen());
 
-        var act = () => _service.AgregarAlPedidoAsync(CrearDtoAgregar());
+        var resultado = await _service.AgregarVariosAlPedidoAsync(CrearLote(IdCatalogo, otroItem));
 
-        await act.Should().ThrowAsync<DomainException>().WithMessage("*no existe*");
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        resultado.Pedidos.Should().HaveCount(2);
+        await _pedidos.Received(1).UpdateAsync(existente, Arg.Any<CancellationToken>());
+        await _pedidos.Received(1).AddAsync(
+            Arg.Is<Pedido>(p => p.IdProveedor == otroProveedor && p.Detalles.Single().IdCatalogoProveedor == otroItem),
+            Arg.Any<CancellationToken>());
+        // Una sola transacción para todo el lote (A-17).
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task AgregarAlPedidoAsync_ItemNoVinculado_LanzaDomainException()
+    public async Task AgregarVariosAlPedidoAsync_ItemInexistente_LoOmiteYAgregaLosDemas()
     {
-        _catalogo.ObtenerPorIdAsync(IdCatalogo, Arg.Any<CancellationToken>()).Returns(CrearItem());
-        _consultas.ObtenerIdArticuloVinculadoAsync(IdCatalogo, Arg.Any<CancellationToken>()).Returns((int?)null);
+        const int inexistente = 99;
+        PrepararCatalogoYArticulo();
+        _consultas.ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns((int?)null);
+        _consultas.ObtenerResumenAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(CrearResumen());
 
-        var act = () => _service.AgregarAlPedidoAsync(CrearDtoAgregar());
+        var resultado = await _service.AgregarVariosAlPedidoAsync(CrearLote(IdCatalogo, inexistente));
 
-        await act.Should().ThrowAsync<DomainException>().WithMessage("*Incorpórelo*");
-        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        resultado.Pedidos.Should().ContainSingle();
+        resultado.Omitidos.Should().ContainSingle().Which.Should().BeEquivalentTo(new RenglonOmitidoDto
+        {
+            IdCatalogoProveedor = inexistente,
+            Motivo = MotivoOmisionPedidoEnum.ItemInexistente
+        });
+        await _pedidos.Received(1).AddAsync(Arg.Is<Pedido>(p => p.Detalles.Count == 1), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task AgregarAlPedidoAsync_DtoInvalido_LanzaValidationException()
+    public async Task AgregarVariosAlPedidoAsync_ItemSinIncorporar_LoOmiteConSuCodigoYDescripcion()
     {
-        var dto = new AgregarAlPedidoDto { IdCatalogoProveedor = IdCatalogo, Cantidad = 0, IdUsuario = IdUsuario };
+        const int sinIncorporar = 12;
+        PrepararCatalogo(new[] { CrearItem(), CrearItem(sinIncorporar) }, IdCatalogo);
+        _consultas.ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns((int?)null);
+        _consultas.ObtenerResumenAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(CrearResumen());
 
-        var act = () => _service.AgregarAlPedidoAsync(dto);
+        var resultado = await _service.AgregarVariosAlPedidoAsync(CrearLote(IdCatalogo, sinIncorporar));
+
+        resultado.Omitidos.Should().ContainSingle().Which.Should().BeEquivalentTo(new RenglonOmitidoDto
+        {
+            IdCatalogoProveedor = sinIncorporar,
+            CodigoProveedor = "LIB-12",
+            Descripcion = "Ítem 12",
+            Motivo = MotivoOmisionPedidoEnum.SinIncorporar
+        });
+        await _pedidos.Received(1).AddAsync(Arg.Is<Pedido>(p => p.Detalles.Count == 1), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AgregarVariosAlPedidoAsync_TodosOmitidos_NoGuardaNiCreaBorrador()
+    {
+        PrepararCatalogo(new[] { CrearItem() });
+
+        var resultado = await _service.AgregarVariosAlPedidoAsync(CrearLote());
+
+        resultado.Pedidos.Should().BeEmpty();
+        resultado.Omitidos.Should().ContainSingle(o => o.Motivo == MotivoOmisionPedidoEnum.SinIncorporar);
+        await _pedidos.DidNotReceive().AddAsync(Arg.Any<Pedido>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    [Fact]
+    public async Task AgregarVariosAlPedidoAsync_DtoInvalido_LanzaValidationException()
+    {
+        var dto = new AgregarVariosAlPedidoDto
+        {
+            IdUsuario = IdUsuario,
+            Renglones = new[] { new RenglonAAgregarDto { IdCatalogoProveedor = IdCatalogo, Cantidad = 0 } }
+        };
+
+        var act = () => _service.AgregarVariosAlPedidoAsync(dto);
 
         await act.Should().ThrowAsync<ValidationException>();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task AgregarAlPedidoAsync_ViolacionDeUnicidad_ReintentaUnaVezYGuarda()
+    public async Task AgregarVariosAlPedidoAsync_ViolacionDeUnicidad_ReintentaUnaVezYGuarda()
     {
         PrepararCatalogoYArticulo();
         _consultas.ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns((int?)null);
@@ -168,15 +244,15 @@ public class PedidoServiceTests
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromException<int>(new RestriccionDeUnicidadException()), Task.FromResult(1));
 
-        var resumen = await _service.AgregarAlPedidoAsync(CrearDtoAgregar());
+        var resultado = await _service.AgregarVariosAlPedidoAsync(CrearLote());
 
-        resumen.Should().NotBeNull();
+        resultado.Pedidos.Should().ContainSingle();
         await _consultas.Received(2).ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task AgregarAlPedidoAsync_ConflictoDeConcurrencia_ReintentaUnaVezYGuarda()
+    public async Task AgregarVariosAlPedidoAsync_ConflictoDeConcurrencia_ReintentaUnaVezYGuarda()
     {
         PrepararCatalogoYArticulo();
         var existente = CrearBorrador();
@@ -186,26 +262,38 @@ public class PedidoServiceTests
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromException<int>(new ConflictoDeConcurrenciaException()), Task.FromResult(1));
 
-        var resumen = await _service.AgregarAlPedidoAsync(CrearDtoAgregar());
+        var resultado = await _service.AgregarVariosAlPedidoAsync(CrearLote());
 
-        resumen.IdPedido.Should().Be(existente.Id);
+        resultado.Pedidos.Single().IdPedido.Should().Be(existente.Id);
         await _consultas.Received(2).ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task AgregarAlPedidoAsync_DosFallos_LanzaDomainExceptionLegible()
+    public async Task AgregarVariosAlPedidoAsync_DosFallos_LanzaDomainExceptionLegible()
     {
         PrepararCatalogoYArticulo();
         _consultas.ObtenerIdBorradorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns((int?)null);
         _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException());
 
-        var act = () => _service.AgregarAlPedidoAsync(CrearDtoAgregar());
+        var act = () => _service.AgregarVariosAlPedidoAsync(CrearLote());
 
         var excepcion = await act.Should().ThrowAsync<DomainException>();
         excepcion.WithMessage("Otro usuario está modificando*");
         excepcion.Which.InnerException.Should().BeOfType<RestriccionDeUnicidadException>();
         await _unitOfWork.Received(2).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ObtenerVistaPreviaAsync_DelegaEnQueryService()
+    {
+        var ids = new[] { IdCatalogo };
+        var esperado = new VistaPreviaPedidoDto();
+        _consultas.ObtenerVistaPreviaAsync(ids, Arg.Any<CancellationToken>()).Returns(esperado);
+
+        var resultado = await _service.ObtenerVistaPreviaAsync(ids);
+
+        resultado.Should().BeSameAs(esperado);
     }
 
     [Fact]

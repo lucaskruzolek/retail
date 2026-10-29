@@ -596,4 +596,51 @@ public class MainViewModelTests
         // Assert
         vm.MostrarAvisoRestauracion.Should().BeFalse();
     }
+
+    [Theory]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, true, false, true)]
+    [InlineData(false, false, true, false)]
+    public void PuedeAbastecer_SegunRol_SoloEncargadoYGerente(bool esGerente, bool esEncargado, bool esCajero, bool esperado)
+    {
+        // Arrange
+        _sessionMock.EsGerente.Returns(esGerente);
+        _sessionMock.EsEncargado.Returns(esEncargado);
+        _sessionMock.EsCajero.Returns(esCajero);
+
+        // Act
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+
+        // Assert: A-14 del Track 4.3
+        vm.PuedeAbastecer.Should().Be(esperado);
+    }
+
+    [Fact]
+    public void NavegarPedidosCommand_UsuarioEncargado_DebeNavegarHaciaPedidosView()
+    {
+        // Arrange
+        _sessionMock.EsEncargado.Returns(true);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+
+        // Act
+        vm.NavegarPedidosCommand.Execute(null);
+
+        // Assert
+        _navigationMock.Received(1).NavigateTo<PedidosView>();
+        vm.ModuloActivo.Should().Be("Pedidos");
+    }
+
+    [Fact]
+    public void NavegarPedidosCommand_UsuarioCajero_NoDebeNavegar()
+    {
+        // Arrange
+        _sessionMock.EsCajero.Returns(true);
+        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+
+        // Act
+        vm.NavegarPedidosCommand.Execute(null);
+
+        // Assert
+        _navigationMock.DidNotReceive().NavigateTo<PedidosView>();
+    }
 }

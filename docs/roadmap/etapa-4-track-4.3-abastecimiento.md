@@ -38,25 +38,27 @@ graph LR
 | :--- | :--- | :--- | :--- | :---: | :---: |
 | **PR-0** | Este documento, paquetes, ERS (RF-05, RF-07, RF-19, RF-28, RF-29, IU-12), DER de Pedidos, Etapa 4, mapa | Ambos (revisión cruzada) | — | No | ✅ Publicado en `main` (`6a29a4b`) |
 | **P1** | Integrar `main` en la rama del Módulo 4.2 y aplicar las correcciones de revisión | Pablo | PR-0 | Sí (UK de comprobante) | ⏳ |
-| **L1** | Agregado `Pedido`: dominio, persistencia, servicio y contratos de frontera | Lucas | PR-0 | Sí (`PEDIDOS`) | 🟡 Implementado en `feat/pedidos-dominio` (migración `20261028211913_AgregarPedidos`); falta la validación de contratos por Pablo y el PR |
-| **L2a** | `PedidosView`, "Agregar al pedido" desde el catálogo, emitir y cancelar | Lucas | L1 | No | ⏳ |
+| **L1** | Agregado `Pedido`: dominio, persistencia, servicio y contratos de frontera | Lucas | PR-0 | Sí (`PEDIDOS`) | ✅ Mergeado en `main` (PR #34, migración `20261028211913_AgregarPedidos`) |
+| **L2a-1** | Agregado en lote (`AgregarVariosAlPedidoAsync`), `PedidosView`, modal de pedido y entrada del Sidebar | Lucas | L1 | No | 🟡 Implementado en `feat/pedidos-ui`; falta el PR |
+| **L2a-2** | Entradas "Pedir" y "Pedir seleccionados" en Artículos y en el importador, con la incorporación previa (A-17) | Lucas | L2a-1 | No | ⏳ |
 | **P2** | Compras: importar desde un pedido, ajustar a la factura y cerrar el pedido | Pablo | P1 y L1 | Sí (`COMPRAS.id_pedido_origen`) | ⏳ |
-| **L2b** | "Volver a pedir faltantes" (compara el pedido con la compra que lo cerró) | Lucas | L2a y P2 | No | ⏳ |
+| **L2b** | "Volver a pedir faltantes" (compara el pedido con la compra que lo cerró) | Lucas | L2a-1 y P2 | No | ⏳ |
 | **L3** | Fuentes múltiples por artículo y fuente principal | Lucas | L1 y cierre de la fase en curso del Track 6.6 | Sí | ⏳ |
-| **L4** | Comparador de costos en el catálogo de proveedores | Lucas | L3 | No | ⏳ |
+| **L4** | Modal "Fuentes del artículo" (comparador de costos, RF-28) abierto desde Artículos y desde el importador (A-18) | Lucas | L3 | No | ⏳ |
 
 ```mermaid
 graph LR
     PR0["PR-0<br/>Documentación"] --> P1["P1 · Pablo<br/>4.2 al día + correcciones"]
     PR0 --> L1["L1 · Lucas<br/>Agregado Pedido"]
-    L1 --> L2a["L2a · Lucas<br/>PedidosView"]
+    L1 --> L2a1["L2a-1 · Lucas<br/>Lote + PedidosView"]
+    L2a1 --> L2a2["L2a-2 · Lucas<br/>Pedir desde Artículos e importador"]
     L1 --> P2["P2 · Pablo<br/>Compra desde pedido"]
     P1 --> P2
-    L2a --> L2b["L2b · Lucas<br/>Faltantes"]
+    L2a1 --> L2b["L2b · Lucas<br/>Faltantes"]
     P2 --> L2b
     T66["Track 6.6<br/>fase en curso"] --> L3["L3 · Lucas<br/>Fuentes múltiples"]
     L1 --> L3
-    L3 --> L4["L4 · Lucas<br/>Comparador"]
+    L3 --> L4["L4 · Lucas<br/>Fuentes del artículo"]
 ```
 
 **Por qué este orden:** el pedido **no necesita** las fuentes múltiples, porque funciona con el vínculo 1:1 actual. Hacer L1 primero desbloquea a Pablo lo antes posible. Las fuentes múltiples modifican `CatalogoProveedor`, que el Track 6.6 está modificando ahora; esperar evita cruzar migraciones sobre las mismas tablas.
@@ -86,6 +88,8 @@ Las decisiones marcadas como cerradas ya fueron discutidas y aprobadas. No se vu
 | **A-13** | `PEDIDOS` tiene **`row_version`** (concurrencia optimista). | Si dos terminales importan el mismo pedido, la segunda compra falla con un conflicto en lugar de cerrar dos veces el mismo pedido (mismo criterio que D-12 en `ARTICULOS`). Igual que allí, se modela como **propiedad sombra** de EF Core: el dominio no la conoce (D1 de L1.1). |
 | **A-14** | Pedidos y Compras los operan el **Encargado** y el **Gerente**; el Cajero no tiene acceso. | Mismo perfil que Compras y el importador (ERS §2.3). La verificación por rol en los servicios queda para la auditoría del Track 6.1, igual que en los demás módulos operativos. |
 | **A-15** | La propuesta preliminar `docs/propuesta_modulo_pedidos_y_recepcion.md` **se descarta** y no se versiona. Este documento la reemplaza. | Proponía un diálogo de recepción, recepciones parciales y `IdArticulo` opcional (contradicen A-6, A-8 y A-9), y se apoyaba en un `CompraService` que todavía no existía en `main`. |
+| **A-17** | **Dos entradas para pedir, un único caso de uso.** Se pide desde el Catálogo de Artículos (reposición: con stock, stock mínimo y filtros por distribuidor y stock crítico) y desde el importador (novedades), en ambas **por fila o por selección**, con un **único modal de pedido**. El destino de cada renglón **se informa, no se elige**: es el borrador del proveedor de su fuente (A-7). Si la selección del importador incluye ítems no incorporados, el modal ofrece incorporarlos primero con el modal de incorporación existente (recorrido en dos pasos) o pedir solo los vinculados; en Artículos, los artículos sin proveedor se excluyen con su motivo. El lote se guarda con `IPedidoService.AgregarVariosAlPedidoAsync`, que agrupa por proveedor y usa **un solo `SaveChanges`**; pedir una fila es un lote de uno, así que el método unitario de L1 (`AgregarAlPedidoAsync`) se eliminó (H1 de L2a-1). El importador **no** muestra stock | La reposición parte de "qué me falta" (RF-08), que se responde en Artículos; las novedades solo se ven en el catálogo del proveedor. Un caso de uso con dos adaptadores de UI no duplica reglas. Elegir el pedido de destino reabriría A-7. N llamadas sueltas dejarían lotes a medias; un `SaveChanges` es atómico (mismo criterio que A-10). Incorporar y pedir quedan en dos transacciones: incorporar tiene sentido por sí solo y el pedido se reintenta. Fusionar ambos modales mezclaría dos responsabilidades |
+| **A-18** | **Una fila por artículo; la comparación en un modal propio.** La grilla de Artículos muestra una fila por artículo con la fuente principal y un badge "N fuentes" (sin indicador de "fuente más barata"). La comparación de RF-28 vive en el modal **"Fuentes del artículo"**, abierto desde el badge y desde un aviso del importador: tabla completa ordenada por costo con descripción del proveedor y fecha de la lista, y las acciones **Marcar principal** (con confirmación) y **Pedir** (cierra este modal y abre el de pedido con esa fuente). El modal de pedido solo **elige** la fuente de cada renglón con un combo compacto (proveedor · costo · fecha, principal por defecto) | Repetir el artículo por fuente rompería el agregado en la grilla, duplicaría el stock, desarmaría la paginación (Ley 8) y volvería ambigua la selección. Consultar no debe exigir empezar un pedido, y marcar la principal modifica `Articulo`: no corresponde dentro de un flujo que modifica `Pedido`. `ArticulosView` es una grilla a todo el ancho: un panel fijo le quitaría espacio para un dato que solo usan los artículos con varias fuentes |
 
 ### Decisión abierta (interna de L3, no afecta contratos de frontera)
 
@@ -282,7 +286,8 @@ sequenceDiagram
 | :--- | :--- | :--- |
 | `Pedido.cs`, `DetallePedido.cs`, `EstadoPedidoEnum.cs`, `TransicionPedidoInvalidaException.cs` | Lucas | Pablo no los modifica |
 | `IPedidoService.cs`, `PedidoService.cs`, `DTOs/Pedidos/`, `Validators/Pedidos/`, `PedidoConfiguration.cs`, `DetallePedidoConfiguration.cs`, query service de pedidos | Lucas | Pablo consume la sección 5.2 |
-| `PedidosView.xaml`, `ViewModels/Pedidos/`, diálogos de pedidos | Lucas | — |
+| `PedidosView.xaml`, `ViewModels/Pedidos/`, diálogos de pedidos (modal de pedido, modal "Fuentes del artículo") | Lucas | — |
+| `ArticulosView.xaml`, `ArticulosViewModel.cs` | Lucas | L2a-2 agrega la selección y las acciones de pedir; L4, el badge de fuentes. Pablo no los modifica |
 | `CatalogoProveedor.cs`, importador, `ImportadorCatalogosView.xaml` y sus ViewModels | Lucas | Pablo no los modifica |
 | `Compra.cs`, `DetalleCompra.cs`, `CompraService.cs`, `ICompraService.cs`, `DTOs/Compras/`, `Validators/Compras/`, `CompraConfiguration.cs` | Pablo | Lucas no los modifica |
 | `ComprasView.xaml`, `ViewModels/Compras/`, diálogo de selección de pedido | Pablo | — |
@@ -312,7 +317,7 @@ sequenceDiagram
 | Id | Riesgo | Mitigación |
 | :--- | :--- | :--- |
 | R-1 | Conflicto de migraciones entre L1, P1 y el Track 6.6 | Sección 7, regla 2 |
-| R-2 | `ImportadorCatalogosView` lo tocan L2, L4 y la Fase 6 (UI) del Track 6.6 | L2 agrega solo un comando y un botón. L4 se hace después de que 6.6 cierre su UI |
+| R-2 | `ImportadorCatalogosView` lo tocan L2a-2, L4 y la Fase 6 (UI) del Track 6.6 | La UI del Track 6.6 ya está en `main`. L2a-2 agrega solo los comandos y botones de pedir; L4, solo el aviso que abre el modal de fuentes |
 | R-3 | Fuente principal con otra unidad de venta (A-3) | Riesgo aceptado: ya existe con el vínculo 1:1 actual. El comparador muestra los datos para que el usuario lo detecte |
 | R-4 | Un pedido emitido nunca se recibe y queda abierto | `PedidosView` muestra la antigüedad y permite cancelarlo con motivo |
 | R-5 | Una factura cubre dos pedidos | Riesgo aceptado (A-11): se cierra uno con la compra y el otro se cancela con un motivo que lo indique |

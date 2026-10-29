@@ -72,6 +72,20 @@ public class InyeccionDependenciasTests
     }
 
     [Fact]
+    public void RegistrarServicios_PantallaDePedidos_SeResuelveEnElScopeDeUnaPantalla()
+    {
+        // Arrange
+        using var provider = ConstruirProveedor();
+        using var scopePantalla = provider.CreateScope();
+
+        // Act
+        var viewModel = scopePantalla.ServiceProvider.GetRequiredService<Retail.App.ViewModels.Pedidos.PedidosViewModel>();
+
+        // Assert: servicio de pedidos, de proveedores, de diálogos y reloj (Track 4.3, L2a-1)
+        viewModel.Should().NotBeNull();
+    }
+
+    [Fact]
     public void RegistrarServicios_ResolverDbContextDesdeLaRaiz_LanzaExcepcion()
     {
         // Arrange

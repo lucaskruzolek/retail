@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows.Data;
 using Retail.Application.DTOs.Clasificacion;
+using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Reportes;
 using Retail.Domain.Enums;
 
@@ -67,6 +68,12 @@ public class EnumATextoConverter : IValueConverter
             MotivoSugerenciaEnum.Termino => "Término del diccionario",
             MotivoSugerenciaEnum.MarcaEnLaDescripcion => "Marca en la descripción",
             MotivoSugerenciaEnum.ParDelDiccionario => "Par del diccionario",
+            EstadoPedidoEnum.Borrador => "Borrador",
+            EstadoPedidoEnum.Emitido => "Emitido",
+            EstadoPedidoEnum.Recibido => "Recibido",
+            EstadoPedidoEnum.Cancelado => "Cancelado",
+            MotivoOmisionPedidoEnum.ItemInexistente => "ya no existe en el catálogo",
+            MotivoOmisionPedidoEnum.SinIncorporar => "no está incorporado a la tienda",
             _ => valor.ToString()
         };
     }

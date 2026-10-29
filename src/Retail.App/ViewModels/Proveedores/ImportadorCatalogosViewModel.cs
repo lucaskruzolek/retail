@@ -26,7 +26,14 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
     // Se resuelve por DI (con los servicios de clasificación de esta pantalla) y se reinicia en cada apertura del modal.
     private readonly IncorporarArticulosModalViewModel _incorporarModalViewModel;
+    private readonly TimeProvider _reloj;
     private readonly ILogger<ImportadorCatalogosViewModel> _logger;
+
+    /// <summary>
+    /// Antigüedad a partir de la cual la lista del proveedor se marca como desactualizada: una lista vieja y barata
+    /// es la trampa que motivó A-2 del Track 4.3.
+    /// </summary>
+    public const int DiasListaDesactualizada = 30;
 
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
 
@@ -45,6 +52,27 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     private ProveedorDto? _proveedorActivo;
 
     public bool TieneProveedorActivo => ProveedorActivo != null;
+
+    /// <summary>Fecha (hora local) de la última planilla importada del proveedor activo; nula si no tiene catálogo.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoUltimaPlanilla))]
+    [NotifyPropertyChangedFor(nameof(ListaDesactualizada))]
+    private DateTime? _fechaUltimaPlanilla;
+
+    /// <summary>Días transcurridos desde la última planilla, en días calendario locales.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoUltimaPlanilla))]
+    [NotifyPropertyChangedFor(nameof(ListaDesactualizada))]
+    private int? _diasDesdeUltimaPlanilla;
+
+    public string TextoUltimaPlanilla => FechaUltimaPlanilla is { } fecha && DiasDesdeUltimaPlanilla is { } dias
+        ? $"Última planilla: {fecha:dd/MM/yyyy} ({TextoAntiguedad(dias)})"
+        : "Todavía no se importó ninguna planilla de este proveedor";
+
+    public bool ListaDesactualizada => DiasDesdeUltimaPlanilla > DiasListaDesactualizada;
+
+    public string AvisoListaDesactualizada { get; } =
+        $"La lista tiene más de {DiasListaDesactualizada} días: sus costos pueden no estar vigentes. Importe una planilla nueva antes de pedir.";
 
     // ------------------------------------------------------------------ //
     // Estado del importador y progreso                                   //
@@ -127,9 +155,11 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         IInventarioService inventarioService,
         INavigationService navigationService,
         IncorporarArticulosModalViewModel incorporarModalViewModel,
+        TimeProvider reloj,
         ILogger<ImportadorCatalogosViewModel> logger)
     {
         _incorporarModalViewModel = incorporarModalViewModel ?? throw new ArgumentNullException(nameof(incorporarModalViewModel));
+        _reloj = reloj ?? throw new ArgumentNullException(nameof(reloj));
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
@@ -204,6 +234,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         UltimoResultado = null;
         TieneItemsSeleccionados = false;
         SeleccionarTodos = false;
+        MostrarUltimaPlanilla(null);
 
         if (value != null)
         {
@@ -309,6 +340,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
         TotalItemsCatalogo = resultado.TotalRegistros;
         TotalPaginas = Math.Max(1, resultado.TotalPaginas);
+        MostrarUltimaPlanilla(resultado.FechaUltimaPlanilla);
 
         _isUpdatingSeleccionarTodos = true;
         try
@@ -475,6 +507,34 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         {
             _isUpdatingSeleccionarTodos = false;
         }
+    }
+
+    /// <summary>
+    /// Convierte la fecha UTC de la última planilla a la hora local y calcula su antigüedad en días calendario: una
+    /// planilla importada a las 23 h de ayer es "de ayer", aunque en UTC ya sea hoy.
+    /// </summary>
+    private void MostrarUltimaPlanilla(DateTime? fechaUtc)
+    {
+        if (fechaUtc is not { } utc)
+        {
+            DiasDesdeUltimaPlanilla = null;
+            FechaUltimaPlanilla = null;
+            return;
+        }
+
+        var local = TimeZoneInfo.ConvertTimeFromUtc(utc, _reloj.LocalTimeZone);
+        DiasDesdeUltimaPlanilla = Math.Max(0, (_reloj.GetLocalNow().Date - local.Date).Days);
+        FechaUltimaPlanilla = local;
+    }
+
+    private static string TextoAntiguedad(int dias)
+    {
+        return dias switch
+        {
+            0 => "hoy",
+            1 => "hace 1 día",
+            _ => $"hace {dias} días"
+        };
     }
 
     private void LimpiarItemsCatalogo()

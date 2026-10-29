@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Retail.App.Services;
+using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Proveedores;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
@@ -17,6 +18,9 @@ public class ImportadorCatalogosViewModelTests : IDisposable
     private readonly IInventarioService _inventarioService;
     private readonly INavigationService _navigationService;
     private static readonly TimeSpan LimiteEspera = TimeSpan.FromSeconds(5);
+
+    // 2026-10-28 12:00 UTC = 09:00 en Argentina.
+    private readonly RelojDePrueba _reloj = new(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
 
     private readonly ImportadorCatalogosViewModel _sut;
 
@@ -44,6 +48,7 @@ public class ImportadorCatalogosViewModelTests : IDisposable
                 Substitute.For<IRubroService>(),
                 Substitute.For<ICurrentUserSession>(),
                 NullLogger<IncorporarArticulosModalViewModel>.Instance),
+            _reloj,
             NullLogger<ImportadorCatalogosViewModel>.Instance);
     }
 
@@ -323,5 +328,45 @@ public class ImportadorCatalogosViewModelTests : IDisposable
             PaginaActual = 1,
             TamanoPagina = 50
         };
+    }
+
+    private async Task InicializarConUltimaPlanillaAsync(DateTime? fechaUtc)
+    {
+        _proveedorService.ListarItemsCatalogoAsync(Arg.Any<ConsultaCatalogoProveedorDto>(), Arg.Any<CancellationToken>())
+            .Returns(new CatalogoPaginadoDto { FechaUltimaPlanilla = fechaUtc });
+
+        await _sut.InicializarAsync(new ProveedorDto { IdProveedor = 3, RazonSocial = "Distribuidora Papelera", Cuit = "30-33333333-3" });
+    }
+
+    [Theory]
+    [InlineData(11, "Última planilla: 28/10/2026 (hoy)")]
+    [InlineData(2, "Última planilla: 27/10/2026 (hace 1 día)")] // 02:00 UTC son las 23:00 del día anterior en Argentina
+    public async Task InicializarAsync_PlanillaReciente_MuestraFechaLocalYAntiguedadSinAviso(int horaUtc, string esperado)
+    {
+        await InicializarConUltimaPlanillaAsync(new DateTime(2026, 10, 28, horaUtc, 0, 0, DateTimeKind.Utc));
+
+        _sut.TextoUltimaPlanilla.Should().Be(esperado);
+        _sut.ListaDesactualizada.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(28, false)] // 30 días: todavía en el límite
+    [InlineData(27, true)]  // 31 días: desactualizada
+    public async Task InicializarAsync_PlanillaVieja_AvisaSoloSiSuperaElUmbral(int diaSeptiembre, bool desactualizada)
+    {
+        await InicializarConUltimaPlanillaAsync(new DateTime(2026, 9, diaSeptiembre, 15, 0, 0, DateTimeKind.Utc));
+
+        _sut.ListaDesactualizada.Should().Be(desactualizada);
+        _sut.TextoUltimaPlanilla.Should().EndWith(desactualizada ? "(hace 31 días)" : "(hace 30 días)");
+    }
+
+    [Fact]
+    public async Task InicializarAsync_ProveedorSinCatalogo_InformaQueNoHayPlanillas()
+    {
+        await InicializarConUltimaPlanillaAsync(null);
+
+        _sut.FechaUltimaPlanilla.Should().BeNull();
+        _sut.TextoUltimaPlanilla.Should().Be("Todavía no se importó ninguna planilla de este proveedor");
+        _sut.ListaDesactualizada.Should().BeFalse();
     }
 }

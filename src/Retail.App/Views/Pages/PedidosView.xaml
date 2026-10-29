@@ -1,0 +1,408 @@
+<UserControl x:Class="Retail.App.Views.Pages.PedidosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:converters="clr-namespace:Retail.App.Converters"
+             mc:Ignorable="d"
+             Focusable="True"
+             Background="{DynamicResource SurfaceBackgroundBrush}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
+
+        <!-- Badge semáforo del estado del pedido (IU-12): borrador neutral, emitido pendiente de recepción,
+             recibido éxito y cancelado peligro. Se usa en la grilla y en la cabecera del detalle. -->
+        <DataTemplate x:Key="PlantillaEstadoPedido">
+            <Grid VerticalAlignment="Center" HorizontalAlignment="Left">
+                <Border x:Name="BadgeBorrador" Style="{StaticResource BadgeNeutralStyle}">
+                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </Border>
+                <Border x:Name="BadgeEmitido" Style="{StaticResource BadgeWarningStyle}" Visibility="Collapsed">
+                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
+                </Border>
+                <Border x:Name="BadgeRecibido" Style="{StaticResource BadgeSuccessStyle}" Visibility="Collapsed">
+                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                </Border>
+                <Border x:Name="BadgeCancelado" Style="{StaticResource BadgeDangerStyle}" Visibility="Collapsed">
+                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" />
+                </Border>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding}" Value="Emitido">
+                    <Setter TargetName="BadgeBorrador" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="BadgeEmitido" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding}" Value="Recibido">
+                    <Setter TargetName="BadgeBorrador" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="BadgeRecibido" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding}" Value="Cancelado">
+                    <Setter TargetName="BadgeBorrador" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="BadgeCancelado" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <UserControl.InputBindings>
+        <KeyBinding Key="F5" Command="{Binding CargarPedidosCommand}" />
+    </UserControl.InputBindings>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================= -->
+        <!-- 1. ENCABEZADO DEL MÓDULO                                      -->
+        <!-- ============================================================= -->
+        <Border Grid.Row="0"
+                Style="{StaticResource CardBorderStyle}"
+                Padding="20,16"
+                Margin="0,0,0,16">
+            <DockPanel LastChildFill="False">
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Pedidos a Proveedores"
+                               Style="{StaticResource TextBlockHeader1}" />
+                    <TextBlock Text="Borradores, pedidos emitidos pendientes de recepción e historial (RF-29)"
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                    <Border Style="{StaticResource BadgeSuccessStyle}"
+                            Margin="0,0,12,0"
+                            Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeEstado}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                    </Border>
+                    <Border Style="{StaticResource BadgeDangerStyle}"
+                            Margin="0,0,12,0"
+                            Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeError}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap" MaxWidth="420" />
+                    </Border>
+
+                    <!-- Actualizar (F5) -->
+                    <Button Command="{Binding CargarPedidosCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            ToolTip="Volver a leer los pedidos (F5)">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Actualizar" VerticalAlignment="Center" />
+                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                <TextBlock Text="F5" Style="{StaticResource TextBlockKeycap}" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" MinWidth="520" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="2*" MinWidth="440" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ========================================================= -->
+            <!-- 2. FILTROS + GRILLA + PAGINACIÓN                          -->
+            <!-- ========================================================= -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource SurfaceCardBrush}"
+                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" LastChildFill="True" Margin="16,14,16,12">
+                        <TextBlock DockPanel.Dock="Left" Text="Estado" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox DockPanel.Dock="Left"
+                                  Width="150"
+                                  Margin="0,0,16,0"
+                                  ItemsSource="{Binding OpcionesEstado}"
+                                  SelectedItem="{Binding EstadoFiltro, Mode=TwoWay}"
+                                  DisplayMemberPath="Texto" />
+
+                        <TextBlock DockPanel.Dock="Left" Text="Proveedor" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox DockPanel.Dock="Left"
+                                  Width="220"
+                                  ItemsSource="{Binding Proveedores}"
+                                  SelectedItem="{Binding ProveedorFiltro, Mode=TwoWay}"
+                                  DisplayMemberPath="Nombre" />
+
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
+                            <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
+                            <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </DockPanel>
+
+                    <DataGrid Grid.Row="1"
+                              ItemsSource="{Binding Pedidos}"
+                              SelectedItem="{Binding PedidoSeleccionado, Mode=TwoWay}"
+                              Style="{StaticResource DataGridRetailStyle}"
+                              AutoGenerateColumns="False"
+                              SelectionMode="Single"
+                              BorderThickness="1"
+                              Margin="16,0,16,8">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="N.º"
+                                                Binding="{Binding IdPedido, StringFormat=#{0}}"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}"
+                                                Width="64" />
+                            <DataGridTextColumn Header="Proveedor"
+                                                Binding="{Binding RazonSocialProveedor}"
+                                                ElementStyle="{StaticResource TextBlockTextCell}"
+                                                Width="*"
+                                                MinWidth="160" />
+                            <DataGridTextColumn Header="Fecha"
+                                                Binding="{Binding Fecha, StringFormat={}{0:dd/MM/yyyy}}"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}"
+                                                Width="96" />
+                            <DataGridTextColumn Header="Antigüedad"
+                                                Binding="{Binding Antiguedad}"
+                                                ElementStyle="{StaticResource TextBlockTextCell}"
+                                                Width="96" />
+                            <DataGridTextColumn Header="Renglones"
+                                                Binding="{Binding CantidadRenglones}"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}"
+                                                Width="86" />
+                            <DataGridTextColumn Header="Total est."
+                                                Binding="{Binding TotalEstimado, StringFormat=C2}"
+                                                ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                Width="116" />
+                            <DataGridTemplateColumn Header="Estado" Width="110" CanUserSort="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ContentControl Content="{Binding Estado}"
+                                                        ContentTemplate="{StaticResource PlantillaEstadoPedido}"
+                                                        Margin="8,0"
+                                                        Focusable="False" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <components:PaginationBar Grid.Row="2" />
+                </Grid>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- 3. DETALLE DEL PEDIDO SELECCIONADO                        -->
+            <!-- ========================================================= -->
+            <Border Grid.Column="2"
+                    Background="{DynamicResource SurfaceCardBrush}"
+                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                <Grid>
+                    <!-- Estado vacío -->
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                Visibility="{Binding TieneDetalle, Converter={StaticResource InverseBoolToVisConverter}}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="40" Height="40" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Text="Seleccione un pedido para ver su detalle"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,12,0,0" />
+                    </StackPanel>
+
+                    <Grid Visibility="{Binding TieneDetalle, Converter={StaticResource BoolToVisConverter}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- 3.1 Cabecera -->
+                        <StackPanel Grid.Row="0" Margin="20,16,20,12">
+                            <DockPanel LastChildFill="False">
+                                <TextBlock DockPanel.Dock="Left"
+                                           Text="{Binding Detalle.IdPedido, StringFormat=Pedido #{0}}"
+                                           Style="{StaticResource TextBlockHeader2}"
+                                           VerticalAlignment="Center" />
+                                <ContentControl DockPanel.Dock="Right"
+                                                Content="{Binding Detalle.Estado}"
+                                                ContentTemplate="{StaticResource PlantillaEstadoPedido}"
+                                                Focusable="False" />
+                            </DockPanel>
+                            <TextBlock Text="{Binding Detalle.RazonSocialProveedor}"
+                                       Style="{StaticResource TextBlockBody}"
+                                       FontWeight="SemiBold"
+                                       Margin="0,6,0,0" />
+                            <TextBlock Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,4,0,0">
+                                <Run Text="Creado:" />
+                                <Run Text="{Binding FechaCreacionLocal, StringFormat={}{0:dd/MM/yyyy HH:mm}, Mode=OneWay}" />
+                                <Run Text="  ·  Emitido:" />
+                                <Run Text="{Binding FechaEmisionLocal, StringFormat={}{0:dd/MM/yyyy HH:mm}, TargetNullValue=—, Mode=OneWay}" />
+                                <Run Text="  ·  Cerrado:" />
+                                <Run Text="{Binding FechaCierreLocal, StringFormat={}{0:dd/MM/yyyy HH:mm}, TargetNullValue=—, Mode=OneWay}" />
+                            </TextBlock>
+                            <Border Style="{StaticResource BadgeDangerStyle}"
+                                    HorizontalAlignment="Left"
+                                    Margin="0,8,0,0"
+                                    Visibility="{Binding TieneMotivoCancelacion, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock FontSize="12" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap">
+                                    <Run Text="Motivo de cancelación:" FontWeight="SemiBold" />
+                                    <Run Text="{Binding Detalle.MotivoCancelacion, Mode=OneWay}" />
+                                </TextBlock>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- 3.2 Renglones -->
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding Renglones}"
+                                  Style="{StaticResource DataGridRetailStyle}"
+                                  AutoGenerateColumns="False"
+                                  BorderThickness="1"
+                                  Margin="16,0,16,8">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Código"
+                                                    Binding="{Binding CodigoProveedor}"
+                                                    ElementStyle="{StaticResource TextBlockMonospaceCell}"
+                                                    Width="90" />
+                                <DataGridTemplateColumn Header="Descripción" Width="*" MinWidth="160">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Margin="12,4">
+                                                <TextBlock Text="{Binding Descripcion}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource TextPrimaryBrush}" ToolTip="{Binding Descripcion}" />
+                                                <Border Style="{StaticResource BadgeWarningStyle}"
+                                                        HorizontalAlignment="Left"
+                                                        Margin="0,4,0,0"
+                                                        Visibility="{Binding ArticuloDadoDeBaja, Converter={StaticResource BoolToVisConverter}}">
+                                                    <TextBlock Text="Artículo dado de baja" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
+                                                </Border>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Cant." Width="118">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid VerticalAlignment="Center" Margin="8,0">
+                                                <!-- Solo lectura fuera de un borrador -->
+                                                <TextBlock Text="{Binding Cantidad}"
+                                                           FontFamily="{StaticResource FontFamilyNumeric}"
+                                                           Typography.NumeralAlignment="Tabular"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center"
+                                                           Visibility="{Binding EsEditable, Converter={StaticResource InverseBoolToVisConverter}}" />
+                                                <!-- En un borrador: se edita y se guarda con Aplicar o Enter (G3) -->
+                                                <StackPanel Orientation="Horizontal"
+                                                            Visibility="{Binding EsEditable, Converter={StaticResource BoolToVisConverter}}">
+                                                    <TextBox Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
+                                                             Width="52"
+                                                             Height="28"
+                                                             MinHeight="0"
+                                                             Padding="2,0"
+                                                             HorizontalContentAlignment="Center"
+                                                             VerticalContentAlignment="Center"
+                                                             FontFamily="{StaticResource FontFamilyNumeric}"
+                                                             Typography.NumeralAlignment="Tabular"
+                                                             FontWeight="SemiBold"
+                                                             ToolTip="Escriba la cantidad y presione Enter para guardarla">
+                                                        <TextBox.InputBindings>
+                                                            <KeyBinding Key="Enter"
+                                                                        Command="{Binding DataContext.AplicarCantidadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                        </TextBox.InputBindings>
+                                                    </TextBox>
+                                                    <Button Style="{StaticResource GhostPrimaryButtonStyle}"
+                                                            Margin="4,0,0,0"
+                                                            Command="{Binding DataContext.AplicarCantidadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}"
+                                                            ToolTip="Guardar la nueva cantidad"
+                                                            Visibility="{Binding TieneCambios, Converter={StaticResource BoolToVisConverter}}">
+                                                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Subtotal"
+                                                    Binding="{Binding Subtotal, StringFormat=C2}"
+                                                    ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                    Width="104" />
+                                <DataGridTemplateColumn Width="44">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource IconDangerButtonStyle}"
+                                                    Command="{Binding DataContext.QuitarRenglonCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip="Quitar el renglón del pedido"
+                                                    Visibility="{Binding EsEditable, Converter={StaticResource BoolToVisConverter}}">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- 3.3 Total y acciones según el estado -->
+                        <Border Grid.Row="2"
+                                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="20,12,20,16">
+                            <StackPanel>
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock DockPanel.Dock="Left" Text="Total estimado" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Text="{Binding Detalle.TotalEstimado, StringFormat=C2}"
+                                               Style="{StaticResource TextBlockCurrencyLarge}" />
+                                </DockPanel>
+
+                                <!-- Emitir: solo en borrador -->
+                                <Button Command="{Binding EmitirCommand}"
+                                        Style="{StaticResource PrimaryActionButtonStyle}"
+                                        HorizontalAlignment="Stretch"
+                                        Margin="0,12,0,0"
+                                        Visibility="{Binding EsBorrador, Converter={StaticResource BoolToVisConverter}}"
+                                        ToolTip="Pasar el pedido a Emitido: ya no se podrán modificar sus renglones">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularSend" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Emitir pedido" FontWeight="Bold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Cancelar con motivo: en borrador o emitido (G2) -->
+                                <DockPanel Margin="0,12,0,0"
+                                           LastChildFill="True"
+                                           Visibility="{Binding PuedeCancelarse, Converter={StaticResource BoolToVisConverter}}">
+                                    <Button DockPanel.Dock="Right"
+                                            Command="{Binding CancelarCommand}"
+                                            Style="{StaticResource KeycapButtonStyle}"
+                                            Margin="8,0,0,0"
+                                            ToolTip="Cancelar el pedido con el motivo indicado">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularXCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="{DynamicResource DangerBrush}" />
+                                            <TextBlock Text="Cancelar pedido" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                    <ui:TextBox PlaceholderText="Motivo de la cancelación (obligatorio)"
+                                                Text="{Binding MotivoParaCancelar, UpdateSourceTrigger=PropertyChanged}"
+                                                MaxLength="250"
+                                                VerticalAlignment="Center" />
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
