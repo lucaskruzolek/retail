@@ -343,7 +343,8 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
 
         var articulo = CrearArticulo("Cuaderno Rivadavia");
         articulo.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
-        articulo.IdCatalogoProveedor = catalogo.Id;
+        catalogo.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(catalogo);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();

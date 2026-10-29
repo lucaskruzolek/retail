@@ -96,19 +96,30 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         };
     }
 
-    private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int? idCatalogo = null)
+    /// <summary>
+    /// Artículo de la tienda; con <paramref name="fuente"/>, la tiene como fuente y principal (A-16). La fuente debe
+    /// estar guardada en el mismo contexto.
+    /// </summary>
+    private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, CatalogoProveedor? fuente = null)
     {
-        return new Articulo
+        var articulo = new Articulo
         {
             Descripcion = descripcion,
             CodigoBarras = codigoBarras,
-            IdCatalogoProveedor = idCatalogo,
             CostoReposicion = 100m,
             PorcentajeGanancia = 50,
             PrecioVenta = 150m,
             StockActual = 7,
             StockMinimo = 1
         };
+
+        if (fuente != null)
+        {
+            fuente.AsignarArticulo(articulo);
+            articulo.MarcarFuentePrincipal(fuente);
+        }
+
+        return articulo;
     }
 
     [Fact]
@@ -120,7 +131,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var libre = CrearItem(proveedor.Id, "L1", "Item libre");
         _context.CatalogosProveedores.AddRange(vinculado, libre);
         await _context.SaveChangesAsync();
-        var articulo = CrearArticulo("Mi articulo", idCatalogo: vinculado.Id);
+        var articulo = CrearArticulo("Mi articulo", fuente: vinculado);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
@@ -155,7 +166,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var libre = CrearItem(proveedor.Id, "L1", "Item libre");
         _context.CatalogosProveedores.AddRange(vinculado, libre);
         await _context.SaveChangesAsync();
-        _context.Articulos.Add(CrearArticulo("Mi articulo", idCatalogo: vinculado.Id));
+        _context.Articulos.Add(CrearArticulo("Mi articulo", fuente: vinculado));
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
 
@@ -178,7 +189,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var item = CrearItem(proveedor.Id, "V1", "Item");
         _context.CatalogosProveedores.Add(item);
         await _context.SaveChangesAsync();
-        var articulo = CrearArticulo("Dado de baja", idCatalogo: item.Id);
+        var articulo = CrearArticulo("Dado de baja", fuente: item);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         articulo.MarkAsDeleted();
@@ -192,6 +203,33 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var dto = res.Items.Should().ContainSingle().Subject;
         dto.EstaVinculado.Should().BeFalse();
         dto.IdArticuloVinculado.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConFuenteAdicional_LaMuestraVinculadaAlArticulo()
+    {
+        // Arrange: el artículo tiene una fuente principal y una adicional (Track 4.3, J6)
+        var proveedor = await CrearProveedorAsync();
+        var principal = CrearItem(proveedor.Id, "P1", "Item principal");
+        var adicional = CrearItem(proveedor.Id, "A1", "Item adicional");
+        _context.CatalogosProveedores.AddRange(principal, adicional);
+        await _context.SaveChangesAsync();
+        var articulo = CrearArticulo("Mi articulo", fuente: principal);
+        adicional.AsignarArticulo(articulo);
+        _context.Articulos.Add(articulo);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var yaEnTienda = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            EstadoVinculacion = EstadoVinculacionCatalogoEnum.YaEnTienda
+        });
+
+        // Assert
+        yaEnTienda.Items.Should().HaveCount(2)
+            .And.OnlyContain(i => i.EstaVinculado && i.IdArticuloVinculado == articulo.Id);
     }
 
     [Fact]
@@ -226,7 +264,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var candidato = CrearItem(proveedor.Id, "C1", "Candidato", "555");
         _context.CatalogosProveedores.AddRange(otro, candidato);
         await _context.SaveChangesAsync();
-        _context.Articulos.Add(CrearArticulo("Vinculado a otro", "555", otro.Id));
+        _context.Articulos.Add(CrearArticulo("Vinculado a otro", "555", otro));
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
 

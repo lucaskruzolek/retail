@@ -41,9 +41,10 @@ public class Articulo : BaseEntity, IAggregateRoot
 
     /// <summary>
     /// Fuente principal (Track 4.3, A-16): el único ítem de catálogo cuya planilla fija el costo y el precio (A-2,
-    /// RF-07). Siempre es una de las fuentes del artículo; ver <see cref="MarcarFuentePrincipal"/>.
+    /// RF-07). Siempre es una de las fuentes del artículo: solo cambia con <see cref="MarcarFuentePrincipal"/> y
+    /// <see cref="QuitarFuentePrincipal"/>.
     /// </summary>
-    public int? IdCatalogoProveedor { get; set; }
+    public int? IdCatalogoProveedor { get; private set; }
 
     public CatalogoProveedor? CatalogoProveedor { get; set; }
 

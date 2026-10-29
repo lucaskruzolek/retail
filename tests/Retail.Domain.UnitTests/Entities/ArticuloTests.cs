@@ -220,11 +220,13 @@ public class ArticuloTests
         var articulo = new Articulo
         {
             Descripcion = "Resma A4",
-            IdCatalogoProveedor = 15,
             CostoReposicion = 5000m,
             PorcentajeGanancia = 30m,
             PrecioVenta = 6500m
         };
+        var fuente = CrearFuente(id: 15, costo: 5000m);
+        fuente.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(fuente);
 
         // Act
         articulo.QuitarFuentePrincipal();
@@ -533,7 +535,10 @@ public class ArticuloTests
     public void DefinirComoPresentacionDe_ArticuloVinculadoACatalogo_LanzaDomainException()
     {
         // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad", IdCatalogoProveedor = 15 };
+        var derivado = new Articulo { Descripcion = "Unidad" };
+        var fuente = CrearFuente(id: 15, costo: 100m);
+        fuente.AsignarArticulo(derivado);
+        derivado.MarcarFuentePrincipal(fuente);
 
         // Act
         var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);

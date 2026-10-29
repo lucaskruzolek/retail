@@ -597,8 +597,8 @@ public class ProveedorServiceTests
     {
         // Arrange
         var existente = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "ABC-1", DescripcionProveedor = "Viejo", CostoReposicion = 10m };
-        var articuloA = new Articulo { Id = 1, Descripcion = "A", IdCatalogoProveedor = 7, CostoReposicion = 10m, PorcentajeGanancia = 50m, PrecioVenta = 15m };
-        var articuloB = new Articulo { Id = 2, Descripcion = "B", IdCatalogoProveedor = 7, CostoReposicion = 10m, PorcentajeGanancia = 100m, PrecioVenta = 20m };
+        var articuloA = ConPrincipal(new Articulo { Id = 1, Descripcion = "A", CostoReposicion = 10m, PorcentajeGanancia = 50m, PrecioVenta = 15m }, 7);
+        var articuloB = ConPrincipal(new Articulo { Id = 2, Descripcion = "B", CostoReposicion = 10m, PorcentajeGanancia = 100m, PrecioVenta = 20m }, 7);
         PrepararImportacion(
             new List<ItemCatalogoImportadoDto> { Fila("ABC-1", "Nuevo", 100m) },
             new Dictionary<string, CatalogoProveedor> { ["ABC-1"] = existente },
@@ -674,7 +674,7 @@ public class ProveedorServiceTests
     {
         // Arrange: el artículo ya tiene el costo que trae la planilla
         var existente = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "ABC-1", DescripcionProveedor = "Viejo", CostoReposicion = 100m };
-        var articulo = new Articulo { Id = 1, Descripcion = "A", IdCatalogoProveedor = 7, CostoReposicion = 100m, PorcentajeGanancia = 50m, PrecioVenta = 150m };
+        var articulo = ConPrincipal(new Articulo { Id = 1, Descripcion = "A", CostoReposicion = 100m, PorcentajeGanancia = 50m, PrecioVenta = 150m }, 7);
         PrepararImportacion(
             new List<ItemCatalogoImportadoDto> { Fila("ABC-1", "Nuevo", 100m) },
             new Dictionary<string, CatalogoProveedor> { ["ABC-1"] = existente },
@@ -694,8 +694,8 @@ public class ProveedorServiceTests
     {
         // Arrange: el artículo B fue editado a mano y ya tiene el costo nuevo; el A no
         var existente = new CatalogoProveedor { Id = 7, IdProveedor = 1, CodigoProveedor = "ABC-1", DescripcionProveedor = "Viejo", CostoReposicion = 10m };
-        var articuloA = new Articulo { Id = 1, Descripcion = "A", IdCatalogoProveedor = 7, CostoReposicion = 10m, PorcentajeGanancia = 50m, PrecioVenta = 15m };
-        var articuloB = new Articulo { Id = 2, Descripcion = "B", IdCatalogoProveedor = 7, CostoReposicion = 100m, PorcentajeGanancia = 50m, PrecioVenta = 150m };
+        var articuloA = ConPrincipal(new Articulo { Id = 1, Descripcion = "A", CostoReposicion = 10m, PorcentajeGanancia = 50m, PrecioVenta = 15m }, 7);
+        var articuloB = ConPrincipal(new Articulo { Id = 2, Descripcion = "B", CostoReposicion = 100m, PorcentajeGanancia = 50m, PrecioVenta = 150m }, 7);
         PrepararImportacion(
             new List<ItemCatalogoImportadoDto> { Fila("ABC-1", "Nuevo", 100m) },
             new Dictionary<string, CatalogoProveedor> { ["ABC-1"] = existente },
@@ -861,15 +861,37 @@ public class ProveedorServiceTests
         {
             Id = 1,
             Descripcion = "Sobre manila (pack)",
-            IdCatalogoProveedor = 7,
             CatalogoProveedor = catalogo,
             CostoReposicion = costo,
             PorcentajeGanancia = 40m
         };
+        catalogo.AsignarArticulo(origen);
+        origen.MarcarFuentePrincipal(catalogo);
         var derivado = new Articulo { Id = 2, Descripcion = "Sobre manila (unidad)", PorcentajeGanancia = 50m };
         derivado.DefinirComoPresentacionDe(origen, unidadesPorOrigen);
 
         return (catalogo, origen, derivado);
+    }
+
+    /// <summary>
+    /// Hace del ítem <paramref name="idCatalogo"/> la fuente principal del artículo con las operaciones del dominio y
+    /// el mismo costo que ya tiene el artículo. Cada llamada usa su propia instancia del ítem, así un test puede
+    /// armar dos artículos con la misma principal: un estado que la base y el dominio impiden, para verificar que
+    /// la importación no falle si igual lo encuentra.
+    /// </summary>
+    private static Articulo ConPrincipal(Articulo articulo, int idCatalogo)
+    {
+        var fuente = new CatalogoProveedor
+        {
+            Id = idCatalogo,
+            IdProveedor = 1,
+            CodigoProveedor = $"COD-{idCatalogo}",
+            DescripcionProveedor = "Ítem del proveedor",
+            CostoReposicion = articulo.CostoReposicion
+        };
+        fuente.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(fuente);
+        return articulo;
     }
 
     /// <summary>

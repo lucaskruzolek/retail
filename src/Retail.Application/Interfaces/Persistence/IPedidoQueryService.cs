@@ -10,8 +10,8 @@ public interface IPedidoQueryService
 {
     /// <summary>
     /// Artículo vigente vinculado a cada ítem de catálogo, indexado por el id del ítem. Los ítems sin vincular no
-    /// figuran. Hoy es el artículo con <c>Articulo.IdCatalogoProveedor</c> igual al ítem; es el único punto que
-    /// cambia en L3 (multifuente, E4).
+    /// figuran. Es el artículo del que el ítem es fuente, principal o adicional (<c>CatalogoProveedor.IdArticulo</c>,
+    /// Track 4.3, L3 y J6).
     /// </summary>
     Task<IReadOnlyDictionary<int, int>> ObtenerArticulosVinculadosAsync(
         IReadOnlyCollection<int> idsCatalogoProveedor,

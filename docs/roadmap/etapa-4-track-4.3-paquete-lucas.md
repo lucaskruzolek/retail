@@ -220,20 +220,22 @@ L3 se partió en **L3a** (back-end y migración) y **L3b** (UI) el 2026-10-29: l
 **Depende de:** L1 y Track 6.6 (✅ en `main`). **Migración:** sí, con migración de datos.
 
 1. ✅ Cerrar A-16 (opción A) y actualizar el rector (2026-10-29).
-2. **Dominio** (J1): `CatalogoProveedor.IdArticulo` con sus operaciones y las de `Articulo`, más tests de dominio de cada regla.
-3. **Persistencia y migración:** FK `CATALOGOS_PROVEEDORES.id_articulo → ARTICULOS` nullable, `Restrict`, con índice. La migración con datos copia cada vínculo activo actual a `id_articulo`: todo vínculo existente pasa a ser **la fuente principal** de su artículo. Test de integración sobre datos sembrados, que cubre también que un artículo dado de baja no se migra. Antes de aplicarla a `RetailDb` local se hace un respaldo.
-4. **Servicios** (J2-J6): incorporación, vincular, desvincular, formulario de artículo y baja. La propagación del importador (RF-07) **no cambia**: ya recorre solo la fuente principal.
-5. **Pedidos:** se cambia únicamente la resolución ítem → artículo (H4/J6). Se agrega la consulta de las fuentes de un artículo (proveedor · costo · fecha, la principal marcada), que consumen L3b (combo) y L4 (modal).
-6. Actualizar el DER y el mapa.
+2. ✅ **Dominio** (J1): `CatalogoProveedor.IdArticulo` con sus operaciones y las de `Articulo`, más tests de dominio de cada regla. (`f6a2014`)
+3. ✅ **Persistencia y migración:** FK `CATALOGOS_PROVEEDORES.id_articulo → ARTICULOS` nullable, `Restrict`, con índice. La migración con datos copia cada vínculo activo actual a `id_articulo`: todo vínculo existente pasa a ser **la fuente principal** de su artículo. Test de integración sobre datos sembrados, que cubre también que un artículo dado de baja no se migra. Antes de aplicarla a `RetailDb` local se hace un respaldo. (`f6a2014`)
+4. ✅ **Servicios** (J2-J6): incorporación, vincular, desvincular, formulario de artículo y baja. La propagación del importador (RF-07) **no cambia**: ya recorre solo la fuente principal. Escrituras en `67006d8` (4a). En 4b se cerró el `set` de `Articulo.IdCatalogoProveedor`: la principal solo cambia por `MarcarFuentePrincipal` y `QuitarFuentePrincipal`, y los tests que verifican restricciones de la base la escriben con `Entry(...).Property(...)` a propósito.
+5. ✅ **Consultas (J6):** "vinculado" pasa a leer `CATALOGOS_PROVEEDORES.id_articulo` con artículo activo en `CatalogoProveedorQueryService` y en la resolución ítem → artículo de pedidos (H4). La consulta de las fuentes de un artículo (proveedor · costo · fecha, la principal marcada) **se trasladó a L3b**, donde está su primer consumidor (el combo del modal de pedido): agregarla antes dejaba una API sin uso (YAGNI).
+6. ✅ DER y mapa actualizados.
 
 ### Fase L3b — Interfaz
 
 **Depende de:** L3a. **Migración:** no.
 
+0. Consulta `AsNoTracking` de las fuentes de un artículo, proyectada a DTO (Ley 8), con su test de integración (trasladada desde L3a).
 1. `VincularArticuloModalDialog` permite vincular a un artículo que ya tiene fuentes e indicar si queda como principal (J4).
 2. Modal de pedido: desde Artículos, cada renglón se pide por defecto a la **fuente principal**. Un combo de fuente por renglón (proveedor · costo · fecha, ordenado por costo, la principal marcada) permite cambiarla, y al cambiarla el renglón pasa al grupo de su proveedor (A-18).
 3. La grilla de Artículos sigue con **una fila por artículo** (A-18). El badge "N fuentes" es de L4.
 4. Tests de ViewModel, auditoría XAML y prueba de humo STA si se crea una vista nueva.
+5. **Decisiones pendientes para el estudiante** (no las cambió L3a, porque modifican comportamiento visible): (a) la coincidencia por código de barras del importador sigue ofreciendo solo artículos **sin principal**; con fuentes múltiples, un artículo que ya tiene principal también podría recibir el ítem como fuente adicional. (b) El filtro "por distribuidor" de Artículos sigue mirando solo la **principal**; ¿debe incluir los artículos que tienen a ese distribuidor como fuente adicional?
 
 ## Fase L4 — Modal "Fuentes del artículo" (RF-28)
 
