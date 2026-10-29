@@ -123,6 +123,24 @@ Definidos en [`src/Retail.App/Styles/Colors.xaml`](file:///c:/Users/lucas/Proyec
 | :--- | :--- | :--- |
 | `ElevationShadowColor` | `#18181B` | `Color` (no pincel) para `DropShadowEffect` de superficies flotantes: desplegables y popups. Opacidad recomendada 0.18. |
 
+### 7. Sidebar (Superficie Oscura)
+| Token XAML | Valor Hex | Contraste | Uso Semántico |
+| :--- | :--- | :--- | :--- |
+| `SidebarBackgroundBrush` | `#18181B` | — | Fondo del menú lateral. |
+| `SidebarBorderBrush` / `SidebarHoverBrush` | `#27272A` | — | Borde derecho, separadores y fondo de hover. |
+| `SidebarPressedBrush` | `#3F3F46` | — | Fondo al presionar y pulgar del scroll. |
+| `SidebarTextBrush` | `#D4D4D8` | 11,99:1 | Texto e íconos de los ítems en reposo. |
+| `SidebarTextStrongBrush` | `#FAFAFA` | 16,97:1 | Texto en hover y nombre del operador. |
+| `SidebarTextMutedBrush` | `#A1A1AA` | 6,91:1 | Títulos de sección. |
+| `SidebarAccentBrush` | `#F36F8E` | 6,31:1 | Carmín claro para íconos o texto de acento. |
+| `SidebarActiveBackgroundBrush` / `SidebarActiveForegroundBrush` | `#9D0F33` / `#FFFFFF` | 8,24:1 | Píldora del ítem activo. |
+| `SidebarCardBrush` / `SidebarCardBorderBrush` | `#27272A` / `#3F3F46` | — | Ficha del operador y borde del botón fantasma. |
+
+* **El carmín de marca `#9D0F33` solo da 2,15:1 sobre el fondo oscuro:** sirve de relleno (la píldora activa) pero jamás como color de texto o ícono; para eso existe `SidebarAccentBrush`.
+* **Hover y pressed de `SidebarItemButtonStyle` viven en `Style.Triggers`**, no en el template, para que el trigger del ítem activo declarado en la vista prevalezca.
+* **Botón hamburguesa:** anclado a la izquierda, sobre el eje de los íconos de los ítems (no se desplaza al animar el ancho). El ícono indica la acción: `RegularMenu` (expandir) cuando está colapsado y `RegularDockLeftArrow` (contraer) cuando está expandido; el ToolTip dice "Expandir menú lateral" o "Contraer menú lateral" más `Ctrl+B`.
+* **Scroll con autoocultado (`SidebarScrollViewerStyle`):** la barra vertical flota sobre el contenido (no quita ancho a los ítems) y solo aparece mientras el mouse está sobre el menú.
+
 ---
 
 ## 🔤 Jerarquía Tipográfica y Estilos de Texto

@@ -21,8 +21,8 @@
 
         <!-- Estilo dinámico de ancho para el Sidebar colapsable con transición fluida Fluent -->
         <Style x:Key="CollapsibleSidebarBorderStyle" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+            <Setter Property="Background" Value="{DynamicResource SidebarBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource SidebarBorderBrush}" />
             <Setter Property="BorderThickness" Value="0,0,1,0" />
             <Setter Property="ClipToBounds" Value="True" />
             <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
@@ -92,34 +92,56 @@
                             Padding="8,8">
                         <Button Command="{Binding ToggleSidebarCommand}"
                                 Style="{StaticResource SidebarHamburgerButtonStyle}"
-                                VerticalAlignment="Center">
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Margin="6,0,0,0">
                             <Button.ToolTip>
                                 <ToolTip Style="{StaticResource SidebarToolTipStyle}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock Text="Alternar Menú Lateral" FontWeight="SemiBold" Margin="0,0,6,0" />
+                                        <TextBlock FontWeight="SemiBold" Margin="0,0,6,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="Expandir menú lateral" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                            <Setter Property="Text" Value="Contraer menú lateral" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
                                         <Border Style="{StaticResource KeycapBadgeStyle}">
                                             <TextBlock Text="Ctrl+B" Style="{StaticResource TextBlockKeycap}" />
                                         </Border>
                                     </StackPanel>
                                 </ToolTip>
                             </Button.ToolTip>
-                            <iconPacks:PackIconBoxIcons Kind="RegularMenu"
-                                                        Width="20"
+                            <iconPacks:PackIconBoxIcons Width="20"
                                                         Height="20"
-                                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" />
+                                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                                <iconPacks:PackIconBoxIcons.Style>
+                                    <Style TargetType="iconPacks:PackIconBoxIcons">
+                                        <Setter Property="Kind" Value="RegularMenu" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="Kind" Value="RegularDockLeftArrow" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </iconPacks:PackIconBoxIcons.Style>
+                            </iconPacks:PackIconBoxIcons>
                         </Button>
                     </Border>
 
                     <!-- CUERPO DEL SIDEBAR: BOTONERA DE MÓDULOS -->
                     <ScrollViewer Grid.Row="1"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled"
+                                  Style="{StaticResource SidebarScrollViewerStyle}"
                                   Padding="6,8">
                         <StackPanel>
                             <!-- SECCIÓN: OPERACIONES DE MOSTRADOR -->
                             <TextBlock Text="OPERACIONES DE MOSTRADOR"
                                        Style="{StaticResource TextBlockCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Foreground="{DynamicResource SidebarTextMutedBrush}"
                                        FontWeight="Bold"
                                        Margin="12,14,12,6"
                                        FontSize="10"
@@ -132,8 +154,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Pos">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -180,8 +202,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Articulos">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -228,8 +250,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Clientes">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -276,8 +298,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Caja">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -324,8 +346,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Presupuestos">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -367,7 +389,7 @@
 
                             <!-- Divisor de Grupo: Mostrador a Gestión & Stock (oculto para el Administrador) -->
                             <Border Height="1"
-                                    Background="{DynamicResource SurfaceBorderBrush}"
+                                    Background="{DynamicResource SidebarBorderBrush}"
                                     Margin="10,10,10,8"
                                     SnapsToDevicePixels="True"
                                     Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}" />
@@ -375,7 +397,7 @@
                             <!-- SECCIÓN: GESTIÓN & STOCK -->
                             <TextBlock Text="GESTIÓN &amp; STOCK"
                                        Style="{StaticResource TextBlockCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Foreground="{DynamicResource SidebarTextMutedBrush}"
                                        FontWeight="Bold"
                                        Margin="12,14,12,6"
                                        FontSize="10"
@@ -388,8 +410,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Compras">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -431,8 +453,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Pedidos">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -474,8 +496,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Proveedores">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -517,8 +539,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Catalogos">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -555,7 +577,7 @@
 
                             <!-- Divisor de Grupo: Gestión a Administración (solo el Gerente ve ambos grupos) -->
                             <Border Height="1"
-                                    Background="{DynamicResource SurfaceBorderBrush}"
+                                    Background="{DynamicResource SidebarBorderBrush}"
                                     Margin="10,10,10,8"
                                     SnapsToDevicePixels="True"
                                     Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}" />
@@ -563,7 +585,7 @@
                             <!-- SECCIÓN: ADMINISTRACIÓN (Gerente o Administrador, con el sidebar expandido) -->
                             <TextBlock Text="ADMINISTRACIÓN"
                                        Style="{StaticResource TextBlockCaption}"
-                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Foreground="{DynamicResource SidebarTextMutedBrush}"
                                        FontWeight="Bold"
                                        Margin="12,14,12,6"
                                        FontSize="10"
@@ -576,8 +598,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Tablero">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -619,8 +641,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Fiscal">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -667,8 +689,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Usuarios">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -715,8 +737,8 @@
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Respaldos">
-                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                                 <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
@@ -760,13 +782,13 @@
 
                     <!-- PIE DEL SIDEBAR: Operador Activo, Rol y Único Botón de Cambio de Sesión -->
                     <Border Grid.Row="2"
-                            BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                            BorderBrush="{DynamicResource SidebarBorderBrush}"
                             BorderThickness="0,1,0,0"
                             Padding="8,10">
                         <StackPanel>
                             <!-- Ficha de Operador Expandida -->
-                            <Border Background="{DynamicResource PrimaryLightBrush}"
-                                    BorderBrush="{DynamicResource PrimaryBrush}"
+                            <Border Background="{DynamicResource SidebarCardBrush}"
+                                    BorderBrush="{DynamicResource SidebarCardBorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="6"
                                     Padding="8,6"
@@ -782,7 +804,7 @@
                                                                    Kind="SolidUser"
                                                                    Width="18"
                                                                    Height="18"
-                                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                                   Foreground="{DynamicResource SidebarAccentBrush}"
                                                                    Margin="0,0,8,0"
                                                                    VerticalAlignment="Center" />
 
@@ -790,7 +812,7 @@
                                         <TextBlock Text="{Binding OperadorNombre}"
                                                    FontWeight="SemiBold"
                                                    FontSize="12"
-                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                   Foreground="{DynamicResource SidebarTextStrongBrush}"
                                                    TextTrimming="CharacterEllipsis" />
                                         <Border Background="{DynamicResource PrimaryBrush}"
                                                 CornerRadius="3"
@@ -809,7 +831,7 @@
                             
                             <!-- ÚNICO BOTÓN DE CAMBIO DE OPERADOR (RF-02) -->
                             <Button Command="{Binding CambiarUsuarioCommand}"
-                                    Style="{StaticResource KeycapButtonStyle}"
+                                    Style="{StaticResource SidebarGhostButtonStyle}"
                                     ToolTipService.Placement="Right"
                                     ToolTipService.HorizontalOffset="8"
                                     ToolTipService.VerticalOffset="4"
@@ -824,7 +846,7 @@
                                     </ToolTip>
                                 </Button.ToolTip>
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" VerticalAlignment="Center" />
                                     <TextBlock Text="Cambiar Operador"
                                                FontWeight="SemiBold"
                                                FontSize="11"
