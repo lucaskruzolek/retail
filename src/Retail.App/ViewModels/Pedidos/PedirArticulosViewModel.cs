@@ -12,11 +12,25 @@ namespace Retail.App.ViewModels.Pedidos;
 /// Modal de pedido (A-17): muestra la vista previa del lote agrupada por proveedor, con el destino de cada grupo,
 /// el stock y la cantidad ya pedida de cada renglón, y los ítems que no se pueden pedir. El usuario ajusta las
 /// cantidades o quita renglones y confirma. No llama a servicios: quien lo abre guarda el lote con lo que devuelve
-/// <see cref="ObtenerRenglones"/>.
+/// <see cref="ObtenerRespuesta"/>.
 /// </summary>
 public partial class PedirArticulosViewModel : ObservableObject
 {
-    public PedirArticulosViewModel(VistaPreviaPedidoDto vistaPrevia)
+    private bool _incorporarPrimeroSolicitado;
+
+    /// <param name="vistaPrevia">Lo que devolvió la vista previa del lote.</param>
+    /// <param name="avisosPrevios">
+    /// Lo que la pantalla de origen ya excluyó antes de consultar (por ejemplo, un artículo sin proveedor): se muestra
+    /// junto a los omitidos de la vista previa.
+    /// </param>
+    /// <param name="ofrecerIncorporar">
+    /// Si la pantalla de origen sabe incorporar los ítems sin incorporar (el importador). En el segundo paso del
+    /// recorrido se abre sin la oferta, para que el recorrido termine.
+    /// </param>
+    public PedirArticulosViewModel(
+        VistaPreviaPedidoDto vistaPrevia,
+        IReadOnlyList<string>? avisosPrevios = null,
+        bool ofrecerIncorporar = false)
     {
         ArgumentNullException.ThrowIfNull(vistaPrevia);
 
@@ -34,7 +48,12 @@ public partial class PedirArticulosViewModel : ObservableObject
             Grupos.Add(new GrupoPedidoProveedor(destino, filas));
         }
 
-        Omitidos = vistaPrevia.Omitidos.Select(DescribirOmitido).ToList();
+        Omitidos = (avisosPrevios ?? Array.Empty<string>())
+            .Concat(vistaPrevia.Omitidos.Select(DescribirOmitido))
+            .ToList();
+
+        CantidadSinIncorporar = vistaPrevia.Omitidos.Count(o => o.Motivo == MotivoOmisionPedidoEnum.SinIncorporar);
+        PuedeIncorporarPrimero = ofrecerIncorporar && CantidadSinIncorporar > 0;
     }
 
     public ObservableCollection<GrupoPedidoProveedor> Grupos { get; } = new();
@@ -43,6 +62,16 @@ public partial class PedirArticulosViewModel : ObservableObject
     public IReadOnlyList<string> Omitidos { get; }
 
     public bool TieneOmitidos => Omitidos.Count > 0;
+
+    /// <summary>Cuántos omitidos se podrían pedir si se incorporan antes (A-8).</summary>
+    public int CantidadSinIncorporar { get; }
+
+    /// <summary>Si el modal muestra "Incorporar primero": solo cuando se ofrece y hay ítems sin incorporar.</summary>
+    public bool PuedeIncorporarPrimero { get; }
+
+    public string TextoIncorporarPrimero => CantidadSinIncorporar == 1
+        ? "Incorporar el ítem y volver"
+        : $"Incorporar los {CantidadSinIncorporar} ítems y volver";
 
     public int CantidadRenglones => Grupos.Sum(g => g.Renglones.Count);
 
@@ -77,14 +106,36 @@ public partial class PedirArticulosViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Los renglones confirmados, en el orden en que se muestran. Solo tiene sentido si <see cref="PuedeConfirmar"/>.
+    /// Registra que el usuario eligió incorporar primero. Lo llama el diálogo antes de cerrarse; no hace nada si la
+    /// oferta no corresponde.
     /// </summary>
-    public IReadOnlyList<RenglonAAgregarDto> ObtenerRenglones()
+    public void SolicitarIncorporacion()
     {
-        return Grupos
+        _incorporarPrimeroSolicitado = PuedeIncorporarPrimero;
+    }
+
+    /// <summary>
+    /// La respuesta del modal una vez cerrado con aceptación: incorporar primero, o los renglones confirmados en el
+    /// orden en que se muestran. Si se cerró sin aceptar, quien lo abrió responde <see cref="RespuestaPedirArticulos.Cancelada"/>.
+    /// </summary>
+    public RespuestaPedirArticulos ObtenerRespuesta()
+    {
+        if (_incorporarPrimeroSolicitado)
+        {
+            return RespuestaPedirArticulos.IncorporarPrimero;
+        }
+
+        if (!PuedeConfirmar)
+        {
+            return RespuestaPedirArticulos.Cancelada;
+        }
+
+        var renglones = Grupos
             .SelectMany(g => g.Renglones)
             .Select(r => new RenglonAAgregarDto { IdCatalogoProveedor = r.IdCatalogoProveedor, Cantidad = r.Cantidad })
             .ToList();
+
+        return RespuestaPedirArticulos.Confirmada(renglones);
     }
 
     private void Fila_PropertyChanged(object? sender, PropertyChangedEventArgs e)

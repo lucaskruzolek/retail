@@ -208,7 +208,7 @@ public class PedidosViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task EmitirCommand_Confirmado_EmiteInformaYRecarga()
+    public async Task EmitirCommand_Confirmado_EmiteYRecarga()
     {
         await InicializarYSeleccionarAsync();
         _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
@@ -218,7 +218,6 @@ public class PedidosViewModelTests : IDisposable
 
         await _pedidoService.Received(1).EmitirAsync(IdPedido, Arg.Any<CancellationToken>());
         await _pedidoService.Received(1).ListarPedidosAsync(Arg.Any<ConsultaPedidosDto>(), Arg.Any<CancellationToken>());
-        _sut.MensajeEstado.Should().Be($"Pedido #{IdPedido} emitido.");
     }
 
     [Fact]
@@ -259,7 +258,6 @@ public class PedidosViewModelTests : IDisposable
 
         _dialogService.Received(1).MostrarAlerta("El pedido cambió de estado", Arg.Any<string>());
         await _pedidoService.Received(1).ListarPedidosAsync(Arg.Any<ConsultaPedidosDto>(), Arg.Any<CancellationToken>());
-        _sut.MensajeEstado.Should().BeNull();
     }
 
     [Fact]
@@ -347,7 +345,7 @@ public class PedidosViewModelTests : IDisposable
         await InicializarYSeleccionarAsync();
         PrepararDetalle(EstadoPedidoEnum.Emitido);
 
-        await _sut.CargarPedidosCommand.ExecuteAsync(null);
+        await _sut.CargarPedidosAsync();
 
         _sut.PedidoSeleccionado.Should().NotBeNull();
         _sut.PedidoSeleccionado!.IdPedido.Should().Be(IdPedido);

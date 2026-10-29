@@ -1,3 +1,4 @@
+using Retail.App.ViewModels.Pedidos;
 using Retail.Application.DTOs.Pedidos;
 
 namespace Retail.App.Services;
@@ -15,8 +16,12 @@ public interface IPedidoDialogService
     void MostrarError(string titulo, string mensaje);
 
     /// <summary>
-    /// Abre el modal de pedido con la vista previa del lote (A-17). Devuelve los renglones confirmados con su
-    /// cantidad, o <c>null</c> si el usuario cancela.
+    /// Abre el modal de pedido con la vista previa del lote (A-17). Devuelve la acción elegida: cancelar, confirmar
+    /// (con los renglones y su cantidad) o incorporar primero, que solo se ofrece si <paramref name="ofrecerIncorporar"/>.
     /// </summary>
-    IReadOnlyList<RenglonAAgregarDto>? MostrarPedirArticulos(VistaPreviaPedidoDto vistaPrevia);
+    /// <param name="avisosPrevios">Lo que la pantalla de origen ya excluyó, con su motivo.</param>
+    RespuestaPedirArticulos MostrarPedirArticulos(
+        VistaPreviaPedidoDto vistaPrevia,
+        IReadOnlyList<string> avisosPrevios,
+        bool ofrecerIncorporar);
 }

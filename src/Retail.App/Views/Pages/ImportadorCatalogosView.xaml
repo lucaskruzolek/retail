@@ -190,6 +190,21 @@
                             <Run Text=" ítem(s)" />
                         </TextBlock>
 
+                        <!-- Pedir los seleccionados al proveedor (Track 4.3, A-17): solo Encargado y Gerente (A-14) -->
+                        <Button Style="{StaticResource KeycapButtonStyle}"
+                                Padding="14,8"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                Command="{Binding PedirSeleccionadosCommand}"
+                                IsEnabled="{Binding TieneItemsSeleccionados}"
+                                Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
+                                ToolTip="Agregar los ítems seleccionados al borrador de pedido del proveedor">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Pedir Seleccionados" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
                         <!-- Botón incorporar seleccionados a tienda -->
                         <Button x:Name="BtnIncorporar"
                                 Style="{StaticResource PrimaryActionButtonStyle}"
@@ -342,20 +357,34 @@
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="110" />
 
-                        <!-- Acción vinculación manual (RF-05) -->
-                        <DataGridTemplateColumn Header="Acción" Width="100">
+                        <!-- Acciones: vinculación manual (RF-05) y pedir la fila (A-17, G4) -->
+                        <DataGridTemplateColumn Header="Acción" Width="180">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button Command="{Binding DataContext.VincularArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Style="{StaticResource KeycapButtonStyle}"
-                                            Padding="8,4"
-                                            ToolTip="Vincular a artículo en tienda (RF-05)">
-                                        <StackPanel Orientation="Horizontal">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="Vincular" FontSize="11" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </Button>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Command="{Binding DataContext.VincularArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource KeycapButtonStyle}"
+                                                Padding="8,4"
+                                                ToolTip="Vincular a artículo en tienda (RF-05)">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Vincular" FontSize="11" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Command="{Binding DataContext.PedirItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource KeycapButtonStyle}"
+                                                Padding="8,4"
+                                                Margin="6,0,0,0"
+                                                Visibility="{Binding DataContext.PuedePedir, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisConverter}}"
+                                                ToolTip="Agregar este ítem al borrador de pedido del proveedor; si no está en la tienda, se ofrece incorporarlo primero">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Pedir" FontSize="11" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

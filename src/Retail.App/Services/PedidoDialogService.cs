@@ -34,16 +34,20 @@ public class PedidoDialogService : IPedidoDialogService
         MessageBox.Show(mensaje, titulo, MessageBoxButton.OK, MessageBoxImage.Error);
     }
 
-    public IReadOnlyList<RenglonAAgregarDto>? MostrarPedirArticulos(VistaPreviaPedidoDto vistaPrevia)
+    public RespuestaPedirArticulos MostrarPedirArticulos(
+        VistaPreviaPedidoDto vistaPrevia,
+        IReadOnlyList<string> avisosPrevios,
+        bool ofrecerIncorporar)
     {
         ArgumentNullException.ThrowIfNull(vistaPrevia);
+        ArgumentNullException.ThrowIfNull(avisosPrevios);
 
-        var viewModel = new PedirArticulosViewModel(vistaPrevia);
+        var viewModel = new PedirArticulosViewModel(vistaPrevia, avisosPrevios, ofrecerIncorporar);
         var dialog = new PedirArticulosDialog(viewModel)
         {
             Owner = System.Windows.Application.Current.MainWindow
         };
 
-        return dialog.ShowDialog() == true ? viewModel.ObtenerRenglones() : null;
+        return dialog.ShowDialog() == true ? viewModel.ObtenerRespuesta() : RespuestaPedirArticulos.Cancelada;
     }
 }

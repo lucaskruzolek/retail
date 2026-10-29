@@ -24,16 +24,15 @@ public class PedidoFilaTests
     }
 
     [Fact]
-    public void Constructor_BorradorCreadoHoy_AntiguedadHoyYFechaLocal()
+    public void Constructor_Borrador_FechaDeCreacionEnHoraLocal()
     {
         var fila = new PedidoFila(CrearResumen(EstadoPedidoEnum.Borrador, new DateTime(2026, 10, 28, 11, 0, 0)), s_reloj);
 
-        fila.Antiguedad.Should().Be("Hoy");
         fila.Fecha.Should().Be(new DateTime(2026, 10, 28, 8, 0, 0), "se muestra en hora local (UTC-3)");
     }
 
     [Fact]
-    public void Constructor_EmitidoHaceTresDias_AntiguedadDesdeLaEmision()
+    public void Constructor_Emitido_FechaDeEmisionYNoDeCreacion()
     {
         var resumen = CrearResumen(
             EstadoPedidoEnum.Emitido,
@@ -42,27 +41,15 @@ public class PedidoFilaTests
 
         var fila = new PedidoFila(resumen, s_reloj);
 
-        fila.Antiguedad.Should().Be("3 días");
         fila.Fecha.Date.Should().Be(new DateTime(2026, 10, 25));
     }
 
     [Fact]
-    public void Constructor_FechaUtcDeMadrugada_CuentaElDiaLocal()
+    public void Constructor_FechaUtcDeMadrugada_MuestraElDiaLocal()
     {
         // 02:00 UTC del 28 son las 23:00 del 27 en Argentina: para el usuario fue ayer.
         var fila = new PedidoFila(CrearResumen(EstadoPedidoEnum.Borrador, new DateTime(2026, 10, 28, 2, 0, 0)), s_reloj);
 
-        fila.Antiguedad.Should().Be("1 día");
-    }
-
-    [Theory]
-    [InlineData(EstadoPedidoEnum.Recibido)]
-    [InlineData(EstadoPedidoEnum.Cancelado)]
-    public void Constructor_PedidoCerrado_SinAntiguedad(EstadoPedidoEnum estado)
-    {
-        var fila = new PedidoFila(CrearResumen(estado, new DateTime(2026, 10, 1)), s_reloj);
-
-        fila.EstaAbierto.Should().BeFalse();
-        fila.Antiguedad.Should().BeEmpty();
+        fila.Fecha.Date.Should().Be(new DateTime(2026, 10, 27));
     }
 }
