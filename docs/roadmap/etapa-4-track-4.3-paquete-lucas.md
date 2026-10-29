@@ -252,6 +252,26 @@ L3 se partió en **L3a** (back-end y migración) y **L3b** (UI) el 2026-10-29: l
 
 **Depende de:** L3b. **Decisión del rector:** A-19 (reemplaza el modal "Fuentes del artículo" de A-18). **Migración:** no.
 
+#### Decisiones de diseño de L4 (aprobadas el 2026-10-29)
+
+| Id | Decisión | Fundamento |
+| :--- | :--- | :--- |
+| M1 | Si el artículo no tiene principal, la primera fuente agregada en el formulario queda como principal | Mismo criterio que J4: sin principal no hay de dónde tomar el costo |
+| M2 | Marcar una principal en el formulario actualiza en vivo el costo de reposición del formulario (vista previa); al guardar, la regla la aplica el dominio | Hoy "Vincular" ya lo hace; el usuario ve el precio de venta resultante antes de guardar |
+| M3 | Quitar la principal deja el artículo sin principal; no se elige otra sola y el costo queda como está | Coherente con J5 |
+| M4 | DTO propio `FuenteArticuloDto` (Articulos) con la consulta `ObtenerFuentesAsync(idArticulo)` en `IArticuloQueryService`, `AsNoTracking` y proyectada; no se reutiliza `FuenteRenglonDto` | `CantidadEnBorrador` es de pedidos: el formulario no debe depender de `DTOs/Pedidos` |
+| M5 | `ArticulosViewModel` carga las fuentes antes de abrir el diálogo y las pasa a `MostrarDialogoModificar` | El servicio de diálogos no consulta datos (patrón de categorías y marcas) |
+| M6 | Un ítem de este artículo que se quitó en el formulario sin guardar vuelve a ofrecerse habilitado en el selector | En la base sigue vinculado a este artículo: sin esta regla no habría forma de arrepentirse antes de Guardar |
+| M7 | El aviso del importador que abre el formulario queda fuera de L4 y se registra como deuda | Hoy no existe; exige inyectar `IArticuloDialogService` y cargar categorías y marcas en el importador (R-2). El "+n" de la grilla ya da el acceso |
+
+Vista aprobada: renglones de dos líneas en un `ItemsControl` (opción A), con la principal elegida por `RadioButton` vía comando y el quitar por botón; el selector baja a 760×560 con una tarjeta del artículo.
+
+**Pasos:**
+
+1. 🟡 **Aplicación:** `IdsFuentes` en `CrearArticuloDto` / `ActualizarArticuloDto`, reglas del validador (principal entre las fuentes, sin repetidos) y `AplicarFuentesDelFormularioAsync` en `InventarioService` (reemplaza a la J2-a), con `DescartarCambios` también en el alta.
+2. ⏳ **Infraestructura:** `FuenteArticuloDto`, `ObtenerFuentesAsync` y `ArticuloDto.CantidadFuentes` por subconsulta, con tests de integración.
+3. ⏳ **UI:** sección Fuentes, selector unificado, "+n" en la grilla, tests de ViewModel, de binding con clic real y de humo STA.
+
 * **Sección Fuentes** en `ArticuloFormDialog` (alta y edición): lista ordenada por costo con proveedor, código, costo, fecha de la lista (en hora local) y la principal marcada. La fecha visible es la defensa contra la lista vieja y barata que motivó A-2.
 * **Agregar fuente:** abre `SeleccionarCatalogoProveedorDialog`, de a un ítem. Los ítems vinculados a otro artículo aparecen deshabilitados con el nombre de ese artículo (A-1), y los ya agregados en este formulario no se ofrecen. El selector se alinea con "Vincular ítem a artículo": tarjeta con el lado opuesto (aquí el artículo), buscador, grilla `DataGridRetailStyle` y pie de acciones, con las medidas de `SISTEMA_DE_DISENO.md`.
 * **Elegir la principal y quitar fuentes:** sobre la lista, sin efectos hasta Guardar.

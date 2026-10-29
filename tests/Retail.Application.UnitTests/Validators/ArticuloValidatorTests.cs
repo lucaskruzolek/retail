@@ -291,6 +291,76 @@ public class ArticuloValidatorTests
         result.Errors.Should().Contain(e => e.PropertyName == propiedadEsperada);
     }
 
+    // ---------- Fuentes del formulario (Track 4.3, A-19) ----------
+
+    [Theory]
+    [InlineData(new[] { 25, 26 }, 26)]
+    [InlineData(new[] { 25 }, null)]
+    [InlineData(new int[0], null)]
+    public void CrearArticuloValidator_FuentesCoherentes_DebePasar(int[] idsFuentes, int? idPrincipal)
+    {
+        // Act
+        var result = _crearValidator.Validate(AltaConFuentes(idsFuentes, idPrincipal));
+
+        // Assert
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(new[] { 25 }, 26, nameof(CrearArticuloDto.IdCatalogoProveedor))]
+    [InlineData(new int[0], 25, nameof(CrearArticuloDto.IdCatalogoProveedor))]
+    [InlineData(new[] { 25, 25 }, 25, nameof(CrearArticuloDto.IdsFuentes))]
+    [InlineData(new[] { 0 }, null, "IdsFuentes[0]")]
+    public void CrearArticuloValidator_FuentesIncoherentes_DebeFallar(int[] idsFuentes, int? idPrincipal, string propiedadEsperada)
+    {
+        // Act
+        var result = _crearValidator.Validate(AltaConFuentes(idsFuentes, idPrincipal));
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == propiedadEsperada);
+    }
+
+    [Fact]
+    public void ActualizarArticuloValidator_PrincipalFueraDeLasFuentes_DebeFallar()
+    {
+        // Arrange
+        var dto = new ActualizarArticuloDto
+        {
+            IdArticulo = 10,
+            Descripcion = "Marcador Edding 700",
+            CostoReposicion = 800m,
+            PorcentajeGanancia = 50m,
+            StockActual = 0,
+            StockMinimo = 1,
+            EsServicio = false,
+            IdsFuentes = [25],
+            IdCatalogoProveedor = 26
+        };
+
+        // Act
+        var result = _actualizarValidator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(ActualizarArticuloDto.IdCatalogoProveedor));
+    }
+
+    private static CrearArticuloDto AltaConFuentes(int[] idsFuentes, int? idPrincipal)
+    {
+        return new CrearArticuloDto
+        {
+            Descripcion = "Marcador Edding 700",
+            CostoReposicion = 800m,
+            PorcentajeGanancia = 50m,
+            StockActual = 0,
+            StockMinimo = 1,
+            EsServicio = false,
+            IdsFuentes = idsFuentes,
+            IdCatalogoProveedor = idPrincipal
+        };
+    }
+
     private static CrearPresentacionDto PresentacionValida()
     {
         return new CrearPresentacionDto

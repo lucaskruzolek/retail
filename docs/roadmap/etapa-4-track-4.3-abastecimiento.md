@@ -45,7 +45,7 @@ graph LR
 | **L2b** | "Volver a pedir faltantes" (compara el pedido con la compra que lo cerró) | Lucas | L2a-1 y P2 | No | ⏳ |
 | **L3a** | Fuentes múltiples y fuente principal: dominio, migración con datos, servicios e importador (A-16, opción A) | Lucas | L1 y Track 6.6 (✅ en `main`) | Sí | ✅ Mergeado en `main` (PR #38, migración `20261029080028_AgregarFuentesMultiples`) |
 | **L3b** | Fuentes múltiples en la UI: vincular como fuente adicional o principal y combo de fuente en el modal de pedido (A-18) | Lucas | L3a | No | 🟡 Implementado en `feat/fuentes-multiples-ui`; PR en revisión |
-| **L4** | Sección **Fuentes** del formulario de artículo (comparador RF-28; agregar y quitar fuentes y elegir la principal, todo al Guardar), indicador "+n" en la columna Distribuidor y selector de catálogo unificado con "Vincular" (A-19) | Lucas | L3b | No | ⏳ |
+| **L4** | Sección **Fuentes** del formulario de artículo (comparador RF-28; agregar y quitar fuentes y elegir la principal, todo al Guardar), indicador "+n" en la columna Distribuidor y selector de catálogo unificado con "Vincular" (A-19) | Lucas | L3b | No | 🟡 en curso (`feat/fuentes-en-formulario`) |
 
 ```mermaid
 graph LR
