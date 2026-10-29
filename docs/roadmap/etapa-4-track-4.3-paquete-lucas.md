@@ -162,6 +162,8 @@ Todo acceso a datos por `CargaSerializada` + `Task.Run` (Ley 4). En `PedidosView
 
 ### L2a-2 — Pedir desde Artículos y desde el importador
 
+**Adelantado en L2a-1 (aprobado por el estudiante el 2026-10-28):** el importador muestra la fecha de la última planilla de cada proveedor (una sola por proveedor, no por ítem) y la resalta en ámbar si supera `ImportadorCatalogosViewModel.DiasListaDesactualizada` (30 días; A-2). Se calcula como el `MAX(fecha_actualizacion)` de los ítems vigentes del proveedor, porque cada importación actualiza todas las filas que trae; viaja en `CatalogoPaginadoDto.FechaUltimaPlanilla` y no requiere migración. Marcar ítems que no vinieron en la última planilla queda fuera de alcance: hacerlo sin heurísticas exige registrar cada importación (migración).
+
 **Depende de:** L2a-1.
 
 | Pieza | Contenido |

@@ -424,6 +424,49 @@
                                 </Grid>
                             </Button>
 
+                            <!-- 6.1 Pedidos a Proveedores (Track 4.3): solo Encargado y Gerente (A-14) -->
+                            <Button Command="{Binding NavegarPedidosCommand}"
+                                    Visibility="{Binding PuedeAbastecer, Converter={StaticResource BoolToVisConverter}}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Pedidos">
+                                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <TextBlock Text="Pedidos a Proveedores" FontWeight="SemiBold" />
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="SolidPackage"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Pedidos"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
                             <!-- 7. Proveedores -->
                             <Button Command="{Binding NavegarProveedoresCommand}"
                                     Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">

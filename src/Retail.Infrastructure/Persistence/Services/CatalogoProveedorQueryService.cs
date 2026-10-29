@@ -102,12 +102,24 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
             })
             .ToListAsync(cancellationToken);
 
+        // Se calcula sobre todo el catálogo vigente del proveedor, no sobre la consulta filtrada: la búsqueda no debe
+        // cambiar la fecha de la lista. MaxAsync se traduce a MAX en SQL Server (Ley 8).
+        DateTime? fechaUltimaPlanilla = null;
+        if (consulta.IdProveedor is > 0)
+        {
+            fechaUltimaPlanilla = await _context.CatalogosProveedores
+                .AsNoTracking()
+                .Where(c => c.IdProveedor == consulta.IdProveedor.Value)
+                .MaxAsync(c => (DateTime?)c.FechaActualizacion, cancellationToken);
+        }
+
         return new CatalogoPaginadoDto
         {
             Items = dtos,
             TotalRegistros = totalRegistros,
             PaginaActual = pagina,
-            TamanoPagina = tamanoPagina
+            TamanoPagina = tamanoPagina,
+            FechaUltimaPlanilla = fechaUltimaPlanilla
         };
     }
 

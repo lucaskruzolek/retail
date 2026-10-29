@@ -283,4 +283,59 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         conEnie.Items.Should().ContainSingle(i => i.CodigoProveedor == "A2");
         sinEnie.Items.Should().BeEmpty("en castellano la ñ es una letra distinta de la n");
     }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConBusqueda_FechaUltimaPlanillaEsLaMasRecienteDelCatalogoVigenteDelProveedor()
+    {
+        // Arrange
+        var proveedor = await CrearProveedorAsync();
+        var otroProveedor = Proveedor.Crear("Distribuidora Norte", "30-87654321-0");
+        _context.Proveedores.Add(otroProveedor);
+        await _context.SaveChangesAsync();
+
+        var antiguo = CrearItem(proveedor.Id, "A-1", "Cuaderno rayado");
+        antiguo.FechaActualizacion = new DateTime(2026, 10, 1, 12, 0, 0);
+        var reciente = CrearItem(proveedor.Id, "A-2", "Lápiz negro");
+        reciente.FechaActualizacion = new DateTime(2026, 10, 15, 12, 0, 0);
+        var dadoDeBaja = CrearItem(proveedor.Id, "A-3", "Goma blanca");
+        dadoDeBaja.FechaActualizacion = new DateTime(2026, 10, 20, 12, 0, 0);
+        var deOtroProveedor = CrearItem(otroProveedor.Id, "B-1", "Regla");
+        deOtroProveedor.FechaActualizacion = new DateTime(2026, 10, 25, 12, 0, 0);
+        _context.CatalogosProveedores.AddRange(antiguo, reciente, dadoDeBaja, deOtroProveedor);
+        await _context.SaveChangesAsync();
+        dadoDeBaja.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act: la búsqueda solo trae el ítem antiguo, pero la fecha es la de la lista completa.
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            TerminoBusqueda = "Cuaderno",
+            Pagina = 1,
+            TamañoPagina = 50
+        });
+
+        // Assert: ni el ítem dado de baja ni el de otro proveedor cuentan.
+        resultado.Items.Should().ContainSingle();
+        resultado.FechaUltimaPlanilla.Should().Be(new DateTime(2026, 10, 15, 12, 0, 0));
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ProveedorSinCatalogo_FechaUltimaPlanillaNula()
+    {
+        // Arrange
+        var proveedor = await CrearProveedorAsync();
+
+        // Act
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            Pagina = 1,
+            TamañoPagina = 50
+        });
+
+        // Assert
+        resultado.FechaUltimaPlanilla.Should().BeNull();
+    }
 }

@@ -66,6 +66,11 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public bool PuedeOperarNegocio => !EsAdministrador;
 
+    /// <summary>
+    /// Pedidos a proveedor: solo Encargado y Gerente; el Cajero no tiene acceso (A-14 del Track 4.3, G1).
+    /// </summary>
+    public bool PuedeAbastecer => EsGerente || EsEncargado;
+
     public bool MostrarCabeceraAdmin => IsSidebarExpanded && PuedeGestionarUsuarios;
 
     public bool MostrarCabecerasOperativas => IsSidebarExpanded && PuedeOperarNegocio;
@@ -117,6 +122,7 @@ public partial class MainViewModel : ObservableObject
         EsAdministrador = _session.EsAdministrador;
         OnPropertyChanged(nameof(PuedeGestionarUsuarios));
         OnPropertyChanged(nameof(PuedeOperarNegocio));
+        OnPropertyChanged(nameof(PuedeAbastecer));
         OnPropertyChanged(nameof(MostrarCabeceraAdmin));
         OnPropertyChanged(nameof(MostrarCabecerasOperativas));
     }
@@ -256,6 +262,11 @@ public partial class MainViewModel : ObservableObject
             ModuloActivo = "Compras";
             TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
         }
+        else if (viewType == typeof(PedidosView))
+        {
+            ModuloActivo = "Pedidos";
+            TituloModuloActual = "Pedidos a Proveedores";
+        }
         else if (viewType == typeof(ModuloEnConstruccionView))
         {
             // El título es establecido por el comando de navegación que invoca la vista
@@ -356,6 +367,19 @@ public partial class MainViewModel : ObservableObject
         ModuloActivo = "Compras";
         TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
         _navigationService.NavigateTo<ComprasView>();
+    }
+
+    [RelayCommand]
+    public void NavegarPedidos()
+    {
+        if (!PuedeAbastecer)
+        {
+            return;
+        }
+
+        ModuloActivo = "Pedidos";
+        TituloModuloActual = "Pedidos a Proveedores";
+        _navigationService.NavigateTo<PedidosView>();
     }
 
     [RelayCommand]
