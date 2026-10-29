@@ -268,8 +268,8 @@ Vista aprobada: renglones de dos líneas en un `ItemsControl` (opción A), con l
 
 **Pasos:**
 
-1. 🟡 **Aplicación:** `IdsFuentes` en `CrearArticuloDto` / `ActualizarArticuloDto`, reglas del validador (principal entre las fuentes, sin repetidos) y `AplicarFuentesDelFormularioAsync` en `InventarioService` (reemplaza a la J2-a), con `DescartarCambios` también en el alta.
-2. ⏳ **Infraestructura:** `FuenteArticuloDto`, `ObtenerFuentesAsync` y `ArticuloDto.CantidadFuentes` por subconsulta, con tests de integración.
+1. ✅ **Aplicación:** `IdsFuentes` en `CrearArticuloDto` / `ActualizarArticuloDto`, reglas del validador (principal entre las fuentes, sin repetidos) y `AplicarFuentesDelFormularioAsync` en `InventarioService` (reemplaza a la J2-a), con `DescartarCambios` también en el alta.
+2. 🟡 **Infraestructura:** `FuenteArticuloDto`, `ObtenerFuentesAsync` y `ArticuloDto.CantidadFuentes` por subconsulta, con tests de integración.
 3. ⏳ **UI:** sección Fuentes, selector unificado, "+n" en la grilla, tests de ViewModel, de binding con clic real y de humo STA.
 
 * **Sección Fuentes** en `ArticuloFormDialog` (alta y edición): lista ordenada por costo con proveedor, código, costo, fecha de la lista (en hora local) y la principal marcada. La fecha visible es la defensa contra la lista vieja y barata que motivó A-2.

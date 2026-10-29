@@ -125,6 +125,8 @@ public class ArticuloQueryService : IArticuloQueryService
                 CodigoProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.CodigoProveedor : null,
                 DescripcionProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.DescripcionProveedor : null,
                 CostoCatalogoProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.CostoReposicion : null,
+                // Subconsulta correlacionada, solo para las filas de la página (A-19); el filtro global omite las bajas.
+                CantidadFuentes = _context.CatalogosProveedores.Count(c => c.IdArticulo == a.Id),
                 CostoReposicion = a.CostoReposicion,
                 PorcentajeGanancia = a.PorcentajeGanancia,
                 PrecioVenta = a.PrecioVenta,
@@ -198,6 +200,29 @@ public class ArticuloQueryService : IArticuloQueryService
                 DescripcionOrigen = a.ArticuloOrigen != null ? a.ArticuloOrigen.Descripcion : null,
                 UnidadesPorOrigen = a.UnidadesPorOrigen,
                 StockOrigen = a.ArticuloOrigen != null ? a.ArticuloOrigen.StockActual : null
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<FuenteArticuloDto>> ObtenerFuentesAsync(int idArticulo, CancellationToken cancellationToken = default)
+    {
+        // Proyección sin tracking (Ley 8): el formulario solo muestra las fuentes; al guardar, el servicio las vuelve a
+        // leer con tracking para modificarlas (A-19).
+        return await _context.CatalogosProveedores
+            .AsNoTracking()
+            .Where(c => c.IdArticulo == idArticulo)
+            .OrderBy(c => c.CostoReposicion)
+            .ThenBy(c => c.Id)
+            .Select(c => new FuenteArticuloDto
+            {
+                IdCatalogoProveedor = c.Id,
+                IdProveedor = c.IdProveedor,
+                RazonSocialProveedor = c.Proveedor!.RazonSocial,
+                CodigoProveedor = c.CodigoProveedor,
+                Descripcion = c.DescripcionProveedor,
+                CostoActual = c.CostoReposicion,
+                FechaActualizacion = c.FechaActualizacion,
+                EsPrincipal = c.Articulo != null && c.Articulo.IdCatalogoProveedor == c.Id
             })
             .ToListAsync(cancellationToken);
     }

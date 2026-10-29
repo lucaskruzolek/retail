@@ -204,6 +204,23 @@ public class InventarioService : IInventarioService
         return MapToDto(articulo, categoria?.NombreCategoria, marca?.NombreMarca);
     }
 
+    public async Task<IReadOnlyList<FuenteArticuloDto>> ObtenerFuentesDeArticuloAsync(int idArticulo, CancellationToken cancellationToken = default)
+    {
+        if (idArticulo <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idArticulo), "El identificador del artículo debe ser mayor a cero.");
+        }
+
+        // A diferencia del listado paginado, no hay respaldo en memoria: la consulta es nueva (A-19) y la aplicación
+        // siempre registra IArticuloQueryService.
+        if (_articuloQueryService == null)
+        {
+            throw new InvalidOperationException("La consulta de fuentes del artículo requiere IArticuloQueryService.");
+        }
+
+        return await _articuloQueryService.ObtenerFuentesAsync(idArticulo, cancellationToken);
+    }
+
     public async Task<ArticuloDto> CrearArticuloAsync(CrearArticuloDto dto, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(dto);

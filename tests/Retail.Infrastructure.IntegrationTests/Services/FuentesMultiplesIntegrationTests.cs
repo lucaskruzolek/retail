@@ -1,10 +1,12 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Services;
 using Retail.Application.Validators.Articulos;
 using Retail.Application.Validators.Proveedores;
 using Retail.Domain.Entities;
+using Retail.Domain.Exceptions;
 using Retail.Infrastructure.ExternalServices.Excel;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
@@ -17,7 +19,8 @@ namespace Retail.Infrastructure.IntegrationTests.Services;
 /// Fuentes múltiples de punta a punta contra SQL Server Express (Track 4.3, L3a): los servicios reales sobre un mismo
 /// contexto, como en una pantalla. Verifica lo que los tests unitarios no pueden: que EF Core resuelva el ciclo entre
 /// ARTICULOS.id_catalogo_proveedor y CATALOGOS_PROVEEDORES.id_articulo al guardar, y que lo guardado respete el
-/// invariante de A-16 (la principal es una de las fuentes).
+/// invariante de A-16 (la principal es una de las fuentes), también cuando el formulario aplica todo al Guardar
+/// (L4, A-19).
 /// </summary>
 public class FuentesMultiplesIntegrationTests : IAsyncLifetime, IDisposable
 {
@@ -138,6 +141,90 @@ public class FuentesMultiplesIntegrationTests : IAsyncLifetime, IDisposable
         // Assert
         (await LeerFuentesAsync(idArticulo)).Should().BeEmpty();
         resultado.Incorporados.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CrearArticuloAsync_ConDosFuentes_GuardaElArticuloSusFuentesYLaPrincipalEnUnSoloGuardado()
+    {
+        // Arrange (A-19): el artículo nuevo no tiene id; EF Core resuelve el ciclo de FK en el INSERT
+        var (sur, norte) = await SembrarItemsAsync();
+        var alta = new CrearArticuloDto
+        {
+            Descripcion = "Marcador Edding 700",
+            CostoReposicion = 700m,
+            PorcentajeGanancia = 50m,
+            StockActual = 0,
+            StockMinimo = 1,
+            EsServicio = false,
+            IdsFuentes = [sur, norte],
+            IdCatalogoProveedor = norte
+        };
+
+        // Act
+        await _inventario.CrearArticuloAsync(alta);
+
+        // Assert
+        var articulo = await LeerArticuloAsync("Marcador Edding 700");
+        articulo.IdCatalogoProveedor.Should().Be(norte);
+        articulo.CostoReposicion.Should().Be(750m);
+        (await LeerFuentesAsync(articulo.Id)).Should().Equal(sur, norte);
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_EstadoDeseado_QuitaLaPrincipalAgregaOtraYLaMarcaEnUnSoloGuardado()
+    {
+        // Arrange: Sur es la principal; el formulario la reemplaza por Norte
+        var (sur, norte) = await SembrarItemsAsync();
+        await IncorporarAsync(sur);
+        var articulo = await LeerArticuloAsync("Edding 700 (Sur)");
+
+        // Act
+        await _inventario.ActualizarArticuloAsync(EdicionDe(articulo, idsFuentes: [norte], idPrincipal: norte));
+
+        // Assert
+        var guardado = await LeerArticuloAsync("Edding 700 (Sur)");
+        guardado.IdCatalogoProveedor.Should().Be(norte);
+        guardado.CostoReposicion.Should().Be(750m);
+        (await LeerFuentesAsync(articulo.Id)).Should().Equal(norte);
+        (await _context.CatalogosProveedores.AsNoTracking().SingleAsync(c => c.Id == sur)).IdArticulo.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_ItemDeOtroArticulo_NoGuardaNadaYDejaElContextoLimpio()
+    {
+        // Arrange: Sur es fuente de un artículo y Norte, de otro
+        var (sur, norte) = await SembrarItemsAsync();
+        await IncorporarAsync(sur);
+        await IncorporarAsync(norte);
+        var articulo = await LeerArticuloAsync("Edding 700 (Sur)");
+        var edicion = EdicionDe(articulo, idsFuentes: [norte], idPrincipal: norte) with { Descripcion = "Cambiado" };
+
+        // Act: Sur se libera en memoria antes de que A-1 rechace a Norte
+        var act = () => _inventario.ActualizarArticuloAsync(edicion);
+
+        // Assert: ni la descripción ni la liberación de Sur llegan a la base ni quedan pendientes en el contexto (Ley 9)
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*ya es fuente de otro artículo*");
+        _context.ChangeTracker.HasChanges().Should().BeFalse();
+        var intacto = await LeerArticuloAsync("Edding 700 (Sur)");
+        intacto.IdCatalogoProveedor.Should().Be(sur);
+        (await LeerFuentesAsync(articulo.Id)).Should().Equal(sur);
+    }
+
+    private static ActualizarArticuloDto EdicionDe(Articulo articulo, IReadOnlyList<int> idsFuentes, int? idPrincipal)
+    {
+        return new ActualizarArticuloDto
+        {
+            IdArticulo = articulo.Id,
+            CodigoBarras = articulo.CodigoBarras,
+            Descripcion = articulo.Descripcion,
+            CostoReposicion = articulo.CostoReposicion,
+            PorcentajeGanancia = articulo.PorcentajeGanancia,
+            StockActual = articulo.StockActual,
+            StockMinimo = articulo.StockMinimo,
+            EsServicio = articulo.EsServicio,
+            IdsFuentes = idsFuentes,
+            IdCatalogoProveedor = idPrincipal
+        };
     }
 
     /// <summary>

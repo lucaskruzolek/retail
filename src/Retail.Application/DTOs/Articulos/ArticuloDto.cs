@@ -20,6 +20,12 @@ public record class ArticuloDto : BaseDto
     public string? DescripcionProveedor { get; init; }
     public decimal? CostoCatalogoProveedor { get; init; }
     public bool EstaVinculadoAProveedor => IdCatalogoProveedor.HasValue && IdCatalogoProveedor.Value > 0;
+
+    /// <summary>
+    /// Fuentes del artículo, principal incluida (Track 4.3, A-19); la grilla muestra "+n" con las adicionales. Solo la
+    /// completa la consulta paginada.
+    /// </summary>
+    public int CantidadFuentes { get; init; }
     public int? IdArticuloOrigen { get; init; }
     public int? UnidadesPorOrigen { get; init; }
     public bool EsDerivado => IdArticuloOrigen.HasValue && IdArticuloOrigen.Value > 0;

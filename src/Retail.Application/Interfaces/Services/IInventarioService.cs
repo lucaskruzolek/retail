@@ -17,6 +17,11 @@ public interface IInventarioService
 
     Task<ArticuloDto?> ObtenerPorCodigoBarrasAsync(string codigoBarras, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Fuentes del artículo ordenadas por costo, para la sección Fuentes del formulario (Track 4.3, A-19).
+    /// </summary>
+    Task<IReadOnlyList<FuenteArticuloDto>> ObtenerFuentesDeArticuloAsync(int idArticulo, CancellationToken cancellationToken = default);
+
     Task<ArticuloDto> CrearArticuloAsync(CrearArticuloDto dto, CancellationToken cancellationToken = default);
 
     Task<ArticuloDto> ActualizarArticuloAsync(ActualizarArticuloDto dto, CancellationToken cancellationToken = default);

@@ -865,6 +865,42 @@ public class InventarioServiceTests
     }
 
     [Fact]
+    public async Task ObtenerFuentesDeArticuloAsync_ConConsulta_DelegaEnIArticuloQueryService()
+    {
+        // Arrange
+        var consulta = Substitute.For<IArticuloQueryService>();
+        IReadOnlyList<FuenteArticuloDto> fuentes = [new FuenteArticuloDto { IdCatalogoProveedor = 25, EsPrincipal = true }];
+        consulta.ObtenerFuentesAsync(10, Arg.Any<CancellationToken>()).Returns(fuentes);
+        var sut = new InventarioService(
+            _articuloRepository,
+            _categoriaRepository,
+            _marcaRepository,
+            _unitOfWork,
+            _crearValidator,
+            _actualizarValidator,
+            new CrearPresentacionValidator(),
+            new FraccionarValidator(),
+            _catalogoQueryService,
+            consulta);
+
+        // Act
+        var resultado = await sut.ObtenerFuentesDeArticuloAsync(10);
+
+        // Assert
+        resultado.Should().BeSameAs(fuentes);
+    }
+
+    [Fact]
+    public async Task ObtenerFuentesDeArticuloAsync_SinConsulta_LanzaInvalidOperationException()
+    {
+        // Act
+        var act = () => _sut.ObtenerFuentesDeArticuloAsync(10);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*IArticuloQueryService*");
+    }
+
+    [Fact]
     public async Task BajaArticuloAsync_ConFuentes_LasLiberaYQuitaLaPrincipal()
     {
         // Arrange (J3)
