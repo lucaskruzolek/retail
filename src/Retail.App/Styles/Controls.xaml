@@ -744,6 +744,70 @@
         <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
         <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
         <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+        <!-- Plantilla estándar de DataGrid con el borde redondeado (helpers:EsquinasHelper.Esquinas, 8 por defecto) y su
+             contenido recortado a esas esquinas: sin el recorte el fondo del encabezado se saldría de ellas. No lleva el
+             botón de "seleccionar todo" de la esquina porque la grilla no muestra encabezados de fila. -->
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGrid">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{Binding (helpers:EsquinasHelper.Esquinas), RelativeSource={RelativeSource TemplatedParent}}"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="DG_ScrollViewer"
+                                      Focusable="False"
+                                      helpers:EsquinasHelper.RadioDelRecorte="{Binding (helpers:EsquinasHelper.Esquinas).TopLeft, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ScrollViewer.Template>
+                                <ControlTemplate TargetType="ScrollViewer">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <DataGridColumnHeadersPresenter x:Name="PART_ColumnHeadersPresenter"
+                                                                        Grid.Column="1"
+                                                                        Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Column}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
+                                        <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                                                Grid.Row="1"
+                                                                Grid.ColumnSpan="2"
+                                                                CanContentScroll="{TemplateBinding CanContentScroll}" />
+                                        <ScrollBar x:Name="PART_VerticalScrollBar"
+                                                   Grid.Row="1"
+                                                   Grid.Column="2"
+                                                   Orientation="Vertical"
+                                                   Maximum="{TemplateBinding ScrollableHeight}"
+                                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                                   Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                                        <Grid Grid.Row="2" Grid.Column="1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{Binding NonFrozenColumnsViewportHorizontalOffset, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                                       Grid.Column="1"
+                                                       Orientation="Horizontal"
+                                                       Maximum="{TemplateBinding ScrollableWidth}"
+                                                       ViewportSize="{TemplateBinding ViewportWidth}"
+                                                       Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                                        </Grid>
+                                    </Grid>
+                                </ControlTemplate>
+                            </ScrollViewer.Template>
+                            <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- ================================================================= -->
