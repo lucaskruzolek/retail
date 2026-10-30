@@ -24,43 +24,33 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO Y TÍTULO DEL MÓDULO                             -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0"
-                Style="{StaticResource CardBorderStyle}"
-                Padding="20,16"
-                Margin="{StaticResource SectionSpacing}">
-            <DockPanel LastChildFill="False">
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Administración de Usuarios y Roles (RBAC)"
-                               Style="{StaticResource TextBlockHeader1}" />
-                    <TextBlock Text="Panel de gestión de operadores, credenciales y control de acceso del punto de venta (RF-03)"
-                               Style="{StaticResource TextBlockBodySecondary}"
-                               Margin="0,4,0,0" />
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- Desbloquear la cuenta de Administrador seleccionada (solo Gerente, D-31) -->
-                    <Button Command="{Binding DesbloquearCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Padding="16,8"
-                            Margin="0,0,8,0"
-                            ToolTip="Desbloquear la cuenta seleccionada (bloqueada por autorizaciones fallidas)"
-                            Visibility="{Binding PuedeDesbloquear, Converter={StaticResource BoolToVisConverter}}">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularLockOpenAlt" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Desbloquear" FontWeight="Bold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button Command="{Binding NuevoUsuarioCommand}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            Padding="16,8">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="SolidUserPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Nuevo Operador" FontWeight="Bold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
+        <components:PageHeader Grid.Row="0"
+                               Margin="{StaticResource SectionSpacing}"
+                               Titulo="Administración de Usuarios y Roles (RBAC)"
+                               Subtitulo="Panel de gestión de operadores, credenciales y control de acceso del punto de venta (RF-03)">
+            <StackPanel Orientation="Horizontal">
+                <!-- Desbloquear la cuenta de Administrador seleccionada (solo Gerente, D-31) -->
+                <Button Command="{Binding DesbloquearCommand}"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        Padding="16,8"
+                        Margin="0,0,8,0"
+                        ToolTip="Desbloquear la cuenta seleccionada (bloqueada por autorizaciones fallidas)"
+                        Visibility="{Binding PuedeDesbloquear, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularLockOpenAlt" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Desbloquear" FontWeight="Bold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding NuevoUsuarioCommand}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="SolidUserPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Nuevo Operador" FontWeight="Bold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </components:PageHeader>
 
         <!-- ============================================================= -->
         <!-- 2. PANEL UNIFICADO: FILTROS + TABLA + PAGINACIÓN              -->
@@ -114,14 +104,14 @@
                 <DataGrid Grid.Row="1"
                           ItemsSource="{Binding Usuarios}"
                           SelectedItem="{Binding UsuarioSeleccionado, Mode=TwoWay}"
-                          Style="{StaticResource DataGridRetailStyle}"
+                          Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           BorderThickness="1"
                           Margin="16,0,16,8">
                 <DataGrid.Columns>
                     <!-- ID -->
                     <DataGridTextColumn Header="ID"
-                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                         Binding="{Binding IdUsuario}"
                                         Width="60"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
@@ -201,7 +191,7 @@
 
                     <!-- Fecha de Alta -->
                     <DataGridTextColumn Header="Fecha Alta"
-                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                         Binding="{Binding CreatedAt, StringFormat='{}{0:dd/MM/yyyy}'}"
                                         Width="110"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
