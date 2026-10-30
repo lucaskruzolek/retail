@@ -7,8 +7,13 @@ namespace Retail.App.Views.Components;
 
 /// <summary>
 /// Barra de acciones masivas de un listado: muestra cuántas filas hay seleccionadas, las acciones que se pueden aplicar
-/// a todas (su <see cref="ContentControl.Content"/>) y un botón para quitar la selección. La página la coloca en el
-/// lugar de la barra del buscador mientras haya selección. Su plantilla vive en <c>Styles/Listados.xaml</c>.
+/// a todas (su <see cref="ContentControl.Content"/>) y un botón para quitar la selección. La página la pasa a
+/// <see cref="ListToolbar.AccionesDeSeleccion"/>, que la muestra en lugar de la carga y el contador mientras haya
+/// selección. Su plantilla vive en <c>Styles/Listados.xaml</c>.
+/// <para>
+/// No informa "de cuántos": la selección es de la página visible (filtrar o cambiar de página la descarta), y "3 de 248"
+/// sugeriría que se pueden seleccionar los 248.
+/// </para>
 /// </summary>
 public class BulkActionBar : ContentControl
 {

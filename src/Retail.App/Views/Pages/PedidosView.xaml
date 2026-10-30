@@ -60,8 +60,7 @@
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
-                               Titulo="Pedidos a Proveedores"
-                               Subtitulo="Borradores, pedidos emitidos pendientes de recepción e historial (RF-29)">
+                               Titulo="Pedidos a Proveedores">
             <StackPanel Orientation="Horizontal">
                 <Border Style="{StaticResource BadgeDangerStyle}"
                         Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
@@ -179,7 +178,7 @@
                     <StackPanel VerticalAlignment="Center"
                                 HorizontalAlignment="Center"
                                 Visibility="{Binding TieneDetalle, Converter={StaticResource InverseBoolToVisConverter}}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="40" Height="40" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="40" Height="40" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
                         <TextBlock Text="Seleccione un pedido para ver su detalle"
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    Margin="0,12,0,0" />

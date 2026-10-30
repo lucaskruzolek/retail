@@ -149,6 +149,54 @@ public class ComponentesListadoTests
     }
 
     [Fact]
+    public void PageHeader_SinSubtitulo_ColapsaSuLinea()
+    {
+        Visibility subtitulo = Visibility.Visible;
+
+        WpfTestHelper.Run(() =>
+        {
+            var encabezado = new PageHeader { Titulo = "Catálogo" };
+            Distribuir(encabezado);
+            subtitulo = Descendientes<TextBlock>(encabezado).Single(t => t.Name == "TextoSubtitulo").Visibility;
+        });
+
+        subtitulo.Should().Be(Visibility.Collapsed, "sin subtítulo no queda una línea vacía y el título se centra con las acciones");
+    }
+
+    [Fact]
+    public void ListToolbar_ConSeleccion_LasAccionesReemplazanALimpiarFiltrosYAlContador()
+    {
+        bool contadorVisible = true;
+        bool accionesVisibles = false;
+        bool limpiarVisible = false;
+        object? contextoDeLasAcciones = null;
+        var viewModel = new object();
+
+        WpfTestHelper.Run(() =>
+        {
+            var limpiar = new RelayCommand(() => { });
+            var acciones = new BulkActionBar { CantidadSeleccionados = 2 };
+            var barra = new ListToolbar { TotalResultados = 10, ComandoLimpiar = limpiar, AccionesDeSeleccion = acciones, HaySeleccion = true };
+            var pagina = new Grid { DataContext = viewModel };
+            pagina.Children.Add(barra);
+            Distribuir(pagina);
+            // Fuera de una ventana IsVisible es siempre falso: se mira la Visibility de cada elemento
+            contadorVisible = ((FrameworkElement)barra.FindName("PanelNormal")).Visibility == Visibility.Visible;
+            accionesVisibles = ((FrameworkElement)barra.FindName("PanelSeleccion")).Visibility == Visibility.Visible
+                && Descendientes<BulkActionBar>(barra).Contains(acciones);
+            var botonLimpiar = Descendientes<Button>(barra).Single(b => ReferenceEquals(b.Command, limpiar));
+            limpiarVisible = botonLimpiar.Visibility == Visibility.Visible
+                && ((FrameworkElement)botonLimpiar.Parent).Visibility == Visibility.Visible;
+            contextoDeLasAcciones = acciones.DataContext;
+        });
+
+        contadorVisible.Should().BeFalse();
+        accionesVisibles.Should().BeTrue();
+        limpiarVisible.Should().BeFalse("el badge \"N seleccionados ✕\" ocupa el lugar de \"Limpiar filtros\"");
+        contextoDeLasAcciones.Should().BeSameAs(viewModel, "así los botones de las acciones se enlazan a los comandos de la página");
+    }
+
+    [Fact]
     public void BulkActionBar_CancelarSeleccion_EjecutaElComando()
     {
         bool cancelado = false;
@@ -195,6 +243,67 @@ public class ComponentesListadoTests
 
         abiertoTrasElPrimero.Should().BeTrue();
         abiertoTrasElSegundo.Should().BeFalse("un segundo clic sobre el botón oculta el menú");
+    }
+
+    // Presión real del botón izquierdo sobre el botón: llega antes que el Click, que se levanta al soltar
+    private static void Presionar(UIElement boton)
+    {
+        boton.RaiseEvent(new System.Windows.Input.MouseButtonEventArgs(System.Windows.Input.Mouse.PrimaryDevice, 0, System.Windows.Input.MouseButton.Left)
+        {
+            RoutedEvent = UIElement.PreviewMouseLeftButtonDownEvent
+        });
+    }
+
+    [Fact]
+    public void MenuDesplegableHelper_ClicRapidoConElMenuAbierto_QueLoCierraAntesDelClick_NoLoReabre()
+    {
+        bool abiertoTrasElClic = true;
+        bool abiertoTrasElSiguiente = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var boton = new Button { Content = "⋮", ContextMenu = new ContextMenu { Items = { new MenuItem { Header = "Editar" } } } };
+            MenuDesplegableHelper.SetAbrirAlHacerClic(boton, true);
+            var clic = () => boton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Presionar(boton);
+            clic();
+
+            // Lo que pasa en una grilla: al presionar, la celda toma el foco y el menú se cierra antes de que llegue Click
+            Presionar(boton);
+            boton.ContextMenu!.IsOpen = false;
+            clic();
+            abiertoTrasElClic = boton.ContextMenu.IsOpen;
+
+            Presionar(boton);
+            clic();
+            abiertoTrasElSiguiente = boton.ContextMenu.IsOpen;
+            boton.ContextMenu.IsOpen = false;
+        });
+
+        abiertoTrasElClic.Should().BeFalse("el menú estaba abierto al presionar: el clic lo cierra aunque al soltar ya esté cerrado");
+        abiertoTrasElSiguiente.Should().BeTrue("con el menú cerrado al presionar, el clic lo abre");
+    }
+
+    [Fact]
+    public void MenuDesplegableHelper_ClicConElMenuAbiertoQueNadieCerro_LoCierra()
+    {
+        bool abierto = true;
+
+        WpfTestHelper.Run(() =>
+        {
+            var boton = new Button { Content = "Más", ContextMenu = new ContextMenu { Items = { new MenuItem { Header = "Editar" } } } };
+            MenuDesplegableHelper.SetAbrirAlHacerClic(boton, true);
+            var clic = () => boton.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
+            Presionar(boton);
+            clic();
+
+            // Fuera de una grilla nada le quita el foco al menú: sigue abierto al soltar y el clic lo cierra
+            Presionar(boton);
+            clic();
+            abierto = boton.ContextMenu!.IsOpen;
+        });
+
+        abierto.Should().BeFalse();
     }
 
     [Fact]

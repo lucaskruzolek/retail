@@ -145,7 +145,7 @@ Definidos en [`Styles/Spacing.xaml`](../src/Retail.App/Styles/Spacing.xaml) como
 
 | Token XAML | Valor | Uso Semántico |
 | :--- | :---: | :--- |
-| `PageMargin` | 20 | Margen del `Grid` raíz de **toda** página (`Views/Pages`), hasta el borde de la ventana y el Sidebar. |
+| `PageMargin` | 20, arriba 12 | Margen del `Grid` raíz de **toda** página (`Views/Pages`), hasta el borde de la ventana y el Sidebar. Arriba es 12 porque la barra de título ya separa el contenido del borde de la ventana. |
 | `SectionSpacing` | 16 (inferior) | Entre secciones apiladas: encabezado, filtros y cuerpo. |
 | `CardSpacing` | 8 (inferior) | Entre tarjetas relacionadas de un mismo grupo (cliente y totales del POS). |
 | `ColumnSpacing` / `ColumnGap` | 16 | Entre dos columnas de contenido: como margen derecho de la primera, o como columna espaciadora (`GridLength`). |
@@ -161,37 +161,38 @@ Definidos en [`Styles/Spacing.xaml`](../src/Retail.App/Styles/Spacing.xaml) como
 Patrón de las páginas de catálogo y padrón (Artículos como piloto; Clientes, Proveedores, Usuarios, Importador y Pedidos adoptan el encabezado y la grilla). Los estilos viven en [`Styles/Listados.xaml`](../src/Retail.App/Styles/Listados.xaml) y los componentes en [`Views/Components/`](../src/Retail.App/Views/Components/).
 
 ```text
-PageHeader (sin tarjeta)  ·················· título · subtítulo · acciones a la derecha
+PageHeader (sin tarjeta)  ·················· título · acciones a la derecha
 ┌─ Tarjeta ──────────────────────────────────────────────┐
-│ ListToolbar  (o BulkActionBar si hay filas marcadas)   │  búsqueda · limpiar filtros · N resultados
+│ ListToolbar                                            │  búsqueda · limpiar filtros · N resultados
+│              (con filas marcadas: búsqueda · [N seleccionados ✕] ···· acciones)
 │ ┌ FilterBand ──────────────────────────────────────┐   │
 │ │ Rubro   Categoría   Marca   Distribuidor   Stock │   │  etiqueta arriba, una sola fila
 │ └──────────────────────────────────────────────────┘   │
-│ DataGrid (DataGridListadoStyle)                        │  termina donde terminan las filas
+│ DataGrid (DataGridListadoStyle)                        │  ocupa el alto disponible, hasta la paginación
 │ PaginationBar                                          │
 └────────────────────────────────────────────────────────┘
 ```
 
 | Pieza | Qué es | Regla de uso |
 | :--- | :--- | :--- |
-| `PageHeader` | Control con contenido (`Titulo`, `Subtitulo`; el contenido son las acciones). Sin insignias junto al título | Reemplaza a la tarjeta de encabezado. Un control con contenido, y no un `UserControl` con una propiedad `object`, para que los botones hereden el `DataContext` de la página. Debajo lleva `Margin="{StaticResource SectionSpacing}"` |
-| `ListToolbar` | Buscador de 390 × 40, "Limpiar filtros" (fantasma, se deshabilita sola), indicador de carga y "N resultados" | Se enlaza por propiedades de dependencia (`Texto`, `ComandoLimpiar`, `TotalResultados`, `EstaCargando`) |
-| `BulkActionBar` | Barra de acciones masivas con "N seleccionados" y "Cancelar selección" | Va **en el pie, a la izquierda de la paginación**, y aparece solo con filas marcadas; la búsqueda queda siempre a la vista. No es un panel flotante porque taparía las últimas filas |
+| `PageHeader` | Control con contenido (`Titulo`, `Subtitulo`; el contenido son las acciones). Sin insignias junto al título | Reemplaza a la tarjeta de encabezado. Las páginas de listado **no llevan subtítulo** (el título alcanza y la grilla gana alto); sin subtítulo, su línea se colapsa y el título se centra con las acciones. Un control con contenido, y no un `UserControl` con una propiedad `object`, para que los botones hereden el `DataContext` de la página. Debajo lleva `Margin="{StaticResource SectionSpacing}"` |
+| `ListToolbar` | Buscador de 390 × 40, "Limpiar filtros" (fantasma, se deshabilita sola), indicador de carga y "N resultados" | Se enlaza por propiedades de dependencia (`Texto`, `ComandoLimpiar`, `TotalResultados`, `EstaCargando`). Con `HaySeleccion`, su `AccionesDeSeleccion` (la `BulkActionBar` de la página) reemplaza a "Limpiar filtros", la carga y el contador; el buscador sigue a la vista. La barra hereda el `DataContext` de la página por el árbol visual |
+| `BulkActionBar` | Acciones masivas **sin recuadro**: a la izquierda, el badge "N seleccionados ✕" (fondo `PrimaryLightBrush`, el rosa de las filas marcadas; texto `PrimaryBrush`; la "✕", con `BadgeCancelButtonStyle`, cancela la selección); a la derecha, las acciones como botones sueltos | Va **en la barra del buscador** (`ListToolbar.AccionesDeSeleccion`), en el lugar de "Limpiar filtros". La acción con lógica va con `KeycapButtonStyle` (el único acento carmín de la vista es "Nuevo …"); las demás, con `GhostNeutralButtonStyle`; "Más ▾" va último, porque su menú abre alineado a la derecha, con una flecha liviana dibujada (`Path` de 8 × 4, trazo 1,2) y los ítems en peso normal. No dice "de M": la selección es de la página visible (filtrar o paginar la descarta). No es un panel flotante porque taparía las últimas filas |
 | `FilterBandStyle` + `FilterFieldStyle` + `ComboBoxFiltroStyle` | Banda hundida con los filtros en un `Grid` de columnas `*`, etiqueta de 12 px arriba y combos de 36 px | Una sola fila; los textos largos no se cortan porque el combo ocupa toda su columna |
-| `DataGridListadoStyle` | Grilla de listado: encabezado en peso normal, fila de una línea de 44 px, selección en tinte carmín suave **sin borde carmín**, hover gris, sin relleno blanco bajo las filas. **Esquinas redondeadas** (vienen de la plantilla de `DataGridRetailStyle`, así que valen para todas las grillas) | Encabezados numéricos: `DataGridColumnHeaderRightListadoStyle`. La grilla compacta (POS, modales) sigue siendo `DataGridRetailStyle` |
-| `RowMenuButtonStyle` + `MenuDesplegableHelper` | Botón "⋮" de 32 px (ícono de 14), sin contorno, que abre un `ContextMenu` con las acciones de la fila | El menú se despliega **debajo del botón con los bordes derechos alineados** y un segundo clic lo cierra: se abre con `StaysOpen=true` y el helper lo cierra ante un clic ajeno, la rueda, perder el foco o mover la ventana. La columna no lleva título y mide **40 px** (botón de 32 más 4 de aire por lado, con el relleno de la celda en 0). El doble clic en la fila abre la edición. El menú no está en el árbol visual de la página: sus comandos se enlazan por `PlacementTarget.Tag` (el ViewModel) y `PlacementTarget.DataContext` (la fila) |
+| `DataGridListadoStyle` | Grilla de listado: encabezado en peso normal, fila de una línea de 44 px, selección en tinte carmín suave **sin borde carmín**, hover gris (los triggers de la fila están en `Style.Triggers` para que un estilo derivado los redefina: en una grilla **con casillas**, el tinte sigue a la casilla y un clic en una fila no cambia su aspecto: el gris es solo del hover). Ocupa **todo el alto** de su fila, así el borde llega hasta la paginación aunque haya pocas filas. **Esquinas redondeadas** (vienen de la plantilla de `DataGridRetailStyle`, así que valen para todas las grillas) | Encabezados numéricos: `DataGridColumnHeaderRightListadoStyle`. La grilla compacta (POS, modales) sigue siendo `DataGridRetailStyle` |
+| `RowMenuButtonStyle` + `MenuDesplegableHelper` | Botón "⋮" de 32 px (ícono de 14), sin contorno, que abre un `ContextMenu` con las acciones de la fila | El menú se despliega **debajo del botón con los bordes derechos alineados** y un segundo clic lo cierra: se abre con `StaysOpen=true` y el helper lo cierra ante un clic ajeno, la rueda, perder el foco o mover la ventana. El `Click` decide por el estado del menú **al presionar** el botón, no al soltarlo: en una grilla el menú se cierra solo durante el clic (la celda toma el foco), y decidir al soltar lo reabría según la duración del clic. La columna no lleva título y mide **40 px**, con el botón de 32 pegado a la izquierda: la columna anterior (Stock, numérica) termina con 8 de relleno, así el "⋮" tiene 8 px de aire a cada lado. El doble clic en la fila abre la edición. El menú no está en el árbol visual de la página: sus comandos se enlazan por `PlacementTarget.Tag` (el ViewModel) y `PlacementTarget.DataContext` (la fila) |
 | `CheckBoxCompactStyle` | Casilla de 16 × 16 para grillas (la de WPF-UI mide 20 y desproporciona la fila). Marcada o intermedia se rellena de carmín | Encabezado y celdas de selección de la grilla |
 | `GhostNeutralButtonStyle` | Acción de texto gris sin borde | El carmín se reserva para la marca, la acción principal y la selección |
 
 * **Importes y números:** celdas con `TextBlockCurrencyCell`, `TextBlockPriceCell` o `TextBlockNumericCell`, que fijan `Language="es-AR"`. Formato de moneda `{0:C2}` (da `$ 4.000,00`) y de porcentaje `{0:0.##}%`. Sin unidades en el título de columna.
-* **Stock:** punto de color (verde normal, ámbar bajo el mínimo) + cantidad; con alerta suma "⚠" y "(Mín: N)", para que el estado no dependa solo del color.
+* **Stock:** punto de color (verde normal) + cantidad; bajo el mínimo, el punto se reemplaza por "⚠" ámbar, para que el estado no dependa solo del color (el mínimo no se muestra en la grilla). Un servicio muestra "—" con tooltip. Alineado a la derecha, como toda columna numérica, con 8 de relleno derecho (ver el botón "⋮"), y de 64 px: lo justo para su título; el resto lo absorbe la descripción.
 * **Distribuidor:** insignia neutra con ícono de enlace y, si hay fuentes adicionales, un chip "+n" **solo informativo** (no es un botón; el doble clic en la fila abre el artículo).
 * **Nombres de artículo:** se muestran en mayúsculas con `AMayusculasConverter` (es-AR). Es solo presentación: el dato guardado no cambia.
 * **Esquinas de las grillas:** `helpers:EsquinasHelper.Esquinas` (8 por defecto). Una grilla pegada a los bordes de su tarjeta (Compras) lo pone en `0`. La plantilla recorta el contenido con `RadioDelRecorte`, porque sin recorte el fondo del encabezado se sale de la esquina.
 * **Anchos de columna:** las columnas de datos son fijas y se ajustan a su contenido; la principal (el nombre) es `*` y absorbe el resto.
 * **Combo de filas por página:** el `ComboBox` de WPF-UI dibuja su borde visible según el texto más el relleno vertical (no `Height`) y reserva ~32 px para la flecha además del relleno derecho. En `PaginationBar` se resuelve con `Padding="10,5.7,0,5.7"` y `Width="64"`: igual de alto que los botones y sin recortar el número.
-* **Paginación:** `PaginationBar` tiene `MostrarResumen` (por defecto `True`). Una página que ya informa la cantidad en otro lado (Artículos, con "N resultados" arriba) lo pone en `False` y usa ese lugar para sus acciones masivas.
-* **Acciones masivas sin lógica todavía:** los botones se muestran **deshabilitados con un tooltip** "Disponible próximamente"; no se cablean bucles sobre acciones de a una.
+* **Paginación:** `PaginationBar` tiene `MostrarResumen` (por defecto `True`). Artículos lo pone en `False` y muestra en su lugar "N resultados": oculta el contador de la barra del buscador (`ListToolbar.MostrarContador="False"`) y enlaza un texto del pie a su `TextoContador`, a la izquierda y en línea con el paginador.
+* **Acciones masivas sin lógica todavía:** se muestran **deshabilitadas con el tooltip** "Disponible próximamente": "Eliminar seleccionados" (`RegularTrash`) como botón a la vista, y Cambiar rubro (`RegularBookmarks`) y Cambiar categoría (`RegularTag`) en "Más ▾". No se cablean bucles sobre acciones de a una.
 
 ---
 
@@ -232,7 +233,8 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
   * Catálogo de Artículos: `Kind="RegularBook"`
   * Clientes y Ctas. Ctes.: `Kind="RegularUser"`
   * Caja y Cobros: `Kind="RegularDollarCircle"`
-  * Compras a Distribuidores: `Kind="RegularCart"`
+  * Pedidos a Proveedores (y toda acción "Pedir"): `Kind="RegularCart"`
+  * Compras a Distribuidores (el pedido ya recibido): `Kind="RegularPackage"` (encabezado de la página: `SolidPackage`)
   * Proveedores: `Kind="RegularTruck"`
   * Operadores y Roles: `Kind="RegularUserIdCard"`
   * Consola Fiscal ARCA: `Kind="RegularBadgeCheck"`

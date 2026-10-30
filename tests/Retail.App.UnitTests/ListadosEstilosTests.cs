@@ -63,9 +63,10 @@ public class ListadosEstilosTests
     }
 
     [Fact]
-    public void ControlesDeListado_ConLosEstilosCompartidos_ResuelvenSusRecursosYTerminanDondeTerminanLasFilas()
+    public void ControlesDeListado_ConLosEstilosCompartidos_ResuelvenSusRecursosYLaGrillaOcupaTodoElAlto()
     {
         double altoGrilla = 0;
+        double altoDeSuFila = 0;
 
         WpfTestHelper.Run(() =>
         {
@@ -106,8 +107,9 @@ public class ListadosEstilosTests
             contenedor.Arrange(new Rect(0, 0, 800, 600));
             contenedor.UpdateLayout();
             altoGrilla = grilla.ActualHeight;
+            altoDeSuFila = contenedor.RowDefinitions[1].ActualHeight;
         });
 
-        altoGrilla.Should().BeGreaterThan(0).And.BeLessThan(300, "la grilla de listado no rellena el alto sobrante");
+        altoGrilla.Should().BeApproximately(altoDeSuFila, 0.5, "con dos filas, el borde de la grilla igual llega al final de su espacio");
     }
 }

@@ -8,8 +8,9 @@
          columnas, 20 hasta el borde de la ventana. Solo se tokeniza el espaciado entre bloques de una página; los
          micro-márgenes internos de un control (4 a 8 px) se escriben a mano. Son StaticResource: no cambian en ejecución. -->
 
-    <!-- Margen entre el borde de la ventana (o el Sidebar) y el contenido de toda página -->
-    <Thickness x:Key="PageMargin">20</Thickness>
+    <!-- Margen entre el borde de la ventana (o el Sidebar) y el contenido de toda página. Arriba es menor (12) porque la
+         barra de título ya separa el contenido del borde de la ventana. -->
+    <Thickness x:Key="PageMargin">20,12,20,20</Thickness>
 
     <!-- Separación vertical entre secciones de una página (encabezado, filtros, cuerpo) -->
     <Thickness x:Key="SectionSpacing">0,0,0,16</Thickness>

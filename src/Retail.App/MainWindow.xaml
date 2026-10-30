@@ -425,7 +425,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularCart"
+                                                                Kind="RegularPackage"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -467,7 +467,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularPackage"
+                                                                Kind="RegularCart"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
