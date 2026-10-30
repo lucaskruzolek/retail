@@ -25,6 +25,11 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
+    <!-- Título de página de trabajo (26px, SemiBold): el del PageHeader, directo sobre el fondo -->
+    <Style x:Key="TextBlockPageTitle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockHeader1}">
+        <Setter Property="FontSize" Value="26" />
+    </Style>
+
     <!-- Subtítulo o Cabecera de Sección / Modal (16px, SemiBold) -->
     <Style x:Key="TextBlockHeader2" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyDisplay}" />
@@ -92,8 +97,11 @@
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
     </Style>
 
-    <!-- Celda de Precios y Subtotales en Grillas (14px, SemiBold, números tabulares, alineado verticalmente al centro) -->
+    <!-- Celda de Precios y Subtotales en Grillas (14px, SemiBold, números tabulares, alineado verticalmente al centro).
+         Language es-AR: un StringFormat de un binding usa el idioma del elemento (por defecto en-US, que da "4,000.00").
+         Se fija acá, y no en la grilla ni en la aplicación, para no alterar cómo se interpreta lo que el usuario tipea. -->
     <Style x:Key="TextBlockCurrencyCell" TargetType="TextBlock">
+        <Setter Property="Language" Value="es-AR" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
         <Setter Property="FontSize" Value="14" />
@@ -101,6 +109,11 @@
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="TextAlignment" Value="Right" />
         <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Precio de venta destacado en una grilla de listado: como la celda de importe, pero en negrita -->
+    <Style x:Key="TextBlockPriceCell" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
+        <Setter Property="FontWeight" Value="Bold" />
     </Style>
 
     <!-- Celda Monoespaciada Estándar en Grillas (Códigos de barra, Documentos, IDs - 13px, Cascadia Code) -->
@@ -114,6 +127,7 @@
 
     <!-- Celda Numérica en Grillas (números de fila, cantidades, stock - 13px, SemiBold, números tabulares) -->
     <Style x:Key="TextBlockNumericCell" TargetType="TextBlock">
+        <Setter Property="Language" Value="es-AR" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
         <Setter Property="FontSize" Value="13" />

@@ -224,14 +224,14 @@
                 <DataGrid x:Name="GrillaCatalogo"
                           Grid.Row="1"
                           ItemsSource="{Binding ItemsCatalogo}"
-                          Style="{StaticResource DataGridRetailStyle}"
+                          Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           SelectionMode="Single"
                           SelectionChanged="GrillaCatalogo_SelectionChanged"
                           BorderThickness="1"
                           Margin="16,0,16,8">
                     <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowRetailStyle}">
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowListadoStyle}">
                             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridRow_PreviewMouseLeftButtonDown" />
                         </Style>
                     </DataGrid.RowStyle>
@@ -303,7 +303,7 @@
 
                         <!-- Precio de costo -->
                         <DataGridTextColumn Header="Costo Reposición"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding CostoReposicion, StringFormat=C2}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="130" />
@@ -354,7 +354,7 @@
 
                         <!-- Precio de venta tienda -->
                         <DataGridTextColumn Header="Precio Venta"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding PrecioVentaTienda, StringFormat=C2}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="110" />

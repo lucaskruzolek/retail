@@ -30,41 +30,24 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO Y TÍTULO DEL MÓDULO                             -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0"
-                Style="{StaticResource CardBorderStyle}"
-                Padding="20,16"
-                Margin="{StaticResource SectionSpacing}">
-            <DockPanel LastChildFill="False">
-                <StackPanel VerticalAlignment="Center">
+        <components:PageHeader Grid.Row="0"
+                               Margin="{StaticResource SectionSpacing}"
+                               Titulo="Proveedores"
+                               Subtitulo="Padrón de proveedores mayoristas.">
+            <StackPanel Orientation="Horizontal">
+                <!-- Botón Nuevo Proveedor (F2) -->
+                <Button x:Name="BtnNuevoProveedor"
+                        Command="{Binding NuevoProveedorCommand}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        Padding="16,8">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidTruck"
-                                                    Width="22" Height="22"
-                                                    Foreground="{DynamicResource PrimaryBrush}"
-                                                    VerticalAlignment="Center"
-                                                    Margin="0,0,10,0" />
-                        <TextBlock Text="Proveedores"
-                                   Style="{StaticResource TextBlockHeader1}" />
+                        <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Nuevo Proveedor" FontWeight="Bold" VerticalAlignment="Center" />
+                        
                     </StackPanel>
-                    <TextBlock Text="Padrón de proveedores mayoristas."
-                               Style="{StaticResource TextBlockBodySecondary}"
-                               Margin="0,4,0,0" />
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- Botón Nuevo Proveedor (F2) -->
-                    <Button x:Name="BtnNuevoProveedor"
-                            Command="{Binding NuevoProveedorCommand}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            Padding="16,8">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Nuevo Proveedor" FontWeight="Bold" VerticalAlignment="Center" />
-                            
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
+                </Button>
+            </StackPanel>
+        </components:PageHeader>
 
         <!-- ============================================================= -->
         <!-- 2. PANEL UNIFICADO: FILTROS + TABLA + ACCIONES                -->
@@ -126,7 +109,7 @@
                           Grid.Row="1"
                           ItemsSource="{Binding Proveedores}"
                           SelectedItem="{Binding ProveedorSeleccionado, Mode=TwoWay}"
-                          Style="{StaticResource DataGridRetailStyle}"
+                          Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           BorderThickness="1"
                           Margin="16,0,16,8">

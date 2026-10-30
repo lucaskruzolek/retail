@@ -156,7 +156,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Pos">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -180,7 +179,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidStoreAlt2"
+                                                                Kind="RegularStoreAlt2"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -204,7 +203,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Articulos">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -228,7 +226,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidBook"
+                                                                Kind="RegularBook"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -252,7 +250,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Clientes">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -276,7 +273,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidUser"
+                                                                Kind="RegularUser"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -300,7 +297,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Caja">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -324,7 +320,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidDollarCircle"
+                                                                Kind="RegularDollarCircle"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -348,7 +344,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Presupuestos">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -372,7 +367,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidFile"
+                                                                Kind="RegularFile"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -412,7 +407,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Compras">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -431,7 +425,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidCart"
+                                                                Kind="RegularCart"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -455,7 +449,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Pedidos">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -474,7 +467,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidPackage"
+                                                                Kind="RegularPackage"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -498,7 +491,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Proveedores">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -517,7 +509,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidTruck"
+                                                                Kind="RegularTruck"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -541,7 +533,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Catalogos">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -600,7 +591,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Tablero">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -619,7 +609,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidBarChart"
+                                                                Kind="RegularBarChart"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -643,7 +633,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Fiscal">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -667,7 +656,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidBadgeCheck"
+                                                                Kind="RegularBadgeCheck"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -691,7 +680,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Usuarios">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -715,7 +703,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidUserIdCard"
+                                                                Kind="RegularUserIdCard"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
@@ -739,7 +727,6 @@
                                             <DataTrigger Binding="{Binding ModuloActivo}" Value="Respaldos">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                                                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -763,7 +750,7 @@
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="SolidSave"
+                                                                Kind="RegularSave"
                                                                 Width="20"
                                                                 Height="20"
                                                                 Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"

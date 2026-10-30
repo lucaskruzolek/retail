@@ -29,48 +29,35 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO Y TÍTULO DEL MÓDULO                             -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0"
-                Style="{StaticResource CardBorderStyle}"
-                Padding="20,16"
-                Margin="{StaticResource SectionSpacing}">
-            <DockPanel LastChildFill="False">
-                <StackPanel VerticalAlignment="Center">
+        <components:PageHeader Grid.Row="0"
+                               Margin="{StaticResource SectionSpacing}"
+                               Titulo="Padrón de Clientes y Cuentas Corrientes"
+                               Subtitulo="Gestión integral de clientes comerciales y saldos de cuentas corrientes">
+            <StackPanel Orientation="Horizontal">
+                <!-- Botón Cobrar Cta Cte (F4) -->
+                <Button Command="{Binding CobrarCuentaCorrienteCommand}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        IsEnabled="{Binding PuedeCobrar}"
+                        Padding="14,8"
+                        Margin="0,0,10,0"
+                        ToolTip="Registrar cobranza de cuenta corriente para el cliente seleccionado (F4)">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Padrón de Clientes y Cuentas Corrientes"
-                                   Style="{StaticResource TextBlockHeader1}" />
+                        <iconPacks:PackIconBoxIcons Kind="SolidCreditCard" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Cobrar Deuda" FontWeight="Bold" VerticalAlignment="Center" />
                     </StackPanel>
+                </Button>
 
-                    <TextBlock Text="Gestión integral de clientes comerciales y saldos de cuentas corrientes"
-                               Style="{StaticResource TextBlockBodySecondary}"
-                               Margin="0,4,0,0" />
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- Botón Cobrar Cta Cte (F4) -->
-                    <Button Command="{Binding CobrarCuentaCorrienteCommand}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            IsEnabled="{Binding PuedeCobrar}"
-                            Padding="14,8"
-                            Margin="0,0,10,0"
-                            ToolTip="Registrar cobranza de cuenta corriente para el cliente seleccionado (F4)">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="SolidCreditCard" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Cobrar Deuda" FontWeight="Bold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-
-                    <!-- Botón Nuevo Cliente (F2) -->
-                    <Button Command="{Binding NuevoClienteCommand}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            Padding="16,8">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="SolidUserPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Nuevo Cliente" FontWeight="Bold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
+                <!-- Botón Nuevo Cliente (F2) -->
+                <Button Command="{Binding NuevoClienteCommand}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        Padding="16,8">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="SolidUserPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Nuevo Cliente" FontWeight="Bold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </components:PageHeader>
 
         <!-- ============================================================= -->
         <!-- 2. PANEL UNIFICADO: FILTROS + TABLA + PAGINACIÓN              -->
@@ -145,14 +132,14 @@
                 <DataGrid Grid.Row="1"
                           ItemsSource="{Binding Clientes}"
                           SelectedItem="{Binding ClienteSeleccionado, Mode=TwoWay}"
-                          Style="{StaticResource DataGridRetailStyle}"
+                          Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           BorderThickness="1"
                           Margin="16,0,16,8">
                     <DataGrid.Columns>
                         <!-- ID Cliente -->
                         <DataGridTextColumn Header="ID"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding IdCliente, StringFormat=#{0:D4}}"
                                             Width="65"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
@@ -216,13 +203,13 @@
 
                         <!-- Límite de Crédito -->
                         <DataGridTextColumn Header="Límite Crédito"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding LimiteCredito, StringFormat={}{0:C}}"
                                             Width="120"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                         <!-- Saldo Deudor -->
-                        <DataGridTemplateColumn Header="Saldo Deudor" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="130">
+                        <DataGridTemplateColumn Header="Saldo Deudor" HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}" Width="130">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding SaldoCuentaCorriente, StringFormat={}{0:C}}"
@@ -249,7 +236,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- Crédito Disponible -->
-                        <DataGridTemplateColumn Header="Crédito Disp." HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="120">
+                        <DataGridTemplateColumn Header="Crédito Disp." HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}" Width="120">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding CreditoDisponible, StringFormat={}{0:C}}"

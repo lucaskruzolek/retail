@@ -15,6 +15,7 @@ using Retail.App.ViewModels.Reportes;
 using Retail.App.ViewModels.Usuarios;
 using Retail.App.ViewModels.Ventas;
 using Retail.App.Views.Auth;
+using Retail.App.Views.Components;
 using Retail.App.Views.Dev;
 using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
@@ -1136,6 +1137,31 @@ public class AppSmokeTests
         xamlException.Should().BeNull("el XAML de LoginWindow debe resolverse sin errores de recursos o plantillas");
         window.Should().NotBeNull();
         window!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void ListToolbar_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var barra = new ListToolbar { TotalResultados = 248, PlaceholderText = "Buscar..." };
+                barra.Measure(new System.Windows.Size(1000, 200));
+                barra.Arrange(new System.Windows.Rect(0, 0, 1000, 200));
+                barra.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ListToolbar debe resolverse sin errores");
     }
 
     [Fact]
