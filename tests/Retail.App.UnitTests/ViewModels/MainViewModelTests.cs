@@ -1,3 +1,4 @@
+using System.IO;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
@@ -505,12 +506,14 @@ public class MainViewModelTests
         return fabrica;
     }
 
-    private MainViewModel CrearConAvisoComoGerente(IRestauracionService servicio)
+    private MainViewModel CrearConAvisoComoGerente(
+        IRestauracionService servicio,
+        IConfirmacionesAvisoRestauracion? confirmaciones = null)
     {
         _sessionMock.EstaAutenticado.Returns(true);
         _sessionMock.IdUsuario.Returns(5);
         _sessionMock.EsGerente.Returns(true);
-        return new MainViewModel(_sessionMock, _navigationMock, FabricaConServicio(servicio));
+        return new MainViewModel(_sessionMock, _navigationMock, FabricaConServicio(servicio), confirmaciones);
     }
 
     [Fact]
@@ -591,7 +594,7 @@ public class MainViewModelTests
         await vm.CargarAvisoRestauracionAsync();
 
         // Act
-        vm.CerrarAvisoRestauracionCommand.Execute(null);
+        await vm.CerrarAvisoRestauracionCommand.ExecuteAsync(null);
 
         // Assert
         vm.MostrarAvisoRestauracion.Should().BeFalse();
@@ -642,5 +645,99 @@ public class MainViewModelTests
 
         // Assert
         _navigationMock.DidNotReceive().NavigateTo<PedidosView>();
+    }
+
+    [Fact]
+    public async Task CargarAvisoRestauracionAsync_RestauracionYaConfirmadaPorElOperador_NoMuestraAviso()
+    {
+        // Arrange
+        var restauracion = Restauracion(DateTime.UtcNow.AddDays(-1));
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>()).Returns(restauracion);
+        var confirmaciones = Substitute.For<IConfirmacionesAvisoRestauracion>();
+        confirmaciones.EstaConfirmadaAsync(5, restauracion.Referencia, Arg.Any<CancellationToken>()).Returns(true);
+        var vm = CrearConAvisoComoGerente(servicio, confirmaciones);
+
+        // Act
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Assert
+        vm.MostrarAvisoRestauracion.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CargarAvisoRestauracionAsync_RestauracionNoConfirmada_MuestraAviso()
+    {
+        // Arrange
+        var restauracion = Restauracion(DateTime.UtcNow.AddDays(-1));
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>()).Returns(restauracion);
+        var confirmaciones = Substitute.For<IConfirmacionesAvisoRestauracion>();
+        confirmaciones.EstaConfirmadaAsync(5, restauracion.Referencia, Arg.Any<CancellationToken>()).Returns(false);
+        var vm = CrearConAvisoComoGerente(servicio, confirmaciones);
+
+        // Act
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Assert
+        vm.MostrarAvisoRestauracion.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CargarAvisoRestauracionAsync_FallaLaLecturaDeConfirmaciones_MuestraAvisoIgual()
+    {
+        // Arrange
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>())
+            .Returns(Restauracion(DateTime.UtcNow.AddDays(-1)));
+        var confirmaciones = Substitute.For<IConfirmacionesAvisoRestauracion>();
+        confirmaciones.EstaConfirmadaAsync(Arg.Any<int>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new IOException("archivo bloqueado"));
+        var vm = CrearConAvisoComoGerente(servicio, confirmaciones);
+
+        // Act
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Assert
+        vm.MostrarAvisoRestauracion.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CerrarAvisoRestauracionCommand_ConAvisoVisible_ConfirmaLaRestauracionDelOperador()
+    {
+        // Arrange
+        var restauracion = Restauracion(DateTime.UtcNow);
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>()).Returns(restauracion);
+        var confirmaciones = Substitute.For<IConfirmacionesAvisoRestauracion>();
+        var vm = CrearConAvisoComoGerente(servicio, confirmaciones);
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Act
+        await vm.CerrarAvisoRestauracionCommand.ExecuteAsync(null);
+
+        // Assert
+        vm.MostrarAvisoRestauracion.Should().BeFalse();
+        await confirmaciones.Received(1).ConfirmarAsync(5, restauracion.Referencia, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CerrarAvisoRestauracionCommand_FallaLaEscritura_OcultaElAvisoSinPropagar()
+    {
+        // Arrange
+        var servicio = Substitute.For<IRestauracionService>();
+        servicio.ObtenerUltimaRestauracionAsync(5, Arg.Any<CancellationToken>()).Returns(Restauracion(DateTime.UtcNow));
+        var confirmaciones = Substitute.For<IConfirmacionesAvisoRestauracion>();
+        confirmaciones.ConfirmarAsync(Arg.Any<int>(), Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new IOException("disco lleno"));
+        var vm = CrearConAvisoComoGerente(servicio, confirmaciones);
+        await vm.CargarAvisoRestauracionAsync();
+
+        // Act
+        var act = async () => await vm.CerrarAvisoRestauracionCommand.ExecuteAsync(null);
+
+        // Assert
+        await act.Should().NotThrowAsync();
+        vm.MostrarAvisoRestauracion.Should().BeFalse();
     }
 }

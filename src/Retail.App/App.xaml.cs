@@ -91,6 +91,9 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.Views.Auth.LoginWindow>();
         services.AddSingleton<Retail.App.ViewModels.MainViewModel>();
         services.AddSingleton<MainWindow>();
+        services.AddSingleton<Retail.App.Services.IConfirmacionesAvisoRestauracion>(_ =>
+            new Retail.App.Services.ConfirmacionesAvisoRestauracionEnArchivo(
+                Retail.App.Services.ConfirmacionesAvisoRestauracionEnArchivo.RutaPorDefecto()));
 
         // Vistas de Desarrollo
         services.AddTransient<Retail.App.Views.Dev.StyleGalleryView>();
