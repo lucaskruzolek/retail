@@ -6,6 +6,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:helpers="clr-namespace:Retail.App.Helpers"
+             xmlns:components="clr-namespace:Retail.App.Views.Components"
              mc:Ignorable="d"
              d:DesignHeight="1800" d:DesignWidth="1050"
              Background="{DynamicResource SurfaceBackgroundBrush}">
@@ -765,6 +766,66 @@
                             <TextBlock Text="Abrir Padrón de Clientes (Ventana Sandbox)" FontWeight="Bold" />
                         </StackPanel>
                     </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- PÁGINAS DE LISTADO                                        -->
+            <!-- ========================================================= -->
+            <Border Background="{DynamicResource SurfaceCardBrush}"
+                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="24"
+                    Margin="0,24,0,0">
+                <StackPanel>
+                    <TextBlock Text="Páginas de listado" Style="{StaticResource TextBlockHeader2}" Margin="0,0,0,12" />
+
+                    <components:PageHeader Titulo="Catálogo de Artículos e Inventario"
+                                           Subtitulo="Encabezado sin tarjeta, con acciones a la derecha."
+                                           Margin="0,0,0,16">
+                        <Button Style="{StaticResource PrimaryActionButtonStyle}" Padding="20,10" Content="Nuevo Artículo" />
+                    </components:PageHeader>
+
+                    <components:ListToolbar PlaceholderText="Buscar por código, descripción o marca..."
+                                            TotalResultados="248"
+                                            Margin="0,0,0,12" />
+
+                    <components:BulkActionBar CantidadSeleccionados="3" Margin="0,0,0,12">
+                        <Button Style="{StaticResource KeycapButtonStyle}" Padding="12,4" Content="Pedir seleccionados" />
+                    </components:BulkActionBar>
+
+                    <Border Style="{StaticResource FilterBandStyle}" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <HeaderedContentControl Grid.Column="0" Header="Rubro" Style="{StaticResource FilterFieldStyle}" Margin="0,0,12,0">
+                                <ComboBox Style="{StaticResource ComboBoxFiltroStyle}" SelectedIndex="0">
+                                    <ComboBoxItem Content="Todos los Rubros" />
+                                </ComboBox>
+                            </HeaderedContentControl>
+                            <HeaderedContentControl Grid.Column="1" Header="Categoría" Style="{StaticResource FilterFieldStyle}" Margin="0,0,12,0">
+                                <ComboBox Style="{StaticResource ComboBoxFiltroStyle}" SelectedIndex="0">
+                                    <ComboBoxItem Content="Todas las Categorías" />
+                                </ComboBox>
+                            </HeaderedContentControl>
+                            <HeaderedContentControl Grid.Column="2" Header="Stock" Style="{StaticResource FilterFieldStyle}">
+                                <ComboBox Style="{StaticResource ComboBoxFiltroStyle}" SelectedIndex="0">
+                                    <ComboBoxItem Content="Todos" />
+                                </ComboBox>
+                            </HeaderedContentControl>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource GhostNeutralButtonStyle}" Content="Limpiar filtros" Margin="0,0,12,0" />
+                        <Button Style="{StaticResource RowMenuButtonStyle}" VerticalAlignment="Center" ToolTip="Botón de acciones de la fila">
+                            <iconPacks:PackIconBoxIcons Kind="RegularDotsVerticalRounded" Width="16" Height="16" />
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
