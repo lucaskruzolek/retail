@@ -30,7 +30,7 @@
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidCart" Width="20" Height="20"
+                        <iconPacks:PackIconBoxIcons Kind="SolidPackage" Width="20" Height="20"
                                                     Foreground="{DynamicResource PrimaryBrush}"
                                                     VerticalAlignment="Center" Margin="0,0,10,0" />
                         <TextBlock Text="Ingreso de Compras a Proveedores" Style="{StaticResource TextBlockHeader1}" />

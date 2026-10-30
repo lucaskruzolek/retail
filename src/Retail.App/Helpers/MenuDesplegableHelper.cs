@@ -19,6 +19,13 @@ namespace Retail.App.Helpers;
 /// lo cierra WPF, lo cierra este helper: un clic en cualquier lugar de la ventana que no sea el botón, la rueda del
 /// mouse, la pérdida de foco de la ventana y mover o cambiar su tamaño.
 /// </para>
+/// <para>
+/// Aun así, dentro de una grilla el menú puede cerrarse antes del Click: al presionar el botón, la celda toma el foco y
+/// el menú, que lo pierde, se cierra solo; al soltar, Click lo encontraba cerrado y lo volvía a abrir. Por eso Click no
+/// decide por el estado del menú al soltar, sino por el que tenía al presionar el botón: si estaba abierto, el clic lo
+/// cierra (o confirma el cierre) y no lo reabre. Decidirlo al presionar no depende de cuánto dure el clic ni de cuándo
+/// llegue el evento Closed. Con el teclado (Espacio o Enter) no hay presión del mouse y se alterna según el estado actual.
+/// </para>
 /// </summary>
 public static class MenuDesplegableHelper
 {
@@ -33,6 +40,14 @@ public static class MenuDesplegableHelper
         DependencyProperty.RegisterAttached(
             "Suscripcion",
             typeof(Suscripcion),
+            typeof(MenuDesplegableHelper),
+            new PropertyMetadata(null));
+
+    // Si el menú estaba abierto cuando se presionó el botón; null mientras no haya un clic del mouse en curso
+    private static readonly DependencyProperty AbiertoAlPresionarProperty =
+        DependencyProperty.RegisterAttached(
+            "AbiertoAlPresionar",
+            typeof(bool?),
             typeof(MenuDesplegableHelper),
             new PropertyMetadata(null));
 
@@ -66,10 +81,29 @@ public static class MenuDesplegableHelper
         }
 
         boton.Click -= Boton_Click;
+        boton.PreviewMouseLeftButtonDown -= Boton_PreviewMouseLeftButtonDown;
+        boton.LostMouseCapture -= Boton_LostMouseCapture;
         if ((bool)e.NewValue)
         {
             boton.Click += Boton_Click;
+            boton.PreviewMouseLeftButtonDown += Boton_PreviewMouseLeftButtonDown;
+            boton.LostMouseCapture += Boton_LostMouseCapture;
         }
+    }
+
+    // Llega antes que cualquier otro manejo del clic (el foco de la celda que cierra el menú viene después)
+    private static void Boton_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is ButtonBase { ContextMenu: { } menu } boton)
+        {
+            boton.SetValue(AbiertoAlPresionarProperty, menu.IsOpen);
+        }
+    }
+
+    // El botón suelta la captura del mouse después de levantar Click (o al soltar afuera, sin Click): el clic terminó
+    private static void Boton_LostMouseCapture(object sender, MouseEventArgs e)
+    {
+        ((DependencyObject)sender).ClearValue(AbiertoAlPresionarProperty);
     }
 
     private static void Boton_Click(object sender, RoutedEventArgs e)
@@ -79,7 +113,9 @@ public static class MenuDesplegableHelper
             return;
         }
 
-        if (menu.IsOpen)
+        bool estabaAbierto = (bool?)boton.GetValue(AbiertoAlPresionarProperty) ?? menu.IsOpen;
+        boton.ClearValue(AbiertoAlPresionarProperty);
+        if (estabaAbierto)
         {
             menu.IsOpen = false;
             return;

@@ -205,9 +205,52 @@ public class ArticulosViewInteraccionTests
             total = grilla.ActualWidth;
         });
 
-        accion.Should().Be(40, "el botón de 32 con 4 px de aire a cada lado");
+        accion.Should().Be(40, "el botón de 32 más 8 de aire hasta el borde; los 8 del otro lado los pone el relleno de Stock");
         (descripcion + fijas).Should().BeApproximately(total, 3, "la columna * ocupa todo lo que no usan las fijas (menos el borde de la grilla)");
         descripcion.Should().BeGreaterThan(200);
+    }
+
+    [Fact]
+    public void BotonDeAcciones_TieneElMismoAireHaciaElStockQueHaciaElBordeDeLaGrilla()
+    {
+        double aireIzquierdo = 0;
+        double aireDerecho = 0;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var fila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Primero));
+            var stock = Descendientes<StackPanel>(fila).Single(p => p.Name == "PanelStock");
+            var boton = Descendientes<Button>(fila).Single(b => b.ContextMenu is not null);
+            var celdaDelBoton = Descendientes<DataGridCell>(fila).Single(c => Descendientes<Button>(c).Contains(boton));
+
+            double finDelStock = stock.TranslatePoint(new Point(stock.ActualWidth, 0), fila).X;
+            double inicioDelBoton = boton.TranslatePoint(new Point(0, 0), fila).X;
+            double finDelBoton = boton.TranslatePoint(new Point(boton.ActualWidth, 0), fila).X;
+            double finDeLaCelda = celdaDelBoton.TranslatePoint(new Point(celdaDelBoton.ActualWidth, 0), fila).X;
+            aireIzquierdo = inicioDelBoton - finDelStock;
+            aireDerecho = finDeLaCelda - finDelBoton;
+        });
+
+        aireIzquierdo.Should().BeApproximately(8, 0.5, "el stock va a la derecha de su columna, con 8 de relleno");
+        aireDerecho.Should().BeApproximately(8, 0.5, "el botón de 32 va a la izquierda de su columna de 40");
+    }
+
+    [Fact]
+    public void Grilla_ConPocasFilas_OcupaTodoElAltoHastaLaPaginacion()
+    {
+        double altoDeLaGrilla = 0;
+        double altoDeLasFilas = 0;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var grilla = Descendientes<DataGrid>(e.Vista).Single();
+            altoDeLaGrilla = grilla.ActualHeight;
+            altoDeLasFilas = Descendientes<DataGridRow>(grilla).Sum(f => f.ActualHeight);
+        });
+
+        altoDeLaGrilla.Should().BeGreaterThan(altoDeLasFilas + 200, "con dos filas, el borde de la grilla igual llega hasta la paginación");
     }
 
     [Fact]
@@ -246,41 +289,113 @@ public class ArticulosViewInteraccionTests
     }
 
     [Fact]
-    public void AccionesMasivas_AlMarcarFilas_AparecenEnElPieYLaBusquedaNoSeTapa()
+    public void AccionesMasivas_AlMarcarFilas_ReemplazanAlContadorEnLaBarraDelBuscador()
     {
-        Visibility busquedaSinMarcas = Visibility.Collapsed;
-        Visibility masivasSinMarcas = Visibility.Visible;
-        Visibility busquedaConMarcas = Visibility.Collapsed;
-        Visibility masivasConMarcas = Visibility.Collapsed;
-        bool masivasEnElPie = false;
+        bool masivasSinMarcas = true;
+        bool contadorSinMarcas = false;
+        bool masivasConMarcas = false;
+        bool contadorConMarcas = true;
+        bool busquedaConMarcas = false;
+        bool limpiarConMarcas = false;
+        bool heredaElViewModel = false;
+        bool pedirEnlazado = false;
         bool paginacionSinResumen = false;
         string? texto = null;
 
         WpfTestHelper.Run(() =>
         {
             var e = Crear();
-            var busqueda = Descendientes<ListToolbar>(e.Vista).Single();
-            var masivas = Descendientes<BulkActionBar>(e.Vista).Single();
-            busquedaSinMarcas = busqueda.Visibility;
-            masivasSinMarcas = masivas.Visibility;
-            var paginacion = Descendientes<PaginationBar>(e.Vista).Single();
-            paginacionSinResumen = !paginacion.MostrarResumen;
-            masivasEnElPie = Grid.GetRow((FrameworkElement)masivas.Parent) > Grid.GetRow(busqueda) && ReferenceEquals(masivas.Parent, paginacion.Parent);
+            var barra = Descendientes<ListToolbar>(e.Vista).Single();
+            var masivas = (BulkActionBar)barra.AccionesDeSeleccion!;
+            var panelNormal = (FrameworkElement)barra.FindName("PanelNormal");
+            var panelSeleccion = (FrameworkElement)barra.FindName("PanelSeleccion");
+            // Fuera de una ventana IsVisible es siempre falso: se mira la Visibility de cada panel
+            masivasSinMarcas = panelSeleccion.Visibility == Visibility.Visible;
+            contadorSinMarcas = panelNormal.Visibility == Visibility.Visible;
+            paginacionSinResumen = !Descendientes<PaginationBar>(e.Vista).Single().MostrarResumen;
 
             e.Vista.ViewModel.SeleccionarTodos = true;
             e.Vista.UpdateLayout();
-            busquedaConMarcas = busqueda.Visibility;
-            masivasConMarcas = masivas.Visibility;
+            masivasConMarcas = panelSeleccion.Visibility == Visibility.Visible && Descendientes<BulkActionBar>(barra).Contains(masivas);
+            contadorConMarcas = panelNormal.Visibility == Visibility.Visible;
+            busquedaConMarcas = Descendientes<Wpf.Ui.Controls.TextBox>(barra).Single().Visibility == Visibility.Visible;
+            var limpiar = Descendientes<Button>(barra).Single(b => ReferenceEquals(b.Command, e.Vista.ViewModel.LimpiarFiltrosCommand));
+            limpiarConMarcas = limpiar.Visibility == Visibility.Visible && ((FrameworkElement)limpiar.Parent).Visibility == Visibility.Visible;
+            heredaElViewModel = ReferenceEquals(masivas.DataContext, e.Vista.ViewModel);
+            pedirEnlazado = Descendientes<Button>(masivas).Any(b => ReferenceEquals(b.Command, e.Vista.ViewModel.PedirSeleccionadosCommand));
             texto = masivas.TextoSeleccion;
         });
 
-        busquedaSinMarcas.Should().Be(Visibility.Visible);
-        masivasSinMarcas.Should().Be(Visibility.Collapsed);
-        busquedaConMarcas.Should().Be(Visibility.Visible, "la búsqueda no se tapa al marcar filas");
-        masivasConMarcas.Should().Be(Visibility.Visible);
-        masivasEnElPie.Should().BeTrue("las acciones masivas comparten el pie con la paginación");
+        masivasSinMarcas.Should().BeFalse();
+        contadorSinMarcas.Should().BeTrue();
+        masivasConMarcas.Should().BeTrue("aparecen junto a las casillas que las activan");
+        contadorConMarcas.Should().BeFalse("las acciones masivas ocupan el lugar de la carga y el contador");
+        busquedaConMarcas.Should().BeTrue("la búsqueda no se tapa al marcar filas");
+        limpiarConMarcas.Should().BeFalse("el badge \"N seleccionados ✕\" ocupa el lugar de \"Limpiar filtros\"");
+        heredaElViewModel.Should().BeTrue("la barra no tiene padre lógico y hereda el DataContext por el árbol visual");
+        pedirEnlazado.Should().BeTrue();
         paginacionSinResumen.Should().BeTrue("el contador de arriba ya informa la cantidad");
-        texto.Should().Be("2 seleccionados");
+        texto.Should().Be("2 seleccionados", "la selección es de la página visible: no se informa \"de M\"");
+    }
+
+    [Fact]
+    public void AccionesMasivas_EliminarALaVistaYMenuMas_SinLogicaQuedanDeshabilitadasYConIcono()
+    {
+        string[] opciones = [];
+        bool todasDeshabilitadas = false;
+        string[] iconos = [];
+        bool pesoNormal = false;
+        bool eliminarDeshabilitado = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var masivas = (BulkActionBar)Descendientes<ListToolbar>(e.Vista).Single().AccionesDeSeleccion!;
+            var botones = LogicalTreeHelper.GetChildren((StackPanel)masivas.Content).OfType<Button>().ToList();
+            var mas = botones.Single(b => b.ContextMenu is not null);
+            var items = mas.ContextMenu!.Items.OfType<MenuItem>().ToList();
+            opciones = items.Select(i => (string)i.Header).ToArray();
+            todasDeshabilitadas = items.All(i => !i.IsEnabled);
+            iconos = items.Select(i => ((MahApps.Metro.IconPacks.PackIconBoxIcons)i.Icon).Kind.ToString()).ToArray();
+            pesoNormal = items.All(i => i.FontWeight == FontWeights.Normal);
+            eliminarDeshabilitado = botones.Single(b => b.ToolTip is string t && t.Contains("dar de baja")).IsEnabled == false;
+        });
+
+        opciones.Should().Equal("Cambiar rubro", "Cambiar categoría");
+        todasDeshabilitadas.Should().BeTrue("todavía no tienen lógica: se ven con su tooltip pero no se ejecutan");
+        iconos.Should().Equal("RegularBookmarks", "RegularTag");
+        pesoNormal.Should().BeTrue("los textos del desplegable van sin negrita");
+        eliminarDeshabilitado.Should().BeTrue("\"Eliminar seleccionados\" queda a la vista, sin lógica todavía");
+    }
+
+    [Fact]
+    public void Grilla_TinteDeSeleccion_SigueALaCasillaYNoALaFilaActual()
+    {
+        Color marcada = default;
+        Color actualSinMarcar = default;
+        Color tinte = default;
+        Color fondo = default;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var grilla = Descendientes<DataGrid>(e.Vista).Single();
+            var filas = Descendientes<DataGridRow>(e.Vista).ToList();
+            var primera = filas.Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Primero));
+            var segunda = filas.Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Segundo));
+
+            ((ArticuloFila)primera.Item).EstaSeleccionado = true;
+            grilla.SelectedItem = segunda.Item;
+            e.Vista.UpdateLayout();
+
+            marcada = ((SolidColorBrush)primera.Background).Color;
+            actualSinMarcar = ((SolidColorBrush)segunda.Background).Color;
+            tinte = ((SolidColorBrush)e.Vista.FindResource("PrimaryLightBrush")).Color;
+            fondo = ((SolidColorBrush)e.Vista.FindResource("SurfaceCardBrush")).Color;
+        });
+
+        marcada.Should().Be(tinte, "la fila marcada es parte de la selección de las acciones masivas");
+        actualSinMarcar.Should().Be(fondo, "un clic en una fila no cambia su aspecto: el gris es solo del hover");
     }
 
     [Fact]

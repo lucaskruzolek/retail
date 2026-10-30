@@ -32,8 +32,7 @@
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
-                               Titulo="Proveedores"
-                               Subtitulo="Padrón de proveedores mayoristas.">
+                               Titulo="Proveedores">
             <StackPanel Orientation="Horizontal">
                 <!-- Botón Nuevo Proveedor (F2) -->
                 <Button x:Name="BtnNuevoProveedor"

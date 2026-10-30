@@ -781,8 +781,8 @@
                 <StackPanel>
                     <TextBlock Text="Páginas de listado" Style="{StaticResource TextBlockHeader2}" Margin="0,0,0,12" />
 
+                    <!-- Encabezado sin tarjeta y sin subtítulo, con las acciones a la derecha -->
                     <components:PageHeader Titulo="Catálogo de Artículos e Inventario"
-                                           Subtitulo="Encabezado sin tarjeta, con acciones a la derecha."
                                            Margin="0,0,0,16">
                         <Button Style="{StaticResource PrimaryActionButtonStyle}" Padding="20,10" Content="Nuevo Artículo" />
                     </components:PageHeader>
@@ -791,9 +791,22 @@
                                             TotalResultados="248"
                                             Margin="0,0,0,12" />
 
-                    <components:BulkActionBar CantidadSeleccionados="3" Margin="0,0,0,12">
-                        <Button Style="{StaticResource KeycapButtonStyle}" Padding="12,4" Content="Pedir seleccionados" />
-                    </components:BulkActionBar>
+                    <!-- La misma barra con filas marcadas: el badge "N seleccionados ✕" reemplaza a "Limpiar filtros" y las
+                         acciones, sueltas y a la derecha, a la carga y al contador; el buscador sigue a la vista -->
+                    <components:ListToolbar PlaceholderText="Buscar por código, descripción o marca..."
+                                            TotalResultados="248"
+                                            HaySeleccion="True"
+                                            Margin="0,0,0,12">
+                        <components:ListToolbar.AccionesDeSeleccion>
+                            <components:BulkActionBar CantidadSeleccionados="3">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Style="{StaticResource KeycapButtonStyle}" Padding="12,4" Margin="0,0,4,0" Content="Pedir seleccionados" />
+                                    <Button Style="{StaticResource GhostNeutralButtonStyle}" Padding="10,4" Margin="0,0,4,0" IsEnabled="False" Content="Eliminar seleccionados" />
+                                    <Button Style="{StaticResource GhostNeutralButtonStyle}" Padding="10,4" Content="Más" />
+                                </StackPanel>
+                            </components:BulkActionBar>
+                        </components:ListToolbar.AccionesDeSeleccion>
+                    </components:ListToolbar>
 
                     <Border Style="{StaticResource FilterBandStyle}" Margin="0,0,0,12">
                         <Grid>

@@ -8,6 +8,11 @@ namespace Retail.App.Views.Components;
 /// <summary>
 /// Barra superior de un listado: buscador, "Limpiar filtros", indicador de carga y cantidad de resultados. La página
 /// la enlaza a su ViewModel por propiedades de dependencia (el texto de búsqueda en ambos sentidos).
+/// <para>
+/// Mientras <see cref="HaySeleccion"/> es verdadero, <see cref="AccionesDeSeleccion"/> (la <see cref="BulkActionBar"/> de
+/// la página) reemplaza a "Limpiar filtros", la carga y el contador; el buscador sigue a la vista. Las acciones no tienen
+/// padre lógico, así que heredan el DataContext por el árbol visual: el de la página, y sus comandos se enlazan directo.
+/// </para>
 /// </summary>
 public partial class ListToolbar : UserControl
 {
@@ -38,6 +43,15 @@ public partial class ListToolbar : UserControl
 
     public static readonly DependencyProperty TextoContadorProperty =
         DependencyProperty.Register(nameof(TextoContador), typeof(string), typeof(ListToolbar), new PropertyMetadata("0 resultados"));
+
+    public static readonly DependencyProperty MostrarContadorProperty =
+        DependencyProperty.Register(nameof(MostrarContador), typeof(bool), typeof(ListToolbar), new PropertyMetadata(true));
+
+    public static readonly DependencyProperty HaySeleccionProperty =
+        DependencyProperty.Register(nameof(HaySeleccion), typeof(bool), typeof(ListToolbar), new PropertyMetadata(false));
+
+    public static readonly DependencyProperty AccionesDeSeleccionProperty =
+        DependencyProperty.Register(nameof(AccionesDeSeleccion), typeof(object), typeof(ListToolbar), new PropertyMetadata(null));
 
     public ListToolbar()
     {
@@ -79,6 +93,28 @@ public partial class ListToolbar : UserControl
     {
         get => (string)GetValue(TextoContadorProperty);
         private set => SetValue(TextoContadorProperty, value);
+    }
+
+    /// <summary>
+    /// Muestra "N resultados" a la derecha de la barra. Una página que lo muestra en otro lugar (Artículos, en el pie junto
+    /// al paginador) lo oculta y enlaza su texto a <see cref="TextoContador"/>, que se sigue calculando.
+    /// </summary>
+    public bool MostrarContador
+    {
+        get => (bool)GetValue(MostrarContadorProperty);
+        set => SetValue(MostrarContadorProperty, value);
+    }
+
+    public bool HaySeleccion
+    {
+        get => (bool)GetValue(HaySeleccionProperty);
+        set => SetValue(HaySeleccionProperty, value);
+    }
+
+    public object? AccionesDeSeleccion
+    {
+        get => GetValue(AccionesDeSeleccionProperty);
+        set => SetValue(AccionesDeSeleccionProperty, value);
     }
 
     private static void AlCambiarTotal(DependencyObject d, DependencyPropertyChangedEventArgs e)

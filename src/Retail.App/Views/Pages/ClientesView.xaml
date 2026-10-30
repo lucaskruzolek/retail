@@ -31,8 +31,7 @@
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
-                               Titulo="Padrón de Clientes y Cuentas Corrientes"
-                               Subtitulo="Gestión integral de clientes comerciales y saldos de cuentas corrientes">
+                               Titulo="Padrón de Clientes y Cuentas Corrientes">
             <StackPanel Orientation="Horizontal">
                 <!-- Botón Cobrar Cta Cte (F4) -->
                 <Button Command="{Binding CobrarCuentaCorrienteCommand}"

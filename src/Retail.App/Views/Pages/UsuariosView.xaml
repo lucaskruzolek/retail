@@ -26,8 +26,7 @@
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
-                               Titulo="Administración de Usuarios y Roles (RBAC)"
-                               Subtitulo="Panel de gestión de operadores, credenciales y control de acceso del punto de venta (RF-03)">
+                               Titulo="Administración de Usuarios y Roles (RBAC)">
             <StackPanel Orientation="Horizontal">
                 <!-- Desbloquear la cuenta de Administrador seleccionada (solo Gerente, D-31) -->
                 <Button Command="{Binding DesbloquearCommand}"

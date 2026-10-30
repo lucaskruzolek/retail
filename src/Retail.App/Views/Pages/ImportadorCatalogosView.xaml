@@ -200,7 +200,7 @@
                                 Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
                                 ToolTip="Agregar los ítems seleccionados al borrador de pedido del proveedor">
                             <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
                                 <TextBlock Text="Pedir Seleccionados" FontWeight="SemiBold" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
@@ -382,7 +382,7 @@
                                                 Visibility="{Binding DataContext.PuedePedir, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisConverter}}"
                                                 ToolTip="Agregar este ítem al borrador de pedido del proveedor; si no está en la tienda, se ofrece incorporarlo primero">
                                             <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
                                                 <TextBlock Text="Pedir" FontSize="11" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </Button>

@@ -33,8 +33,7 @@
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
-                               Titulo="Catálogo de Artículos e Inventario"
-                               Subtitulo="Padrón central de productos.">
+                               Titulo="Catálogo de Artículos e Inventario">
             <StackPanel Orientation="Horizontal">
                 <!-- Administrar rubros, categorías y marcas (solo Gerente y Encargado; sin atajo, D-27) -->
                 <Button Command="{Binding AdministrarClasificacionCommand}"
@@ -82,14 +81,105 @@
 
                 <!-- ========================================================= -->
                 <!-- 2.1 BÚSQUEDA, CONTADOR DE RESULTADOS Y CARGA              -->
+                <!--     Con filas marcadas, las acciones masivas ocupan el     -->
+                <!--     lugar de "Limpiar filtros". El contador va en el pie.  -->
                 <!-- ========================================================= -->
-                <Grid Grid.Row="0" Margin="16,16,16,12">
-                    <components:ListToolbar Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                                            PlaceholderText="Buscar por código, descripción o marca..."
-                                            ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
-                                            EstaCargando="{Binding IsBusy}"
-                                            TotalResultados="{Binding TotalRegistrosFiltrados}" />
-                </Grid>
+                <components:ListToolbar x:Name="BarraBusqueda"
+                                        Grid.Row="0"
+                                        Margin="16,16,16,12"
+                                        MostrarContador="False"
+                                        Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="Buscar por código, descripción o marca..."
+                                        ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
+                                        EstaCargando="{Binding IsBusy}"
+                                        TotalResultados="{Binding TotalRegistrosFiltrados}"
+                                        HaySeleccion="{Binding TieneArticulosSeleccionados}">
+                    <components:ListToolbar.AccionesDeSeleccion>
+                        <components:BulkActionBar CantidadSeleccionados="{Binding CantidadSeleccionados}"
+                                                  ComandoCancelar="{Binding LimpiarSeleccionCommand}">
+                            <!-- Acciones sobre los seleccionados: botones sueltos a la derecha, sin recuadro que los agrupe -->
+                            <StackPanel Orientation="Horizontal">
+                                <!-- Pedir los seleccionados (Track 4.3, A-17): solo Encargado y Gerente (A-14). Con borde, por ser
+                                     la acción con lógica; el único acento carmín de la vista sigue siendo "Nuevo Artículo" -->
+                                <Button Command="{Binding PedirSeleccionadosCommand}"
+                                        Style="{StaticResource KeycapButtonStyle}"
+                                        Padding="12,4"
+                                        Margin="0,0,4,0"
+                                        Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
+                                        ToolTip="Agregar los artículos seleccionados al borrador de pedido de su proveedor">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Pedir seleccionados" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Eliminar seleccionados: todavía sin lógica; queda a la vista, deshabilitado y con su tooltip -->
+                                <Button Style="{StaticResource GhostNeutralButtonStyle}"
+                                        IsEnabled="False"
+                                        Padding="10,4"
+                                        Margin="0,0,4,0"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Disponible próximamente: dar de baja los artículos seleccionados en una sola operación">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularTrash"
+                                                                    Width="14"
+                                                                    Height="14"
+                                                                    Margin="0,0,6,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <TextBlock Text="Eliminar seleccionados" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Más acciones (último: el menú abre alineado a su borde derecho). Todavía sin lógica: quedan
+                                     deshabilitadas en el menú, con su tooltip, hasta implementar cada una -->
+                                <Button Style="{StaticResource GhostNeutralButtonStyle}"
+                                        Padding="10,4"
+                                        helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
+                                        ToolTip="Más acciones sobre los artículos seleccionados"
+                                        AutomationProperties.Name="Más acciones">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Más" VerticalAlignment="Center" />
+                                        <!-- Flecha liviana dibujada a mano: el chevron del pack de íconos es grueso para este tamaño -->
+                                        <Path Data="M 0,0 L 4,4 L 8,0"
+                                              Width="8"
+                                              Height="4"
+                                              Margin="6,1,0,0"
+                                              Stretch="None"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              StrokeThickness="1.2"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <Button.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Cambiar rubro"
+                                                      FontWeight="Normal"
+                                                      IsEnabled="False"
+                                                      ToolTipService.ShowOnDisabled="True"
+                                                      ToolTip="Disponible próximamente: cambiar el rubro de los artículos seleccionados">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularBookmarks" Width="14" Height="14" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Cambiar categoría"
+                                                      FontWeight="Normal"
+                                                      IsEnabled="False"
+                                                      ToolTipService.ShowOnDisabled="True"
+                                                      ToolTip="Disponible próximamente: cambiar la categoría de los artículos seleccionados">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularTag" Width="14" Height="14" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
+                            </StackPanel>
+                        </components:BulkActionBar>
+                    </components:ListToolbar.AccionesDeSeleccion>
+                </components:ListToolbar>
 
                 <!-- ========================================================= -->
                 <!-- 2.2 BANDA DE FILTROS (una fila, etiqueta arriba)          -->
@@ -161,10 +251,24 @@
                           Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           Margin="16,0,16,12">
-                <!-- Doble clic en la fila abre la edición; el estilo base conserva el aspecto de fila del listado -->
+                <!-- Doble clic en la fila abre la edición; el estilo base conserva el aspecto de fila del listado.
+                     El tinte carmín sigue a la casilla (la selección sobre la que actúan las acciones masivas) y no a la
+                     fila actual de la grilla: un clic en una fila no cambia su aspecto; el gris es solo del hover. Estos
+                     triggers se aplican después de los del estilo base, así que ganan (el último que se cumple manda). -->
                 <DataGrid.RowStyle>
                     <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowListadoStyle}">
                         <EventSetter Event="MouseDoubleClick" Handler="Fila_MouseDoubleClick" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding EstaSeleccionado}" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
                     </Style>
                 </DataGrid.RowStyle>
                 <DataGrid.Columns>
@@ -360,24 +464,34 @@
                                         ElementStyle="{StaticResource TextBlockPriceCell}" />
 
                     <!-- Stock (RF-08): punto de color + cantidad; el mínimo y el ⚠ solo cuando hay alerta -->
+                    <!-- Alineado a la derecha como las demás columnas numéricas, con 8 de relleno derecho: el aire entre
+                         el stock y el "⋮" es igual al del "⋮" hasta el borde de la grilla. Mide lo justo para su título
+                         (el mínimo no se muestra); el ancho que no usa lo absorbe la descripción -->
                     <DataGridTemplateColumn Header="Stock"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
-                                            Width="110">
+                                            Width="64">
+                        <DataGridTemplateColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRightListadoStyle}">
+                                <Setter Property="Padding" Value="12,10,8,10" />
+                            </Style>
+                        </DataGridTemplateColumn.HeaderStyle>
+                        <DataGridTemplateColumn.CellStyle>
+                            <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                <Setter Property="Padding" Value="12,8,8,8" />
+                            </Style>
+                        </DataGridTemplateColumn.CellStyle>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Grid VerticalAlignment="Center">
-                                    <!-- Servicio: no lleva stock -->
-                                    <Border x:Name="BadgeServicio"
-                                            Style="{StaticResource BadgeNeutralStyle}"
-                                            HorizontalAlignment="Left"
-                                            Visibility="Collapsed">
-                                        <TextBlock Text="Servicio"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                    </Border>
+                                <Grid VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <!-- Servicio: no lleva stock. Un guion, porque la insignia "Servicio" no entra en la columna -->
+                                    <TextBlock x:Name="BadgeServicio"
+                                               Text="—"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"
+                                               ToolTip="Servicio: no lleva stock"
+                                               Visibility="Collapsed" />
 
-                                    <StackPanel x:Name="PanelStock" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <StackPanel x:Name="PanelStock" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
                                         <Ellipse x:Name="PuntoStock"
                                                  Width="8"
                                                  Height="8"
@@ -393,12 +507,6 @@
                                                    Visibility="Collapsed" />
                                         <TextBlock Text="{Binding Articulo.StockActual}"
                                                    Style="{StaticResource TextBlockNumericCell}" />
-                                        <TextBlock x:Name="MinimoStock"
-                                                   Text="{Binding Articulo.StockMinimo, StringFormat={} (Mín: {0})}"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextMutedBrush}"
-                                                   VerticalAlignment="Center"
-                                                   Visibility="Collapsed" />
                                     </StackPanel>
                                 </Grid>
 
@@ -407,7 +515,6 @@
                                         <!-- El ⚠ reemplaza al punto: la alerta no depende solo del color -->
                                         <Setter TargetName="PuntoStock" Property="Visibility" Value="Collapsed" />
                                         <Setter TargetName="AvisoStock" Property="Visibility" Value="Visible" />
-                                        <Setter TargetName="MinimoStock" Property="Visibility" Value="Visible" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Articulo.EsServicio}" Value="True">
                                         <Setter TargetName="BadgeServicio" Property="Visibility" Value="Visible" />
@@ -435,7 +542,7 @@
                                 <Button Style="{StaticResource RowMenuButtonStyle}"
                                         helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        HorizontalAlignment="Center"
+                                        HorizontalAlignment="Left"
                                         ToolTip="Acciones del artículo"
                                         AutomationProperties.Name="Acciones del artículo">
                                     <iconPacks:PackIconBoxIcons Kind="RegularDotsVerticalRounded" Width="14" Height="14" />
@@ -449,7 +556,7 @@
                                                       ToolTip="{Binding PlacementTarget.DataContext.MotivoNoSePuedePedir, RelativeSource={RelativeSource AncestorType=ContextMenu}, StringFormat=No se puede pedir: {0}}"
                                                       ToolTipService.ShowOnDisabled="True">
                                                 <MenuItem.Icon>
-                                                    <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" />
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" />
                                                 </MenuItem.Icon>
                                                 <MenuItem.Style>
                                                     <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
@@ -531,68 +638,18 @@
             </DataGrid>
 
             <!-- ========================================================= -->
-            <!-- 2.4 PIE: ACCIONES MASIVAS (IZQ.) Y PAGINACIÓN (DER.)         -->
+            <!-- 2.4 PIE: "N RESULTADOS" (IZQ.) Y PAGINACIÓN (DER.)           -->
+            <!--     El texto es el del contador de la barra del buscador     -->
+            <!--     (mismo formato es-AR), que ahí no se muestra             -->
             <!-- ========================================================= -->
             <Grid Grid.Row="3">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <!-- Acciones masivas: aparecen al marcar filas, a la izquierda de la paginación (el resumen de registros
-                 se omitió porque el contador de arriba ya lo informa) -->
-                <components:BulkActionBar Grid.Column="0"
-                                          Margin="16,0,0,0"
-                                          HorizontalAlignment="Left"
-                                          VerticalAlignment="Center"
-                                          CantidadSeleccionados="{Binding CantidadSeleccionados}"
-                                          ComandoCancelar="{Binding LimpiarSeleccionCommand}"
-                                          Visibility="{Binding TieneArticulosSeleccionados, Converter={StaticResource BoolToVisConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <!-- Pedir los seleccionados (Track 4.3, A-17): solo Encargado y Gerente (A-14) -->
-                        <Button Command="{Binding PedirSeleccionadosCommand}"
-                                Style="{StaticResource KeycapButtonStyle}"
-                                Padding="12,4"
-                                Margin="0,0,8,0"
-                                Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
-                                ToolTip="Agregar los artículos seleccionados al borrador de pedido de su proveedor">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Pedir seleccionados" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-
-                        <!-- Todavía sin lógica: los botones quedan a la vista y deshabilitados hasta implementar cada acción -->
-                        <Button IsEnabled="False"
-                                Style="{StaticResource KeycapButtonStyle}"
-                                Padding="12,4"
-                                Margin="0,0,8,0"
-                                ToolTipService.ShowOnDisabled="True"
-                                ToolTip="Disponible próximamente: cambiar el rubro de los artículos seleccionados">
-                            <TextBlock Text="Cambiar rubro" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </Button>
-                        <Button IsEnabled="False"
-                                Style="{StaticResource KeycapButtonStyle}"
-                                Padding="12,4"
-                                Margin="0,0,8,0"
-                                ToolTipService.ShowOnDisabled="True"
-                                ToolTip="Disponible próximamente: cambiar la categoría de los artículos seleccionados">
-                            <TextBlock Text="Cambiar categoría" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </Button>
-                        <Button IsEnabled="False"
-                                Style="{StaticResource KeycapButtonStyle}"
-                                Padding="12,4"
-                                ToolTipService.ShowOnDisabled="True"
-                                ToolTip="Disponible próximamente: dar de baja los artículos seleccionados en una sola operación">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" Margin="0,0,6,0" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="Eliminar" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </components:BulkActionBar>
-
-                <components:PaginationBar Grid.Column="1" MostrarResumen="False" />
+                <TextBlock Text="{Binding TextoContador, ElementName=BarraBusqueda}"
+                           Style="{StaticResource TextBlockBodySecondary}"
+                           FontSize="12"
+                           Margin="16,0,0,0"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center" />
+                <components:PaginationBar HorizontalAlignment="Right" MostrarResumen="False" />
             </Grid>
             </Grid>
         </Border>
