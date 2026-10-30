@@ -782,6 +782,38 @@ public class ArticulosViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task CantidadSeleccionados_AlMarcarYDesmarcarFilas_SigueLaCuenta()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        var sut = escenario.Sut;
+
+        sut.CantidadSeleccionados.Should().Be(0);
+
+        sut.Articulos[0].EstaSeleccionado = true;
+        sut.CantidadSeleccionados.Should().Be(1);
+
+        sut.SeleccionarTodos = true;
+        sut.CantidadSeleccionados.Should().Be(sut.Articulos.Count);
+
+        sut.Articulos[1].EstaSeleccionado = false;
+        sut.CantidadSeleccionados.Should().Be(sut.Articulos.Count - 1);
+    }
+
+    [Fact]
+    public async Task LimpiarSeleccionCommand_ConFilasMarcadas_QuitaLaMarcaYLaCantidad()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        var sut = escenario.Sut;
+        sut.SeleccionarTodos = true;
+
+        sut.LimpiarSeleccionCommand.Execute(null);
+
+        sut.Articulos.Should().OnlyContain(f => !f.EstaSeleccionado);
+        sut.CantidadSeleccionados.Should().Be(0);
+        sut.TieneArticulosSeleccionados.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task CargarArticulosAsync_ConFilasMarcadas_LaNuevaPaginaEmpiezaSinSeleccion()
     {
         using var escenario = await CrearEscenarioPedidoAsync();

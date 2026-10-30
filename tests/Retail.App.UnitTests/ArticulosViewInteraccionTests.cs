@@ -8,6 +8,7 @@ using NSubstitute;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
+using Retail.App.Views.Components;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.Interfaces.Services;
@@ -100,7 +101,7 @@ public class ArticulosViewInteraccionTests
         {
             var e = Crear();
             var segundaFila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Segundo));
-            var texto = Descendientes<TextBlock>(segundaFila).First(t => t.Text == "Lapicera Azul");
+            var texto = Descendientes<TextBlock>(segundaFila).First(t => t.Text == "LAPICERA AZUL");
 
             DobleClic(segundaFila, texto);
 
@@ -132,34 +133,179 @@ public class ArticulosViewInteraccionTests
     }
 
     [Fact]
-    public void BotonFuentesAdicionales_ArticuloConAdicionales_ExisteYAbreLaEdicionDeSuArticulo()
+    public void ChipFuentesAdicionales_ArticuloConAdicionales_InformaSinSerUnBoton()
     {
         string? texto = null;
-        bool primeroTieneBoton = true;
-        int llamadas = 0;
+        Visibility chipSegundo = Visibility.Collapsed;
+        Visibility chipPrimero = Visibility.Visible;
+        bool dentroDeUnBoton = true;
+        int llamadasAlHacerDobleClicSobreElChip = 0;
 
         WpfTestHelper.Run(() =>
         {
             var e = Crear();
             var filas = Descendientes<DataGridRow>(e.Vista).ToList();
-            var botonesSegundo = Descendientes<Button>(filas.Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Segundo)))
-                .Where(b => b.Content is string && b.Visibility == Visibility.Visible)
-                .ToList();
-            var botonesPrimero = Descendientes<Button>(filas.Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Primero)))
-                .Where(b => b.Content is string && b.Visibility == Visibility.Visible)
-                .ToList();
-            primeroTieneBoton = botonesPrimero.Count > 0;
-            var boton = botonesSegundo.Single();
-            texto = (string)boton.Content;
+            var segunda = filas.Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Segundo));
+            var primera = filas.Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Primero));
+            var chip = Descendientes<Border>(segunda).Single(b => b.Name == "ChipFuentesAdicionales");
+            chipSegundo = chip.Visibility;
+            chipPrimero = Descendientes<Border>(primera).Single(b => b.Name == "ChipFuentesAdicionales").Visibility;
+            var textoDelChip = Descendientes<TextBlock>(chip).Single();
+            texto = textoDelChip.Text;
+            dentroDeUnBoton = Descendientes<Button>(segunda).Any(b => Descendientes<TextBlock>(b).Contains(textoDelChip));
 
-            // Act: la ejecución de un clic real (ButtonBase.OnClick) sobre el comando enlazado
-            boton.Command.Execute(boton.CommandParameter);
+            // Al no ser un botón, el doble clic sobre el chip abre la edición como en cualquier otra parte de la fila
+            DobleClic(segunda, textoDelChip);
+            llamadasAlHacerDobleClicSobreElChip = LlamadasAlDialogo(e, e.Segundo);
+        });
+
+        texto.Should().Be("+2");
+        chipSegundo.Should().Be(Visibility.Visible);
+        chipPrimero.Should().Be(Visibility.Collapsed, "sin fuentes adicionales no hay chip");
+        dentroDeUnBoton.Should().BeFalse("el \"+n\" solo informa");
+        llamadasAlHacerDobleClicSobreElChip.Should().Be(1);
+    }
+
+    [Fact]
+    public void Grilla_NombreDelArticulo_SeMuestraEnMayusculasSinCambiarElDato()
+    {
+        string[] textos = [];
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var primeraFila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Primero));
+            textos = Descendientes<TextBlock>(primeraFila).Select(t => t.Text).ToArray();
+        });
+
+        textos.Should().Contain("CUADERNO A4");
+        textos.Should().NotContain("Cuaderno A4");
+    }
+
+    [Fact]
+    public void ColumnaDeAcciones_MideLoQueElBotonMasElAire_YLaDescripcionAbsorbeElResto()
+    {
+        double accion = 0;
+        double descripcion = 0;
+        double fijas = 0;
+        double total = 0;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(System.Windows.Threading.DispatcherPriority.ApplicationIdle, new Action(() => { }));
+            e.Vista.Measure(new Size(1280, 800));
+            e.Vista.Arrange(new Rect(0, 0, 1280, 800));
+            e.Vista.UpdateLayout();
+
+            var grilla = Descendientes<DataGrid>(e.Vista).Single();
+            accion = grilla.Columns[^1].ActualWidth;
+            descripcion = grilla.Columns.Single(c => (c.Header as string) == "Artículo").ActualWidth;
+            fijas = grilla.Columns.Where(c => (c.Header as string) != "Artículo" && c.Visibility == Visibility.Visible).Sum(c => c.ActualWidth);
+            total = grilla.ActualWidth;
+        });
+
+        accion.Should().Be(40, "el botón de 32 con 4 px de aire a cada lado");
+        (descripcion + fijas).Should().BeApproximately(total, 3, "la columna * ocupa todo lo que no usan las fijas (menos el borde de la grilla)");
+        descripcion.Should().BeGreaterThan(200);
+    }
+
+    [Fact]
+    public void Grilla_EsquinasRedondeadas_ElBordeYElRecorteSeAplican()
+    {
+        CornerRadius radio = default;
+        bool recortada = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var grilla = Descendientes<DataGrid>(e.Vista).Single();
+            radio = Descendientes<Border>(grilla).First().CornerRadius;
+            recortada = Descendientes<ScrollViewer>(grilla).First().Clip is not null;
+        });
+
+        radio.Should().Be(new CornerRadius(8));
+        recortada.Should().BeTrue("sin recorte, el fondo del encabezado se saldría de las esquinas");
+    }
+
+    [Fact]
+    public void Grilla_ImportesDeLaFila_SeMuestranEnEsArConSimboloDePesos()
+    {
+        string[] textos = [];
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var primeraFila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Primero));
+            textos = Descendientes<TextBlock>(primeraFila).Select(t => t.Text).ToArray();
+        });
+
+        var es = System.Globalization.CultureInfo.GetCultureInfo("es-AR");
+        textos.Should().Contain(100m.ToString("C2", es), "el costo se formatea como moneda es-AR");
+        textos.Should().Contain("50%", "el margen va con su unidad y sin ceros sobrantes");
+    }
+
+    [Fact]
+    public void AccionesMasivas_AlMarcarFilas_AparecenEnElPieYLaBusquedaNoSeTapa()
+    {
+        Visibility busquedaSinMarcas = Visibility.Collapsed;
+        Visibility masivasSinMarcas = Visibility.Visible;
+        Visibility busquedaConMarcas = Visibility.Collapsed;
+        Visibility masivasConMarcas = Visibility.Collapsed;
+        bool masivasEnElPie = false;
+        bool paginacionSinResumen = false;
+        string? texto = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var busqueda = Descendientes<ListToolbar>(e.Vista).Single();
+            var masivas = Descendientes<BulkActionBar>(e.Vista).Single();
+            busquedaSinMarcas = busqueda.Visibility;
+            masivasSinMarcas = masivas.Visibility;
+            var paginacion = Descendientes<PaginationBar>(e.Vista).Single();
+            paginacionSinResumen = !paginacion.MostrarResumen;
+            masivasEnElPie = Grid.GetRow((FrameworkElement)masivas.Parent) > Grid.GetRow(busqueda) && ReferenceEquals(masivas.Parent, paginacion.Parent);
+
+            e.Vista.ViewModel.SeleccionarTodos = true;
+            e.Vista.UpdateLayout();
+            busquedaConMarcas = busqueda.Visibility;
+            masivasConMarcas = masivas.Visibility;
+            texto = masivas.TextoSeleccion;
+        });
+
+        busquedaSinMarcas.Should().Be(Visibility.Visible);
+        masivasSinMarcas.Should().Be(Visibility.Collapsed);
+        busquedaConMarcas.Should().Be(Visibility.Visible, "la búsqueda no se tapa al marcar filas");
+        masivasConMarcas.Should().Be(Visibility.Visible);
+        masivasEnElPie.Should().BeTrue("las acciones masivas comparten el pie con la paginación");
+        paginacionSinResumen.Should().BeTrue("el contador de arriba ya informa la cantidad");
+        texto.Should().Be("2 seleccionados");
+    }
+
+    [Fact]
+    public void MenuDeLaFila_EditarArticulo_AbreLaEdicionDeEsaFila()
+    {
+        string[] opciones = [];
+        int llamadas = 0;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var segundaFila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Segundo));
+            var botonMenu = Descendientes<Button>(segundaFila).Single(b => b.ContextMenu is not null);
+            var menu = botonMenu.ContextMenu!;
+            menu.PlacementTarget = botonMenu;
+
+            opciones = menu.Items.OfType<MenuItem>().Where(i => i.Visibility == Visibility.Visible).Select(i => (string)i.Header).ToArray();
+            var editar = menu.Items.OfType<MenuItem>().Single(i => (string)i.Header == "Editar artículo");
+            editar.Command.Execute(editar.CommandParameter);
 
             llamadas = LlamadasAlDialogo(e, e.Segundo);
         });
 
-        texto.Should().Be("+2");
-        primeroTieneBoton.Should().BeFalse("sin fuentes adicionales no hay botón");
+        opciones.Should().Contain(["Editar artículo", "Dar de baja", "Crear presentación"]);
+        opciones.Should().NotContain("Fraccionar", "solo las presentaciones derivadas se fraccionan");
         llamadas.Should().Be(1);
     }
 

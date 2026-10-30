@@ -74,6 +74,10 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _tieneArticulosSeleccionados;
 
+    /// <summary>Filas marcadas en la página actual; la barra de acciones masivas la muestra.</summary>
+    [ObservableProperty]
+    private int _cantidadSeleccionados;
+
     private bool _actualizandoSeleccion;
 
     [ObservableProperty]
@@ -812,6 +816,13 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Quita la marca de todas las filas de la página ("Cancelar selección" de la barra de acciones masivas).</summary>
+    [RelayCommand]
+    private void LimpiarSeleccion()
+    {
+        SeleccionarTodos = false;
+    }
+
     partial void OnSeleccionarTodosChanged(bool? value)
     {
         if (_actualizandoSeleccion || value is null)
@@ -848,6 +859,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     {
         int seleccionadas = Articulos.Count(f => f.EstaSeleccionado);
         TieneArticulosSeleccionados = seleccionadas > 0;
+        CantidadSeleccionados = seleccionadas;
 
         _actualizandoSeleccion = true;
         try
