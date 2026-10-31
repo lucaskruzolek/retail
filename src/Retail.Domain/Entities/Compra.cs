@@ -112,6 +112,14 @@ public class Compra : BaseEntity, IAggregateRoot
             throw new ArgumentOutOfRangeException(nameof(costoUnitario), "El costo unitario debe ser mayor a cero.");
         }
 
+        // C-2: Dos renglones del mismo artículo con distintos costos dejan el costo final indeterminado según el orden.
+        if (_detalles.Any(d => d.IdArticulo == idArticulo))
+        {
+            throw new DomainException(
+                $"El artículo con Id {idArticulo} ya figura en la compra. " +
+                "No se puede agregar el mismo artículo dos veces.");
+        }
+
         var costoRedondeado = ReglasMonetarias.Redondear(costoUnitario);
         var subtotalItem = ReglasMonetarias.Redondear(costoRedondeado * cantidad);
 

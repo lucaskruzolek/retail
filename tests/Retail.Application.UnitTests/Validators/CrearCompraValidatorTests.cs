@@ -108,6 +108,27 @@ public class CrearCompraValidatorTests
         result.Errors.Should().Contain(e => e.ErrorMessage.Contains("futura"));
     }
 
+    // ── C-2: Artículos repetidos ──────────────────────────────────────────────
+
+    [Fact]
+    public void Validar_ArticulosRepetidos_FallaConMensaje()
+    {
+        // Arrange — dos renglones con el mismo IdArticulo
+        var items = new[]
+        {
+            new DetalleCompraDto { IdArticulo = 10, Cantidad = 2, CostoUnitario = 100m },
+            new DetalleCompraDto { IdArticulo = 10, Cantidad = 1, CostoUnitario = 120m },
+        };
+        var dto = CrearDtoValido() with { Items = items };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("mismo artículo"));
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static CrearCompraDto CrearDtoValido() =>

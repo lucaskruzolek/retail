@@ -33,6 +33,12 @@ public class CrearCompraValidator : AbstractValidator<CrearCompraDto>
         RuleFor(x => x.Items)
             .NotEmpty().WithMessage("La factura de compra debe contener al menos un renglón de artículo.");
 
+        // C-2: Rechazar artículos repetidos antes de llegar al agregado (un solo renglón por artículo).
+        RuleFor(x => x.Items)
+            .Must(items => items.GroupBy(i => i.IdArticulo).All(g => g.Count() == 1))
+            .WithMessage("La factura no puede tener el mismo artículo en dos renglones distintos.")
+            .When(x => x.Items is { Count: > 0 });
+
         RuleForEach(x => x.Items).ChildRules(item =>
         {
             item.RuleFor(i => i.IdArticulo)

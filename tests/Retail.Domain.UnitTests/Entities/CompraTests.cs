@@ -142,6 +142,37 @@ public class CompraTests
         compra.Detalles.Should().BeAssignableTo<IReadOnlyCollection<DetalleCompra>>();
     }
 
+    // ── C-2: Artículo repetido ─────────────────────────────────────────────────
+
+    [Fact]
+    public void AgregarDetalle_ArticuloRepetido_LanzaDomainException()
+    {
+        // Arrange
+        var compra = CrearCompra();
+        compra.AgregarDetalle(IdArticulo, cantidad: 2, costoUnitario: 100m);
+
+        // Act — intentar agregar el mismo artículo por segunda vez
+        var act = () => compra.AgregarDetalle(IdArticulo, cantidad: 1, costoUnitario: 120m);
+
+        // Assert
+        act.Should().Throw<DomainException>()
+            .WithMessage($"*{IdArticulo}*");
+    }
+
+    [Fact]
+    public void AgregarDetalle_ArticulosDiferentes_SeAgreganCorrectamente()
+    {
+        // Arrange
+        var compra = CrearCompra();
+
+        // Act — dos artículos distintos deben poder coexistir
+        compra.AgregarDetalle(IdArticulo, cantidad: 2, costoUnitario: 100m);
+        compra.AgregarDetalle(IdArticulo + 1, cantidad: 1, costoUnitario: 50m);
+
+        // Assert
+        compra.Detalles.Should().HaveCount(2);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Compra CrearCompra() =>
