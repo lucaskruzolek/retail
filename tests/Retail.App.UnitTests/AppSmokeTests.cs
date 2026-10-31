@@ -1200,6 +1200,34 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void FiltroColumna_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                // Los StaticResource del panel (que es un Popup cerrado) se resuelven al cargar el XAML
+                var filtro = new Retail.App.ViewModels.Comun.FiltroColumnaViewModel("Categoría");
+                filtro.CargarOpciones([new Retail.App.ViewModels.Comun.OpcionFiltroColumna(1, "Cuadernos", "Escolar")]);
+                var control = new FiltroColumna { Filtro = filtro };
+                control.Measure(new System.Windows.Size(200, 40));
+                control.Arrange(new System.Windows.Rect(0, 0, 200, 40));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de FiltroColumna debe resolverse sin errores");
+    }
+
+    [Fact]
     public void StyleGalleryView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange

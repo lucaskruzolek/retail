@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -10,8 +11,10 @@ using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels;
 using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Clientes;
+using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Ventas;
+using Retail.App.Views.Components;
 using Retail.App.Views.Dev;
 using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
@@ -103,8 +106,42 @@ public class VistaSnapshotTests
                 Substitute.For<ILogger<FlujoPedirArticulos>>()),
             rubroService: rubros);
 
+        // Un filtro de stock aplicado, para que la captura muestre el embudo resaltado en su cabecera
+        viewModel.FiltroEstadoStock.EstaAbierto = true;
+        viewModel.FiltroEstadoStock.Grupos[0].Opciones[1].Seleccionada = true;
+        viewModel.FiltroEstadoStock.AplicarCommand.Execute(null);
+
         // Los datos llegan por el camino real: el manejador Loaded de la vista invoca la carga del ViewModel.
         return (new ArticulosView(viewModel), viewModel);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void FiltroColumnaPanel_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var filtro = new FiltroColumnaViewModel("Categoría");
+            filtro.CargarOpciones(DatosDeMuestra.Categorias()
+                .Select(c => new OpcionFiltroColumna(
+                    c.IdCategoria,
+                    c.NombreCategoria,
+                    DatosDeMuestra.Rubros().Single(r => r.IdRubro == c.IdRubro).NombreRubro))
+                .OrderBy(o => o.Grupo)
+                .ThenBy(o => o.Nombre));
+            filtro.Grupos[0].TodasSeleccionadas = true;
+
+            // El panel vive en un Popup, que se mostraría en pantalla: se captura su tarjeta fuera del Popup
+            var control = new FiltroColumna { Filtro = filtro };
+            var tarjeta = (FrameworkElement)control.FindName("Tarjeta");
+            ((Popup)control.FindName("Panel")).Child = null;
+            tarjeta.DataContext = filtro;
+            tarjeta.VerticalAlignment = VerticalAlignment.Top; // como en el Popup, que mide lo que su contenido
+            return SnapshotRenderer.Guardar(tarjeta, 300, 520, carpeta + "/FiltroColumnaPanel");
+        });
+
+        VerificarCaptura(ruta, error);
     }
 
     [Theory]

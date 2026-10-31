@@ -21,8 +21,8 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 * **No mergea diccionarios propios:** `ui:ThemesDictionary`, `ui:ControlsDictionary` y los diccionarios de `Styles/` se cargan una sola vez en [`App.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/App.xaml) y toda ventana los hereda. `<ui:FluentWindow.Resources>` queda solo para las claves propias de la ventana (convertidores, constantes). Una copia local de `ui:ThemesDictionary` tapa el acento carmín que aplica `ApplicationAccentColorManager` en `App.xaml.cs` y repone en esa ventana el azul de Windows. `scripts/audit-xaml.ps1` lo rechaza.
 * Debe incrustar en su primera fila (`Grid.Row="0"`) el control **`<ui:TitleBar>`**:
   * **Ventana Principal (Shell):** `Height="32"`, `MinHeight="32"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, título alineado a la izquierda estilizado con `FontFamily="{StaticResource FontFamilyText}"`, `FontSize="12"`, `FontWeight="SemiBold"` y `Foreground="{DynamicResource TextSecondaryBrush}"`. Provee botones de Minimizar, Maximizar (con soporte para **Snap Layouts** de Windows 11) y Cerrar.
-  * **Ventanas Modales y Diálogos:** Deben configurar su `<ui:TitleBar>` con `Height="32"`, `Padding="8,0"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, `ShowMaximize="False"` y `CanMaximize="False"`, sin ícono, y con el título centrado mediante `<ui:TitleBar.CenterContent>` (`FontFamily="{StaticResource FontFamilyText}"`, `FontSize="12"`, `FontWeight="SemiBold"`), conservando el botón de cierre nativo y el template visual del framework.
-* **Salvaguarda de Pantalla:** Para evitar que la barra de título quede oculta fuera de los límites de monitores de 768p o pantallas con escalado DPI al 125%/150%, las dimensiones deben ser seguras ($Width \le 1180$, $Height \le 680$, $MinHeight \le 560$) y se debe fijar en el constructor:
+  * **Ventanas Modales y Diálogos:** **no usan `<ui:TitleBar>`**: usan **`<components:EncabezadoDialogo Titulo="…" />`** en la fila 0, que dibuja su propia banda (título y botones de ícono, arrastre con `DragMove`; ver *Componentes*, §4). `PermitirMaximizar="True"` solo en diálogos con grillas grandes.
+* **Salvaguarda de Pantalla:** Para evitar que la barra de título quede oculta fuera de los límites de monitores de 768p o pantallas con escalado DPI al 125%/150%, las dimensiones deben ser seguras ($Width \le 1180$, $Height \le 704$, $MinHeight \le 560$; 704 incluye la banda de título de 56 px y entra en el área útil de 768p, unos 728 px sin la barra de tareas) y se debe fijar en el constructor:
   ```csharp
   MaxHeight = SystemParameters.WorkArea.Height;
   MaxWidth = SystemParameters.WorkArea.Width;
@@ -56,7 +56,11 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 * **Visibilidad invertida:** el `BooleanToVisibilityConverter` de WPF **ignora** `ConverterParameter`. Para ocultar con `true` se usa `InverseBooleanToVisibilityConverter` (declarado en los recursos de la vista, como `CajaView` y `PosView`), y un `string` nunca se enlaza a un conversor booleano: se expone una propiedad `bool` (`TieneError`).
 
 ### 5. Diálogos Modales y Formularios
-* **Barra de Título Estandarizada:** Todo diálogo modal debe configurar en su `<ui:TitleBar>`: `Height="32"`, `Padding="8,0"`, `Background="{DynamicResource SurfaceBackgroundBrush}"`, `ShowMaximize="False"` y `CanMaximize="False"`, sin ícono, y con el título centrado mediante `<ui:TitleBar.CenterContent>` asegurando presencia del botón de cierre y preservación del `ControlTemplate`.
+* **Una sola superficie:** el diálogo es un único fondo gris (`Background="{DynamicResource DialogBackgroundBrush}"`): la barra de título, el cuerpo y el pie lo comparten, **sin franjas ni líneas** que los separen.
+* **Barra de Título Estandarizada:** `<components:EncabezadoDialogo Titulo="…" />`: título de 20 SemiBold (Inter Display) y, a la derecha, minimizar y cerrar como **íconos** que en hover solo se oscurecen (no imitan los botones de Windows). Banda de 56 px; un diálogo de alto fijo la cuenta en su `Height`.
+* **Secciones:** los campos se agrupan en secciones blancas **sin borde** (`DialogSectionStyle`), separadas solo por el aire, a 12 px de los bordes del diálogo. Cada sección conserva su ícono + título (`CardHeaderIconStyle` + `CardHeaderTextStyle`). El título del diálogo y el contenido de las secciones comparten la vertical de 28 px (12 de margen + 16 de relleno).
+* **Pie:** `Border` con `Style="{StaticResource DialogFooterStyle}"`, sobre el mismo gris y sin línea: Cancelar a la izquierda y la acción primaria a la derecha, alineados con los bordes de las secciones.
+* **Teclado:** **Esc cierra todo diálogo** (lo resuelve `EncabezadoDialogo`, igual que la ✕, si ningún control usó la tecla antes: un desplegable abierto se cierra primero). **Enter acepta todo diálogo:** el botón primario lleva `IsDefault="True"` (WPF lo ejecuta si el control enfocado no usa Enter, como una grilla o un cuadro multilínea). No se usa `IsCancel`: Esc ya está resuelto en un solo lugar.
 * **Dimensiones Normalizadas de Diálogos Modales:**
   * **Modal Compacto (Auth / Cambios de Clave):** `Width="460"`, `Height="390"`.
   * **Modal Estándar (ABM Clientes / Usuarios / Cobranzas):** `Width="520-540"`, `Height="620-640"`.
@@ -251,36 +255,38 @@ Patrón de las páginas de catálogo y padrón (Artículos como piloto; Clientes
 
 ```text
 PageHeader (sin tarjeta)  ·················· título · acciones a la derecha
-┌─ Tarjeta ──────────────────────────────────────────────┐
-│ ListToolbar                                            │  búsqueda · limpiar filtros · N resultados
-│              (con filas marcadas: búsqueda · [N seleccionados ✕] ···· acciones)
-│ ┌ FilterBand ──────────────────────────────────────┐   │
-│ │ Rubro   Categoría   Marca   Distribuidor   Stock │   │  etiqueta arriba, una sola fila
-│ └──────────────────────────────────────────────────┘   │
-│ DataGrid (DataGridListadoStyle)                        │  ocupa el alto disponible, hasta la paginación
-│ PaginationBar                                          │
+ListToolbar (sin tarjeta)                                  búsqueda · limpiar filtros · N resultados
+             (con filas marcadas: búsqueda · [N seleccionados ✕] ···· acciones)
+┌─ TablaListadoStyle (la única superficie) ──────────────┐
+│ DataGrid (DataGridListadoStyle, sin borde propio)      │  ocupa el alto disponible
+│   Artículo   Categoría ⏷   Marca ⏷   Distribuidor ⏷ … │  filtros en la cabecera (FiltroColumna)
+├────────────────────────────────────────────────────────┤
+│ Página [1] de 13 │ Filas por página [10▾]   « ‹ 1 2 3 … 11 12 13 › » │  PaginationBar
 └────────────────────────────────────────────────────────┘
 ```
+
+**Premisa: menos rectángulos.** Una tarjeta que agrupa buscador, botones y tabla agrega una superficie que no informa nada. El buscador y las acciones van sobre el fondo; la tabla es la única superficie y la paginación es su continuación (Artículos es el piloto; el resto migra en la etapa de migración visual).
 
 | Pieza | Qué es | Regla de uso |
 | :--- | :--- | :--- |
 | `PageHeader` | Control con contenido (`Titulo`, `Subtitulo`; el contenido son las acciones). Sin insignias junto al título | Reemplaza a la tarjeta de encabezado. Las páginas de listado **no llevan subtítulo** (el título alcanza y la grilla gana alto); sin subtítulo, su línea se colapsa y el título se centra con las acciones. Un control con contenido, y no un `UserControl` con una propiedad `object`, para que los botones hereden el `DataContext` de la página. Debajo lleva `Margin="{StaticResource SectionSpacing}"` |
 | `ListToolbar` | Buscador de 390 × 32 (`ControlHeight`), "Limpiar filtros" (fantasma, se deshabilita sola), indicador de carga y "N resultados" | Se enlaza por propiedades de dependencia (`Texto`, `ComandoLimpiar`, `TotalResultados`, `EstaCargando`). Con `HaySeleccion`, su `AccionesDeSeleccion` (la `BulkActionBar` de la página) reemplaza a "Limpiar filtros", la carga y el contador; el buscador sigue a la vista. La barra hereda el `DataContext` de la página por el árbol visual |
-| `BulkActionBar` | Acciones masivas **sin recuadro**: a la izquierda, el badge "N seleccionados ✕" (fondo `PrimaryLightBrush`, el rosa de las filas marcadas; texto `PrimaryBrush`; la "✕", con `BadgeCancelButtonStyle`, cancela la selección); a la derecha, las acciones como botones sueltos | Va **en la barra del buscador** (`ListToolbar.AccionesDeSeleccion`), en el lugar de "Limpiar filtros". La acción con lógica va con `KeycapButtonStyle` (el único acento carmín de la vista es "Nuevo …"); las demás, con `GhostNeutralButtonStyle`; "Más ▾" va último, porque su menú abre alineado a la derecha, con una flecha liviana dibujada (`Path` de 8 × 4, trazo 1,2) y los ítems en peso normal. No dice "de M": la selección es de la página visible (filtrar o paginar la descarta). No es un panel flotante porque taparía las últimas filas |
-| `FilterBandStyle` + `FilterFieldStyle` + `ComboBoxFiltroStyle` | Banda hundida con los filtros en un `Grid` de columnas `*`, etiqueta de 12 px arriba y combos de 32 px | Una sola fila; los textos largos no se cortan porque el combo ocupa toda su columna |
+| `BulkActionBar` | Acciones masivas **sin recuadro**: a la izquierda, la insignia **rectangular** (radio 4, como las de la grilla) "N seleccionados ✕" (fondo `SurfaceSelectedBrush`; la "✕", con `BadgeCancelButtonStyle`, cuadrada, cancela la selección); a la derecha, las acciones como botones sueltos | Va **en la barra del buscador** (`ListToolbar.AccionesDeSeleccion`), en el lugar de "Limpiar filtros". La acción con lógica va con `KeycapButtonStyle` (el único acento carmín de la vista es "Nuevo …"); las demás, con `GhostNeutralButtonStyle`; "Más ▾" va último, porque su menú abre alineado a la derecha, con una flecha liviana dibujada (`Path` de 8 × 4, trazo 1,2) y los ítems en peso normal. No dice "de M": la selección es de la página visible (filtrar o paginar la descarta). No es un panel flotante porque taparía las últimas filas |
+| `FiltroColumna` | Título de la columna + embudo que abre un panel de selección múltiple (ver *Componentes*, §5) | **Artículos** filtra así Categoría (agrupada por rubro), Marca, Distribuidor y Stock; no lleva banda de filtros. "Limpiar filtros" de la barra los vacía todos |
+| `FilterBandStyle` + `FilterFieldStyle` + `ComboBoxFiltroStyle` | Banda hundida con filtros de opción única en un `Grid` de columnas `*`, etiqueta de 12 px arriba y combos de 32 px | Para las páginas que todavía no migraron a `FiltroColumna`. Una sola fila; los textos largos no se cortan porque el combo ocupa toda su columna |
 | `DataGridListadoStyle` | Grilla de listado: encabezado en peso normal, fila de una línea de 36 px (`RowHeightListado`), selección en gris neutro (`SurfaceSelectedBrush`) **sin borde ni carmín**, hover gris (`SurfaceHoverBrush`) (los triggers de la fila están en `Style.Triggers` para que un estilo derivado los redefina: en una grilla **con casillas**, el tinte de marca sigue a la casilla y un clic en una fila no cambia su aspecto: el gris es solo del hover). Ocupa **todo el alto** de su fila, así el borde llega hasta la paginación aunque haya pocas filas. **Esquinas redondeadas** (vienen de la plantilla de `DataGridRetailStyle`, así que valen para todas las grillas) | Encabezados numéricos: `DataGridColumnHeaderRightListadoStyle`. La grilla compacta (POS, modales) sigue siendo `DataGridRetailStyle` |
-| `RowMenuButtonStyle` + `MenuDesplegableHelper` | Botón "⋮" de 28 px (`ControlHeightSm`; ícono de 14), sin contorno, que abre un `ContextMenu` con las acciones de la fila | Es un **`ToggleButton`**: el helper `MenuDesplegableHelper.AbrirAlHacerClic` abre el menú al marcarlo (**debajo del botón con los bordes derechos alineados**, `StaysOpen=false`) y lo desmarca cuando el menú se cierra, por la causa que sea; mientras está abierto el botón no recibe el mouse, así que el clic que cierra el menú no lo reabre (ver *Componentes*). La columna no lleva título y mide **40 px**, con el botón de 28 pegado a la izquierda. El doble clic en la fila abre la edición. El menú no está en el árbol visual de la página: sus comandos se enlazan por `PlacementTarget.Tag` (el ViewModel) y `PlacementTarget.DataContext` (la fila) |
+| `RowMenuButtonStyle` + `MenuDesplegableHelper` | Botón "⋮" de 28 px (`ControlHeightSm`; ícono de 14), sin contorno, que abre un `ContextMenu` con las acciones de la fila | Es un **`ToggleButton`**: el helper `MenuDesplegableHelper.AbrirAlHacerClic` abre el menú al marcarlo (**debajo del botón con los bordes derechos alineados**, `StaysOpen=false`) y lo desmarca cuando el menú se cierra, por la causa que sea; mientras está abierto el botón no recibe el mouse, así que el clic que cierra el menú no lo reabre (ver *Componentes*). La columna no lleva título y mide **36 px**, con el botón de 28 pegado a la izquierda: 8 de aire hacia el borde, igual que el relleno derecho del stock. El doble clic en la fila abre la edición. El menú no está en el árbol visual de la página: sus comandos se enlazan por `PlacementTarget.Tag` (el ViewModel) y `PlacementTarget.DataContext` (la fila) |
 | `CheckBoxCompactStyle` | Casilla de 16 × 16 para grillas (la de WPF-UI mide 20 y desproporciona la fila). Marcada o intermedia se rellena de carmín | Encabezado y celdas de selección de la grilla |
 | `GhostNeutralButtonStyle` | Acción de texto gris sin borde | El carmín se reserva para la marca, la acción principal y la selección |
 
 * **Importes y números:** celdas con `TextBlockCurrencyCell`, `TextBlockPriceCell` o `TextBlockNumericCell`, que fijan `Language="es-AR"`. Formato de moneda `{0:C2}` (da `$ 4.000,00`) y de porcentaje `{0:0.##}%`. Sin unidades en el título de columna.
-* **Stock:** punto de color (verde normal) + cantidad; bajo el mínimo, el punto se reemplaza por "⚠" ámbar, para que el estado no dependa solo del color (el mínimo no se muestra en la grilla). Un servicio muestra "—" con tooltip. Alineado a la derecha, como toda columna numérica, con 8 de relleno derecho (ver el botón "⋮"), y de 64 px: lo justo para su título; el resto lo absorbe la descripción.
-* **Distribuidor:** insignia neutra con ícono de enlace y, si hay fuentes adicionales, un chip "+n" **solo informativo** (no es un botón; el doble clic en la fila abre el artículo).
+* **Stock:** punto de color (verde normal) + cantidad; bajo el mínimo, el punto se reemplaza por el ícono `RegularAlertTriangle` (BoxIcons) ámbar (un emoji depende de la fuente y no toma el color), para que el estado no dependa solo del color (el mínimo no se muestra en la grilla). Un servicio muestra "—" con tooltip. Alineado a la derecha, como toda columna numérica, con 8 de relleno derecho (ver el botón "⋮"), y de 88 px: lo justo para su título y el embudo del filtro; el resto lo absorbe la descripción.
+* **Distribuidor:** insignia neutra (`BadgeNeutralStyle` + `BadgeNeutralTextStyle`, la misma de categoría y presentación) con ícono de enlace y, si hay fuentes adicionales, un chip "+n" **solo informativo** (no es un botón; el doble clic en la fila abre el artículo). La columna mide 184 px para que el nombre recortado y el chip entren enteros; "Precio de venta", 132 para su título con Inter.
 * **Nombres de artículo:** se muestran en mayúsculas con `AMayusculasConverter` (es-AR). Es solo presentación: el dato guardado no cambia.
 * **Esquinas de las grillas:** `helpers:EsquinasHelper.Esquinas` (8 por defecto). Una grilla pegada a los bordes de su tarjeta (Compras) lo pone en `0`. La plantilla recorta el contenido con `RadioDelRecorte`, porque sin recorte el fondo del encabezado se sale de la esquina.
 * **Anchos de columna:** las columnas de datos son fijas y se ajustan a su contenido; la principal (el nombre) es `*` y absorbe el resto.
-* **Combo de filas por página:** el `ComboBox` de WPF-UI dibuja su borde visible según el texto más el relleno vertical (no `Height`) y reserva ~32 px para la flecha además del relleno derecho. En `PaginationBar` se resuelve con `Padding="10,4,0,4"` y `Width="64"`: igual de alto que los botones y sin recortar el número.
-* **Paginación:** `PaginationBar` tiene `MostrarResumen` (por defecto `True`). Artículos lo pone en `False` y muestra en su lugar "N resultados": oculta el contador de la barra del buscador (`ListToolbar.MostrarContador="False"`) y enlaza un texto del pie a su `TextoContador`, a la izquierda y en línea con el paginador.
+* **Paginación (`PaginationBar`):** a la izquierda "Página [n] de N" (el cuadro es editable: un número y Enter va a esa página) y "Filas por página"; a la derecha « ‹ números › » con chevrons de BoxIcons. Siempre siete lugares (`CalcularElementos`): cerca de un extremo "1 2 3 … N-2 N-1 N", en el medio "1 … a-1 a a+1 … N", así la barra no cambia de ancho al navegar. La página actual lleva el gris de la selección, no carmín. Se enlaza al ViewModel de la página, que expone `IrAPaginaCommand` además de primera / anterior / siguiente / última. `MostrarResumen` (por defecto `True`) agrega "Mostrando X a Y de Z" a la izquierda; Artículos lo apaga porque el contador está en la barra del buscador.
+* **Combo de filas por página:** el `ComboBox` de WPF-UI dibuja su borde visible según el texto más el relleno vertical (no `Height`) y reserva ~32 px para la flecha además del relleno derecho. Se resuelve con `Padding="10,4,0,4"` y `Width="64"`.
 * **Acciones masivas sin lógica todavía:** se muestran **deshabilitadas con el tooltip** "Disponible próximamente": "Eliminar seleccionados" (`RegularTrash`) como botón a la vista, y Cambiar rubro (`RegularBookmarks`) y Cambiar categoría (`RegularTag`) en "Más ▾". No se cablean bucles sobre acciones de a una.
 
 ---
@@ -331,6 +337,41 @@ Para dos o tres opciones excluyentes y fijas (Producto · Servicio). Código en 
 * **Movimiento:** 180 ms (`DuracionTransicion`), `CubicEase` EaseOut sobre la posición y el ancho del indicador; sin animación si `SystemParameters.ClientAreaAnimation` está apagada.
 * **Altura:** 4 + 4 de relleno + 2 de borde + ~18 de texto = 28, más 2 + 2 del riel = 32 (`ControlHeight`). El borde de 1 px, transparente en reposo, reserva sitio al anillo de foco para que nada se corra cuando aparece.
 * **Pruebas:** [`SelectorSegmentadoTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/SelectorSegmentadoTests.cs).
+
+### 4. Encabezado de diálogo (`EncabezadoDialogo`)
+Barra de título de los 25 diálogos. Código en [`Views/Components/EncabezadoDialogo.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Components/EncabezadoDialogo.cs); plantilla implícita en `Controls.xaml`.
+
+```xml
+<components:EncabezadoDialogo Titulo="{Binding TituloVentana}" />
+<components:EncabezadoDialogo Titulo="Confirmar incorporación" PermitirMaximizar="True" />
+```
+
+* **Anatomía:** banda de 56 px (`DialogTitleBarHeight`) **transparente**, sobre el mismo gris del diálogo. Título de 20 SemiBold (Inter Display) a 28 px del borde y, a la derecha, minimizar (`RegularMinus`, 14 px), maximizar opcional (`RegularSquareRounded`, 12 px) y cerrar (`RegularX`, 16 px) en áreas de clic de 32 px con `DialogWindowButtonStyle`: solo el ícono, gris, que en hover pasa a `TextPrimaryBrush` sin fondo ni rojo.
+* **Por qué no `ui:TitleBar`:** sus botones son los nativos de Windows (cerrar en rojo, fondo en hover) y no se pueden reestilizar así. La banda propia resuelve el arrastre con `Window.DragMove()` y el doble clic con maximizar si el diálogo lo permite.
+* **Esc cierra el diálogo:** el encabezado se suscribe al `KeyDown` (burbujeante) de su ventana; si la tecla llega sin atender, cierra igual que la ✕. Como está en todos los diálogos, la regla vale para todos sin repetirla.
+* **Los botones no toman el foco** (`Focusable=False`): no son paradas de Tab; Esc ya cierra.
+* **Pruebas:** [`EncabezadoDialogoTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/EncabezadoDialogoTests.cs): plantilla, maximizar opcional, Esc cierra, Esc ya atendida no cierra, la ✕ cierra.
+
+### 5. Filtro de columna (`FiltroColumna`)
+Filtro de selección múltiple en la cabecera de una columna de grilla. Control en [`Views/Components/FiltroColumna.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Components/FiltroColumna.xaml); estado en [`ViewModels/Comun/FiltroColumnaViewModel.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/ViewModels/Comun/FiltroColumnaViewModel.cs); estilos `FiltroColumnaBotonStyle`, `FiltroColumnaPanelStyle` y `CheckBoxOpcionFiltroStyle` en `Listados.xaml`.
+
+```xml
+<DataGridTemplateColumn Width="150">
+    <DataGridTemplateColumn.Header>
+        <components:FiltroColumna Filtro="{Binding DataContext.FiltroCategoria, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+    </DataGridTemplateColumn.Header>
+    …
+```
+
+* **Anatomía:** título de la columna + embudo de 20 px (`RegularMenuFilter`, 14 px). El panel (264 px, tarjeta con radio 8 y sombra de superficie flotante) tiene buscador, "Seleccionar todo" · "Limpiar", las casillas (`CheckBoxOpcionFiltroStyle`: fila entera clicable, casilla de 16) y el pie Cancelar · **Aplicar**.
+* **Estado activo:** con un filtro aplicado, el embudo queda con fondo `SurfaceSelectedBrush` e ícono carmín: desde la grilla se ve qué columnas filtran.
+* **Borrador y aplicado:** las casillas son un borrador; solo "Aplicar" (o Enter) cambia la consulta. Cancelar, Esc o un clic afuera descartan el borrador, y al reabrir se parte de lo aplicado. Ninguna o todas las casillas marcadas = sin filtro.
+* **Grupos:** si las opciones traen grupo (las categorías traen su rubro), cada grupo tiene una casilla de tres estados que marca o desmarca sus opciones visibles; así se filtra por rubro sin una columna de rubro.
+* **Búsqueda:** sin distinguir mayúsculas ni tildes, solo oculta casillas de una lista que ya está en memoria; los artículos se filtran en SQL Server con `IN` (Ley 8).
+* **Apertura y cierre controlados (`StaysOpen=True`):** con `StaysOpen=False` el clic que cierra un Popup **sigue de largo** hasta el elemento de abajo: con el embudo bloqueado, la cabecera recibía el clic y ordenaba la columna. Ahora el control abre y cierra el panel: el clic de afuera se intercepta en la ventana (`PreviewMouseDown`), cierra el panel (como Cancelar) y **se marca como atendido**, así que no ordena ni reabre nada. También cierra al desactivarse o moverse la ventana. Los clics no atendidos dentro del panel tampoco llegan a la `DataGridColumnHeader`.
+* **Animación:** entrada y salida de 180 ms (`DuracionTransicion`, `CubicEase`): opacidad y 4 px de desplazamiento vertical. Sin animación si Windows las tiene desactivadas. Controlar el cierre es lo que permite animar también la salida.
+* **Enlace en la cabecera:** una columna no está en el árbol visual, así que `Filtro` se enlaza con `RelativeSource AncestorType=UserControl` (la página).
+* **Pruebas:** [`FiltroColumnaViewModelTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/ViewModels/FiltroColumnaViewModelTests.cs), los casos de cabecera en [`ArticulosViewInteraccionTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/ArticulosViewInteraccionTests.cs) y la captura `FiltroColumnaPanel` (la tarjeta se captura fuera del Popup, que se mostraría en pantalla).
 
 ---
 
@@ -425,7 +466,7 @@ Definidos en [`src/Retail.App/Styles/Icons.xaml`](file:///c:/Users/lucas/Proyect
 * `GeometryCash`: Efectivo y apertura/cierre de gaveta de caja.
 * `GeometryCard`: Pagos con tarjetas de crédito/débito.
 * `GeometryBox`: Control de stock e inventario de librería.
-* `GeometryWarning`: Triángulo de advertencia para stock mínimo.
+* `GeometryWarning`: Triángulo de advertencia (pantalla de login). En grillas y vistas nuevas se prefiere `RegularAlertTriangle` de BoxIcons.
 * `GeometryLock` / `GeometryUser`: Seguridad de usuarios, PIN de cajero y permisos.
 
 ---
