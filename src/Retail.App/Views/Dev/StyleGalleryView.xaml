@@ -495,6 +495,48 @@
             </Border>
 
             <!-- ========================================================= -->
+            <!-- SECCIÓN 6.3: BOTONES DE PÍLDORA (PillRadioButtonStyle)    -->
+            <!-- ========================================================= -->
+            <TextBlock Text="6.3 Píldoras y selector segmentado"
+                       Style="{StaticResource TextBlockHeader2}"
+                       Margin="0,0,0,12" />
+
+            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,24">
+                <StackPanel>
+                    <TextBlock Text="PillRadioButtonStyle: muchas opciones que pueden pasar de línea (pestañas de reporte del Tablero). La opción marcada usa la marca (carmín suave), nunca los colores de estado."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                        <RadioButton GroupName="Reportes" Content="Tablero" IsChecked="True" Style="{StaticResource PillRadioButtonStyle}" />
+                        <RadioButton GroupName="Reportes" Content="Ranking" Style="{StaticResource PillRadioButtonStyle}" />
+                        <RadioButton GroupName="Reportes" Content="Stock crítico" Style="{StaticResource PillRadioButtonStyle}" />
+                    </StackPanel>
+
+                    <TextBlock Text="SegmentedControlBorderStyle + SegmentedRadioButtonStyle: dos o tres opciones fijas y excluyentes (tipo de artículo). La elegida flota en blanco sobre el riel gris, sin carmín."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12" />
+                    <Border Style="{StaticResource SegmentedControlBorderStyle}">
+                        <UniformGrid Columns="2">
+                            <RadioButton GroupName="TipoArticuloGaleria" IsChecked="True" AutomationProperties.Name="Producto" Style="{StaticResource SegmentedRadioButtonStyle}">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconBoxIcons Kind="RegularCube" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Producto" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton GroupName="TipoArticuloGaleria" AutomationProperties.Name="Servicio" Style="{StaticResource SegmentedRadioButtonStyle}">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconBoxIcons Kind="RegularMagicWand" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Servicio" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </RadioButton>
+                        </UniformGrid>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ========================================================= -->
             <!-- SECCIÓN 7: GRILLA DE ARTÍCULOS (DataGridRetailStyle)       -->
             <!-- ========================================================= -->
             <TextBlock Text="7. Grilla de Artículos (DataGrid con Precios Monoespaciados)"

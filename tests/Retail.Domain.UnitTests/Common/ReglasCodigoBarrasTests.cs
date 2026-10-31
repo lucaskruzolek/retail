@@ -114,4 +114,43 @@ public class ReglasCodigoBarrasTests
     {
         ReglasCodigoBarras.TieneDigitoVerificadorValido(digitos).Should().Be(esperado);
     }
+
+    [Theory]
+    [InlineData("11", true)]
+    [InlineData(" 512 ", true)]
+    [InlineData("7791234567890", true)]
+    [InlineData("7791234567891", true)] // verificador incorrecto: a propósito no se controla (M11)
+    [InlineData("1234567", true)]       // largo no GS1: también se acepta
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    [InlineData("SOBRE-U", false)]
+    [InlineData("779-1234", false)]
+    [InlineData("12 34", false)]
+    public void EsCodigoDeArticuloValido_SegunCodigo_DevuelveResultadoEsperado(string? codigo, bool esperado)
+    {
+        ReglasCodigoBarras.EsCodigoDeArticuloValido(codigo).Should().Be(esperado);
+    }
+
+    [Fact]
+    public void EsCodigoDeArticuloValido_MasDeCincuentaDigitos_DevuelveFalso()
+    {
+        ReglasCodigoBarras.EsCodigoDeArticuloValido(new string('7', 51)).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ExigirCodigoDeArticulo_Vacio_DevuelveNulo(string? codigo)
+    {
+        ReglasCodigoBarras.ExigirCodigoDeArticulo(codigo).Should().BeNull();
+    }
+
+    [Fact]
+    public void ExigirCodigoDeArticulo_ConLetras_LanzaDomainException()
+    {
+        var act = () => ReglasCodigoBarras.ExigirCodigoDeArticulo("EAN-13");
+
+        act.Should().Throw<DomainException>().WithMessage("*solo admite dígitos*");
+    }
 }

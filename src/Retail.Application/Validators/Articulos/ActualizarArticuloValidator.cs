@@ -1,5 +1,6 @@
 using FluentValidation;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.Validators.Common;
 
 namespace Retail.Application.Validators.Articulos;
 
@@ -36,7 +37,7 @@ public class ActualizarArticuloValidator : AbstractValidator<ActualizarArticuloD
         When(x => !string.IsNullOrWhiteSpace(x.CodigoBarras), () =>
         {
             RuleFor(x => x.CodigoBarras)
-                .MaximumLength(50).WithMessage("El código de barras no puede exceder 50 caracteres.");
+                .CodigoDeArticulo();
         });
 
         When(x => !x.EsServicio, () =>
@@ -60,5 +61,12 @@ public class ActualizarArticuloValidator : AbstractValidator<ActualizarArticuloD
             .Must((dto, idPrincipal) => dto.IdsFuentes.Contains(idPrincipal!.Value))
             .When(x => x.IdCatalogoProveedor.HasValue)
             .WithMessage("La fuente principal debe estar entre las fuentes del artículo.");
+
+        // Un servicio (fotocopias, anillados: RF-04) no se compra a un proveedor, así que no tiene fuentes. El dominio
+        // rechaza vincularlo, pero no conoce las fuentes que ya tuviera: esta regla cubre ese caso.
+        RuleFor(x => x.IdsFuentes)
+            .Empty()
+            .When(x => x.EsServicio)
+            .WithMessage("Un servicio no puede tener fuentes de proveedor. Quite las fuentes antes de convertirlo en servicio.");
     }
 }

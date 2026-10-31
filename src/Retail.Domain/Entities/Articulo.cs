@@ -154,6 +154,7 @@ public class Articulo : BaseEntity, IAggregateRoot
         }
 
         // Todas las validaciones y el cálculo ocurren antes de asignar el primer campo (H-08).
+        var codigo = ReglasCodigoBarras.ExigirCodigoDeArticulo(codigoBarras);
         var precioVenta = CalcularPrecioVenta(costoReposicion, porcentajeGanancia);
 
         Descripcion = descripcion.Trim();
@@ -161,7 +162,7 @@ public class Articulo : BaseEntity, IAggregateRoot
         OrigenCategoria = origenCategoria;
         IdMarca = idMarca;
         OrigenMarca = origenMarca;
-        CodigoBarras = string.IsNullOrWhiteSpace(codigoBarras) ? null : codigoBarras.Trim();
+        CodigoBarras = codigo;
         CostoReposicion = costoReposicion;
         PorcentajeGanancia = porcentajeGanancia;
         PrecioVenta = precioVenta;
@@ -204,11 +205,16 @@ public class Articulo : BaseEntity, IAggregateRoot
     /// <summary>
     /// Hace principal una fuente que ya es de este artículo (A-16, J1) y toma su costo, porque solo la principal fija
     /// el costo (A-2). La fuente anterior, si había, sigue siendo fuente (J2). Las presentaciones derivadas las
-    /// recalcula Application, que las conoce.
+    /// recalcula Application, que las conoce. Un servicio no tiene fuentes, así que tampoco principal.
     /// </summary>
     public void MarcarFuentePrincipal(CatalogoProveedor fuente)
     {
         ArgumentNullException.ThrowIfNull(fuente);
+
+        if (EsServicio)
+        {
+            throw new DomainException($"El servicio '{Descripcion}' no puede tener fuente principal: un servicio no se compra.");
+        }
 
         if (fuente.Id <= 0)
         {

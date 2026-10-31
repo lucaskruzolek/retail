@@ -58,19 +58,93 @@ public class ArticuloFormViewModelTests
     }
 
     [Fact]
-    public void EsServicio_CuandoSeMarcaTrue_ReseteaStockActualYMinimo()
+    public void EsServicio_IdaYVueltaAProducto_ConservaElStockSinMostrarUnAjuste()
     {
         // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(100m), [], _categorias, _marcas);
         _sut.StockActual = 20;
-        _sut.StockMinimo = 5;
+        _sut.ConfirmarAjusteStock();
+
+        // Act
+        _sut.EsServicio = true;
+        var manejaStockComoServicio = _sut.ManejaStockFisico;
+        _sut.EsServicio = false;
+
+        // Assert
+        manejaStockComoServicio.Should().BeFalse();
+        _sut.StockActual.Should().Be(20, "elegir Servicio y volver no debe perder el stock cargado");
+    }
+
+    [Fact]
+    public void ObtenerActualizarDto_Servicio_EnviaStockEnCero()
+    {
+        // Arrange: el stock ya no se borra al elegir Servicio, así que el DTO es quien lo pone en cero
+        _sut.ConfigurarEdicion(ArticuloConCosto(100m), [], _categorias, _marcas);
+        _sut.StockActual = 20;
+
+        // Act
+        _sut.EsServicio = true;
+        var dto = _sut.ObtenerActualizarDto();
+
+        // Assert
+        dto.StockActual.Should().Be(0);
+        dto.StockMinimo.Should().Be(0);
+    }
+
+    [Fact]
+    public void PuedeSerServicio_ConFuentes_EsFalsoYExplicaPorQue()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(100m), DosFuentes(), _categorias, _marcas);
+
+        // Assert
+        _sut.PuedeSerServicio.Should().BeFalse();
+        _sut.AvisoNoPuedeSerServicio.Should().Contain("Quite las fuentes");
+    }
+
+    [Fact]
+    public void PuedeSerServicio_TrasQuitarTodasLasFuentes_EsVerdadero()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(100m), DosFuentes(), _categorias, _marcas);
+
+        // Act
+        foreach (var fuente in _sut.Fuentes.ToList())
+        {
+            _sut.QuitarFuente(fuente);
+        }
+
+        // Assert
+        _sut.PuedeSerServicio.Should().BeTrue();
+        _sut.AvisoNoPuedeSerServicio.Should().BeNull();
+    }
+
+    [Fact]
+    public void AgregarFuenteCommand_Servicio_NoSePuedeEjecutar()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
 
         // Act
         _sut.EsServicio = true;
 
         // Assert
-        _sut.StockActual.Should().Be(0);
-        _sut.StockMinimo.Should().Be(0);
-        _sut.ManejaStockFisico.Should().BeFalse();
+        _sut.AgregarFuenteCommand.CanExecute(null).Should().BeFalse();
+        _sut.MostrarFuentes.Should().BeFalse("un servicio sin fuentes no muestra la sección");
+    }
+
+    [Fact]
+    public void MostrarFuentes_ServicioConFuentesHeredadas_LaMuestraParaPoderQuitarlas()
+    {
+        // Arrange: un servicio con fuentes solo puede venir de datos anteriores a la regla
+        var servicio = ArticuloConCosto(100m) with { EsServicio = true };
+
+        // Act
+        _sut.ConfigurarEdicion(servicio, DosFuentes(), _categorias, _marcas);
+
+        // Assert
+        _sut.MostrarFuentes.Should().BeTrue();
+        _sut.AgregarFuenteCommand.CanExecute(null).Should().BeFalse();
     }
 
     [Fact]
@@ -267,9 +341,9 @@ public class ArticuloFormViewModelTests
     // ---------- Sección Fuentes: estado deseado hasta Guardar (Track 4.3, A-19) ----------
 
     [Fact]
-    public void ConfigurarEdicion_ConFuentes_LasOrdenaPorCostoConLaPrincipalYConservaElCostoGuardado()
+    public void ConfigurarEdicion_ConFuentes_LasOrdenaPorCostoConLaPrincipalYMuestraSuCosto()
     {
-        // Arrange: el costo guardado (1300) se editó a mano; cargar las fuentes no lo pisa
+        // Arrange: el costo guardado (1300) difiere del de la principal (1250); el guardado fijará el de la principal
         var articulo = ArticuloConCosto(1300m);
         IReadOnlyList<FuenteArticuloDto> fuentes =
         [
@@ -284,8 +358,129 @@ public class ArticuloFormViewModelTests
         _sut.Fuentes.Select(f => f.IdCatalogoProveedor).Should().Equal(26, 25);
         _sut.IdCatalogoProveedor.Should().Be(25);
         _sut.TieneFuentes.Should().BeTrue();
-        _sut.TextoCantidadFuentes.Should().Be("2 fuentes");
-        _sut.CostoReposicion.Should().Be(1300m);
+        _sut.Fuentes.Should().HaveCount(2);
+        _sut.CostoReposicion.Should().Be(1250m);
+    }
+
+    [Fact]
+    public void CostoEditable_ConPrincipal_EsSoloLecturaYNombraAlProveedor()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(1250m), DosFuentes(), _categorias, _marcas);
+
+        // Assert
+        _sut.TieneFuentePrincipal.Should().BeTrue();
+        _sut.CostoSoloLectura.Should().BeTrue();
+        _sut.CostoEditable.Should().BeFalse();
+        _sut.TextoOrigenCosto.Should().Be("Fijado por la fuente principal: Distribuidora Sur");
+    }
+
+    [Fact]
+    public void CostoEditable_SinFuentes_EsEditableYSinTextoDeOrigen()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
+
+        // Assert
+        _sut.CostoEditable.Should().BeTrue();
+        _sut.CostoSoloLectura.Should().BeFalse();
+        _sut.TextoOrigenCosto.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CostoEditable_TrasQuitarLaPrincipal_VuelveAEditarseYConservaElCosto()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(1250m), DosFuentes(), _categorias, _marcas);
+        var cambios = new List<string?>();
+        _sut.PropertyChanged += (_, e) => cambios.Add(e.PropertyName);
+
+        // Act
+        _sut.QuitarFuenteCommand.Execute(_sut.Fuentes.Single(f => f.IdCatalogoProveedor == 25));
+
+        // Assert
+        _sut.CostoEditable.Should().BeTrue();
+        _sut.CostoReposicion.Should().Be(1250m);
+        _sut.TextoOrigenCosto.Should().BeEmpty();
+        cambios.Should().Contain([nameof(ArticuloFormViewModel.CostoEditable), nameof(ArticuloFormViewModel.CostoSoloLectura)]);
+    }
+
+    [Fact]
+    public void StockActual_EnAlta_EsEditableYSeLlamaStockInicial()
+    {
+        // Arrange
+        _sut.ConfigurarAlta(_categorias, _marcas);
+
+        // Assert
+        _sut.StockActualEditable.Should().BeTrue();
+        _sut.MostrarStockSoloLectura.Should().BeFalse();
+        _sut.EtiquetaStockActual.Should().Be("Stock inicial");
+    }
+
+    [Fact]
+    public void StockActual_EnEdicion_NoEsEditableHastaAjustarStock()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(100m), [], _categorias, _marcas);
+
+        // Assert (antes)
+        _sut.StockActualEditable.Should().BeFalse();
+        _sut.MostrarStockSoloLectura.Should().BeTrue();
+        _sut.EtiquetaStockActual.Should().Be("Stock actual");
+
+        // Act
+        _sut.AjustarStockCommand.Execute(null);
+
+        // Assert (después)
+        _sut.StockActualEditable.Should().BeTrue();
+        _sut.MostrarStockSoloLectura.Should().BeFalse();
+        _sut.MostrarAccionesAjusteStock.Should().BeTrue();
+    }
+
+    [Fact]
+    public void DescartarAjusteStock_RestauraElValorOriginal()
+    {
+        // Arrange
+        _sut.ConfigurarEdicion(ArticuloConCosto(100m), [], _categorias, _marcas);
+        _sut.AjustarStockCommand.Execute(null);
+        _sut.StockActual = 25;
+
+        // Act
+        _sut.DescartarAjusteStockCommand.Execute(null);
+
+        // Assert
+        _sut.StockActual.Should().Be(10);
+        _sut.EstaAjustandoStock.Should().BeFalse();
+        _sut.TieneAjusteStock.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ConfirmarAjusteStock_ConservaElValorYMuestraLaDiferencia()
+    {
+        // Arrange
+        var articulo = new ArticuloDto
+        {
+            IdArticulo = 10,
+            Descripcion = "Cuaderno Espiral A4",
+            CostoReposicion = 100m,
+            PorcentajeGanancia = 40m,
+            PrecioVenta = 140m,
+            StockActual = 0,
+            StockMinimo = 2,
+            EsServicio = false
+        };
+        _sut.ConfigurarEdicion(articulo, [], _categorias, _marcas);
+        _sut.AjustarStockCommand.Execute(null);
+        _sut.StockActual = 12;
+
+        // Act
+        _sut.ConfirmarAjusteStockCommand.Execute(null);
+
+        // Assert
+        _sut.StockActual.Should().Be(12);
+        _sut.EstaAjustandoStock.Should().BeFalse();
+        _sut.TieneAjusteStock.Should().BeTrue();
+        _sut.TextoAjusteStock.Should().Be("Ajuste: 0 → 12 (+12)");
     }
 
     [Fact]
@@ -342,7 +537,7 @@ public class ArticuloFormViewModelTests
         _sut.Fuentes.Select(f => f.IdCatalogoProveedor).Should().Equal(55, 25);
         _sut.IdCatalogoProveedor.Should().Be(25);
         _sut.CostoReposicion.Should().Be(1250m);
-        _sut.TextoCantidadFuentes.Should().Be("2 fuentes");
+        _sut.Fuentes.Should().HaveCount(2);
     }
 
     [Fact]
@@ -417,7 +612,7 @@ public class ArticuloFormViewModelTests
         _sut.Fuentes.Select(f => f.IdCatalogoProveedor).Should().Equal(26);
         _sut.IdCatalogoProveedor.Should().BeNull();
         _sut.CostoReposicion.Should().Be(1250m);
-        _sut.TextoCantidadFuentes.Should().Be("1 fuente");
+        _sut.Fuentes.Should().HaveCount(1);
     }
 
     [Fact]

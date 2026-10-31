@@ -296,6 +296,22 @@ public class ArticuloTests
     }
 
     [Fact]
+    public void MarcarFuentePrincipal_Servicio_LanzaDomainExceptionSinModificarElCosto()
+    {
+        // Un servicio con un ítem ya vinculado solo puede venir de datos anteriores a la regla: igual no toma principal
+        var servicio = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(servicio);
+        servicio.EsServicio = true;
+
+        var act = () => servicio.MarcarFuentePrincipal(fuente);
+
+        act.Should().Throw<DomainException>().WithMessage("*no puede tener fuente principal*");
+        servicio.IdCatalogoProveedor.Should().BeNull();
+        servicio.CostoReposicion.Should().Be(1000m);
+    }
+
+    [Fact]
     public void MarcarFuentePrincipal_ItemFuenteDeOtroArticulo_LanzaDomainException()
     {
         var articulo = CrearArticuloConFuentes(id: 7);
@@ -402,6 +418,58 @@ public class ArticuloTests
         act.Should().Throw<ArgumentOutOfRangeException>();
         articulo.CostoReposicion.Should().Be(100m);
         articulo.PrecioVenta.Should().Be(150m);
+    }
+
+    [Fact]
+    public void ActualizarDatos_CodigoConLetras_LanzaDomainExceptionSinModificarNingunCampo()
+    {
+        // Arrange
+        var articulo = new Articulo
+        {
+            Descripcion = "Original",
+            CostoReposicion = 100m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 150m
+        };
+
+        // Act
+        var act = () => articulo.ActualizarDatos(
+            descripcion: "Modificado",
+            idCategoria: null,
+            idMarca: null,
+            codigoBarras: "SOBRE-U",
+            costoReposicion: 200m,
+            porcentajeGanancia: 50m,
+            stockActual: 0,
+            stockMinimo: 1,
+            esServicio: false);
+
+        // Assert
+        act.Should().Throw<DomainException>().WithMessage("*solo admite dígitos*");
+        articulo.Descripcion.Should().Be("Original");
+        articulo.CostoReposicion.Should().Be(100m);
+    }
+
+    [Fact]
+    public void ActualizarDatos_CodigoInternoCorto_LoGuardaSinEspacios()
+    {
+        // Arrange: "11" es el código interno de fotocopias que el cajero tipea en el POS (M11)
+        var servicio = new Articulo();
+
+        // Act
+        servicio.ActualizarDatos(
+            descripcion: "Fotocopia simple",
+            idCategoria: null,
+            idMarca: null,
+            codigoBarras: " 11 ",
+            costoReposicion: 20m,
+            porcentajeGanancia: 50m,
+            stockActual: 0,
+            stockMinimo: 0,
+            esServicio: true);
+
+        // Assert
+        servicio.CodigoBarras.Should().Be("11");
     }
 
     [Fact]
