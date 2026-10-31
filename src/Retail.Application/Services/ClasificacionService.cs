@@ -3,7 +3,6 @@ using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Application.Services.Clasificacion;
-using Retail.Domain.Common;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
@@ -19,7 +18,9 @@ namespace Retail.Application.Services;
 /// <item>Términos nuevos frecuentes: se agrupan para decidirlos en bloque (M-26).</item>
 /// </list>
 /// Lo que ninguna regla resuelve queda sin sugerencia.
-/// Todo ocurre en memoria después de dos lecturas (el lote y sus diccionarios); no modifica nada (M-4).
+/// Todo ocurre en memoria después de dos lecturas (el lote y sus diccionarios); no modifica nada (M-4). Las reglas
+/// viven en <see cref="MotorDeClasificacion"/>, que también usa la clasificación del catálogo (M-77); este servicio
+/// arma los bloques de términos nuevos (M-26).
 /// </summary>
 public class ClasificacionService : IClasificacionService
 {
@@ -57,13 +58,13 @@ public class ClasificacionService : IClasificacionService
             cancellationToken));
 
         var sinTraducir = new Dictionary<(TipoEquivalenciaEnum Tipo, string? Rubro, string Texto), int>();
-        var marcas = items.ToDictionary(i => i.IdCatalogo, i => SugerirMarca(i, diccionarios, sinTraducir));
-        var categorias = items.ToDictionary(i => i.IdCatalogo, i => ClasificarCategoria(i, diccionarios, sinTraducir));
+        var marcas = items.ToDictionary(i => i.IdCatalogo, i => MotorDeClasificacion.SugerirMarca(i, diccionarios, sinTraducir));
+        var categorias = items.ToDictionary(i => i.IdCatalogo, i => MotorDeClasificacion.ClasificarCategoria(i, diccionarios, sinTraducir));
 
         // Términos nuevos frecuentes: se deciden en bloque (M-26). Un ítem sin descripción no tiene término que
         // registrar.
         var terminosEnBloque = items
-            .Where(i => categorias[i.IdCatalogo].Estado == EstadoCategoria.TerminoDesconocido && i.Termino.Length > 0)
+            .Where(i => categorias[i.IdCatalogo].Estado == MotorDeClasificacion.EstadoCategoria.TerminoDesconocido && i.Termino.Length > 0)
             .GroupBy(i => i.Termino)
             .Where(g => g.Count() >= TamanoMinimoDeBloque)
             .ToDictionary(g => g.Key, g => g.ToList());
@@ -110,158 +111,6 @@ public class ClasificacionService : IClasificacionService
 
         // Se respeta el orden pedido: es el de la grilla de la pantalla de incorporación.
         return ids.Select(id => ItemAClasificar.Desde(catalogos[id])).ToList();
-    }
-
-    // ---------- Marca ----------
-
-    private static SugerenciaDto? SugerirMarca(
-        ItemAClasificar item,
-        DiccionariosDelLote diccionarios,
-        Dictionary<(TipoEquivalenciaEnum, string?, string), int> sinTraducir)
-    {
-        return SugerirMarcaDelProveedor(item, diccionarios, sinTraducir) ?? SugerirMarcaPorDescripcion(item, diccionarios);
-    }
-
-    /// <summary>
-    /// La marca de la columna de la planilla se busca primero entre los nombres y alias del comercio; si no aparece,
-    /// en las equivalencias del proveedor (sección 4.1).
-    /// </summary>
-    private static SugerenciaDto? SugerirMarcaDelProveedor(
-        ItemAClasificar item,
-        DiccionariosDelLote diccionarios,
-        Dictionary<(TipoEquivalenciaEnum, string?, string), int> sinTraducir)
-    {
-        if (item.MarcaProveedor is null)
-        {
-            return null;
-        }
-
-        var texto = ReglasClasificacion.NormalizarTexto(item.MarcaProveedor);
-        if (diccionarios.Marcas.BuscarExacta(texto) is int idMarca)
-        {
-            return diccionarios.SugerirMarca(idMarca, MotivoSugerenciaEnum.MarcaInformadaPorElProveedor);
-        }
-
-        return SugerirPorEquivalencia(TipoEquivalenciaEnum.Marca, null, texto, diccionarios, sinTraducir);
-    }
-
-    /// <summary>
-    /// Solo el texto sugiere la marca; el prefijo del titular desempata si el texto nombra varias (M-25). Si el texto no
-    /// nombra ninguna, el prefijo no decide (M-69): identifica a la empresa titular, no a la marca. Si nombra varias y el
-    /// prefijo no es de ninguna, no sugiere.
-    /// </summary>
-    private static SugerenciaDto? SugerirMarcaPorDescripcion(ItemAClasificar item, DiccionariosDelLote diccionarios)
-    {
-        var enLaDescripcion = diccionarios.Marcas.MarcasEn(item.PalabrasParaMarca);
-
-        return enLaDescripcion.Count switch
-        {
-            1 => diccionarios.SugerirMarca(enLaDescripcion.Single(), MotivoSugerenciaEnum.MarcaEnLaDescripcion),
-            > 1 when diccionarios.MarcaDelPrefijo(item.PrefijoTitular) is int desempate && enLaDescripcion.Contains(desempate) =>
-                diccionarios.SugerirMarca(desempate, MotivoSugerenciaEnum.MarcaEnLaDescripcion),
-            _ => null
-        };
-    }
-
-    // ---------- Categoría ----------
-
-    private enum EstadoCategoria
-    {
-        Resuelta,
-        TerminoAmbiguo,
-        TerminoDesconocido
-    }
-
-    private sealed record CategoriaDelItem(EstadoCategoria Estado, SugerenciaDto? Sugerencia);
-
-    /// <summary>
-    /// Niveles de la categoría: la equivalencia del proveedor, la tabla de términos y, para un término ambiguo, su par
-    /// con la segunda palabra. Lo que no resuelven queda marcado como término ambiguo (sin sugerencia) o desconocido
-    /// (candidato a un bloque).
-    /// </summary>
-    private static CategoriaDelItem ClasificarCategoria(
-        ItemAClasificar item,
-        DiccionariosDelLote diccionarios,
-        Dictionary<(TipoEquivalenciaEnum, string?, string), int> sinTraducir)
-    {
-        if (ClaveDeCategoriaDelProveedor(item) is var (textoRubro, texto)
-            && SugerirPorEquivalencia(TipoEquivalenciaEnum.Categoria, textoRubro, texto, diccionarios, sinTraducir) is { } porEquivalencia)
-        {
-            return new CategoriaDelItem(EstadoCategoria.Resuelta, porEquivalencia);
-        }
-
-        var termino = diccionarios.BuscarTermino(item.Termino);
-        if (termino is null)
-        {
-            return new CategoriaDelItem(EstadoCategoria.TerminoDesconocido, null);
-        }
-
-        // Un término cuya categoría ya no está activa no sugiere: se comporta como ambiguo. No tiene pares (P-3), así
-        // que no pasa por SugerirPorPar.
-        var sugerencia = termino.IdCategoria is int idCategoria
-            ? diccionarios.SugerirCategoria(idCategoria, MotivoSugerenciaEnum.Termino)
-            : SugerirPorPar(item, diccionarios);
-        return sugerencia is null
-            ? new CategoriaDelItem(EstadoCategoria.TerminoAmbiguo, null)
-            : new CategoriaDelItem(EstadoCategoria.Resuelta, sugerencia);
-    }
-
-    /// <summary>
-    /// Par "término ambiguo + segunda palabra" del diccionario (Fase 5, M-48). Sin segunda palabra, sin par con
-    /// categoría o con la categoría dada de baja, no sugiere.
-    /// </summary>
-    private static SugerenciaDto? SugerirPorPar(ItemAClasificar item, DiccionariosDelLote diccionarios)
-    {
-        if (item.SegundaPalabra.Length == 0)
-        {
-            return null;
-        }
-
-        return diccionarios.CategoriaDelPar(item.Termino, item.SegundaPalabra) is int idCategoria
-            ? diccionarios.SugerirCategoria(idCategoria, MotivoSugerenciaEnum.ParDelDiccionario)
-            : null;
-    }
-
-    /// <summary>
-    /// Clave de la equivalencia de categoría (M-31): la categoría del proveedor con su rubro como contexto, o el rubro
-    /// solo si es lo único que trae la planilla.
-    /// </summary>
-    private static (string? TextoRubro, string Texto)? ClaveDeCategoriaDelProveedor(ItemAClasificar item)
-    {
-        if (item.CategoriaProveedor is not null)
-        {
-            var rubro = item.RubroProveedor is null ? null : ReglasClasificacion.NormalizarTexto(item.RubroProveedor);
-            return (rubro, ReglasClasificacion.NormalizarTexto(item.CategoriaProveedor));
-        }
-
-        return item.RubroProveedor is null ? null : (null, ReglasClasificacion.NormalizarTexto(item.RubroProveedor));
-    }
-
-    /// <summary>
-    /// Traduce un valor del proveedor. Si no tiene equivalencia, lo registra como "sin traducir" (una vez por valor,
-    /// contando los ítems); si está ignorada o su destino ya no está activo, deja seguir a los otros niveles.
-    /// </summary>
-    private static SugerenciaDto? SugerirPorEquivalencia(
-        TipoEquivalenciaEnum tipo,
-        string? textoRubro,
-        string texto,
-        DiccionariosDelLote diccionarios,
-        Dictionary<(TipoEquivalenciaEnum, string?, string), int> sinTraducir)
-    {
-        var equivalencia = diccionarios.BuscarEquivalencia(tipo, textoRubro, texto);
-        if (equivalencia is null)
-        {
-            var clave = (tipo, textoRubro, texto);
-            sinTraducir[clave] = sinTraducir.GetValueOrDefault(clave) + 1;
-            return null;
-        }
-
-        return equivalencia switch
-        {
-            { IdCategoria: int idCategoria } => diccionarios.SugerirCategoria(idCategoria, MotivoSugerenciaEnum.EquivalenciaDelProveedor),
-            { IdMarca: int idMarca } => diccionarios.SugerirMarca(idMarca, MotivoSugerenciaEnum.EquivalenciaDelProveedor),
-            _ => null
-        };
     }
 
     // ---------- Bloques ----------

@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<ICategoriaService, CategoriaService>();
         services.AddScoped<IMarcaService, MarcaService>();
         services.AddScoped<IClasificacionService, ClasificacionService>();
+        services.AddScoped<IClasificacionCatalogoService, ClasificacionCatalogoService>();
         services.AddScoped<ITerminoClasificacionService, TerminoClasificacionService>();
         services.AddScoped<IEquivalenciaClasificacionService, EquivalenciaClasificacionService>();
         services.AddScoped<IEstadoSistemaService, EstadoSistemaService>();

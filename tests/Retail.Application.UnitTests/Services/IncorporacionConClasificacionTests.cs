@@ -49,7 +49,8 @@ public class IncorporacionConClasificacionTests
             new CrearProveedorValidator(),
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
-            new IncorporarCatalogoArticulosValidator());
+            new IncorporarCatalogoArticulosValidator(),
+            new ConsultaCatalogoProveedorValidator());
     }
 
     [Theory]

@@ -43,6 +43,12 @@ public class ProveedorConfiguration : IEntityTypeConfiguration<Proveedor>
             .HasColumnName("email")
             .HasMaxLength(100);
 
+        // Preferencia de clasificar el catálogo en cada importación (Track 6.6, M-75).
+        builder.Property(p => p.ClasificaCatalogo)
+            .HasColumnName("clasifica_catalogo")
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.Property(p => p.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();

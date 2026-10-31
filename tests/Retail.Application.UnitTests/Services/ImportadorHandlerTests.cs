@@ -36,7 +36,8 @@ public class ImportadorHandlerTests
             new CrearProveedorValidator(),
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
-            new IncorporarCatalogoArticulosValidator()
+            new IncorporarCatalogoArticulosValidator(),
+            new ConsultaCatalogoProveedorValidator()
         );
     }
 

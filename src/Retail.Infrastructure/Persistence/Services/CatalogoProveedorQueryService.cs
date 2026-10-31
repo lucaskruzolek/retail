@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Domain.Entities;
@@ -51,6 +52,30 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
             query = query.Where(c => _context.Articulos.Any(a => a.Id == c.IdArticulo));
         }
 
+        // Clasificación sugerida (Track 6.6, M-72, M-74). Una categoría o marca dada de baja no existe para el filtro
+        // global de borrado lógico, así que no coincide con el filtro por categoría y cuenta como "sin categoría".
+        if (consulta.IdCategoria is > 0)
+        {
+            var idCategoria = consulta.IdCategoria.Value;
+            query = query.Where(c => c.IdCategoriaSugerida == idCategoria
+                && _context.Categorias.Any(cat => cat.Id == c.IdCategoriaSugerida));
+        }
+
+        if (consulta.IdMarca is > 0)
+        {
+            var idMarca = consulta.IdMarca.Value;
+            query = query.Where(c => c.IdMarcaSugerida == idMarca
+                && _context.Marcas.Any(m => m.Id == c.IdMarcaSugerida));
+        }
+
+        // Sin categoría = el motor ya lo procesó (con fecha) y no hay categoría activa que lo reconozca. Un pendiente
+        // no cuenta: todavía no se sabe.
+        if (consulta.SoloSinCategoria)
+        {
+            query = query.Where(c => c.FechaClasificacion != null
+                && !_context.Categorias.Any(cat => cat.Id == c.IdCategoriaSugerida));
+        }
+
         int totalRegistros = await query.CountAsync(cancellationToken);
 
         int tamanoPagina = Math.Max(1, consulta.TamañoPagina);
@@ -79,6 +104,17 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
                 DescripcionProveedor = c.DescripcionProveedor,
                 CostoReposicion = c.CostoReposicion,
                 FechaActualizacion = c.FechaActualizacion,
+                IdCategoriaSugerida = c.IdCategoriaSugerida,
+                CategoriaSugerida = _context.Categorias
+                    .Where(cat => cat.Id == c.IdCategoriaSugerida)
+                    .Select(cat => cat.NombreCategoria)
+                    .FirstOrDefault(),
+                IdMarcaSugerida = c.IdMarcaSugerida,
+                MarcaSugerida = _context.Marcas
+                    .Where(m => m.Id == c.IdMarcaSugerida)
+                    .Select(m => m.NombreMarca)
+                    .FirstOrDefault(),
+                FechaClasificacion = c.FechaClasificacion,
                 EstaVinculado = _context.Articulos.Any(a => a.Id == c.IdArticulo),
                 CoincideConArticuloTienda =
                     !_context.Articulos.Any(a => a.Id == c.IdArticulo) &&
@@ -123,6 +159,55 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
             TamanoPagina = tamanoPagina,
             FechaUltimaPlanilla = fechaUltimaPlanilla
         };
+    }
+
+    public async Task<IReadOnlyList<CatalogoProveedor>> ObtenerParaClasificarAsync(
+        int idProveedor,
+        bool soloPendientes,
+        CancellationToken cancellationToken = default)
+    {
+        // Con tracking: son entidades que se van a modificar. El filtro global de borrado lógico deja solo las vigentes.
+        var query = _context.CatalogosProveedores.Where(c => c.IdProveedor == idProveedor);
+
+        if (soloPendientes)
+        {
+            query = query.Where(c => c.FechaClasificacion == null);
+        }
+
+        return await query.OrderBy(c => c.Id).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ValorDelProveedorDto>> ObtenerValoresDeClasificacionAsync(
+        int idProveedor,
+        CancellationToken cancellationToken = default)
+    {
+        var vigentes = _context.CatalogosProveedores.AsNoTracking().Where(c => c.IdProveedor == idProveedor);
+
+        // Dos GROUP BY en SQL Server (Ley 8): vuelven los valores distintos con su cantidad, no los ítems.
+        var categorias = await vigentes
+            .Where(c => c.RubroProveedor != null || c.CategoriaProveedor != null)
+            .GroupBy(c => new { c.RubroProveedor, c.CategoriaProveedor })
+            .Select(g => new ValorDelProveedorDto
+            {
+                Tipo = TipoEquivalenciaEnum.Categoria,
+                Rubro = g.Key.RubroProveedor,
+                Texto = g.Key.CategoriaProveedor,
+                CantidadDeItems = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        var marcas = await vigentes
+            .Where(c => c.MarcaProveedor != null)
+            .GroupBy(c => c.MarcaProveedor)
+            .Select(g => new ValorDelProveedorDto
+            {
+                Tipo = TipoEquivalenciaEnum.Marca,
+                Texto = g.Key,
+                CantidadDeItems = g.Count()
+            })
+            .ToListAsync(cancellationToken);
+
+        return [.. categorias, .. marcas];
     }
 
     public async Task<CatalogoProveedor?> ObtenerPorIdAsync(int id, CancellationToken cancellationToken = default)

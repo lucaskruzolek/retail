@@ -34,6 +34,18 @@ public record class CatalogoProveedorDto : BaseDto
 
     public int? StockActualTienda { get; init; }
 
+    // Clasificación sugerida con las reglas del comercio (Track 6.6, M-72, M-74). Un nombre nulo con fecha significa que
+    // no hay regla o que la categoría o marca sugerida fue dada de baja; sin fecha, el ítem está pendiente.
+    public int? IdCategoriaSugerida { get; init; }
+
+    public string? CategoriaSugerida { get; init; }
+
+    public int? IdMarcaSugerida { get; init; }
+
+    public string? MarcaSugerida { get; init; }
+
+    public DateTime? FechaClasificacion { get; init; }
+
     private bool _estaSeleccionado;
 
     /// <summary>

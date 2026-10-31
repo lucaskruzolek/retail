@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
@@ -397,5 +398,153 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
 
         // Assert
         resultado.FechaUltimaPlanilla.Should().BeNull();
+    }
+
+    // ---------- Clasificación sugerida del catálogo (Track 6.6, Fase 8) ----------
+
+    private sealed record Taxonomia(Categoria Cuadernos, Categoria DeBaja, Marca Rivadavia);
+
+    private async Task<Taxonomia> SembrarTaxonomiaAsync()
+    {
+        var rubro = Rubro.Crear("Librería");
+        _context.Rubros.Add(rubro);
+        await _context.SaveChangesAsync();
+
+        var cuadernos = Categoria.Crear("Cuadernos", rubro.Id);
+        var deBaja = Categoria.Crear("Categoría de baja", rubro.Id);
+        var rivadavia = Marca.Crear("Rivadavia");
+        _context.Categorias.AddRange(cuadernos, deBaja);
+        _context.Marcas.Add(rivadavia);
+        await _context.SaveChangesAsync();
+
+        deBaja.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+        return new Taxonomia(cuadernos, deBaja, rivadavia);
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_FiltroPorCategoria_DevuelveSoloLosSugeridosConEsaCategoria()
+    {
+        var proveedor = await CrearProveedorAsync();
+        var taxonomia = await SembrarTaxonomiaAsync();
+        var conCategoria = CrearItem(proveedor.Id, "A-1", "Cuaderno rayado");
+        conCategoria.RegistrarClasificacionSugerida(taxonomia.Cuadernos.Id, taxonomia.Rivadavia.Id);
+        var sinCategoria = CrearItem(proveedor.Id, "A-2", "Cosa rara");
+        sinCategoria.RegistrarClasificacionSugerida(null, null);
+        _context.CatalogosProveedores.AddRange(conCategoria, sinCategoria);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            IdCategoria = taxonomia.Cuadernos.Id
+        });
+
+        var item = resultado.Items.Should().ContainSingle().Subject;
+        item.CodigoProveedor.Should().Be("A-1");
+        item.CategoriaSugerida.Should().Be("Cuadernos");
+        item.MarcaSugerida.Should().Be("Rivadavia");
+        item.FechaClasificacion.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_FiltroPorMarca_DevuelveSoloLosSugeridosConEsaMarca()
+    {
+        var proveedor = await CrearProveedorAsync();
+        var taxonomia = await SembrarTaxonomiaAsync();
+        var conMarca = CrearItem(proveedor.Id, "A-1", "Cuaderno rayado");
+        conMarca.RegistrarClasificacionSugerida(null, taxonomia.Rivadavia.Id);
+        var sinMarca = CrearItem(proveedor.Id, "A-2", "Lápiz");
+        sinMarca.RegistrarClasificacionSugerida(taxonomia.Cuadernos.Id, null);
+        _context.CatalogosProveedores.AddRange(conMarca, sinMarca);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            IdMarca = taxonomia.Rivadavia.Id
+        });
+
+        resultado.Items.Should().ContainSingle().Which.CodigoProveedor.Should().Be("A-1");
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_SoloSinCategoria_IncluyeCategoriaDadaDeBajaYExcluyePendientes()
+    {
+        var proveedor = await CrearProveedorAsync();
+        var taxonomia = await SembrarTaxonomiaAsync();
+        var clasificado = CrearItem(proveedor.Id, "A-1", "Cuaderno rayado");
+        clasificado.RegistrarClasificacionSugerida(taxonomia.Cuadernos.Id, null);
+        var sinRegla = CrearItem(proveedor.Id, "A-2", "Cosa rara");
+        sinRegla.RegistrarClasificacionSugerida(null, null);
+        var categoriaDeBaja = CrearItem(proveedor.Id, "A-3", "Item de categoría borrada");
+        categoriaDeBaja.RegistrarClasificacionSugerida(taxonomia.DeBaja.Id, null);
+        var pendiente = CrearItem(proveedor.Id, "A-4", "Todavía sin procesar");
+        _context.CatalogosProveedores.AddRange(clasificado, sinRegla, categoriaDeBaja, pendiente);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            SoloSinCategoria = true
+        });
+
+        resultado.Items.Select(i => i.CodigoProveedor).Should().BeEquivalentTo("A-2", "A-3");
+        resultado.Items.Single(i => i.CodigoProveedor == "A-3").CategoriaSugerida.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerParaClasificarAsync_SoloPendientes_DevuelveLosSinFechaDelProveedorVigentes()
+    {
+        var proveedor = await CrearProveedorAsync();
+        var clasificado = CrearItem(proveedor.Id, "A-1", "Cuaderno");
+        clasificado.RegistrarClasificacionSugerida(null, null);
+        var pendiente = CrearItem(proveedor.Id, "A-2", "Lápiz");
+        var pendienteDeBaja = CrearItem(proveedor.Id, "A-3", "Goma");
+        _context.CatalogosProveedores.AddRange(clasificado, pendiente, pendienteDeBaja);
+        await _context.SaveChangesAsync();
+        pendienteDeBaja.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var soloPendientes = await _sut.ObtenerParaClasificarAsync(proveedor.Id, soloPendientes: true);
+        var todos = await _sut.ObtenerParaClasificarAsync(proveedor.Id, soloPendientes: false);
+
+        soloPendientes.Select(c => c.CodigoProveedor).Should().BeEquivalentTo("A-2");
+        todos.Select(c => c.CodigoProveedor).Should().BeEquivalentTo("A-1", "A-2");
+    }
+
+    [Fact]
+    public async Task ObtenerValoresDeClasificacionAsync_AgrupaValoresDistintosConSuCantidad()
+    {
+        var proveedor = await CrearProveedorAsync();
+        var otroProveedor = Proveedor.Crear("Distribuidora Norte", "30-87654321-0");
+        _context.Proveedores.Add(otroProveedor);
+        await _context.SaveChangesAsync();
+
+        var a = CrearItem(proveedor.Id, "A-1", "Cuaderno rayado");
+        a.ActualizarClasificacionDelProveedor("Papelería", "Cuadernos", "Rivadavia");
+        var b = CrearItem(proveedor.Id, "A-2", "Cuaderno liso");
+        b.ActualizarClasificacionDelProveedor("Papelería", "Cuadernos", "Rivadavia");
+        var c = CrearItem(proveedor.Id, "A-3", "Lápiz");
+        c.ActualizarClasificacionDelProveedor("Papelería", null, null);
+        var sinDatos = CrearItem(proveedor.Id, "A-4", "Goma");
+        var ajeno = CrearItem(otroProveedor.Id, "B-1", "Regla");
+        ajeno.ActualizarClasificacionDelProveedor("Otro", "Otra", "Otra marca");
+        _context.CatalogosProveedores.AddRange(a, b, c, sinDatos, ajeno);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var valores = await _sut.ObtenerValoresDeClasificacionAsync(proveedor.Id);
+
+        valores.Should().BeEquivalentTo(new[]
+        {
+            new ValorDelProveedorDto { Tipo = TipoEquivalenciaEnum.Categoria, Rubro = "Papelería", Texto = "Cuadernos", CantidadDeItems = 2 },
+            new ValorDelProveedorDto { Tipo = TipoEquivalenciaEnum.Categoria, Rubro = "Papelería", Texto = null, CantidadDeItems = 1 },
+            new ValorDelProveedorDto { Tipo = TipoEquivalenciaEnum.Marca, Texto = "Rivadavia", CantidadDeItems = 2 }
+        });
     }
 }

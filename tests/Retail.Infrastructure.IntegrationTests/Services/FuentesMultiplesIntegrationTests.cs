@@ -51,7 +51,8 @@ public class FuentesMultiplesIntegrationTests : IAsyncLifetime, IDisposable
             new CrearProveedorValidator(),
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
-            new IncorporarCatalogoArticulosValidator());
+            new IncorporarCatalogoArticulosValidator(),
+            new ConsultaCatalogoProveedorValidator());
 
         _inventario = new InventarioService(
             articulos,

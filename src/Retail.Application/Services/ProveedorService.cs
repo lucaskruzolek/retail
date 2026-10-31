@@ -28,6 +28,7 @@ public class ProveedorService : IProveedorService
     private readonly IValidator<ActualizarProveedorDto> _actualizarProveedorValidator;
     private readonly IValidator<MapeoColumnasDto> _mapeoColumnasValidator;
     private readonly IValidator<IncorporarCatalogoArticulosDto> _incorporarArticulosValidator;
+    private readonly IValidator<ConsultaCatalogoProveedorDto> _consultaCatalogoValidator;
 
     public ProveedorService(
         IRepository<Proveedor> proveedorRepository,
@@ -38,7 +39,8 @@ public class ProveedorService : IProveedorService
         IValidator<CrearProveedorDto> crearProveedorValidator,
         IValidator<ActualizarProveedorDto> actualizarProveedorValidator,
         IValidator<MapeoColumnasDto> mapeoColumnasValidator,
-        IValidator<IncorporarCatalogoArticulosDto> incorporarArticulosValidator)
+        IValidator<IncorporarCatalogoArticulosDto> incorporarArticulosValidator,
+        IValidator<ConsultaCatalogoProveedorDto> consultaCatalogoValidator)
     {
         _proveedorRepository = proveedorRepository ?? throw new ArgumentNullException(nameof(proveedorRepository));
         _catalogoQueryService = catalogoQueryService ?? throw new ArgumentNullException(nameof(catalogoQueryService));
@@ -49,6 +51,7 @@ public class ProveedorService : IProveedorService
         _actualizarProveedorValidator = actualizarProveedorValidator ?? throw new ArgumentNullException(nameof(actualizarProveedorValidator));
         _mapeoColumnasValidator = mapeoColumnasValidator ?? throw new ArgumentNullException(nameof(mapeoColumnasValidator));
         _incorporarArticulosValidator = incorporarArticulosValidator ?? throw new ArgumentNullException(nameof(incorporarArticulosValidator));
+        _consultaCatalogoValidator = consultaCatalogoValidator ?? throw new ArgumentNullException(nameof(consultaCatalogoValidator));
     }
 
     public async Task<IReadOnlyList<ProveedorDto>> ListarProveedoresAsync(CancellationToken cancellationToken = default)
@@ -168,6 +171,10 @@ public class ProveedorService : IProveedorService
         {
             throw new DomainException($"No se encontró el proveedor con ID {mapeo.IdProveedor}.");
         }
+
+        // La preferencia viaja con la importación y se guarda en la misma unidad de trabajo que las filas (M-75).
+        proveedor.ConfigurarClasificacionDelCatalogo(mapeo.ClasificarCatalogo);
+        await _proveedorRepository.UpdateAsync(proveedor, cancellationToken);
 
         var cronometro = Stopwatch.StartNew();
 
@@ -369,6 +376,8 @@ public class ProveedorService : IProveedorService
 
     public async Task<CatalogoPaginadoDto> ListarItemsCatalogoAsync(ConsultaCatalogoProveedorDto consulta, CancellationToken cancellationToken = default)
     {
+        await _consultaCatalogoValidator.ValidateAndThrowAsync(consulta, cancellationToken);
+
         return await _catalogoQueryService.ObtenerCatalogoPaginadoAsync(consulta, cancellationToken);
     }
 
