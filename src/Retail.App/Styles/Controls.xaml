@@ -46,8 +46,8 @@
     <!-- Minimizar / maximizar / cerrar de un diálogo: solo el ícono, gris; en hover se oscurece a TextPrimary sin fondo
          ni rojo (no imita los botones de Windows). No toman el foco del teclado: Esc cierra el diálogo. -->
     <Style x:Key="DialogWindowButtonStyle" TargetType="Button">
-        <Setter Property="Width" Value="{StaticResource ControlHeight}" />
-        <Setter Property="Height" Value="{StaticResource ControlHeight}" />
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
@@ -70,12 +70,12 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Encabezado de tarjeta de formulario: ícono y título en el mismo gris suave, como grabados en la tarjeta. Para
+    <!-- Encabezado de tarjeta de formulario: ícono y título con el mismo color (SectionTitleBrush). Para
          calibrar el tamaño, cambiar Width/Height del ícono y FontSize del título acá: todas las tarjetas lo toman. -->
     <Style x:Key="CardHeaderIconStyle" TargetType="iconPacks:PackIconBoxIcons">
         <Setter Property="Width" Value="16" />
         <Setter Property="Height" Value="16" />
-        <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SectionTitleBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
@@ -84,7 +84,7 @@
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SectionTitleBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
@@ -115,7 +115,7 @@
     <Style x:Key="KeycapButtonStyle" TargetType="Button">
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
@@ -127,49 +127,58 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource RadiusMd}"
-                            Padding="{TemplateBinding Padding}">
-                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ContentPresenter x:Name="contentPresenter"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter x:Name="contentPresenter"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
 
-                            <StackPanel x:Name="loadingPanel"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed">
-                                <ui:ProgressRing Width="16"
-                                                 Height="16"
-                                                 IsIndeterminate="True"
-                                                 Foreground="{TemplateBinding Foreground}" />
-                                <TextBlock x:Name="txtLoading"
-                                           Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <Trigger Property="Text" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                                <Trigger Property="Text" Value="">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <StackPanel x:Name="loadingPanel"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <ui:ProgressRing Width="16"
+                                                     Height="16"
+                                                     IsIndeterminate="True"
+                                                     Foreground="{TemplateBinding Foreground}" />
+                                    <TextBlock x:Name="txtLoading"
+                                               Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
@@ -200,7 +209,7 @@
     <Style x:Key="KeycapToggleButtonStyle" TargetType="ToggleButton">
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
@@ -212,16 +221,25 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource RadiusMd}"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
-                    </Border>
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
@@ -243,7 +261,7 @@
     <!-- Botón Primario de Acción (Cobrar / Confirmar) -->
     <Style x:Key="PrimaryActionButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
@@ -255,49 +273,58 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource RadiusMd}"
-                            Padding="{TemplateBinding Padding}">
-                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ContentPresenter x:Name="contentPresenter"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter x:Name="contentPresenter"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
 
-                            <StackPanel x:Name="loadingPanel"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed">
-                                <ui:ProgressRing Width="16"
-                                                 Height="16"
-                                                 IsIndeterminate="True"
-                                                 Foreground="{TemplateBinding Foreground}" />
-                                <TextBlock x:Name="txtLoading"
-                                           Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <Trigger Property="Text" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                                <Trigger Property="Text" Value="">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <StackPanel x:Name="loadingPanel"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <ui:ProgressRing Width="16"
+                                                     Height="16"
+                                                     IsIndeterminate="True"
+                                                     Foreground="{TemplateBinding Foreground}" />
+                                    <TextBlock x:Name="txtLoading"
+                                               Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
@@ -327,7 +354,7 @@
     <!-- Botón de Acción Crítica / Peligrosa (Anulación / Cancelación) -->
     <Style x:Key="DangerActionButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
@@ -339,49 +366,58 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource RadiusMd}"
-                            Padding="{TemplateBinding Padding}">
-                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ContentPresenter x:Name="contentPresenter"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter x:Name="contentPresenter"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
 
-                            <StackPanel x:Name="loadingPanel"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed">
-                                <ui:ProgressRing Width="16"
-                                                 Height="16"
-                                                 IsIndeterminate="True"
-                                                 Foreground="{TemplateBinding Foreground}" />
-                                <TextBlock x:Name="txtLoading"
-                                           Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <Trigger Property="Text" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                                <Trigger Property="Text" Value="">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <StackPanel x:Name="loadingPanel"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <ui:ProgressRing Width="16"
+                                                     Height="16"
+                                                     IsIndeterminate="True"
+                                                     Foreground="{TemplateBinding Foreground}" />
+                                    <TextBlock x:Name="txtLoading"
+                                               Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource DangerForegroundBrush}" />
@@ -677,7 +713,7 @@
     <Style x:Key="GhostPrimaryButtonStyle" TargetType="Button">
         <Setter Property="Padding" Value="12,6" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
@@ -714,7 +750,7 @@
     <Style x:Key="PillRadioButtonStyle" TargetType="RadioButton">
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -726,24 +762,33 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource RadiusMd}"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
-                    </Border>
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimarySoftBorderBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimarySoftBorderBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -759,7 +804,7 @@
          Reparto de responsabilidades: SelectorSegmentado dibuja el riel y UN indicador que se desliza hasta la opción marcada
          (por eso el RadioButton no pinta fondo propio: si lo hiciera, la selección saltaría en lugar de moverse); el
          RadioButton solo dibuja su texto y conserva binding, IsEnabled, tooltip y las flechas del teclado.
-         Radios concéntricos: riel 8 - relleno 2 = indicador 6. Con esa resta las curvas de las dos formas quedan paralelas;
+         Radios concéntricos: riel 8 - relleno 3 = indicador 5. Con esa resta las curvas de las dos formas quedan paralelas;
          si el indicador usara el mismo radio que el riel, las esquinas se verían más "gordas" que el marco que las rodea.
          El estilo es implícito (por TargetType): se aplica a todo SelectorSegmentado sin referenciarlo. -->
     <Style TargetType="components:SelectorSegmentado">
@@ -770,7 +815,7 @@
                 <ControlTemplate TargetType="components:SelectorSegmentado">
                     <Border Background="{DynamicResource SurfaceSubtleBrush}"
                             CornerRadius="{StaticResource RadiusLg}"
-                            Padding="2">
+                            Padding="3">
                         <Grid x:Name="PART_Capas">
                             <Border x:Name="PART_Indicador"
                                     Visibility="Collapsed"
@@ -779,7 +824,7 @@
                                     Background="{DynamicResource SurfaceCardBrush}"
                                     BorderBrush="{DynamicResource SurfaceBorderBrush}"
                                     BorderThickness="1"
-                                    CornerRadius="{StaticResource RadiusMd}"
+                                    CornerRadius="5"
                                     IsHitTestVisible="False" />
                             <ContentPresenter />
                         </Grid>
@@ -790,7 +835,7 @@
     </Style>
 
     <!-- Barra de título de los diálogos: una banda de 56 px sobre el mismo fondo gris del diálogo (sin franja propia), con
-         el título de 20 SemiBold (Inter Display) a 28 px del borde -la vertical del contenido de las secciones- y, a la
+         el título de 20 SemiBold (DM Sans Display) a 28 px del borde -la vertical del contenido de las secciones- y, a la
          derecha, minimizar / maximizar / cerrar dibujados como íconos (DialogWindowButtonStyle). La banda es transparente
          al clic: arrastrarla mueve la ventana (DragMove) y el doble clic maximiza si el diálogo lo permite. -->
     <Style TargetType="components:EncabezadoDialogo">
@@ -848,11 +893,11 @@
          de 1 px, transparente en reposo, reserva sitio al anillo de foco para que nada se corra cuando aparece. -->
     <Style x:Key="SegmentedRadioButtonStyle" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="Padding" Value="12,5" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
         <Setter Property="Template">
@@ -1080,16 +1125,19 @@
     <Style x:Key="SidebarItemButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
-        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Height" Value="{StaticResource RowHeightListado}" />
         <Setter Property="Margin" Value="0,4" />
-        <Setter Property="Padding" Value="8,0" />
+        <!-- Riel colapsado: sin relleno lateral el ítem mide el ancho completo del ScrollViewer (46 px con el riel en 58),
+             de modo que la grilla de 36 px del ícono entra sin desbordar y se centra en el eje del riel. El trigger de
+             IsSidebarExpanded devuelve el relleno de 8 px y el estirado que necesita el nombre al expandirse. -->
+        <Setter Property="Padding" Value="0,0" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
         <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
         <Setter Property="ToolTipService.Placement" Value="Right" />
@@ -1098,17 +1146,25 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource RadiusMd}"
-                            Padding="{TemplateBinding Padding}"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
-                    </Border>
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.45" />
@@ -1130,6 +1186,8 @@
                 <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
             </Trigger>
             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                <Setter Property="Padding" Value="8,0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
             </DataTrigger>
         </Style.Triggers>
@@ -1148,6 +1206,9 @@
         <Setter Property="Width" Value="36" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <!-- Riel colapsado: el botón (36 px) se centra en los 42 px útiles de la cabecera. Expandido, el trigger lo
+             devuelve al margen izquierdo, que es su lugar junto al contenido. -->
+        <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
         <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
         <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
@@ -1157,6 +1218,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="border"
+                            UseLayoutRounding="True"
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="0"
@@ -1179,6 +1241,12 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="Margin" Value="6,0,0,0" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- ================================================================= -->
@@ -1199,17 +1267,25 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{StaticResource RadiusMd}"
-                            Padding="{TemplateBinding Padding}"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
-                    </Border>
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />

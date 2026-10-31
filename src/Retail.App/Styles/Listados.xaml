@@ -112,7 +112,7 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- "Página [n]": cuadro de 28 con contorno, número centrado y tabular. Plantilla propia: el TextBox de WPF-UI mide 32
+    <!-- "Página [n]": cuadro de 28 con contorno, número centrado. Plantilla propia: el TextBox de WPF-UI mide 32
          y trae botón de borrar. -->
     <Style x:Key="PaginacionCuadroStyle" TargetType="TextBox">
         <Setter Property="Width" Value="36" />
@@ -146,6 +146,19 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- Chevron de las flechas: 16 x 16 trazado con Stroke sobre el lienzo de GeometryChevron* (Icons.xaml).
+         Toma el Foreground del botón, así hereda el gris de reposo y la tinta plena del hover. -->
+    <Style x:Key="PaginacionChevronStyle" TargetType="Path">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Stretch" Value="None" />
+        <Setter Property="StrokeThickness" Value="1.2" />
+        <Setter Property="StrokeStartLineCap" Value="Round" />
+        <Setter Property="StrokeEndLineCap" Value="Round" />
+        <Setter Property="StrokeLineJoin" Value="Round" />
+        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
     </Style>
 
     <!-- Primera / anterior / siguiente / última: cuadrado de 28 con contorno y chevron de 16; deshabilitado se apaga -->
@@ -184,7 +197,7 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Número de página: sin contorno, 28 x 28, cifras tabulares. La actual, con el fondo gris de la selección y tinta plena
+    <!-- Número de página: sin contorno, 28 x 28. La actual, con el fondo gris de la selección y tinta plena
          (el carmín queda para las acciones) -->
     <Style x:Key="PaginacionNumeroStyle" TargetType="Button">
         <Setter Property="MinWidth" Value="{StaticResource ControlHeightSm}" />
@@ -251,7 +264,7 @@
     <Style x:Key="ComboBoxFiltroStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
         <Setter Property="Height" Value="{StaticResource ControlHeight}" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="Padding" Value="10,0" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -281,7 +294,7 @@
     <Style x:Key="GhostNeutralToggleButtonStyle" TargetType="ToggleButton">
         <Setter Property="Padding" Value="12,4" />
         <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
@@ -384,7 +397,7 @@
                                 CornerRadius="4" />
                         <Path x:Name="Marca"
                               Data="M 3.5,8.5 L 6.8,11.5 L 12.5,5"
-                              Stroke="{DynamicResource PrimaryForegroundBrush}"
+                              Stroke="{DynamicResource ControlCheckedForegroundBrush}"
                               StrokeThickness="1.8"
                               StrokeStartLineCap="Round"
                               StrokeEndLineCap="Round"
@@ -395,7 +408,7 @@
                                    Height="2"
                                    RadiusX="1"
                                    RadiusY="1"
-                                   Fill="{DynamicResource PrimaryForegroundBrush}"
+                                   Fill="{DynamicResource ControlCheckedForegroundBrush}"
                                    Visibility="Collapsed" />
                     </Grid>
                     <ControlTemplate.Triggers>
@@ -403,13 +416,13 @@
                             <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource TextSubtleBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource ControlCheckedBrush}" />
                             <Setter TargetName="Marca" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="{x:Null}">
-                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource ControlCheckedBrush}" />
                             <Setter TargetName="Guion" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
@@ -491,7 +504,7 @@
                                         CornerRadius="{StaticResource RadiusSm}" />
                                 <Path x:Name="Marca"
                                       Data="M 3.5,8.5 L 6.8,11.5 L 12.5,5"
-                                      Stroke="{DynamicResource PrimaryForegroundBrush}"
+                                      Stroke="{DynamicResource ControlCheckedForegroundBrush}"
                                       StrokeThickness="1.8"
                                       StrokeStartLineCap="Round"
                                       StrokeEndLineCap="Round"
@@ -502,7 +515,7 @@
                                            Height="2"
                                            RadiusX="1"
                                            RadiusY="1"
-                                           Fill="{DynamicResource PrimaryForegroundBrush}"
+                                           Fill="{DynamicResource ControlCheckedForegroundBrush}"
                                            Visibility="Collapsed" />
                             </Grid>
                             <ContentPresenter Grid.Column="1"
@@ -517,13 +530,13 @@
                             <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource TextSubtleBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource ControlCheckedBrush}" />
                             <Setter TargetName="Marca" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="{x:Null}">
-                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource ControlCheckedBrush}" />
                             <Setter TargetName="Guion" Property="Visibility" Value="Visible" />
                         </Trigger>
                     </ControlTemplate.Triggers>

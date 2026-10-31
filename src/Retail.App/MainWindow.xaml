@@ -27,7 +27,7 @@
             <Setter Property="ClipToBounds" Value="True" />
             <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
             <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
-            <Setter Property="Width" Value="68" />
+            <Setter Property="Width" Value="58" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                     <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -35,7 +35,7 @@
                         <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                 To="240"
+                                                 To="200"
                                                  Duration="0:0:0.22">
                                     <DoubleAnimation.EasingFunction>
                                         <CubicEase EasingMode="EaseOut" />
@@ -48,7 +48,7 @@
                         <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                 To="68"
+                                                 To="58"
                                                  Duration="0:0:0.22">
                                     <DoubleAnimation.EasingFunction>
                                         <CubicEase EasingMode="EaseOut" />
@@ -92,9 +92,7 @@
                             Padding="8,8">
                         <Button Command="{Binding ToggleSidebarCommand}"
                                 Style="{StaticResource SidebarHamburgerButtonStyle}"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Center"
-                                Margin="6,0,0,0">
+                                VerticalAlignment="Center">
                             <Button.ToolTip>
                                 <ToolTip Style="{StaticResource SidebarToolTipStyle}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

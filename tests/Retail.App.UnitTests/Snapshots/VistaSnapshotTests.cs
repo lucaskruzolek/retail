@@ -61,6 +61,18 @@ public class VistaSnapshotTests
     [Theory]
     [InlineData(TemaPrueba.Claro)]
     [InlineData(TemaPrueba.Oscuro)]
+    public void DialogoMuestraDialog_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        // El modal de referencia de la galería: el patrón "una sola superficie" sin datos de negocio
+        var (ruta, error) = Capturar(tema, carpeta =>
+            SnapshotRenderer.Guardar(new DialogoMuestraDialog(), 520, 600, carpeta + "/DialogoMuestraDialog"));
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
     public void ArticulosView_PorTema_GeneraCaptura(TemaPrueba tema)
     {
         var (ruta, error) = Capturar(tema, carpeta =>
