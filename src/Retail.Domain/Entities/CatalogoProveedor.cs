@@ -67,7 +67,8 @@ public class CatalogoProveedor : BaseEntity
 
     /// <summary>
     /// Registra este ítem como fuente del artículo (J1). Un ítem es fuente de un solo artículo (A-1) y nunca de una
-    /// presentación derivada (RF-21). Volver a asignarlo al mismo artículo no cambia nada. La navegación se asigna
+    /// presentación derivada (RF-21) ni de un servicio, que no se compra a un proveedor (RF-04: fotocopias, anillados).
+    /// Volver a asignarlo al mismo artículo no cambia nada. La navegación se asigna
     /// junto con el id para que EF Core complete la FK de un artículo nuevo, por eso los dos deben pertenecer a la
     /// misma unidad de trabajo.
     /// </summary>
@@ -78,6 +79,11 @@ public class CatalogoProveedor : BaseEntity
         if (articulo.EsDerivado)
         {
             throw new DomainException("Una presentación derivada no puede vincularse a un catálogo de proveedor: solo se vincula su artículo de origen.");
+        }
+
+        if (articulo.EsServicio)
+        {
+            throw new DomainException($"El servicio '{articulo.Descripcion}' no puede tener fuentes de proveedor: un servicio no se compra.");
         }
 
         if (EsFuenteDe(articulo))

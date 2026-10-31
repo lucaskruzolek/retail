@@ -24,7 +24,7 @@ public class ParesClasificacionPersistenciaTests : IAsyncLifetime, IDisposable
             .Options;
 
         _context = new RetailDbContext(_options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
     }
 
     public async Task DisposeAsync()

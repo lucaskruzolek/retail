@@ -367,6 +367,96 @@ public class ArticuloValidatorTests
         result.Errors.Should().Contain(e => e.PropertyName == nameof(ActualizarArticuloDto.IdCatalogoProveedor));
     }
 
+    [Fact]
+    public void CrearArticuloValidator_ServicioConFuentes_DebeFallar()
+    {
+        // Arrange
+        var dto = new CrearArticuloDto
+        {
+            Descripcion = "Anillado",
+            CostoReposicion = 800m,
+            PorcentajeGanancia = 50m,
+            StockActual = 0,
+            StockMinimo = 0,
+            EsServicio = true,
+            IdsFuentes = [25],
+            IdCatalogoProveedor = 25
+        };
+
+        // Act
+        var result = _crearValidator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(CrearArticuloDto.IdsFuentes)
+            && e.ErrorMessage.Contains("Un servicio no puede tener fuentes"));
+    }
+
+    [Theory]
+    [InlineData(true, new int[0], true)]
+    [InlineData(true, new[] { 25 }, false)]
+    [InlineData(false, new[] { 25 }, true)]
+    public void ActualizarArticuloValidator_ServicioYFuentes_SoloFallaUnServicioConFuentes(bool esServicio, int[] idsFuentes, bool esValido)
+    {
+        // Arrange: convertir en servicio exige haber quitado antes las fuentes
+        var dto = new ActualizarArticuloDto
+        {
+            IdArticulo = 10,
+            Descripcion = "Anillado",
+            CostoReposicion = 800m,
+            PorcentajeGanancia = 50m,
+            StockActual = 0,
+            StockMinimo = 0,
+            EsServicio = esServicio,
+            IdsFuentes = idsFuentes
+        };
+
+        // Act
+        var result = _actualizarValidator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().Be(esValido);
+    }
+
+    [Theory]
+    [InlineData("11", true)]
+    [InlineData("7791234567890", true)]
+    [InlineData("SOBRE-U", false)]
+    [InlineData("779 123", false)]
+    public void CrearArticuloValidator_Codigo_SoloAdmiteDigitos(string codigo, bool esValido)
+    {
+        // Arrange: el mismo campo guarda el código de barras de fábrica o un código interno corto (M11)
+        var dto = new CrearArticuloDto
+        {
+            Descripcion = "Fotocopia simple",
+            CodigoBarras = codigo,
+            CostoReposicion = 20m,
+            PorcentajeGanancia = 50m,
+            StockActual = 0,
+            StockMinimo = 0,
+            EsServicio = true
+        };
+
+        // Act
+        var result = _crearValidator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().Be(esValido);
+    }
+
+    [Fact]
+    public void CrearPresentacionValidator_CodigoConLetras_DebeFallar()
+    {
+        // Arrange
+        var dto = PresentacionValida() with { CodigoBarras = "SOBRE-U" };
+
+        // Act
+        var result = _crearPresentacionValidator.Validate(dto);
+
+        // Assert
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(CrearPresentacionDto.CodigoBarras));
+    }
+
     private static CrearArticuloDto AltaConFuentes(int[] idsFuentes, int? idPrincipal)
     {
         return new CrearArticuloDto
@@ -389,7 +479,7 @@ public class ArticuloValidatorTests
             IdArticuloOrigen = 1,
             UnidadesPorOrigen = 100,
             Descripcion = "Sobre manila (unidad)",
-            CodigoBarras = "SOBRE-U",
+            CodigoBarras = "512",
             PorcentajeGanancia = 100m,
             StockMinimo = 10
         };

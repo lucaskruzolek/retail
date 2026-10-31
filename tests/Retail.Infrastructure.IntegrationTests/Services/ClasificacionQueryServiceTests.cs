@@ -31,7 +31,7 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
             .Options;
 
         _context = new RetailDbContext(options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
 
         _sut = new ClasificacionQueryService(_context);
     }

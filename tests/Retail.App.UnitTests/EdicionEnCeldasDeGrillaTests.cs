@@ -264,8 +264,9 @@ public class EdicionEnCeldasDeGrillaTests
                 },
                 Array.Empty<CategoriaDto>(),
                 Array.Empty<MarcaDto>());
-            var raiz = Montar(new ArticuloFormDialog(viewModel), 580, 720);
-            var radios = Descendientes<RadioButton>(raiz).ToList();
+            var raiz = Montar(new ArticuloFormDialog(viewModel), 960, 660);
+            // El selector Producto/Servicio también son RadioButton: solo interesan los renglones de fuentes
+            var radios = Descendientes<RadioButton>(raiz).Where(r => r.DataContext is FuenteFormularioFila).ToList();
             var radioNorte = radios.Single(r => ((FuenteFormularioFila)r.DataContext).IdCatalogoProveedor == 26);
             var radioSur = radios.Single(r => ((FuenteFormularioFila)r.DataContext).IdCatalogoProveedor == 25);
 
@@ -299,6 +300,53 @@ public class EdicionEnCeldasDeGrillaTests
         costo.Should().Be(950m, "la principal muestra su costo como vista previa (M2)");
         radioDeSurMarcado.Should().BeFalse("el radio de la principal anterior sigue al ViewModel");
         fuentesRestantes.Should().Equal(26);
+    }
+
+    [Fact]
+    public void SelectorTipoArticulo_EdicionDeUnProducto_MarcaProductoYAlElegirServicioActualizaElViewModel()
+    {
+        // Arrange: el selector segmentado Producto / Servicio enlaza sus dos RadioButton a EsServicio
+        bool? productoAlAbrir = null;
+        bool? servicioAlAbrir = null;
+        bool? productoTrasElegirServicio = null;
+        var esServicio = false;
+        Exception? error = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ArticuloFormViewModel();
+            viewModel.ConfigurarEdicion(
+                new ArticuloDto { IdArticulo = 7, Descripcion = "Marcador", CostoReposicion = 1000m, PorcentajeGanancia = 40m, PrecioVenta = 1400m, StockActual = 1, StockMinimo = 1, EsServicio = false },
+                Array.Empty<FuenteArticuloDto>(),
+                Array.Empty<CategoriaDto>(),
+                Array.Empty<MarcaDto>());
+            var raiz = Montar(new ArticuloFormDialog(viewModel), 960, 660);
+            var producto = Descendientes<RadioButton>(raiz).Single(r => r.Name == "OpcionProducto");
+            var servicio = Descendientes<RadioButton>(raiz).Single(r => r.Name == "OpcionServicio");
+
+            try
+            {
+                productoAlAbrir = producto.IsChecked;
+                servicioAlAbrir = servicio.IsChecked;
+
+                // Act
+                Clic(servicio);
+                ProcesarPendientesDelDispatcher();
+                productoTrasElegirServicio = producto.IsChecked;
+                esServicio = viewModel.EsServicio;
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+            }
+        });
+
+        // Assert
+        error.Should().BeNull();
+        productoAlAbrir.Should().BeTrue("un artículo que no es servicio abre con Producto elegido");
+        servicioAlAbrir.Should().BeFalse();
+        esServicio.Should().BeTrue("elegir Servicio con el mouse llega al ViewModel");
+        productoTrasElegirServicio.Should().BeFalse();
     }
 
     /// <summary>

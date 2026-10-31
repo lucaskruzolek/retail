@@ -1,5 +1,6 @@
 using FluentValidation;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.Validators.Common;
 
 namespace Retail.Application.Validators.Articulos;
 
@@ -29,7 +30,7 @@ public class CrearPresentacionValidator : AbstractValidator<CrearPresentacionDto
         When(x => !string.IsNullOrWhiteSpace(x.CodigoBarras), () =>
         {
             RuleFor(x => x.CodigoBarras)
-                .MaximumLength(50).WithMessage("El código de barras no puede exceder 50 caracteres.");
+                .CodigoDeArticulo();
         });
     }
 }

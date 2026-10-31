@@ -761,6 +761,41 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void ArticuloFormDialog_EdicionConAjusteDeStockEnCurso_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange: con el ajuste en curso se muestran el campo editable, Aceptar/Descartar y el texto del ajuste
+        Exception? xamlException = null;
+        ArticuloFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ArticuloFormViewModel();
+            viewModel.ConfigurarEdicion(
+                ArticuloDeEjemplo(idArticulo: 7, idArticuloOrigen: null),
+                Array.Empty<FuenteArticuloDto>(),
+                Array.Empty<CategoriaDto>(),
+                Array.Empty<MarcaDto>());
+            viewModel.AjustarStockCommand.Execute(null);
+
+            try
+            {
+                dialog = new ArticuloFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(960, 660));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 960, 660));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el modo de ajuste de stock de ArticuloFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
     public void ArticuloFormDialog_EdicionDePresentacionDerivada_DebeCargarXAMLSinExcepciones()
     {
         // Arrange: el modo derivado oculta servicio y distribuidor y muestra el aviso de costo (RF-21)
