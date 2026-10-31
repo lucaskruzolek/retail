@@ -25,7 +25,7 @@ public class RegistroBackupPersistenciaTests : IAsyncLifetime, IDisposable
     {
         _connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         _context = CrearContexto();
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
     }
 
     public async Task DisposeAsync()

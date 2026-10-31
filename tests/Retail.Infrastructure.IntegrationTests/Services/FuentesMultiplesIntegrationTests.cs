@@ -36,7 +36,7 @@ public class FuentesMultiplesIntegrationTests : IAsyncLifetime, IDisposable
             .Options;
 
         _context = new RetailDbContext(options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
 
         var catalogos = new CatalogoProveedorQueryService(_context);
         var articulos = new Repository<Articulo>(_context);

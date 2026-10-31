@@ -22,7 +22,7 @@ public class ClasificacionUnicidadTests : IAsyncLifetime, IDisposable
             .Options;
 
         _context = new RetailDbContext(options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
     }
 
     public async Task DisposeAsync()

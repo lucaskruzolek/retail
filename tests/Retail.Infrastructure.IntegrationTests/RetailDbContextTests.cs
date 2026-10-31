@@ -21,7 +21,7 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
     {
         _connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         _context = CrearContexto();
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
     }
 
     private RetailDbContext CrearContexto() =>

@@ -136,7 +136,17 @@ El bucle de verificación técnica no debe ejecutarse a ciegas. Su aplicación q
 
 ### 2. Discreción de Alcance (Ciclo Focalizado vs. Verificación Completa)
 * **Durante el desarrollo iterativo (Ciclo Rápido):** Si se modifica un componente aislado (por ejemplo, una entidad en `Retail.Domain` o un servicio en `Retail.Application`), el agente tiene discreción para ejecutar únicamente la suite de tests correspondiente (ej. `dotnet test tests/Retail.Domain.UnitTests/`) para obtener feedback inmediato sin demoras.
-* **Cierre de Etapa o Hito Completo (Verificación Release):** Al dar por concluida una etapa del Roadmap (ej. Etapa 0.6, Etapa 1.1), implementar un módulo completo o previo a un PR, el agente debe ejecutar la validación integral:
+* **Previo a un PR (Verificación Selectiva Local):** La suite completa corre siempre en CI (`ci.yml`) en cada PR a `main`, así que localmente se corre solo lo que el cambio puede romper. Las suites se eligen por las rutas del diff (`git diff --name-only origin/main...HEAD`), sin leer los tests: la carpeta y el namespace de cada test reflejan la capa y el área que prueba.
+
+| Si el diff toca... | Ejecutar además de compilar y de `dotnet format --verify-no-changes` | Tiempo aprox. |
+| :--- | :--- | :--- |
+| Cualquier `.cs`/`.xaml`/`.csproj` | `dotnet test tests/Retail.Domain.UnitTests` y `tests/Retail.Application.UnitTests` | < 30 s |
+| `src/Retail.App/` | `dotnet test tests/Retail.App.UnitTests` (+ `audit-xaml.ps1` si hay `.xaml`) | ≈ 2 min |
+| `src/Retail.Domain/`, `src/Retail.Application/` o `src/Retail.Infrastructure/` | `dotnet test tests/Retail.Infrastructure.IntegrationTests --filter "FullyQualifiedName!~IntegrationTests.Backups&Category!=Rendimiento"` | ≈ 2 min |
+| Cualquier carpeta `Backups/`, `Persistence/Migrations/` o `scripts/registrar-tarea-backup.ps1` | `dotnet test tests/Retail.Infrastructure.IntegrationTests --filter "FullyQualifiedName~IntegrationTests.Backups"` | ≈ 3 min |
+| El importador de planillas (`Importacion*`, `ExcelCatalogParser`) | `dotnet test tests/Retail.Infrastructure.IntegrationTests --filter "Category=Rendimiento"` | ≈ 1 min |
+
+* **Cierre de Etapa o Hito Completo (Verificación Release):** Al dar por concluida una etapa del Roadmap (ej. Etapa 0.6, Etapa 1.1) o implementar un módulo completo, el agente debe ejecutar la validación integral:
 
 ```powershell
 # 0. Auditoría estática de recursos XAML (si se crearon o modificaron vistas/modales/estilos)

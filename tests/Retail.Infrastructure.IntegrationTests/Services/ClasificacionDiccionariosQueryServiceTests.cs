@@ -26,7 +26,7 @@ public class ClasificacionDiccionariosQueryServiceTests : IAsyncLifetime, IDispo
             .Options;
 
         _context = new RetailDbContext(options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
 
         _sut = new ClasificacionQueryService(_context);
     }

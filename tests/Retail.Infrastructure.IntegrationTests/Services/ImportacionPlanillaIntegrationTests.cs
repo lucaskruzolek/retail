@@ -40,7 +40,7 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
             .Options;
 
         _context = new RetailDbContext(options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
 
         _sut = new ProveedorService(
             new Repository<Proveedor>(_context),
@@ -222,6 +222,7 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
     /// El criterio de &lt; 3 s del roadmap aplica al parseo y lo cubre ExcelCatalogParserTests.
     /// </summary>
     [Fact]
+    [Trait("Category", "Rendimiento")]
     public async Task ImportarPlanillaProveedorAsync_Con5000Filas_RetieneMemoriaDentroDeRnf03()
     {
         // Arrange
