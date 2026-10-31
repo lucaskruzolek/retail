@@ -1,4 +1,9 @@
 # Auditoria Estatica de Recursos XAML (Retail POS)
+# -Detalle: ademas del resumen de valores fuera de la grilla de 4 px, lista cada ocurrencia (archivo:linea).
+param(
+    [switch]$Detalle
+)
+
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
@@ -157,6 +162,53 @@ else {
     Write-Host "[ERROR] Paginas con margen raiz literal (use {StaticResource PageMargin}):" -ForegroundColor Red
     foreach ($name in $margenesLiterales) {
         Write-Host "  * $name" -ForegroundColor Red
+    }
+}
+
+# Aviso (no falla la auditoria): valores literales de Margin, Padding y CornerRadius fuera de la grilla de 4 px.
+# Se ignoran 0, 1 y 2 (lineas finas y riel) y los negativos. Styles/ y Views/Dev/ quedan afuera: ahi se definen los tokens.
+$fueraDeGrilla = [System.Collections.Generic.List[object]]::new()
+$archivosVista = $xamlFiles | Where-Object {
+    $_.FullName -notmatch "\\Styles\\" -and $_.FullName -notmatch "\\Views\\Dev\\"
+}
+
+foreach ($file in $archivosVista) {
+    $texto = Get-Content $file.FullName -Raw
+    $literales = [regex]::Matches($texto, '(?<![\w.])(Margin|Padding|CornerRadius)="([^"{}]*)"')
+    foreach ($literal in $literales) {
+        $numeros = [regex]::Matches($literal.Groups[2].Value, '(?<![\d.-])\d+(?:\.\d+)?')
+        $invalidos = @($numeros | Where-Object {
+            $n = [double]::Parse($_.Value, [System.Globalization.CultureInfo]::InvariantCulture)
+            $n -notin 0, 1, 2 -and ($n % 4) -ne 0
+        })
+        if ($invalidos.Count -gt 0) {
+            $linea = ($texto.Substring(0, $literal.Index) -split "`n").Count
+            $fueraDeGrilla.Add([pscustomobject]@{
+                Archivo = $file.Name
+                Linea   = $linea
+                Texto   = $literal.Value
+            })
+        }
+    }
+}
+
+Write-Host "`n--- AVISO: VALORES FUERA DE LA GRILLA DE 4 PX (no afecta el resultado) ---" -ForegroundColor Yellow
+if ($fueraDeGrilla.Count -eq 0) {
+    Write-Host "[OK] Ningun Margin, Padding o CornerRadius literal se sale de la grilla." -ForegroundColor Green
+}
+else {
+    Write-Host "[AVISO] Total de ocurrencias fuera de la grilla: $($fueraDeGrilla.Count) en $(@($fueraDeGrilla | Select-Object -ExpandProperty Archivo -Unique).Count) archivo(s). Top 10:" -ForegroundColor DarkYellow
+    $fueraDeGrilla | Group-Object Archivo | Sort-Object Count -Descending | Select-Object -First 10 | ForEach-Object {
+        Write-Host ("  {0,4}  {1}" -f $_.Count, $_.Name) -ForegroundColor DarkYellow
+    }
+    if ($Detalle) {
+        Write-Host "Detalle (archivo:linea  valor):" -ForegroundColor DarkYellow
+        foreach ($item in ($fueraDeGrilla | Sort-Object Archivo, Linea)) {
+            Write-Host "  $($item.Archivo):$($item.Linea)  $($item.Texto)" -ForegroundColor Gray
+        }
+    }
+    else {
+        Write-Host "  (use -Detalle para listar cada ocurrencia)" -ForegroundColor Gray
     }
 }
 

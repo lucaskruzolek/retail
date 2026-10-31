@@ -177,31 +177,37 @@
                             <WrapPanel Margin="0,0,0,10">
                                 <Button Command="{Binding EstablecerPagoExactoCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
+                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="Exacto"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
+                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$1.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarDosMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
+                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$2.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarCincoMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
+                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$5.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarDiezMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
+                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$10.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
                                 <Button Command="{Binding SumarVeinteMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
+                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$20.000"
                                         Padding="10,6"
                                         Margin="0,0,6,6" />
@@ -273,6 +279,7 @@
                              PAGOS_VENTA.referencia_pago y el Dominio lo siguen admitiendo si un RF futuro lo requiere. -->
                         <Button Command="{Binding ImputarPagoCommand}"
                                 Style="{StaticResource KeycapButtonStyle}"
+                                MinHeight="{StaticResource ControlHeightLg}"
                                 HorizontalAlignment="Stretch"
                                 Padding="14,8">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -343,12 +350,14 @@
                         Click="OnCancelarClick"
                         Content="Volver (Esc)"
                         Style="{StaticResource KeycapButtonStyle}"
+                        MinHeight="{StaticResource ControlHeightLg}"
                         Padding="16,8" />
 
                 <Button DockPanel.Dock="Right"
                         Click="OnConfirmarClick"
                         IsEnabled="{Binding PuedeConfirmar}"
                         Style="{StaticResource PrimaryActionButtonStyle}"
+                        MinHeight="{StaticResource ControlHeightLg}"
                         Padding="20,8">
                     <StackPanel Orientation="Horizontal">
                         <iconPacks:PackIconBoxIcons Kind="SolidReceipt" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />

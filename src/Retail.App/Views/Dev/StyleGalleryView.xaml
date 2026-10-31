@@ -513,26 +513,54 @@
                         <RadioButton GroupName="Reportes" Content="Stock crítico" Style="{StaticResource PillRadioButtonStyle}" />
                     </StackPanel>
 
-                    <TextBlock Text="SegmentedControlBorderStyle + SegmentedRadioButtonStyle: dos o tres opciones fijas y excluyentes (tipo de artículo). La elegida flota en blanco sobre el riel gris, sin carmín."
+                    <TextBlock Text="SelectorSegmentado + SegmentedRadioButtonStyle: dos o tres opciones fijas y excluyentes (tipo de artículo). Un único indicador blanco se desliza sobre el riel gris hasta la opción elegida; sin carmín. Probalo con el mouse y con las flechas del teclado."
                                Style="{StaticResource TextBlockBodySecondary}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,12" />
-                    <Border Style="{StaticResource SegmentedControlBorderStyle}">
+                    <components:SelectorSegmentado Margin="0,0,0,16">
                         <UniformGrid Columns="2">
                             <RadioButton GroupName="TipoArticuloGaleria" IsChecked="True" AutomationProperties.Name="Producto" Style="{StaticResource SegmentedRadioButtonStyle}">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="RegularCube" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularCube" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Text="Producto" VerticalAlignment="Center" />
                                 </StackPanel>
                             </RadioButton>
                             <RadioButton GroupName="TipoArticuloGaleria" AutomationProperties.Name="Servicio" Style="{StaticResource SegmentedRadioButtonStyle}">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="RegularMagicWand" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularMagicWand" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Text="Servicio" VerticalAlignment="Center" />
                                 </StackPanel>
                             </RadioButton>
                         </UniformGrid>
-                    </Border>
+                    </components:SelectorSegmentado>
+
+                    <TextBlock Text="Tres opciones de texto: el indicador se estira o se encoge si las opciones miden distinto."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12" />
+                    <components:SelectorSegmentado Margin="0,0,0,16">
+                        <UniformGrid Columns="3">
+                            <RadioButton GroupName="PeriodoGaleria" Content="Día" IsChecked="True" Style="{StaticResource SegmentedRadioButtonStyle}" />
+                            <RadioButton GroupName="PeriodoGaleria" Content="Semana" Style="{StaticResource SegmentedRadioButtonStyle}" />
+                            <RadioButton GroupName="PeriodoGaleria" Content="Mes" Style="{StaticResource SegmentedRadioButtonStyle}" />
+                        </UniformGrid>
+                    </components:SelectorSegmentado>
+
+                    <TextBlock Text="Una opción deshabilitada queda atenuada y no se puede elegir (el tooltip explica el motivo)."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12" />
+                    <components:SelectorSegmentado>
+                        <UniformGrid Columns="2">
+                            <RadioButton GroupName="DeshabilitadaGaleria" Content="Producto" IsChecked="True" Style="{StaticResource SegmentedRadioButtonStyle}" />
+                            <RadioButton GroupName="DeshabilitadaGaleria"
+                                         Content="Servicio"
+                                         IsEnabled="False"
+                                         ToolTip="Este artículo tiene stock, no puede ser un servicio"
+                                         ToolTipService.ShowOnDisabled="True"
+                                         Style="{StaticResource SegmentedRadioButtonStyle}" />
+                        </UniformGrid>
+                    </components:SelectorSegmentado>
                 </StackPanel>
             </Border>
 
@@ -877,9 +905,9 @@
 
                     <StackPanel Orientation="Horizontal">
                         <Button Style="{StaticResource GhostNeutralButtonStyle}" Content="Limpiar filtros" Margin="0,0,12,0" />
-                        <Button Style="{StaticResource RowMenuButtonStyle}" VerticalAlignment="Center" ToolTip="Botón de acciones de la fila">
+                        <ToggleButton Style="{StaticResource RowMenuButtonStyle}" VerticalAlignment="Center" ToolTip="Botón de acciones de la fila">
                             <iconPacks:PackIconBoxIcons Kind="RegularDotsVerticalRounded" Width="16" Height="16" />
-                        </Button>
+                        </ToggleButton>
                     </StackPanel>
                 </StackPanel>
             </Border>

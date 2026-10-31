@@ -11,7 +11,7 @@
     <converters:InverseBooleanToVisibilityConverter x:Key="BooleanToInverseVisibilityConverter" />
     <Style x:Key="CardBorderStyle" TargetType="Border">
       <Setter Property="CornerRadius" Value="8" />
-      <Setter Property="Background" Value="{StaticResource SurfaceBackgroundBrush}" />
+      <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
       <Setter Property="Effect">
         <Setter.Value>
           <DropShadowEffect Color="#CCCCCC" BlurRadius="10" ShadowDepth="2" Opacity="0.3" />

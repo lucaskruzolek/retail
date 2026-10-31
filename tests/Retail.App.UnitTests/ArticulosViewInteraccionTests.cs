@@ -221,8 +221,8 @@ public class ArticulosViewInteraccionTests
             var e = Crear();
             var fila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Primero));
             var stock = Descendientes<StackPanel>(fila).Single(p => p.Name == "PanelStock");
-            var boton = Descendientes<Button>(fila).Single(b => b.ContextMenu is not null);
-            var celdaDelBoton = Descendientes<DataGridCell>(fila).Single(c => Descendientes<Button>(c).Contains(boton));
+            var boton = Descendientes<ToggleButton>(fila).Single(b => b.ContextMenu is not null);
+            var celdaDelBoton = Descendientes<DataGridCell>(fila).Single(c => Descendientes<ToggleButton>(c).Contains(boton));
 
             double finDelStock = stock.TranslatePoint(new Point(stock.ActualWidth, 0), fila).X;
             double inicioDelBoton = boton.TranslatePoint(new Point(0, 0), fila).X;
@@ -233,7 +233,7 @@ public class ArticulosViewInteraccionTests
         });
 
         aireIzquierdo.Should().BeApproximately(8, 0.5, "el stock va a la derecha de su columna, con 8 de relleno");
-        aireDerecho.Should().BeApproximately(8, 0.5, "el botón de 32 va a la izquierda de su columna de 40");
+        aireDerecho.Should().BeApproximately(12, 0.5, "el botón de 28 va a la izquierda de su columna de 40");
     }
 
     [Fact]
@@ -351,7 +351,7 @@ public class ArticulosViewInteraccionTests
         {
             var e = Crear();
             var masivas = (BulkActionBar)Descendientes<ListToolbar>(e.Vista).Single().AccionesDeSeleccion!;
-            var botones = LogicalTreeHelper.GetChildren((StackPanel)masivas.Content).OfType<Button>().ToList();
+            var botones = LogicalTreeHelper.GetChildren((StackPanel)masivas.Content).OfType<ButtonBase>().ToList();
             var mas = botones.Single(b => b.ContextMenu is not null);
             var items = mas.ContextMenu!.Items.OfType<MenuItem>().ToList();
             opciones = items.Select(i => (string)i.Header).ToArray();
@@ -408,7 +408,7 @@ public class ArticulosViewInteraccionTests
         {
             var e = Crear();
             var segundaFila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Segundo));
-            var botonMenu = Descendientes<Button>(segundaFila).Single(b => b.ContextMenu is not null);
+            var botonMenu = Descendientes<ToggleButton>(segundaFila).Single(b => b.ContextMenu is not null);
             var menu = botonMenu.ContextMenu!;
             menu.PlacementTarget = botonMenu;
 

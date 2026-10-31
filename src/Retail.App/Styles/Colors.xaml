@@ -45,7 +45,14 @@
     <SolidColorBrush x:Key="SurfaceCardBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#E4E4E7" />
     <SolidColorBrush x:Key="SurfaceBorderFocusedBrush" Color="#9D0F33" />
-    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#FDF2F4" />
+    <!-- Neutro: antes era el rosa de PrimaryLight y el hover se confundía con la selección -->
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#F4F4F5" />
+    <!-- Rieles y cabeceras -->
+    <SolidColorBrush x:Key="SurfaceSubtleBrush" Color="#F4F4F5" />
+    <SolidColorBrush x:Key="SurfaceSelectedBrush" Color="#EEEEF0" />
+    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#E4E4E7" />
+    <!-- Divisores de fila -->
+    <SolidColorBrush x:Key="SurfaceBorderSubtleBrush" Color="#F0F0F2" />
     <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="#18181B" />
 
     <!-- ================================================================= -->
@@ -93,19 +100,19 @@
     <Color x:Key="ElevationShadowColor">#18181B</Color>
 
     <!-- ================================================================= -->
-    <!-- TOKENS DEL SIDEBAR (SUPERFICIE OSCURA)                            -->
+    <!-- TOKENS DEL SIDEBAR (SUPERFICIE CLARA EN EL TEMA CLARO)            -->
     <!-- ================================================================= -->
-    <!-- El carmín de marca (#9D0F33) da solo 2,15:1 sobre este fondo: sirve de relleno (la píldora activa, con texto blanco
-         a 8,24:1) pero nunca como color de texto o ícono; para eso está SidebarAccentBrush (6,31:1). -->
-    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#18181B" />
-    <SolidColorBrush x:Key="SidebarBorderBrush" Color="#27272A" />
-    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#27272A" />
-    <SolidColorBrush x:Key="SidebarPressedBrush" Color="#3F3F46" />
-    <SolidColorBrush x:Key="SidebarTextBrush" Color="#D4D4D8" />
-    <SolidColorBrush x:Key="SidebarTextStrongBrush" Color="#FAFAFA" />
-    <SolidColorBrush x:Key="SidebarTextMutedBrush" Color="#A1A1AA" />
-    <SolidColorBrush x:Key="SidebarAccentBrush" Color="#F36F8E" />
-    <SolidColorBrush x:Key="SidebarActiveBackgroundBrush" Color="#9D0F33" />
-    <SolidColorBrush x:Key="SidebarActiveForegroundBrush" Color="#FFFFFF" />
+    <!-- El carmín de marca (#9D0F33) sobre el fondo del sidebar (#F4F4F5) da cerca de 8:1: sirve como ícono o texto de
+         acento (SidebarAccentBrush). El texto fuerte (#18181B) y el secundario (#52525B) superan AA con holgura. -->
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#F4F4F5" />
+    <SolidColorBrush x:Key="SidebarBorderBrush" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#EAEAEC" />
+    <SolidColorBrush x:Key="SidebarPressedBrush" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="SidebarTextBrush" Color="#52525B" />
+    <SolidColorBrush x:Key="SidebarTextStrongBrush" Color="#18181B" />
+    <SolidColorBrush x:Key="SidebarTextMutedBrush" Color="#71717A" />
+    <SolidColorBrush x:Key="SidebarAccentBrush" Color="#9D0F33" />
+    <SolidColorBrush x:Key="SidebarActiveBackgroundBrush" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="SidebarActiveForegroundBrush" Color="#18181B" />
 
 </ResourceDictionary>
