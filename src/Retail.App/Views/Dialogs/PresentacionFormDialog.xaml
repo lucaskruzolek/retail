@@ -3,6 +3,7 @@
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                  xmlns:helpers="clr-namespace:Retail.App.Helpers"
                   Title="Nueva Presentación de Venta"
                   Width="540"
                   Height="640"
@@ -122,11 +123,12 @@
                                     PlaceholderText="ej. Sobre manila A4 (unidad)"
                                     Margin="0,0,0,12" />
 
-                        <TextBlock Text="Código de Barras (Opcional)"
+                        <TextBlock Text="Código de barras o interno (opcional)"
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    Margin="0,0,0,4" />
                         <ui:TextBox Text="{Binding CodigoBarras, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="ej. 7791234567890"
+                                    helpers:EntradaNumericaHelper.SoloDigitos="True"
+                                    PlaceholderText="ej. 7791234567890 o 512"
                                     FontFamily="{StaticResource FontFamilyMonospace}"
                                     Margin="0,0,0,12" />
 

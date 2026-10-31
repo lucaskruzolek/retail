@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Retail.Application.DTOs.Articulos;
@@ -38,12 +39,24 @@ public partial class ArticuloFormViewModel : ObservableObject
 
     public bool NoTieneFuentes => !TieneFuentes;
 
-    public string TextoCantidadFuentes => Fuentes.Count == 1 ? "1 fuente" : $"{Fuentes.Count} fuentes";
-
     /// <summary>
     /// La fuente principal elegida, o <c>null</c> si el artículo no tiene principal.
     /// </summary>
     public int? IdCatalogoProveedor => Fuentes.FirstOrDefault(f => f.EsPrincipal)?.IdCatalogoProveedor;
+
+    /// <summary>
+    /// Con fuente principal el costo no se edita a mano: al guardar lo fija siempre la principal. Sin principal, el
+    /// costo del formulario se respeta y es editable.
+    /// </summary>
+    public bool TieneFuentePrincipal => IdCatalogoProveedor != null;
+
+    public bool CostoEditable => !TieneFuentePrincipal;
+
+    public bool CostoSoloLectura => TieneFuentePrincipal;
+
+    public string TextoOrigenCosto => Fuentes.FirstOrDefault(f => f.EsPrincipal) is { } principal
+        ? $"Fijado por la fuente principal: {principal.RazonSocialProveedor}"
+        : string.Empty;
 
     /// <summary>
     /// Abre el selector de ítems de catálogo con el término inicial y los ítems que ya están en el formulario, que no
@@ -66,18 +79,118 @@ public partial class ArticuloFormViewModel : ObservableObject
     [ObservableProperty]
     private int _stockMinimo = 5;
 
+    /// <summary>
+    /// Elegir Servicio no borra el stock cargado: así, volver a Producto no lo pierde ni muestra un ajuste que nadie
+    /// hizo. Al guardar un servicio, el DTO envía 0 y el dominio lo fuerza.
+    /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ManejaStockFisico))]
+    [NotifyPropertyChangedFor(nameof(MostrarFuentes))]
+    [NotifyPropertyChangedFor(nameof(PuedeAgregarFuentes))]
+    [NotifyCanExecuteChangedFor(nameof(AgregarFuenteCommand))]
     private bool _esServicio;
 
     public bool ManejaStockFisico => !EsServicio;
 
+    /// <summary>
+    /// Un servicio no se compra a un proveedor, así que no tiene fuentes: con fuentes cargadas no se puede elegir
+    /// Servicio hasta quitarlas.
+    /// </summary>
+    public bool PuedeSerServicio => !TieneFuentes;
+
+    public string? AvisoNoPuedeSerServicio => TieneFuentes
+        ? "Quite las fuentes para convertirlo en servicio: un servicio no se compra a un proveedor."
+        : null;
+
+    public bool PuedeAgregarFuentes => !EsServicio;
+
+    /// <summary>
+    /// La sección Fuentes no aplica a una presentación derivada ni a un servicio. Un servicio que ya tiene fuentes
+    /// (datos anteriores a la regla) la sigue mostrando, para poder quitarlas y guardar.
+    /// </summary>
+    public bool MostrarFuentes => !EsDerivado && (!EsServicio || TieneFuentes);
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EsAlta))]
     [NotifyPropertyChangedFor(nameof(TituloVentana))]
+    [NotifyPropertyChangedFor(nameof(EtiquetaStockActual))]
+    [NotifyPropertyChangedFor(nameof(StockActualEditable))]
+    [NotifyPropertyChangedFor(nameof(MostrarStockSoloLectura))]
+    [NotifyPropertyChangedFor(nameof(MostrarAccionesAjusteStock))]
+    [NotifyPropertyChangedFor(nameof(TieneAjusteStock))]
     private bool _esModoEdicion;
 
     public bool EsAlta => !EsModoEdicion;
+
+    /// <summary>
+    /// Stock con el que se abrió el formulario (0 en el alta). Es la base para calcular la diferencia del ajuste.
+    /// </summary>
+    private int _stockActualOriginal;
+
+    /// <summary>
+    /// En edición el stock no se escribe directo: primero se pulsa "Ajustar". El registro de ajustes con motivo
+    /// llegará con su propio módulo; el botón ya ocupa su lugar definitivo en el formulario.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StockActualEditable))]
+    [NotifyPropertyChangedFor(nameof(MostrarStockSoloLectura))]
+    [NotifyPropertyChangedFor(nameof(MostrarAccionesAjusteStock))]
+    private bool _estaAjustandoStock;
+
+    public bool StockActualEditable => EsAlta || EstaAjustandoStock;
+
+    public bool MostrarStockSoloLectura => !StockActualEditable;
+
+    public bool MostrarAccionesAjusteStock => EsModoEdicion && EstaAjustandoStock;
+
+    public int DiferenciaStock => StockActual - _stockActualOriginal;
+
+    public bool TieneAjusteStock => EsModoEdicion && DiferenciaStock != 0;
+
+    public string TextoAjusteStock =>
+        $"Ajuste: {_stockActualOriginal} → {StockActual} ({DiferenciaStock.ToString("+#;-#;0", CultureInfo.InvariantCulture)})";
+
+    public string EtiquetaStockActual => EsAlta ? "Stock inicial" : "Stock actual";
+
+    /// <summary>
+    /// Habilita la edición del stock en un artículo existente.
+    /// </summary>
+    [RelayCommand]
+    public void AjustarStock()
+    {
+        EstaAjustandoStock = true;
+    }
+
+    /// <summary>
+    /// Cierra el modo de ajuste conservando el valor tipeado; se persiste recién al guardar el formulario.
+    /// </summary>
+    [RelayCommand]
+    public void ConfirmarAjusteStock()
+    {
+        EstaAjustandoStock = false;
+    }
+
+    /// <summary>
+    /// Cierra el modo de ajuste y restaura el stock con el que se abrió el formulario.
+    /// </summary>
+    [RelayCommand]
+    public void DescartarAjusteStock()
+    {
+        StockActual = _stockActualOriginal;
+        EstaAjustandoStock = false;
+    }
+
+    partial void OnStockActualChanged(int value)
+    {
+        NotificarAjusteStock();
+    }
+
+    private void NotificarAjusteStock()
+    {
+        OnPropertyChanged(nameof(DiferenciaStock));
+        OnPropertyChanged(nameof(TieneAjusteStock));
+        OnPropertyChanged(nameof(TextoAjusteStock));
+    }
 
     public string TituloVentana => EsDerivado
         ? "Modificar Presentación de Venta"
@@ -91,6 +204,7 @@ public partial class ArticuloFormViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(NoEsDerivado))]
     [NotifyPropertyChangedFor(nameof(TituloVentana))]
     [NotifyPropertyChangedFor(nameof(AvisoCostoDerivado))]
+    [NotifyPropertyChangedFor(nameof(MostrarFuentes))]
     private bool _esDerivado;
 
     [ObservableProperty]
@@ -142,15 +256,6 @@ public partial class ArticuloFormViewModel : ObservableObject
         RecalcularPrecioVenta();
     }
 
-    partial void OnEsServicioChanged(bool value)
-    {
-        if (value)
-        {
-            StockActual = 0;
-            StockMinimo = 0;
-        }
-    }
-
     public void RecalcularPrecioVenta()
     {
         if (CostoReposicion < 0m || PorcentajeGanancia < 0m)
@@ -170,7 +275,10 @@ public partial class ArticuloFormViewModel : ObservableObject
         Descripcion = string.Empty;
         CostoReposicion = 0m;
         PorcentajeGanancia = 40m;
+        _stockActualOriginal = 0;
         StockActual = 0;
+        EstaAjustandoStock = false;
+        NotificarAjusteStock();
         StockMinimo = 5;
         EsServicio = false;
         EsDerivado = false;
@@ -185,8 +293,8 @@ public partial class ArticuloFormViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Carga el artículo a editar con sus fuentes de la base (M5). Las fuentes no tocan el costo: el formulario muestra
-    /// el guardado, que puede haberse editado a mano.
+    /// Carga el artículo a editar con sus fuentes de la base (M5). Sin principal, el formulario muestra el costo
+    /// guardado; con principal, muestra el costo de la principal, que es lo que fijará el guardado.
     /// </summary>
     public void ConfigurarEdicion(
         ArticuloDto articulo,
@@ -205,8 +313,17 @@ public partial class ArticuloFormViewModel : ObservableObject
         IdMarca = articulo.IdMarca ?? 0;
         CargarFuentes(fuentes);
         CostoReposicion = articulo.CostoReposicion;
+        var principal = Fuentes.FirstOrDefault(f => f.EsPrincipal);
+        if (principal != null)
+        {
+            CostoReposicion = principal.CostoActual;
+        }
+
         PorcentajeGanancia = articulo.PorcentajeGanancia;
+        _stockActualOriginal = articulo.StockActual;
         StockActual = articulo.StockActual;
+        EstaAjustandoStock = false;
+        NotificarAjusteStock();
         StockMinimo = articulo.StockMinimo;
         EsServicio = articulo.EsServicio;
         EsDerivado = articulo.EsDerivado;
@@ -293,9 +410,10 @@ public partial class ArticuloFormViewModel : ObservableObject
 
     /// <summary>
     /// Agrega una fuente elegida en el selector, en su lugar según el costo. Si el artículo no tenía principal, la nueva
-    /// lo es (M1). En el alta completa la descripción y el código de barras vacíos con los del ítem.
+    /// lo es (M1). En el alta completa la descripción y el código de barras vacíos con los del ítem. Un servicio no
+    /// agrega fuentes: el comando queda deshabilitado.
     /// </summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(PuedeAgregarFuentes))]
     public async Task AgregarFuenteAsync()
     {
         if (OnAbrirSelectorProveedorAsync == null)
@@ -365,7 +483,7 @@ public partial class ArticuloFormViewModel : ObservableObject
         }
 
         CostoReposicion = fila.CostoActual;
-        OnPropertyChanged(nameof(IdCatalogoProveedor));
+        NotificarFuentes();
     }
 
     private void CargarFuentes(IReadOnlyList<FuenteArticuloDto> fuentes)
@@ -398,8 +516,14 @@ public partial class ArticuloFormViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(TieneFuentes));
         OnPropertyChanged(nameof(NoTieneFuentes));
-        OnPropertyChanged(nameof(TextoCantidadFuentes));
         OnPropertyChanged(nameof(IdCatalogoProveedor));
+        OnPropertyChanged(nameof(TieneFuentePrincipal));
+        OnPropertyChanged(nameof(CostoEditable));
+        OnPropertyChanged(nameof(CostoSoloLectura));
+        OnPropertyChanged(nameof(TextoOrigenCosto));
+        OnPropertyChanged(nameof(PuedeSerServicio));
+        OnPropertyChanged(nameof(AvisoNoPuedeSerServicio));
+        OnPropertyChanged(nameof(MostrarFuentes));
     }
 
     public CrearArticuloDto ObtenerCrearDto() => new()

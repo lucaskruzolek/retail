@@ -63,6 +63,19 @@ public static class ReglasComunesExtensions
     }
 
     /// <summary>
+    /// Código de un artículo: de barras de fábrica o interno corto (M11). Se aplica cuando el código viene cargado,
+    /// porque es opcional (RF-04).
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> CodigoDeArticulo<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(valor => ReglasCodigoBarras.EsCodigoDeArticuloValido(valor))
+            .WithMessage(
+                "Revise el código: solo admite dígitos (código de barras o código interno), hasta " +
+                $"{ReglasCodigoBarras.LongitudMaximaCodigoArticulo}.");
+    }
+
+    /// <summary>
     /// El nombre de un cliente se valida como nombre de persona o como razón social según su tipo de documento;
     /// la decisión la toma el agregado (<see cref="Cliente.EsNombreValido"/>), no el validador.
     /// </summary>

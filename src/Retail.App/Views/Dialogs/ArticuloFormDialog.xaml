@@ -3,11 +3,13 @@
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                  xmlns:helpers="clr-namespace:Retail.App.Helpers"
+                  xmlns:converters="clr-namespace:Retail.App.Converters"
+                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                   Title="{Binding TituloVentana}"
-                  Width="580"
-                  Height="720"
-                  MinWidth="520"
-                  MinHeight="600"
+                  Width="960"
+                  MinHeight="0"
+                  SizeToContent="Height"
                   WindowStartupLocation="CenterOwner"
                   ExtendsContentIntoTitleBar="True"
                   WindowBackdropType="Mica"
@@ -17,6 +19,11 @@
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+            <!-- Producto / Servicio: los dos botones enlazan EsServicio, como el selector de reportes del Tablero.
+                 Desmarcarse no escribe nada; con dos propiedades inversas, el botón que se desmarca pisaba la elección -->
+            <converters:IgualAParametroConverter x:Key="IgualAParametroConverter" />
+            <sys:Boolean x:Key="Verdadero">True</sys:Boolean>
+            <sys:Boolean x:Key="Falso">False</sys:Boolean>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
@@ -46,11 +53,23 @@
                        IsHitTestVisible="False" />
         </Grid>
 
-        <!-- Formulario con Scroll -->
+        <!-- Formulario en dos columnas. El ScrollViewer externo es una red de seguridad para pantallas de 768p -->
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,12">
-            <StackPanel>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="{StaticResource ColumnGap}" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
                 <!-- Alerta de Validación -->
-                <Border Background="{DynamicResource DangerBackgroundBrush}"
+                <Border Grid.Row="0"
+                        Grid.ColumnSpan="3"
+                        Background="{DynamicResource DangerBackgroundBrush}"
                         BorderBrush="{DynamicResource DangerBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6"
@@ -63,360 +82,480 @@
                                TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Grupo 1: Datos de Identificación -->
-                <Border Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Identificación del Producto"
-                                   FontWeight="SemiBold"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   Margin="0,0,0,12" />
+                <!-- ===================== Columna izquierda: Identificación + Stock ===================== -->
+                <StackPanel Grid.Row="1" Grid.Column="0">
 
-                        <!-- Descripción -->
-                        <TextBlock Text="Descripción / Nombre del Artículo *"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
-                        <ui:TextBox Text="{Binding Descripcion, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="ej. Cuaderno Universitario A4 80 Hojas Rayado"
-                                    Margin="0,0,0,12" />
-
-                        <!-- Código de Barras -->
-                        <TextBlock Text="Código de Barras (Opcional)"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
-                        <ui:TextBox Text="{Binding CodigoBarras, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="ej. 7791234567890"
-                                    FontFamily="{StaticResource FontFamilyMonospace}"
-                                    Margin="0,0,0,12" />
-
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Categoría -->
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Categoría (Opcional)"
-                                           Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
-                                <ComboBox ItemsSource="{Binding Categorias}"
-                                          SelectedValue="{Binding IdCategoria, Mode=TwoWay}"
-                                          SelectedValuePath="IdCategoria"
-                                          DisplayMemberPath="NombreCategoria"
-                                          Height="35"
-                                          HorizontalAlignment="Stretch" />
+                    <!-- Tarjeta Identificación -->
+                    <Border Style="{StaticResource CardBorderStyle}" Padding="16">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Identificación" Style="{StaticResource CardHeaderTextStyle}" />
                             </StackPanel>
 
-                            <!-- Marca -->
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Marca (Opcional)"
-                                           Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
-                                <ComboBox ItemsSource="{Binding Marcas}"
-                                          SelectedValue="{Binding IdMarca, Mode=TwoWay}"
-                                          SelectedValuePath="IdMarca"
-                                          DisplayMemberPath="NombreMarca"
-                                          Height="35"
-                                          HorizontalAlignment="Stretch" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Es Servicio (no aplica a una presentación derivada, RF-21) -->
-                        <CheckBox Content="Es un servicio (no posee stock)"
-                                  IsChecked="{Binding EsServicio}"
-                                  Visibility="{Binding NoEsDerivado, Converter={StaticResource BoolToVisConverter}}"
-                                  Margin="0,6,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <!-- Grupo 2: Fuentes del artículo (Track 4.3, A-19, RF-28). Todo queda pendiente hasta Guardar; solo el
-                     artículo de compra tiene fuentes (RF-21) -->
-                <Border Style="{StaticResource CardBorderStyle}"
-                        Padding="16"
-                        Margin="0,0,0,12"
-                        Visibility="{Binding NoEsDerivado, Converter={StaticResource BoolToVisConverter}}">
-                    <StackPanel>
-                        <DockPanel LastChildFill="False" Margin="0,0,0,4">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <iconPacks:PackIconBoxIcons Kind="RegularLink"
-                                                            Width="16" Height="16"
-                                                            Foreground="{DynamicResource PrimaryBrush}"
-                                                            VerticalAlignment="Center"
-                                                            Margin="0,0,8,0" />
-                                <TextBlock Text="Fuentes del artículo"
-                                           FontWeight="SemiBold"
-                                           FontSize="14"
-                                           Foreground="{DynamicResource TextPrimaryBrush}"
-                                           VerticalAlignment="Center" />
+                            <!-- Tipo de artículo (no aplica a una presentación derivada, RF-21) -->
+                            <StackPanel Margin="0,0,0,12"
+                                        Visibility="{Binding NoEsDerivado, Converter={StaticResource BoolToVisConverter}}">
+                                <Border Style="{StaticResource SegmentedControlBorderStyle}">
+                                    <UniformGrid Columns="2">
+                                        <RadioButton x:Name="OpcionProducto"
+                                                     GroupName="TipoArticulo"
+                                                     IsChecked="{Binding EsServicio, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={StaticResource Falso}}"
+                                                     AutomationProperties.Name="Producto"
+                                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularCube" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Producto" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </RadioButton>
+                                        <RadioButton x:Name="OpcionServicio"
+                                                     GroupName="TipoArticulo"
+                                                     IsChecked="{Binding EsServicio, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={StaticResource Verdadero}}"
+                                                     AutomationProperties.Name="Servicio"
+                                                     IsEnabled="{Binding PuedeSerServicio}"
+                                                     ToolTip="{Binding AvisoNoPuedeSerServicio}"
+                                                     ToolTipService.ShowOnDisabled="True"
+                                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularMagicWand" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Servicio" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </RadioButton>
+                                    </UniformGrid>
+                                </Border>
+                                <TextBlock Text="Los servicios no llevan stock."
+                                           Style="{StaticResource TextBlockCaptionSecondary}"
+                                           Margin="0,6,0,0"
+                                           Visibility="{Binding EsServicio, Converter={StaticResource BoolToVisConverter}}" />
                             </StackPanel>
 
-                            <Border DockPanel.Dock="Right"
-                                    Style="{StaticResource BadgePrimaryStyle}"
-                                    Visibility="{Binding TieneFuentes, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="{Binding TextoCantidadFuentes}"
-                                           FontSize="11"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryPressedBrush}" />
-                            </Border>
+                            <!-- Descripción -->
+                            <TextBlock Text="Descripción *"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       Margin="0,0,0,4" />
+                            <ui:TextBox Text="{Binding Descripcion, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="ej. Cuaderno Universitario A4 80 Hojas Rayado"
+                                        Margin="0,0,0,12" />
 
-                            <Border DockPanel.Dock="Right"
-                                    Style="{StaticResource BadgeNeutralStyle}"
-                                    Visibility="{Binding NoTieneFuentes, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="Costo manual"
-                                           FontSize="11"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" />
-                            </Border>
-                        </DockPanel>
+                            <!-- Código de Barras -->
+                            <!-- Una sola columna para el código de barras de fábrica o un código interno corto (M11) -->
+                            <TextBlock Text="Código de barras o interno"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       Margin="0,0,0,4" />
+                            <ui:TextBox Text="{Binding CodigoBarras, UpdateSourceTrigger=PropertyChanged}"
+                                        helpers:EntradaNumericaHelper.SoloDigitos="True"
+                                        ToolTip="Escanee el código de barras o asigne un código corto (p. ej. 11) para cargarlo rápido en el mostrador"
+                                        PlaceholderText="ej. 7791234567890 o 11"
+                                        FontFamily="{StaticResource FontFamilyMonospace}"
+                                        Margin="0,0,0,12" />
 
-                        <TextBlock Text="Ordenadas por costo. La principal fija el costo de reposición; los cambios se aplican al guardar."
-                                   Style="{StaticResource TextBlockCaptionSecondary}"
-                                   TextWrapping="Wrap"
-                                   Margin="0,0,0,12"
-                                   Visibility="{Binding TieneFuentes, Converter={StaticResource BoolToVisConverter}}" />
-                        <TextBlock Text="Este artículo no tiene fuentes: el costo de reposición se carga a mano."
-                                   Style="{StaticResource TextBlockCaptionSecondary}"
-                                   TextWrapping="Wrap"
-                                   Margin="0,0,0,12"
-                                   Visibility="{Binding NoTieneFuentes, Converter={StaticResource BoolToVisConverter}}" />
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
 
-                        <!-- Renglones de dos líneas (opción A): en 500 px una grilla truncaría el proveedor -->
-                        <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                                BorderThickness="1,1,1,0"
-                                CornerRadius="6"
-                                Margin="0,0,0,12"
-                                Visibility="{Binding TieneFuentes, Converter={StaticResource BoolToVisConverter}}">
-                            <ItemsControl ItemsSource="{Binding Fuentes}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                                                BorderThickness="0,0,0,1"
-                                                Padding="8">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
+                                <!-- Categoría -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Categoría"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               Margin="0,0,0,4" />
+                                    <ComboBox ItemsSource="{Binding Categorias}"
+                                              SelectedValue="{Binding IdCategoria, Mode=TwoWay}"
+                                              SelectedValuePath="IdCategoria"
+                                              DisplayMemberPath="NombreCategoria"
+                                              Height="35"
+                                              HorizontalAlignment="Stretch" />
+                                </StackPanel>
 
-                                                <!-- OneWay + comando: el clic no escribe EsPrincipal, lo decide el ViewModel (M2) -->
-                                                <RadioButton Grid.Column="0"
-                                                             IsChecked="{Binding EsPrincipal, Mode=OneWay}"
-                                                             Command="{Binding DataContext.MarcarPrincipalCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                             CommandParameter="{Binding}"
-                                                             MinWidth="0"
-                                                             Padding="0"
-                                                             Margin="0,0,8,0"
-                                                             VerticalAlignment="Center"
-                                                             ToolTip="Usar como fuente principal: su costo pasa a ser el costo de reposición" />
+                                <!-- Marca -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Marca"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               Margin="0,0,0,4" />
+                                    <ComboBox ItemsSource="{Binding Marcas}"
+                                              SelectedValue="{Binding IdMarca, Mode=TwoWay}"
+                                              SelectedValuePath="IdMarca"
+                                              DisplayMemberPath="NombreMarca"
+                                              Height="35"
+                                              HorizontalAlignment="Stretch" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
 
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding RazonSocialProveedor}"
-                                                               FontSize="13"
-                                                               FontWeight="SemiBold"
-                                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                                               TextTrimming="CharacterEllipsis"
-                                                               ToolTip="{Binding Descripcion}" />
-                                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                        <TextBlock Text="{Binding CodigoProveedor}"
-                                                                   FontFamily="{StaticResource FontFamilyMonospace}"
-                                                                   FontSize="11"
-                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                   VerticalAlignment="Center" />
-                                                        <TextBlock Text=" · lista "
-                                                                   FontSize="11"
-                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                   VerticalAlignment="Center" />
-                                                        <TextBlock Text="{Binding FechaLocal, StringFormat={}{0:dd/MM/yyyy}}"
-                                                                   FontSize="11"
-                                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                   VerticalAlignment="Center" />
-                                                        <Border Style="{StaticResource BadgePrimaryStyle}"
-                                                                Padding="6,1"
-                                                                Margin="8,0,0,0"
-                                                                Visibility="{Binding EsPrincipal, Converter={StaticResource BoolToVisConverter}}">
-                                                            <TextBlock Text="Principal"
-                                                                       FontSize="10"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource PrimaryPressedBrush}" />
-                                                        </Border>
-                                                        <Border Style="{StaticResource BadgeWarningStyle}"
-                                                                Padding="6,1"
-                                                                Margin="8,0,0,0"
-                                                                ToolTip="{Binding AvisoListaDesactualizada}"
-                                                                Visibility="{Binding ListaDesactualizada, Converter={StaticResource BoolToVisConverter}}">
-                                                            <TextBlock Text="Lista vieja"
-                                                                       FontSize="10"
-                                                                       FontWeight="SemiBold"
-                                                                       Foreground="{DynamicResource WarningForegroundBrush}" />
-                                                        </Border>
-                                                    </StackPanel>
+                    <!-- Tarjeta Stock: se oculta entera para los servicios -->
+                    <Border Style="{StaticResource CardBorderStyle}"
+                            Padding="16"
+                            Margin="0,12,0,0"
+                            Visibility="{Binding ManejaStockFisico, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Stock" Style="{StaticResource CardHeaderTextStyle}" />
+                            </StackPanel>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Stock actual -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="{Binding EtiquetaStockActual}"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               Margin="0,0,0,4" />
+
+                                    <!-- Modo lectura: el stock de un artículo existente se corrige con un ajuste explícito -->
+                                    <!-- Misma altura que el cuadro de Stock mínimo, para que la fila quede alineada -->
+                                    <DockPanel Height="{Binding ActualHeight, ElementName=TxtStockMinimo}"
+                                               Visibility="{Binding MostrarStockSoloLectura, Converter={StaticResource BoolToVisConverter}}">
+                                        <Button DockPanel.Dock="Right"
+                                                Style="{StaticResource KeycapButtonStyle}"
+                                                Command="{Binding AjustarStockCommand}"
+                                                Padding="10,0"
+                                                VerticalAlignment="Stretch"
+                                                AutomationProperties.Name="Ajustar stock actual"
+                                                ToolTip="Corregir el stock actual (se aplica al guardar)">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Ajustar" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <TextBlock Text="{Binding StockActual}"
+                                                   FontFamily="{StaticResource FontFamilyNumeric}"
+                                                   Typography.NumeralAlignment="Tabular"
+                                                   FontSize="20"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   VerticalAlignment="Center" />
+                                    </DockPanel>
+
+                                    <!-- Modo edición: artículo nuevo o ajuste en curso -->
+                                    <StackPanel Visibility="{Binding StockActualEditable, Converter={StaticResource BoolToVisConverter}}">
+                                        <ui:TextBox Text="{Binding StockActual, UpdateSourceTrigger=PropertyChanged}"
+                                                    helpers:EntradaNumericaHelper.SoloDigitos="True"
+                                                    FontFamily="{StaticResource FontFamilyNumeric}"
+                                                    Typography.NumeralAlignment="Tabular"
+                                                    PlaceholderText="0" />
+                                        <StackPanel Orientation="Horizontal"
+                                                    Margin="0,6,0,0"
+                                                    Visibility="{Binding MostrarAccionesAjusteStock, Converter={StaticResource BoolToVisConverter}}">
+                                            <Button Style="{StaticResource GhostPrimaryButtonStyle}"
+                                                    Command="{Binding ConfirmarAjusteStockCommand}"
+                                                    Margin="0,0,8,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Aceptar" VerticalAlignment="Center" />
                                                 </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource GhostPrimaryButtonStyle}"
+                                                    Command="{Binding DescartarAjusteStockCommand}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularUndo" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Descartar" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
 
-                                                <TextBlock Grid.Column="2"
-                                                           Text="{Binding CostoActual, StringFormat=C2}"
-                                                           Style="{StaticResource TextBlockCurrencyCell}"
-                                                           VerticalAlignment="Center"
-                                                           Margin="8,0" />
+                                    <TextBlock Text="{Binding TextoAjusteStock}"
+                                               Style="{StaticResource TextBlockCaptionSecondary}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,0"
+                                               Visibility="{Binding TieneAjusteStock, Converter={StaticResource BoolToVisConverter}}" />
+                                </StackPanel>
 
-                                                <Button Grid.Column="3"
-                                                        Style="{StaticResource IconDangerButtonStyle}"
-                                                        Command="{Binding DataContext.QuitarFuenteCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}"
-                                                        ToolTip="Quitar esta fuente (se aplica al guardar)">
-                                                    <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" />
-                                                </Button>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </Border>
+                                <!-- Stock mínimo -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Stock mínimo"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               Margin="0,0,0,4" />
+                                    <ui:TextBox x:Name="TxtStockMinimo"
+                                                Text="{Binding StockMinimo, UpdateSourceTrigger=PropertyChanged}"
+                                                helpers:EntradaNumericaHelper.SoloDigitos="True"
+                                                FontFamily="{StaticResource FontFamilyNumeric}"
+                                                Typography.NumeralAlignment="Tabular"
+                                                PlaceholderText="5" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
 
-                        <Button Command="{Binding AgregarFuenteCommand}"
-                                Style="{StaticResource KeycapButtonStyle}"
-                                Padding="12,6"
-                                HorizontalAlignment="Right">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Agregar fuente..." VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </Border>
+                <!-- ===================== Columna derecha: Fuentes + Precio ===================== -->
+                <StackPanel Grid.Row="1" Grid.Column="2">
 
-                <!-- Grupo 3: Precios y Markup -->
-                <Border Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Cálculo de Precios"
-                                   FontWeight="SemiBold"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   Margin="0,0,0,12" />
+                    <!-- Tarjeta Fuentes del artículo (Track 4.3, A-19, RF-28). Todo queda pendiente hasta Guardar; solo el
+                         artículo de compra tiene fuentes (RF-21) -->
+                    <!-- El espacio hasta Precio va en esta tarjeta: si se oculta, Precio queda alineado con Identificación -->
+                    <Border Style="{StaticResource CardBorderStyle}"
+                            Padding="16"
+                            Margin="0,0,0,12"
+                            Visibility="{Binding MostrarFuentes, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel>
+                            <DockPanel LastChildFill="False" Margin="0,0,0,4">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <iconPacks:PackIconBoxIcons Kind="RegularLink" Style="{StaticResource CardHeaderIconStyle}" />
+                                    <TextBlock Text="Fuentes del artículo" Style="{StaticResource CardHeaderTextStyle}" />
+                                </StackPanel>
 
-                        <Grid Margin="0,0,0,12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
 
-                            <!-- Costo de Reposición -->
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Costo Reposición ($)"
-                                           Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
-                                <ui:TextBox Text="{Binding CostoReposicion, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
-                                            FontFamily="{StaticResource FontFamilyNumeric}"
-                                            Typography.NumeralAlignment="Tabular"
-                                            PlaceholderText="0.00" />
-                            </StackPanel>
-
-                            <!-- Porcentaje de Ganancia -->
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Margen Ganancia (%)"
-                                           Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
-                                <ui:TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
-                                            FontFamily="{StaticResource FontFamilyNumeric}"
-                                            Typography.NumeralAlignment="Tabular"
-                                            PlaceholderText="40.00" />
-                            </StackPanel>
-                        </Grid>
-
-                        <!-- Aviso de costo derivado (RF-21, regla 4): editable, pero el origen lo reemplaza -->
-                        <Border Style="{StaticResource BadgeWarningStyle}"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,0,0,12"
-                                Visibility="{Binding EsDerivado, Converter={StaticResource BoolToVisConverter}}">
-                            <TextBlock Text="{Binding AvisoCostoDerivado}"
-                                       FontSize="11"
-                                       TextWrapping="Wrap"
-                                       Foreground="{DynamicResource WarningForegroundBrush}" />
-                        </Border>
-
-                        <!-- Tarjeta de Precio de Venta Calculado -->
-                        <Border Background="{DynamicResource PrimaryLightBrush}"
-                                BorderBrush="{DynamicResource PrimaryBrush}"
-                                BorderThickness="1"
-                                CornerRadius="6"
-                                Padding="16,10">
-                            <DockPanel LastChildFill="False">
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="PRECIO DE VENTA"
-                                               Foreground="{DynamicResource PrimaryPressedBrush}"
+                                <Border DockPanel.Dock="Right"
+                                        Style="{StaticResource BadgeNeutralStyle}"
+                                        Visibility="{Binding NoTieneFuentes, Converter={StaticResource BoolToVisConverter}}">
+                                    <TextBlock Text="Costo manual"
                                                FontSize="11"
-                                               FontWeight="Bold" />
-                                </StackPanel>
-
-                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="$"
-                                               FontSize="20"
-                                               FontWeight="Bold"
-                                               FontFamily="{StaticResource FontFamilyNumeric}"
-                                               Typography.NumeralAlignment="Tabular"
-                                               Foreground="{DynamicResource PrimaryBrush}"
-                                               Margin="0,0,4,0"
-                                               VerticalAlignment="Center" />
-                                    <TextBlock Text="{Binding PrecioVentaCalculado, StringFormat={}{0:N2}}"
-                                               FontSize="22"
-                                               FontWeight="Bold"
-                                               FontFamily="{StaticResource FontFamilyNumeric}"
-                                               Typography.NumeralAlignment="Tabular"
-                                               Foreground="{DynamicResource PrimaryBrush}"
-                                               VerticalAlignment="Center" />
-                                </StackPanel>
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </Border>
                             </DockPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
 
-                <!-- Grupo 3: Control de Stock -->
-                <Border Style="{StaticResource CardBorderStyle}" Padding="16">
-                    <StackPanel>
-                        <TextBlock Text="Control de Stock"
-                                   FontWeight="SemiBold"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   Margin="0,0,0,12" />
+                            <TextBlock Text="La fuente principal fija el costo."
+                                       Style="{StaticResource TextBlockCaptionSecondary}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"
+                                       Visibility="{Binding TieneFuentes, Converter={StaticResource BoolToVisConverter}}" />
+                            <TextBlock Text="Este artículo no tiene fuentes: el costo de reposición se carga a mano."
+                                       Style="{StaticResource TextBlockCaptionSecondary}"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,12"
+                                       Visibility="{Binding NoTieneFuentes, Converter={StaticResource BoolToVisConverter}}" />
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
+                            <!-- Renglones de dos líneas. Con más de 3 fuentes scrollea solo la lista y el precio sigue a la vista -->
+                            <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                    BorderThickness="1,1,1,0"
+                                    CornerRadius="6"
+                                    Margin="0,0,0,12"
+                                    Visibility="{Binding TieneFuentes, Converter={StaticResource BoolToVisConverter}}">
+                                <!-- El recorte redondeado evita que el fondo rosa de la principal tape las esquinas del borde -->
+                                <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                              MaxHeight="168"
+                                              helpers:EsquinasHelper.RadioDelRecorte="5">
+                                    <ItemsControl ItemsSource="{Binding Fuentes}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                                        BorderThickness="0,0,0,1"
+                                                        Padding="8">
+                                                    <!-- La fuente principal se distingue con el carmín suave de selección -->
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="Transparent" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding EsPrincipal}" Value="True">
+                                                                    <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
 
-                            <!-- Stock Actual -->
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Stock Actual (Unidades)"
-                                           Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
-                                <ui:TextBox Text="{Binding StockActual, UpdateSourceTrigger=PropertyChanged}"
-                                            IsEnabled="{Binding ManejaStockFisico}"
-                                            FontFamily="{StaticResource FontFamilyNumeric}"
-                                            Typography.NumeralAlignment="Tabular"
-                                            PlaceholderText="0" />
+                                                        <!-- OneWay + comando: el clic no escribe EsPrincipal, lo decide el ViewModel (M2) -->
+                                                        <RadioButton Grid.Column="0"
+                                                                     IsChecked="{Binding EsPrincipal, Mode=OneWay}"
+                                                                     Command="{Binding DataContext.MarcarPrincipalCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                     CommandParameter="{Binding}"
+                                                                     MinWidth="0"
+                                                                     Padding="0"
+                                                                     Margin="0,0,8,0"
+                                                                     VerticalAlignment="Center"
+                                                                     AutomationProperties.Name="{Binding RazonSocialProveedor, StringFormat='Usar {0} como fuente principal'}"
+                                                                     ToolTip="Usar como fuente principal: su costo pasa a ser el costo de reposición" />
+
+                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding RazonSocialProveedor}"
+                                                                       FontSize="13"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       ToolTip="{Binding Descripcion}" />
+                                                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                                <TextBlock Text="Cód. "
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                                <TextBlock Text="{Binding CodigoProveedor}"
+                                                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                                <TextBlock Text=" · lista "
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                                <TextBlock Text="{Binding FechaLocal, StringFormat={}{0:dd/MM/yyyy}}"
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                                <Border Style="{StaticResource BadgePrimaryStyle}"
+                                                                        Padding="6,1"
+                                                                        Margin="8,0,0,0"
+                                                                        Visibility="{Binding EsPrincipal, Converter={StaticResource BoolToVisConverter}}">
+                                                                    <TextBlock Text="Principal"
+                                                                               FontSize="10"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="{DynamicResource PrimaryPressedBrush}" />
+                                                                </Border>
+                                                                <Border Style="{StaticResource BadgeWarningStyle}"
+                                                                        Padding="6,1"
+                                                                        Margin="8,0,0,0"
+                                                                        ToolTip="{Binding AvisoListaDesactualizada}"
+                                                                        Visibility="{Binding ListaDesactualizada, Converter={StaticResource BoolToVisConverter}}">
+                                                                    <TextBlock Text="Lista vieja"
+                                                                               FontSize="10"
+                                                                               FontWeight="SemiBold"
+                                                                               Foreground="{DynamicResource WarningForegroundBrush}" />
+                                                                </Border>
+                                                            </StackPanel>
+                                                        </StackPanel>
+
+                                                        <TextBlock Grid.Column="2"
+                                                                   Text="{Binding CostoActual, StringFormat=C2}"
+                                                                   Style="{StaticResource TextBlockCurrencyCell}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="8,0" />
+
+                                                        <Button Grid.Column="3"
+                                                                Style="{StaticResource IconDangerButtonStyle}"
+                                                                Command="{Binding DataContext.QuitarFuenteCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                AutomationProperties.Name="{Binding RazonSocialProveedor, StringFormat='Quitar la fuente {0}'}"
+                                                                ToolTip="Quitar esta fuente (se aplica al guardar)">
+                                                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="10" Height="10" />
+                                                        </Button>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+
+                            <Button Command="{Binding AgregarFuenteCommand}"
+                                    Style="{StaticResource KeycapButtonStyle}"
+                                    Padding="12,6"
+                                    HorizontalAlignment="Right">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Agregar fuente..." VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Tarjeta Precio -->
+                    <Border Style="{StaticResource CardBorderStyle}" Padding="16">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <iconPacks:PackIconBoxIcons Kind="RegularCalculator" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Precio" Style="{StaticResource CardHeaderTextStyle}" />
                             </StackPanel>
 
-                            <!-- Stock Mínimo -->
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Stock Mínimo"
-                                           Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
-                                <ui:TextBox Text="{Binding StockMinimo, UpdateSourceTrigger=PropertyChanged}"
-                                            IsEnabled="{Binding ManejaStockFisico}"
-                                            FontFamily="{StaticResource FontFamilyNumeric}"
-                                            Typography.NumeralAlignment="Tabular"
-                                            PlaceholderText="5" />
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-            </StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="12" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Costo de reposición: editable a mano o de solo lectura cuando lo fija la fuente principal -->
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Costo de reposición"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               Margin="0,0,0,4" />
+                                    <ui:TextBox Text="{Binding CostoReposicion, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
+                                                helpers:EntradaNumericaHelper.SoloDecimal="True"
+                                                FontFamily="{StaticResource FontFamilyNumeric}"
+                                                Typography.NumeralAlignment="Tabular"
+                                                PlaceholderText="0.00"
+                                                Visibility="{Binding CostoEditable, Converter={StaticResource BoolToVisConverter}}" />
+                                    <!-- Campo de solo lectura: misma altura y relleno que el cuadro de Margen, para que los
+                                         dos valores queden en la misma línea; el fondo gris y el candado dicen que no se edita -->
+                                    <StackPanel Visibility="{Binding CostoSoloLectura, Converter={StaticResource BoolToVisConverter}}">
+                                        <Border Height="{Binding ActualHeight, ElementName=TxtMargen}"
+                                                Background="{DynamicResource SurfaceBackgroundBrush}"
+                                                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="4"
+                                                Padding="10,0"
+                                                ToolTip="{Binding TextoOrigenCosto}">
+                                            <DockPanel>
+                                                <iconPacks:PackIconBoxIcons DockPanel.Dock="Right"
+                                                                            Kind="RegularLock"
+                                                                            Width="14"
+                                                                            Height="14"
+                                                                            Foreground="{DynamicResource TextMutedBrush}"
+                                                                            VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding CostoReposicion, StringFormat=C2}"
+                                                           FontFamily="{StaticResource FontFamilyNumeric}"
+                                                           Typography.NumeralAlignment="Tabular"
+                                                           FontSize="14"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </Border>
+                                        <TextBlock Text="{Binding TextoOrigenCosto}"
+                                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Porcentaje de ganancia -->
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Margen de ganancia (%)"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               Margin="0,0,0,4" />
+                                    <ui:TextBox x:Name="TxtMargen"
+                                                Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
+                                                helpers:EntradaNumericaHelper.SoloDecimal="True"
+                                                FontFamily="{StaticResource FontFamilyNumeric}"
+                                                Typography.NumeralAlignment="Tabular"
+                                                PlaceholderText="40.00" />
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Aviso de costo derivado (RF-21, regla 4): editable, pero el origen lo reemplaza -->
+                            <Border Style="{StaticResource BadgeWarningStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    Margin="0,12,0,0"
+                                    Visibility="{Binding EsDerivado, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="{Binding AvisoCostoDerivado}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource WarningForegroundBrush}" />
+                            </Border>
+
+                            <!-- Resultado: precio de venta calculado. El carmín queda reservado al botón primario -->
+                            <Border Background="{DynamicResource SurfaceBackgroundBrush}"
+                                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="16,10"
+                                    Margin="0,12,0,0">
+                                <DockPanel LastChildFill="False">
+                                    <TextBlock Text="Precio de venta"
+                                               Style="{StaticResource TextBlockBodySecondary}"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Text="{Binding PrecioVentaCalculado, StringFormat=C2}"
+                                               Style="{StaticResource TextBlockCurrencyLarge}" />
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
         </ScrollViewer>
 
         <!-- Botones de Acción Inferiores -->

@@ -418,7 +418,7 @@ public class InventarioServiceTests
             IdArticuloOrigen = 1,
             UnidadesPorOrigen = 100,
             Descripcion = "Sobre manila (unidad)",
-            CodigoBarras = "SOBRE-U",
+            CodigoBarras = "512",
             PorcentajeGanancia = 100m,
             StockMinimo = 20
         };
@@ -758,9 +758,9 @@ public class InventarioServiceTests
     }
 
     [Fact]
-    public async Task ActualizarArticuloAsync_MismaPrincipal_ConservaElCostoEditadoAMano()
+    public async Task ActualizarArticuloAsync_MismaPrincipalConCostoEditado_ReemplazaElCostoPorElDeLaPrincipal()
     {
-        // Arrange
+        // Arrange (con principal el costo no se edita a mano: lo fija siempre la principal)
         var (articulo, _) = PrepararArticuloConPrincipal();
         var edicion = EdicionDe(articulo, costo: 820m, esServicio: false, idCatalogoProveedor: 25);
 
@@ -768,8 +768,24 @@ public class InventarioServiceTests
         await _sut.ActualizarArticuloAsync(edicion);
 
         // Assert
-        articulo.CostoReposicion.Should().Be(820m);
+        articulo.CostoReposicion.Should().Be(800m);
+        articulo.PrecioVenta.Should().Be(1200m);
         articulo.IdCatalogoProveedor.Should().Be(25);
+    }
+
+    [Fact]
+    public async Task ActualizarArticuloAsync_SinPrincipal_ConservaElCostoDelFormulario()
+    {
+        // Arrange
+        var (articulo, _) = PrepararArticuloConPrincipal();
+        var edicion = EdicionDe(articulo, costo: 820m, esServicio: false);
+
+        // Act
+        await _sut.ActualizarArticuloAsync(edicion);
+
+        // Assert
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        articulo.CostoReposicion.Should().Be(820m);
     }
 
     [Fact]

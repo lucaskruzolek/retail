@@ -219,6 +219,18 @@ public class CatalogoProveedorDomainTests
     }
 
     [Fact]
+    public void AsignarArticulo_Servicio_LanzaDomainExceptionYNoLoVincula()
+    {
+        var item = CrearItem();
+        var servicio = new Articulo { Id = 9, Descripcion = "Anillado", EsServicio = true };
+
+        var act = () => item.AsignarArticulo(servicio);
+
+        act.Should().Throw<DomainException>().WithMessage("*no puede tener fuentes*");
+        item.EstaVinculado.Should().BeFalse();
+    }
+
+    [Fact]
     public void AsignarArticulo_ArticuloNulo_LanzaArgumentNullException()
     {
         var item = CrearItem();

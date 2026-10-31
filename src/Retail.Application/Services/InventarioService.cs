@@ -584,8 +584,9 @@ public class InventarioService : IInventarioService
     /// <summary>
     /// Lleva las fuentes del artículo al estado deseado del formulario (Track 4.3, A-19): libera las que ya no figuran,
     /// vincula las nuevas y fija la principal, todo sobre entidades con tracking para un único <c>SaveChanges</c>. Las
-    /// reglas las aplica el dominio: un ítem de otro artículo se rechaza (A-1) y la principal toma su costo (A-2). Si
-    /// la principal no cambió, no se toca, así el formulario conserva el costo editado a mano.
+    /// reglas las aplica el dominio: un ítem de otro artículo se rechaza (A-1) y la principal toma su costo (A-2).
+    /// Con principal, el costo lo fija siempre la principal (aunque no haya cambiado), así que el costo escrito en el
+    /// formulario se reemplaza; sin principal, se respeta el costo del formulario.
     /// </summary>
     private async Task AplicarFuentesDelFormularioAsync(
         Articulo articulo,
@@ -620,11 +621,6 @@ public class InventarioService : IInventarioService
         foreach (var nueva in nuevas)
         {
             nueva.AsignarArticulo(articulo);
-        }
-
-        if (idPrincipal == articulo.IdCatalogoProveedor)
-        {
-            return;
         }
 
         if (idPrincipal is not int id)

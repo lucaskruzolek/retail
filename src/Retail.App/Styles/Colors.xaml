@@ -54,6 +54,8 @@
     <SolidColorBrush x:Key="TextPrimaryBrush" Color="#18181B" />
     <SolidColorBrush x:Key="TextSecondaryBrush" Color="#52525B" />
     <SolidColorBrush x:Key="TextMutedBrush" Color="#A1A1AA" />
+    <!-- Títulos de tarjeta "grabados": entre secundario y atenuado, 4,8:1 sobre blanco (cumple AA, que el atenuado no) -->
+    <SolidColorBrush x:Key="TextSubtleBrush" Color="#71717A" />
     <SolidColorBrush x:Key="TextOnDarkBrush" Color="#FAFAFA" />
 
     <!-- ================================================================= -->

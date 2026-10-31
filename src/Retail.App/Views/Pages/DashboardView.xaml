@@ -18,55 +18,6 @@
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
         <converters:IgualAParametroConverter x:Key="IgualAParametroConverter" />
 
-        <!-- Botón de selección de reporte. El estado marcado usa la marca (carmín suave), nunca los colores de estado
-             Warning/Danger/Success: esos indican stock bajo, error o éxito, no selección. -->
-        <Style x:Key="ReporteRadioStyle" TargetType="RadioButton">
-            <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-            <Setter Property="FontSize" Value="13" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="Margin" Value="0,0,8,6" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="border"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsFocused" Value="True">
-                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                                <Setter TargetName="border" Property="BorderThickness" Value="1.5" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="border" Property="Opacity" Value="0.5" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- Selector de fecha con el aspecto del sistema de diseño. WPF-UI 4.0.0 no trae estilo para el DatePicker de WPF
              (solo para su CalendarDatePicker, que no permite fijar el formato dd/MM/yyyy): se redefine la plantilla con
              los tokens semánticos. El calendario desplegable conserva el estilo predeterminado de WPF. -->
@@ -270,17 +221,17 @@
         <!-- 2. SELECTOR DE REPORTE                                        -->
         <!-- ============================================================= -->
         <WrapPanel Grid.Row="1">
-            <RadioButton GroupName="Reporte" Content="Tablero" Style="{StaticResource ReporteRadioStyle}"
+            <RadioButton GroupName="Reporte" Content="Tablero" Style="{StaticResource PillRadioButtonStyle}"
                          IsChecked="{Binding ReporteSeleccionado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static vm:TipoReporteEnum.Tablero}}" />
-            <RadioButton GroupName="Reporte" Content="Ventas por período" Style="{StaticResource ReporteRadioStyle}"
+            <RadioButton GroupName="Reporte" Content="Ventas por período" Style="{StaticResource PillRadioButtonStyle}"
                          IsChecked="{Binding ReporteSeleccionado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static vm:TipoReporteEnum.VentasPorPeriodo}}" />
-            <RadioButton GroupName="Reporte" Content="Ranking" Style="{StaticResource ReporteRadioStyle}"
+            <RadioButton GroupName="Reporte" Content="Ranking" Style="{StaticResource PillRadioButtonStyle}"
                          IsChecked="{Binding ReporteSeleccionado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static vm:TipoReporteEnum.Ranking}}" />
-            <RadioButton GroupName="Reporte" Content="Rentabilidad" Style="{StaticResource ReporteRadioStyle}"
+            <RadioButton GroupName="Reporte" Content="Rentabilidad" Style="{StaticResource PillRadioButtonStyle}"
                          IsChecked="{Binding ReporteSeleccionado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static vm:TipoReporteEnum.Rentabilidad}}" />
-            <RadioButton GroupName="Reporte" Content="Stock crítico" Style="{StaticResource ReporteRadioStyle}"
+            <RadioButton GroupName="Reporte" Content="Stock crítico" Style="{StaticResource PillRadioButtonStyle}"
                          IsChecked="{Binding ReporteSeleccionado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static vm:TipoReporteEnum.StockCritico}}" />
-            <RadioButton GroupName="Reporte" Content="Sin movimiento" Style="{StaticResource ReporteRadioStyle}"
+            <RadioButton GroupName="Reporte" Content="Sin movimiento" Style="{StaticResource PillRadioButtonStyle}"
                          IsChecked="{Binding ReporteSeleccionado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static vm:TipoReporteEnum.SinMovimiento}}" />
         </WrapPanel>
 

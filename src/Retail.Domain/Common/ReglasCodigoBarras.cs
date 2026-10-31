@@ -20,6 +20,45 @@ public static class ReglasCodigoBarras
     public const int LongitudPrefijoTitular = 7;
 
     /// <summary>
+    /// Largo máximo del código de un artículo (columna <c>codigo_barras</c>).
+    /// </summary>
+    public const int LongitudMaximaCodigoArticulo = 50;
+
+    /// <summary>
+    /// El código de un artículo es su código de barras de fábrica o un código interno corto que asigna el comercio, p.
+    /// ej. "11" para fotocopias, que el POS encuentra por coincidencia exacta (M11). En los dos casos son solo dígitos,
+    /// hasta <see cref="LongitudMaximaCodigoArticulo"/>. A propósito no se exige un largo GS1 ni el dígito
+    /// verificador: un código interno no los tiene, y un código de proveedor mal armado igual identifica al producto.
+    /// </summary>
+    public static bool EsCodigoDeArticuloValido(string? codigo)
+    {
+        var normalizado = codigo?.Trim() ?? string.Empty;
+        return normalizado.Length is > 0 and <= LongitudMaximaCodigoArticulo && normalizado.All(char.IsAsciiDigit);
+    }
+
+    /// <summary>
+    /// Devuelve el código sin espacios alrededor, o <c>null</c> si está vacío (el código es opcional, RF-04). Lanza
+    /// <see cref="DomainException"/> si no es válido según <see cref="EsCodigoDeArticuloValido"/>.
+    /// </summary>
+    public static string? ExigirCodigoDeArticulo(string? codigo)
+    {
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            return null;
+        }
+
+        var normalizado = codigo.Trim();
+        if (!EsCodigoDeArticuloValido(normalizado))
+        {
+            throw new DomainException(
+                $"El código '{normalizado}' no es válido: solo admite dígitos (código de barras o código interno), " +
+                $"hasta {LongitudMaximaCodigoArticulo}.");
+        }
+
+        return normalizado;
+    }
+
+    /// <summary>
     /// Devuelve el código en su forma canónica (GTIN-13 o EAN-8), o <c>null</c> si no es un código GS1 utilizable:
     /// no numérico, de un largo que no corresponde, con el dígito verificador incorrecto o de circulación restringida
     /// (GTIN-13 que empieza con 2, que cada comercio usa para sus códigos internos o de peso variable).
