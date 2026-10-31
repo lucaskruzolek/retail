@@ -39,7 +39,27 @@ public class SelectorSegmentado : ContentControl
     {
         AddHandler(ToggleButton.CheckedEvent, new RoutedEventHandler(AlMarcarUnaOpcion));
         SizeChanged += (_, _) => Reposicionar(animar: false);
-        Loaded += (_, _) => Reposicionar(animar: false);
+        Loaded += (_, _) => ReposicionarCuandoHayMedidas();
+
+        // Una página alojada en un Frame o en un contenedor que estaba oculto puede cargarse antes de tener medidas
+        // (el ancho de la opción marcada vale cero): al hacerse visible se vuelve a posicionar
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is true)
+            {
+                ReposicionarCuandoHayMedidas();
+            }
+        };
+    }
+
+    // Se posiciona ya y otra vez cuando termina el layout pendiente: lo que se marca por binding durante la carga
+    // (IsChecked enlazado al ViewModel) se mide recién después
+    private void ReposicionarCuandoHayMedidas()
+    {
+        Reposicionar(animar: false);
+        Dispatcher.BeginInvoke(
+            new Action(() => Reposicionar(animar: false)),
+            System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     /// <summary>Si es falso, el indicador salta sin animación (las pruebas lo apagan para medir la posición final).</summary>

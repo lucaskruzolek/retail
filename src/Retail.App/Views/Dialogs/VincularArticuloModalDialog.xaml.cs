@@ -10,5 +10,6 @@ public partial class VincularArticuloModalDialog : FluentWindow
     public VincularArticuloModalDialog()
     {
         InitializeComponent();
+        Loaded += (_, _) => CuadroBusqueda.Focus();
     }
 }

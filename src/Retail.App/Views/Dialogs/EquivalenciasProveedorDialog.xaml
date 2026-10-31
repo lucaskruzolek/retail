@@ -31,7 +31,7 @@
         <components:EncabezadoDialogo Titulo="{Binding TituloVentana}" />
 
         <!-- Contenido Central -->
-        <Grid Grid.Row="1" Margin="24,12,24,12">
+        <Grid Grid.Row="1" Margin="12,0,12,12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -50,7 +50,7 @@
                     Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                 <TextBlock Text="{Binding MensajeError}"
                            Foreground="{DynamicResource DangerForegroundBrush}"
-                           FontSize="12"
+                           FontSize="{StaticResource FontSizeSm}"
                            TextWrapping="Wrap" />
             </Border>
 
@@ -65,20 +65,23 @@
                     Visibility="{Binding SoloLectura, Converter={StaticResource BoolToVisConverter}}">
                 <TextBlock Text="Un Gerente o un Encargado puede cambiar estas equivalencias."
                            Foreground="{DynamicResource WarningForegroundBrush}"
-                           FontSize="12"
+                           FontSize="{StaticResource FontSizeSm}"
                            TextWrapping="Wrap" />
             </Border>
 
             <!-- Equivalencias del proveedor -->
-            <Border Grid.Row="2" Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+            <Border Grid.Row="2" Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                        <TextBlock Text="Equivalencias" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
+                    <DockPanel Grid.Row="0" LastChildFill="False" Margin="{StaticResource StackMd}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconBoxIcons Kind="RegularSwapHorizontal" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Equivalencias" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
                         <StackPanel DockPanel.Dock="Right"
                                     Orientation="Horizontal"
                                     VerticalAlignment="Center"
@@ -106,7 +109,7 @@
                                                 Binding="{Binding DestinoTexto}"
                                                 Width="130"
                                                 ElementStyle="{StaticResource TextBlockTextCell}" />
-                            <DataGridTemplateColumn Header="" Width="48">
+                            <DataGridTemplateColumn Header="" Width="44" CanUserSort="False">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <Button Command="{Binding DataContext.QuitarCommand, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -127,10 +130,12 @@
             <!-- Formulario de asignación: solo para quien puede escribir diccionarios -->
             <Border Grid.Row="3"
                     Style="{StaticResource DialogSectionStyle}"
-                    Padding="16"
                     Visibility="{Binding PuedeEditar, Converter={StaticResource BoolToVisConverter}}">
                 <StackPanel>
-                    <TextBlock Text="Asignar destino" Style="{StaticResource TextBlockHeader2}" Margin="0,0,0,12" />
+                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularLink" Style="{StaticResource CardHeaderIconStyle}" />
+                        <TextBlock Text="Asignar destino" Style="{StaticResource CardHeaderTextStyle}" />
+                    </StackPanel>
 
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -167,8 +172,8 @@
                             Style="{StaticResource PrimaryActionButtonStyle}"
                             HorizontalAlignment="Right">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="SolidCheckCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Asignar" FontWeight="Bold" VerticalAlignment="Center" />
+                            <iconPacks:PackIconBoxIcons Kind="RegularCheckCircle" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Asignar" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -182,7 +187,7 @@
                         Style="{StaticResource BadgeSuccessStyle}"
                         Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeEstado}"
-                               FontSize="12" FontWeight="SemiBold"
+                               FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold"
                                Foreground="{DynamicResource SuccessForegroundBrush}" />
                 </Border>
 

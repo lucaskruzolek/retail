@@ -3,6 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:components="clr-namespace:Retail.App.Views.Components"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  Title="{Binding TituloVentana}"
                  Width="460"
                  MinWidth="420"
@@ -37,21 +38,25 @@
                         BorderBrush="{DynamicResource DangerBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="12,8"
-                        Margin="0,0,0,12"
+                        Padding="{StaticResource InsetCompact}"
+                        Margin="{StaticResource StackMd}"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Datos de la Clasificación" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
                         <!-- Nombre -->
                         <TextBlock Text="{Binding EtiquetaNombre}"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}" />
 
                         <!-- Rubro (solo categorías) -->
@@ -59,7 +64,7 @@
                                     Visibility="{Binding MostrarRubro, Converter={StaticResource BoolToVisConverter}}">
                             <TextBlock Text="Rubro *"
                                        Style="{StaticResource TextBlockBodySecondary}"
-                                       Margin="0,0,0,4" />
+                                       Margin="{StaticResource StackXs}" />
                             <ComboBox ItemsSource="{Binding Rubros}"
                                       SelectedItem="{Binding RubroSeleccionado}"
                                       DisplayMemberPath="NombreRubro" />
@@ -75,7 +80,7 @@
                 <Button Command="{Binding CancelarCommand}"
                         CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                         Style="{StaticResource KeycapButtonStyle}"
-                        Margin="0,0,10,0"
+                        Margin="{StaticResource InlineSm}"
                         IsCancel="True">
                     <TextBlock Text="Cancelar" VerticalAlignment="Center" />
                 </Button>
@@ -84,7 +89,10 @@
                         CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         IsDefault="True">
-                    <TextBlock Text="Guardar" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Guardar" VerticalAlignment="Center" />
+                    </StackPanel>
                 </Button>
             </StackPanel>
         </Border>

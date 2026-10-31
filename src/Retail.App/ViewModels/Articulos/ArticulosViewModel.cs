@@ -109,10 +109,6 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
-    public string InformacionPaginacion => TotalRegistrosFiltrados == 0
-        ? "Sin artículos registrados"
-        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistrosFiltrados)} de {TotalRegistrosFiltrados} artículos";
-
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
 
     public bool HayFiltrosActivos =>
@@ -358,9 +354,6 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(PuedeRetrocederPagina));
         OnPropertyChanged(nameof(PuedeAvanzarPagina));
-        OnPropertyChanged(nameof(InformacionPaginacion));
-
-        MensajeEstado = $"Mostrando {Articulos.Count} de {TotalArticulos} artículos ({TotalAlertasStock} con alerta de stock).";
     }
 
     /// <summary>

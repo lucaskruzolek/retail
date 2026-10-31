@@ -34,7 +34,8 @@ public class AgregarVariosAlPedidoIntegrationTests : PedidosPruebaBase
             new CatalogoProveedorQueryService(contexto),
             new AgregarVariosAlPedidoValidator(),
             new CambiarCantidadRenglonValidator(),
-            new CancelarPedidoValidator());
+            new CancelarPedidoValidator(),
+            new ConsultaPedidosValidator());
     }
 
     private static AgregarVariosAlPedidoDto CrearLote(int idUsuario, params (int IdCatalogo, int Cantidad)[] renglones)

@@ -2,6 +2,7 @@ using FluentAssertions;
 using NSubstitute;
 using Retail.App.Services;
 using Retail.App.ViewModels.Clientes;
+using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -76,13 +77,21 @@ public class ClientesViewModelTests : IDisposable
                 {
                     query = query.Where(c => c.CondicionIva == consulta.CondicionIva.Value);
                 }
-                if (consulta.SoloConDeuda)
+                if (consulta.EstadosDeuda is [FiltroDeudaClienteEnum.ConDeuda])
                 {
                     query = query.Where(c => c.SaldoCuentaCorriente > 0m);
                 }
-                if (consulta.SoloConCuentaCorriente)
+                if (consulta.EstadosDeuda is [FiltroDeudaClienteEnum.SinDeuda])
+                {
+                    query = query.Where(c => c.SaldoCuentaCorriente <= 0m);
+                }
+                if (consulta.EstadosCuentaCorriente is [FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente])
                 {
                     query = query.Where(c => c.TieneCuentaCorriente);
+                }
+                if (consulta.EstadosCuentaCorriente is [FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente])
+                {
+                    query = query.Where(c => !c.TieneCuentaCorriente);
                 }
                 var filtrados = query.ToList();
                 int tamano = Math.Max(1, consulta.TamanoPagina);
@@ -195,32 +204,138 @@ public class ClientesViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task SoloConDeuda_FiltraSoloClientesConSaldoDeudor()
+    public async Task FiltroDeuda_ConDeuda_FiltraSoloClientesConSaldoDeudor()
     {
         // Arrange
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Act
-        _sut.SoloConDeuda = true;
+        AplicarFiltro(_sut.FiltroDeuda, (int)FiltroDeudaClienteEnum.ConDeuda);
         await Task.Delay(100);
 
         // Assert
         _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Librería San Martín");
+        _sut.PaginaActual.Should().Be(1);
     }
 
     [Fact]
-    public async Task SoloConCuentaCorriente_FiltraSoloClientesConCuentaCorriente()
+    public async Task FiltroCuentaCorriente_ConCuentaCorriente_FiltraSoloClientesConCuentaCorriente()
     {
         // Arrange
         await _sut.CargarClientesCommand.ExecuteAsync(null);
 
         // Act
-        _sut.SoloConCuentaCorriente = true;
+        AplicarFiltro(_sut.FiltroCuentaCorriente, (int)FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente);
         await Task.Delay(100);
 
         // Assert
         _sut.Clientes.Should().HaveCount(2);
         _sut.Clientes.Should().NotContain(c => c.RazonSocialONombre == "Juan Pérez");
+    }
+
+    [Fact]
+    public async Task FiltroCuentaCorriente_SinCuentaCorriente_FiltraSoloClientesSinCuentaCorriente()
+    {
+        // Arrange
+        await _sut.CargarClientesCommand.ExecuteAsync(null);
+
+        // Act
+        AplicarFiltro(_sut.FiltroCuentaCorriente, (int)FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente);
+        await Task.Delay(100);
+
+        // Assert
+        _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Juan Pérez");
+    }
+
+    [Fact]
+    public async Task FiltroDeuda_ConAmbasOpciones_NoFiltra()
+    {
+        // Arrange
+        await _sut.CargarClientesCommand.ExecuteAsync(null);
+
+        // Act: marcar las dos opciones equivale a no filtrar (IdsAplicados queda vacío)
+        AplicarFiltro(
+            _sut.FiltroDeuda,
+            (int)FiltroDeudaClienteEnum.ConDeuda,
+            (int)FiltroDeudaClienteEnum.SinDeuda);
+        await Task.Delay(100);
+
+        // Assert
+        _sut.FiltroDeuda.HayFiltroActivo.Should().BeFalse();
+        _sut.Clientes.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task CargarClientes_ConFiltrosDeColumna_ArmaLaConsultaConLosEstadosAplicados()
+    {
+        // Arrange
+        await _sut.CargarClientesCommand.ExecuteAsync(null);
+        AplicarFiltro(_sut.FiltroDeuda, (int)FiltroDeudaClienteEnum.SinDeuda);
+        AplicarFiltro(_sut.FiltroCuentaCorriente, (int)FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente);
+        await Task.Delay(100);
+
+        // Assert
+        await _clienteService.Received().ListarClientesPaginadosAsync(
+            Arg.Is<ConsultaClientesDto>(c =>
+                c.EstadosDeuda.SequenceEqual(new[] { FiltroDeudaClienteEnum.SinDeuda }) &&
+                c.EstadosCuentaCorriente.SequenceEqual(new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente })),
+            Arg.Any<CancellationToken>());
+        _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Escuela Nro 5");
+    }
+
+    [Fact]
+    public async Task LimpiarFiltros_ConBusquedaYFiltrosDeColumna_RestableceTodo()
+    {
+        // Arrange
+        await _sut.CargarClientesCommand.ExecuteAsync(null);
+        AplicarFiltro(_sut.FiltroDeuda, (int)FiltroDeudaClienteEnum.ConDeuda);
+        AplicarFiltro(_sut.FiltroCuentaCorriente, (int)FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente);
+        _sut.TextoBusqueda = "San";
+        await Task.Delay(350);
+        _sut.HayFiltrosActivos.Should().BeTrue();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeTrue();
+
+        // Act
+        _sut.LimpiarFiltrosCommand.Execute(null);
+        await Task.Delay(100);
+
+        // Assert
+        _sut.TextoBusqueda.Should().BeEmpty();
+        _sut.FiltroDeuda.HayFiltroActivo.Should().BeFalse();
+        _sut.FiltroCuentaCorriente.HayFiltroActivo.Should().BeFalse();
+        _sut.HayFiltrosActivos.Should().BeFalse();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
+        _sut.Clientes.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task AlternarSoloConDeuda_AlternaElFiltroDeLaColumnaSaldoDeudor()
+    {
+        // Arrange
+        await _sut.CargarClientesCommand.ExecuteAsync(null);
+
+        // Act / Assert: la primera vez aplica "Con deuda"
+        _sut.AlternarSoloConDeudaCommand.Execute(null);
+        await Task.Delay(100);
+        _sut.FiltroDeuda.IdsAplicados.Should().Equal((int)FiltroDeudaClienteEnum.ConDeuda);
+        _sut.Clientes.Should().ContainSingle(c => c.RazonSocialONombre == "Librería San Martín");
+
+        // La segunda vez lo quita
+        _sut.AlternarSoloConDeudaCommand.Execute(null);
+        await Task.Delay(100);
+        _sut.FiltroDeuda.HayFiltroActivo.Should().BeFalse();
+        _sut.Clientes.Should().HaveCount(3);
+    }
+
+    /// <summary>Marca las casillas indicadas del filtro y pulsa "Aplicar", como lo hace el usuario desde la cabecera.</summary>
+    private static void AplicarFiltro(FiltroColumnaViewModel filtro, params int[] idsMarcados)
+    {
+        foreach (var opcion in filtro.Grupos.SelectMany(g => g.Opciones))
+        {
+            opcion.Seleccionada = idsMarcados.Contains(opcion.Id);
+        }
+
+        filtro.AplicarCommand.Execute(null);
     }
 
     [Fact]

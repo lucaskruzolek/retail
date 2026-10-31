@@ -5,7 +5,7 @@ using FluentValidation;
 using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
 using Retail.App.Services;
-using Retail.App.ViewModels.Reportes;
+using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Exceptions;
@@ -16,7 +16,7 @@ using Retail.Domain.Exceptions;
 namespace Retail.App.ViewModels.Pedidos;
 
 /// <summary>
-/// Bandeja de pedidos a proveedor (IU-12, RF-29): filtros por estado y proveedor, grilla paginada en SQL y panel de
+/// Bandeja de pedidos a proveedor (IU-12, RF-29): filtros de columna (estado y proveedor, selección múltiple), grilla paginada en SQL y panel de
 /// detalle con las acciones que permite el estado del pedido (§4.1 del rector del Track 4.3). No navega a Compras
 /// (A-12).
 /// </summary>
@@ -49,28 +49,38 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         _reloj = reloj ?? throw new ArgumentNullException(nameof(reloj));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _carga = new CargaSerializada(_logger);
+
+        // Los estados son fijos; los proveedores llegan al inicializar la pantalla.
+        FiltroEstado.CargarOpciones(
+        [
+            new OpcionFiltroColumna((int)EstadoPedidoEnum.Borrador, "Borradores"),
+            new OpcionFiltroColumna((int)EstadoPedidoEnum.Emitido, "Emitidos"),
+            new OpcionFiltroColumna((int)EstadoPedidoEnum.Recibido, "Recibidos"),
+            new OpcionFiltroColumna((int)EstadoPedidoEnum.Cancelado, "Cancelados")
+        ]);
+
+        FiltroEstado.Aplicado += AlAplicarFiltroDeColumna;
+        FiltroProveedor.Aplicado += AlAplicarFiltroDeColumna;
     }
 
     // ------------------------------------------------------------------ //
     // Filtros y grilla                                                    //
     // ------------------------------------------------------------------ //
 
-    public IReadOnlyList<OpcionEstadoPedido> OpcionesEstado { get; } = OpcionEstadoPedido.Todas;
+    /// <summary>Filtro de la columna Estado: los cuatro estados del pedido (vacío = todos).</summary>
+    public FiltroColumnaViewModel FiltroEstado { get; } = new("Estado");
 
-    public ObservableCollection<OpcionFiltro> Proveedores { get; } = new();
+    /// <summary>Filtro de la columna Proveedor; sus opciones llegan al inicializar la pantalla.</summary>
+    public FiltroColumnaViewModel FiltroProveedor { get; } = new("Proveedor");
 
     public ObservableCollection<PedidoFila> Pedidos { get; } = new();
 
     [ObservableProperty]
-    private OpcionEstadoPedido _estadoFiltro = OpcionEstadoPedido.Todas[0];
-
-    [ObservableProperty]
-    private OpcionFiltro? _proveedorFiltro;
+    private string _textoBusqueda = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeRetrocederPagina))]
     [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _paginaActual = 1;
 
     [ObservableProperty]
@@ -78,11 +88,9 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     private int _totalPaginas = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _totalRegistros;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _tamanoPagina = 20;
 
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
@@ -91,9 +99,10 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
-    public string InformacionPaginacion => TotalRegistros == 0
-        ? "Sin pedidos"
-        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistros)} de {TotalRegistros} pedidos";
+    public bool HayFiltrosActivos =>
+        !string.IsNullOrWhiteSpace(TextoBusqueda) ||
+        FiltroEstado.HayFiltroActivo ||
+        FiltroProveedor.HayFiltroActivo;
 
     // ------------------------------------------------------------------ //
     // Selección y detalle                                                 //
@@ -183,8 +192,9 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     {
         var consulta = new ConsultaPedidosDto
         {
-            Estado = EstadoFiltro.Estado,
-            IdProveedor = ProveedorFiltro?.Id,
+            TerminoBusqueda = TextoBusqueda,
+            Estados = FiltroEstado.IdsAplicados.Select(id => (EstadoPedidoEnum)id).ToList(),
+            IdsProveedor = FiltroProveedor.IdsAplicados,
             Pagina = PaginaActual,
             TamanoPagina = TamanoPagina
         };
@@ -205,14 +215,42 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         IsBusy = _carga.EnCurso;
     }
 
-    partial void OnEstadoFiltroChanged(OpcionEstadoPedido value)
+    private void AlAplicarFiltroDeColumna(object? sender, EventArgs e)
     {
+        ActualizarEstadoFiltros();
         RecargarDesdePrimeraPagina();
     }
 
-    partial void OnProveedorFiltroChanged(OpcionFiltro? value)
+    partial void OnTextoBusquedaChanged(string value)
     {
+        ActualizarEstadoFiltros();
         RecargarDesdePrimeraPagina();
+    }
+
+    [RelayCommand(CanExecute = nameof(HayFiltrosActivos))]
+    public void LimpiarFiltros()
+    {
+        // Se borra el texto sin disparar su propia recarga: la pantalla consulta una sola vez, al final.
+        _inicializando = true;
+        try
+        {
+            TextoBusqueda = string.Empty;
+        }
+        finally
+        {
+            _inicializando = false;
+        }
+
+        FiltroEstado.QuitarFiltro();
+        FiltroProveedor.QuitarFiltro();
+        ActualizarEstadoFiltros();
+        RecargarDesdePrimeraPagina();
+    }
+
+    private void ActualizarEstadoFiltros()
+    {
+        OnPropertyChanged(nameof(HayFiltrosActivos));
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnTamanoPaginaChanged(int value)
@@ -460,14 +498,10 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
 
     private void MostrarProveedores(IReadOnlyList<ProveedorDto> proveedores)
     {
-        Proveedores.Clear();
-        Proveedores.Add(new OpcionFiltro(null, "Todos"));
-        foreach (var proveedor in proveedores.OrderBy(p => p.RazonSocial))
-        {
-            Proveedores.Add(new OpcionFiltro(proveedor.IdProveedor, proveedor.RazonSocial));
-        }
-
-        ProveedorFiltro = Proveedores[0];
+        FiltroProveedor.CargarOpciones(
+            proveedores
+                .OrderBy(p => p.RazonSocial)
+                .Select(p => new OpcionFiltroColumna(p.IdProveedor, p.RazonSocial)));
     }
 
     private void MostrarPedidos(PedidosPaginadosDto resultado)
@@ -485,7 +519,6 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         TotalRegistros = resultado.TotalRegistros;
         TotalPaginas = Math.Max(1, resultado.TotalPaginas);
         OnPropertyChanged(nameof(PuedeAvanzarPagina));
-        OnPropertyChanged(nameof(InformacionPaginacion));
 
         PedidoSeleccionado = Pedidos.FirstOrDefault(p => p.IdPedido == idSeleccionado);
     }

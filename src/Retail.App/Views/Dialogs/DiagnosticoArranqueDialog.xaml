@@ -21,14 +21,13 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de título estandarizada de diálogo modal -->
         <!-- Barra de título: título y botones de ventana en la misma banda -->
         <components:EncabezadoDialogo Titulo="Base de datos - Retail POS" />
 
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
-                      Padding="24,12,24,12">
+                      Padding="12,0,12,12">
             <StackPanel>
                 <!-- Tarjeta de advertencia: la base no está lista -->
                 <Border Background="{DynamicResource WarningBackgroundBrush}"
@@ -36,7 +35,7 @@
                         BorderThickness="1"
                         CornerRadius="8"
                         Padding="16"
-                        Margin="0,0,0,16">
+                        Margin="{StaticResource StackMd}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -44,7 +43,7 @@
                         </Grid.ColumnDefinitions>
 
                         <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                    Kind="SolidAlertTriangle"
+                                                    Kind="RegularAlertTriangle"
                                                     Width="36"
                                                     Height="36"
                                                     Foreground="{DynamicResource WarningForegroundBrush}"
@@ -53,12 +52,12 @@
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="La base de datos no está lista"
-                                       FontSize="16"
+                                       FontSize="{StaticResource FontSizeLg}"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource WarningForegroundBrush}"
-                                       Margin="0,0,0,4" />
+                                       Margin="{StaticResource StackXs}" />
                             <TextBlock x:Name="TxtMensaje"
-                                       FontSize="13"
+                                       FontSize="{StaticResource FontSizeBase}"
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextPrimaryBrush}" />
                         </StackPanel>
@@ -67,26 +66,24 @@
 
                 <!-- Comandos a ejecutar: solo se muestran, la aplicación no los ejecuta -->
                 <Border x:Name="PanelComandos"
-                        Style="{StaticResource DialogSectionStyle}"
-                        Padding="14"
-                        Margin="0,0,0,8">
+                        Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <TextBlock Text="Comandos a ejecutar en PowerShell, en este orden:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularTerminal" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Comandos a ejecutar en PowerShell, en este orden" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
                         <TextBlock x:Name="TxtNotaDesarrollo"
                                    Text="Ejecútelos parado en la raíz del repositorio."
                                    Style="{StaticResource TextBlockCaption}"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                    Visibility="Collapsed"
-                                   Margin="0,0,0,8" />
+                                   Margin="{StaticResource StackSm}" />
 
                         <ItemsControl x:Name="ListaComandos">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,0,0,8">
+                                    <Grid Margin="{StaticResource StackSm}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
@@ -97,12 +94,9 @@
                                                  IsReadOnly="True"
                                                  TextWrapping="Wrap"
                                                  FontFamily="{StaticResource FontFamilyMonospace}"
-                                                 FontSize="12"
-                                                 Background="{DynamicResource SurfaceBackgroundBrush}"
-                                                 Foreground="{DynamicResource TextPrimaryBrush}"
-                                                 BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                                 FontSize="{StaticResource FontSizeSm}"
                                                  VerticalContentAlignment="Center"
-                                                 Margin="0,0,8,0" />
+                                                 Margin="{StaticResource InlineSm}" />
 
                                         <Button Grid.Column="1"
                                                 Click="BtnCopiarComando_Click"
@@ -111,10 +105,9 @@
                                                 VerticalAlignment="Center">
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                                 <iconPacks:PackIconBoxIcons Kind="RegularCopy"
-                                                                            Width="16"
-                                                                            Height="16"
-                                                                            Foreground="{DynamicResource PrimaryBrush}"
-                                                                            Margin="0,0,8,0"
+                                                                            Width="14"
+                                                                            Height="14"
+                                                                            Margin="{StaticResource InlineSm}"
                                                                             VerticalAlignment="Center" />
                                                 <TextBlock Text="{Binding TextoBoton}" VerticalAlignment="Center" />
                                             </StackPanel>
@@ -138,10 +131,9 @@
                         Visibility="Collapsed">
                     <StackPanel Orientation="Horizontal">
                         <iconPacks:PackIconBoxIcons Kind="RegularCopy"
-                                                    Width="16"
-                                                    Height="16"
-                                                    Foreground="{DynamicResource PrimaryBrush}"
-                                                    Margin="0,0,8,0"
+                                                    Width="14"
+                                                    Height="14"
+                                                    Margin="{StaticResource InlineSm}"
                                                     VerticalAlignment="Center" />
                         <TextBlock x:Name="TxtBtnCopiarTodos" Text="Copiar todos" VerticalAlignment="Center" />
                     </StackPanel>
@@ -151,8 +143,12 @@
                         Click="BtnCerrar_Click"
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         HorizontalAlignment="Right"
-                        IsDefault="True">
-                    <TextBlock Text="Cerrar" FontWeight="Bold" />
+                        IsDefault="True"
+                        IsCancel="True">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Cerrar" VerticalAlignment="Center" />
+                    </StackPanel>
                 </Button>
             </DockPanel>
         </Border>

@@ -96,7 +96,20 @@ public partial class FiltroColumna : UserControl
         Animar(opacidad: 1, desplazamiento: 0, desde: (0, DesplazamientoAnimacion), alTerminar: null);
 
         // El foco se da cuando el Popup ya tiene su ventana nativa
-        Dispatcher.BeginInvoke(() => Busqueda.Focus(), System.Windows.Threading.DispatcherPriority.Input);
+        // (sin buscador, a la primera casilla)
+        Dispatcher.BeginInvoke(
+            () =>
+            {
+                if (Busqueda.IsVisible)
+                {
+                    Busqueda.Focus();
+                }
+                else
+                {
+                    Tarjeta.MoveFocus(new TraversalRequest(FocusNavigationDirection.First));
+                }
+            },
+            System.Windows.Threading.DispatcherPriority.Input);
     }
 
     private void CerrarPanel(bool animar)

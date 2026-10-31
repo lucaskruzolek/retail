@@ -587,7 +587,7 @@ public class AppSmokeTests
 
         // El alto lo da el contenido (patrón de ClasificacionFormDialog) y respeta la salvaguarda de SISTEMA_DE_DISENO.md.
         sizeToContent.Should().Be(System.Windows.SizeToContent.Height);
-        alturaMedida.Should().BeLessThanOrEqualTo(680, $"el modo {modo} no debe superar la altura máxima de un modal");
+        alturaMedida.Should().BeLessThanOrEqualTo(728, $"el modo {modo} debe entrar en una pantalla de 768 px de alto descontada la barra de tareas (si crece más, el diálogo scrollea)");
     }
 
     [Fact]
@@ -1143,7 +1143,7 @@ public class AppSmokeTests
         {
             try
             {
-                var barra = new ListToolbar { TotalResultados = 248, PlaceholderText = "Buscar..." };
+                var barra = new ListToolbar { PlaceholderText = "Buscar..." };
                 barra.Measure(new System.Windows.Size(1000, 200));
                 barra.Arrange(new System.Windows.Rect(0, 0, 1000, 200));
                 barra.UpdateLayout();

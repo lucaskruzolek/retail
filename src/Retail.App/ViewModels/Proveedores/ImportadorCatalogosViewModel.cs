@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
@@ -106,6 +107,9 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
     private bool _isUpdatingSeleccionarTodos;
 
+    /// <summary>Ítems marcados en la página actual; la barra de acciones masivas lo muestra.</summary>
+    public int CantidadSeleccionados => ItemsCatalogo.Count(i => i.EstaSeleccionado);
+
     public bool PuedeImportar => TieneProveedorActivo && !IsBusy;
 
     /// <summary>Solo el Gerente y el Encargado ven las acciones de pedir (A-14).</summary>
@@ -117,7 +121,11 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
     public ObservableCollection<CatalogoProveedorDto> ItemsCatalogo { get; } = new();
 
-    public IReadOnlyList<EstadoVinculacionCatalogoEnum> OpcionesEstado { get; } = Enum.GetValues<EstadoVinculacionCatalogoEnum>();
+    /// <summary>
+    /// Filtro de la columna Estado: "Sin incorporar" y "Ya en tienda". El backend recibe un solo
+    /// <see cref="EstadoVinculacionCatalogoEnum"/>, así que se traduce en <see cref="AlAplicarFiltroEstado"/>.
+    /// </summary>
+    public FiltroColumnaViewModel FiltroEstadoVinculacion { get; } = new("Estado");
 
     [ObservableProperty]
     private string _textoBusquedaCatalogo = string.Empty;
@@ -128,20 +136,16 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeRetrocederPagina))]
     [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _paginaActual = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _totalItemsCatalogo;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _totalPaginas = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _tamanoPagina = 50;
 
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = new[] { 20, 50, 100 };
@@ -150,9 +154,9 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
-    public string InformacionPaginacion => TotalItemsCatalogo == 0
-        ? "Sin artículos"
-        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalItemsCatalogo)} de {TotalItemsCatalogo} artículos";
+    public bool HayFiltrosActivos =>
+        !string.IsNullOrWhiteSpace(TextoBusquedaCatalogo) ||
+        FiltroEstado != EstadoVinculacionCatalogoEnum.Todos;
 
     public ImportadorCatalogosViewModel(
         IProveedorService proveedorService,
@@ -173,6 +177,40 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         _flujoPedir = flujoPedir ?? throw new ArgumentNullException(nameof(flujoPedir));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _cargaCatalogo = new CargaSerializada(_logger);
+
+        FiltroEstadoVinculacion.CargarOpciones(
+        [
+            new OpcionFiltroColumna((int)EstadoVinculacionCatalogoEnum.SinIncorporar, "Sin incorporar"),
+            new OpcionFiltroColumna((int)EstadoVinculacionCatalogoEnum.YaEnTienda, "Ya en tienda")
+        ]);
+        FiltroEstadoVinculacion.Aplicado += AlAplicarFiltroEstado;
+    }
+
+    /// <summary>
+    /// Traduce lo aplicado en el filtro de columna al enum del backend: exactamente una opción marcada la elige;
+    /// ninguna o ambas equivalen a no filtrar (<see cref="EstadoVinculacionCatalogoEnum.Todos"/>).
+    /// </summary>
+    private void AlAplicarFiltroEstado(object? sender, EventArgs e)
+    {
+        var aplicados = FiltroEstadoVinculacion.IdsAplicados;
+        FiltroEstado = aplicados.Count == 1
+            ? (EstadoVinculacionCatalogoEnum)aplicados[0]
+            : EstadoVinculacionCatalogoEnum.Todos;
+    }
+
+    [RelayCommand(CanExecute = nameof(HayFiltrosActivos))]
+    private void LimpiarFiltros()
+    {
+        TextoBusquedaCatalogo = string.Empty;
+        FiltroEstadoVinculacion.QuitarFiltro();
+        FiltroEstado = EstadoVinculacionCatalogoEnum.Todos;
+    }
+
+    /// <summary>Quita la marca de todos los ítems de la página ("Cancelar selección" de la barra de acciones masivas).</summary>
+    [RelayCommand]
+    private void LimpiarSeleccion()
+    {
+        SeleccionarTodos = false;
     }
 
     public async Task CargarProveedoresDisponiblesAsync(int? idProveedorSeleccionar = null)
@@ -257,12 +295,14 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
     partial void OnFiltroEstadoChanged(EstadoVinculacionCatalogoEnum value)
     {
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
         PaginaActual = 1;
         _ = CargarCatalogoAsync();
     }
 
     partial void OnTextoBusquedaCatalogoChanged(string value)
     {
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
         PaginaActual = 1;
         _ = CargarCatalogoConEsperaAsync(EsperaBusqueda);
     }
@@ -362,7 +402,6 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
         OnPropertyChanged(nameof(PuedeRetrocederPagina));
         OnPropertyChanged(nameof(PuedeAvanzarPagina));
-        OnPropertyChanged(nameof(InformacionPaginacion));
     }
 
     [RelayCommand]
@@ -696,6 +735,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
             item.PropertyChanged -= Item_PropertyChanged;
         }
         ItemsCatalogo.Clear();
+        OnPropertyChanged(nameof(CantidadSeleccionados));
     }
 
     private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -709,8 +749,9 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     private void ActualizarEstadoSeleccion()
     {
         var total = ItemsCatalogo.Count;
-        var seleccionados = ItemsCatalogo.Count(i => i.EstaSeleccionado);
+        var seleccionados = CantidadSeleccionados;
         TieneItemsSeleccionados = seleccionados > 0;
+        OnPropertyChanged(nameof(CantidadSeleccionados));
 
         if (!_isUpdatingSeleccionarTodos)
         {

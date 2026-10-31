@@ -24,6 +24,7 @@ public class PedidoService : IPedidoService
     private readonly IValidator<AgregarVariosAlPedidoDto> _agregarValidator;
     private readonly IValidator<CambiarCantidadRenglonDto> _cambiarCantidadValidator;
     private readonly IValidator<CancelarPedidoDto> _cancelarValidator;
+    private readonly IValidator<ConsultaPedidosDto> _consultaValidator;
 
     public PedidoService(
         IRepository<Pedido> pedidos,
@@ -32,7 +33,8 @@ public class PedidoService : IPedidoService
         ICatalogoProveedorQueryService catalogo,
         IValidator<AgregarVariosAlPedidoDto> agregarValidator,
         IValidator<CambiarCantidadRenglonDto> cambiarCantidadValidator,
-        IValidator<CancelarPedidoDto> cancelarValidator)
+        IValidator<CancelarPedidoDto> cancelarValidator,
+        IValidator<ConsultaPedidosDto> consultaValidator)
     {
         _pedidos = pedidos ?? throw new ArgumentNullException(nameof(pedidos));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
@@ -41,6 +43,7 @@ public class PedidoService : IPedidoService
         _agregarValidator = agregarValidator ?? throw new ArgumentNullException(nameof(agregarValidator));
         _cambiarCantidadValidator = cambiarCantidadValidator ?? throw new ArgumentNullException(nameof(cambiarCantidadValidator));
         _cancelarValidator = cancelarValidator ?? throw new ArgumentNullException(nameof(cancelarValidator));
+        _consultaValidator = consultaValidator ?? throw new ArgumentNullException(nameof(consultaValidator));
     }
 
     public async Task<ResultadoAgregarAlPedidoDto> AgregarVariosAlPedidoAsync(AgregarVariosAlPedidoDto dto, CancellationToken cancellationToken = default)
@@ -111,11 +114,12 @@ public class PedidoService : IPedidoService
         return _consultas.ObtenerVistaPreviaAsync(idsCatalogoProveedor, idProveedorPreferido, cancellationToken);
     }
 
-    public Task<PedidosPaginadosDto> ListarPedidosAsync(ConsultaPedidosDto consulta, CancellationToken cancellationToken = default)
+    public async Task<PedidosPaginadosDto> ListarPedidosAsync(ConsultaPedidosDto consulta, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(consulta);
+        await _consultaValidator.ValidateAndThrowAsync(consulta, cancellationToken);
 
-        return _consultas.ListarAsync(consulta, cancellationToken);
+        return await _consultas.ListarAsync(consulta, cancellationToken);
     }
 
     public Task<PedidoDetalleDto?> ObtenerDetalleAsync(int idPedido, CancellationToken cancellationToken = default)

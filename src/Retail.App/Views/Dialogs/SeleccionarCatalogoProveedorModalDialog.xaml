@@ -31,22 +31,25 @@
         <components:EncabezadoDialogo Titulo="Agregar fuente al artículo" />
 
         <!-- Contenido Central -->
-        <Grid Grid.Row="1" Margin="20,12">
+        <Grid Grid.Row="1" Margin="12,0,12,12">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <!-- 1. Tarjeta con el artículo del formulario (Track 4.3, A-19) -->
-            <Border Grid.Row="0" Style="{StaticResource DialogSectionStyle}" Padding="12" Margin="0,0,0,10">
+            <Border Grid.Row="0" Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                 <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularPackage" Style="{StaticResource CardHeaderIconStyle}" />
+                        <TextBlock Text="Artículo" Style="{StaticResource CardHeaderTextStyle}" />
+                    </StackPanel>
                     <TextBlock Text="{Binding TituloArticulo}" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding DescripcionArticulo}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding DescripcionArticulo}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeMd}" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
                     <TextBlock Text="{Binding CodigoBarrasArticulo}"
                                FontFamily="{StaticResource FontFamilyMonospace}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                Foreground="{DynamicResource TextPrimaryBrush}"
                                Margin="0,4,0,0"
                                Visibility="{Binding TieneCodigoBarrasArticulo, Converter={StaticResource BoolToVisConverter}}" />
@@ -60,163 +63,176 @@
                     BorderThickness="1"
                     CornerRadius="6"
                     Padding="12,8"
-                    Margin="0,0,0,10"
+                    Margin="{StaticResource StackMd}"
                     Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                 <TextBlock Text="{Binding MensajeError}"
                            Foreground="{DynamicResource DangerForegroundBrush}"
-                           FontSize="12"
+                           FontSize="{StaticResource FontSizeSm}"
                            TextWrapping="Wrap" />
             </Border>
 
-            <!-- 2. Barra de Filtros y Búsqueda -->
-            <Grid Grid.Row="2" Margin="0,0,0,10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="230" />
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <!-- 2. Catálogo del proveedor: filtros y grilla en una sola sección -->
+            <Border Grid.Row="2" Style="{StaticResource DialogSectionStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
 
-                <!-- Selector de Proveedor -->
-                <ComboBox Grid.Column="0"
-                          ItemsSource="{Binding Proveedores}"
-                          SelectedItem="{Binding ProveedorSeleccionado, Mode=TwoWay}"
-                          DisplayMemberPath="RazonSocial"
-                          Height="35"
-                          VerticalAlignment="Center" />
-
-                <!-- Buscador de texto o código -->
-                <ui:TextBox Grid.Column="2"
-                            Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="Buscar por código de proveedor, barras o descripción..."
-                            VerticalAlignment="Center">
-                    <ui:TextBox.Icon>
-                        <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                      Width="16" Height="16" />
-                    </ui:TextBox.Icon>
-                    <ui:TextBox.InputBindings>
-                        <KeyBinding Key="Return" Command="{Binding BuscarCommand}" />
-                    </ui:TextBox.InputBindings>
-                </ui:TextBox>
-
-                <!-- Botón Buscar -->
-                <Button Grid.Column="4"
-                        Command="{Binding BuscarCommand}"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        Padding="14,8"
-                        VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularSearch" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Buscar" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularBookOpen" Style="{StaticResource CardHeaderIconStyle}" />
+                        <TextBlock Text="Catálogo del proveedor" Style="{StaticResource CardHeaderTextStyle}" />
                     </StackPanel>
-                </Button>
-            </Grid>
 
-            <!-- 3. Grilla de ítems del catálogo: las filas de otro artículo (A-1) se ven deshabilitadas -->
-            <Border Grid.Row="3" Style="{StaticResource DialogSectionStyle}" Padding="0">
-                <DataGrid ItemsSource="{Binding ItemsCatalogo}"
-                          SelectedItem="{Binding FilaSeleccionada, Mode=TwoWay}"
-                          Style="{StaticResource DataGridRetailStyle}"
-                          CellStyle="{StaticResource DataGridCellRetailStyle}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          SelectionMode="Single"
-                          MouseDoubleClick="OnDataGridMouseDoubleClick">
-                    <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowRetailStyle}">
-                            <Setter Property="IsEnabled" Value="{Binding EsSeleccionable}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding EsSeleccionable}" Value="False">
-                                    <Setter Property="Opacity" Value="0.6" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </DataGrid.RowStyle>
-                    <DataGrid.Columns>
-                        <!-- Proveedor: razón social y código de proveedor -->
-                        <DataGridTemplateColumn Header="Proveedor" Width="160">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel VerticalAlignment="Center" Margin="12,0">
-                                        <TextBlock Text="{Binding Item.ProveedorRazonSocial}"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Item.CodigoProveedor}"
-                                                   FontFamily="{StaticResource FontFamilyMonospace}"
-                                                   FontSize="11"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                    <Grid Grid.Row="1" Margin="{StaticResource StackMd}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="230" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                        <DataGridTextColumn Header="Descripción"
-                                            Binding="{Binding Item.DescripcionProveedor}"
-                                            ElementStyle="{StaticResource TextBlockTextCell}"
-                                            Width="*"
-                                            MinWidth="240" />
+                        <!-- Selector de Proveedor -->
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding Proveedores}"
+                                  SelectedItem="{Binding ProveedorSeleccionado, Mode=TwoWay}"
+                                  DisplayMemberPath="RazonSocial"
+                                  VerticalAlignment="Center" />
 
-                        <DataGridTextColumn Header="Costo"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                            Binding="{Binding Item.CostoReposicion, StringFormat={}{0:C2}}"
-                                            ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="95" />
+                        <!-- Buscador de texto o código -->
+                        <ui:TextBox Grid.Column="2"
+                                    Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Buscar por código de proveedor, barras o descripción..."
+                                    VerticalAlignment="Center">
+                            <ui:TextBox.Icon>
+                                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
+                                              Width="16" Height="16" />
+                            </ui:TextBox.Icon>
+                            <ui:TextBox.InputBindings>
+                                <KeyBinding Key="Return" Command="{Binding BuscarCommand}" />
+                            </ui:TextBox.InputBindings>
+                        </ui:TextBox>
 
-                        <DataGridTextColumn Header="Lista"
-                                            Binding="{Binding FechaLocal, StringFormat={}{0:dd/MM/yyyy}}"
-                                            ElementStyle="{StaticResource TextBlockTextCell}"
-                                            Width="85" />
+                        <!-- Botón Buscar -->
+                        <Button Grid.Column="4"
+                                Command="{Binding BuscarCommand}"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularSearch" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Buscar" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
 
-                        <!-- Estado: Disponible o de qué artículo es fuente -->
-                        <DataGridTemplateColumn Header="Estado" Width="130">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Border Padding="6,2">
-                                            <Border.Style>
-                                                <Style TargetType="Border" BasedOn="{StaticResource BadgeSuccessStyle}">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding EsSeleccionable}" Value="True">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <TextBlock Text="{Binding TextoEstado}"
-                                                       FontSize="11"
-                                                       FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource SuccessForegroundBrush}" />
-                                        </Border>
 
-                                        <Border Padding="6,2">
-                                            <Border.Style>
-                                                <Style TargetType="Border" BasedOn="{StaticResource BadgeWarningStyle}">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding EsSeleccionable}" Value="False">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Border.Style>
-                                            <TextBlock Text="{Binding TextoEstado}"
-                                                       FontSize="11"
-                                                       FontWeight="SemiBold"
-                                                       MaxWidth="116"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       ToolTip="{Binding TextoEstado}"
-                                                       Foreground="{DynamicResource WarningForegroundBrush}" />
-                                        </Border>
-                                    </Grid>
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
+                    <!-- Grilla de ítems del catálogo: las filas de otro artículo (A-1) se ven deshabilitadas -->
+                        <DataGrid Grid.Row="2"
+                                  ItemsSource="{Binding ItemsCatalogo}"
+                                  SelectedItem="{Binding FilaSeleccionada, Mode=TwoWay}"
+                                  Style="{StaticResource DataGridRetailStyle}"
+                                  CellStyle="{StaticResource DataGridCellRetailStyle}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  SelectionMode="Single"
+                                  MouseDoubleClick="OnDataGridMouseDoubleClick">
+                            <DataGrid.RowStyle>
+                                <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowRetailStyle}">
+                                    <Setter Property="IsEnabled" Value="{Binding EsSeleccionable}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding EsSeleccionable}" Value="False">
+                                            <Setter Property="Opacity" Value="0.6" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </DataGrid.RowStyle>
+                            <DataGrid.Columns>
+                                <!-- Proveedor: razón social y código de proveedor -->
+                                <DataGridTemplateColumn Header="Proveedor" Width="160">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel VerticalAlignment="Center" Margin="12,0">
+                                                <TextBlock Text="{Binding Item.ProveedorRazonSocial}"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Item.CodigoProveedor}"
+                                                           FontFamily="{StaticResource FontFamilyMonospace}"
+                                                           FontSize="{StaticResource FontSizeXs}"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+
+                                <DataGridTextColumn Header="Descripción"
+                                                    Binding="{Binding Item.DescripcionProveedor}"
+                                                    ElementStyle="{StaticResource TextBlockTextCell}"
+                                                    Width="*"
+                                                    MinWidth="240" />
+
+                                <DataGridTextColumn Header="Costo"
+                                                    HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                                    Binding="{Binding Item.CostoReposicion, StringFormat={}{0:C2}}"
+                                                    ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                    Width="95" />
+
+                                <DataGridTextColumn Header="Lista"
+                                                    Binding="{Binding FechaLocal, StringFormat={}{0:dd/MM/yyyy}}"
+                                                    ElementStyle="{StaticResource TextBlockTextCell}"
+                                                    Width="85" />
+
+                                <!-- Estado: Disponible o de qué artículo es fuente -->
+                                <DataGridTemplateColumn Header="Estado" Width="130">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Border Padding="8,2">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border" BasedOn="{StaticResource BadgeSuccessStyle}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding EsSeleccionable}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding TextoEstado}"
+                                                               FontSize="{StaticResource FontSizeXs}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource SuccessForegroundBrush}" />
+                                                </Border>
+
+                                                <Border Padding="8,2">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border" BasedOn="{StaticResource BadgeWarningStyle}">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding EsSeleccionable}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Visible" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding TextoEstado}"
+                                                               FontSize="{StaticResource FontSizeXs}"
+                                                               FontWeight="SemiBold"
+                                                               MaxWidth="116"
+                                                               TextTrimming="CharacterEllipsis"
+                                                               ToolTip="{Binding TextoEstado}"
+                                                               Foreground="{DynamicResource WarningForegroundBrush}" />
+                                                </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                </Grid>
             </Border>
         </Grid>
 
@@ -226,7 +242,7 @@
                 <Button Command="{Binding CancelarCommand}"
                         CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                         Style="{StaticResource KeycapButtonStyle}"
-                        Margin="0,0,10,0"
+                        Margin="0,0,8,0"
                         IsCancel="True">
                     <TextBlock Text="Cancelar" VerticalAlignment="Center" />
                 </Button>
@@ -235,7 +251,10 @@
                         CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         IsDefault="True">
-                    <TextBlock Text="Agregar fuente" VerticalAlignment="Center" />
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Agregar fuente" VerticalAlignment="Center" />
+                    </StackPanel>
                 </Button>
             </StackPanel>
         </Border>

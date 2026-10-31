@@ -437,11 +437,11 @@
                     </ToggleButton>
                 </StackPanel>
                 <StackPanel Margin="0,0,48,0">
-                    <TextBlock Text="Filtro de columna (agrupado por rubro)" Style="{StaticResource GaleriaRotuloStyle}" />
+                    <TextBlock Text="Filtro de columna (agrupado por rubro, con buscador)" Style="{StaticResource GaleriaRotuloStyle}" />
                     <components:FiltroColumna Filtro="{Binding FiltroCategoria}" />
                 </StackPanel>
                 <StackPanel>
-                    <TextBlock Text="Filtro activo" Style="{StaticResource GaleriaRotuloStyle}" />
+                    <TextBlock Text="Filtro activo (con 6 opciones o menos no lleva buscador)" Style="{StaticResource GaleriaRotuloStyle}" />
                     <components:FiltroColumna Filtro="{Binding FiltroStock}" />
                 </StackPanel>
             </StackPanel>
@@ -509,7 +509,6 @@
                 </Button>
             </components:PageHeader>
             <components:ListToolbar PlaceholderText="Buscar por código, descripción o marca..."
-                                    TotalResultados="248"
                                     Margin="{StaticResource StackMd}" />
             <Border Style="{StaticResource TablaListadoStyle}">
                 <Grid>

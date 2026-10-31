@@ -37,7 +37,7 @@
 
     <!-- Campo de texto con foco: contorno neutro más marcado en lugar del carmín de acento, y sin el subrayado de 2 px -->
     <SolidColorBrush x:Key="ControlFocusedBorderBrush" Color="#A1A1AA" />
-    <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="#A1A1AA" />
+    <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="Transparent" />
     <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
 
     <!-- ================================================================= -->
@@ -56,7 +56,7 @@
     <!-- ================================================================= -->
     <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#FAFAFA" />
     <!-- Fondo de un diálogo: un gris algo más marcado que el de la página, para que sus secciones blancas se lean sin borde -->
-    <SolidColorBrush x:Key="DialogBackgroundBrush" Color="#F4F4F5" />
+    <SolidColorBrush x:Key="DialogBackgroundBrush" Color="#E8E8EC" />
     <SolidColorBrush x:Key="SurfaceCardBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#E4E4E7" />
     <SolidColorBrush x:Key="SurfaceBorderFocusedBrush" Color="#9D0F33" />

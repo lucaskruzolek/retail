@@ -12,11 +12,11 @@ public partial class PaginacionMuestra : ObservableObject
     private const int TotalRegistros = 248;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(PuedeRetrocederPagina), nameof(PuedeAvanzarPagina), nameof(InformacionPaginacion))]
+    [NotifyPropertyChangedFor(nameof(PuedeRetrocederPagina), nameof(PuedeAvanzarPagina))]
     private int _paginaActual = 1;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TotalPaginas), nameof(PuedeAvanzarPagina), nameof(InformacionPaginacion))]
+    [NotifyPropertyChangedFor(nameof(TotalPaginas), nameof(PuedeAvanzarPagina))]
     private int _tamanoPagina = 20;
 
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
@@ -26,9 +26,6 @@ public partial class PaginacionMuestra : ObservableObject
     public bool PuedeRetrocederPagina => PaginaActual > 1;
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
-
-    public string InformacionPaginacion =>
-        $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistros)} de {TotalRegistros}";
 
     partial void OnTamanoPaginaChanged(int value)
     {

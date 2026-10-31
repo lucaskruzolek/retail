@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
+using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Proveedores;
 using Retail.Application.DTOs.Pedidos;
@@ -339,6 +340,88 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         await _proveedorService.Received().ListarItemsCatalogoAsync(
             Arg.Is<ConsultaCatalogoProveedorDto>(c => c.EstadoVinculacion == EstadoVinculacionCatalogoEnum.YaEnTienda),
             Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(EstadoVinculacionCatalogoEnum.SinIncorporar)]
+    [InlineData(EstadoVinculacionCatalogoEnum.YaEnTienda)]
+    public async Task FiltroEstadoVinculacion_ConUnaOpcionAplicada_FijaEseEstadoYConsultaConEl(EstadoVinculacionCatalogoEnum estado)
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" };
+        await _sut.InicializarAsync(proveedor);
+
+        // Act
+        AplicarFiltroEstado((int)estado);
+        await Task.Delay(50);
+
+        // Assert
+        _sut.FiltroEstado.Should().Be(estado);
+        _sut.PaginaActual.Should().Be(1);
+        await _proveedorService.Received().ListarItemsCatalogoAsync(
+            Arg.Is<ConsultaCatalogoProveedorDto>(c => c.EstadoVinculacion == estado),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltroEstadoVinculacion_ConNingunaOpcionAplicada_VuelveATodos()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" };
+        await _sut.InicializarAsync(proveedor);
+        AplicarFiltroEstado((int)EstadoVinculacionCatalogoEnum.YaEnTienda);
+
+        // Act
+        AplicarFiltroEstado();
+
+        // Assert
+        _sut.FiltroEstado.Should().Be(EstadoVinculacionCatalogoEnum.Todos);
+    }
+
+    [Fact]
+    public async Task FiltroEstadoVinculacion_ConAmbasOpcionesAplicadas_VuelveATodos()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" };
+        await _sut.InicializarAsync(proveedor);
+        AplicarFiltroEstado((int)EstadoVinculacionCatalogoEnum.SinIncorporar);
+
+        // Act
+        AplicarFiltroEstado((int)EstadoVinculacionCatalogoEnum.SinIncorporar, (int)EstadoVinculacionCatalogoEnum.YaEnTienda);
+
+        // Assert
+        _sut.FiltroEstado.Should().Be(EstadoVinculacionCatalogoEnum.Todos);
+    }
+
+    [Fact]
+    public async Task LimpiarFiltrosCommand_ConBusquedaYEstado_QuitaAmbosFiltros()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" };
+        await _sut.InicializarAsync(proveedor);
+        _sut.TextoBusquedaCatalogo = "resma";
+        AplicarFiltroEstado((int)EstadoVinculacionCatalogoEnum.SinIncorporar);
+
+        // Act
+        _sut.LimpiarFiltrosCommand.Execute(null);
+
+        // Assert
+        _sut.TextoBusquedaCatalogo.Should().BeEmpty();
+        _sut.FiltroEstado.Should().Be(EstadoVinculacionCatalogoEnum.Todos);
+        _sut.FiltroEstadoVinculacion.HayFiltroActivo.Should().BeFalse();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    /// <summary>Marca solo las opciones indicadas en el filtro de la columna Estado y pulsa "Aplicar".</summary>
+    private void AplicarFiltroEstado(params int[] ids)
+    {
+        _sut.FiltroEstadoVinculacion.EstaAbierto = true;
+        foreach (var opcion in _sut.FiltroEstadoVinculacion.Grupos.SelectMany(g => g.Opciones))
+        {
+            opcion.Seleccionada = ids.Contains(opcion.Id);
+        }
+
+        _sut.FiltroEstadoVinculacion.AplicarCommand.Execute(null);
     }
 
     [Fact]

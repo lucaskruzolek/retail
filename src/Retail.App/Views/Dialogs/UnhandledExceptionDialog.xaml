@@ -31,7 +31,7 @@
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
-                      Padding="24,12,24,12">
+                      Padding="12,0,12,12">
             <StackPanel>
                 <!-- Tarjeta de Advertencia Semántica de Peligro -->
                 <Border Background="{DynamicResource DangerBackgroundBrush}"
@@ -39,7 +39,7 @@
                         BorderThickness="1"
                         CornerRadius="8"
                         Padding="16"
-                        Margin="0,0,0,16">
+                        Margin="{StaticResource StackMd}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -47,7 +47,7 @@
                         </Grid.ColumnDefinitions>
 
                         <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                    Kind="SolidAlertCircle"
+                                                    Kind="RegularAlertCircle"
                                                     Width="36"
                                                     Height="36"
                                                     Foreground="{DynamicResource DangerForegroundBrush}"
@@ -57,67 +57,57 @@
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock x:Name="TxtTituloAlerta"
                                        Text="Ocurrió una incidencia inesperada"
-                                       FontSize="16"
+                                       FontSize="{StaticResource FontSizeLg}"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource DangerForegroundBrush}"
-                                       Margin="0,0,0,4" />
+                                       Margin="{StaticResource StackXs}" />
                             <TextBlock x:Name="TxtMensajeOperador"
                                        Text="La operación en curso no pudo completarse. Para proteger la integridad de los datos de mostrador, el sistema continuará ejecutándose normalmente."
-                                       FontSize="13"
+                                       FontSize="{StaticResource FontSizeBase}"
                                        TextWrapping="Wrap"
                                        Foreground="{DynamicResource TextPrimaryBrush}" />
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <!-- Tarjeta con Información del Archivo de Log -->
-                <Border Style="{StaticResource DialogSectionStyle}"
-                        Padding="14"
-                        Margin="0,0,0,16">
+                <!-- Información del Archivo de Log -->
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <TextBlock Text="Registro de Auditoría Local (Log):"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,6" />
-                        <Border Background="{DynamicResource SurfaceBackgroundBrush}"
-                                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="4"
-                                Padding="8,6">
-                            <TextBlock x:Name="TxtLogFilePath"
-                                       Text="logs/retail-YYYYMMDD.log"
-                                       FontFamily="{StaticResource FontFamilyMonospace}"
-                                       FontSize="12"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                       TextWrapping="Wrap" />
-                        </Border>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularFile" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Registro de auditoría local (log)" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
+                        <TextBlock x:Name="TxtLogFilePath"
+                                   Text="logs/retail-YYYYMMDD.log"
+                                   FontFamily="{StaticResource FontFamilyMonospace}"
+                                   FontSize="{StaticResource FontSizeSm}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </Border>
 
                 <!-- Panel de Detalles Técnicos -->
-                <Border Style="{StaticResource DialogSectionStyle}"
-                        Padding="14"
-                        Margin="0,0,0,8">
+                <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <TextBlock Text="Diagnóstico Técnico para Soporte:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularBug" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Diagnóstico técnico para soporte" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
                         <TextBlock x:Name="TxtExceptionType"
                                    Text="System.Exception"
                                    FontFamily="{StaticResource FontFamilyMonospace}"
                                    FontWeight="Bold"
-                                   FontSize="12"
+                                   FontSize="{StaticResource FontSizeSm}"
                                    Foreground="{DynamicResource DangerForegroundBrush}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
 
                         <TextBlock x:Name="TxtExceptionMessage"
                                    Text="Mensaje del error..."
-                                   FontSize="13"
+                                   FontSize="{StaticResource FontSizeBase}"
                                    TextWrapping="Wrap"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                   Margin="0,0,0,10" />
+                                   Margin="{StaticResource StackMd}" />
 
                         <TextBox x:Name="TxtStackTrace"
                                  IsReadOnly="True"
@@ -127,10 +117,8 @@
                                  HorizontalScrollBarVisibility="Auto"
                                  Height="120"
                                  FontFamily="{StaticResource FontFamilyMonospace}"
-                                 FontSize="11"
-                                 Background="{DynamicResource SurfaceBackgroundBrush}"
-                                 Foreground="{DynamicResource TextSecondaryBrush}"
-                                 BorderBrush="{DynamicResource SurfaceBorderBrush}" />
+                                 FontSize="{StaticResource FontSizeXs}"
+                                 Foreground="{DynamicResource TextSecondaryBrush}" />
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -148,10 +136,9 @@
                         HorizontalAlignment="Left">
                     <StackPanel Orientation="Horizontal">
                         <iconPacks:PackIconBoxIcons Kind="RegularCopy"
-                                                    Width="16"
-                                                    Height="16"
-                                                    Foreground="{DynamicResource PrimaryBrush}"
-                                                    Margin="0,0,8,0"
+                                                    Width="14"
+                                                    Height="14"
+                                                    Margin="{StaticResource InlineSm}"
                                                     VerticalAlignment="Center" />
                         <TextBlock x:Name="TxtBtnCopiar" Text="Copiar Detalle Técnico" VerticalAlignment="Center" />
                     </StackPanel>
@@ -162,9 +149,12 @@
                     <Button x:Name="BtnCerrarApp"
                             Click="BtnCerrarApp_Click"
                             Visibility="Collapsed"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Margin="0,0,8,0">
-                        <TextBlock Text="Cerrar Aplicación" Foreground="{DynamicResource DangerForegroundBrush}" />
+                            Style="{StaticResource DangerActionButtonStyle}"
+                            Margin="{StaticResource InlineSm}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Cerrar Aplicación" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Button>
 
                     <Button x:Name="BtnContinuar"
@@ -172,7 +162,8 @@
                             Style="{StaticResource PrimaryActionButtonStyle}"
                             IsDefault="True">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="Continuar Operando" FontWeight="Bold" />
+                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Continuar Operando" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>
