@@ -15,8 +15,8 @@ namespace Retail.App.Views.Components;
 /// <para>
 /// El panel es un <see cref="System.Windows.Controls.Primitives.Popup"/> con <c>StaysOpen=True</c> que abre y cierra este
 /// control, no WPF. Con <c>StaysOpen=False</c> el clic que cierra el panel sigue de largo hasta el elemento de abajo: la
-/// cabecera ordenaba la columna. Acá el clic de afuera se intercepta en la ventana (<c>PreviewMouseDown</c>), cierra el
-/// panel y se marca como atendido: el clic que cierra no hace nada más. Controlar el cierre permite además animarlo.
+/// cabecera ordenaba la columna. Acá el clic de afuera (el que cae fuera del panel) se intercepta en la ventana (<c>PreviewMouseDown</c>), cierra
+/// el panel y se marca como atendido: el clic que cierra no hace nada más. Controlar el cierre permite además animarlo.
 /// </para>
 /// </summary>
 public partial class FiltroColumna : UserControl
@@ -162,13 +162,38 @@ public partial class FiltroColumna : UserControl
         _desplazamiento.BeginAnimation(TranslateTransform.YProperty, animacionDesplazamiento);
     }
 
-    // Un clic en cualquier parte de la ventana (el panel es otra ventana nativa, así que sus clics no llegan acá) cierra
-    // el panel descartando el borrador, como Cancelar. Se marca como atendido para que no ordene la columna ni reabra
-    // el panel con el clic sobre el embudo.
+    // Un clic en la ventana, fuera del panel, lo cierra descartando el borrador, como Cancelar. Se marca como atendido
+    // para que no ordene la columna ni reabra el panel con el clic sobre el embudo. Los clics DENTRO del panel también
+    // llegan acá (el contenido de un Popup sube por el árbol lógico hasta la ventana), así que se dejan pasar.
     private void AlHacerClicEnLaVentana(object sender, MouseButtonEventArgs e)
     {
+        if (e.OriginalSource is DependencyObject origen && EstaDentroDelPanel(origen))
+        {
+            return;
+        }
+
         Filtro?.CancelarCommand.Execute(null);
         e.Handled = true;
+    }
+
+    // Sube desde el elemento clicado hasta la tarjeta del panel. Un texto (Run) no es Visual, por eso se usa el árbol
+    // lógico cuando el visual no alcanza.
+    private bool EstaDentroDelPanel(DependencyObject origen)
+    {
+        DependencyObject? actual = origen;
+        while (actual is not null)
+        {
+            if (ReferenceEquals(actual, Tarjeta))
+            {
+                return true;
+            }
+
+            actual = actual is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(actual) ?? LogicalTreeHelper.GetParent(actual)
+                : LogicalTreeHelper.GetParent(actual);
+        }
+
+        return false;
     }
 
     private void AlDesactivarseLaVentana(object? sender, EventArgs e)

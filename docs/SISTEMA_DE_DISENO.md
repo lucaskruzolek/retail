@@ -29,12 +29,12 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
   ```
 
 ### 3. Tipografía Dual de Alta Precisión
-* **Interfaz General y Formularios:** **Inter** (`FontFamily="{StaticResource FontFamilyText}"`) mediante los estilos de [`src/Retail.App/Styles/Typography.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Typography.xaml) (`TextBlockHeader1`, `TextBlockHeader2`, `TextBlockBody`, etc.). Los títulos de 20 px o más usan **Inter Display** (`FontFamilyDisplay`), dibujada para tamaños grandes.
-* **Importes, Cantidades y Stock (D-23):** Es **obligatorio** utilizar `FontFamily="{StaticResource FontFamilyNumeric}"` (Inter) **junto con** `Typography.NumeralAlignment="Tabular"`, o los estilos que ya los traen:
+* **Interfaz General y Formularios:** **DM Sans** (`FontFamily="{StaticResource FontFamilyText}"`) mediante los estilos de [`src/Retail.App/Styles/Typography.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Typography.xaml) (`TextBlockHeader1`, `TextBlockHeader2`, `TextBlockBody`, etc.). Los títulos de 20 px o más usan **DM Sans Display** (`FontFamilyDisplay`), la instancia óptica de 40 px del mismo diseño.
+* **Importes, Cantidades y Stock (D-23):** Es **obligatorio** utilizar `FontFamily="{StaticResource FontFamilyNumeric}"` (DM Sans), alineado a la derecha, o los estilos que ya lo traen:
   * El total gigante de venta de mostrador (`TextBlockDisplayCurrency`) y los importes destacados de modales (`TextBlockCurrencyLarge`).
   * Las celdas de precios unitarios y subtotales en `DataGrid` (`TextBlockCurrencyCell`) y las celdas numéricas (`TextBlockNumericCell`: número de fila, cantidades, stock).
   * Los campos de edición de montos, porcentajes y cantidades.
-  *Justificación:* con números **tabulares** (la característica OpenType `tnum`, que Inter trae), cada dígito ocupa el mismo ancho y los decimales se alinean verticalmente con rigor contable, igual que con una fuente monoespaciada, pero sin la estética de código.
+  *Justificación:* con los importes alineados a la derecha, la última cifra y los centavos cierran en la misma vertical, sin la estética de código. DM Sans no publica `tnum` y sus dígitos son proporcionales, así que el separador decimal puede correrse entre montos de distinto ancho; los estilos conservan `Typography.NumeralAlignment="Tabular"` como contrato, aunque la familia no dibuje la variante.
 * **Códigos y Textos Técnicos:** **JetBrains Mono** (`FontFamily="{StaticResource FontFamilyMonospace}"`) se reserva para lo que **es** un código: códigos de barras, CUIT/DNI, códigos de proveedor, números de comprobante, teclas de atajo (`TextBlockKeycap`), códigos de color y trazas técnicas (`TextBlockMonospaceCell` en grillas).
 * **Las fuentes viajan con la aplicación** (ver *Fuentes embebidas* más abajo): la interfaz se ve igual en cualquier PC. La lista de respaldo, por si el recurso fallara, es Segoe UI Variable / Segoe UI para texto y Cascadia Code / Consolas para códigos.
 
@@ -57,7 +57,7 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 
 ### 5. Diálogos Modales y Formularios
 * **Una sola superficie:** el diálogo es un único fondo gris (`Background="{DynamicResource DialogBackgroundBrush}"`): la barra de título, el cuerpo y el pie lo comparten, **sin franjas ni líneas** que los separen.
-* **Barra de Título Estandarizada:** `<components:EncabezadoDialogo Titulo="…" />`: título de 20 SemiBold (Inter Display) y, a la derecha, minimizar y cerrar como **íconos** que en hover solo se oscurecen (no imitan los botones de Windows). Banda de 56 px; un diálogo de alto fijo la cuenta en su `Height`.
+* **Barra de Título Estandarizada:** `<components:EncabezadoDialogo Titulo="…" />`: título de 20 SemiBold (DM Sans Display) y, a la derecha, minimizar y cerrar como **íconos** que en hover solo se oscurecen (no imitan los botones de Windows). Banda de 56 px; un diálogo de alto fijo la cuenta en su `Height`.
 * **Secciones:** los campos se agrupan en secciones blancas **sin borde** (`DialogSectionStyle`), separadas solo por el aire, a 12 px de los bordes del diálogo. Cada sección conserva su ícono + título (`CardHeaderIconStyle` + `CardHeaderTextStyle`). El título del diálogo y el contenido de las secciones comparten la vertical de 28 px (12 de margen + 16 de relleno).
 * **Pie:** `Border` con `Style="{StaticResource DialogFooterStyle}"`, sobre el mismo gris y sin línea: Cancelar a la izquierda y la acción primaria a la derecha, alineados con los bordes de las secciones.
 * **Teclado:** **Esc cierra todo diálogo** (lo resuelve `EncabezadoDialogo`, igual que la ✕, si ningún control usó la tecla antes: un desplegable abierto se cierra primero). **Enter acepta todo diálogo:** el botón primario lleva `IsDefault="True"` (WPF lo ejecuta si el control enfocado no usa Enter, como una grilla o un cuadro multilínea). No se usa `IsCancel`: Esc ya está resuelto en un solo lugar.
@@ -81,7 +81,7 @@ Todo agente o desarrollador que cree o modifique interfaces de usuario (`Views/P
 * **Interruptor de modo (`ui:ToggleSwitch`):** para activar o desactivar un modo de trabajo dentro de un diálogo (p. ej. "Sugerir clasificación"), en el encabezado de la tarjeta que controla, y también para filtros de lista sí/no (p. ej. "Solo ambiguos"). Encendido toma el carmín exacto de marca, porque [`Colors.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Colors.xaml) redefine `ToggleSwitchFillOn*` / `ToggleSwitchStrokeOn*` con los colores `SystemAccentColor*`; el resto de los acentos de WPF-UI (`AccentFillColor*Brush`) los calcula `ApplicationAccentColorManager` a partir del carmín.
 * **Opciones "Sin …" en selectores:** cuando "ninguno" es una elección válida, va como opción del combo (`OpcionDiccionario` con `Id` nulo), no como casilla aparte. El combo **nunca se ve vacío**: empieza en `OpcionDiccionario.SinClasificar` ("Sin clasificar", nadie decidió). Solo se ofrece una opción "Sin …" confirmada si el dato la distingue de "sin clasificar": "Sin marca" sí (M-7, D-18); "Sin categoría" no, porque se guardaría igual (M-70).
 * **Acción de texto en una fila** (`GhostPrimaryButtonStyle`): ícono de 12 y texto carmín de 12, sin borde ni fondo, fondo carmín suave en hover. Para acciones secundarias que conviven con los controles de la fila (p. ej. "Restablecer" bajo el estado de una fila corregida). No reemplaza a `IconDangerButtonStyle` para eliminar.
-* **Controles de formulario (`ComboBox`, `CheckBox`, `TextBox` / `PasswordBox`):** el proyecto **no define estilos implícitos globales** para estos controles: se usan los de WPF-UI, que toman el acento de la aplicación (carmín `#9D0F33` en claro, `#D63A62` en oscuro, aplicado por `ApplicationAccentColorManager`) y la fuente Inter (la clave `ContentControlThemeFontFamily` de WPF-UI se redefine en `Typography.xaml`). Lo propio se aplica por nombre: `ComboBoxFiltroStyle` (combos de filtro de 32 px, hereda el estilo de WPF-UI) y `CheckBoxCompactStyle` (casilla de 16 × 16 para grillas). `ui:TextBox` / `ui:PasswordBox` conservan márgenes y alturas del framework.
+* **Controles de formulario (`ComboBox`, `CheckBox`, `TextBox` / `PasswordBox`):** el proyecto **no define estilos implícitos globales** para estos controles: se usan los de WPF-UI, que toman el acento de la aplicación (carmín `#9D0F33` en claro, `#D63A62` en oscuro, aplicado por `ApplicationAccentColorManager`) y la fuente DM Sans (la clave `ContentControlThemeFontFamily` de WPF-UI se redefine en `Typography.xaml`). Lo propio se aplica por nombre: `ComboBoxFiltroStyle` (combos de filtro de 32 px, hereda el estilo de WPF-UI) y `CheckBoxCompactStyle` (casilla de 16 × 16 para grillas). `ui:TextBox` / `ui:PasswordBox` conservan márgenes y alturas del framework.
 
 ---
 
@@ -127,7 +127,7 @@ Definida en `Typography.xaml`. Se usa el token (`{StaticResource FontSizeBase}`)
 | Token | px | Uso |
 | :--- | :---: | :--- |
 | `ControlHeightSm` | 28 | Botones de ícono dentro de una fila (`RowMenuButtonStyle`, `IconDangerButtonStyle`) y los de la barra de paginación. |
-| `ControlHeight` | 32 | **Back-office:** botones, buscador, combos de filtro, opción del selector segmentado (más el relleno del riel). |
+| `ControlHeight` | 34 | **Back-office** (34: múltiplo de 2, única excepción a la grilla de 4, para dar aire vertical al texto de 14): botones, buscador, combos de filtro, opción del selector segmentado (más el relleno del riel). |
 | `ControlHeightLg` | 40 | **Mostrador (POS y diálogos de caja):** botones con `MinHeight` local. |
 | `RowHeightListado` | 36 | Fila de las grillas de listado (`DataGridListadoStyle`) y alto de cada ítem del Sidebar. |
 | `RowHeightPos` | 42 | Fila de la grilla del mostrador (`DataGridRowRetailStyle`) y botones "Cobrar" / "Cancelar" del POS. |
@@ -243,7 +243,8 @@ Es una superficie **clara en el tema claro** (`#F4F4F5`, el mismo gris que el ri
 | `SidebarActiveBackgroundBrush` / `SidebarActiveForegroundBrush` | `#E4E4E7` / `#18181B` | `#27272A` / `#FAFAFA` | Píldora del ítem activo. |
 
 * **Hover y pressed de `SidebarItemButtonStyle` viven en `Style.Triggers`**, no en el template, para que el trigger del ítem activo declarado en la vista prevalezca.
-* **Botón hamburguesa:** anclado a la izquierda, sobre el eje de los íconos de los ítems (no se desplaza al animar el ancho). El ícono indica la acción: `RegularMenu` (expandir) cuando está colapsado y `RegularDockLeftArrow` (contraer) cuando está expandido; el ToolTip dice "Expandir menú lateral" o "Contraer menú lateral" más `Ctrl+B`.
+* **Centrado del glifo en el riel colapsado:** cada ítem reserva una columna fija de 36 px para el ícono (20 px + 8 px de aire a cada lado), más ancha que el área útil del botón cuando el riel está en 58 px. Por eso, colapsado el ítem va sin relleno lateral (`Padding="0,0"`) y con `HorizontalContentAlignment="Center"`: así la columna entra completa y queda centrada en el eje del riel en vez de desplazada por el relleno. El `DataTrigger` de `IsSidebarExpanded` restaura `Padding="8,0"` y `Stretch` al expandir. Cualquier cambio de ancho del riel debe reevaluar esta cuenta (el ancho del ScrollViewer menos 12 px tiene que seguir conteniendo los 36 px).
+* **Botón hamburguesa:** centrado en el eje del riel cuando está colapsado y anclado a la izquierda cuando está expandido, siempre sobre el mismo eje que los íconos de los ítems. El ícono indica la acción: `RegularMenu` (expandir) cuando está colapsado y `RegularDockLeftArrow` (contraer) cuando está expandido; el ToolTip dice "Expandir menú lateral" o "Contraer menú lateral" más `Ctrl+B`.
 * **Scroll con autoocultado (`SidebarScrollViewerStyle`):** la barra vertical flota sobre el contenido (no quita ancho a los ítems) y solo aparece mientras el mouse está sobre el menú.
 * **Entrada temporal "Galería (Dev)":** al final del Sidebar, tras un divisor, abre la galería de estilos (`NavegarGaleriaDevCommand`). Se quita antes del release de producción (Etapa 6).
 
@@ -270,7 +271,7 @@ ListToolbar (sin tarjeta)                                  búsqueda · limpiar 
 | Pieza | Qué es | Regla de uso |
 | :--- | :--- | :--- |
 | `PageHeader` | Control con contenido (`Titulo`, `Subtitulo`; el contenido son las acciones). Sin insignias junto al título | Reemplaza a la tarjeta de encabezado. Las páginas de listado **no llevan subtítulo** (el título alcanza y la grilla gana alto); sin subtítulo, su línea se colapsa y el título se centra con las acciones. Un control con contenido, y no un `UserControl` con una propiedad `object`, para que los botones hereden el `DataContext` de la página. Debajo lleva `Margin="{StaticResource SectionSpacing}"` |
-| `ListToolbar` | Buscador de 390 × 32 (`ControlHeight`), "Limpiar filtros" (fantasma, se deshabilita sola), indicador de carga y "N resultados" | Se enlaza por propiedades de dependencia (`Texto`, `ComandoLimpiar`, `TotalResultados`, `EstaCargando`). Con `HaySeleccion`, su `AccionesDeSeleccion` (la `BulkActionBar` de la página) reemplaza a "Limpiar filtros", la carga y el contador; el buscador sigue a la vista. La barra hereda el `DataContext` de la página por el árbol visual |
+| `ListToolbar` | Buscador de 390 × 34 (`ControlHeight`), "Limpiar filtros" (fantasma, se deshabilita sola), indicador de carga y "N resultados" | Se enlaza por propiedades de dependencia (`Texto`, `ComandoLimpiar`, `TotalResultados`, `EstaCargando`). Con `HaySeleccion`, su `AccionesDeSeleccion` (la `BulkActionBar` de la página) reemplaza a "Limpiar filtros", la carga y el contador; el buscador sigue a la vista. La barra hereda el `DataContext` de la página por el árbol visual |
 | `BulkActionBar` | Acciones masivas **sin recuadro**: a la izquierda, la insignia **rectangular** (radio 4, como las de la grilla) "N seleccionados ✕" (fondo `SurfaceSelectedBrush`; la "✕", con `BadgeCancelButtonStyle`, cuadrada, cancela la selección); a la derecha, las acciones como botones sueltos | Va **en la barra del buscador** (`ListToolbar.AccionesDeSeleccion`), en el lugar de "Limpiar filtros". La acción con lógica va con `KeycapButtonStyle` (el único acento carmín de la vista es "Nuevo …"); las demás, con `GhostNeutralButtonStyle`; "Más ▾" va último, porque su menú abre alineado a la derecha, con una flecha liviana dibujada (`Path` de 8 × 4, trazo 1,2) y los ítems en peso normal. No dice "de M": la selección es de la página visible (filtrar o paginar la descarta). No es un panel flotante porque taparía las últimas filas |
 | `FiltroColumna` | Título de la columna + embudo que abre un panel de selección múltiple (ver *Componentes*, §5) | **Artículos** filtra así Categoría (agrupada por rubro), Marca, Distribuidor y Stock; no lleva banda de filtros. "Limpiar filtros" de la barra los vacía todos |
 | `FilterBandStyle` + `FilterFieldStyle` + `ComboBoxFiltroStyle` | Banda hundida con filtros de opción única en un `Grid` de columnas `*`, etiqueta de 12 px arriba y combos de 32 px | Para las páginas que todavía no migraron a `FiltroColumna`. Una sola fila; los textos largos no se cortan porque el combo ocupa toda su columna |
@@ -281,11 +282,11 @@ ListToolbar (sin tarjeta)                                  búsqueda · limpiar 
 
 * **Importes y números:** celdas con `TextBlockCurrencyCell`, `TextBlockPriceCell` o `TextBlockNumericCell`, que fijan `Language="es-AR"`. Formato de moneda `{0:C2}` (da `$ 4.000,00`) y de porcentaje `{0:0.##}%`. Sin unidades en el título de columna.
 * **Stock:** punto de color (verde normal) + cantidad; bajo el mínimo, el punto se reemplaza por el ícono `RegularAlertTriangle` (BoxIcons) ámbar (un emoji depende de la fuente y no toma el color), para que el estado no dependa solo del color (el mínimo no se muestra en la grilla). Un servicio muestra "—" con tooltip. Alineado a la derecha, como toda columna numérica, con 8 de relleno derecho (ver el botón "⋮"), y de 88 px: lo justo para su título y el embudo del filtro; el resto lo absorbe la descripción.
-* **Distribuidor:** insignia neutra (`BadgeNeutralStyle` + `BadgeNeutralTextStyle`, la misma de categoría y presentación) con ícono de enlace y, si hay fuentes adicionales, un chip "+n" **solo informativo** (no es un botón; el doble clic en la fila abre el artículo). La columna mide 184 px para que el nombre recortado y el chip entren enteros; "Precio de venta", 132 para su título con Inter.
+* **Distribuidor:** insignia neutra (`BadgeNeutralStyle` + `BadgeNeutralTextStyle`, la misma de categoría y presentación) con ícono de enlace y, si hay fuentes adicionales, un chip "+n" **solo informativo** (no es un botón; el doble clic en la fila abre el artículo). La columna mide 184 px para que el nombre recortado y el chip entren enteros; "Precio de venta", 132 para su título con DM Sans.
 * **Nombres de artículo:** se muestran en mayúsculas con `AMayusculasConverter` (es-AR). Es solo presentación: el dato guardado no cambia.
 * **Esquinas de las grillas:** `helpers:EsquinasHelper.Esquinas` (8 por defecto). Una grilla pegada a los bordes de su tarjeta (Compras) lo pone en `0`. La plantilla recorta el contenido con `RadioDelRecorte`, porque sin recorte el fondo del encabezado se sale de la esquina.
 * **Anchos de columna:** las columnas de datos son fijas y se ajustan a su contenido; la principal (el nombre) es `*` y absorbe el resto.
-* **Paginación (`PaginationBar`):** a la izquierda "Página [n] de N" (el cuadro es editable: un número y Enter va a esa página) y "Filas por página"; a la derecha « ‹ números › » con chevrons de BoxIcons. Siempre siete lugares (`CalcularElementos`): cerca de un extremo "1 2 3 … N-2 N-1 N", en el medio "1 … a-1 a a+1 … N", así la barra no cambia de ancho al navegar. La página actual lleva el gris de la selección, no carmín. Se enlaza al ViewModel de la página, que expone `IrAPaginaCommand` además de primera / anterior / siguiente / última. `MostrarResumen` (por defecto `True`) agrega "Mostrando X a Y de Z" a la izquierda; Artículos lo apaga porque el contador está en la barra del buscador.
+* **Paginación (`PaginationBar`):** a la izquierda "Página [n] de N" (el cuadro es editable: un número y Enter va a esa página) y "Filas por página"; a la derecha « ‹ números › » con chevrons de trazo. Las flechas no usan el glifo de BoxIcons: `GeometryChevronLeft/Right` y `GeometryChevronsLeft/Right` (en [`Icons.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Icons.xaml)) se dibujan con `PaginacionChevronStyle` sobre un lienzo de 16, con trazo de 1,2 y extremos redondeados, para que la flecha conserve su altura sin pesar como un bloque. Siempre siete lugares (`CalcularElementos`): cerca de un extremo "1 2 3 … N-2 N-1 N", en el medio "1 … a-1 a a+1 … N", así la barra no cambia de ancho al navegar. La página actual lleva el gris de la selección, no carmín. Se enlaza al ViewModel de la página, que expone `IrAPaginaCommand` además de primera / anterior / siguiente / última. `MostrarResumen` (por defecto `True`) agrega "Mostrando X a Y de Z" a la izquierda; Artículos lo apaga porque el contador está en la barra del buscador.
 * **Combo de filas por página:** el `ComboBox` de WPF-UI dibuja su borde visible según el texto más el relleno vertical (no `Height`) y reserva ~32 px para la flecha además del relleno derecho. Se resuelve con `Padding="10,4,0,4"` y `Width="64"`.
 * **Acciones masivas sin lógica todavía:** se muestran **deshabilitadas con el tooltip** "Disponible próximamente": "Eliminar seleccionados" (`RegularTrash`) como botón a la vista, y Cambiar rubro (`RegularBookmarks`) y Cambiar categoría (`RegularTag`) en "Más ▾". No se cablean bucles sobre acciones de a una.
 
@@ -296,7 +297,7 @@ ListToolbar (sin tarjeta)                                  búsqueda · limpiar 
 ### 1. Especificación tras la refactorización
 | Componente | Estilo | Medidas y colores |
 | :--- | :--- | :--- |
-| Botón estándar con tecla | `KeycapButtonStyle` | `MinHeight` 32, relleno `12,6`, radio 6 (`RadiusMd`), 13 px Medium. Foco con `FocusVisualRetailStyle`. |
+| Botón estándar con tecla | `KeycapButtonStyle` | `MinHeight` 34, relleno `12,6`, radio 6 (`RadiusMd`), 14 px Medium. Foco con `FocusVisualRetailStyle`. |
 | Botón primario | `PrimaryActionButtonStyle` | `MinHeight` 32, relleno `14,6`, radio 6, relleno `PrimaryBrush` (hover `PrimaryHoverBrush`, pressed `PrimaryPressedBrush`). Es el único relleno carmín de la vista. |
 | Botón de peligro | `DangerActionButtonStyle` | Mismas medidas que el primario, con los tonos `Danger*`. |
 | Botón fantasma | `GhostPrimaryButtonStyle` / `GhostNeutralButtonStyle` | `MinHeight` 32, sin borde ni fondo; el neutro usa texto gris y hover `SurfaceHoverBrush`. |
@@ -335,7 +336,7 @@ Para dos o tres opciones excluyentes y fijas (Producto · Servicio). Código en 
 * **Anatomía:** un riel (`SurfaceSubtleBrush`, radio 8, relleno 2) y **un único indicador** (`SurfaceCardBrush` con borde `SurfaceBorderBrush`, radio 6) que se desliza hasta la opción marcada. Las opciones son `RadioButton` en un `UniformGrid` que solo dibujan texto sobre fondo transparente: así conservan su binding, `IsEnabled`, tooltip y las flechas del teclado, y la selección *se mueve* en lugar de saltar.
 * **Radios concéntricos:** 8 − 2 = 6 (ver Fundamentos, §3).
 * **Movimiento:** 180 ms (`DuracionTransicion`), `CubicEase` EaseOut sobre la posición y el ancho del indicador; sin animación si `SystemParameters.ClientAreaAnimation` está apagada.
-* **Altura:** 4 + 4 de relleno + 2 de borde + ~18 de texto = 28, más 2 + 2 del riel = 32 (`ControlHeight`). El borde de 1 px, transparente en reposo, reserva sitio al anillo de foco para que nada se corra cuando aparece.
+* **Altura:** 5 + 5 de relleno + 2 de borde + ~18 de texto = 30, más 3 + 3 del riel = 36. El borde de 1 px, transparente en reposo, reserva sitio al anillo de foco para que nada se corra cuando aparece.
 * **Pruebas:** [`SelectorSegmentadoTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/SelectorSegmentadoTests.cs).
 
 ### 4. Encabezado de diálogo (`EncabezadoDialogo`)
@@ -346,7 +347,7 @@ Barra de título de los 25 diálogos. Código en [`Views/Components/EncabezadoDi
 <components:EncabezadoDialogo Titulo="Confirmar incorporación" PermitirMaximizar="True" />
 ```
 
-* **Anatomía:** banda de 56 px (`DialogTitleBarHeight`) **transparente**, sobre el mismo gris del diálogo. Título de 20 SemiBold (Inter Display) a 28 px del borde y, a la derecha, minimizar (`RegularMinus`, 14 px), maximizar opcional (`RegularSquareRounded`, 12 px) y cerrar (`RegularX`, 16 px) en áreas de clic de 32 px con `DialogWindowButtonStyle`: solo el ícono, gris, que en hover pasa a `TextPrimaryBrush` sin fondo ni rojo.
+* **Anatomía:** banda de 56 px (`DialogTitleBarHeight`) **transparente**, sobre el mismo gris del diálogo. Título de 20 SemiBold (DM Sans Display) a 28 px del borde y, a la derecha, minimizar (`RegularMinus`, 14 px), maximizar opcional (`RegularSquareRounded`, 12 px) y cerrar (`RegularX`, 16 px) en áreas de clic de 32 px con `DialogWindowButtonStyle`: solo el ícono, gris, que en hover pasa a `TextPrimaryBrush` sin fondo ni rojo.
 * **Por qué no `ui:TitleBar`:** sus botones son los nativos de Windows (cerrar en rojo, fondo en hover) y no se pueden reestilizar así. La banda propia resuelve el arrastre con `Window.DragMove()` y el doble clic con maximizar si el diálogo lo permite.
 * **Esc cierra el diálogo:** el encabezado se suscribe al `KeyDown` (burbujeante) de su ventana; si la tecla llega sin atender, cierra igual que la ✕. Como está en todos los diálogos, la regla vale para todos sin repetirla.
 * **Los botones no toman el foco** (`Focusable=False`): no son paradas de Tab; Esc ya cierra.
@@ -405,26 +406,27 @@ Definidos en [`src/Retail.App/Styles/Typography.xaml`](file:///c:/Users/lucas/Pr
 
 | Estilo XAML | Fuente | Tamaño | Peso | Uso Principal |
 | :--- | :--- | :--- | :--- | :--- |
-| `TextBlockPageTitle` | Inter Display | 24 px | SemiBold | Título de página de trabajo (el del `PageHeader`). |
-| `TextBlockHeader1` | Inter Display | 20 px | SemiBold | Título de pantalla o ventana principal. |
-| `TextBlockHeader2` | Inter | 16 px | SemiBold | Cabecera de sección o de modal. |
-| `TextBlockBody` / `TextBlockBodySecondary` / `TextBlockBodyMuted` | Inter | 13 px, interlineado 20 | Regular | Textos descriptivos y campos de formulario (primario, secundario y atenuado). |
-| `TextBlockCaption` | Inter | 12 px, interlineado 16 | Regular | Notas al pie, instrucciones. |
-| `TextBlockCaptionSecondary` | Inter | 11 px | Regular | Metadatos. |
-| `TextBlockDisplayCurrency` | Inter, tabular | 32 px | SemiBold | **Total gigante de la venta actual (mostrador).** |
-| `TextBlockCurrencyLarge` | Inter, tabular | 24 px | SemiBold | Importes destacados en modales (saldo deudor, cobranzas). |
-| `TextBlockCurrencyCell` / `TextBlockPriceCell` | Inter, tabular | 13 px | Medium / SemiBold | Precios unitarios y subtotales en grillas (`es-AR`). |
-| `TextBlockNumericCell` | Inter, tabular | 13 px | Medium | Números de fila, cantidades y stock en grillas. |
-| `TextBlockTextCell` | Inter | 13 px | Regular | Texto estándar de celda, centrado vertical. |
+| `TextBlockPageTitle` | DM Sans Display | 24 px | SemiBold | Título de página de trabajo (el del `PageHeader`). |
+| `TextBlockHeader1` | DM Sans Display | 20 px | SemiBold | Título de pantalla o ventana principal. |
+| `TextBlockHeader2` | DM Sans | 16 px | SemiBold | Cabecera de sección o de modal. |
+| `TextBlockBody` / `TextBlockBodySecondary` / `TextBlockBodyMuted` | DM Sans | 13 px, interlineado 20 | Regular | Textos descriptivos y campos de formulario (primario, secundario y atenuado). |
+| `TextBlockCaption` | DM Sans | 12 px, interlineado 16 | Regular | Notas al pie, instrucciones. |
+| `TextBlockCaptionSecondary` | DM Sans | 11 px | Regular | Metadatos. |
+| `TextBlockDisplayCurrency` | DM Sans | 32 px | SemiBold | **Total gigante de la venta actual (mostrador).** |
+| `TextBlockCurrencyLarge` | DM Sans | 24 px | SemiBold | Importes destacados en modales (saldo deudor, cobranzas). |
+| `TextBlockCurrencyCell` / `TextBlockPriceCell` | DM Sans | 14 px | Medium / SemiBold | Precios unitarios y subtotales en grillas (`es-AR`). |
+| `TextBlockNumericCell` | DM Sans | 14 px | Medium | Números de fila, cantidades y stock en grillas. |
+| `TextBlockTextCell` | DM Sans | 14 px | Regular | Texto estándar de celda, centrado vertical. |
 | `TextBlockMonospaceCell` | JetBrains Mono | 12 px | Medium | Códigos de barras, documentos e identificadores en grillas. |
 | `TextBlockKeycap` / `KeycapTextSmall` | JetBrains Mono | 11 px / 10 px | Bold | Letras de teclas de atajo (`F1`, `F4`, `F12`, `ESC`). |
 
 ### Fuentes embebidas
-* **Qué viaja:** [`src/Retail.App/Fonts/Inter/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Fonts/Inter/) (Inter Regular, Medium, SemiBold y Bold; Inter Display SemiBold y Bold) y [`src/Retail.App/Fonts/JetBrainsMono/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Fonts/JetBrainsMono/) (Regular, Medium, SemiBold y Bold), como `<Resource Include="Fonts\**\*.ttf" />` dentro del ensamblado, con la licencia SIL OFL de cada familia (`OFL.txt`). Se referencian con URIs `pack://application:,,,/Retail.App;component/Fonts/...#Nombre` en `Typography.xaml`.
-* **Por qué TTF estáticos y no una fuente variable:** WPF **ignora los ejes de las fuentes variables** (peso, tamaño óptico): cargaría solo la instancia por defecto y `FontWeight="SemiBold"` no cambiaría nada. Con un archivo por peso, cada `FontWeight` resuelve su propio archivo.
-* **Inter Display** está dibujada para tamaños de 20 px en adelante: solo títulos grandes; por debajo se usa Inter.
-* **Números tabulares:** Inter trae la característica `tnum`; se activa con `Typography.NumeralAlignment="Tabular"` (ya incluida en los estilos de importes). `FontFamilyNumeric` apunta a Inter, no a una fuente distinta.
-* **Prueba:** `PaletaTemasTests.Typography_FuenteEmbebida_SeResuelveDesdeElEnsamblado` verifica que `FontFamilyText` y `FontFamilyMonospace` resuelvan desde el ensamblado y no caigan en una fuente instalada en la PC.
+* **Qué viaja:** [`src/Retail.App/Fonts/DMSans/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Fonts/DMSans/) (DM Sans Regular, Medium, SemiBold y Bold; DM Sans Display SemiBold y Bold) y [`src/Retail.App/Fonts/JetBrainsMono/`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Fonts/JetBrainsMono/) (Regular, Medium, SemiBold y Bold), como `<Resource Include="Fonts\**\*.ttf" />` dentro del ensamblado, con la licencia SIL OFL de cada familia (`OFL.txt`). Se referencian con URIs `pack://application:,,,/Retail.App;component/Fonts/...#Nombre` en `Typography.xaml`.
+* **Por qué TTF estáticos y no una fuente variable:** WPF **ignora los ejes de las fuentes variables** (peso, tamaño óptico): cargaría solo la instancia por defecto y `FontWeight="SemiBold"` no cambiaría nada. Con un archivo por peso, cada `FontWeight` resuelve su propio archivo. DM Sans se publica únicamente como variable (`opsz` 9–40, `wght` 100–1000) y los seis TTF se generan a partir de ella.
+* **DM Sans Display** es la instancia óptica de 40 px: solo títulos grandes; por debajo se usa DM Sans (instancias de 14 px).
+* **Dígitos:** DM Sans no publica `tnum` y sus dígitos son proporcionales; [`scripts/fonts/build-dm-sans.py`](file:///c:/Users/lucas/Proyectos/retail/scripts/fonts/build-dm-sans.py) no altera los glifos, solo instancia la variable oficial. `FontFamilyNumeric` apunta a DM Sans (no a una fuente distinta) y los importes se alinean a la derecha. `Typography.NumeralAlignment="Tabular"` queda en los estilos como contrato, aunque hoy no tenga efecto sobre el dibujo.
+* **Regenerar las fuentes:** `pip install fonttools` y luego `python scripts/fonts/build-dm-sans.py` (idempotente: sobrescribe los TTF y el `OFL.txt`).
+* **Prueba:** `PaletaTemasTests.Typography_FuenteEmbebida_SeResuelveDesdeElEnsamblado` verifica que `FontFamilyText`, `FontFamilyDisplay` y `FontFamilyMonospace` resuelvan desde el ensamblado y no caigan en una fuente instalada en la PC.
 
 ---
 
@@ -468,6 +470,7 @@ Definidos en [`src/Retail.App/Styles/Icons.xaml`](file:///c:/Users/lucas/Proyect
 * `GeometryBox`: Control de stock e inventario de librería.
 * `GeometryWarning`: Triángulo de advertencia (pantalla de login). En grillas y vistas nuevas se prefiere `RegularAlertTriangle` de BoxIcons.
 * `GeometryLock` / `GeometryUser`: Seguridad de usuarios, PIN de cajero y permisos.
+* `GeometryChevronLeft` / `GeometryChevronRight` / `GeometryChevronsLeft` / `GeometryChevronsRight`: flechas de la paginación trazo por trazo sobre un lienzo de 16 x 16 (se dibujan con `Stroke`, no con relleno, mediante `PaginacionChevronStyle` de [`Listados.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Listados.xaml)). El glifo `RegularChevron*` de BoxIcons es una banda de 2 sobre 24 que a 16 px se lee como un bloque; el trazo propio de 1,2 px aligera la flecha y mantiene su altura y su gris de reposo / hover.
 
 ---
 
@@ -502,7 +505,7 @@ Definidos en [`src/Retail.App/Styles/Icons.xaml`](file:///c:/Users/lucas/Proyect
 </Button>
 ```
 
-### 3. Columna de Precio en `DataGrid` (Números Tabulares Alineados a la Derecha)
+### 3. Columna de Precio en `DataGrid` (Importes Alineados a la Derecha)
 ```xml
 <DataGridTextColumn Header="Precio Unit."
                     Binding="{Binding PrecioVentaFormateado}"
@@ -533,7 +536,17 @@ Definidos en [`src/Retail.App/Styles/Icons.xaml`](file:///c:/Users/lucas/Proyect
 
 ## 🔍 Referencia Viva (Living Styleguide)
 
-Para comprobar el renderizado interactivo, contrastes, fuentes y comportamiento dinámico de todos los controles de este sistema de diseño, consulte el código y ejecute la galería interactiva:
+La galería es la versión visual de este documento: muestra cada pieza con los estilos y componentes reales, y se mantiene al día con él. Sigue su propia premisa: las muestras van sobre el fondo, separadas por títulos y aire, sin una tarjeta por sección.
+
+| Bloque | Contenido |
+| :--- | :--- |
+| **A. Fundamentos** | Color (superficies, texto, acento y estado, por clave semántica), tipografía, espaciado y radios, iconografía BoxIcons |
+| **B. Componentes** | Botones, entradas, selección (segmentado y píldoras), insignias, menú "⋮" y filtro de columna (reales e interactivos), superficie flotante |
+| **C. Patrones de pantalla** | Página de listado completa (encabezado, buscador, tabla con filtros y paginación funcionando) y modal: el botón "Abrir modal de muestra" abre [`DialogoMuestraDialog`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/DialogoMuestraDialog.xaml). No se incrusta en la página porque su encabezado cerraría con Esc la ventana que lo contiene |
+| **D. Herramientas de desarrollo** | Abrir módulos fuera del shell y provocar excepciones no controladas (Etapa 0.8). No son parte del sistema de diseño |
+
+**Regla:** un componente o estilo nuevo, o un cambio de uno existente, se refleja en la galería en el mismo cambio, y se revisa con su captura.
+
 * **Vista XAML:** [`src/Retail.App/Views/Dev/StyleGalleryView.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Dev/StyleGalleryView.xaml)
 * **Acceso en tiempo de ejecución:** ejecutar la aplicación (`dotnet run --project src/Retail.App`), iniciar sesión y pulsar **"Galería (Dev)"** al final del Sidebar. Es una entrada **temporal** de desarrollo y se quita antes del release de producción (Etapa 6).
 * **Sin ejecutar la aplicación:** el *Bucle de Capturas* genera `StyleGalleryView_01.png`, `_02.png`… en `artifacts/snapshots/Light/` y `Dark/`.

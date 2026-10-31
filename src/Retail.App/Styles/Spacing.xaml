@@ -68,7 +68,9 @@
     <!-- ALTOS DE CONTROLES Y FILAS                                        -->
     <!-- ================================================================= -->
     <sys:Double x:Key="ControlHeightSm">28</sys:Double>
-    <sys:Double x:Key="ControlHeight">32</sys:Double>
+    <!-- 34: botones, buscador e inputs. Es múltiplo de 2 pero no de 4: única excepción a la grilla, elegida para dar más aire
+         vertical al texto de 14 -->
+    <sys:Double x:Key="ControlHeight">34</sys:Double>
     <sys:Double x:Key="ControlHeightLg">40</sys:Double>
     <!-- Fila de las grillas de listado y de las del mostrador (POS, más alta para tocarla con precisión) -->
     <sys:Double x:Key="RowHeightListado">36</sys:Double>

@@ -2,48 +2,90 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using Retail.App.ViewModels.Comun;
 using Retail.App.Views.Pages;
+using Retail.Domain.Enums;
 using Wpf.Ui.Controls;
 
 namespace Retail.App.Views.Dev;
 
 /// <summary>
-/// Modelo de datos sintético para la demostración de la grilla de la Galería de Controles.
+/// Fila de muestra de la tabla de la galería de estilos.
 /// </summary>
 public record ArticuloMuestra(
-    string CodigoBarras,
     string Descripcion,
     string Categoria,
+    string Marca,
+    string? Distribuidor,
+    decimal PrecioVenta,
     int Stock,
     bool StockBajo,
-    string PrecioVentaFormateado
-);
+    bool EsServicio);
 
 /// <summary>
-/// Lógica de interacción para StyleGalleryView.xaml (Galería de Controles interactiva de la Etapa 0.6).
+/// Galería de estilos: referencia viva del sistema de diseño (fundamentos, componentes y patrones de pantalla) armada con
+/// los estilos y componentes reales. Los componentes con estado (filtros de columna, paginación) reciben datos de
+/// muestra de esta clase, así funcionan igual que en una pantalla. Al final quedan las herramientas de desarrollo.
 /// </summary>
 public partial class StyleGalleryView : UserControl
 {
     public ObservableCollection<ArticuloMuestra> ArticulosEjemplo { get; } =
     [
-        new("9789500762885", "El Principito - Antoine de Saint-Exupéry", "Literatura", 3, true, "$ 12.500,00"),
-        new("9789878000107", "Rayuela - Julio Cortázar", "Ficción", 18, false, "$ 24.800,00"),
-        new("9789501298451", "Cuaderno Universitario A4 80 Hojas Rayado", "Escolar", 45, false, "$ 4.250,50"),
-        new("(Artesanal)", "Señalador de Madera Grabado a Láser", "Regalería", 12, false, "$ 1.800,00")
+        new("Cuaderno Rivadavia ABC 50 hojas rayado", "Cuadernos", "Rivadavia", "Distribuidora Sur", 2960m, 42, false, false),
+        new("Lápiz negro Faber-Castell HB", "Escritura", "Faber-Castell", "Distribuidora Sur", 576m, 3, true, false),
+        new("Resma A4 Autor 75 g x 500 hojas", "Papel para impresión", "Autor", "Papelera del Plata", 9315m, 0, true, false),
+        new("Fotocopia simple faz", "Servicios", string.Empty, null, 100m, 0, false, true)
     ];
+
+    /// <summary>Filtro de la columna Categoría, con las categorías agrupadas por rubro.</summary>
+    public FiltroColumnaViewModel FiltroCategoria { get; } = new("Categoría");
+
+    /// <summary>Filtro de la columna Stock, con un estado aplicado para mostrar el embudo resaltado.</summary>
+    public FiltroColumnaViewModel FiltroStock { get; } = new("Stock");
+
+    public PaginacionMuestra Paginacion { get; } = new();
 
     public StyleGalleryView()
     {
         InitializeComponent();
+        CargarFiltrosDeMuestra();
         DataContext = this;
     }
 
-    private void BtnTestDispatcherException_Click(object sender, System.Windows.RoutedEventArgs e)
+    private void CargarFiltrosDeMuestra()
+    {
+        FiltroCategoria.CargarOpciones(
+        [
+            new OpcionFiltroColumna(1, "Carpetas", "Oficina"),
+            new OpcionFiltroColumna(2, "Papel para impresión", "Oficina"),
+            new OpcionFiltroColumna(3, "Cuadernos", "Papelería"),
+            new OpcionFiltroColumna(4, "Escritura", "Papelería"),
+            new OpcionFiltroColumna(5, "Servicios", "Servicios")
+        ]);
+
+        FiltroStock.CargarOpciones(
+        [
+            new OpcionFiltroColumna((int)FiltroStockArticuloEnum.SinStock, "Sin stock"),
+            new OpcionFiltroColumna((int)FiltroStockArticuloEnum.StockBajo, "Stock bajo"),
+            new OpcionFiltroColumna((int)FiltroStockArticuloEnum.ConStock, "Con stock")
+        ]);
+        FiltroStock.EstaAbierto = true;
+        FiltroStock.Grupos[0].Opciones[1].Seleccionada = true;
+        FiltroStock.AplicarCommand.Execute(null);
+    }
+
+    private void BtnAbrirModalMuestra_Click(object sender, RoutedEventArgs e)
+    {
+        var dialogo = new DialogoMuestraDialog { Owner = Window.GetWindow(this) };
+        dialogo.ShowDialog();
+    }
+
+    private void BtnTestDispatcherException_Click(object sender, RoutedEventArgs e)
     {
         throw new InvalidOperationException("Excepción deliberada en el Dispatcher de UI (Prueba de Resiliencia - Etapa 0.8).");
     }
 
-    private void BtnTestTaskException_Click(object sender, System.Windows.RoutedEventArgs e)
+    private void BtnTestTaskException_Click(object sender, RoutedEventArgs e)
     {
         // Provoca una tarea que falla sin ser esperada (Unobserved Task Exception)
         _ = System.Threading.Tasks.Task.Run(() =>
@@ -57,7 +99,7 @@ public partial class StyleGalleryView : UserControl
         System.GC.Collect();
     }
 
-    private void BtnTestAppDomainException_Click(object sender, System.Windows.RoutedEventArgs e)
+    private void BtnTestAppDomainException_Click(object sender, RoutedEventArgs e)
     {
         // Provoca una excepción en un hilo de fondo del AppDomain
         var thread = new System.Threading.Thread(() =>
@@ -72,49 +114,32 @@ public partial class StyleGalleryView : UserControl
 
     private void BtnAbrirUsuariosDev_Click(object sender, RoutedEventArgs e)
     {
-        var usuariosView = App.Services.GetRequiredService<UsuariosView>();
-        var devWindow = new FluentWindow
-        {
-            Title = "Retail POS - Sandbox: Administración de Usuarios (Etapa 1.2)",
-            Width = 1100,
-            Height = 700,
-            MinWidth = 900,
-            MinHeight = 550,
-            WindowStartupLocation = WindowStartupLocation.CenterScreen,
-            Content = usuariosView
-        };
-        devWindow.Show();
+        AbrirEnVentana(App.Services.GetRequiredService<UsuariosView>(), "Retail POS - Sandbox: Administración de Usuarios");
     }
 
     private void BtnAbrirArticulosDev_Click(object sender, RoutedEventArgs e)
     {
-        var articulosView = App.Services.GetRequiredService<ArticulosView>();
-        var devWindow = new FluentWindow
-        {
-            Title = "Retail POS - Sandbox: Catálogo de Artículos y Stock (Etapa 2.1)",
-            Width = 1180,
-            Height = 720,
-            MinWidth = 950,
-            MinHeight = 580,
-            WindowStartupLocation = WindowStartupLocation.CenterScreen,
-            Content = articulosView
-        };
-        devWindow.Show();
+        AbrirEnVentana(App.Services.GetRequiredService<ArticulosView>(), "Retail POS - Sandbox: Catálogo de Artículos");
     }
 
     private void BtnAbrirClientesDev_Click(object sender, RoutedEventArgs e)
     {
-        var clientesView = App.Services.GetRequiredService<Retail.App.Views.Pages.ClientesView>();
-        var devWindow = new FluentWindow
+        AbrirEnVentana(App.Services.GetRequiredService<ClientesView>(), "Retail POS - Sandbox: Padrón de Clientes");
+    }
+
+    // Una vista de módulo en su propia ventana, para probarla sin pasar por la navegación del shell
+    private static void AbrirEnVentana(UserControl vista, string titulo)
+    {
+        var ventana = new FluentWindow
         {
-            Title = "Retail POS - Sandbox: Padrón de Clientes y Cuentas Corrientes (Etapa 3.2 - Fase 1)",
+            Title = titulo,
             Width = 1180,
             Height = 720,
             MinWidth = 950,
             MinHeight = 580,
             WindowStartupLocation = WindowStartupLocation.CenterScreen,
-            Content = clientesView
+            Content = vista
         };
-        devWindow.Show();
+        ventana.Show();
     }
 }

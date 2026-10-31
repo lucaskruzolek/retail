@@ -23,11 +23,25 @@
     <SolidColorBrush x:Key="SystemAccentBrushDark2" Color="{StaticResource SystemAccentColorDark2}" />
     <SolidColorBrush x:Key="SystemAccentBrushDark3" Color="{StaticResource SystemAccentColorDark3}" />
 
-    <!-- El ToggleSwitch encendido se fija en el acento exacto del tema, igual que en Colors.xaml -->
-    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{StaticResource SystemAccentColor}" />
-    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{StaticResource SystemAccentColorDark1}" />
-    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="{StaticResource SystemAccentColor}" />
-    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="{StaticResource SystemAccentColorDark1}" />
+    <!-- Casillas e interruptores encendidos en neutro (tinta del tema), no en carmín: el acento queda para la acción
+         principal, el foco y el ítem activo. La marca de la casilla y la perilla toman el color opuesto para contrastar. -->
+    <SolidColorBrush x:Key="ControlCheckedBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="ControlCheckedHoverBrush" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="ControlCheckedForegroundBrush" Color="#18181B" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#18181B" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#18181B" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#18181B" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#E4E4E7" />
+
+    <!-- Campo de texto con foco: contorno neutro más marcado en lugar del carmín de acento, y sin el subrayado de 2 px -->
+    <SolidColorBrush x:Key="ControlFocusedBorderBrush" Color="#71717A" />
+    <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="#71717A" />
+    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
 
     <!-- ================================================================= -->
     <!-- TOKENS SEMÁNTICOS DE MARCA Y ACCIÓN PRINCIPAL (RETAIL)            -->
@@ -36,6 +50,7 @@
     <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#E04D73" />
     <SolidColorBrush x:Key="PrimaryPressedBrush" Color="#B82E52" />
     <SolidColorBrush x:Key="PrimaryLightBrush" Color="#3A1520" />
+    <SolidColorBrush x:Key="PrimarySoftBorderBrush" Color="#6B2438" />
     <SolidColorBrush x:Key="PrimaryForegroundBrush" Color="#FFFFFF" />
 
     <!-- ================================================================= -->
@@ -62,6 +77,7 @@
     <SolidColorBrush x:Key="TextMutedBrush" Color="#71717A" />
     <SolidColorBrush x:Key="TextSubtleBrush" Color="#8B8B94" />
     <SolidColorBrush x:Key="TextOnDarkBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="SectionTitleBrush" Color="#FAFAFA" />
 
     <!-- ================================================================= -->
     <!-- TOKENS DE ESTADO Y SEMÁFOROS DE NEGOCIO (LIBRERÍA POS)            -->

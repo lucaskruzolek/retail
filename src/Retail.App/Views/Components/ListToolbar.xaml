@@ -24,7 +24,7 @@
                     PlaceholderText="{Binding PlaceholderText, ElementName=Raiz}"
                     Width="390"
                     Height="{StaticResource ControlHeight}"
-                    FontSize="{StaticResource FontSizeBase}"
+                    FontSize="{StaticResource FontSizeMd}"
                     VerticalAlignment="Center">
             <ui:TextBox.Icon>
                 <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
