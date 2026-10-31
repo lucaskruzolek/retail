@@ -12,6 +12,13 @@ public class ArticuloValidatorTests
     private readonly CrearPresentacionValidator _crearPresentacionValidator = new();
     private readonly FraccionarValidator _fraccionarValidator = new();
 
+    // CA1861: campos static readonly para los InlineData de arreglos (evita allocations repetidas).
+    private static readonly int[] FuentesDosDistintas = [25, 26];
+    private static readonly int[] FuenteUna = [25];
+    private static readonly int[] FuentesVacias = [];
+    private static readonly int[] FuentesRepetidas = [25, 25];
+    private static readonly int[] FuenteConCero = [0];
+
     [Fact]
     public void CrearArticuloValidator_DatosValidos_DebePasarValidacion()
     {
@@ -294,11 +301,13 @@ public class ArticuloValidatorTests
     // ---------- Fuentes del formulario (Track 4.3, A-19) ----------
 
     [Theory]
-    [InlineData(new[] { 25, 26 }, 26)]
-    [InlineData(new[] { 25 }, null)]
-    [InlineData(new int[0], null)]
-    public void CrearArticuloValidator_FuentesCoherentes_DebePasar(int[] idsFuentes, int? idPrincipal)
+    [InlineData(nameof(FuentesDosDistintas), 26)]
+    [InlineData(nameof(FuenteUna), null)]
+    [InlineData(nameof(FuentesVacias), null)]
+    public void CrearArticuloValidator_FuentesCoherentes_DebePasar(string campoFuentes, int? idPrincipal)
     {
+        var idsFuentes = ObtenerFuentes(campoFuentes);
+
         // Act
         var result = _crearValidator.Validate(AltaConFuentes(idsFuentes, idPrincipal));
 
@@ -307,12 +316,14 @@ public class ArticuloValidatorTests
     }
 
     [Theory]
-    [InlineData(new[] { 25 }, 26, nameof(CrearArticuloDto.IdCatalogoProveedor))]
-    [InlineData(new int[0], 25, nameof(CrearArticuloDto.IdCatalogoProveedor))]
-    [InlineData(new[] { 25, 25 }, 25, nameof(CrearArticuloDto.IdsFuentes))]
-    [InlineData(new[] { 0 }, null, "IdsFuentes[0]")]
-    public void CrearArticuloValidator_FuentesIncoherentes_DebeFallar(int[] idsFuentes, int? idPrincipal, string propiedadEsperada)
+    [InlineData(nameof(FuenteUna), 26, nameof(CrearArticuloDto.IdCatalogoProveedor))]
+    [InlineData(nameof(FuentesVacias), 25, nameof(CrearArticuloDto.IdCatalogoProveedor))]
+    [InlineData(nameof(FuentesRepetidas), 25, nameof(CrearArticuloDto.IdsFuentes))]
+    [InlineData(nameof(FuenteConCero), null, "IdsFuentes[0]")]
+    public void CrearArticuloValidator_FuentesIncoherentes_DebeFallar(string campoFuentes, int? idPrincipal, string propiedadEsperada)
     {
+        var idsFuentes = ObtenerFuentes(campoFuentes);
+
         // Act
         var result = _crearValidator.Validate(AltaConFuentes(idsFuentes, idPrincipal));
 
@@ -320,6 +331,16 @@ public class ArticuloValidatorTests
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.PropertyName == propiedadEsperada);
     }
+
+    private static int[] ObtenerFuentes(string campo) => campo switch
+    {
+        nameof(FuentesDosDistintas) => FuentesDosDistintas,
+        nameof(FuenteUna) => FuenteUna,
+        nameof(FuentesVacias) => FuentesVacias,
+        nameof(FuentesRepetidas) => FuentesRepetidas,
+        nameof(FuenteConCero) => FuenteConCero,
+        _ => throw new ArgumentOutOfRangeException(nameof(campo), campo, null),
+    };
 
     [Fact]
     public void ActualizarArticuloValidator_PrincipalFueraDeLasFuentes_DebeFallar()

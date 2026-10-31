@@ -37,7 +37,7 @@ graph LR
 | PR | Contenido | Dueño | Depende de | Migración | Estado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
 | **PR-0** | Este documento, paquetes, ERS (RF-05, RF-07, RF-19, RF-28, RF-29, IU-12), DER de Pedidos, Etapa 4, mapa | Ambos (revisión cruzada) | — | No | ✅ Publicado en `main` (`6a29a4b`) |
-| **P1** | Integrar `main` en la rama del Módulo 4.2 y aplicar las correcciones de revisión | Pablo | PR-0 | Sí (UK de comprobante) | ⏳ |
+| **P1** | Integrar `main` en la rama del Módulo 4.2 y aplicar las correcciones de revisión | Pablo | PR-0 | Sí (UK de comprobante) | ✅ Implementado; pendiente PR |
 | **L1** | Agregado `Pedido`: dominio, persistencia, servicio y contratos de frontera | Lucas | PR-0 | Sí (`PEDIDOS`) | ✅ Mergeado en `main` (PR #34, migración `20261028211913_AgregarPedidos`) |
 | **L2a-1** | Agregado en lote (`AgregarVariosAlPedidoAsync`), `PedidosView`, modal de pedido y entrada del Sidebar | Lucas | L1 | No | ✅ Mergeado en `main` (PR #35) |
 | **L2a-2** | Entradas "Pedir" y "Pedir seleccionados" en Artículos y en el importador, con la incorporación previa (A-17) | Lucas | L2a-1 | No | ✅ Mergeado en `main` (PR #36) |

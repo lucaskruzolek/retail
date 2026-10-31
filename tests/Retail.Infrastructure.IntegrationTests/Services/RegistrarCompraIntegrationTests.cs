@@ -178,6 +178,57 @@ public class RegistrarCompraIntegrationTests : IAsyncLifetime, IDisposable
         derivadaEnDb.PrecioVenta.Should().Be(64m, "40m * 1.60 = 64m");
     }
 
+    // ── C-1: Índice único de comprobante (defensa en profundidad) ─────────────
+
+    [Fact]
+    public async Task IndiceUnicoComprobante_MismoComprobanteRegistradoDosVeces_LanzaRestriccionDeUnicidad()
+    {
+        // Arrange: dos compras con el mismo proveedor, tipo y número de comprobante.
+        var articulo1 = await GuardarArticuloAsync("Lápiz HB", costo: 50m, markup: 40m, precio: 70m, stock: 20);
+        var articulo2 = await GuardarArticuloAsync("Lápiz 2B", costo: 60m, markup: 40m, precio: 84m, stock: 10);
+
+        var dtoOriginal = new CrearCompraDto
+        {
+            IdProveedor = _idProveedor,
+            IdUsuario = _idUsuario,
+            TipoComprobante = "FACTURA",
+            NumeroComprobante = "0001-99999999",
+            FechaEmision = DateTime.UtcNow.AddHours(-3),
+            Items = [new DetalleCompraDto { IdArticulo = articulo1.Id, Cantidad = 1, CostoUnitario = 55m }],
+        };
+
+        // Primera compra: se registra correctamente.
+        await _sut.RegistrarCompraAsync(dtoOriginal);
+
+        // Segunda compra con el mismo comprobante pero diferente artículo: viola el índice.
+        // Omitimos la verificación previa del servicio usando un contexto nuevo y el repositorio directo,
+        // para probar que el índice en la base es la defensa en profundidad (C-1).
+        var contextoSegundo = CrearContexto();
+        var servicioSegundo = CrearServicio(contextoSegundo);
+        var compraDirecta = Domain.Entities.Compra.Registrar(
+            _idProveedor, _idUsuario, "FACTURA", "0001-99999999", DateTime.UtcNow.AddHours(-2));
+        compraDirecta.AgregarDetalle(articulo2.Id, 1, 65m);
+        contextoSegundo.Compras.Add(compraDirecta);
+
+        // Act
+        var act = () => contextoSegundo.SaveChangesAsync();
+
+        // Assert — el índice UX_COMPRAS_Comprobante frena la inserción.
+        await act.Should().ThrowAsync<Exception>()
+            .Where(ex => ex.Message.Contains("UX_COMPRAS_Comprobante") ||
+                         ex.Message.Contains("unique") ||
+                         ex.Message.Contains("UNIQUE") ||
+                         ex.GetType().Name.Contains("Unicidad") ||
+                         ex.GetType().Name.Contains("DbUpdateException"));
+
+        await contextoSegundo.DisposeAsync();
+
+        // El stock del segundo artículo no debe haber cambiado.
+        _context.ChangeTracker.Clear();
+        var articulo2EnDb = await _context.Articulos.AsNoTracking().SingleAsync(a => a.Id == articulo2.Id);
+        articulo2EnDb.StockActual.Should().Be(10, "la segunda compra fue rechazada antes de modificar el stock");
+    }
+
     private RetailDbContext CrearContexto()
     {
         var options = new DbContextOptionsBuilder<RetailDbContext>()

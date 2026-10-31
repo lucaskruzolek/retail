@@ -207,6 +207,46 @@ public class CompraServiceTests
         resultado.Total.Should().Be(800m);
     }
 
+    // ── C-1: Comprobante duplicado ────────────────────────────────────────────
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ComprobanteYaRegistrado_LanzaExcepcion()
+    {
+        // Arrange — el repositorio devuelve una compra con el mismo comprobante
+        var compraExistente = Compra.Registrar(IdProveedor, IdUsuario, "FACTURA", "0001-00000001", DateTime.UtcNow.AddDays(-2));
+        _compraRepository
+            .FindAsync(Arg.Any<Expression<Func<Compra, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Compra> { compraExistente }.AsReadOnly());
+
+        var dto = CrearDtoValido([Item(IdArticulo, cantidad: 1, costoUnitario: 50m)]);
+
+        // Act
+        var act = () => _sut.RegistrarCompraAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*ya fue registrado*");
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    // ── C-4: DescartarCambios después de guardar ──────────────────────────────
+
+    [Fact]
+    public async Task RegistrarCompraAsync_GuardadoExitoso_DescartaCambiosDespuesDeGuardar()
+    {
+        // Arrange
+        var lapiz = CrearArticulo(IdArticulo, "Lapicera", costo: 100m, precio: 150m, stock: 5);
+        ConfigurarArticulos(lapiz);
+
+        var dto = CrearDtoValido([Item(lapiz, 3, costoUnitario: 100m)]);
+
+        // Act
+        await _sut.RegistrarCompraAsync(dto);
+
+        // Assert — DescartarCambios debe llamarse exactamente una vez después del guardado exitoso (D-15).
+        _unitOfWork.Received(1).DescartarCambios();
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static Articulo CrearArticulo(
@@ -251,12 +291,19 @@ public class CompraServiceTests
 
     private void ConfigurarArticulos(params Articulo[] articulos)
     {
-        // Primera llamada: artículos comprados (sin derivadas).
+        // Primera llamada FindAsync: verificación de comprobante duplicado → sin resultados.
+        // Segunda llamada FindAsync: artículos comprados.
+        // Tercera llamada FindAsync: presentaciones derivadas → vacías.
         _articuloRepository
             .FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), Arg.Any<CancellationToken>())
             .Returns(
                 ci => (IReadOnlyList<Articulo>)articulos,
                 ci => Array.Empty<Articulo>());   // segunda llamada: presentaciones derivadas vacías
+
+        // La primera llamada de FindAsync al _compraRepository simula que no hay comprobante previo.
+        _compraRepository
+            .FindAsync(Arg.Any<Expression<Func<Compra, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<Compra>());
     }
 
     private void ConfigurarArticulosYDerivadas(Articulo[] articulos, Articulo[] derivadas)
@@ -266,6 +313,10 @@ public class CompraServiceTests
             .Returns(
                 ci => (IReadOnlyList<Articulo>)articulos,
                 ci => (IReadOnlyList<Articulo>)derivadas);
+
+        _compraRepository
+            .FindAsync(Arg.Any<Expression<Func<Compra, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<Compra>());
     }
 
     private static DetalleCompraDto Item(Articulo articulo, int cantidad, decimal costoUnitario) =>

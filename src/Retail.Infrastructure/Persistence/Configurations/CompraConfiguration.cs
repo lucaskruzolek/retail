@@ -77,5 +77,12 @@ public class CompraConfiguration : IEntityTypeConfiguration<Compra>
             .WithMany(u => u.Compras)
             .HasForeignKey(c => c.IdUsuario)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // C-1: Un mismo comprobante (proveedor + tipo + número) no puede registrarse dos veces (defensa en profundidad).
+        // El índice es filtrado: solo aplica a registros no eliminados lógicamente.
+        builder.HasIndex(c => new { c.IdProveedor, c.TipoComprobante, c.NumeroComprobante })
+            .HasFilter("[deleted_at] IS NULL")
+            .IsUnique()
+            .HasDatabaseName("UX_COMPRAS_Comprobante");
     }
 }

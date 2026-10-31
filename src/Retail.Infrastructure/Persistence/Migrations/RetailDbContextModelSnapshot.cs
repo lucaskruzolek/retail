@@ -517,9 +517,12 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IdProveedor");
-
                     b.HasIndex("IdUsuario");
+
+                    b.HasIndex("IdProveedor", "TipoComprobante", "NumeroComprobante")
+                        .IsUnique()
+                        .HasDatabaseName("UX_COMPRAS_Comprobante")
+                        .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("COMPRAS", null, t =>
                         {

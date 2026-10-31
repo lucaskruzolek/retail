@@ -6,17 +6,22 @@ using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Compras;
 
 /// <summary>
 /// ViewModel principal para la gestión de compras a distribuidores e ingreso de facturas/remitos (Módulo 4.2).
+/// Todo acceso a datos pasa por <see cref="CargaSerializada"/> (H-19, Ley 4).
+/// Las excepciones de dominio y de concurrencia se muestran como alertas; solo los errores inesperados van al log.
 /// </summary>
 public partial class ComprasViewModel : ObservableObject, IDisposable
 {
-    // Serializa la carga de proveedores sobre el DbContext de esta pantalla y la cancela al salir de ella (H-19).
-    private readonly CargaSerializada _cargaProveedores = new();
+    // C-5 (H-19): Serializa todos los accesos a datos de esta pantalla sobre el mismo DbContext y
+    // cancela las cargas en curso al salir de ella.
+    private readonly CargaSerializada _carga;
 
     private readonly IProveedorService _proveedorService;
     private readonly ICompraService _compraService;
@@ -62,6 +67,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         _compraService = compraService ?? throw new ArgumentNullException(nameof(compraService));
         _currentUserSession = currentUserSession ?? throw new ArgumentNullException(nameof(currentUserSession));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _carga = new CargaSerializada(_logger);
     }
 
     [RelayCommand]
@@ -69,7 +75,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     {
         IsBusy = true;
 
-        await _cargaProveedores.EjecutarAsync(
+        await _carga.EjecutarAsync(
             token => Task.Run(() => _proveedorService.ListarProveedoresAsync(token), token),
             lista =>
             {
@@ -89,7 +95,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
             },
             cancellationToken: cancellationToken);
 
-        IsBusy = _cargaProveedores.EnCurso;
+        IsBusy = _carga.EnCurso;
     }
 
     [RelayCommand]
@@ -114,18 +120,17 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
             return;
         }
 
-        IsBusy = true;
-        MensajeError = null;
-        MensajeEstado = null;
-
         // Guard: la sesión podría haberse cerrado entre la carga de la pantalla y el click de confirmar.
         var idUsuario = _currentUserSession.IdUsuario;
         if (idUsuario is null)
         {
             MensajeError = "No hay una sesión de usuario activa. Por favor, inicie sesión nuevamente.";
-            IsBusy = false;
             return;
         }
+
+        IsBusy = true;
+        MensajeError = null;
+        MensajeEstado = null;
 
         try
         {
@@ -147,8 +152,48 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
                     .AsReadOnly(),
             };
 
-            // Ley 4: toda operación pesada se ejecuta fuera del UI Dispatcher.
-            var resultado = await Task.Run(() => _compraService.RegistrarCompraAsync(dto));
+            // C-5 (Ley 4): toda operación pesada fuera del UI Dispatcher, a través de CargaSerializada.
+            // Para operaciones mutables se usa EjecutarOperacionAsync (no reemplazable, no cancelable por otra carga).
+            CompraResponseDto? resultado = null;
+            await _carga.EjecutarOperacionAsync(
+                token => Task.Run(() => _compraService.RegistrarCompraAsync(dto, token), token),
+                r => resultado = r,
+                ex =>
+                {
+                    // C-5: Clasificar la excepción para dar el mensaje adecuado al operador.
+                    switch (ex)
+                    {
+                        case FluentValidation.ValidationException ve:
+                            // Datos mal formados (frontera de entrada).
+                            MensajeError = string.Join(" | ", ve.Errors.Select(e => e.ErrorMessage));
+                            _logger.LogWarning("Validación fallida al registrar compra: {Errores}", MensajeError);
+                            break;
+
+                        case DomainException de:
+                            // C-5: Regla de negocio (comprobante duplicado, artículo de baja, etc.).
+                            // Es información para el operador; la grilla se conserva para reintentar.
+                            MensajeError = de.Message;
+                            break;
+
+                        case ConflictoDeConcurrenciaException ce:
+                            // C-5: Otra terminal modificó los mismos artículos (row_version, D-12).
+                            // La grilla se conserva para reintentar.
+                            MensajeError = ce.Message;
+                            break;
+
+                        default:
+                            // C-5: Error inesperado: se registra en el log y se muestra un mensaje genérico.
+                            _logger.LogError(ex, "Error al registrar la compra a proveedor");
+                            MensajeError = "Error inesperado al registrar la compra. Intente de nuevo.";
+                            break;
+                    }
+                });
+
+            if (resultado is null)
+            {
+                // La carga fue cancelada (pantalla cerrada antes de completar) o falló.
+                return;
+            }
 
             LimpiarFormulario();
 
@@ -156,15 +201,11 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
                             $"Total: {resultado.Total:C2}. " +
                             $"Artículos actualizados: {resultado.ArticulosActualizados}.";
         }
-        catch (FluentValidation.ValidationException ex)
-        {
-            MensajeError = string.Join(" | ", ex.Errors.Select(e => e.ErrorMessage));
-            _logger.LogWarning("Validación fallida al registrar compra: {Errores}", MensajeError);
-        }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error al registrar la compra a proveedor");
-            MensajeError = $"Error al registrar la compra: {ex.Message}";
+            // Defensa ante excepciones fuera de CargaSerializada (ej.: la excepción de sesión o de guard).
+            _logger.LogError(ex, "Error inesperado antes de registrar la compra");
+            MensajeError = "Error inesperado. Intente de nuevo.";
         }
         finally
         {
@@ -187,7 +228,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     /// </summary>
     public void Dispose()
     {
-        _cargaProveedores.Dispose();
+        _carga.Dispose();
         GC.SuppressFinalize(this);
     }
 }

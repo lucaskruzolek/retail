@@ -53,26 +53,42 @@ public class CompraService : ICompraService
         _ = await _usuarioRepository.GetByIdAsync(dto.IdUsuario, cancellationToken)
             ?? throw new DomainException($"El usuario con Id {dto.IdUsuario} no existe o fue dado de baja.");
 
+        // C-1: Verificar que el comprobante no esté registrado antes de cargar artículos.
+        var comprobanteExiste = (await _compraRepository.FindAsync(
+            c => c.IdProveedor == dto.IdProveedor
+                 && c.TipoComprobante == dto.TipoComprobante.Trim()
+                 && c.NumeroComprobante == dto.NumeroComprobante.Trim(),
+            cancellationToken)).Count > 0;
+
+        if (comprobanteExiste)
+        {
+            throw new DomainException(
+                $"El comprobante {dto.TipoComprobante.Trim()} Nro. {dto.NumeroComprobante.Trim()} " +
+                $"ya fue registrado para este proveedor.");
+        }
+
         // ── FASE 3: Pre-carga optimizada de artículos y sus derivadas (RF-21) ─
         var idsArticulos = dto.Items.Select(i => i.IdArticulo).Distinct().ToHashSet();
 
         // Carga los artículos adquiridos con tracking para poder mutar stock y costos.
-        var articulos = await _articuloRepository.FindAsync(
+        var articulosCargados = await _articuloRepository.FindAsync(
             a => idsArticulos.Contains(a.Id),
             cancellationToken);
+
+        // C-3: Diccionario O(1) por IdArticulo; evita recorrer la lista por cada renglón (AGENTS.md §Ley 8).
+        var articulosPorId = articulosCargados.ToDictionary(a => a.Id);
 
         // Valida que todos los artículos solicitados existan y no sean servicios.
         foreach (var item in dto.Items)
         {
-            var articulo = articulos.FirstOrDefault(a => a.Id == item.IdArticulo);
-            if (articulo is null)
+            if (!articulosPorId.TryGetValue(item.IdArticulo, out var articuloValidacion))
             {
                 throw new DomainException($"El artículo con Id {item.IdArticulo} no existe o fue dado de baja.");
             }
 
-            if (articulo.EsServicio)
+            if (articuloValidacion.EsServicio)
             {
-                throw new DomainException($"El artículo '{articulo.Descripcion}' es un servicio y no puede formar parte de una compra física.");
+                throw new DomainException($"El artículo '{articuloValidacion.Descripcion}' es un servicio y no puede formar parte de una compra física.");
             }
         }
 
@@ -100,7 +116,8 @@ public class CompraService : ICompraService
 
         foreach (var item in dto.Items)
         {
-            var articulo = articulos.First(a => a.Id == item.IdArticulo);
+            // C-3: Lookup O(1) desde el diccionario armado en FASE 3.
+            var articulo = articulosPorId[item.IdArticulo];
 
             // 5a. Agregar renglón al agregado Compra (calcula subtotales internamente).
             compra.AgregarDetalle(item.IdArticulo, item.Cantidad, item.CostoUnitario);
@@ -132,6 +149,10 @@ public class CompraService : ICompraService
         // ── FASE 6: Persistencia atómica ACID en un único SaveChanges ─────────
         await _compraRepository.AddAsync(compra, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // C-4 (D-15): Liberar entidades tras guardar. La siguiente compra desde esta pantalla cargará
+        // stock y row_version frescos y no chocará con un conflicto falso (mismo patrón que VentaService).
+        _unitOfWork.DescartarCambios();
 
         // ── FASE 7: Proyección a DTO de respuesta ─────────────────────────────
         return new CompraResponseDto
