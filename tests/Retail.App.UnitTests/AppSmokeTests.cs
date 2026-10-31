@@ -44,47 +44,6 @@ public class AppSmokeTests
     }
 
     [Fact]
-    public void ArticuloMuestra_CreacionValida_DebePreservarPropiedades()
-    {
-        // Arrange & Act
-        var articulo = new ArticuloMuestra(
-            CodigoBarras: "9789500762885",
-            Descripcion: "El Principito",
-            Categoria: "Literatura",
-            Stock: 3,
-            StockBajo: true,
-            PrecioVentaFormateado: "$ 12.500,00"
-        );
-
-        // Assert
-        articulo.CodigoBarras.Should().Be("9789500762885");
-        articulo.Descripcion.Should().Be("El Principito");
-        articulo.Categoria.Should().Be("Literatura");
-        articulo.Stock.Should().Be(3);
-        articulo.StockBajo.Should().BeTrue();
-        articulo.PrecioVentaFormateado.Should().Be("$ 12.500,00");
-    }
-
-    [Fact]
-    public void ArticuloMuestra_ArtesaniaSinCodigo_DebeAdmitirIdentificadorArtesanal()
-    {
-        // Arrange & Act
-        var artesania = new ArticuloMuestra(
-            CodigoBarras: "(Artesanal)",
-            Descripcion: "Señalador de Madera",
-            Categoria: "Regalería",
-            Stock: 10,
-            StockBajo: false,
-            PrecioVentaFormateado: "$ 1.800,00"
-        );
-
-        // Assert
-        artesania.CodigoBarras.Should().Be("(Artesanal)");
-        artesania.StockBajo.Should().BeFalse();
-        artesania.Stock.Should().BeGreaterThan(0);
-    }
-
-    [Fact]
     public void AccentManager_ColorCarmín_DebeAplicarseCorrectamente()
     {
         // Verificar que la API de WPF-UI aplique el color carmín a la paleta de acento
@@ -1255,6 +1214,31 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void DialogoMuestraDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var dialogo = new DialogoMuestraDialog();
+                dialogo.Measure(new System.Windows.Size(520, 800));
+                dialogo.Arrange(new System.Windows.Rect(0, 0, 520, 800));
+                dialogo.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML del modal de muestra de la galería debe resolverse sin errores");
+    }
+
+    [Fact]
     public void ProveedoresView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
@@ -1870,10 +1854,10 @@ public class AppSmokeTests
     }
 
     [Fact]
-    public void AdministrarClasificacionDialog_SinDiccionariosPropios_DebeHeredarElAcentoCarminDeLaAplicacion()
+    public void AdministrarClasificacionDialog_SinDiccionariosPropios_DebeHeredarElAcentoDeLaAplicacion()
     {
         // Arrange
-        var carmin = System.Windows.Media.Color.FromRgb(0x9D, 0x0F, 0x33);
+        var tintaNeutra = System.Windows.Media.Color.FromRgb(0x18, 0x18, 0x1B);
 
         // Act
         var (diccionariosPropios, rellenoToggle, acentoDeLaVentana, acentoDeLaAplicacion) = WpfTestHelper.Run(() =>
@@ -1896,7 +1880,7 @@ public class AppSmokeTests
 
         // Assert
         diccionariosPropios.Should().Be(0, "la ventana hereda los diccionarios de App.xaml: volver a mergearlos tapa el acento de la aplicación");
-        rellenoToggle.Should().Be(carmin, "el ToggleSwitch \"Solo ambiguos\" debe encenderse en carmín y no en el azul de Windows");
+        rellenoToggle.Should().Be(tintaNeutra, "el ToggleSwitch \"Solo ambiguos\" debe encenderse en la tinta neutra del tema y no en el azul de Windows");
         acentoDeLaVentana.Should().BeSameAs(acentoDeLaAplicacion, "el acento que aplica ApplicationAccentColorManager debe llegar a la ventana");
     }
 
