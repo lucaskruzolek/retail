@@ -1,80 +1,110 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <!-- ================================================================= -->
-    <!-- FAMILIAS TIPOGRÁFICAS (Segoe UI Variable + Cascadia Code)         -->
+    <!-- FAMILIAS TIPOGRÁFICAS (Inter + JetBrains Mono, embebidas)         -->
     <!-- ================================================================= -->
-    <FontFamily x:Key="FontFamilyText">Segoe UI Variable Text, Segoe UI, Helvetica Neue, sans-serif</FontFamily>
-    <FontFamily x:Key="FontFamilyDisplay">Segoe UI Variable Display, Segoe UI, sans-serif</FontFamily>
-    <!-- Importes, cantidades y stock (D-23): la fuente de la interfaz con Typography.NumeralAlignment="Tabular".
-         Los números tabulares tienen todos el mismo ancho, así que los decimales se alinean igual que con una fuente
-         monoespaciada, sin la estética de código. Todo uso debe declarar también NumeralAlignment="Tabular". -->
-    <FontFamily x:Key="FontFamilyNumeric">Segoe UI Variable Display, Segoe UI, sans-serif</FontFamily>
+    <!-- Las fuentes viajan dentro del ensamblado (Fonts/**/*.ttf como Resource): la interfaz se ve igual en cualquier
+         equipo, sin depender de lo que traiga instalado Windows. Tras la fuente embebida va la lista de respaldo. -->
+    <FontFamily x:Key="FontFamilyText">pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter, Segoe UI Variable Text, Segoe UI</FontFamily>
+    <!-- Inter Display está dibujada para tamaños de 20 px en adelante: solo títulos grandes -->
+    <FontFamily x:Key="FontFamilyDisplay">pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter Display, pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter, Segoe UI Variable Display</FontFamily>
+    <!-- Importes, cantidades y stock (D-23): Inter trae números tabulares (feature tnum), que se activan con
+         Typography.NumeralAlignment="Tabular". Todos los dígitos miden lo mismo, así que los decimales se alinean como
+         con una fuente monoespaciada, sin la estética de código. Todo uso debe declarar también NumeralAlignment="Tabular". -->
+    <FontFamily x:Key="FontFamilyNumeric">pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter, Segoe UI Variable Text, Segoe UI</FontFamily>
     <!-- Códigos (barras, CUIT, documento, proveedor), teclas F1-F12 y textos técnicos: ahí sí es un código -->
-    <FontFamily x:Key="FontFamilyMonospace">Cascadia Code, Consolas, Courier New</FontFamily>
+    <FontFamily x:Key="FontFamilyMonospace">pack://application:,,,/Retail.App;component/Fonts/JetBrainsMono/#JetBrains Mono, Cascadia Code, Consolas</FontFamily>
+
+    <!-- WPF-UI define esta clave como "Segoe Ui" y casi todos sus controles (botones, cuadros de texto, menús) la toman
+         con DynamicResource. Como este diccionario se mergea después de ui:ControlsDictionary, la clave de la aplicación
+         gana y los controles de WPF-UI también se dibujan en Inter. -->
+    <FontFamily x:Key="ContentControlThemeFontFamily">pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter, Segoe UI Variable Text, Segoe UI</FontFamily>
+
+    <!-- ================================================================= -->
+    <!-- ESCALA DE TAMAÑOS                                                 -->
+    <!-- ================================================================= -->
+    <sys:Double x:Key="FontSize2Xs">10</sys:Double>      <!-- Solo keycaps compactos -->
+    <sys:Double x:Key="FontSizeXs">11</sys:Double>       <!-- Metadatos y keycaps -->
+    <sys:Double x:Key="FontSizeSm">12</sys:Double>       <!-- Leyendas y celdas de código -->
+    <sys:Double x:Key="FontSizeBase">13</sys:Double>     <!-- Cuerpo y celdas de grilla -->
+    <sys:Double x:Key="FontSizeMd">14</sys:Double>
+    <sys:Double x:Key="FontSizeLg">16</sys:Double>       <!-- Cabecera de sección o modal -->
+    <sys:Double x:Key="FontSizeXl">20</sys:Double>       <!-- Título de pantalla -->
+    <sys:Double x:Key="FontSize2Xl">24</sys:Double>      <!-- Título de página, importe destacado -->
+    <sys:Double x:Key="FontSizeDisplay">32</sys:Double>  <!-- Total del POS -->
 
     <!-- ================================================================= -->
     <!-- ESCALA TIPOGRÁFICA DE TEXTBLOCK                                   -->
     <!-- ================================================================= -->
 
-    <!-- Título Principal de Pantalla (22px, SemiBold) -->
+    <!-- Título Principal de Pantalla (20px, SemiBold, Inter Display) -->
     <Style x:Key="TextBlockHeader1" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyDisplay}" />
-        <Setter Property="FontSize" Value="22" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeXl}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
-    <!-- Título de página de trabajo (26px, SemiBold): el del PageHeader, directo sobre el fondo -->
+    <!-- Título de página de trabajo (24px, SemiBold): el del PageHeader, directo sobre el fondo -->
     <Style x:Key="TextBlockPageTitle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockHeader1}">
-        <Setter Property="FontSize" Value="26" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize2Xl}" />
     </Style>
 
-    <!-- Subtítulo o Cabecera de Sección / Modal (16px, SemiBold) -->
+    <!-- Subtítulo o Cabecera de Sección / Modal (16px, SemiBold; Inter Display es para 20 px o más, acá va Inter) -->
     <Style x:Key="TextBlockHeader2" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource FontFamilyDisplay}" />
-        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeLg}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
-    <!-- Cuerpo de Texto Estándar (14px, Regular) -->
+    <!-- Cuerpo de Texto Estándar (13px, Regular, interlineado fijo de 20) -->
     <Style x:Key="TextBlockBody" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
         <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="LineHeight" Value="20" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
     </Style>
 
-    <!-- Cuerpo de Texto Secundario (14px, Regular, Muted) -->
+    <!-- Cuerpo de Texto Secundario (13px, Regular, interlineado fijo de 20) -->
     <Style x:Key="TextBlockBodySecondary" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
         <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="LineHeight" Value="20" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
     </Style>
 
-    <!-- Texto de Ayuda o Leyenda (12px, Regular) -->
+    <!-- Texto de Ayuda o Leyenda (12px, Regular, interlineado fijo de 16) -->
     <Style x:Key="TextBlockCaption" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
         <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="LineHeight" Value="16" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
     </Style>
 
     <!-- Texto de Ayuda Secundario o Metadatos (11px, Regular) -->
     <Style x:Key="TextBlockCaptionSecondary" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeXs}" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
     </Style>
 
-    <!-- Cuerpo de Texto Apagado / Muted (13px, Regular) -->
+    <!-- Cuerpo de Texto Apagado / Muted (13px, Regular, interlineado fijo de 20) -->
     <Style x:Key="TextBlockBodyMuted" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
         <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="LineHeight" Value="20" />
+        <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
     </Style>
 
@@ -82,7 +112,7 @@
     <Style x:Key="TextBlockDisplayCurrency" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="FontSize" Value="32" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeDisplay}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="TextAlignment" Value="Right" />
@@ -92,72 +122,72 @@
     <Style x:Key="TextBlockCurrencyLarge" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize2Xl}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
     </Style>
 
-    <!-- Celda de Precios y Subtotales en Grillas (14px, SemiBold, números tabulares, alineado verticalmente al centro).
+    <!-- Celda de Precios y Subtotales en Grillas (13px, Medium, números tabulares, alineado verticalmente al centro).
          Language es-AR: un StringFormat de un binding usa el idioma del elemento (por defecto en-US, que da "4,000.00").
          Se fija acá, y no en la grilla ni en la aplicación, para no alterar cómo se interpreta lo que el usuario tipea. -->
     <Style x:Key="TextBlockCurrencyCell" TargetType="TextBlock">
         <Setter Property="Language" Value="es-AR" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="TextAlignment" Value="Right" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Precio de venta destacado en una grilla de listado: como la celda de importe, pero en negrita -->
+    <!-- Precio de venta destacado en una grilla de listado: como la celda de importe, pero en SemiBold -->
     <Style x:Key="TextBlockPriceCell" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
-        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <!-- Celda Monoespaciada Estándar en Grillas (Códigos de barra, Documentos, IDs - 13px, Cascadia Code) -->
+    <!-- Celda Monoespaciada Estándar en Grillas (Códigos de barra, Documentos, IDs - 12px, Medium, JetBrains Mono) -->
     <Style x:Key="TextBlockMonospaceCell" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Celda Numérica en Grillas (números de fila, cantidades, stock - 13px, SemiBold, números tabulares) -->
+    <!-- Celda Numérica en Grillas (números de fila, cantidades, stock - 13px, Medium, números tabulares) -->
     <Style x:Key="TextBlockNumericCell" TargetType="TextBlock">
         <Setter Property="Language" Value="es-AR" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Celda de Texto Estándar en Grillas (14px, Regular, Segoe UI Variable, centrado vertical) -->
+    <!-- Celda de Texto Estándar en Grillas (13px, Regular, Inter, centrado vertical) -->
     <Style x:Key="TextBlockTextCell" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Etiqueta de Tecla Rápida [F1] a [F12] (11px, Bold, Monospace) -->
+    <!-- Etiqueta de Tecla Rápida [F1] a [F12] (11px, Bold, JetBrains Mono) -->
     <Style x:Key="TextBlockKeycap" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeXs}" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource KeycapForegroundBrush}" />
         <Setter Property="TextAlignment" Value="Center" />
     </Style>
 
-    <!-- Texto de Tecla Rápida Compacta (10px, Bold, Monospace) -->
+    <!-- Texto de Tecla Rápida Compacta (10px, Bold, JetBrains Mono) -->
     <Style x:Key="KeycapTextSmall" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
-        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontSize" Value="{StaticResource FontSize2Xs}" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource KeycapForegroundBrush}" />
         <Setter Property="TextAlignment" Value="Center" />

@@ -133,8 +133,7 @@
 
                                 <!-- Más acciones (último: el menú abre alineado a su borde derecho). Todavía sin lógica: quedan
                                      deshabilitadas en el menú, con su tooltip, hasta implementar cada una -->
-                                <Button Style="{StaticResource GhostNeutralButtonStyle}"
-                                        Padding="10,4"
+                                <ToggleButton Style="{StaticResource GhostNeutralToggleButtonStyle}"
                                         helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
                                         ToolTip="Más acciones sobre los artículos seleccionados"
                                         AutomationProperties.Name="Más acciones">
@@ -146,14 +145,14 @@
                                               Height="4"
                                               Margin="6,1,0,0"
                                               Stretch="None"
-                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
                                               StrokeThickness="1.2"
                                               StrokeStartLineCap="Round"
                                               StrokeEndLineCap="Round"
                                               StrokeLineJoin="Round"
                                               VerticalAlignment="Center" />
                                     </StackPanel>
-                                    <Button.ContextMenu>
+                                    <ToggleButton.ContextMenu>
                                         <ContextMenu>
                                             <MenuItem Header="Cambiar rubro"
                                                       FontWeight="Normal"
@@ -174,8 +173,8 @@
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                         </ContextMenu>
-                                    </Button.ContextMenu>
-                                </Button>
+                                    </ToggleButton.ContextMenu>
+                                </ToggleButton>
                             </StackPanel>
                         </components:BulkActionBar>
                     </components:ListToolbar.AccionesDeSeleccion>
@@ -539,14 +538,14 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <!-- Tag lleva el ViewModel de la página: el ContextMenu no está en el árbol visual de la vista -->
-                                <Button Style="{StaticResource RowMenuButtonStyle}"
+                                <ToggleButton Style="{StaticResource RowMenuButtonStyle}"
                                         helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
                                         Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                         HorizontalAlignment="Left"
                                         ToolTip="Acciones del artículo"
                                         AutomationProperties.Name="Acciones del artículo">
                                     <iconPacks:PackIconBoxIcons Kind="RegularDotsVerticalRounded" Width="14" Height="14" />
-                                    <Button.ContextMenu>
+                                    <ToggleButton.ContextMenu>
                                         <ContextMenu>
                                             <!-- Pedir al proveedor (A-17, G4): deshabilitado con su motivo si no tiene fuente -->
                                             <MenuItem Header="Pedir al proveedor"
@@ -629,8 +628,8 @@
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                         </ContextMenu>
-                                    </Button.ContextMenu>
-                                </Button>
+                                    </ToggleButton.ContextMenu>
+                                </ToggleButton>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

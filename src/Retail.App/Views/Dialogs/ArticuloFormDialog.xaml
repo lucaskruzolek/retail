@@ -5,6 +5,7 @@
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   xmlns:helpers="clr-namespace:Retail.App.Helpers"
                   xmlns:converters="clr-namespace:Retail.App.Converters"
+                  xmlns:components="clr-namespace:Retail.App.Views.Components"
                   xmlns:sys="clr-namespace:System;assembly=mscorlib"
                   Title="{Binding TituloVentana}"
                   Width="960"
@@ -96,7 +97,7 @@
                             <!-- Tipo de artículo (no aplica a una presentación derivada, RF-21) -->
                             <StackPanel Margin="0,0,0,12"
                                         Visibility="{Binding NoEsDerivado, Converter={StaticResource BoolToVisConverter}}">
-                                <Border Style="{StaticResource SegmentedControlBorderStyle}">
+                                <components:SelectorSegmentado>
                                     <UniformGrid Columns="2">
                                         <RadioButton x:Name="OpcionProducto"
                                                      GroupName="TipoArticulo"
@@ -104,7 +105,7 @@
                                                      AutomationProperties.Name="Producto"
                                                      Style="{StaticResource SegmentedRadioButtonStyle}">
                                             <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularCube" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <iconPacks:PackIconBoxIcons Kind="RegularCube" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                                                 <TextBlock Text="Producto" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </RadioButton>
@@ -117,12 +118,12 @@
                                                      ToolTipService.ShowOnDisabled="True"
                                                      Style="{StaticResource SegmentedRadioButtonStyle}">
                                             <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularMagicWand" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <iconPacks:PackIconBoxIcons Kind="RegularMagicWand" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                                                 <TextBlock Text="Servicio" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </RadioButton>
                                     </UniformGrid>
-                                </Border>
+                                </components:SelectorSegmentado>
                                 <TextBlock Text="Los servicios no llevan stock."
                                            Style="{StaticResource TextBlockCaptionSecondary}"
                                            Margin="0,6,0,0"
@@ -221,7 +222,7 @@
                                                 AutomationProperties.Name="Ajustar stock actual"
                                                 ToolTip="Corregir el stock actual (se aplica al guardar)">
                                             <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                                                 <TextBlock Text="Ajustar" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </Button>
@@ -446,7 +447,7 @@
                                     Padding="12,6"
                                     HorizontalAlignment="Right">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Text="Agregar fuente..." VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>

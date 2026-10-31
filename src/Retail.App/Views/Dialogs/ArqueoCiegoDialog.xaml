@@ -89,12 +89,14 @@
             <DockPanel LastChildFill="False">
                 <Button Content="Cancelar"
                         Style="{StaticResource KeycapButtonStyle}"
+                        MinHeight="{StaticResource ControlHeightLg}"
                         Width="100"
                         DockPanel.Dock="Left"
                         Click="Cancelar_Click" />
 
                 <Button Content="Confirmar Cierre"
                         Style="{StaticResource DangerActionButtonStyle}"
+                        MinHeight="{StaticResource ControlHeightLg}"
                         Width="140"
                         DockPanel.Dock="Right"
                         Click="Aceptar_Click" />

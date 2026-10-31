@@ -9,31 +9,33 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
     </UserControl.Resources>
 
-    <DockPanel LastChildFill="False" Margin="16,10">
+    <DockPanel LastChildFill="False" Margin="16,8">
         <!-- Resumen de registros a la izquierda (la página que ya muestra la cantidad en otro lado lo oculta) -->
         <TextBlock DockPanel.Dock="Left"
                    Text="{Binding InformacionPaginacion}"
                    Visibility="{Binding MostrarResumen, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisConverter}}"
                    Style="{StaticResource TextBlockBodySecondary}"
-                   FontSize="12"
+                   FontSize="{StaticResource FontSizeSm}"
+                   Foreground="{DynamicResource TextSubtleBrush}"
                    VerticalAlignment="Center" />
 
         <!-- Controles de navegación a la derecha -->
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
             <!-- Selector de Filas por Página -->
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                <TextBlock Text="Filas:" Style="{StaticResource TextBlockBodySecondary}" FontSize="12" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <TextBlock Text="Filas:" Style="{StaticResource TextBlockBodySecondary}" FontSize="{StaticResource FontSizeSm}" Foreground="{DynamicResource TextSubtleBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
                 <!-- El ComboBox de WPF-UI tiene dos particularidades: su borde visible lo fija el texto más el relleno vertical
-                     (no Height; 5.7 lo iguala a los botones de al lado, 32) y reserva ~32 px para la flecha además del relleno
-                     derecho (por eso este es 0: con más, el texto quedaba en 0 px de ancho y no se veía). Las opciones tienen dos
-                     cifras: 64 de ancho alcanzan. -->
+                     (no Height; el relleno de 4 lo iguala a los botones de al lado, 28) y reserva ~32 px para la flecha además
+                     del relleno derecho (por eso este es 0: con más, el texto quedaba en 0 px de ancho y no se veía). Las opciones
+                     tienen dos cifras: 64 de ancho alcanzan. -->
                 <ComboBox ItemsSource="{Binding TamanosPaginaDisponibles}"
                           SelectedItem="{Binding TamanoPagina, Mode=TwoWay}"
                           Style="{StaticResource ComboBoxFiltroStyle}"
                           Width="64"
-                          Height="32"
-                          FontSize="12"
-                          Padding="10,5.7,0,5.7"
+                          Height="{StaticResource ControlHeightSm}"
+                          MinHeight="{StaticResource ControlHeightSm}"
+                          FontSize="{StaticResource FontSizeSm}"
+                          Padding="10,4,0,4"
                           VerticalAlignment="Center" />
             </StackPanel>
 
@@ -41,7 +43,7 @@
             <Button Command="{Binding PrimeraPaginaCommand}"
                     IsEnabled="{Binding PuedeRetrocederPagina}"
                     Style="{StaticResource KeycapButtonStyle}"
-                    Padding="8,0" Height="32" MinWidth="32"
+                    Padding="8,0" Height="{StaticResource ControlHeightSm}" MinHeight="{StaticResource ControlHeightSm}" MinWidth="{StaticResource ControlHeightSm}"
                     Margin="0,0,4,0"
                     ToolTip="Primera página">
                 <iconPacks:PackIconBoxIcons Kind="RegularChevronsLeft" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
@@ -51,7 +53,7 @@
             <Button Command="{Binding PaginaAnteriorCommand}"
                     IsEnabled="{Binding PuedeRetrocederPagina}"
                     Style="{StaticResource KeycapButtonStyle}"
-                    Padding="8,0" Height="32" MinWidth="32"
+                    Padding="8,0" Height="{StaticResource ControlHeightSm}" MinHeight="{StaticResource ControlHeightSm}" MinWidth="{StaticResource ControlHeightSm}"
                     Margin="0,0,6,0"
                     ToolTip="Página anterior">
                 <iconPacks:PackIconBoxIcons Kind="RegularChevronLeft" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
@@ -60,15 +62,15 @@
             <!-- Indicador de Página Actual -->
             <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="6"
+                    CornerRadius="{StaticResource RadiusMd}"
                     Background="{DynamicResource SurfaceCardBrush}"
                     MinWidth="64"
-                    Height="32"
+                    Height="{StaticResource ControlHeightSm}"
                     Margin="0,0,6,0"
                     VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource TextBlockBodySecondary}"
                            Foreground="{DynamicResource TextPrimaryBrush}"
-                           FontSize="12"
+                           FontSize="{StaticResource FontSizeSm}"
                            Padding="10,0"
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center">
@@ -85,7 +87,7 @@
             <Button Command="{Binding PaginaSiguienteCommand}"
                     IsEnabled="{Binding PuedeAvanzarPagina}"
                     Style="{StaticResource KeycapButtonStyle}"
-                    Padding="8,0" Height="32" MinWidth="32"
+                    Padding="8,0" Height="{StaticResource ControlHeightSm}" MinHeight="{StaticResource ControlHeightSm}" MinWidth="{StaticResource ControlHeightSm}"
                     Margin="0,0,4,0"
                     ToolTip="Página siguiente">
                 <iconPacks:PackIconBoxIcons Kind="RegularChevronRight" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
@@ -95,7 +97,7 @@
             <Button Command="{Binding UltimaPaginaCommand}"
                     IsEnabled="{Binding PuedeAvanzarPagina}"
                     Style="{StaticResource KeycapButtonStyle}"
-                    Padding="8,0" Height="32" MinWidth="32"
+                    Padding="8,0" Height="{StaticResource ControlHeightSm}" MinHeight="{StaticResource ControlHeightSm}" MinWidth="{StaticResource ControlHeightSm}"
                     ToolTip="Última página">
                 <iconPacks:PackIconBoxIcons Kind="RegularChevronsRight" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
             </Button>

@@ -1,16 +1,20 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <!-- ================================================================= -->
     <!-- TOKENS DE ESPACIADO ESTRUCTURAL (GRILLA DE 4 PX)                  -->
     <!-- ================================================================= -->
-    <!-- Regla: lo relacionado va más junto que lo no relacionado. 8 entre tarjetas del mismo grupo, 16 entre secciones y
-         columnas, 20 hasta el borde de la ventana. Solo se tokeniza el espaciado entre bloques de una página; los
-         micro-márgenes internos de un control (4 a 8 px) se escriben a mano. Son StaticResource: no cambian en ejecución. -->
+    <!-- Regla: lo relacionado va más junto que lo no relacionado, y todo valor es múltiplo de 4 y se toma de estos
+         tokens. Son StaticResource: no cambian en ejecución. -->
 
-    <!-- Margen entre el borde de la ventana (o el Sidebar) y el contenido de toda página. Arriba es menor (12) porque la
+    <!-- ================================================================= -->
+    <!-- ESPACIADO ENTRE BLOQUES DE UNA PÁGINA                             -->
+    <!-- ================================================================= -->
+
+    <!-- Margen entre el borde de la ventana (o el Sidebar) y el contenido de toda página. Arriba es menor (16) porque la
          barra de título ya separa el contenido del borde de la ventana. -->
-    <Thickness x:Key="PageMargin">20,12,20,20</Thickness>
+    <Thickness x:Key="PageMargin">24,16,24,24</Thickness>
 
     <!-- Separación vertical entre secciones de una página (encabezado, filtros, cuerpo) -->
     <Thickness x:Key="SectionSpacing">0,0,0,16</Thickness>
@@ -21,5 +25,59 @@
     <!-- Separación horizontal entre dos columnas de contenido: como margen derecho de la primera, o como columna espaciadora -->
     <Thickness x:Key="ColumnSpacing">0,0,16,0</Thickness>
     <GridLength x:Key="ColumnGap">16</GridLength>
+
+    <!-- ================================================================= -->
+    <!-- ESCALA NUMÉRICA                                                   -->
+    <!-- ================================================================= -->
+    <sys:Double x:Key="Space4">4</sys:Double>
+    <sys:Double x:Key="Space8">8</sys:Double>
+    <sys:Double x:Key="Space12">12</sys:Double>
+    <sys:Double x:Key="Space16">16</sys:Double>
+    <sys:Double x:Key="Space24">24</sys:Double>
+    <sys:Double x:Key="Space32">32</sys:Double>
+
+    <!-- ================================================================= -->
+    <!-- MÁRGENES DE APILADO E INLINE                                      -->
+    <!-- ================================================================= -->
+    <!-- Apilado vertical: separación con el elemento de abajo -->
+    <Thickness x:Key="StackXs">0,0,0,4</Thickness>
+    <Thickness x:Key="StackSm">0,0,0,8</Thickness>
+    <Thickness x:Key="StackMd">0,0,0,12</Thickness>
+    <Thickness x:Key="StackLg">0,0,0,16</Thickness>
+    <Thickness x:Key="StackXl">0,0,0,24</Thickness>
+
+    <!-- Inline horizontal: separación con el elemento de la derecha -->
+    <Thickness x:Key="InlineXs">0,0,4,0</Thickness>
+    <Thickness x:Key="InlineSm">0,0,8,0</Thickness>
+    <Thickness x:Key="InlineMd">0,0,12,0</Thickness>
+
+    <!-- Relleno interno de una tarjeta y de un contenedor compacto (barras, chips, filas de resumen) -->
+    <Thickness x:Key="InsetCard">16</Thickness>
+    <Thickness x:Key="InsetCompact">12,8</Thickness>
+
+    <!-- ================================================================= -->
+    <!-- RADIOS DE ESQUINA                                                 -->
+    <!-- ================================================================= -->
+    <CornerRadius x:Key="RadiusSm">4</CornerRadius>
+    <CornerRadius x:Key="RadiusMd">6</CornerRadius>
+    <CornerRadius x:Key="RadiusLg">8</CornerRadius>
+    <!-- Cápsula completa: chips e indicadores de estado -->
+    <CornerRadius x:Key="RadiusPill">999</CornerRadius>
+
+    <!-- ================================================================= -->
+    <!-- ALTOS DE CONTROLES Y FILAS                                        -->
+    <!-- ================================================================= -->
+    <sys:Double x:Key="ControlHeightSm">28</sys:Double>
+    <sys:Double x:Key="ControlHeight">32</sys:Double>
+    <sys:Double x:Key="ControlHeightLg">40</sys:Double>
+    <!-- Fila de las grillas de listado y de las del mostrador (POS, más alta para tocarla con precisión) -->
+    <sys:Double x:Key="RowHeightListado">36</sys:Double>
+    <sys:Double x:Key="RowHeightPos">42</sys:Double>
+
+    <!-- ================================================================= -->
+    <!-- MOVIMIENTO                                                        -->
+    <!-- ================================================================= -->
+    <!-- Duración estándar de las transiciones de hover, selección y foco -->
+    <Duration x:Key="DuracionTransicion">0:0:0.18</Duration>
 
 </ResourceDictionary>
