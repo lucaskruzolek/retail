@@ -437,6 +437,17 @@
         <Setter Property="Padding" Value="12,10" />
     </Style>
 
+    <!-- El encabezado sigue la alineación de su celda: a la derecha sobre importes y números (así el título queda sobre
+         los dígitos), centrado sobre controles centrados (cantidad, acciones). El relleno de 12 coincide con el de la
+         celda, de modo que los bordes derechos del título y del dato quedan en la misma vertical. -->
+    <Style x:Key="DataGridColumnHeaderRightStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRetailStyle}">
+        <Setter Property="HorizontalContentAlignment" Value="Right" />
+    </Style>
+
+    <Style x:Key="DataGridColumnHeaderCenterStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRetailStyle}">
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
     <!-- Celda sin bordes verticales ni halos azules al seleccionarse -->
     <Style x:Key="DataGridCellRetailStyle" TargetType="DataGridCell">
         <Setter Property="Padding" Value="12,8" />
@@ -572,6 +583,43 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Acción secundaria de texto dentro de una fila o tarjeta (p. ej. "Restablecer" en una fila corregida, M-70):
+         ícono + texto carmín sin borde ni fondo; en hover, fondo carmín suave. Más visible que un ícono suelto y más
+         liviano que un Keycap, para no competir con los controles de la fila. -->
+    <Style x:Key="GhostPrimaryButtonStyle" TargetType="Button">
+        <Setter Property="Padding" Value="6,3" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Cuadrado carmín junto al botón de cobro (D-24): en reposo rosa claro con borde e ícono carmín, para no competir
          con el primario; en hover toma el carmín sólido del botón Cobrar. Deshabilitado igual que Cobrar. -->
     <Style x:Key="IconPrimarySquareButtonStyle" TargetType="Button" BasedOn="{StaticResource IconDangerButtonStyle}">
@@ -688,6 +736,78 @@
         <Setter Property="ColumnHeaderStyle" Value="{StaticResource DataGridColumnHeaderRetailStyle}" />
         <Setter Property="CellStyle" Value="{StaticResource DataGridCellRetailStyle}" />
         <Setter Property="RowStyle" Value="{StaticResource DataGridRowRetailStyle}" />
+        <!-- Scroll por píxeles sin perder la virtualización (RNF-03): CanContentScroll queda en True; con False
+             se dibujarían todas las filas. La barra horizontal aparece cuando las columnas no entran en el ancho,
+             para lo cual cada columna "*" declara su MinWidth en la vista. -->
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+        <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+        <!-- Plantilla estándar de DataGrid con el borde redondeado (helpers:EsquinasHelper.Esquinas, 8 por defecto) y su
+             contenido recortado a esas esquinas: sin el recorte el fondo del encabezado se saldría de ellas. No lleva el
+             botón de "seleccionar todo" de la esquina porque la grilla no muestra encabezados de fila. -->
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGrid">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{Binding (helpers:EsquinasHelper.Esquinas), RelativeSource={RelativeSource TemplatedParent}}"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="DG_ScrollViewer"
+                                      Focusable="False"
+                                      helpers:EsquinasHelper.RadioDelRecorte="{Binding (helpers:EsquinasHelper.Esquinas).TopLeft, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ScrollViewer.Template>
+                                <ControlTemplate TargetType="ScrollViewer">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <DataGridColumnHeadersPresenter x:Name="PART_ColumnHeadersPresenter"
+                                                                        Grid.Column="1"
+                                                                        Visibility="{Binding HeadersVisibility, ConverterParameter={x:Static DataGridHeadersVisibility.Column}, Converter={x:Static DataGrid.HeadersVisibilityConverter}, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
+                                        <ScrollContentPresenter x:Name="PART_ScrollContentPresenter"
+                                                                Grid.Row="1"
+                                                                Grid.ColumnSpan="2"
+                                                                CanContentScroll="{TemplateBinding CanContentScroll}" />
+                                        <ScrollBar x:Name="PART_VerticalScrollBar"
+                                                   Grid.Row="1"
+                                                   Grid.Column="2"
+                                                   Orientation="Vertical"
+                                                   Maximum="{TemplateBinding ScrollableHeight}"
+                                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                                   Value="{Binding VerticalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                                        <Grid Grid.Row="2" Grid.Column="1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="{Binding NonFrozenColumnsViewportHorizontalOffset, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <ScrollBar x:Name="PART_HorizontalScrollBar"
+                                                       Grid.Column="1"
+                                                       Orientation="Horizontal"
+                                                       Maximum="{TemplateBinding ScrollableWidth}"
+                                                       ViewportSize="{TemplateBinding ViewportWidth}"
+                                                       Value="{Binding HorizontalOffset, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                                       Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                                        </Grid>
+                                    </Grid>
+                                </ControlTemplate>
+                            </ScrollViewer.Template>
+                            <ItemsPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- ================================================================= -->
@@ -696,9 +816,9 @@
     <Style x:Key="SidebarItemButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
         <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Height" Value="40" />
@@ -726,14 +846,6 @@
                                           RecognizesAccessKey="True" />
                     </Border>
                     <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
-                        </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.45" />
                             <Setter Property="Cursor" Value="No" />
@@ -742,7 +854,17 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <!-- Hover y pressed van acá y no en el template: los estilos derivados (el ítem activo de MainWindow) declaran sus
+             triggers después de estos y así su fondo carmín prevalece sobre el hover. -->
         <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SidebarPressedBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+            </Trigger>
             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
             </DataTrigger>
@@ -754,12 +876,12 @@
     <!-- ================================================================= -->
     <Style x:Key="SidebarHamburgerButtonStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Padding" Value="8,6" />
-        <Setter Property="Height" Value="34" />
-        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Width" Value="36" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
@@ -782,12 +904,166 @@
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarPressedBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- BOTÓN FANTASMA SOBRE EL SIDEBAR (SidebarGhostButton)              -->
+    <!-- ================================================================= -->
+    <!-- Acción secundaria del pie ("Cambiar Operador"): sin relleno ni borde y con texto claro; en hover se enciende como
+         un ítem del menú. Sin borde: el relleno de hover delimita el botón. -->
+    <Style x:Key="SidebarGhostButtonStyle" TargetType="Button">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="6,6" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          RecognizesAccessKey="True" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarPressedBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="border" Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="No" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- SCROLL DEL SIDEBAR CON AUTOOCULTADO (SidebarScrollViewerStyle)    -->
+    <!-- ================================================================= -->
+    <!-- La barra vertical flota sobre el contenido (no le quita ancho a los ítems) y solo se ve mientras el mouse está
+         sobre el menú. Sin desborde, ComputedVerticalScrollBarVisibility la colapsa por completo. -->
+    <Style x:Key="SidebarScrollBarStyle" TargetType="ScrollBar">
+        <!-- MinWidth en 0: el estilo de tema de WPF sigue aportando el ancho del scrollbar del sistema (17 px) por debajo
+             de este estilo, y sin esto el Width nunca baja de ese valor. -->
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Width" Value="4" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                        <Track.DecreaseRepeatButton>
+                            <RepeatButton Command="ScrollBar.PageUpCommand" Focusable="False" IsTabStop="False">
+                                <RepeatButton.Template>
+                                    <ControlTemplate TargetType="RepeatButton">
+                                        <Border Background="Transparent" />
+                                    </ControlTemplate>
+                                </RepeatButton.Template>
+                            </RepeatButton>
+                        </Track.DecreaseRepeatButton>
+                        <Track.IncreaseRepeatButton>
+                            <RepeatButton Command="ScrollBar.PageDownCommand" Focusable="False" IsTabStop="False">
+                                <RepeatButton.Template>
+                                    <ControlTemplate TargetType="RepeatButton">
+                                        <Border Background="Transparent" />
+                                    </ControlTemplate>
+                                </RepeatButton.Template>
+                            </RepeatButton>
+                        </Track.IncreaseRepeatButton>
+                        <Track.Thumb>
+                            <Thumb Focusable="False" IsTabStop="False">
+                                <Thumb.Template>
+                                    <ControlTemplate TargetType="Thumb">
+                                        <Border x:Name="thumb"
+                                                Background="{DynamicResource SidebarPressedBrush}"
+                                                CornerRadius="2" />
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="thumb" Property="Background" Value="{DynamicResource SidebarTextMutedBrush}" />
+                                            </Trigger>
+                                            <Trigger Property="IsDragging" Value="True">
+                                                <Setter TargetName="thumb" Property="Background" Value="{DynamicResource SidebarTextBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Thumb.Template>
+                            </Thumb>
+                        </Track.Thumb>
+                    </Track>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="SidebarScrollViewerStyle" TargetType="ScrollViewer">
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollViewer">
+                    <Grid Background="Transparent">
+                        <ScrollContentPresenter Margin="{TemplateBinding Padding}"
+                                                CanContentScroll="{TemplateBinding CanContentScroll}" />
+                        <ScrollBar x:Name="PART_VerticalScrollBar"
+                                   Style="{StaticResource SidebarScrollBarStyle}"
+                                   HorizontalAlignment="Right"
+                                   Opacity="0"
+                                   Orientation="Vertical"
+                                   Value="{TemplateBinding VerticalOffset}"
+                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                   Maximum="{TemplateBinding ScrollableHeight}"
+                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="PART_VerticalScrollBar"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="1"
+                                                         Duration="0:0:0.15" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="PART_VerticalScrollBar"
+                                                         Storyboard.TargetProperty="Opacity"
+                                                         To="0"
+                                                         BeginTime="0:0:0.4"
+                                                         Duration="0:0:0.3" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

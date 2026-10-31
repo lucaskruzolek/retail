@@ -11,7 +11,9 @@
                 <ResourceDictionary Source="Styles/Colors.xaml" />
                 <ResourceDictionary Source="Styles/Typography.xaml" />
                 <ResourceDictionary Source="Styles/Icons.xaml" />
+                <ResourceDictionary Source="Styles/Spacing.xaml" />
                 <ResourceDictionary Source="Styles/Controls.xaml" />
+                <ResourceDictionary Source="Styles/Listados.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Los recursos con x:Key van aquí adentro, fuera de los MergedDictionaries -->

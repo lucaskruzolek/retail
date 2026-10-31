@@ -4,6 +4,7 @@
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:converters="clr-namespace:Retail.App.Converters"
+                 xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  Title="Administrar clasificación"
                  Width="960"
                  Height="640"
@@ -17,16 +18,11 @@
 
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ui:ThemesDictionary Theme="Light" />
-                <ui:ControlsDictionary />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Colors.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Typography.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Icons.xaml" />
-                <ResourceDictionary Source="/Retail.App;component/Styles/Controls.xaml" />
-            </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
             <converters:InverseBooleanToVisibilityConverter x:Key="BooleanToInverseVisibilityConverter" />
+            <converters:IgualAParametroConverter x:Key="IgualAParametroConverter" />
+            <sys:Boolean x:Key="Verdadero">True</sys:Boolean>
+            <sys:Boolean x:Key="Falso">False</sys:Boolean>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
@@ -58,12 +54,12 @@
         </Grid>
 
         <!-- Selector de sección (D-26): sin atajos de teclado (D-27) -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="24,8,24,12">
+        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="24,8,24,4">
             <RadioButton GroupName="SeccionClasificacion"
                          IsChecked="{Binding MostrandoRubros, Mode=TwoWay}"
                          Style="{StaticResource KeycapToggleButtonStyle}"
                          Padding="12,6"
-                         Margin="0,0,8,0">
+                         Margin="0,0,8,8">
                 <StackPanel Orientation="Horizontal">
                     <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
                     <TextBlock Text="Rubros y categorías" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -72,20 +68,31 @@
             <RadioButton GroupName="SeccionClasificacion"
                          IsChecked="{Binding MostrandoMarcas, Mode=TwoWay}"
                          Style="{StaticResource KeycapToggleButtonStyle}"
-                         Padding="12,6">
+                         Padding="12,6"
+                         Margin="0,0,8,8">
                 <StackPanel Orientation="Horizontal">
                     <iconPacks:PackIconBoxIcons Kind="RegularTag" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
                     <TextBlock Text="Marcas" FontWeight="SemiBold" VerticalAlignment="Center" />
                 </StackPanel>
             </RadioButton>
+            <RadioButton GroupName="SeccionClasificacion"
+                         IsChecked="{Binding MostrandoTerminos, Mode=TwoWay}"
+                         Style="{StaticResource KeycapToggleButtonStyle}"
+                         Padding="12,6"
+                         Margin="0,0,8,8">
+                <StackPanel Orientation="Horizontal">
+                    <iconPacks:PackIconBoxIcons Kind="RegularBookContent" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Términos" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </StackPanel>
+            </RadioButton>
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
-                        Margin="16,0,0,0"
+                        Margin="8,0,0,8"
                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
                 <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
                 <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
             </StackPanel>
-        </StackPanel>
+        </WrapPanel>
 
         <!-- Contenido Central -->
         <Grid Grid.Row="2" Margin="24,0,24,12">
@@ -112,8 +119,8 @@
             <!-- Sección Rubros y Categorías (maestro-detalle) -->
             <Grid Grid.Row="1" Visibility="{Binding MostrandoRubros, Converter={StaticResource BoolToVisConverter}}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="2*" />
-                    <ColumnDefinition Width="3*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <!-- Rubros -->
@@ -272,81 +279,603 @@
                 </Border>
             </Grid>
 
-            <!-- Sección Marcas -->
-            <Border Grid.Row="1"
-                    Style="{StaticResource CardBorderStyle}"
-                    Padding="16"
-                    Visibility="{Binding MostrandoMarcas, Converter={StaticResource BoolToVisConverter}}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+            <!-- Sección Marcas (maestro-detalle, M-68): alias y prefijos EAN son entidades internas del agregado Marca y
+                 se administran desde la marca seleccionada, como las categorías desde su rubro -->
+            <Grid Grid.Row="1" Visibility="{Binding MostrandoMarcas, Converter={StaticResource BoolToVisConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                    <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                        <TextBlock Text="Marcas" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
-                        <Button DockPanel.Dock="Right"
-                                Command="{Binding NuevaMarcaCommand}"
-                                Style="{StaticResource PrimaryActionButtonStyle}"
-                                Padding="12,6">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Nueva marca" FontWeight="Bold" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                    </DockPanel>
+                <!-- Marcas -->
+                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
 
-                    <ui:TextBox Grid.Row="1"
-                                Text="{Binding FiltroMarca, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="Buscar marca..."
-                                Margin="0,0,0,12">
-                        <ui:TextBox.Icon>
-                            <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                          Width="16"
-                                          Height="16" />
-                        </ui:TextBox.Icon>
-                    </ui:TextBox>
+                        <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
+                            <TextBlock Text="Marcas" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
+                            <Button DockPanel.Dock="Right"
+                                    Command="{Binding NuevaMarcaCommand}"
+                                    Style="{StaticResource PrimaryActionButtonStyle}"
+                                    Padding="12,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Nueva marca" FontWeight="Bold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </DockPanel>
 
-                    <DataGrid Grid.Row="2"
-                              ItemsSource="{Binding Marcas}"
-                              Style="{StaticResource DataGridRetailStyle}"
-                              AutoGenerateColumns="False">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Nombre"
-                                                Binding="{Binding NombreMarca}"
-                                                Width="*"
-                                                ElementStyle="{StaticResource TextBlockTextCell}" />
-                            <DataGridTextColumn Header="Artículos"
-                                                Binding="{Binding CantidadEnUso}"
-                                                Width="100"
-                                                ElementStyle="{StaticResource TextBlockNumericCell}" />
-                            <DataGridTemplateColumn Header="Acciones" Width="90">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <Button Command="{Binding DataContext.EditarMarcaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{StaticResource KeycapButtonStyle}"
-                                                    Padding="6,4"
-                                                    Margin="0,0,4,0"
-                                                    ToolTip="Editar marca">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                            </Button>
-                                            <Button Command="{Binding DataContext.BajaMarcaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Style="{StaticResource IconDangerButtonStyle}"
-                                                    ToolTip="Dar de baja">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
-                                            </Button>
+                        <ui:TextBox Grid.Row="1"
+                                    Text="{Binding FiltroMarca, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Buscar marca..."
+                                    Margin="0,0,0,12">
+                            <ui:TextBox.Icon>
+                                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
+                                              Width="16"
+                                              Height="16" />
+                            </ui:TextBox.Icon>
+                        </ui:TextBox>
+
+                        <DataGrid Grid.Row="2"
+                                  ItemsSource="{Binding Marcas}"
+                                  SelectedItem="{Binding MarcaSeleccionada, Mode=TwoWay}"
+                                  Style="{StaticResource DataGridRetailStyle}"
+                                  AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Nombre"
+                                                    Binding="{Binding NombreMarca}"
+                                                    Width="*"
+                                                    ElementStyle="{StaticResource TextBlockTextCell}" />
+                                <DataGridTextColumn Header="Artículos"
+                                                    Binding="{Binding CantidadEnUso}"
+                                                    Width="100"
+                                                    ElementStyle="{StaticResource TextBlockNumericCell}" />
+                                <DataGridTemplateColumn Header="Acciones" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                <Button Command="{Binding DataContext.EditarMarcaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource KeycapButtonStyle}"
+                                                        Padding="6,4"
+                                                        Margin="0,0,4,0"
+                                                        ToolTip="Editar marca">
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                </Button>
+                                                <Button Command="{Binding DataContext.BajaMarcaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource IconDangerButtonStyle}"
+                                                        ToolTip="Dar de baja">
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                                </Button>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+
+                <!-- Detalle de la marca seleccionada: alias (otros nombres en las descripciones) y prefijos EAN (códigos en
+                     Cascadia Code, Ley 9). Una sola carga trae los dos (DetalleMarcaViewModel). -->
+                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Padding="16">
+                    <Grid DataContext="{Binding DetalleMarca}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                            <TextBlock Text="{Binding Marca.NombreMarca, FallbackValue='Detalle de la marca', TargetNullValue='Detalle de la marca'}"
+                                       Style="{StaticResource TextBlockHeader2}" />
+                            <TextBlock Text="Seleccione una marca de la lista para ver y editar sus alias y prefijos."
+                                       Style="{StaticResource TextBlockCaption}"
+                                       TextWrapping="Wrap"
+                                       Visibility="{Binding HayMarca, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+                        </StackPanel>
+
+                        <Border Grid.Row="1"
+                                Background="{DynamicResource DangerBackgroundBrush}"
+                                BorderBrush="{DynamicResource DangerBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12,8"
+                                Margin="0,0,0,12"
+                                Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="{Binding MensajeError}"
+                                       Foreground="{DynamicResource DangerForegroundBrush}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                        </Border>
+
+                        <!-- Alias -->
+                        <Grid Grid.Row="2"
+                              Margin="0,0,0,12"
+                              Visibility="{Binding HayMarca, Converter={StaticResource BoolToVisConverter}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,8">
+                                <TextBlock Text="Alias" Style="{StaticResource TextBlockBodySecondary}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <Button DockPanel.Dock="Right"
+                                        Command="{Binding NuevoAliasCommand}"
+                                        Style="{StaticResource KeycapButtonStyle}"
+                                        Padding="10,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Agregar alias" FontSize="12" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </DockPanel>
+                            <DataGrid Grid.Row="1"
+                                      x:Name="GrillaAlias"
+                                      ItemsSource="{Binding Alias}"
+                                      Style="{StaticResource DataGridRetailStyle}"
+                                      AutoGenerateColumns="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Alias"
+                                                        Binding="{Binding Alias}"
+                                                        Width="*"
+                                                        ElementStyle="{StaticResource TextBlockTextCell}" />
+                                    <DataGridTemplateColumn Header="Acciones" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                    <Button Command="{Binding DataContext.QuitarAliasCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource IconDangerButtonStyle}"
+                                                            ToolTip="Dar de baja">
+                                                        <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Grid.Row="2"
+                                       Text="Esta marca no tiene alias."
+                                       Style="{StaticResource TextBlockCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="12,8,0,0"
+                                       Visibility="{Binding HasItems, ElementName=GrillaAlias, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+                        </Grid>
+
+                        <!-- Prefijos EAN -->
+                        <Grid Grid.Row="3"
+                              Visibility="{Binding HayMarca, Converter={StaticResource BoolToVisConverter}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,8">
+                                <TextBlock Text="Prefijos EAN" Style="{StaticResource TextBlockBodySecondary}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <Button DockPanel.Dock="Right"
+                                        Command="{Binding NuevoPrefijoCommand}"
+                                        Style="{StaticResource KeycapButtonStyle}"
+                                        Padding="10,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Agregar prefijo" FontSize="12" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </DockPanel>
+                            <DataGrid Grid.Row="1"
+                                      x:Name="GrillaPrefijos"
+                                      ItemsSource="{Binding Prefijos}"
+                                      Style="{StaticResource DataGridRetailStyle}"
+                                      AutoGenerateColumns="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Prefijo"
+                                                        Binding="{Binding Prefijo}"
+                                                        Width="*"
+                                                        ElementStyle="{StaticResource TextBlockMonospaceCell}" />
+                                    <DataGridTemplateColumn Header="Acciones" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                    <Button Command="{Binding DataContext.QuitarPrefijoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource IconDangerButtonStyle}"
+                                                            ToolTip="Dar de baja">
+                                                        <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <TextBlock Grid.Row="2"
+                                       Text="Esta marca no tiene prefijos EAN."
+                                       Style="{StaticResource TextBlockCaption}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       Margin="12,8,0,0"
+                                       Visibility="{Binding HasItems, ElementName=GrillaPrefijos, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+                        </Grid>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Sección Términos (Track 6.6): tabla de términos y pares del término ambiguo seleccionado -->
+            <Grid Grid.Row="1" Visibility="{Binding MostrandoTerminos, Converter={StaticResource BoolToVisConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Términos -->
+                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,12,0" DataContext="{Binding Terminos}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
+                            <TextBlock Text="Términos" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
+                            <Button DockPanel.Dock="Right"
+                                    Command="{Binding NuevoTerminoCommand}"
+                                    Style="{StaticResource PrimaryActionButtonStyle}"
+                                    Padding="12,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Nuevo término" FontWeight="Bold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </DockPanel>
+
+                        <Border Grid.Row="1"
+                                Background="{DynamicResource DangerBackgroundBrush}"
+                                BorderBrush="{DynamicResource DangerBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12,8"
+                                Margin="0,0,0,12"
+                                Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="{Binding MensajeError}"
+                                       Foreground="{DynamicResource DangerForegroundBrush}"
+                                       FontSize="12"
+                                       TextWrapping="Wrap" />
+                        </Border>
+
+                        <!-- Búsqueda a todo el ancho; debajo, el filtro por categoría y el interruptor -->
+                        <Grid Grid.Row="2" Margin="0,0,0,12">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ui:TextBox Grid.Row="0"
+                                        Grid.ColumnSpan="2"
+                                        Text="{Binding Filtro, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="Buscar término..."
+                                        Margin="0,0,0,8">
+                                <ui:TextBox.Icon>
+                                    <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
+                                                  Width="16"
+                                                  Height="16" />
+                                </ui:TextBox.Icon>
+                            </ui:TextBox>
+                            <ComboBox Grid.Row="1"
+                                      Grid.Column="0"
+                                      ItemsSource="{Binding CategoriasFiltro}"
+                                      SelectedItem="{Binding CategoriaFiltro, Mode=TwoWay}"
+                                      DisplayMemberPath="NombreCategoria"
+                                      MinHeight="34"
+                                      Margin="0,0,16,0" />
+                            <ui:ToggleSwitch Grid.Row="1"
+                                             Grid.Column="1"
+                                             Content="Solo ambiguos"
+                                             IsChecked="{Binding SoloAmbiguos, Mode=TwoWay}"
+                                             VerticalAlignment="Center" />
+                        </Grid>
+
+                        <DataGrid Grid.Row="3"
+                                  ItemsSource="{Binding Terminos}"
+                                  SelectedItem="{Binding TerminoSeleccionado, Mode=TwoWay}"
+                                  Style="{StaticResource DataGridRetailStyle}"
+                                  AutoGenerateColumns="False">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Término"
+                                                    Binding="{Binding Termino}"
+                                                    Width="*"
+                                                    ElementStyle="{StaticResource TextBlockTextCell}" />
+                                <DataGridTemplateColumn Header="Categoría" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding NombreCategoria}"
+                                                           Style="{StaticResource TextBlockTextCell}"
+                                                           Visibility="{Binding EsAmbiguo, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+                                                <Border Style="{StaticResource BadgeWarningStyle}"
+                                                        HorizontalAlignment="Left"
+                                                        Visibility="{Binding EsAmbiguo, Converter={StaticResource BoolToVisConverter}}">
+                                                    <TextBlock Text="Ambiguo"
+                                                               FontSize="11"
+                                                               FontWeight="Bold"
+                                                               Foreground="{DynamicResource WarningForegroundBrush}" />
+                                                </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Acciones" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                <Button Command="{Binding DataContext.CambiarCategoriaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource KeycapButtonStyle}"
+                                                        Padding="6,4"
+                                                        Margin="0,0,4,0"
+                                                        ToolTip="Cambiar la categoría">
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                </Button>
+                                                <Button Command="{Binding DataContext.BajaTerminoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource IconDangerButtonStyle}"
+                                                        ToolTip="Dar de baja">
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                                </Button>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </Border>
+
+                <!-- Pares del término ambiguo seleccionado, en dos pestañas (M-71): los del diccionario y los que
+                     proponen los artículos confirmados (M-49). Solo se carga la pestaña visible. -->
+                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Padding="16" DataContext="{Binding Terminos}">
+                    <Grid>
+                        <Grid Visibility="{Binding HayTerminoAmbiguoSeleccionado, Converter={StaticResource BoolToVisConverter}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
+                                <RadioButton GroupName="PestanaPares"
+                                             IsChecked="{Binding MostrandoPropuestos, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={StaticResource Falso}}"
+                                             Style="{StaticResource KeycapToggleButtonStyle}"
+                                             Padding="12,6"
+                                             Margin="0,0,8,0">
+                                    <TextBlock Text="Pares" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </RadioButton>
+                                <RadioButton GroupName="PestanaPares"
+                                             IsChecked="{Binding MostrandoPropuestos, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={StaticResource Verdadero}}"
+                                             Style="{StaticResource KeycapToggleButtonStyle}"
+                                             Padding="12,6">
+                                    <TextBlock Text="Pares propuestos" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </RadioButton>
+                                <Button DockPanel.Dock="Right"
+                                        Command="{Binding NuevoParCommand}"
+                                        Style="{StaticResource PrimaryActionButtonStyle}"
+                                        Padding="12,6"
+                                        Visibility="{Binding MostrandoPropuestos, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Nuevo par" FontWeight="Bold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </DockPanel>
+
+                            <!-- Pestaña Pares -->
+                            <DataGrid Grid.Row="1"
+                                      ItemsSource="{Binding Pares}"
+                                      Style="{StaticResource DataGridRetailStyle}"
+                                      AutoGenerateColumns="False"
+                                      Visibility="{Binding MostrandoPropuestos, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Segunda palabra"
+                                                        Binding="{Binding SegundaPalabra}"
+                                                        Width="*"
+                                                        ElementStyle="{StaticResource TextBlockTextCell}" />
+                                    <DataGridTemplateColumn Header="Categoría" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Grid VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding NombreCategoria}"
+                                                               Style="{StaticResource TextBlockTextCell}"
+                                                               Visibility="{Binding EsIgnorado, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+                                                    <Border Style="{StaticResource BadgeNeutralStyle}"
+                                                            HorizontalAlignment="Left"
+                                                            Visibility="{Binding EsIgnorado, Converter={StaticResource BoolToVisConverter}}">
+                                                        <TextBlock Text="Ignorado"
+                                                                   FontSize="11"
+                                                                   FontWeight="Bold"
+                                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    </Border>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Acciones" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                    <Button Command="{Binding DataContext.EditarParCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource KeycapButtonStyle}"
+                                                            Padding="6,4"
+                                                            Margin="0,0,4,0"
+                                                            ToolTip="Cambiar el destino del par">
+                                                        <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    </Button>
+                                                    <Button Command="{Binding DataContext.QuitarParCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource IconDangerButtonStyle}"
+                                                            ToolTip="Dar de baja">
+                                                        <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                                    </Button>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- Pestaña Pares propuestos -->
+                            <Grid Grid.Row="1"
+                                  DataContext="{Binding Propuestos}"
+                                  Visibility="{Binding DataContext.MostrandoPropuestos, RelativeSource={RelativeSource AncestorType=Border}, Converter={StaticResource BoolToVisConverter}}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0"
+                                           Text="Pares que respaldan los artículos ya clasificados con este término. Acepte la categoría (puede corregirla) o descarte el par para que no se vuelva a proponer."
+                                           Style="{StaticResource TextBlockCaption}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,8" />
+
+                                <Border Grid.Row="1"
+                                        Background="{DynamicResource DangerBackgroundBrush}"
+                                        BorderBrush="{DynamicResource DangerBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Padding="12,8"
+                                        Margin="0,0,0,8"
+                                        Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                                    <TextBlock Text="{Binding MensajeError}"
+                                               Foreground="{DynamicResource DangerForegroundBrush}"
+                                               FontSize="12"
+                                               TextWrapping="Wrap" />
+                                </Border>
+
+                                <DataGrid Grid.Row="2"
+                                          x:Name="GrillaParesPropuestos"
+                                          ItemsSource="{Binding Propuestas}"
+                                          Style="{StaticResource DataGridRetailStyle}"
+                                          AutoGenerateColumns="False"
+                                          Visibility="{Binding HayPropuestas, Converter={StaticResource BoolToVisConverter}}">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="" Width="40">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding Seleccionado, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <!-- Segunda palabra con sus ejemplos debajo: el panel es angosto para una columna aparte -->
+                                        <DataGridTemplateColumn Header="Segunda palabra" Width="*" MinWidth="120">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel VerticalAlignment="Center" ToolTip="{Binding Ejemplos}">
+                                                        <TextBlock Text="{Binding SegundaPalabra}" Style="{StaticResource TextBlockTextCell}" />
+                                                        <TextBlock Text="{Binding Ejemplos}"
+                                                                   Style="{StaticResource TextBlockCaption}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Evidencia"
+                                                            Binding="{Binding Evidencia}"
+                                                            Width="80"
+                                                            ElementStyle="{StaticResource TextBlockNumericCell}" />
+                                        <DataGridTemplateColumn Header="Categoría propuesta" Width="*" MinWidth="140">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <ComboBox ItemsSource="{Binding DataContext.Categorias, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                              SelectedItem="{Binding CategoriaElegida, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              DisplayMemberPath="NombreCategoria"
+                                                              MinHeight="34"
+                                                              VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTemplateColumn Header="Acciones" Width="80">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                        <Button Command="{Binding DataContext.AceptarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource KeycapButtonStyle}"
+                                                                Padding="6,4"
+                                                                Margin="0,0,4,0"
+                                                                ToolTip="Aceptar el par con esta categoría">
+                                                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        </Button>
+                                                        <Button Command="{Binding DataContext.DescartarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource IconDangerButtonStyle}"
+                                                                ToolTip="Descartar (el par queda ignorado)">
+                                                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" />
+                                                        </Button>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <TextBlock Grid.Row="2"
+                                           Text="No hay pares propuestos para este término."
+                                           Style="{StaticResource TextBlockBodyMuted}"
+                                           TextWrapping="Wrap"
+                                           TextAlignment="Center"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Visibility="{Binding HayPropuestas, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+
+                                <!-- Acciones sobre las filas marcadas -->
+                                <StackPanel Grid.Row="3"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Right"
+                                            Margin="0,12,0,0"
+                                            Visibility="{Binding HayPropuestas, Converter={StaticResource BoolToVisConverter}}">
+                                    <Button Command="{Binding DescartarSeleccionadasCommand}"
+                                            Style="{StaticResource KeycapButtonStyle}"
+                                            Padding="12,6"
+                                            Margin="0,0,8,0">
+                                        <TextBlock Text="Descartar seleccionados" VerticalAlignment="Center" />
+                                    </Button>
+                                    <Button Command="{Binding AceptarSeleccionadasCommand}"
+                                            Style="{StaticResource PrimaryActionButtonStyle}"
+                                            Padding="12,6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Aceptar seleccionados" FontWeight="Bold" VerticalAlignment="Center" />
                                         </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
-            </Border>
+                                    </Button>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+
+                        <TextBlock Text="Seleccione un término ambiguo para ver sus pares."
+                                   Style="{StaticResource TextBlockBodyMuted}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding HayTerminoAmbiguoSeleccionado, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
 
         <!-- Barra Inferior de Acciones -->

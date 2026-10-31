@@ -1,4 +1,5 @@
 using Retail.Domain.Common;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.Domain.Entities;
@@ -13,15 +14,37 @@ public class Articulo : BaseEntity, IAggregateRoot
 
     public string Descripcion { get; set; } = string.Empty;
 
-    public int? IdCategoria { get; set; }
+    /// <summary>
+    /// Solo cambia con <see cref="Clasificar"/> o <see cref="ActualizarDatos"/>, que registran el origen (M-30).
+    /// </summary>
+    public int? IdCategoria { get; private set; }
 
     public Categoria? Categoria { get; set; }
 
-    public int? IdMarca { get; set; }
+    /// <summary>
+    /// Solo cambia con <see cref="Clasificar"/> o <see cref="ActualizarDatos"/>, que registran el origen (M-30).
+    /// </summary>
+    public int? IdMarca { get; private set; }
 
     public Marca? Marca { get; set; }
 
-    public int? IdCatalogoProveedor { get; set; }
+    /// <summary>
+    /// Cómo se asignó la categoría (Track 6.6, sección 8.2). Tiene valor si y solo si hay categoría.
+    /// </summary>
+    public OrigenClasificacionEnum? OrigenCategoria { get; private set; }
+
+    /// <summary>
+    /// Cómo se asignó la marca. Con <see cref="IdMarca"/> nulo, un origen indica "Sin marca" confirmada por una
+    /// persona (Track 6.5, D-18); sin origen, el artículo todavía no tiene la marca clasificada.
+    /// </summary>
+    public OrigenClasificacionEnum? OrigenMarca { get; private set; }
+
+    /// <summary>
+    /// Fuente principal (Track 4.3, A-16): el único ítem de catálogo cuya planilla fija el costo y el precio (A-2,
+    /// RF-07). Siempre es una de las fuentes del artículo: solo cambia con <see cref="MarcarFuentePrincipal"/> y
+    /// <see cref="QuitarFuentePrincipal"/>.
+    /// </summary>
+    public int? IdCatalogoProveedor { get; private set; }
 
     public CatalogoProveedor? CatalogoProveedor { get; set; }
 
@@ -112,25 +135,18 @@ public class Articulo : BaseEntity, IAggregateRoot
         decimal porcentajeGanancia,
         int stockActual,
         int stockMinimo,
-        bool esServicio,
-        int? idCatalogoProveedor = null)
+        bool esServicio)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(descripcion);
+        ValidarIdentificadoresDeClasificacion(idCategoria, idMarca);
 
-        if (idCategoria.HasValue && idCategoria.Value <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(idCategoria), "La categoría debe ser válida.");
-        }
-
-        if (idMarca.HasValue && idMarca.Value <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(idMarca), "La marca debe ser válida.");
-        }
-
-        if (EsDerivado && idCatalogoProveedor.HasValue)
-        {
-            throw new DomainException("Una presentación derivada no puede vincularse a un catálogo de proveedor: solo se vincula su artículo de origen.");
-        }
+        // Edición manual (M-30): lo que cambia lo eligió una persona; lo que no cambia conserva su origen, para que
+        // editar el precio no borre que la marca vino de una sugerencia aceptada. Quitar la marca a mano es "Sin
+        // marca" confirmada; quitar la categoría deja el artículo sin clasificar.
+        var origenCategoria = idCategoria == IdCategoria
+            ? OrigenCategoria
+            : idCategoria.HasValue ? OrigenClasificacionEnum.Manual : null;
+        var origenMarca = idMarca == IdMarca ? OrigenMarca : OrigenClasificacionEnum.Manual;
 
         if (EsDerivado && esServicio)
         {
@@ -142,7 +158,9 @@ public class Articulo : BaseEntity, IAggregateRoot
 
         Descripcion = descripcion.Trim();
         IdCategoria = idCategoria;
+        OrigenCategoria = origenCategoria;
         IdMarca = idMarca;
+        OrigenMarca = origenMarca;
         CodigoBarras = string.IsNullOrWhiteSpace(codigoBarras) ? null : codigoBarras.Trim();
         CostoReposicion = costoReposicion;
         PorcentajeGanancia = porcentajeGanancia;
@@ -150,26 +168,67 @@ public class Articulo : BaseEntity, IAggregateRoot
         EsServicio = esServicio;
         StockActual = esServicio ? 0 : Math.Max(0, stockActual);
         StockMinimo = esServicio ? 0 : Math.Max(0, stockMinimo);
-        IdCatalogoProveedor = idCatalogoProveedor;
     }
 
-    public void VincularCatalogoProveedor(int idCatalogoProveedor, decimal nuevoCosto)
+    /// <summary>
+    /// Asigna categoría y marca con el origen que indique quien confirma la clasificación (Track 6.6, sección 8.2):
+    /// la incorporación de catálogo, con la sugerencia aceptada o corregida. Un origen nulo deja ese dato sin
+    /// clasificar.
+    /// </summary>
+    public void Clasificar(
+        int? idCategoria,
+        OrigenClasificacionEnum? origenCategoria,
+        int? idMarca,
+        OrigenClasificacionEnum? origenMarca)
     {
-        if (idCatalogoProveedor <= 0)
+        ValidarIdentificadoresDeClasificacion(idCategoria, idMarca);
+        ValidarOrigen(origenCategoria);
+        ValidarOrigen(origenMarca);
+
+        if (idCategoria.HasValue != origenCategoria.HasValue)
         {
-            throw new ArgumentOutOfRangeException(nameof(idCatalogoProveedor), "El identificador de catálogo de proveedor debe ser mayor a cero.");
+            throw new DomainException("La categoría y su origen se asignan juntos: no hay categoría sin origen ni origen sin categoría.");
         }
 
-        if (EsDerivado)
+        if (idMarca.HasValue && !origenMarca.HasValue)
         {
-            throw new DomainException("Una presentación derivada no puede vincularse a un catálogo de proveedor: solo se vincula su artículo de origen.");
+            throw new DomainException("Una marca asignada debe indicar su origen.");
         }
 
-        ActualizarCostoYRecalcularPrecio(nuevoCosto);
-        IdCatalogoProveedor = idCatalogoProveedor;
+        IdCategoria = idCategoria;
+        OrigenCategoria = origenCategoria;
+        IdMarca = idMarca;
+        OrigenMarca = origenMarca;
     }
 
-    public void DesvincularCatalogoProveedor()
+    /// <summary>
+    /// Hace principal una fuente que ya es de este artículo (A-16, J1) y toma su costo, porque solo la principal fija
+    /// el costo (A-2). La fuente anterior, si había, sigue siendo fuente (J2). Las presentaciones derivadas las
+    /// recalcula Application, que las conoce.
+    /// </summary>
+    public void MarcarFuentePrincipal(CatalogoProveedor fuente)
+    {
+        ArgumentNullException.ThrowIfNull(fuente);
+
+        if (fuente.Id <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(fuente), "La fuente principal debe ser un ítem de catálogo ya guardado.");
+        }
+
+        if (!fuente.EsFuenteDe(this))
+        {
+            throw new DomainException(
+                $"El ítem '{fuente.CodigoProveedor}' no es fuente de este artículo: vincúlelo antes de marcarlo como principal.");
+        }
+
+        ActualizarCostoYRecalcularPrecio(fuente.CostoReposicion);
+        IdCatalogoProveedor = fuente.Id;
+    }
+
+    /// <summary>
+    /// Deja el artículo sin fuente principal; conserva el último costo. No se elige otra sola (J5).
+    /// </summary>
+    public void QuitarFuentePrincipal()
     {
         IdCatalogoProveedor = null;
         CatalogoProveedor = null;
@@ -282,5 +341,26 @@ public class Articulo : BaseEntity, IAggregateRoot
     private static decimal RedondearMoneda(decimal importe)
     {
         return ReglasMonetarias.Redondear(importe);
+    }
+
+    private static void ValidarIdentificadoresDeClasificacion(int? idCategoria, int? idMarca)
+    {
+        if (idCategoria.HasValue && idCategoria.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idCategoria), "La categoría debe ser válida.");
+        }
+
+        if (idMarca.HasValue && idMarca.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idMarca), "La marca debe ser válida.");
+        }
+    }
+
+    private static void ValidarOrigen(OrigenClasificacionEnum? origen)
+    {
+        if (origen.HasValue && !Enum.IsDefined(origen.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(origen), "El origen de la clasificación no es válido.");
+        }
     }
 }

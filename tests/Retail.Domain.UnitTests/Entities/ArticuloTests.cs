@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 using Xunit;
 
@@ -110,8 +111,6 @@ public class ArticuloTests
         var articulo = new Articulo
         {
             Descripcion = "Original",
-            IdCategoria = 1,
-            IdMarca = 1,
             CostoReposicion = 100m,
             PorcentajeGanancia = 50m,
             PrecioVenta = 150m,
@@ -119,6 +118,7 @@ public class ArticuloTests
             StockMinimo = 2,
             EsServicio = false
         };
+        articulo.Clasificar(1, OrigenClasificacionEnum.Manual, 1, OrigenClasificacionEnum.Manual);
 
         // Act
         articulo.ActualizarDatos(
@@ -214,74 +214,120 @@ public class ArticuloTests
     }
 
     [Fact]
-    public void VincularCatalogoProveedor_IdInvalido_LanzaArgumentOutOfRangeException()
-    {
-        // Arrange
-        var articulo = new Articulo { Descripcion = "Lapicera Azul", CostoReposicion = 100m, PorcentajeGanancia = 50m };
-
-        // Act
-        var act = () => articulo.VincularCatalogoProveedor(0, 120m);
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*identificador de catálogo*");
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_CostoNegativo_LanzaArgumentOutOfRangeException()
-    {
-        // Arrange
-        var articulo = new Articulo { Descripcion = "Lapicera Azul", CostoReposicion = 100m, PorcentajeGanancia = 50m };
-
-        // Act
-        var act = () => articulo.VincularCatalogoProveedor(10, -5m);
-
-        // Assert
-        act.Should().Throw<ArgumentOutOfRangeException>()
-            .WithMessage("*costo*");
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_DatosValidos_ActualizaIdCostoYPrecioVenta()
+    public void QuitarFuentePrincipal_ArticuloConPrincipal_QuedaSinPrincipalYConservaElCosto()
     {
         // Arrange
         var articulo = new Articulo
         {
-            Descripcion = "Cuaderno Rivadavia",
-            CostoReposicion = 1000m,
-            PorcentajeGanancia = 50m,
-            PrecioVenta = 1500m
+            Descripcion = "Resma A4",
+            CostoReposicion = 5000m,
+            PorcentajeGanancia = 30m,
+            PrecioVenta = 6500m
         };
+        var fuente = CrearFuente(id: 15, costo: 5000m);
+        fuente.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(fuente);
 
         // Act
-        articulo.VincularCatalogoProveedor(42, 1200m);
+        articulo.QuitarFuentePrincipal();
 
         // Assert
+        articulo.IdCatalogoProveedor.Should().BeNull();
+        articulo.CostoReposicion.Should().Be(5000m); // Preserva el último costo
+        articulo.PrecioVenta.Should().Be(6500m);
+    }
+
+    // ---------- Fuentes múltiples y fuente principal (Track 4.3, A-16, J1) ----------
+
+    [Fact]
+    public void MarcarFuentePrincipal_FuenteDelArticulo_LaHacePrincipalYTomaSuCosto()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
+
+        articulo.MarcarFuentePrincipal(fuente);
+
         articulo.IdCatalogoProveedor.Should().Be(42);
         articulo.CostoReposicion.Should().Be(1200m);
         articulo.PrecioVenta.Should().Be(1800m); // 1200 + 50%
     }
 
     [Fact]
-    public void DesvincularCatalogoProveedor_ArticuloPreviamenteVinculado_RemueveEnlaceYPasaAManual()
+    public void MarcarFuentePrincipal_ArticuloNuevoSinId_ReconoceLaFuentePorLaInstancia()
     {
-        // Arrange
-        var articulo = new Articulo
-        {
-            Descripcion = "Resma A4",
-            IdCatalogoProveedor = 15,
-            CostoReposicion = 5000m,
-            PorcentajeGanancia = 30m,
-            PrecioVenta = 6500m
-        };
+        var articulo = CrearArticuloConFuentes(id: 0);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
 
-        // Act
-        articulo.DesvincularCatalogoProveedor();
+        articulo.MarcarFuentePrincipal(fuente);
 
-        // Assert
+        articulo.IdCatalogoProveedor.Should().Be(42);
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_CambioDePrincipal_LaAnteriorSigueSiendoFuente()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var anterior = CrearFuente(id: 42, costo: 1200m);
+        var nueva = CrearFuente(id: 43, costo: 1100m);
+        anterior.AsignarArticulo(articulo);
+        nueva.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(anterior);
+
+        articulo.MarcarFuentePrincipal(nueva);
+
+        articulo.IdCatalogoProveedor.Should().Be(43);
+        articulo.CostoReposicion.Should().Be(1100m);
+        anterior.EsFuenteDe(articulo).Should().BeTrue();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemQueNoEsFuente_LanzaDomainExceptionSinModificarElArticulo()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var ajena = CrearFuente(id: 42, costo: 1200m);
+
+        var act = () => articulo.MarcarFuentePrincipal(ajena);
+
+        act.Should().Throw<DomainException>().WithMessage("*no es fuente de este artículo*");
         articulo.IdCatalogoProveedor.Should().BeNull();
-        articulo.CostoReposicion.Should().Be(5000m); // Preserva el último costo
-        articulo.PrecioVenta.Should().Be(6500m);
+        articulo.CostoReposicion.Should().Be(1000m);
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemFuenteDeOtroArticulo_LanzaDomainException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 42, costo: 1200m);
+        fuente.AsignarArticulo(CrearArticuloConFuentes(id: 8));
+
+        var act = () => articulo.MarcarFuentePrincipal(fuente);
+
+        act.Should().Throw<DomainException>();
+        articulo.IdCatalogoProveedor.Should().BeNull();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_ItemSinGuardar_LanzaArgumentOutOfRangeException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+        var fuente = CrearFuente(id: 0, costo: 1200m);
+        fuente.AsignarArticulo(articulo);
+
+        var act = () => articulo.MarcarFuentePrincipal(fuente);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void MarcarFuentePrincipal_FuenteNula_LanzaArgumentNullException()
+    {
+        var articulo = CrearArticuloConFuentes(id: 7);
+
+        var act = () => articulo.MarcarFuentePrincipal(null!);
+
+        act.Should().Throw<ArgumentNullException>();
     }
 
     // ---------- Redondeo (D-06) ----------
@@ -489,7 +535,10 @@ public class ArticuloTests
     public void DefinirComoPresentacionDe_ArticuloVinculadoACatalogo_LanzaDomainException()
     {
         // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad", IdCatalogoProveedor = 15 };
+        var derivado = new Articulo { Descripcion = "Unidad" };
+        var fuente = CrearFuente(id: 15, costo: 100m);
+        fuente.AsignarArticulo(derivado);
+        derivado.MarcarFuentePrincipal(fuente);
 
         // Act
         var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
@@ -581,45 +630,6 @@ public class ArticuloTests
 
         // Assert
         act.Should().Throw<InvalidOperationException>();
-    }
-
-    [Fact]
-    public void VincularCatalogoProveedor_ArticuloDerivado_LanzaDomainException()
-    {
-        // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad" };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
-
-        // Act
-        var act = () => derivado.VincularCatalogoProveedor(42, 100m);
-
-        // Assert
-        act.Should().Throw<DomainException>().WithMessage("*catálogo de proveedor*");
-        derivado.IdCatalogoProveedor.Should().BeNull();
-    }
-
-    [Fact]
-    public void ActualizarDatos_DerivadoConCatalogo_LanzaDomainException()
-    {
-        // Arrange
-        var derivado = new Articulo { Descripcion = "Unidad" };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
-
-        // Act
-        var act = () => derivado.ActualizarDatos(
-            descripcion: "Unidad",
-            idCategoria: null,
-            idMarca: null,
-            codigoBarras: null,
-            costoReposicion: 10m,
-            porcentajeGanancia: 50m,
-            stockActual: 0,
-            stockMinimo: 0,
-            esServicio: false,
-            idCatalogoProveedor: 42);
-
-        // Assert
-        act.Should().Throw<DomainException>().WithMessage("*catálogo de proveedor*");
     }
 
     [Fact]
@@ -826,6 +836,181 @@ public class ArticuloTests
         // Assert
         act.Should().Throw<OverflowException>();
         articulo.StockActual.Should().Be(int.MaxValue);
+    }
+
+    [Fact]
+    public void Clasificar_SugerenciasConfirmadas_AsignaIdentificadoresYOrigenes()
+    {
+        var articulo = new Articulo { Descripcion = "Mochila" };
+
+        articulo.Clasificar(4, OrigenClasificacionEnum.SugerenciaAceptada, 7, OrigenClasificacionEnum.SugerenciaCorregida);
+
+        articulo.IdCategoria.Should().Be(4);
+        articulo.OrigenCategoria.Should().Be(OrigenClasificacionEnum.SugerenciaAceptada);
+        articulo.IdMarca.Should().Be(7);
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.SugerenciaCorregida);
+    }
+
+    [Fact]
+    public void Clasificar_SinMarcaConOrigen_RegistraSinMarcaConfirmada()
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        articulo.Clasificar(4, OrigenClasificacionEnum.Manual, null, OrigenClasificacionEnum.SugerenciaAceptada);
+
+        articulo.IdMarca.Should().BeNull();
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.SugerenciaAceptada);
+    }
+
+    [Fact]
+    public void Clasificar_SinOrigenes_DejaElArticuloSinClasificar()
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+        articulo.Clasificar(4, OrigenClasificacionEnum.Manual, 7, OrigenClasificacionEnum.Manual);
+
+        articulo.Clasificar(null, null, null, null);
+
+        articulo.IdCategoria.Should().BeNull();
+        articulo.OrigenCategoria.Should().BeNull();
+        articulo.IdMarca.Should().BeNull();
+        articulo.OrigenMarca.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(4, null)]
+    [InlineData(null, OrigenClasificacionEnum.Manual)]
+    public void Clasificar_CategoriaYOrigenNoVanJuntos_LanzaDomainException(int? idCategoria, OrigenClasificacionEnum? origen)
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        var accion = () => articulo.Clasificar(idCategoria, origen, null, null);
+
+        accion.Should().Throw<DomainException>();
+        articulo.OrigenCategoria.Should().BeNull();
+    }
+
+    [Fact]
+    public void Clasificar_MarcaSinOrigen_LanzaDomainException()
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        var accion = () => articulo.Clasificar(null, null, 7, null);
+
+        accion.Should().Throw<DomainException>();
+        articulo.IdMarca.Should().BeNull();
+    }
+
+    [Fact]
+    public void Clasificar_OrigenFueraDelEnum_LanzaArgumentOutOfRangeException()
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        var accion = () => articulo.Clasificar(4, (OrigenClasificacionEnum)99, null, null);
+
+        accion.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(null, -1)]
+    public void Clasificar_IdentificadorNoPositivo_LanzaArgumentOutOfRangeException(int? idCategoria, int? idMarca)
+    {
+        var articulo = new Articulo { Descripcion = "Pelota" };
+
+        var accion = () => articulo.Clasificar(
+            idCategoria,
+            OrigenClasificacionEnum.Manual,
+            idMarca,
+            OrigenClasificacionEnum.Manual);
+
+        accion.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void ActualizarDatos_ClasificacionSinCambios_ConservaElOrigen()
+    {
+        var articulo = new Articulo { Descripcion = "Mochila" };
+        articulo.Clasificar(4, OrigenClasificacionEnum.SugerenciaAceptada, 7, OrigenClasificacionEnum.SugerenciaCorregida);
+
+        ActualizarClasificacion(articulo, idCategoria: 4, idMarca: 7);
+
+        articulo.OrigenCategoria.Should().Be(OrigenClasificacionEnum.SugerenciaAceptada);
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.SugerenciaCorregida);
+    }
+
+    [Fact]
+    public void ActualizarDatos_ClasificacionCambiada_PasaAOrigenManual()
+    {
+        var articulo = new Articulo { Descripcion = "Mochila" };
+        articulo.Clasificar(4, OrigenClasificacionEnum.SugerenciaAceptada, 7, OrigenClasificacionEnum.SugerenciaAceptada);
+
+        ActualizarClasificacion(articulo, idCategoria: 5, idMarca: 8);
+
+        articulo.OrigenCategoria.Should().Be(OrigenClasificacionEnum.Manual);
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.Manual);
+    }
+
+    [Fact]
+    public void ActualizarDatos_QuitaCategoriaYMarca_CategoriaSinClasificarYSinMarcaConfirmada()
+    {
+        var articulo = new Articulo { Descripcion = "Mochila" };
+        articulo.Clasificar(4, OrigenClasificacionEnum.SugerenciaAceptada, 7, OrigenClasificacionEnum.SugerenciaAceptada);
+
+        ActualizarClasificacion(articulo, idCategoria: null, idMarca: null);
+
+        articulo.IdCategoria.Should().BeNull();
+        articulo.OrigenCategoria.Should().BeNull();
+        articulo.IdMarca.Should().BeNull();
+        articulo.OrigenMarca.Should().Be(OrigenClasificacionEnum.Manual);
+    }
+
+    [Fact]
+    public void ActualizarDatos_ArticuloNuevoSinClasificacion_QuedaSinClasificar()
+    {
+        var articulo = new Articulo();
+
+        ActualizarClasificacion(articulo, idCategoria: null, idMarca: null);
+
+        articulo.OrigenCategoria.Should().BeNull();
+        articulo.OrigenMarca.Should().BeNull();
+    }
+
+    private static void ActualizarClasificacion(Articulo articulo, int? idCategoria, int? idMarca)
+    {
+        articulo.ActualizarDatos(
+            descripcion: "Mochila escolar",
+            idCategoria: idCategoria,
+            idMarca: idMarca,
+            codigoBarras: null,
+            costoReposicion: 100m,
+            porcentajeGanancia: 50m,
+            stockActual: 1,
+            stockMinimo: 0,
+            esServicio: false);
+    }
+
+    private static Articulo CrearArticuloConFuentes(int id)
+    {
+        return new Articulo
+        {
+            Id = id,
+            Descripcion = "Cuaderno Rivadavia",
+            CostoReposicion = 1000m,
+            PorcentajeGanancia = 50m,
+            PrecioVenta = 1500m
+        };
+    }
+
+    private static CatalogoProveedor CrearFuente(int id, decimal costo)
+    {
+        return new CatalogoProveedor
+        {
+            Id = id,
+            IdProveedor = 1,
+            CodigoProveedor = $"COD-{id}",
+            DescripcionProveedor = "Cuaderno Rivadavia ABC",
+            CostoReposicion = costo
+        };
     }
 
     private static Articulo CrearOrigen(int id = 1, decimal costo = 1000m)

@@ -91,6 +91,9 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.Views.Auth.LoginWindow>();
         services.AddSingleton<Retail.App.ViewModels.MainViewModel>();
         services.AddSingleton<MainWindow>();
+        services.AddSingleton<Retail.App.Services.IConfirmacionesAvisoRestauracion>(_ =>
+            new Retail.App.Services.ConfirmacionesAvisoRestauracionEnArchivo(
+                Retail.App.Services.ConfirmacionesAvisoRestauracionEnArchivo.RutaPorDefecto()));
 
         // Vistas de Desarrollo
         services.AddTransient<Retail.App.Views.Dev.StyleGalleryView>();
@@ -132,6 +135,7 @@ public partial class App : System.Windows.Application
         services.AddScoped<Retail.App.Services.IProveedorDialogService, Retail.App.Services.ProveedorDialogService>();
         services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedoresViewModel>();
         services.AddTransient<Retail.App.ViewModels.Proveedores.ImportadorCatalogosViewModel>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.EquivalenciasProveedorViewModel>();
         services.AddTransient<Retail.App.Views.Pages.ProveedoresView>();
         services.AddTransient<Retail.App.Views.Pages.ImportadorCatalogosView>();
         services.AddTransient<Retail.App.Views.Dialogs.IncorporarArticulosModalDialog>();
@@ -152,6 +156,12 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.Views.Pages.ComprasView>();
         services.AddTransient<Retail.App.ViewModels.Compras.ComprasViewModel>();
         services.AddTransient<ICajaDialogService, CajaDialogService>();
+
+        // Pedidos a Proveedores (Track 4.3, L2a-1 y L2a-2)
+        services.AddScoped<Retail.App.Services.IPedidoDialogService, Retail.App.Services.PedidoDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Pedidos.FlujoPedirArticulos>();
+        services.AddTransient<Retail.App.ViewModels.Pedidos.PedidosViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.PedidosView>();
 
         // Módulos en Construcción (Cortesía informativa de Roadmap)
 

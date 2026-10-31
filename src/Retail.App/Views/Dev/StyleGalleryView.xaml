@@ -6,6 +6,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:helpers="clr-namespace:Retail.App.Helpers"
+             xmlns:components="clr-namespace:Retail.App.Views.Components"
              mc:Ignorable="d"
              d:DesignHeight="1800" d:DesignWidth="1050"
              Background="{DynamicResource SurfaceBackgroundBrush}">
@@ -472,7 +473,7 @@
 
             <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,24">
                 <StackPanel>
-                    <TextBlock Text="IconDangerButtonStyle: eliminar una fila de grilla o lista (ícono gris, rojo en hover). IconPrimarySquareButtonStyle: acción secundaria junto a un botón primario (rosa claro con borde carmín, carmín sólido en hover)."
+                    <TextBlock Text="IconDangerButtonStyle: eliminar una fila de grilla o lista (ícono gris, rojo en hover). IconPrimarySquareButtonStyle: acción secundaria junto a un botón primario (rosa claro con borde carmín, carmín sólido en hover). GhostPrimaryButtonStyle: acción de texto dentro de una fila (texto carmín, fondo suave en hover)."
                                Style="{StaticResource TextBlockBodySecondary}"
                                TextWrapping="Wrap"
                                Margin="0,0,0,12" />
@@ -482,6 +483,12 @@
                         </Button>
                         <Button Style="{StaticResource IconPrimarySquareButtonStyle}" ToolTip="Limpiar venta [F8]" Margin="16,0,0,0">
                             <iconPacks:PackIconBoxIcons Kind="RegularX" Width="22" Height="22" />
+                        </Button>
+                        <Button Style="{StaticResource GhostPrimaryButtonStyle}" ToolTip="Volver a la sugerencia del sistema" Margin="16,0,0,0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularUndo" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Restablecer" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Button>
                     </StackPanel>
                 </StackPanel>
@@ -536,7 +543,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- Precio de Venta (Alineado a la derecha con Cascadia Code) -->
-                        <DataGridTemplateColumn Header="Precio Venta" Width="140">
+                        <DataGridTemplateColumn Header="Precio Venta" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="140">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding PrecioVentaFormateado}"
@@ -759,6 +766,79 @@
                             <TextBlock Text="Abrir Padrón de Clientes (Ventana Sandbox)" FontWeight="Bold" />
                         </StackPanel>
                     </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- ========================================================= -->
+            <!-- PÁGINAS DE LISTADO                                        -->
+            <!-- ========================================================= -->
+            <Border Background="{DynamicResource SurfaceCardBrush}"
+                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="24"
+                    Margin="0,24,0,0">
+                <StackPanel>
+                    <TextBlock Text="Páginas de listado" Style="{StaticResource TextBlockHeader2}" Margin="0,0,0,12" />
+
+                    <!-- Encabezado sin tarjeta y sin subtítulo, con las acciones a la derecha -->
+                    <components:PageHeader Titulo="Catálogo de Artículos e Inventario"
+                                           Margin="0,0,0,16">
+                        <Button Style="{StaticResource PrimaryActionButtonStyle}" Padding="20,10" Content="Nuevo Artículo" />
+                    </components:PageHeader>
+
+                    <components:ListToolbar PlaceholderText="Buscar por código, descripción o marca..."
+                                            TotalResultados="248"
+                                            Margin="0,0,0,12" />
+
+                    <!-- La misma barra con filas marcadas: el badge "N seleccionados ✕" reemplaza a "Limpiar filtros" y las
+                         acciones, sueltas y a la derecha, a la carga y al contador; el buscador sigue a la vista -->
+                    <components:ListToolbar PlaceholderText="Buscar por código, descripción o marca..."
+                                            TotalResultados="248"
+                                            HaySeleccion="True"
+                                            Margin="0,0,0,12">
+                        <components:ListToolbar.AccionesDeSeleccion>
+                            <components:BulkActionBar CantidadSeleccionados="3">
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Style="{StaticResource KeycapButtonStyle}" Padding="12,4" Margin="0,0,4,0" Content="Pedir seleccionados" />
+                                    <Button Style="{StaticResource GhostNeutralButtonStyle}" Padding="10,4" Margin="0,0,4,0" IsEnabled="False" Content="Eliminar seleccionados" />
+                                    <Button Style="{StaticResource GhostNeutralButtonStyle}" Padding="10,4" Content="Más" />
+                                </StackPanel>
+                            </components:BulkActionBar>
+                        </components:ListToolbar.AccionesDeSeleccion>
+                    </components:ListToolbar>
+
+                    <Border Style="{StaticResource FilterBandStyle}" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <HeaderedContentControl Grid.Column="0" Header="Rubro" Style="{StaticResource FilterFieldStyle}" Margin="0,0,12,0">
+                                <ComboBox Style="{StaticResource ComboBoxFiltroStyle}" SelectedIndex="0">
+                                    <ComboBoxItem Content="Todos los Rubros" />
+                                </ComboBox>
+                            </HeaderedContentControl>
+                            <HeaderedContentControl Grid.Column="1" Header="Categoría" Style="{StaticResource FilterFieldStyle}" Margin="0,0,12,0">
+                                <ComboBox Style="{StaticResource ComboBoxFiltroStyle}" SelectedIndex="0">
+                                    <ComboBoxItem Content="Todas las Categorías" />
+                                </ComboBox>
+                            </HeaderedContentControl>
+                            <HeaderedContentControl Grid.Column="2" Header="Stock" Style="{StaticResource FilterFieldStyle}">
+                                <ComboBox Style="{StaticResource ComboBoxFiltroStyle}" SelectedIndex="0">
+                                    <ComboBoxItem Content="Todos" />
+                                </ComboBox>
+                            </HeaderedContentControl>
+                        </Grid>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource GhostNeutralButtonStyle}" Content="Limpiar filtros" Margin="0,0,12,0" />
+                        <Button Style="{StaticResource RowMenuButtonStyle}" VerticalAlignment="Center" ToolTip="Botón de acciones de la fila">
+                            <iconPacks:PackIconBoxIcons Kind="RegularDotsVerticalRounded" Width="16" Height="16" />
+                        </Button>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

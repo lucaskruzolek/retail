@@ -1,11 +1,15 @@
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Retail.App.Services;
 using Retail.App.ViewModels.Articulos;
+using Retail.App.ViewModels.Pedidos;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
@@ -193,7 +197,7 @@ public class ArticulosViewModelTests : IDisposable
 
         // Assert
         _sut.Articulos.Should().HaveCount(1);
-        _sut.Articulos[0].Descripcion.Should().Be("Bolígrafo Bic Cristal");
+        _sut.Articulos[0].Articulo.Descripcion.Should().Be("Bolígrafo Bic Cristal");
     }
 
     [Fact]
@@ -208,7 +212,7 @@ public class ArticulosViewModelTests : IDisposable
 
         // Assert
         _sut.Articulos.Should().HaveCount(1);
-        _sut.Articulos[0].Descripcion.Should().Be("Señalador Artesanal de Madera");
+        _sut.Articulos[0].Articulo.Descripcion.Should().Be("Señalador Artesanal de Madera");
     }
 
     [Fact]
@@ -223,8 +227,8 @@ public class ArticulosViewModelTests : IDisposable
 
         // Assert
         _sut.Articulos.Should().HaveCount(1);
-        _sut.Articulos[0].Descripcion.Should().Be("Cuaderno Rivadavia A4");
-        _sut.Articulos[0].StockBajo.Should().BeTrue();
+        _sut.Articulos[0].Articulo.Descripcion.Should().Be("Cuaderno Rivadavia A4");
+        _sut.Articulos[0].Articulo.StockBajo.Should().BeTrue();
     }
 
     [Fact]
@@ -337,6 +341,7 @@ public class ArticulosViewModelTests : IDisposable
 
         _dialogService.MostrarDialogoModificar(
             Arg.Any<ArticuloDto>(),
+            Arg.Any<IReadOnlyList<FuenteArticuloDto>>(),
             Arg.Any<IReadOnlyList<CategoriaDto>>(),
             Arg.Any<IReadOnlyList<MarcaDto>>(),
             Arg.Any<Func<ActualizarArticuloDto, Task>>())
@@ -353,6 +358,46 @@ public class ArticulosViewModelTests : IDisposable
         // Assert
         await _inventarioService.Received(1).ActualizarArticuloAsync(modDto, Arg.Any<CancellationToken>());
         await _inventarioService.Received(2).ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task EditarArticuloAsync_ArticuloDeCompra_AbreElFormularioConSusFuentes()
+    {
+        // Arrange (Track 4.3, A-19, M5)
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        IReadOnlyList<FuenteArticuloDto> fuentes = [new FuenteArticuloDto { IdCatalogoProveedor = 40, EsPrincipal = true }];
+        _inventarioService.ObtenerFuentesDeArticuloAsync(1, Arg.Any<CancellationToken>()).Returns(fuentes);
+
+        // Act
+        await _sut.EditarArticuloCommand.ExecuteAsync(_articulosEjemplo[0]);
+
+        // Assert
+        _dialogService.Received(1).MostrarDialogoModificar(
+            _articulosEjemplo[0],
+            fuentes,
+            Arg.Any<IReadOnlyList<CategoriaDto>>(),
+            Arg.Any<IReadOnlyList<MarcaDto>>(),
+            Arg.Any<Func<ActualizarArticuloDto, Task>>());
+    }
+
+    [Fact]
+    public async Task EditarArticuloAsync_PresentacionDerivada_NoConsultaFuentes()
+    {
+        // Arrange: una presentación no tiene fuentes propias (RF-21)
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+        var derivado = _articulosEjemplo[0] with { IdArticulo = 9, IdArticuloOrigen = 1, UnidadesPorOrigen = 10 };
+
+        // Act
+        await _sut.EditarArticuloCommand.ExecuteAsync(derivado);
+
+        // Assert
+        await _inventarioService.DidNotReceive().ObtenerFuentesDeArticuloAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarDialogoModificar(
+            derivado,
+            Arg.Is<IReadOnlyList<FuenteArticuloDto>>(f => f.Count == 0),
+            Arg.Any<IReadOnlyList<CategoriaDto>>(),
+            Arg.Any<IReadOnlyList<MarcaDto>>(),
+            Arg.Any<Func<ActualizarArticuloDto, Task>>());
     }
 
     [Fact]
@@ -652,5 +697,336 @@ public class ArticulosViewModelTests : IDisposable
     {
         _sut.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    // ------------------------------------------------------------------ //
+    // Selección y pedido al proveedor (Track 4.3, L2a-2)                 //
+    // ------------------------------------------------------------------ //
+
+    private static readonly string[] AvisosEsperadosDeExcluidos =
+    [
+        "Bolígrafo Bic Cristal: no tiene fuentes",
+        "Fotocopia simple faz: es un servicio: no se pide a proveedores"
+    ];
+
+    private sealed class EscenarioPedido : IDisposable
+    {
+        public IPedidoService PedidoService { get; } = Substitute.For<IPedidoService>();
+        public IPedidoDialogService PedidoDialogService { get; } = Substitute.For<IPedidoDialogService>();
+        public ICurrentUserSession Session { get; } = Substitute.For<ICurrentUserSession>();
+        public ArticulosViewModel Sut { get; }
+
+        public EscenarioPedido(IInventarioService inventarioService, IArticuloDialogService dialogService, bool esEncargado = true)
+        {
+            Session.IdUsuario.Returns(7);
+            Session.EsEncargado.Returns(esEncargado);
+            Sut = new ArticulosViewModel(
+                inventarioService,
+                dialogService,
+                session: Session,
+                flujoPedir: new FlujoPedirArticulos(PedidoService, PedidoDialogService, Session, NullLogger<FlujoPedirArticulos>.Instance));
+        }
+
+        public void Dispose()
+        {
+            Sut.Dispose();
+        }
+    }
+
+    /// <summary>Una página con un artículo vinculado (catálogo 40), uno sin proveedor y un servicio.</summary>
+    private async Task<EscenarioPedido> CrearEscenarioPedidoAsync(bool esEncargado = true)
+    {
+        var articulos = new List<ArticuloDto>
+        {
+            _articulosEjemplo[0] with { IdCatalogoProveedor = 40, ProveedorNombre = "Distribuidora Papelera" },
+            _articulosEjemplo[1],
+            _articulosEjemplo[2] with { Descripcion = "Fotocopia simple faz", EsServicio = true }
+        };
+        _inventarioService.ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>())
+            .Returns(new ArticulosPaginadosDto { Items = articulos, TotalRegistros = 3, TotalArticulos = 3, PaginaActual = 1, TamanoPagina = 10 });
+
+        var escenario = new EscenarioPedido(_inventarioService, _dialogService, esEncargado);
+        await escenario.Sut.CargarArticulosAsync();
+        return escenario;
+    }
+
+    private static void ConfigurarPedidoConfirmado(EscenarioPedido escenario)
+    {
+        escenario.PedidoService.ObtenerVistaPreviaAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+            .Returns(new VistaPreviaPedidoDto());
+        escenario.PedidoDialogService.MostrarPedirArticulos(default!, default!, default)
+            .ReturnsForAnyArgs(RespuestaPedirArticulos.Confirmada([new RenglonAAgregarDto { IdCatalogoProveedor = 40, Cantidad = 2 }]));
+        escenario.PedidoService.AgregarVariosAlPedidoAsync(Arg.Any<AgregarVariosAlPedidoDto>(), Arg.Any<CancellationToken>())
+            .Returns(new ResultadoAgregarAlPedidoDto
+            {
+                Pedidos = [new PedidoResumenDto { IdPedido = 12, IdProveedor = 1, RazonSocialProveedor = "Distribuidora Papelera" }]
+            });
+    }
+
+    [Fact]
+    public async Task SeleccionarTodos_MarcarYDesmarcarUnaFila_ReflejaTodasNingunaOAlgunas()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        var sut = escenario.Sut;
+
+        sut.SeleccionarTodos = true;
+        sut.Articulos.Should().OnlyContain(f => f.EstaSeleccionado);
+        sut.TieneArticulosSeleccionados.Should().BeTrue();
+
+        sut.Articulos[1].EstaSeleccionado = false;
+        sut.SeleccionarTodos.Should().BeNull("hay filas marcadas y otras no");
+
+        sut.SeleccionarTodos = false;
+        sut.Articulos.Should().OnlyContain(f => !f.EstaSeleccionado);
+        sut.TieneArticulosSeleccionados.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CantidadSeleccionados_AlMarcarYDesmarcarFilas_SigueLaCuenta()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        var sut = escenario.Sut;
+
+        sut.CantidadSeleccionados.Should().Be(0);
+
+        sut.Articulos[0].EstaSeleccionado = true;
+        sut.CantidadSeleccionados.Should().Be(1);
+
+        sut.SeleccionarTodos = true;
+        sut.CantidadSeleccionados.Should().Be(sut.Articulos.Count);
+
+        sut.Articulos[1].EstaSeleccionado = false;
+        sut.CantidadSeleccionados.Should().Be(sut.Articulos.Count - 1);
+    }
+
+    [Fact]
+    public async Task LimpiarSeleccionCommand_ConFilasMarcadas_QuitaLaMarcaYLaCantidad()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        var sut = escenario.Sut;
+        sut.SeleccionarTodos = true;
+
+        sut.LimpiarSeleccionCommand.Execute(null);
+
+        sut.Articulos.Should().OnlyContain(f => !f.EstaSeleccionado);
+        sut.CantidadSeleccionados.Should().Be(0);
+        sut.TieneArticulosSeleccionados.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CargarArticulosAsync_ConFilasMarcadas_LaNuevaPaginaEmpiezaSinSeleccion()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        escenario.Sut.SeleccionarTodos = true;
+
+        await escenario.Sut.CargarArticulosAsync();
+
+        escenario.Sut.Articulos.Should().OnlyContain(f => !f.EstaSeleccionado);
+        escenario.Sut.SeleccionarTodos.Should().BeFalse();
+        escenario.Sut.TieneArticulosSeleccionados.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_FiltradoPorDistribuidor_LoPasaComoProveedorPreferido()
+    {
+        // Track 4.3, K6: filtrar por un distribuidor es elegir a quién reponer.
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+        var fila = escenario.Sut.Articulos[0];
+        escenario.Sut.IdDistribuidorFiltro = 5;
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(fila);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Any<IReadOnlyCollection<int>>(),
+            5,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_SinPrincipalConFuentes_PideLaFuenteMasBarataDeLaConsulta()
+    {
+        // Track 4.3, L4, paso 3c: la consulta trae la más barata (26); el modal la preselecciona (K2)
+        var sinPrincipal = _articulosEjemplo[1] with { IdCatalogoProveedor = null, IdFuentePedido = 26, CantidadFuentes = 2 };
+        _inventarioService.ListarArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>())
+            .Returns(new ArticulosPaginadosDto { Items = [sinPrincipal], TotalRegistros = 1, TotalArticulos = 1, PaginaActual = 1, TamanoPagina = 10 });
+        using var escenario = new EscenarioPedido(_inventarioService, _dialogService);
+        await escenario.Sut.CargarArticulosAsync();
+        ConfigurarPedidoConfirmado(escenario);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Is<IReadOnlyCollection<int>>(ids => ids.Count == 1 && ids.Contains(26)),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_SinFiltroDeDistribuidor_NoPasaProveedorPreferido()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Any<IReadOnlyCollection<int>>(),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_ArticuloVinculado_PideSuItemDeCatalogoSinOfrecerIncorporar()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Is<IReadOnlyCollection<int>>(ids => ids.Single() == 40),
+            Arg.Any<int?>(), Arg.Any<CancellationToken>());
+        escenario.PedidoDialogService.Received(1).MostrarPedirArticulos(
+            Arg.Any<VistaPreviaPedidoDto>(),
+            Arg.Is<IReadOnlyList<string>>(avisos => avisos.Count == 0),
+            false);
+        await escenario.PedidoService.Received(1).AgregarVariosAlPedidoAsync(
+            Arg.Is<AgregarVariosAlPedidoDto>(d => d.IdUsuario == 7 && d.Renglones.Single().Cantidad == 2),
+            Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarInformacion("Pedido a proveedor", "Se agregó al borrador #12 (Distribuidora Papelera).");
+    }
+
+    [Fact]
+    public async Task PedirSeleccionadosCommand_ConSinProveedorYServicio_LosExcluyeYAvisaConSuMotivo()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+        escenario.Sut.SeleccionarTodos = true;
+
+        await escenario.Sut.PedirSeleccionadosCommand.ExecuteAsync(null);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Is<IReadOnlyCollection<int>>(ids => ids.Single() == 40),
+            Arg.Any<int?>(), Arg.Any<CancellationToken>());
+        escenario.PedidoDialogService.Received(1).MostrarPedirArticulos(
+            Arg.Any<VistaPreviaPedidoDto>(),
+            Arg.Is<IReadOnlyList<string>>(avisos => avisos.SequenceEqual(AvisosEsperadosDeExcluidos)),
+            false);
+        escenario.Sut.Articulos.Should().OnlyContain(f => !f.EstaSeleccionado, "lo pedido deja de estar seleccionado");
+    }
+
+    [Fact]
+    public async Task PedirSeleccionadosCommand_SoloArticulosQueNoSePuedenPedir_AvisaSinConsultarNiAbrirElModal()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        escenario.Sut.Articulos[1].EstaSeleccionado = true;
+        escenario.Sut.Articulos[2].EstaSeleccionado = true;
+
+        await escenario.Sut.PedirSeleccionadosCommand.ExecuteAsync(null);
+
+        escenario.PedidoDialogService.Received(1).MostrarAlerta("No hay nada para pedir", Arg.Is<string>(m => m.Contains("Bolígrafo Bic Cristal: no tiene fuentes")));
+        await escenario.PedidoService.DidNotReceiveWithAnyArgs().ObtenerVistaPreviaAsync(default!, default);
+        escenario.PedidoDialogService.DidNotReceiveWithAnyArgs().MostrarPedirArticulos(default!, default!, default);
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_ServicioRechazaElLote_MuestraElError()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+        escenario.PedidoService.AgregarVariosAlPedidoAsync(Arg.Any<AgregarVariosAlPedidoDto>(), Arg.Any<CancellationToken>())
+            .Returns<ResultadoAgregarAlPedidoDto>(_ => throw new DomainException("Otra terminal modificó el borrador."));
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        _dialogService.Received(1).MostrarError("No se pudo pedir", "Otra terminal modificó el borrador.");
+        _dialogService.DidNotReceiveWithAnyArgs().MostrarInformacion(default!, default!);
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_Cajero_NoPuedePedirNiConsulta()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync(esEncargado: false);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(escenario.Sut.Articulos[0]);
+
+        escenario.Sut.PuedePedir.Should().BeFalse();
+        await escenario.PedidoService.DidNotReceiveWithAnyArgs().ObtenerVistaPreviaAsync(default!, default);
+    }
+
+    [Fact]
+    public void PuedePedir_SinFlujoDePedidos_EsFalso()
+    {
+        _sut.PuedePedir.Should().BeFalse();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Filtro por rubro (RF-04)                                           //
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Escolar (Cuadernos, Lápices) y Oficina (Resmas).</summary>
+    private async Task<ArticulosViewModel> CrearSutConRubrosAsync()
+    {
+        var rubroService = Substitute.For<IRubroService>();
+        rubroService.ListarAsync(null, Arg.Any<CancellationToken>()).Returns(
+        [
+            new RubroDto { IdRubro = 1, NombreRubro = "Escolar" },
+            new RubroDto { IdRubro = 2, NombreRubro = "Oficina" }
+        ]);
+        _inventarioService.ListarCategoriasAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new CategoriaDto { IdCategoria = 10, NombreCategoria = "Cuadernos", IdRubro = 1 },
+            new CategoriaDto { IdCategoria = 11, NombreCategoria = "Lápices", IdRubro = 1 },
+            new CategoriaDto { IdCategoria = 20, NombreCategoria = "Resmas", IdRubro = 2 }
+        ]);
+
+        var sut = new ArticulosViewModel(_inventarioService, _dialogService, _proveedorService, rubroService: rubroService);
+        await sut.CargarArticulosAsync();
+        return sut;
+    }
+
+    [Fact]
+    public async Task CargarArticulosAsync_ConRubros_OfreceTodosLosRubrosYTodasLasCategorias()
+    {
+        using var sut = await CrearSutConRubrosAsync();
+
+        sut.RubrosFiltro.Select(r => r.NombreRubro).Should().Equal("Todos los Rubros", "Escolar", "Oficina");
+        sut.CategoriasFiltro.Select(c => c.NombreCategoria).Should().Equal("Todas las Categorías", "Cuadernos", "Lápices", "Resmas");
+    }
+
+    [Fact]
+    public async Task IdRubroFiltro_ElegirRubro_AcotaLasCategoriasReiniciaLaCategoriaYConsultaPorRubro()
+    {
+        using var sut = await CrearSutConRubrosAsync();
+        sut.IdCategoriaFiltro = 20;
+        await sut.CargarArticulosAsync();
+        _inventarioService.ClearReceivedCalls();
+
+        sut.IdRubroFiltro = 1;
+        await sut.CargarArticulosAsync();
+
+        sut.CategoriasFiltro.Select(c => c.NombreCategoria).Should().Equal("Todas las Categorías", "Cuadernos", "Lápices");
+        sut.IdCategoriaFiltro.Should().Be(0, "\"Todas las Categorías\" pasa a significar todas las del rubro");
+        sut.HayFiltrosActivos.Should().BeTrue();
+        await _inventarioService.Received().ListarArticulosPaginadosAsync(
+            Arg.Is<ConsultaArticulosDto>(c => c.IdRubro == 1 && c.IdCategoria == null),
+            Arg.Any<CancellationToken>());
+        await _inventarioService.DidNotReceive().ListarArticulosPaginadosAsync(
+            Arg.Is<ConsultaArticulosDto>(c => c.IdRubro == 1 && c.IdCategoria == 20),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LimpiarFiltros_ConRubroElegido_VuelveATodosLosRubrosYTodasLasCategorias()
+    {
+        using var sut = await CrearSutConRubrosAsync();
+        sut.IdRubroFiltro = 2;
+
+        sut.LimpiarFiltros();
+
+        sut.IdRubroFiltro.Should().Be(0);
+        sut.CategoriasFiltro.Should().HaveCount(4);
+        sut.HayFiltrosActivos.Should().BeFalse();
     }
 }

@@ -1,3 +1,4 @@
+using Retail.App.ViewModels.Proveedores;
 using Retail.Application.DTOs.Proveedores;
 
 namespace Retail.App.Services;
@@ -23,6 +24,16 @@ public interface IProveedorDialogService
     /// <summary>Abre la ventana del importador de catálogos para el proveedor dado (o catálogo general si es null).</summary>
     Task AbrirImportadorCatalogosAsync(ProveedorDto? proveedor = null);
 
+    /// <summary>Abre el diálogo modal de equivalencias de clasificación del proveedor (Track 6.6, P6-7).</summary>
+    Task AbrirEquivalenciasProveedorAsync(ProveedorDto proveedor);
+
     /// <summary>Abre el diálogo modal de importación de planillas de un distribuidor. Retorna el resultado si se importó.</summary>
     Task<ResultadoImportacionDto?> AbrirImportarPlanillaAsync(ProveedorDto proveedor);
+
+    /// <summary>
+    /// Abre el modal de incorporación con el ViewModel ya inicializado por la pantalla (G5 del Track 4.3): calcula las
+    /// sugerencias con el diálogo abierto y las cancela al cerrarlo. Devuelve <c>true</c> si el usuario confirmó; la
+    /// incorporación la guarda quien lo abre, con <see cref="IncorporarArticulosModalViewModel.ObtenerDto"/>.
+    /// </summary>
+    bool MostrarIncorporacion(IncorporarArticulosModalViewModel modal);
 }

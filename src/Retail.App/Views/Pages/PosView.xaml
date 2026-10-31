@@ -23,7 +23,7 @@
         <KeyBinding Key="Delete" Command="{Binding EliminarItemCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -35,7 +35,7 @@
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
                 Padding="20,16"
-                Margin="0,0,0,16">
+                Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
@@ -112,7 +112,7 @@
                     BorderBrush="{DynamicResource SurfaceBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
-                    Margin="0,0,16,0">
+                    Margin="{StaticResource ColumnSpacing}">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <!-- 1. SearchBar unificado -->
@@ -236,22 +236,26 @@
                                                 IsReadOnly="True" />
 
                             <!-- Cantidad con botones + / - -->
-                            <DataGridTemplateColumn Header="Cantidad" Width="140">
+                            <DataGridTemplateColumn Header="Cantidad" HeaderStyle="{StaticResource DataGridColumnHeaderCenterStyle}" Width="140">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Button Command="{Binding DataContext.DecrementarCantidadCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{StaticResource KeycapButtonStyle}"
-                                                    Padding="6,2"
-                                                    Margin="0,0,4,0">
-                                                <TextBlock Text="-" FontWeight="Bold" FontSize="13" />
+                                                    Click="OnAjusteCantidadClick"
+                                                    Width="24"
+                                                    Height="24"
+                                                    Padding="0"
+                                                    Margin="0,0,4,0"
+                                                    ToolTip="Restar una unidad">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularMinus" Width="12" Height="12" />
                                             </Button>
                                             <!-- Cantidad editable por teclado (100 hojas sueltas sin 100 clics). Se confirma con
                                                  Enter, Tab o al salir; un valor inválido vuelve al anterior (D-25). -->
                                             <TextBox Text="{Binding Cantidad, UpdateSourceTrigger=LostFocus}"
                                                      Width="56"
-                                                     Height="28"
+                                                     Height="24"
                                                      MinHeight="0"
                                                      Padding="2,0"
                                                      HorizontalContentAlignment="Center"
@@ -267,9 +271,13 @@
                                             <Button Command="{Binding DataContext.IncrementarCantidadCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{StaticResource KeycapButtonStyle}"
-                                                    Padding="6,2"
-                                                    Margin="4,0,0,0">
-                                                <TextBlock Text="+" FontWeight="Bold" FontSize="13" />
+                                                    Click="OnAjusteCantidadClick"
+                                                    Width="24"
+                                                    Height="24"
+                                                    Padding="0"
+                                                    Margin="4,0,0,0"
+                                                    ToolTip="Sumar una unidad">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="12" Height="12" />
                                             </Button>
                                         </StackPanel>
                                     </DataTemplate>
@@ -278,6 +286,7 @@
 
                             <!-- Precio Unitario -->
                             <DataGridTextColumn Header="Precio Unit."
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                 Binding="{Binding PrecioUnitarioFormateado}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="130"
@@ -285,6 +294,7 @@
 
                             <!-- Subtotal Línea -->
                             <DataGridTextColumn Header="Subtotal"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                 Binding="{Binding SubtotalItemFormateado}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="130"
@@ -316,37 +326,42 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <!-- 1. Tarjeta Cliente de Mostrador -->
                 <Border Grid.Row="0"
                         Style="{StaticResource CardBorderStyle}"
-                        Padding="16"
-                        Margin="0,0,0,16">
+                        Padding="20"
+                        Margin="{StaticResource CardSpacing}">
                     <StackPanel>
-                        <DockPanel LastChildFill="True" Margin="0,0,0,8">
+                        <DockPanel LastChildFill="True">
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding SeleccionarClienteCommand}"
                                     Style="{StaticResource KeycapButtonStyle}"
-                                    Padding="8,4">
+                                    Padding="12,6"
+                                    ToolTip="Cambiar el cliente de la venta">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Cambiar" FontSize="11" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Cambiar" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
-                            <TextBlock Text="CLIENTE ASOCIADO" Style="{StaticResource TextBlockCaptionSecondary}" FontWeight="Bold" />
+                            <TextBlock Text="CLIENTE ASOCIADO"
+                                       Style="{StaticResource TextBlockCaptionSecondary}"
+                                       FontSize="12"
+                                       FontWeight="Bold"
+                                       VerticalAlignment="Center" />
                         </DockPanel>
 
                         <TextBlock Text="{Binding ClienteNombre}"
+                                   FontSize="20"
                                    FontWeight="Bold"
-                                   FontSize="15"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                   TextTrimming="CharacterEllipsis" />
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="0,6,0,0" />
 
                         <TextBlock Text="{Binding ClienteDocumento}"
-                                   Style="{StaticResource TextBlockCaptionSecondary}"
-                                   Margin="0,2,0,6" />
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="0,4,0,0" />
 
                         <!-- Estado Cta Cte si aplica -->
                         <Border Visibility="{Binding ClienteTieneCtaCte, Converter={StaticResource BoolToVisConverter}}"
@@ -355,7 +370,7 @@
                                 BorderThickness="1"
                                 CornerRadius="4"
                                 Padding="8,4"
-                                Margin="0,4,0,0">
+                                Margin="0,12,0,0">
                             <StackPanel>
                                 <TextBlock Text="Cuenta Corriente Habilitada"
                                            FontSize="10"
@@ -372,11 +387,11 @@
                     </StackPanel>
                 </Border>
 
-                <!-- 2. Tarjeta Resumen y Gran Totalizador de Venta -->
+                <!-- 2. Tarjeta de la venta: resumen y total sobre la línea interna, acciones debajo. El espacio flexible
+                     deja el total y los botones al pie de la columna, siempre en el mismo lugar. -->
                 <Border Grid.Row="1"
                         Style="{StaticResource CardBorderStyle}"
-                        Padding="20"
-                        VerticalAlignment="Stretch">
+                        Padding="0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -384,103 +399,95 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <!-- Resumen Ítems -->
-                        <DockPanel Grid.Row="0" Margin="0,0,0,8">
-                            <TextBlock Text="Cantidad de Artículos:" Style="{StaticResource TextBlockBodySecondary}" />
+                        <DockPanel Grid.Row="0" Margin="20,20,20,10">
+                            <TextBlock Text="Cantidad de artículos:" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding CantidadTotalArticulos}"
                                        FontFamily="{StaticResource FontFamilyNumeric}"
                                        Typography.NumeralAlignment="Tabular"
+                                       FontSize="16"
                                        FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                        HorizontalAlignment="Right" />
                         </DockPanel>
 
                         <!-- Subtotal -->
-                        <DockPanel Grid.Row="1" Margin="0,0,0,8">
-                            <TextBlock Text="Subtotal Bruto:" Style="{StaticResource TextBlockBodySecondary}" />
+                        <DockPanel Grid.Row="1" Margin="20,0,20,10">
+                            <TextBlock Text="Subtotal bruto:" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding SubtotalFormateado}"
                                        FontFamily="{StaticResource FontFamilyNumeric}"
                                        Typography.NumeralAlignment="Tabular"
+                                       FontSize="16"
                                        FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
                                        HorizontalAlignment="Right" />
                         </DockPanel>
 
                         <!-- Descuento -->
-                        <DockPanel Grid.Row="2" Margin="0,0,0,12">
-                            <TextBlock Text="Descuentos:" Style="{StaticResource TextBlockBodySecondary}" />
+                        <DockPanel Grid.Row="2" Margin="20,0,20,0">
+                            <TextBlock Text="Descuentos:" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding DescuentoFormateado}"
                                        FontFamily="{StaticResource FontFamilyNumeric}"
                                        Typography.NumeralAlignment="Tabular"
+                                       FontSize="16"
                                        FontWeight="Bold"
                                        Foreground="{DynamicResource TextMutedBrush}"
                                        HorizontalAlignment="Right" />
                         </DockPanel>
 
-                        <!-- Separador -->
-                        <Separator Grid.Row="3" VerticalAlignment="Top" Margin="0,0,0,12" />
+                        <!-- Total a cobrar -->
+                        <StackPanel Grid.Row="4" Margin="20,16,20,20">
+                            <Separator Margin="0,0,0,20" />
+                            <TextBlock Text="TOTAL A COBRAR"
+                                       Style="{StaticResource TextBlockCaptionSecondary}"
+                                       FontSize="12"
+                                       FontWeight="Bold" />
+                            <TextBlock Text="{Binding TotalFormateado}"
+                                       Style="{StaticResource TextBlockDisplayCurrency}"
+                                       FontSize="40"
+                                       FontWeight="Bold"
+                                       TextAlignment="Left"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
 
-                        <!-- DISPLAY GIGANTE DE TOTAL DE MOSTRADOR -->
-                        <Border Grid.Row="4"
-                                Background="{DynamicResource PrimaryLightBrush}"
-                                BorderBrush="{DynamicResource PrimaryBrush}"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Padding="16,14"
-                                Margin="0,12,0,0">
-                            <StackPanel HorizontalAlignment="Center">
-                                <TextBlock Text="TOTAL GENERAL"
-                                           FontWeight="Bold"
-                                           FontSize="11"
-                                           Foreground="{DynamicResource PrimaryBrush}"
-                                           HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding TotalFormateado}"
-                                           Style="{StaticResource TextBlockDisplayCurrency}"
-                                           FontSize="32"
-                                           Foreground="{DynamicResource PrimaryBrush}"
-                                           HorizontalAlignment="Center"
-                                           Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Border>
+                        <!-- Acciones sobre la venta entera, bajo una línea interna: cobrar [F12] y cancelar [F8] -->
+                        <StackPanel Grid.Row="5" Margin="10,0,10,16">
+                            <Separator Margin="0,0,0,16" />
+                            <Grid Margin="4,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Button Grid.Column="0"
+                                        Command="{Binding CobrarVentaCommand}"
+                                        IsEnabled="{Binding PuedeCobrar}"
+                                        Style="{StaticResource PrimaryActionButtonStyle}"
+                                        Content="Cobrar venta"
+                                        FontSize="15"
+                                        Height="42"
+                                        ToolTip="Cobrar venta [F12]" />
+
+                                <Button Grid.Column="1"
+                                        Command="{Binding LimpiarVentaCommand}"
+                                        IsEnabled="{Binding TieneItems}"
+                                        Style="{StaticResource KeycapButtonStyle}"
+                                        Height="42"
+                                        Padding="16,0"
+                                        Margin="8,0,0,0"
+                                        ToolTip="Cancelar venta [F8]: vacía el ticket">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Cancelar" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
                     </Grid>
                 </Border>
-
-                <!-- 3. Acciones sobre la venta entera: cobrar [F12] (primaria) y limpiar [F8] (secundaria, destructiva) -->
-                <Grid Grid.Row="2" Margin="0,16,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <Button Grid.Column="0"
-                            Command="{Binding CobrarVentaCommand}"
-                            IsEnabled="{Binding PuedeCobrar}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            Height="56">
-                        <StackPanel Orientation="Horizontal">
-                            <Path Data="{StaticResource GeometryCash}"
-                                  Fill="{DynamicResource PrimaryForegroundBrush}"
-                                  Width="20"
-                                  Height="20"
-                                  Stretch="Uniform"
-                                  Margin="0,0,10,0" />
-                            <TextBlock Text="Cobrar Venta"
-                                       FontSize="16"
-                                       FontWeight="Bold"
-                                       Foreground="{DynamicResource PrimaryForegroundBrush}"
-                                       VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-
-                    <Button Grid.Column="1"
-                            Command="{Binding LimpiarVentaCommand}"
-                            IsEnabled="{Binding TieneItems}"
-                            Style="{StaticResource IconPrimarySquareButtonStyle}"
-                            ToolTip="Limpiar venta [F8]"
-                            Margin="8,0,0,0">
-                        <iconPacks:PackIconBoxIcons Kind="RegularX" Width="22" Height="22" />
-                    </Button>
-                </Grid>
             </Grid>
         </Grid>
     </Grid>

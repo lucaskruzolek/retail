@@ -51,5 +51,15 @@ public class ProveedorConfiguration : IEntityTypeConfiguration<Proveedor>
             .HasColumnName("deleted_at");
 
         builder.Ignore(p => p.IsDeleted);
+
+        // Equivalencias de clasificación (Track 6.6, M-13): entidad interna del agregado, escrita a través de la lista
+        // privada _equivalencias. Cascade como los hijos de una venta: nunca se ejecuta, el borrado es lógico (Ley 3).
+        builder.HasMany(p => p.Equivalencias)
+            .WithOne(e => e.Proveedor)
+            .HasForeignKey(e => e.IdProveedor)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(p => p.Equivalencias)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

@@ -168,6 +168,15 @@ public partial class PosView : UserControl
         }
     }
 
+    /// <summary>
+    /// Tras ajustar la cantidad con - o + el foco vuelve al buscador, igual que con Enter o Esc. El clic ya movió el
+    /// foco al botón (eso confirma lo escrito en la celda), así que el botón no queda marcado como seleccionado.
+    /// </summary>
+    private void OnAjusteCantidadClick(object sender, RoutedEventArgs e)
+    {
+        TxtBuscador.Focus();
+    }
+
     private ListBoxItem? ResultadoBajo(object origen)
     {
         return origen is DependencyObject elemento

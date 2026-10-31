@@ -2,10 +2,14 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Retail.App.Services;
+using Retail.App.UnitTests.Helpers;
+using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Proveedores;
+using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
@@ -16,7 +20,13 @@ public class ImportadorCatalogosViewModelTests : IDisposable
     private readonly IProveedorDialogService _dialogService;
     private readonly IInventarioService _inventarioService;
     private readonly INavigationService _navigationService;
+    private readonly IPedidoService _pedidoService;
+    private readonly IPedidoDialogService _pedidoDialogService;
+    private readonly ICurrentUserSession _session;
     private static readonly TimeSpan LimiteEspera = TimeSpan.FromSeconds(5);
+
+    // 2026-10-28 12:00 UTC = 09:00 en Argentina.
+    private readonly RelojDePrueba _reloj = new(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
 
     private readonly ImportadorCatalogosViewModel _sut;
 
@@ -26,6 +36,13 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         _dialogService = Substitute.For<IProveedorDialogService>();
         _inventarioService = Substitute.For<IInventarioService>();
         _navigationService = Substitute.For<INavigationService>();
+        _pedidoService = Substitute.For<IPedidoService>();
+        _pedidoDialogService = Substitute.For<IPedidoDialogService>();
+
+        // Por defecto, un Encargado en sesión: puede pedir (A-14).
+        _session = Substitute.For<ICurrentUserSession>();
+        _session.IdUsuario.Returns(7);
+        _session.EsEncargado.Returns(true);
 
         // Por defecto el catálogo responde vacío. Sin esto el mock devuelve null, la carga que dispara
         // ProveedorActivo falla y su mensaje de error puede pisar el de otro comando (H-18).
@@ -37,6 +54,15 @@ public class ImportadorCatalogosViewModelTests : IDisposable
             _dialogService,
             _inventarioService,
             _navigationService,
+            new IncorporarArticulosModalViewModel(
+                Substitute.For<IClasificacionService>(),
+                Substitute.For<ITerminoClasificacionService>(),
+                Substitute.For<IEquivalenciaClasificacionService>(),
+                Substitute.For<IRubroService>(),
+                Substitute.For<ICurrentUserSession>(),
+                NullLogger<IncorporarArticulosModalViewModel>.Instance),
+            new FlujoPedirArticulos(_pedidoService, _pedidoDialogService, _session, NullLogger<FlujoPedirArticulos>.Instance),
+            _reloj,
             NullLogger<ImportadorCatalogosViewModel>.Instance);
     }
 
@@ -137,6 +163,112 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         // Assert
         _sut.TieneMensajeError.Should().BeTrue();
         _sut.MensajeError.Should().Contain("Seleccione al menos un artículo");
+    }
+
+    [Fact]
+    public async Task IncorporarSeleccionadosCommand_ModalConfirmado_IncorporaYRecarga()
+    {
+        // Arrange
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+        var item = CrearItemSinIncorporar(40);
+        _dialogService.MostrarIncorporacion(Arg.Any<IncorporarArticulosModalViewModel>()).Returns(true);
+        _proveedorService.IncorporarArticulosATiendaAsync(Arg.Any<IncorporarCatalogoArticulosDto>(), Arg.Any<CancellationToken>())
+            .Returns(new ResultadoIncorporacionDto { Incorporados = 1, OmitidosYaVinculados = 0 });
+
+        // Act
+        await _sut.IncorporarSeleccionadosCommand.ExecuteAsync(new List<CatalogoProveedorDto> { item });
+
+        // Assert
+        _dialogService.Received(1).MostrarIncorporacion(Arg.Is<IncorporarArticulosModalViewModel>(m => m.Items.Count == 1));
+        await _proveedorService.Received(1).IncorporarArticulosATiendaAsync(
+            Arg.Is<IncorporarCatalogoArticulosDto>(d => d.Items.Count == 1),
+            Arg.Any<CancellationToken>());
+        _sut.MensajeEstado.Should().StartWith("1 artículo(s) incorporados");
+    }
+
+    [Fact]
+    public async Task IncorporarSeleccionadosCommand_ModalCancelado_NoIncorpora()
+    {
+        // Arrange
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+        _dialogService.MostrarIncorporacion(Arg.Any<IncorporarArticulosModalViewModel>()).Returns(false);
+
+        // Act
+        await _sut.IncorporarSeleccionadosCommand.ExecuteAsync(new List<CatalogoProveedorDto> { CrearItemSinIncorporar(40) });
+
+        // Assert
+        await _proveedorService.DidNotReceiveWithAnyArgs().IncorporarArticulosATiendaAsync(default!, default);
+        _sut.TieneMensajeError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task IncorporarSeleccionadosCommand_ConCargaDelCatalogoEnCurso_EsperaQueLibereElContexto()
+    {
+        // Arrange: la carga del catálogo ocupa el DbContext de la pantalla cuando el usuario pide incorporar.
+        var consulto = new TaskCompletionSource();
+        var respuesta = new TaskCompletionSource<CatalogoPaginadoDto>();
+        ConfigurarRespuesta(string.Empty, respuesta.Task, consulto);
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+        await consulto.Task.WaitAsync(LimiteEspera);
+
+        // Act
+        var incorporacion = _sut.IncorporarSeleccionadosCommand.ExecuteAsync(new List<CatalogoProveedorDto> { CrearItemSinIncorporar(40) });
+        await Task.Delay(200);
+        var consultoDiccionariosAntesDeLiberar = _inventarioService.ReceivedCalls().Count();
+        respuesta.SetResult(Paginado("PAP-01"));
+        await incorporacion.WaitAsync(LimiteEspera);
+
+        // Assert
+        consultoDiccionariosAntesDeLiberar.Should().Be(0, "mientras la carga ocupa el DbContext, la incorporación espera su turno (H-19)");
+        await _inventarioService.Received(1).ListarCategoriasAsync(Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarIncorporacion(Arg.Any<IncorporarArticulosModalViewModel>());
+    }
+
+    [Fact]
+    public async Task IncorporarSeleccionadosCommand_FallaLaLecturaDeDiccionarios_InformaYNoAbreElModal()
+    {
+        // Arrange
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+        _inventarioService.ListarCategoriasAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Retail.Application.DTOs.Articulos.CategoriaDto>>(_ => throw new InvalidOperationException("SQL caído"));
+
+        // Act
+        await _sut.IncorporarSeleccionadosCommand.ExecuteAsync(new List<CatalogoProveedorDto> { CrearItemSinIncorporar(40) });
+
+        // Assert
+        _sut.MensajeError.Should().Be("Error al incorporar artículos.");
+        _dialogService.DidNotReceiveWithAnyArgs().MostrarIncorporacion(default!);
+    }
+
+    [Fact]
+    public async Task IncorporarSeleccionadosCommand_ServicioRechazaLaIncorporacion_MuestraElMotivo()
+    {
+        // Arrange
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+        _dialogService.MostrarIncorporacion(Arg.Any<IncorporarArticulosModalViewModel>()).Returns(true);
+        _proveedorService.IncorporarArticulosATiendaAsync(Arg.Any<IncorporarCatalogoArticulosDto>(), Arg.Any<CancellationToken>())
+            .Returns<ResultadoIncorporacionDto>(_ => throw new DomainException("El código de barras ya existe en la tienda."));
+
+        // Act
+        await _sut.IncorporarSeleccionadosCommand.ExecuteAsync(new List<CatalogoProveedorDto> { CrearItemSinIncorporar(40) });
+
+        // Assert
+        _sut.MensajeError.Should().Be("El código de barras ya existe en la tienda.");
+        _sut.TieneMensajeEstado.Should().BeFalse();
+        _sut.IsBusy.Should().BeFalse();
+    }
+
+    private static CatalogoProveedorDto CrearItemSinIncorporar(int id)
+    {
+        return new CatalogoProveedorDto
+        {
+            Id = id,
+            IdProveedor = 1,
+            CodigoProveedor = $"SKU-{id}",
+            DescripcionProveedor = $"Ítem {id}",
+            CostoReposicion = 100m,
+            FechaActualizacion = DateTime.UtcNow
+        };
     }
 
     [Fact]
@@ -316,5 +448,265 @@ public class ImportadorCatalogosViewModelTests : IDisposable
             PaginaActual = 1,
             TamanoPagina = 50
         };
+    }
+
+    private async Task InicializarConUltimaPlanillaAsync(DateTime? fechaUtc)
+    {
+        _proveedorService.ListarItemsCatalogoAsync(Arg.Any<ConsultaCatalogoProveedorDto>(), Arg.Any<CancellationToken>())
+            .Returns(new CatalogoPaginadoDto { FechaUltimaPlanilla = fechaUtc });
+
+        await _sut.InicializarAsync(new ProveedorDto { IdProveedor = 3, RazonSocial = "Distribuidora Papelera", Cuit = "30-33333333-3" });
+    }
+
+    [Theory]
+    [InlineData(11, "Última planilla: 28/10/2026 (hoy)")]
+    [InlineData(2, "Última planilla: 27/10/2026 (hace 1 día)")] // 02:00 UTC son las 23:00 del día anterior en Argentina
+    public async Task InicializarAsync_PlanillaReciente_MuestraFechaLocalYAntiguedadSinAviso(int horaUtc, string esperado)
+    {
+        await InicializarConUltimaPlanillaAsync(new DateTime(2026, 10, 28, horaUtc, 0, 0, DateTimeKind.Utc));
+
+        _sut.TextoUltimaPlanilla.Should().Be(esperado);
+        _sut.ListaDesactualizada.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(28, false)] // 30 días: todavía en el límite
+    [InlineData(27, true)]  // 31 días: desactualizada
+    public async Task InicializarAsync_PlanillaVieja_AvisaSoloSiSuperaElUmbral(int diaSeptiembre, bool desactualizada)
+    {
+        await InicializarConUltimaPlanillaAsync(new DateTime(2026, 9, diaSeptiembre, 15, 0, 0, DateTimeKind.Utc));
+
+        _sut.ListaDesactualizada.Should().Be(desactualizada);
+        _sut.TextoUltimaPlanilla.Should().EndWith(desactualizada ? "(hace 31 días)" : "(hace 30 días)");
+    }
+
+    [Fact]
+    public async Task InicializarAsync_ProveedorSinCatalogo_InformaQueNoHayPlanillas()
+    {
+        await InicializarConUltimaPlanillaAsync(null);
+
+        _sut.FechaUltimaPlanilla.Should().BeNull();
+        _sut.TextoUltimaPlanilla.Should().Be("Todavía no se importó ninguna planilla de este proveedor");
+        _sut.ListaDesactualizada.Should().BeFalse();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Pedir al proveedor (Track 4.3, L2a-2)                              //
+    // ------------------------------------------------------------------ //
+
+    private static readonly ProveedorDto ProveedorPedidos = new() { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
+
+    private async Task<(CatalogoProveedorDto Vinculado, CatalogoProveedorDto SinIncorporar)> CargarCatalogoParaPedirAsync()
+    {
+        var vinculado = CrearItemSinIncorporar(50) with { EstaVinculado = true, IdArticuloVinculado = 500 };
+        var sinIncorporar = CrearItemSinIncorporar(51);
+        _proveedorService.ListarItemsCatalogoAsync(Arg.Any<ConsultaCatalogoProveedorDto>(), Arg.Any<CancellationToken>())
+            .Returns(new CatalogoPaginadoDto { Items = [vinculado, sinIncorporar], TotalRegistros = 2, PaginaActual = 1, TamanoPagina = 50 });
+
+        await _sut.InicializarAsync(ProveedorPedidos);
+        return (_sut.ItemsCatalogo[0], _sut.ItemsCatalogo[1]);
+    }
+
+    private void ConfigurarVistaPrevia(params int[] idsSinIncorporar)
+    {
+        _pedidoService.ObtenerVistaPreviaAsync(Arg.Any<IReadOnlyCollection<int>>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+            .Returns(new VistaPreviaPedidoDto
+            {
+                Omitidos = idsSinIncorporar
+                    .Select(id => new RenglonOmitidoDto { IdCatalogoProveedor = id, Motivo = MotivoOmisionPedidoEnum.SinIncorporar })
+                    .ToList()
+            });
+    }
+
+    private void ConfigurarGuardado()
+    {
+        _pedidoService.AgregarVariosAlPedidoAsync(Arg.Any<AgregarVariosAlPedidoDto>(), Arg.Any<CancellationToken>())
+            .Returns(new ResultadoAgregarAlPedidoDto
+            {
+                Pedidos = [new PedidoResumenDto { IdPedido = 12, IdProveedor = 1, RazonSocialProveedor = "Prov 1" }]
+            });
+    }
+
+    private static RespuestaPedirArticulos Confirmada(params int[] idsCatalogo)
+    {
+        return RespuestaPedirArticulos.Confirmada(
+            idsCatalogo.Select(id => new RenglonAAgregarDto { IdCatalogoProveedor = id, Cantidad = 3 }).ToList());
+    }
+
+    [Fact]
+    public async Task PedirItemCommand_ItemVinculado_GuardaElLoteConElUsuarioEnSesion()
+    {
+        // Arrange
+        var (vinculado, _) = await CargarCatalogoParaPedirAsync();
+        ConfigurarVistaPrevia();
+        ConfigurarGuardado();
+        _pedidoDialogService.MostrarPedirArticulos(default!, default!, default).ReturnsForAnyArgs(Confirmada(50));
+
+        // Act
+        await _sut.PedirItemCommand.ExecuteAsync(vinculado);
+
+        // Assert
+        await _pedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Is<IReadOnlyCollection<int>>(ids => ids.Single() == 50),
+            Arg.Any<int?>(), Arg.Any<CancellationToken>());
+        await _pedidoService.Received(1).AgregarVariosAlPedidoAsync(
+            Arg.Is<AgregarVariosAlPedidoDto>(d => d.IdUsuario == 7 && d.Renglones.Single().IdCatalogoProveedor == 50 && d.Renglones.Single().Cantidad == 3),
+            Arg.Any<CancellationToken>());
+        _sut.MensajeEstado.Should().Be("Se agregó al borrador #12 (Prov 1).");
+        _sut.TieneMensajeError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PedirSeleccionadosCommand_NoVinculado_IncorporaYVuelveAPedirSinLaOferta()
+    {
+        // Arrange
+        var (vinculado, sinIncorporar) = await CargarCatalogoParaPedirAsync();
+        vinculado.EstaSeleccionado = true;
+        sinIncorporar.EstaSeleccionado = true;
+        ConfigurarVistaPrevia(51);
+        ConfigurarGuardado();
+        _pedidoDialogService.MostrarPedirArticulos(Arg.Any<VistaPreviaPedidoDto>(), Arg.Any<IReadOnlyList<string>>(), true)
+            .Returns(RespuestaPedirArticulos.IncorporarPrimero);
+        _pedidoDialogService.MostrarPedirArticulos(Arg.Any<VistaPreviaPedidoDto>(), Arg.Any<IReadOnlyList<string>>(), false)
+            .Returns(Confirmada(50, 51));
+        _dialogService.MostrarIncorporacion(Arg.Any<IncorporarArticulosModalViewModel>()).Returns(true);
+        _proveedorService.IncorporarArticulosATiendaAsync(Arg.Any<IncorporarCatalogoArticulosDto>(), Arg.Any<CancellationToken>())
+            .Returns(new ResultadoIncorporacionDto { Incorporados = 1, OmitidosYaVinculados = 0 });
+
+        // Act
+        await _sut.PedirSeleccionadosCommand.ExecuteAsync(null);
+
+        // Assert: se incorpora solo el que la vista previa informó sin incorporar, y el segundo modal ya no lo ofrece.
+        _dialogService.Received(1).MostrarIncorporacion(Arg.Is<IncorporarArticulosModalViewModel>(m => m.Items.Single().CodigoProveedor == "SKU-51"));
+        await _proveedorService.Received(1).IncorporarArticulosATiendaAsync(Arg.Any<IncorporarCatalogoArticulosDto>(), Arg.Any<CancellationToken>());
+        _pedidoDialogService.Received(1).MostrarPedirArticulos(Arg.Any<VistaPreviaPedidoDto>(), Arg.Any<IReadOnlyList<string>>(), false);
+        await _pedidoService.Received(1).AgregarVariosAlPedidoAsync(
+            Arg.Is<AgregarVariosAlPedidoDto>(d => d.Renglones.Count == 2),
+            Arg.Any<CancellationToken>());
+        _sut.MensajeEstado.Should().Be("1 artículo(s) incorporados a la tienda correctamente. Se agregó al borrador #12 (Prov 1).");
+    }
+
+    [Fact]
+    public async Task PedirSeleccionadosCommand_RechazaIncorporar_PideSoloLosVinculados()
+    {
+        // Arrange
+        var (vinculado, sinIncorporar) = await CargarCatalogoParaPedirAsync();
+        vinculado.EstaSeleccionado = true;
+        sinIncorporar.EstaSeleccionado = true;
+        ConfigurarVistaPrevia(51);
+        ConfigurarGuardado();
+        _pedidoDialogService.MostrarPedirArticulos(default!, default!, default).ReturnsForAnyArgs(Confirmada(50));
+
+        // Act
+        await _sut.PedirSeleccionadosCommand.ExecuteAsync(null);
+
+        // Assert
+        _dialogService.DidNotReceiveWithAnyArgs().MostrarIncorporacion(default!);
+        await _pedidoService.Received(1).AgregarVariosAlPedidoAsync(
+            Arg.Is<AgregarVariosAlPedidoDto>(d => d.Renglones.Single().IdCatalogoProveedor == 50),
+            Arg.Any<CancellationToken>());
+        _sut.ItemsCatalogo.Should().OnlyContain(i => !i.EstaSeleccionado);
+    }
+
+    [Fact]
+    public async Task PedirItemCommand_IncorporacionCancelada_VuelveAlPedidoConLosVinculados()
+    {
+        // Arrange
+        var (_, sinIncorporar) = await CargarCatalogoParaPedirAsync();
+        ConfigurarVistaPrevia(51);
+        _pedidoDialogService.MostrarPedirArticulos(Arg.Any<VistaPreviaPedidoDto>(), Arg.Any<IReadOnlyList<string>>(), true)
+            .Returns(RespuestaPedirArticulos.IncorporarPrimero);
+        _pedidoDialogService.MostrarPedirArticulos(Arg.Any<VistaPreviaPedidoDto>(), Arg.Any<IReadOnlyList<string>>(), false)
+            .Returns(RespuestaPedirArticulos.Cancelada);
+        _dialogService.MostrarIncorporacion(Arg.Any<IncorporarArticulosModalViewModel>()).Returns(false);
+
+        // Act
+        await _sut.PedirItemCommand.ExecuteAsync(sinIncorporar);
+
+        // Assert
+        await _proveedorService.DidNotReceiveWithAnyArgs().IncorporarArticulosATiendaAsync(default!, default);
+        _pedidoDialogService.Received(1).MostrarPedirArticulos(Arg.Any<VistaPreviaPedidoDto>(), Arg.Any<IReadOnlyList<string>>(), false);
+        await _pedidoService.DidNotReceiveWithAnyArgs().AgregarVariosAlPedidoAsync(default!, default);
+        _sut.TieneMensajeError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PedirItemCommand_ModalCancelado_NoGuardaNada()
+    {
+        // Arrange
+        var (vinculado, _) = await CargarCatalogoParaPedirAsync();
+        ConfigurarVistaPrevia();
+        _pedidoDialogService.MostrarPedirArticulos(default!, default!, default).ReturnsForAnyArgs(RespuestaPedirArticulos.Cancelada);
+
+        // Act
+        await _sut.PedirItemCommand.ExecuteAsync(vinculado);
+
+        // Assert
+        await _pedidoService.DidNotReceiveWithAnyArgs().AgregarVariosAlPedidoAsync(default!, default);
+        _sut.TieneMensajeEstado.Should().BeFalse();
+        _sut.TieneMensajeError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PedirItemCommand_ServicioRechazaElLote_MuestraElMotivoEnLinea()
+    {
+        // Arrange
+        var (vinculado, _) = await CargarCatalogoParaPedirAsync();
+        ConfigurarVistaPrevia();
+        _pedidoDialogService.MostrarPedirArticulos(default!, default!, default).ReturnsForAnyArgs(Confirmada(50));
+        _pedidoService.AgregarVariosAlPedidoAsync(Arg.Any<AgregarVariosAlPedidoDto>(), Arg.Any<CancellationToken>())
+            .Returns<ResultadoAgregarAlPedidoDto>(_ => throw new DomainException("Otra terminal modificó el borrador."));
+
+        // Act
+        await _sut.PedirItemCommand.ExecuteAsync(vinculado);
+
+        // Assert
+        _sut.MensajeError.Should().Be("Otra terminal modificó el borrador.");
+        _sut.TieneMensajeEstado.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PedirItemCommand_SinUsuarioEnSesion_NoConsultaNiAbreElModal()
+    {
+        // Arrange
+        var (vinculado, _) = await CargarCatalogoParaPedirAsync();
+        _session.IdUsuario.Returns((int?)null);
+
+        // Act
+        await _sut.PedirItemCommand.ExecuteAsync(vinculado);
+
+        // Assert
+        await _pedidoService.DidNotReceiveWithAnyArgs().ObtenerVistaPreviaAsync(default!, default);
+        _pedidoDialogService.DidNotReceiveWithAnyArgs().MostrarPedirArticulos(default!, default!, default);
+        _sut.MensajeError.Should().Contain("No hay un usuario en sesión");
+    }
+
+    [Fact]
+    public async Task PedirItemCommand_Cajero_NoPuedePedirNiConsulta()
+    {
+        // Arrange
+        var (vinculado, _) = await CargarCatalogoParaPedirAsync();
+        _session.EsEncargado.Returns(false);
+
+        // Act
+        await _sut.PedirItemCommand.ExecuteAsync(vinculado);
+
+        // Assert
+        _sut.PuedePedir.Should().BeFalse();
+        await _pedidoService.DidNotReceiveWithAnyArgs().ObtenerVistaPreviaAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task PedirSeleccionadosCommand_SinSeleccion_PideSeleccionarAlMenosUno()
+    {
+        // Arrange
+        await CargarCatalogoParaPedirAsync();
+
+        // Act
+        await _sut.PedirSeleccionadosCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeError.Should().Be("Seleccione al menos un artículo del catálogo para pedir.");
+        await _pedidoService.DidNotReceiveWithAnyArgs().ObtenerVistaPreviaAsync(default!, default);
     }
 }

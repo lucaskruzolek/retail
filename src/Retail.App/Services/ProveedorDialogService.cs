@@ -68,7 +68,10 @@ public class ProveedorDialogService : IProveedorDialogService
         if (resultado == true && vm.DialogResult && vm.IdArticuloSeleccionado.HasValue)
         {
             var proveedorService = _serviceProvider.GetRequiredService<IProveedorService>();
-            await proveedorService.VincularArticuloACatalogoAsync(vm.IdArticuloSeleccionado.Value, itemCatalogo.Id);
+            await proveedorService.VincularArticuloACatalogoAsync(
+                vm.IdArticuloSeleccionado.Value,
+                itemCatalogo.Id,
+                vm.ComoPrincipal);
             return true;
         }
 
@@ -98,6 +101,31 @@ public class ProveedorDialogService : IProveedorDialogService
         await Task.CompletedTask;
     }
 
+    public async Task AbrirEquivalenciasProveedorAsync(ProveedorDto proveedor)
+    {
+        ArgumentNullException.ThrowIfNull(proveedor);
+
+        var vm = _serviceProvider.GetRequiredService<EquivalenciasProveedorViewModel>();
+        try
+        {
+            vm.Configurar(proveedor);
+
+            var dialog = new EquivalenciasProveedorDialog
+            {
+                DataContext = vm,
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            dialog.ShowDialog();
+        }
+        finally
+        {
+            vm.Dispose();
+        }
+
+        await Task.CompletedTask;
+    }
+
     public async Task<ResultadoImportacionDto?> AbrirImportarPlanillaAsync(ProveedorDto proveedor)
     {
         ArgumentNullException.ThrowIfNull(proveedor);
@@ -118,5 +146,23 @@ public class ProveedorDialogService : IProveedorDialogService
         }
 
         return await Task.FromResult<ResultadoImportacionDto?>(null);
+    }
+
+    public bool MostrarIncorporacion(IncorporarArticulosModalViewModel modal)
+    {
+        ArgumentNullException.ThrowIfNull(modal);
+
+        var dialog = new IncorporarArticulosModalDialog
+        {
+            DataContext = modal,
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        // Las sugerencias se calculan en segundo plano mientras el diálogo ya está abierto (Ley 4).
+        _ = modal.IniciarAsync();
+        var resultado = dialog.ShowDialog();
+        modal.Finalizar();
+
+        return resultado == true && modal.DialogResult;
     }
 }

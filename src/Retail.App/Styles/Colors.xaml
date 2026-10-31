@@ -20,6 +20,15 @@
     <SolidColorBrush x:Key="SystemAccentBrushDark2" Color="{StaticResource SystemAccentColorDark2}" />
     <SolidColorBrush x:Key="SystemAccentBrushDark3" Color="{StaticResource SystemAccentColorDark3}" />
 
+    <!-- Los pinceles de acento de WPF-UI (AccentFillColor*) los escribe ApplicationAccentColorManager.Apply en
+         App.xaml.cs, con las variantes del carmín que calcula para el tema claro. El ToggleSwitch encendido se fija
+         acá en el carmín exacto de marca. Las ventanas no mergean diccionarios propios: heredan los de App.xaml, y una
+         copia local de ui:ThemesDictionary reponía en esa ventana el acento azul de Windows. -->
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{StaticResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{StaticResource SystemAccentColorDark1}" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="{StaticResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="{StaticResource SystemAccentColorDark1}" />
+
     <!-- ================================================================= -->
     <!-- TOKENS SEMÁNTICOS DE MARCA Y ACCIÓN PRINCIPAL (RETAIL)            -->
     <!-- ================================================================= -->
@@ -80,5 +89,21 @@
 
     <!-- Elevación de superficies flotantes (popups, desplegables): color de la sombra de DropShadowEffect -->
     <Color x:Key="ElevationShadowColor">#18181B</Color>
+
+    <!-- ================================================================= -->
+    <!-- TOKENS DEL SIDEBAR (SUPERFICIE OSCURA)                            -->
+    <!-- ================================================================= -->
+    <!-- El carmín de marca (#9D0F33) da solo 2,15:1 sobre este fondo: sirve de relleno (la píldora activa, con texto blanco
+         a 8,24:1) pero nunca como color de texto o ícono; para eso está SidebarAccentBrush (6,31:1). -->
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#18181B" />
+    <SolidColorBrush x:Key="SidebarBorderBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SidebarPressedBrush" Color="#3F3F46" />
+    <SolidColorBrush x:Key="SidebarTextBrush" Color="#D4D4D8" />
+    <SolidColorBrush x:Key="SidebarTextStrongBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="SidebarTextMutedBrush" Color="#A1A1AA" />
+    <SolidColorBrush x:Key="SidebarAccentBrush" Color="#F36F8E" />
+    <SolidColorBrush x:Key="SidebarActiveBackgroundBrush" Color="#9D0F33" />
+    <SolidColorBrush x:Key="SidebarActiveForegroundBrush" Color="#FFFFFF" />
 
 </ResourceDictionary>

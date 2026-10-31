@@ -44,5 +44,18 @@ public class CrearArticuloValidator : AbstractValidator<CrearArticuloDto>
             RuleFor(x => x.StockMinimo)
                 .GreaterThanOrEqualTo(0).WithMessage("El stock mínimo no puede ser negativo.");
         });
+
+        // Fuentes del formulario (Track 4.3, A-19): el estado deseado tiene que ser coherente antes de compararlo.
+        RuleForEach(x => x.IdsFuentes)
+            .GreaterThan(0).WithMessage("Las fuentes deben ser ítems de catálogo válidos.");
+
+        RuleFor(x => x.IdsFuentes)
+            .Must(ids => ids.Distinct().Count() == ids.Count)
+            .WithMessage("Una fuente no puede figurar dos veces en el artículo.");
+
+        RuleFor(x => x.IdCatalogoProveedor)
+            .Must((dto, idPrincipal) => dto.IdsFuentes.Contains(idPrincipal!.Value))
+            .When(x => x.IdCatalogoProveedor.HasValue)
+            .WithMessage("La fuente principal debe estar entre las fuentes del artículo.");
     }
 }

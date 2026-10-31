@@ -7,7 +7,7 @@
 
 > **Propósito de este documento:** conservar las decisiones de diseño del motor de catalogación, la evidencia que las sustenta y los experimentos pendientes, para retomar el trabajo sin rehacer el análisis.
 >
-> **Estado: CERRADO EN LO CONCEPTUAL, SIN IMPLEMENTAR (2026-10-17).** Todas las decisiones (M-1 a M-16) fueron aprobadas por el estudiante. Quedan abiertos solo los experimentos E-1 a E-4, cuyas reglas de decisión ya están fijadas (sección 11). El Track 6.5 se implementa primero.
+> **Estado: EN IMPLEMENTACIÓN (2026-10-24).** Fases 0 a 3 y Fase 4a cerradas; sigue la Fase 4b (tabla de la sección 1). Decisiones M-1 a M-37 aprobadas por el estudiante (sección 12). El Track 6.5 está mergeado (PR #31).
 >
 > **Flujo de trabajo entre sesiones:** [`handoff-clasificacion-y-catalogacion.md`](file:///c:/Users/lucas/Proyectos/retail/docs/auditorias/handoff-clasificacion-y-catalogacion.md). Implementación secuencial; el arranque de datos (Fase 1) puede solaparse con el Track 6.5 porque no toca `src/`.
 
@@ -18,12 +18,12 @@
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
 | 0 | Exploración de datos (`ml/scripts/`) y este documento | ✅ Diseño cerrado; track dado de alta en el roadmap y `RF-27` incorporado a la ERS (2026-10-17) |
-| 1 | Arranque: diccionarios revisados por el estudiante y conjunto de oro | ⏳ |
-| 2 | Experimentos E-1 a E-4 en Python (selección del clasificador y umbrales) | ⏳ |
-| 3 | Dominio: entidades hijas de `Categoria` y `Marca`, origen de la clasificación, regla de EAN | ⏳ |
-| 4 | Aplicación: puertos, servicio de clasificación por niveles, cambio del contrato de incorporación | ⏳ |
-| 5 | Infraestructura: vectorizador de n-gramas, clasificador, almacenamiento del modelo, migraciones | ⏳ |
-| 6 | UI y `Retail.Cli`: sugerencias por artículo, cola de revisión, carga de diccionarios, "Actualizar modelo" | ⏳ |
+| 1 | Arranque: diccionarios revisados por el estudiante y conjunto de oro | ✅ 2026-10-22: 7 rubros, 46 categorías, 299 términos (18 ambiguos), 169 marcas, 182 prefijos; desarrollo, ejemplos de ambiguos y oro de prueba (sección 6.4; M-17 a M-21) |
+| 2 | Experimentos E-1 a E-5 en Python (selección del clasificador, umbrales y orden de los niveles de marca) | ✅ 2026-10-22: regresión logística C = 100, n-gramas 3-4 sin numéricos, τ = 0,94 (sin κ, M-23); marca por texto primero y prefijos de pureza ≥ 0,6; vectores de paridad (sección 11.1) |
+| 3 | Dominio y su persistencia (M-29): `TerminoClasificacion` (M-27), alias y prefijos de `Marca`, origen de la clasificación (M-30), regla de EAN (M-28). 3b: equivalencias de `Proveedor` | ✅ 2026-10-22 (3b cerrada: migración `AgregarEquivalenciasYTextosProveedor`; verificación Release con 2.321 tests y `dotnet format` en verde). Detalle: 3.1 (reglas y enum), 3.2 (entidades) y 3.3 (mapeo, migración `AgregarDiccionariosYOrigenClasificacion`, `CHECK` e índices, baja de `Marca` con sus diccionarios) ✅; verificación Release: 2.293 tests y `dotnet format` en verde. **3b** (M-31 a M-33): 3b.1 dominio ✅ (`EquivalenciaClasificacion`, `TipoEquivalenciaEnum`, métodos de `Proveedor`, textos del proveedor en `CatalogoProveedor`); 3b.2 persistencia ✅ |
+| 4 | Aplicación: puertos, servicio de clasificación por niveles, cambio del contrato de incorporación. Dividida en 4a y 4b (M-36) | ✅ 2026-10-22: plan aprobado (M-34 a M-37); 4a.1 reglas de descripción ✅ (`ReglasClasificacion` + paridad con `reglas_paridad.py`); 4a.2 contratos ✅ (`IModeloCategoria`, `IDiccionariosClasificacionQueryService`, `DTOs/Clasificacion/`); 4a.3 `ClasificacionService` ✅ (34 tests unitarios; se registra en DI en el 4a.6); 4a.4 contrato de incorporación por ítem ✅ (R-7 resuelto: `ReglasOrigenClasificacion`, `SinMarcaConfirmada`, modal adaptado con origen `Manual`); 4a.5 columnas opcionales del importador ✅ (M-33; si la planilla no tiene la columna, se importa sin el dato, como el código de barras); 4a.6 infraestructura de los puertos y registro en DI ✅ (`DiccionariosClasificacionQueryService`, `ModeloCategoriaNoDisponible`, recorrido de `SugerirAsync` contra SQL Server). **4a cerrada**. **4b ✅ (2026-10-24):** 4b.1 `Proveedor.QuitarEquivalenciasHacia`; 4b.2 contratos y lado lectura (DTOs, validadores, `IClasificacionQueryService` ampliado y su adaptador con `COLLATE Latin1_General_CI_AI` para la forma de comparación); 4b.3 `TerminoClasificacionService`, `EquivalenciaClasificacionService`, alias y prefijos en `MarcaService` (M-38, M-39), cascadas de M-35 y traducción de carreras (`PersistenciaDiccionarios`); 4b.4 pruebas de integración de punta a punta (cascada en una transacción, índices filtrados, la ñ y la carrera); 4b.5 verificación Release: 2.520 tests (Dominio 692, Aplicación 817, App 541, Integración 470) y `dotnet format` en verde. **Fase 4 cerrada** |
+| 5 | ~~Infraestructura: vectorizador de n-gramas, clasificador, almacenamiento del modelo~~ **Reemplazada por M-45 (2026-10-26): pares "término ambiguo + segunda palabra"** como diccionario administrable (M-48) y propuestas a partir de los artículos confirmados (M-49). Sin modelo estadístico ni dependencias nuevas | ✅ 2026-10-27, plan [`etapa-6-track-6.6-fase-5-pares.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-pares.md) (M-50 a M-58): regla `SegundaPalabra` con paridad; `ParClasificacion` hija de `TerminoClasificacion` con `AutoInclude`; migración `AgregarParesClasificacion`; comandos, consulta y cascada; nivel `ParDelDiccionario` del motor; pares propuestos (soporte ≥ 2, pureza ≥ 0,8); semilla `ml/datos/pares.csv` (102 pares validados); puerto del modelo retirado; `RF-27`, `IU-04` e `IU-05` actualizados. Verificación Release al cierre (ver el plan) |
+| 6 | UI y `Retail.Cli`: sugerencias por artículo, cola de revisión, carga de diccionarios (también `pares.csv`), pestaña de pares y propuestas | ⏳ Plan detallado: [`etapa-6-track-6.6-fase-6-ui.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-6-ui.md). Va después de la Fase 5 (M-50, revierte el orden de M-43). 2026-10-27: 6.0 a 6.6, 6.8 y 6.9 hechos (M-59 a M-67; S-1 a S-5; T-1 a T-4); **falta la prueba manual 6.7** del estudiante |
 | 7 | Evaluación final sobre el conjunto de oro, verificación Release, mapa y wiki | ⏳ |
 
 **Forma de trabajo:** igual que el resto del proyecto (CLAUDE.md §3 y §4). El Track 6.5 se implementa antes.
@@ -82,21 +82,19 @@ flowchart TD
     N0 --> CA[Categoría]
 
     subgraph Marca
-        MA --> M1{¿EAN válido con<br/>prefijo registrado?}
-        M1 -- una marca --> MOK[Sugerencia]
-        M1 -- varias marcas --> M2[Buscar en el texto<br/>solo entre esas marcas y alias]
-        M1 -- no --> M3[Buscar en el texto<br/>todas las marcas y alias]
-        M2 --> MOK
-        M3 --> M4{¿Encontró?}
-        M4 -- sí --> MOK
-        M4 -- no --> MSM[Sin sugerencia]
+        MA --> M1{¿El texto nombra marcas<br/>o alias del diccionario?}
+        M1 -- una --> MOK[Sugerencia]
+        M1 -- varias --> M2{¿La marca del prefijo EAN<br/>está entre ellas?}
+        M2 -- sí --> MOK
+        M2 -- no --> MSM[Sin sugerencia]
+        M1 -- ninguna --> MSM
     end
 
     subgraph Categoria
         CA --> C1{¿Primera palabra en la<br/>tabla de términos y no ambigua?}
         C1 -- sí --> COK[Sugerencia]
         C1 -- no --> C2[Clasificador de n-gramas<br/>de caracteres]
-        C2 --> C3{¿Confianza ≥ τ y<br/>cobertura ≥ κ?}
+        C2 --> C3{¿Confianza ≥ τ?}
         C3 -- sí --> COK
         C3 -- no --> CSM[Sin sugerencia]
     end
@@ -116,6 +114,8 @@ flowchart TD
 | Revisión | Persona | Decisión humana | Siempre |
 
 El aprendizaje automático se usa **solo donde las reglas no alcanzan**: términos ambiguos, variantes, abreviaturas, truncados y la cola larga.
+
+> **Orden de los niveles de marca (M-17, E-5, M-25).** El diseño original consultaba el prefijo antes que el texto. Con los diccionarios del arranque, en 355 filas (2,4 %) el prefijo contradecía la marca escrita (por ejemplo `7798100` → Artística Dibu, texto → FILGO): el prefijo identifica al titular, no a la marca (sección 3.2). E-5 confirmó **texto primero**, con prefijos de pureza ≥ 0,6. **M-69 (2026-10-28)** quitó además la sugerencia por prefijo cuando el texto no nombra ninguna marca: el prefijo solo desempata. El diagrama refleja ese orden.
 
 ### 4.1 Planillas con columnas de clasificación (M-12 a M-14)
 
@@ -164,12 +164,11 @@ La elección entre ambos la decide el experimento E-1 con una regla fijada de an
 
 ### 5.3 Confianza y abstención
 
-Se sugiere una categoría solo si se cumplen las dos condiciones:
+Se sugiere una categoría solo si la **confianza** (probabilidad máxima de la regresión logística, E-1) es ≥ `τ`.
+`τ` se calibró en E-3 (0,94) y se recalibra en cada entrenamiento (M-10).
 
-* **Confianza** (probabilidad máxima, o similitud máxima en el centroide) ≥ `τ`.
-* **Cobertura** (fracción de los n-gramas del texto presentes en el vocabulario) ≥ `κ`.
-
-`τ` y `κ` se calibran en E-3 para alcanzar el criterio de éxito (M-1).
+El diseño original agregaba una segunda condición, **cobertura** (fracción de los n-gramas del texto presentes en el
+vocabulario) ≥ `κ`. E-3 mostró que no mejora la precisión de ninguna combinación y se eliminó (M-23).
 
 ### 5.4 Costo estimado
 
@@ -196,7 +195,8 @@ Con ~15.000 artículos, ~60 n-gramas por descripción y ~60 categorías, la matr
 | Conjunto | Contenido | Uso |
 | :--- | :--- | :--- |
 | Entrenamiento | Etiquetas débiles de la tabla de términos + etiquetas manuales de términos ambiguos | Entrenar |
-| **Conjunto de oro** | 400 filas verificadas a mano, muestreadas por familia y estratificadas por término | **Solo** para la evaluación final; nunca para elegir hiperparámetros |
+| Desarrollo (M-20) | El primer oro: 400 filas validadas (`ml/datos/oro.csv`) | Diagnóstico y decisiones de diseño: tabla de términos, umbrales (E-3), orden de marca (E-5) |
+| **Conjunto de oro** | 400 filas verificadas a mano, muestreadas por familia y estratificadas por término, de familias ausentes en los demás conjuntos (M-20) | **Solo** para la evaluación final; nunca para elegir hiperparámetros |
 
 * Las particiones son **agrupadas por familia** (por ejemplo, las tres primeras palabras), para que las variantes de color de un mismo producto no queden a ambos lados.
 * Hiperparámetros y umbrales se eligen con **validación cruzada agrupada de 5 particiones** sobre el entrenamiento. El vectorizador se ajusta dentro de cada partición.
@@ -211,6 +211,28 @@ Con ~15.000 artículos, ~60 n-gramas por descripción y ~60 categorías, la matr
 | F1-macro | Promedia todas las categorías por igual; no deja que `MOCHILA` (1.139) oculte a las chicas |
 | Aporte de cada nivel | Cuánto resuelve la tabla de términos y cuánto el modelo |
 | Matriz de confusión | Qué categorías se confunden entre sí |
+
+### 6.4 Resultado del arranque (2026-10-21)
+
+Diccionarios revisados por el estudiante y consolidados con `ml/scripts/consolidar_diccionarios.py`, que valida las reglas de la base (Track 6.5, D-4) y no escribe nada si encuentra un error. Prefijos recalculados con `ml/scripts/prefijos_por_marca.py`, que cuenta solo marcas aprobadas: en la primera pasada una palabra genérica tapaba a la marca (caso `AD`, que pasó a llamarse Artística Dibu con alias `AD`).
+
+| Cobertura sobre 14.876 filas | Filas | % |
+| :--- | ---: | ---: |
+| Categoría por término (no ambiguo) | 12.445 | 83,7 (89,9 antes de M-20) |
+| Término ambiguo (18 términos desde M-20) | 1.714 | 11,5 (5,3 antes de M-20) |
+| Término fuera del diccionario | 717 | 4,8 |
+| Marca por texto | 10.098 | 67,9 |
+| Marca por prefijo EAN | 7.502 | 50,4 |
+| Marca por texto o prefijo | 10.735 | 72,2 |
+| Texto y prefijo no coinciden | 355 | 2,4 |
+
+El clasificador de categoría se ocupa del 16,3 % que la tabla de términos no resuelve. Sobre el conjunto de desarrollo, la tabla acertaba el 86,4 %. Con M-20 se marcaron como ambiguos `GOMA`, `CINTA`, `LIBRO`, `BASE` y `TINTA`, y se corrigieron `TACO` (→ Oficina) y `VASO` (→ Vajilla y Mate), que estaban **mal asignados** pero no eran ambiguos (25 de 25 y 17 de 18 ejemplos en una sola categoría). Ahora acierta el **94,0 %** con 84 % de cobertura del desarrollo; la cifra es optimista porque la tabla se corrigió mirando ese conjunto, y la medición válida es la de la Fase 7.
+
+| Conjunto (`ml/datos/`) | Filas | Etiquetado | Uso |
+| :--- | ---: | :--- | :--- |
+| `oro.csv` (desarrollo, M-20) | 400 | Claude, validado por el estudiante (9 filas corregidas, 2,2 %) | Diagnóstico, E-3, E-5 |
+| `ambiguos.csv` | 334 | Estudiante (91) y Claude validado (243) | Entrenamiento |
+| `oro-prueba-a-etiquetar.csv` | 400 | Sin abrir (semilla 2027) | Evaluación final, Fase 7 | Las 355 filas en desacuerdo motivaron M-17 y E-5.
 
 ---
 
@@ -236,7 +258,7 @@ Sin datos maestros, ningún nivel puede sugerir: un clasificador cerrado solo el
 | Tras la primera incorporación confirmada | ✅ | ✅ | ✅ | ✅ |
 
 * **Taxonomía semilla (M-15):** el resultado del arranque de la sección 6.1 (rubros, categorías, términos, marcas, alias y prefijos) se distribuye como datos iniciales y se carga al instalar con `Retail.Cli`, como `inicializar` y `datos-demo` (Track 6.3, D-12). Es editable. Se distribuyen solo los diccionarios, nunca las descripciones de la lista del distribuidor, y por lo tanto tampoco un modelo entrenado.
-* **Descubrimiento en la incorporación (M-16):** lo que queda sin sugerencia se agrupa por término (`PELOTERO ×12`) y el usuario lo asigna en bloque a una categoría existente, crea una nueva o lo deja sin clasificar. Cada asignación en bloque registra además el término, de modo que la próxima lista ya recibe sugerencia.
+* **Descubrimiento en la incorporación (M-16):** lo que queda sin sugerencia se agrupa por término (`PELOTERO ×12`) y el usuario lo asigna en bloque a una categoría existente, crea una nueva o lo deja sin clasificar. Cada asignación en bloque registra además el término, de modo que la próxima lista ya recibe sugerencia. Desde M-26, los grupos de 5 o más productos con término desconocido pasan por este paso **antes** que el modelo, y el bloque llega precargado con la categoría que el modelo asigna a la mayoría del grupo, su consistencia y ejemplos.
 
 ### 7.2 Salvaguardas del reentrenamiento (M-10)
 
@@ -264,14 +286,18 @@ flowchart TD
 
 | Entidad | Agregado | Contenido | Nota |
 | :--- | :--- | :--- | :--- |
-| `TerminoCategoria` | `Categoria` | Término normalizado → categoría; marca de "ambiguo" | Un término ambiguo no sugiere por sí solo: deriva al modelo |
-| `AliasMarca` | `Marca` | Variante textual (`HUSAR` → `HUSARES`, `SCHEAFFER` → `SHEAFFER`) | |
-| `PrefijoEanMarca` | `Marca` | Prefijo del titular asociado a la marca | El mismo prefijo puede figurar en varias marcas |
-| `EquivalenciaClasificacion` | `Proveedor` | Texto del proveedor (rubro y categoría, o marca) → `Categoria` o `Marca`, o "ignorar" | M-13. Es específica de cada proveedor |
+| `TerminoClasificacion` | **Raíz propia** (M-27) | Término normalizado → categoría, **o** marca de "ambiguo" sin categoría | Un término ambiguo no sugiere por sí solo: deriva al modelo. Un término apunta a una sola categoría en todo el catálogo |
+| `AliasMarca` | `Marca` | Variante textual (`HUSAR` → `HUSARES`, `SCHEAFFER` → `SHEAFFER`) | Un alias pertenece a una sola marca |
+| `PrefijoEanMarca` | `Marca` | Prefijo del titular (7 dígitos) asociado a la marca | Un prefijo pertenece a una sola marca: los prefijos repartidos entre varias se descartan al consolidar (M-25) |
+| `EquivalenciaClasificacion` | `Proveedor` | Texto del proveedor en forma de comparación (`Texto`, más `TextoRubro` como contexto en las de categoría, M-31) → `Categoria` o `Marca`; sin destino = "ignorar" | M-13. Es específica de cada proveedor y única por (proveedor, tipo, rubro, texto). Asignar crea o reemplaza el destino (M-32). Fase 3b |
 
-`CatalogoProveedor` suma los textos opcionales `RubroProveedor`, `CategoriaProveedor` y `MarcaProveedor` (M-12).
+`CatalogoProveedor` suma los textos opcionales `RubroProveedor`, `CategoriaProveedor` y `MarcaProveedor` (M-12, Fase 3b), guardados tal como vienen (espacios normalizados) para mostrarlos; la forma de comparación vive solo en la equivalencia. La equivalencia guarda la **regla de traducción** de un valor, no la clasificación de cada ítem: se decide una vez por valor distinto, se reutiliza en cada importación del proveedor y se corrige en un solo lugar, sin pisar el texto original.
 
-Se manipulan solo a través de su raíz (`Categoria.AgregarTermino(...)`, `Marca.AgregarAlias(...)`), sin repositorios propios.
+> **Observación para la revisión cruzada (2026-10-22):** el importador agrega y actualiza `CatalogoProveedor` con `ICatalogoProveedorQueryService.AgregarAsync`/`ActualizarAsync`, no a través de la raíz `Proveedor` (Ley 2). Es anterior a este track y queda fuera de su alcance; las equivalencias sí se manipulan solo a través de `Proveedor`.
+
+Los alias y los prefijos se manipulan solo a través de su raíz (`Marca.AgregarAlias(...)`, `Marca.AgregarPrefijo(...)`), sin repositorios propios. La unicidad entre agregados (un término, un alias o un prefijo en un solo lugar) la verifica la capa de Aplicación y la garantiza un índice único filtrado.
+
+> **Cambio respecto del diseño original (M-27, 2026-10-22):** los términos eran hijos de `Categoria` (`TerminoCategoria`). Al consolidar, 11 de los 18 términos ambiguos quedaron sin categoría: no tienen raíz a la que pertenecer, y hace falta guardarlos para distinguir el término ambiguo conocido (va al modelo) del desconocido (decisión en bloque, M-26).
 
 ### 8.2 Origen de la clasificación en `Articulo`
 
@@ -288,6 +314,10 @@ El origen permite entrenar solo con datos vistos por una persona y medir cuánta
 ### 8.3 Validación de EAN
 
 El dígito verificador GS1 y la normalización (UPC-A, GTIN-14) son reglas puras de dominio, en una clase de reglas en `Retail.Domain/Common` al estilo de `ReglasDocumento`. Antes de implementar se verifica si el proyecto ya valida códigos de barras.
+
+**Nota sobre el prefijo (2026-10-26):** en GS1, el prefijo de empresa tiene **largo variable** (entre 4 y 12 dígitos, según la asignación); la consulta oficial del titular (registro de GS1) necesita Internet, y `RF-27` exige trabajar sin conexión. Los 7 dígitos de M-28 son una **aproximación empírica** que funcionó con los datos del arranque (pureza medida, M-25), no la regla de GS1.
+
+**Verificado (2026-10-22):** el proyecto no validaba códigos de barras. La regla vive en `ReglasCodigoBarras` (M-28).
 
 ---
 
@@ -325,6 +355,210 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 | E-2 | Largo de los n-gramas (3–4, 3–5, 2–5) y quitar o no los tokens numéricos | Mejor F1-macro en validación cruzada agrupada |
 | E-3 | Umbrales `τ` y `κ` | Máxima cobertura que cumpla el criterio M-1 |
 | E-4 | Aporte de cada nivel | Informe; si el modelo aporta poco sobre la tabla de términos, se documenta como resultado |
+| E-5 | Marca: ¿texto antes que prefijo o prefijo antes que texto? ¿Pureza mínima para usar un prefijo? (M-17) | La combinación de mayor cobertura de marca que cumpla M-1 sobre el conjunto de desarrollo (M-20). Ante un empate práctico (< 1 punto de precisión), texto primero: es evidencia explícita |
+
+### 11.1 Resultados
+
+Entrenamiento: 8.734 filas (334 manuales), 45 categorías (Cámaras excluida por M-9), 4.000 familias, 287 términos.
+Validación cruzada de M-22 con 5 particiones por escenario; scikit-learn 1.9.1 (`ml/requirements.txt`).
+
+**E-2 (2026-10-22), F1-macro:**
+
+| Clasificador | n-gramas | Tokens numéricos | A (ambiguo) | B (desconocido) | Promedio |
+| :--- | :---: | :---: | ---: | ---: | ---: |
+| Centroide | 3-5 | con | 0,469 | 0,250 | **0,359** (ganador) |
+| Centroide | 2-5 | con | 0,466 | 0,252 | 0,359 |
+| Centroide | 3-4 | sin | 0,430 | 0,245 | 0,337 (peor) |
+| Regresión logística (C = 10) | 3-4 | sin | 0,695 | 0,242 | **0,468** (ganador) |
+| Regresión logística (C = 10) | 2-5 | sin | 0,698 | 0,236 | 0,467 |
+| Regresión logística (C = 10) | 2-5 | con | 0,648 | 0,240 | 0,444 (peor) |
+
+* El vectorizador pesa poco: entre la mejor y la peor configuración de cada clasificador hay 2,2 puntos.
+* El escenario B queda en ~0,25 con cualquier configuración: el modelo apenas generaliza a términos que nunca vio.
+* El escenario A se mide sobre 334 ejemplos manuales: diferencias de menos de 1 punto no son significativas.
+
+**E-1 (2026-10-22), cada clasificador con su vectorizador ganador de E-2:**
+
+| Clasificador | A (ambiguo) | B (desconocido) | Promedio |
+| :--- | ---: | ---: | ---: |
+| Centroide (3-5, con numéricos) | 0,469 | 0,250 | 0,359 |
+| Regresión logística C = 1 (3-4, sin numéricos) | 0,519 | 0,164 | 0,342 |
+| Regresión logística C = 10 | 0,695 | 0,242 | 0,468 |
+| Regresión logística C = 100 | 0,725 | 0,257 | **0,491** |
+
+**Decisión por la regla de la sección 5.2: regresión logística**, que supera al centroide por 13,2 puntos (el umbral era 2). Vectorizador: n-gramas de 3 a 4 caracteres sin tokens numéricos. El mejor `C` quedó en el borde de la grilla (100), así que se extendió: C = 300 da 0,481 y C = 1.000 da 0,469. **El óptimo es C = 100**, interior a la grilla; por encima, el modelo se sobreajusta a n-gramas demasiado específicos.
+
+**E-3 (2026-10-22), umbrales sobre las predicciones fuera de partición**, ponderadas por la mezcla de producción
+(70,5 % término ambiguo, 29,5 % término desconocido):
+
+| Umbrales | Precisión | Cobertura | Precisión A | Cobertura A | Precisión B | Cobertura B |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Sin umbral | 68,2 % | 100 % | 81,1 % | 100 % | 37,4 % | 100 % |
+| **τ = 0,94, κ = 0** | **95,2 %** | **33,1 %** | 95,9 % | 43,4 % | 86,8 % | 8,6 % |
+
+* `κ` no aporta: con `τ` calibrado, exigir cobertura de vocabulario no mejora la precisión de ninguna combinación. Se eliminó (M-23).
+* La cobertura (33,1 %) supera apenas la mínima de la sección 7.2 (30 %).
+
+**E-4 (2026-10-22), sistema completo sobre el conjunto de desarrollo** (modelo entrenado con todo el entrenamiento):
+
+| Nivel | Filas | Sugeridas | Cobertura | Precisión | IC 95 % |
+| :--- | ---: | ---: | ---: | ---: | :--- |
+| Tabla de términos | 336 | 336 | 100 % | 94,0 % | 91,0 % a 96,1 % |
+| Modelo, término ambiguo | 45 | 20 | 44,4 % | 95,0 % | 76,4 % a 99,1 % |
+| Modelo, término desconocido | 19 | 1 | 5,3 % | 100 % | 20,7 % a 100 % |
+| **Sistema** | 400 | 357 | **89,2 %** | **94,1 %** | 91,2 % a 96,1 % |
+
+* El modelo resuelve casi la mitad de los términos ambiguos con la precisión exigida y se abstiene en el resto.
+* La precisión del sistema la limita la tabla de términos, no el modelo; y es optimista (M-20).
+
+**E-5 (2026-10-22), marca sobre el conjunto de desarrollo** (285 filas con marca en el oro, 115 `SIN MARCA`):
+
+| Estrategia | Pureza mínima del prefijo | Cobertura | Precisión | IC 95 % | Sugerencias por prefijo no verificables |
+| :--- | :---: | ---: | ---: | :--- | ---: |
+| Solo texto (sin prefijos) | — | 89,1 % | 99,2 % | 97,2 % a 99,8 % | 0 |
+| Prefijo primero | 0,5 | 94,4 % | 95,6 % | 92,4 % a 97,4 % | 14 |
+| Prefijo primero | 0,6 | 94,4 % | 98,5 % | 96,3 % a 99,4 % | 12 |
+| Texto primero | 0,5 | 94,4 % | 98,9 % | 96,8 % a 99,6 % | 13 |
+| **Texto primero** | **0,6** | **94,4 %** | **98,9 %** | 96,8 % a 99,6 % | 11 |
+| Texto primero | 0,9 | 91,9 % | 99,2 % | 97,3 % a 99,8 % | 0 |
+
+**Decisión por la regla: texto primero, con prefijos de pureza ≥ 0,6** (confirma la hipótesis de M-17). Los prefijos
+suman 5,3 puntos de cobertura sobre el texto solo. Con el prefijo primero y pureza 0,5, la precisión cae 3,3 puntos:
+el prefijo de un titular con varias marcas (por ejemplo `7798100`, Artística Dibu y FILGO) contradice a la marca escrita.
+Las sugerencias por prefijo en filas `SIN MARCA` no se pueden verificar con un oro etiquetado solo por el texto (M-19).
+
+> **Incidente de datos (2026-10-22):** Excel guardó `oro-validar.csv` con los EAN en notación científica
+> (`7,7981E+12`), y E-5 corrió primero sin ningún prefijo aplicable (resultados idénticos en todas las variantes).
+> `cerrar_etiquetado.py` ahora toma el EAN de la lista original por código; códigos, descripciones y etiquetas no se
+> habían dañado, y el oro de prueba nunca pasó por Excel.
+
+### 11.2 Validación externa: lista de otro proveedor (2026-10-22)
+
+Lista de Piatto (`ml/datos/lista-piatto-1.csv`, no versionada): 17.194 filas con código y descripción, sin EAN ni
+precios; solo 5 descripciones coinciden con la primera lista. 365 filas son de kiosco (93 términos validados por el
+estudiante en `ml/datos/piatto-kiosco.csv`), fuera del negocio. Modelo entrenado con todo el primer proveedor
+(`ml/scripts/diagnosticar_lista_externa.py`, sin etiquetado).
+
+| Camino (negocio: 16.829 filas) | Filas | % | n-gramas conocidos | Sugiere el modelo (τ = 0,94) |
+| :--- | ---: | ---: | ---: | ---: |
+| Tabla de términos | 9.678 | 57,5 % | 92,4 % | — |
+| Modelo, término ambiguo | 2.303 | 13,7 % | 87,4 % | 17,0 % |
+| Modelo, término desconocido | 4.848 | 28,8 % | 88,4 % | 11,1 % |
+| **Sistema** | | **63,0 %** de cobertura (89,2 % en el desarrollo del primer proveedor) | | |
+
+* **Marca por texto:** 44,7 % de las filas (sin EAN no hay prefijos).
+* **Abstención fuera del dominio:** el modelo sugiere una categoría en 17 de 365 productos de kiosco (4,7 %).
+* **Precisión aproximada con abreviaturas** (la categoría esperada es la del término completo): `MARC` 72 de 72,
+  `LAP` 19 de 19, `CUAD` 5 de 5, `CARP` 25 de 28, `PINT` 0 sugerencias. **`ACRIL` 0 de 121:** en Piatto es siempre
+  "ACRIL ETERNA" (Pinturas) y el modelo sugiere Barnices, Medios y Solventes con confianza ≥ 0,94, porque sin la
+  palabra `ACRILICO` se apoya en la marca Eterna, que en el primer proveedor también vende barnices. Total: 121 de 245
+  (49,4 %); sin `ACRIL`, 121 de 124 (97,6 %).
+* **Conclusión:** con un proveedor nuevo los errores del modelo no son aleatorios sino **correlacionados**: un término
+  desconocido y frecuente produce de una vez muchas sugerencias equivocadas y seguras. Es el riesgo que M-23 dejó
+  abierto; el umbral de cobertura `κ` no lo habría evitado (los n-gramas de "ACRIL ETERNA" son conocidos).
+
+**Grupos de término desconocido (M-26):** 747 términos desconocidos en 4.848 filas del negocio.
+
+| Tamaño mínimo del grupo | Decisiones del usuario | Filas resueltas en bloque | Filas para el modelo | El modelo sugiere en |
+| ---: | ---: | ---: | ---: | ---: |
+| 2 | 367 | 4.468 (92,2 %) | 380 | 26 |
+| 3 | 236 | 4.206 (86,8 %) | 642 | 50 |
+| **5** | **156** | **3.937 (81,2 %)** | 911 | 70 |
+| 10 | 81 | 3.442 (71,0 %) | 1.406 | 127 |
+| 20 | 45 | 2.936 (60,6 %) | 1.912 | 154 |
+
+### 11.3 E-6: alternativas de entrenamiento simple (diseño fijado el 2026-10-24, antes de ejecutar)
+
+**Pregunta:** ¿hay una forma de entrenar mucho más barata que la regresión logística que rinda casi lo mismo **donde el
+modelo aporta**, es decir, en los términos ambiguos (escenario A)? Motivo: M-43 dejó la Fase 5 en espera por su costo
+frente a un aporte de 3 a 5 puntos de cobertura (E-4, sección 11.2). Si gana un método que se entrena contando, el
+reentrenamiento local (M-3, M-10) pasa a ser casi gratuito.
+
+| Id | Candidato | Detalle |
+| :--- | :--- | :--- |
+| RL | Regresión logística (línea base) | La de producción: C = 100, n-gramas 3-4, sin tokens numéricos; se vuelve a correr con las mismas particiones |
+| T | Tabla "término ambiguo + segunda palabra" | Segunda palabra: la primera después del término con al menos 2 letras que no sea `DE`, `DEL`, `LA`, `EL`, `LOS`, `LAS`, `Y`, `CON`, `PARA`, `X`, `P/`, `C/`. Sugiere la categoría mayoritaria del par si su soporte es ≥ s y su pureza ≥ p; grilla s ∈ {1, 2, 3}, p ∈ {0,6; 0,7; 0,8; 0,9; 1,0}. Aprende solo de los ejemplos manuales (los débiles no tienen términos ambiguos) y en el escenario B se abstiene siempre |
+| NB | Naive Bayes sobre los mismos n-gramas TF-IDF | `MultinomialNB` y `ComplementNB` con α ∈ {0,01; 0,1; 1}; se elige por F1-macro en A, como C en E-1 |
+| T + NB | T cuando aplica, NB en el resto | El umbral de NB se calibra sobre lo que T no cubre, para que la precisión conjunta sea ≥ 95 % |
+
+**Método:** validación cruzada de M-22 (5 particiones; A agrupado por familia y evaluado sobre los 334 ejemplos
+manuales; B agrupado por término). Para cada candidato: F1-macro en A y B; **cobertura con precisión ≥ 95 % en A**
+(métrica de decisión), calibrando τ sobre las confianzas observadas (RL, NB) o el par (s, p) (T); la precisión y la
+cobertura en B con el mismo umbral; la contribución sobre el conjunto de desarrollo como E-4 (filas con término ambiguo
+y desconocido; el oro de prueba no se toca); y el tiempo de entrenamiento. Script: `ml/scripts/e6_alternativas.py`.
+
+**Regla (M-44):** gana el candidato **más simple** (orden: T, NB, T + NB, RL) cuya cobertura con precisión ≥ 95 % en A
+alcance **al menos el 85 % de la de RL**. Si ninguno la alcanza, RL sigue como referencia y la Fase 5 se decide entre su
+plan actual, el modelo distribuido o ningún modelo. **Advertencia:** A tiene 334 ejemplos; diferencias de menos de 2 o 3
+puntos de cobertura no son significativas, por eso el margen es amplio.
+
+**Resultados (2026-10-24):** 8.734 filas de entrenamiento (334 manuales), 45 categorías (Cámaras excluida por M-9).
+
+Naive Bayes elegido por F1 en A: multinomial con α = 0,01 (F1 A 0,622; la variante complementaria quedó entre 0,454
+y 0,488).
+
+| Candidato | Umbral | F1 A | F1 B | Precisión A (IC 95 %) | Cobertura A (IC 95 %) | Precisión B | Cobertura B |
+| :--- | :--- | ---: | ---: | :--- | :--- | ---: | ---: |
+| **T** | s = 1, p = 0,6 | 0,508 | 0,000 | 96,4 % (92,8 a 98,3) | **58,4 %** (53,0 a 63,5) | — | 0 % |
+| NB | τ = 1,0000 | 0,622 | 0,272 | 95,8 % | 21,3 % | 86,5 % | 6,7 % |
+| T + NB | T y τ = 0,9989 | — | — | 95,1 % | 72,8 % (67,7 a 77,3) | 73,6 % | 15,2 % |
+| RL | τ = 0,9364 | 0,725 | 0,257 | 95,3 % (90,6 a 97,7) | 44,6 % (39,4 a 50,0) | 85,1 % | 9,0 % |
+
+Contribución sobre el conjunto de desarrollo (las 64 filas que no resuelve la tabla de términos):
+
+| Candidato | Término ambiguo (45): sugeridas / correctas | Término desconocido (19): sugeridas / correctas | Entrenar |
+| :--- | :--- | :--- | ---: |
+| **T** | 28 / 28 | 0 / 0 | < 0,01 s |
+| NB | 7 / 7 | 0 / 0 | 0,06 s |
+| T + NB | 35 / 35 | 2 / 1 | 0,06 s |
+| RL | 20 / 19 | 1 / 1 | 7,6 s |
+
+**Por la regla de M-44 gana T:** su cobertura en A (58,4 %) es el **131 %** de la de RL (44,6 %), con la misma
+precisión. Los intervalos de la cobertura no se superponen (53,0 a 63,5 frente a 39,4 a 50,0): la diferencia es
+significativa, no un efecto de los 334 ejemplos. En el desarrollo, T acierta las 28 filas que sugiere y RL 19 de 20.
+
+* **Por qué gana un conteo:** en un término ambiguo, la segunda palabra es la que desambigua (`SET GEOMETRIA`,
+  `SET MARCADORES`), y la regresión logística tiene que redescubrirlo entre miles de n-gramas aprendidos sobre todo de
+  las etiquetas débiles, que no tienen términos ambiguos.
+* **T + NB** cubre más en A (72,8 %), pero su parte de Naive Bayes llega con 73,6 % de precisión a los términos
+  desconocidos (B), muy por debajo de M-1, y suma el vectorizador. La regla elige el más simple que cumple.
+* **Ningún candidato sirve para los términos desconocidos:** la mejor precisión en B es 86,5 % (NB), por debajo de
+  M-1. Esos productos quedan para las decisiones en bloque (M-26) y la revisión manual. Confirma lo que mostró la
+  validación externa (sección 11.2).
+* **Límites:** el umbral s = 1 significa que basta un único ejemplo confirmado del par cuando su categoría es
+  unánime; con el uso, el soporte crece. Los umbrales se calibraron sobre los mismos datos que se informan (igual que τ
+  en E-3), y el conjunto de desarrollo es optimista (M-20). La evaluación sin sesgo queda para la Fase 7, con el oro de
+  prueba sellado.
+* **Consecuencias, pendientes de decisión del estudiante:** el alcance de la Fase 5 (M-43) y si `RF-27` cambia.
+* **Repetición con M-56 (2026-10-27):** la segunda palabra sin el punto final ("ESC." = "ESC") lleva la cobertura de T
+  en A de 58,4 % a **58,7 %** (196 sugeridas) con la misma precisión (96,4 %); la conclusión de M-44 no cambia (132 %
+  de RL).
+
+### 11.4 E-6b: los candidatos de E-6 con un proveedor nuevo (diseño fijado el 2026-10-24, antes de ejecutar)
+
+**Pregunta:** E-6 midió sobre el mismo proveedor que entrenó. Con un proveedor nuevo, que abrevia distinto (`SET GEOM`
+en lugar de `SET GEOMETRIA`), la tabla de pares no encuentra el par y se abstiene, mientras que los n-gramas de Naive
+Bayes o de la regresión logística podrían reconocerlo. ¿Justifica eso agregar Naive Bayes a la tabla? ¿Y la tabla sigue
+siendo precisa con otro proveedor?
+
+* **Muestra principal (Piatto):** unas 400 filas con término ambiguo de `lista-piatto-1.csv` (sin los términos de
+  kiosco), **una por familia**, con un tope por término para que ninguno domine (en Piatto un término concentra 999 de
+  2.303 filas), semilla 2028. Planilla `ml/datos/e6b-piatto-validar.csv`.
+* **Muestra secundaria (proveedor 1):** una fila por familia de las filas con término ambiguo que no están en el
+  entrenamiento, el desarrollo ni el oro sellado (ni comparten familia con ellos). Amplía el escenario A de la
+  validación cruzada. Planilla `ml/datos/e6b-lista1-validar.csv`.
+* **Etiquetado (método M-19):** Claude etiqueta la categoría **a ciegas** (sin ver ninguna predicción ni la tabla de
+  pares) y el estudiante valida cada fila. **Ningún resultado se calcula antes de la validación**, para no anclarla.
+* **Evaluación en Piatto** (`ml/scripts/e6b_proveedor_nuevo.py`): los cuatro candidatos entrenados con todo el
+  proveedor 1 y aplicados con los umbrales de E-6, **sin recalibrar** (el caso real: proveedor nuevo, día uno). NB se
+  aplica solo a términos ambiguos. Precisión y cobertura con intervalo de Wilson, por candidato y por término.
+* **Evaluación ampliada del escenario A:** E-6 repetido con los ejemplos manuales más la muestra secundaria validada.
+
+**Regla (M-46):** Naive Bayes se justifica si T + NB mantiene una precisión ≥ 95 % en la muestra de Piatto y suma
+**al menos 10 puntos de cobertura** sobre T. Si no, queda T solo. Además, si la precisión de T en Piatto queda por
+debajo del 95 %, se revisan sus umbrales (s, p) antes de implementarla.
+
+**Resultado (2026-10-26): cancelado sin ejecutar.** El estudiante descartó Naive Bayes (M-45) antes de validar las muestras, así que la pregunta principal de E-6b quedó sin objeto. Las planillas pre-etiquetadas siguen en `ml/datos/` (`e6b-piatto-validar.csv`, `e6b-lista1-validar.csv`) y el script `e6b_proveedor_nuevo.py` queda listo: si se validan, miden la precisión de la tabla de pares con un proveedor nuevo, como complemento de la evaluación de la Fase 7.
 
 ---
 
@@ -348,6 +582,61 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 | M-14 | **Precedencia:** equivalencia del proveedor > EAN, diccionarios y términos > modelo > sin sugerencia. | Cerrada (2026-10-17) | Un dato explícito, ya revisado por una persona, es más confiable que cualquier inferencia. |
 | M-15 | **Taxonomía semilla editable**, cargada al instalar con `Retail.Cli` (sección 7.1). Solo diccionarios; ni descripciones del distribuidor ni modelo entrenado. | Cerrada (2026-10-17) | Sin semilla, una instalación nueva no recibe ninguna sugerencia. Nombres de categorías, marcas y prefijos son hechos públicos; las descripciones son datos comerciales de un tercero. |
 | M-16 | **Descubrimiento por agrupación de términos** en la incorporación, con asignación o creación en bloque que también registra el término (sección 7.1). | Cerrada (2026-10-17) | El sistema aprende de cada importación aunque todavía no exista modelo, y el usuario no necesita crear la taxonomía completa antes de importar. |
+| M-17 | **El orden entre prefijo y texto para la marca se decide con datos** (E-5, sobre el conjunto de desarrollo; corregido por M-20) y no por diseño previo. Hipótesis: texto primero, prefijo cuando el texto no encuentra ninguna marca. | Cerrada (2026-10-21) | En 355 filas del arranque el prefijo contradice la marca escrita; el prefijo identifica al titular del código (sección 3.2), que puede tener varias líneas. Decidir con el conjunto de oro es más riguroso que asumir. |
+| M-18 | **Marcas vulgarizadas** (una marca que por metonimia nombra un tipo de producto, como `CANSON` en "repuesto tipo canson"): no se cargan en el diccionario de marcas. Quedan como señal de **categoría** para el clasificador. Si una lista futura trae productos de esa marca, se identifican por el prefijo EAN de su titular; la forma de cargar una marca "solo por prefijo" se define cuando ocurra (YAGNI). | Cerrada (2026-10-21) | En la lista, las 30 filas con `CANSON` son `REPUESTO CANSON …` y todas tienen otra marca (LUMA, MURESCO, 1028, NENE, EXITO): detectarla por texto fallaría en el 100 % de los casos. |
+| M-19 | **El conjunto de oro lo pre-etiqueta Claude y el estudiante valida cada fila** (`ml/datos/oro-validar.csv`). Se aparta de la sección 6.1 (al modelo de lenguaje se le enviaban solo términos): Claude lee las 400 descripciones y EAN, sin precios, con autorización del estudiante. La categoría se etiqueta **sin consultar la tabla de términos** y la marca **solo por el texto, sin el prefijo EAN**, para que el oro no le dé la razón al sistema por construcción (E-4, E-5). Los desacuerdos con los diccionarios y las dudas de Claude se marcan para revisión. | Cerrada (2026-10-21) | Decisión del estudiante por costo de etiquetado. **Limitación:** el anclaje del validador no se mide; se conservan las etiquetas originales (`categoria_claude`, `marca_claude`) e informa la tasa de corrección como cota inferior del error. Las filas sin marca en el texto quedan `SIN MARCA`: E-5 no puede medir la precisión del prefijo en ellas. |
+| M-20 | **El oro etiquetado en la Fase 1 pasa a ser el conjunto de desarrollo** (`ml/datos/oro.csv`): se usa para diagnosticar y decidir (tabla de términos, E-3, E-5). Para la evaluación final (Fase 7) se muestrea **un oro nuevo** de familias que no estén en ningún otro conjunto, se guarda sin mirar y se etiqueta con el método de M-19. | Cerrada (2026-10-22) | Al validar el oro se midió que la tabla de términos acierta el 86,4 % (< M-1) y se corrigió con esos errores (`GOMA`, `CINTA`, `LIBRO`, `BASE`, `TACO`, `VASO` y `TINTA` pasan a ambiguos). Desde ese momento el oro ya no es independiente: evaluar sobre él daría un resultado optimista (fuga de datos). Corrige también M-17/E-5, que decidían sobre el oro en contra de la sección 6.2. |
+| M-21 | **Una marca real cuyo nombre es una palabra común no se carga en el diccionario** cuando el riesgo de detectarla por error supera el beneficio (`ARTE`, 68 filas en la lista). Las 37 marcas nuevas del conjunto de desarrollo sí se cargan, incluidas `CADENA`, `NORTE` y `PAPERLAND`, antes rechazadas. | Cerrada (2026-10-22) | Decisión del estudiante. El diccionario busca palabras completas en toda la descripción: una palabra común produce sugerencias falsas en productos de otras marcas, y una sugerencia equivocada cuesta más que una ausente (M-1). |
+| M-22 | **La validación cruzada de E-1 y E-2 simula los dos caminos por los que un ítem llega al modelo**: (A) término ambiguo, con particiones agrupadas por familia y evaluación solo sobre los ejemplos manuales; (B) término desconocido, con particiones agrupadas **por término** (todas las filas de un término quedan fuera del entrenamiento) y evaluación sobre todo lo excluido. La métrica de decisión es el promedio del F1-macro de A y B. Las reglas de la sección 11 no cambian. | Cerrada (2026-10-22), antes de ejecutar ningún experimento | El 96 % del entrenamiento son etiquetas débiles derivadas de la primera palabra: una validación cruzada común premiaría memorizar esa palabra, un caso que en producción resuelve la tabla de términos y nunca llega al modelo. |
+| M-23 | **Se elimina el umbral de cobertura `κ`**: el modelo sugiere solo por confianza (`τ`). | Cerrada (2026-10-22) | E-3: con `τ` calibrado, `κ` no mejora la precisión de ninguna combinación (el óptimo fue κ = 0). Cuando el modelo no conoce el texto ya está poco seguro. Una regla menos en C#, en los tests y en la explicación al usuario. Reversible si un catálogo nuevo muestra sugerencias seguras y equivocadas sobre textos desconocidos; M-10 ya protege recalibrando `τ`. |
+| M-24 | **La tabla de términos se reevalúa en la Fase 7** con el oro de prueba, sin más correcciones ahora. Si su precisión queda por debajo de M-1, se decide entre nuevos términos ambiguos, ajustes de fronteras entre categorías o que el modelo controle a la tabla. | Cerrada (2026-10-22) | E-4: la tabla acierta el 94,0 % (IC 91,0 % a 96,1 %) sobre el desarrollo, cifra optimista (M-20). Sus errores son casos sueltos de frontera; corregirlos uno por uno sería ajustarse al conjunto de desarrollo. El control por el modelo es en parte circular (el modelo aprende de las etiquetas de la tabla) y resta cobertura. Toda sugerencia la confirma una persona (RF-27), así que un error cuesta una corrección y no un dato sucio. |
+| M-25 | **Marca: texto primero; el prefijo EAN decide solo si el texto no nombra ninguna marca, o desempata si nombra varias.** Los prefijos aprobados con pureza < 0,6 no entran al diccionario: el filtro se aplica al consolidar (`consolidar_diccionarios.py --pureza-minima`), así que la base no guarda la pureza. | Cerrada (2026-10-22) | E-5: texto primero con pureza ≥ 0,6 da 94,4 % de cobertura y 98,9 % de precisión; con el prefijo primero la precisión baja hasta 95,6 %. Se descartan 15 de 182 prefijos (por ejemplo `7798100`, que reparte Artística Dibu y FILGO); los desacuerdos entre texto y prefijo en la lista bajan de 371 a 136. Reemplaza el orden del diagrama de la sección 4. |
+| M-26 | **Al importar, los productos con término desconocido que forman un grupo de 5 o más filas (revisado a **3 o más** el 2026-10-28) se resuelven primero en bloque (M-16), antes que el modelo.** El usuario asigna una vez la categoría del grupo y el término entra a la tabla, así que se pregunta **una sola vez por término nuevo**. **Ampliación (2026-10-22):** la decisión en bloque se precarga con la categoría que el modelo asigna a la mayoría del grupo, con su consistencia ("56 de 56", "121 de 123") y ejemplos del grupo, para que la confirmación sea informada; el modelo además sugiere por producto en los grupos chicos y en los términos ambiguos. | Cerrada (2026-10-22) | Validación externa (sección 11.2): con un proveedor nuevo, los errores del modelo vienen en bloque y con confianza alta (`ACRIL ETERNA`: 121 sugerencias equivocadas con τ ≥ 0,94), y ni `τ` ni `κ` los evitan. En Piatto, con mínimo 5: 156 decisiones resuelven 3.937 de 4.848 productos con término desconocido (81,2 %), unos 25 por decisión; con mínimo 2 serían 367 decisiones y con 10, 81 decisiones para el 71,0 %. Cada decisión en bloque reemplaza al menos 5 revisiones individuales. Reordena dos componentes existentes, sin agregar ninguno. |
+| M-27 | **Los términos son un agregado propio (`TerminoClasificacion`)**, no hijos de `Categoria`: cada término tiene una categoría **o** es ambiguo, nunca las dos cosas ni ninguna. La baja de una categoría da de baja sus términos desde la capa de Aplicación. Reemplaza `TerminoCategoria` de la sección 8.1. | Cerrada (2026-10-22) | Al consolidar, 11 de los 18 términos ambiguos no tienen categoría y no tendrían raíz a la que pertenecer, pero hace falta guardarlos (M-26 distingue el término ambiguo conocido del desconocido). Además, "un término apunta a una sola categoría" cruza categorías: como raíz propia es la unicidad de una sola tabla. |
+| M-28 | **Regla GS1 completa para el GTIN-14**: se valida su dígito verificador sobre los 14 dígitos y se deriva el GTIN-13 recalculando el verificador. El prefijo del titular es de **7 dígitos fijos** y pertenece a **una sola marca**. Se corrige también `normalizar_ean` en `ml/scripts/comun.py` para mantener la paridad. | Cerrada (2026-10-22) | Python descartaba el indicador pero conservaba el verificador del GTIN-14: con un indicador distinto de 0, un código válido quedaba inválido. Los 7 dígitos y la unicidad del prefijo son los del diccionario consolidado (M-25 descarta los prefijos repartidos entre marcas). |
+| M-29 | **La Fase 3 incluye la persistencia de sus propios datos** (mapeo, migración, `CHECK` e índices únicos de términos, alias, prefijos y origen), en un paso propio (3.3). La Fase 5 queda para el vectorizador, el clasificador y el almacenamiento del modelo. | Cerrada (2026-10-22) | Mismo motivo que D-19 del Track 6.5: EF Core mapearía por convención las propiedades nuevas de `Articulo` y `Marca`, y los tests de integración quedarían en rojo hasta la Fase 5. La migración ya es posible: la rama contiene la del Track 6.5 (regla 9 del handoff). |
+| M-30 | **`Articulo.IdCategoria` e `IdMarca` se encapsulan** (setters privados): se asignan solo con `Clasificar` y `ActualizarDatos`, que registran el origen. En la edición manual, si la categoría o la marca cambian el origen pasa a `Manual`; si no cambian, se conserva. La migración completa con `Manual` el origen de los artículos que ya tienen categoría o marca. | Cerrada (2026-10-22) | Con setters públicos, la invariante "clasificado ⇒ origen registrado" (sección 8.2) queda solo en los papeles y el `CHECK` de la base rompería el código que asigna sin origen. |
+| M-31 | **Clave de la equivalencia de categoría:** `Texto` (la categoría del proveedor, o su rubro si es lo único que trae la planilla) y `TextoRubro` opcional como contexto, ambos en forma de comparación. La de marca solo tiene `Texto`. | Cerrada (2026-10-22) | "ESCOLAR / CUADERNOS" y "OFICINA / CUADERNOS" pueden traducirse a categorías distintas del comercio; una sola columna las mezclaría. |
+| M-32 | **`Proveedor.AsignarEquivalencia…` crea la equivalencia o reemplaza su destino**; "ignorar" es una equivalencia sin destino (`EsIgnorada` derivada). | Cerrada (2026-10-22) | Es lo que hace la pantalla de equivalencias: elegir o corregir a dónde va cada valor. Derivar "ignorada" del destino evita un estado contradictorio, como `EsAmbiguo` (M-27). |
+| M-33 | **La Fase 3b es solo dominio y persistencia.** Leer las columnas opcionales de la planilla (`MapeoColumnasDto`, parser, `ItemCatalogoImportadoDto`) y pasarlas al catálogo es de la Fase 4, junto con el cambio del contrato de incorporación (R-7). Filtrar el explorador del catálogo por la clasificación del proveedor queda como mejora futura, sin decisión. | Cerrada (2026-10-22) | Mantiene la forma de la Fase 3 (M-29): cada fase cambia una capa de contratos por vez. Los textos quedan guardados desde la 3b, así que habilitar el filtro después no cuesta más. |
+| M-34 | **El origen de la clasificación lo deriva el servidor al incorporar:** cada ítem trae la categoría y la marca confirmadas y las que se habían sugerido; sin sugerencia es `Manual`, igual a la sugerencia es `SugerenciaAceptada` y distinta es `SugerenciaCorregida`. | Cerrada (2026-10-22) | La interfaz no puede declarar un origen arbitrario: la tasa de aceptación y corrección (R-3) y el entrenamiento (M-5) dependen de él. Reclasificar al incorporar duplicaría el trabajo y podría diferir si el modelo cambió entre medio. |
+| M-35 | **La baja de una categoría o una marca da de baja también los términos y las equivalencias que apuntan a ella**, en la misma operación. Los artículos siguen bloqueando la baja (D-1). | Cerrada (2026-10-22) | Términos y equivalencias son reglas derivadas que no tienen sentido sin su destino. El término pasa a desconocido (decisión en bloque, M-26) y el valor del proveedor se vuelve a ofrecer para traducir. Rechazar la baja obligaría a limpiar a mano algo sin valor. |
+| M-36 | **La Fase 4 se divide en 4a** (reglas de descripción, puertos, `ClasificacionService`, contrato de incorporación por ítem, columnas del importador e infraestructura de los puertos) **y 4b** (comandos de administración de diccionarios con autorización y unicidad entre agregados, bajas de M-35 y consultas para las pestañas de la Fase 6). | Cerrada (2026-10-22) | Dos entregas revisables (CLAUDE.md §3): la 4a deja funcionando el flujo de incorporación. |
+| M-37 | **Hasta la Fase 5, el puerto `IModeloCategoria` lo implementa `ModeloCategoriaNoDisponible`** (`EstaDisponible = false`). | Cerrada (2026-10-22) | Es el arranque en frío real de la sección 7: sugieren solo los diccionarios y los bloques de términos nuevos llegan sin propuesta. `ClasificacionService` y sus tests no cambian cuando la Fase 5 la reemplaza. |
+| M-38 | **El nombre de una marca no puede ser alias de otra** (regla simétrica de "un alias distinto del nombre de otra marca"): `MarcaService.CrearAsync` y `RenombrarAsync` lo verifican en la forma de comparación del motor. | Cerrada (2026-10-24) | Con la regla en un solo sentido, crear la marca `HUSAR` cuando `HUSAR` ya es alias de `Husares` haría que el motor encontrara dos marcas para la misma palabra, y `BuscadorDeMarcas` no sugeriría ninguna. |
+| M-39 | **El nombre de una marca debe ser distinguible para el motor:** además del control de duplicados de D-8 (`Modern_Spanish_CI_AI`, que distingue la ñ), el alta y el cambio de nombre rechazan un nombre que en la forma de comparación (`NormalizarTexto`) coincide con otra marca activa. La comparación se resuelve en SQL con `COLLATE Latin1_General_CI_AI` en la consulta, no en la columna. | Cerrada (2026-10-24) | Motivo nuevo sobre D-8, aprobado por el estudiante: "Nandu" y "Ñandú" son distintas para la búsqueda en castellano pero iguales para el motor, que no podría sugerir ninguna de las dos. Cambiar el cotejamiento de la columna rompería la búsqueda ("ano" encontraría "año"); por eso cada consulta elige su regla. Corregir la grafía de la propia marca sigue permitido. |
+| M-40 | **Se agrega `MathNet.Numerics` 5.0.0, solo en `Retail.Infrastructure`, para el optimizador L-BFGS del clasificador.** Modifica M-3: el entrenamiento sigue en el ERP y en C#, ahora con una dependencia aprobada. El vectorizador, la función objetivo y su gradiente se escriben en el proyecto. | ~~Cerrada (2026-10-24)~~ Reemplazada por M-45 (2026-10-26) | El estudiante levantó la restricción de dependencias nuevas y pidió analizar alternativas. ML.NET se descartó: su vectorizador no es `char_wb` (rompe la paridad de la sección 10), escala la regularización distinto (C = 100 y τ = 0,94 dejarían de valer) y suma más de 20 MB. ONNX contradice M-3 y M-10; Accord.NET y SharpLearning están abandonados; TorchSharp es desproporcionado. MathNet resuelve la parte más riesgosa (L-BFGS con búsqueda de línea), es administrada y liviana, y queda aislada en un archivo. |
+| M-41 | **La Fase 5 se divide en 5a** (modelo puro en memoria: vectorizador, regresión logística y predicción, sin base, archivos ni DI) **y 5b** (entrenamiento en producción: datos confirmados, partición, calibración de τ y salvaguardas de M-10, almacenamiento de M-8 y reemplazo en DI). Plan en [`etapa-6-track-6.6-fase-5-modelo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-modelo.md). | ~~Cerrada (2026-10-24)~~ Reemplazada por M-45 (2026-10-26) | Dos entregas revisables, como M-36. La 5a se verifica entera contra Python antes de sumar persistencia y concurrencia. |
+| M-42 | **La paridad del clasificador se verifica por probabilidades** (tolerancia 1e-4, con C = 100 y C = 1) contra una referencia de scikit-learn sobre descripciones inventadas (`ml/paridad/modelo-referencia.json`), además del valor de la función objetivo en el óptimo. Reemplaza el criterio de "métricas equivalentes" de la sección 10 para el clasificador. | ~~Cerrada (2026-10-24)~~ Reemplazada por M-45 (2026-10-26) | C# minimiza la misma función objetivo que scikit-learn, estrictamente convexa por la penalización L2: el óptimo es único, así que dos implementaciones correctas dan las mismas probabilidades. Es una garantía más fuerte y hace que τ, calibrado en Python, valga igual en C#. |
+| M-43 | **La Fase 6 se implementa antes que la Fase 5.** La Fase 5 queda en espera hasta decidir el alcance del modelo con el experimento E-6 (alternativas de entrenamiento simple) y el análisis de distribuir un modelo ya entrenado con el programa. La interfaz funciona con los diccionarios y el arranque en frío (M-37); lo que depende del modelo queda en el paso 6.8 del plan de la Fase 6. | Cerrada (2026-10-24) | Análisis costo-beneficio del estudiante: según E-4 y la validación externa (sección 11.2), el modelo suma entre 3 y 5 puntos de cobertura detrás de los diccionarios y los bloques de M-26, y casi nada ante términos nuevos, mientras que la Fase 5 es la más costosa del track. La Fase 6 entrega la mayor parte del valor sin depender de esa decisión. El plan de la Fase 5 ([`etapa-6-track-6.6-fase-5-modelo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.6-fase-5-modelo.md)) se conserva. |
+| M-44 | **Regla de decisión de E-6** (sección 11.3): gana el candidato más simple (tabla de pares, Naive Bayes, su combinación, regresión logística) cuya cobertura con precisión ≥ 95 % en el escenario A alcance al menos el 85 % de la regresión logística. | Cerrada (2026-10-24), antes de ejecutar el experimento | Fijada de antemano, como las reglas de la sección 11, para no acomodar la conclusión a los resultados. El margen del 15 % cubre la falta de significación con 334 ejemplos y compensa la simplicidad frente a un aporte que ya es chico. |
+| M-45 | **La Fase 5 se reemplaza por un nivel de sugerencia "término ambiguo + segunda palabra"** (la tabla T de E-6): para un producto cuyo término es ambiguo, se sugiere la categoría mayoritaria de los artículos confirmados que comparten término y segunda palabra, si alcanza el soporte y la pureza mínimos. **No se implementan la regresión logística ni Naive Bayes.** M-40 a M-42 (MathNet, Fase 5a/5b, paridad por probabilidades) quedan reemplazadas; `RF-27` se ajusta (texto a aprobar). | Cerrada (2026-10-26) | E-6: con la misma precisión, la tabla cubre el 58,4 % de los términos ambiguos frente al 44,6 % de la regresión logística, se "entrena" con una consulta y explica su sugerencia de forma literal. Naive Bayes sumaba unos 2 puntos de cobertura del sistema con un umbral frágil; el estudiante decidió no implementarlo. Ningún candidato servía para términos desconocidos, que siguen en las decisiones en bloque (M-26). |
+| M-48 | **Los pares se guardan como diccionario y además se calculan** (alternativa C): `ParClasificacion`, hija de `TerminoClasificacion`, guarda pares explícitos (semilla y edición del usuario) que sugieren sin umbrales; los pares calculados sobre los artículos confirmados cubren lo que el diccionario no tiene, con soporte y pureza mínimos. El explícito gana (M-14). | Cerrada (2026-10-26); los pares calculados se reemplazan por propuestas (M-49) | Con pares solo calculados, una instalación nueva no sugeriría nada hasta confirmar artículos: el 58 % de E-6 venía de 334 ejemplos etiquetados que la semilla no carga. Como diccionario, los pares se distribuyen con la semilla (M-15) y se administran como los términos, marcas y prefijos; como cálculo, aprenden solos con cada confirmación. |
+| M-49 | **Los pares calculados no sugieren: proponen reglas.** El motor sugiere solo con reglas aprobadas (términos y pares del diccionario). Sobre los artículos confirmados, una consulta detecta pares consistentes que todavía no están en el diccionario y los **propone**; el usuario los acepta (par con categoría) o los descarta (par ignorado, que no se vuelve a proponer). | Cerrada (2026-10-26) | Al contrastar el diseño con la práctica de la gestión de datos maestros (MDM/PIM): las sugerencias salen de reglas de derivación aprobadas y auditadas, y la estadística sirve para proponer reglas, no para sugerir en silencio. Evita propagar una confirmación errónea, deja un solo mecanismo en el motor y saca del camino de la sugerencia la excepción a la Ley 8 y los umbrales. |
+| M-46 | **Regla de decisión de E-6b** (sección 11.4): Naive Bayes se agrega a la tabla de pares solo si T + NB mantiene una precisión ≥ 95 % en la muestra de Piatto y suma al menos 10 puntos de cobertura sobre T; si la precisión de T en Piatto queda bajo el 95 %, se revisan sus umbrales. | Sin efecto (2026-10-26): E-6b se canceló al descartarse Naive Bayes (M-45) | E-6 dejó a NB con 2 puntos de cobertura del sistema, un umbral frágil (τ = 0,9989) y la precisión conjunta en el límite (95,1 %). El único caso donde podría valer más es un proveedor nuevo con abreviaturas, que E-6 no midió. |
+| M-47 | **El estudiante autoriza que Claude lea las descripciones de las muestras de E-6b** (unas 400 filas de Piatto y una por familia del proveedor 1) para pre-etiquetarlas con el método de M-19. Excepción acotada a la regla 6 del handoff; las listas siguen sin versionarse y ningún script imprime descripciones fuera de esas planillas. | Cerrada (2026-10-24) | Mismo motivo que M-19: costo de etiquetado. Las listas no tienen precios. |
+| M-50 | **La Fase 5 se implementa antes que la Fase 6** (P-1; revierte el orden de M-43). | Cerrada (2026-10-26) | La Fase 6 muestra el motivo nuevo, la pestaña de pares y las propuestas: hacerla antes obligaba a rehacerla. |
+| M-51 | **Se retira el puerto del modelo** (P-2): `IModeloCategoria`, `ModeloCategoriaNoDisponible`, `PrediccionCategoriaDto`, el motivo `Modelo`, la propuesta de los bloques, `ModeloDisponible` y la `Confianza` de las sugerencias. | Cerrada (2026-10-26); hecho en el paso 5.8 | Sin modelo es código muerto (YAGNI). Ningún archivo de `Retail.App` lo usaba. Los bloques de M-26 llegan sin propuesta. |
+| M-52 | **Un par solo existe mientras su término es ambiguo** (P-3): agregar un par a un término con categoría es un error de dominio; asignarle categoría al término o darlo de baja da de baja sus pares. | Cerrada (2026-10-26) | Un par de un término no ambiguo nunca se consultaría: sería estado oculto. La carrera entre dos usuarios se acepta (como R-5): el motor exige el término ambiguo en SQL y el par queda inerte. |
+| M-53 | **Par ignorado = par sin categoría** (P-4, `EsIgnorado` derivado): descartar una propuesta lo guarda así. | Cerrada (2026-10-26) | El mismo patrón que M-27 y M-32. Sin memoria de lo descartado, la propuesta volvería en cada consulta. |
+| M-54 | **Criterio de propuesta** (P-5): soporte ≥ 2 y pureza ≥ 0,8 entre los artículos activos con categoría activa, excluidos los pares del diccionario (con categoría o ignorados). Pre-filtro amplio en SQL (`COLLATE Latin1_General_CI_AI`) y conteo en C# con las reglas del Dominio. | Cerrada (2026-10-26) | Cada propuesta pide la atención del usuario. El 0,8 tolera un artículo mal clasificado; con él no puede haber empate. El conteo en memoria es la excepción acotada a la Ley 8 documentada en `SISTEMA_DE_PERSISTENCIA.md` (a pedido, ~150 ms con 3.000 artículos). |
+| M-55 | **Semilla de pares** (P-6): `ml/datos/pares.csv` desde los ejemplos validados, revisada por el estudiante, cargada en el paso 6.1. El criterio de pureza ≥ 0,6 lo reemplazó M-58. | Cerrada (2026-10-26) | Sin semilla, el 58 % de E-6 recién valdría después de confirmar artículos. Son palabras genéricas, como los términos (M-15). |
+| M-56 | **La segunda palabra se toma sin el punto final**, en `e6_comun.py` y en `ReglasClasificacion.SegundaPalabra`. | Cerrada (2026-10-26) | El 6,9 % de las segundas palabras de `ambiguos.csv` terminaba en punto: "ESC." y "ESC" eran dos pares, y un par cargado a mano no coincidía. Coherente con `PalabrasParaMarca`. E-6 pasa de 58,4 % a 58,7 % (sección 11.3). |
+| M-57 | **Los pares se cargan siempre con su término** (`Navigation(t => t.Pares).AutoInclude()`), en lugar de un `Include` en cada llamador. | Cerrada (2026-10-26) | Las cascadas de M-52 recorren los pares en memoria; los servicios existentes cargaban el término sin `Include`, y un agregado incompleto deja la cascada sin efecto y sin error. Las proyecciones a DTO lo ignoran. |
+| M-58 | **La semilla usa unanimidad:** un par es candidato si todos sus ejemplos tienen la misma categoría; si no, entra "en conflicto" y lo decide el estudiante. Reemplaza la pureza ≥ 0,6 de M-55. | Cerrada (2026-10-27) | Una regla sin número que no descarta nada en silencio. De 150 candidatos, el estudiante validó 102 (vacío = descartar, dos conflictos resueltos por mayoría). La pureza queda solo en las propuestas (M-54). |
+| M-59 | **Semilla versionada** (P6-1): `taxonomia.csv`, `terminos.csv`, `marcas.csv`, `prefijos.csv` y `pares.csv` se copian de `ml/datos/` a `src/Retail.Cli/Semilla/`, revisados, y se publican junto al ejecutable. | Cerrada (2026-10-27) | Aplica M-15: nombres, términos, pares y prefijos son hechos públicos o palabras genéricas; las descripciones de la lista siguen fuera del repositorio (regla 6 del handoff). |
+| M-60 | **`cargar-diccionarios` aditivo e idempotente** (P6-2): crea lo que falta, nunca pisa lo que el comercio editó, informa los conflictos sin fallar y carga todo en una transacción, desde `SemilleroDiccionarios` (Infraestructura) con las fábricas del Dominio y las reglas de M-38 y M-39. | Cerrada (2026-10-27) | La CLI no tiene sesión para D-5; el patrón del semillero ya está aceptado (D-12). Idempotente permite volver a correrlo al actualizar la semilla. |
+| M-61 | **Modal de incorporación en tres pasos** (P6-3): traducir valores, términos nuevos y revisar artículos; después de los pasos 1 y 2 se vuelve a llamar a `SugerirAsync`. | Cerrada (2026-10-27) | Orden de M-14 y M-26. La lógica del motor no se copia en la UI. |
+| M-62 | **Acciones de un bloque** (P6-4): asignar a una categoría, crear una categoría nueva y asignarla (comando atómico del paso 6.2), marcar ambiguo o no decidir; sin propuesta precargada (M-45). | Cerrada (2026-10-27) | Dos llamadas separadas podrían dejar una categoría huérfana: un solo `SaveChanges`. |
+| M-63 | **Interruptor "Sugerir clasificación"** activado por defecto (P6-5); apagado, el modal se comporta como antes (origen `Manual`). | Cerrada (2026-10-27) | Es M-11. |
+| M-64 | **Sin D-5, los pasos 1 y 2 del modal quedan en solo lectura** con una nota; la grilla funciona igual (P6-6). | Cerrada (2026-10-27) | La autorización la sigue haciendo el servidor; la UI evita ofrecer lo que va a fallar. |
+| M-65 | **Dónde se administra cada diccionario** (P6-7): Términos, Alias y Prefijos en `AdministrarClasificacionDialog`, cada uno con su ViewModel hijo; Equivalencias en `EquivalenciasProveedorDialog`, desde Proveedores. | Cerrada (2026-10-27) | Una responsabilidad por archivo (el ViewModel actual ya tiene ≈500 líneas); las equivalencias son de un proveedor (M-13). |
+| M-66 | **Sugerencia en la grilla** (P6-8): `ComboBox` precargados, badge del motivo, columna de estado, "Aceptar todas" y "Aceptar seleccionadas"; nada se aplica sin la confirmación final. | Cerrada (2026-10-27) | Cumple `RF-27` e `IU-05` ("con su motivo, para aceptarlas o corregirlas") con componentes existentes. |
+| M-71 | **Los pares propuestos se revisan dentro del término** (reemplaza la sección "Reglas propuestas" del paso 6.8): el panel de pares del término ambiguo seleccionado tiene dos pestañas, "Pares" y "Pares propuestos", sin "Seleccionar todas". El aviso posterior a la incorporación nombra los términos con propuestas. Se descarta proponer **términos** nuevos a partir de los artículos confirmados ("Términos propuestos"). | Cerrada (2026-10-28) | Una propuesta es siempre de un término ambiguo (M-49): verla junto a sus pares evita una sección más y muestra lo que se va a agregar al lado de lo que ya hay. Solo se carga la pestaña visible, en la misma carga que el término (dos cargas reemplazables sobre la `CargaSerializada` compartida se cancelarían), y las propuestas se calculan solo para ese término. Términos propuestos: costo medio-alto (estado "descartado" para términos con migración, lectura de todos los artículos clasificados sin pre-filtro SQL posible); con el bloque desde 3 ítems (M-69) cubre poco más. |
+| M-70 | **Modal de incorporación como asistente.** (1) Los combos de la grilla empiezan en **"Sin clasificar"**; marca ofrece además "Sin marca" (confirmación, M-7) y categoría no tiene "Sin categoría" (opción C1). (2) Botones **Anterior / Siguiente** en el pie; "Confirmar" solo en "Revisar artículos" cuando el interruptor está encendido. (3) Encabezado de la tarjeta en una fila (título, pasos, interruptor), sin el bloque "Paso N de M" ni botones dentro de cada paso. (4) "Restablecer" de cada fila corregida como acción de texto bajo el estado. **Ajuste (misma fecha):** con el interruptor apagado, los combos del lote usan las mismas opciones ("Sin clasificar" inicial, y "Sin marca" confirmada para todo el lote); el paso 1 pasa a llamarse **"Asociar categorías y marcas"** (antes "Traducir valores del proveedor"), con columnas "Nombre en la planilla · Artículos · Equivale a" y botón "Asociar". Los nombres internos (`TraducirValoresPasoViewModel`, `ValorSinTraducirDto`) no cambian. | Cerrada (2026-10-28) | (1) Con el combo vacío no se distinguía "no lo miré" de "no tiene". En marca existen los tres estados (D-18); en categoría, la base solo admite categoría con origen o nada (`CK_ARTICULOS_OrigenCategoria`), así que "Sin categoría" y "Sin clasificar" se guardaban igual: mostrar las dos habría sido engañoso (C2, el estado confirmado, se descartó por costo). (2) Volver atrás no tiene riesgo: cada decisión de los pasos 1 y 2 se guarda al tomarla. Exigir que todo esté resuelto se descartó: las decisiones de esos pasos son opcionales. Con el interruptor apagado no hay recorrido y nada cambia. (3) La grilla pasa de unas 3 a unas 4 filas visibles en 1040×680. |
+| M-69 | **El prefijo EAN no sugiere marca por sí solo** (revierte en parte M-25): si la descripción no nombra ninguna marca, no hay sugerencia de marca; el prefijo solo desempata cuando el texto nombra varias. Se retira el motivo `PrefijoDelCodigoDeBarras`. **Revisión de M-26 (misma fecha):** el bloque de términos nuevos se forma desde **3** ítems (`TamanoMinimoDeBloque`). | Cerrada (2026-10-28) | Prueba manual 6.7: un artículo sin marca en el texto recibió la marca de su prefijo. El prefijo identifica al titular del código, no a la marca (sección 3.2), y en una fila sin marca escrita la sugerencia no es verificable: son las 11 "no verificables" de E-5. Costo medido en E-5: la cobertura de marca baja de 94,4 % a cerca de 89,1 % (fila "Solo texto") y la precisión sube de 98,9 % a cerca de 99,2 %. Umbral 3: con 4 filas de un término nuevo el bloque no aparecía y cada ítem se revisaba por separado; el costo es más bloques chicos (en Piatto, entre las 367 decisiones del mínimo 2 y las 156 del mínimo 5; sin medir). |
+| M-68 | **Alias y prefijos EAN se administran desde la marca** (revierte en parte el paso 6.3): la sección Marcas del diálogo de clasificación es maestro-detalle, como Rubros y categorías, y desaparecen las secciones Alias y Prefijos. | Cerrada (2026-10-28) | Son entidades internas del agregado `Marca` (Ley 2: solo se crean con `Marca.AgregarAlias` y `Marca.AgregarPrefijo`); la pantalla refleja el agregado. El dominio ya impide un alias o prefijo duplicado entre marcas y el error nombra a la dueña, así que la vista global no hacía falta para evitar conflictos. |
+| M-67 | **El modal mantiene 880×640** (`MinWidth` 720) (P6-9); se amplía a 1040×680 solo si la prueba manual lo exige, documentándolo en `SISTEMA_DE_DISENO.md`. | Cerrada (2026-10-27) | Cambiar el tamaño cambia una regla del sistema de diseño (Ley 9). |
 
 ---
 
@@ -361,7 +650,7 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 | R-4 | Categorías desbalanceadas (1.139 mochilas frente a unas pocas decenas en otras). | F1-macro como métrica y mínimo de ejemplos por categoría (M-9). |
 | R-5 | Divergencia entre Python y C# en el vectorizador. | Tests de paridad (sección 10). |
 | R-6 | Truncado a 45 caracteres: palabras cortadas. | Los n-gramas de caracteres son robustos a esto; se mide en E-2. |
-| R-7 | Cambio del contrato de incorporación (lote → por ítem) afecta pantallas y tests existentes. | Se planifica como paso propio en la Fase 4, con sus tests. |
+| R-7 | Cambio del contrato de incorporación (lote → por ítem) afecta pantallas y tests existentes. | ✅ Resuelto en el paso 4a.4 (2026-10-22): contrato por ítem, origen derivado en el servidor (M-34) y modal adaptado sin cambiar su comportamiento; tests de Aplicación y de App en verde. |
 | R-8 | El importador, `Proveedor` y `CatalogoProveedor` son código de **Pablo** (propiedad acordada en el roadmap), y este track los modifica (M-12, M-13, contrato de incorporación). | ✅ Coordinado (2026-10-17): Pablo está al tanto y el estudiante autorizó modificar ese código desde este track. La revisión cruzada del PR sigue siendo con él. |
 
 ---
@@ -381,7 +670,9 @@ Python se usa para explorar y elegir; C# es la implementación de producción. P
 
 ## 15. Requisito Incorporado a la ERS
 
-> **RF-27 (Sugerencia de Clasificación):** Al incorporar artículos del catálogo de un proveedor, el sistema sugiere para cada uno una categoría y una marca a partir de la descripción y del código de barras, indicando el motivo y la confianza de la sugerencia. El sistema se abstiene cuando la confianza no alcanza el umbral que el sistema calibra en cada entrenamiento. Ninguna sugerencia se aplica sin confirmación del usuario. El modelo de categorías se reentrena localmente con los artículos confirmados, sin conexión a Internet.
+> **RF-27 (Sugerencia de Clasificación), texto vigente desde la Fase 5 (2026-10-27):** Al incorporar artículos del catálogo de un proveedor, el sistema sugiere para cada uno una categoría y una marca a partir de la descripción y del código de barras, aplicando diccionarios de clasificación administrables (términos, pares de palabras, marcas, alias, prefijos y equivalencias por proveedor), e indica el motivo de cada sugerencia. Cuando ninguna regla aplica, el sistema no sugiere. Ninguna sugerencia se aplica sin confirmación del usuario. A partir de los artículos confirmados, el sistema propone reglas nuevas, que se aplican solo después de que el usuario las aprueba. Funciona sin conexión a Internet.
+>
+> **Texto original (2026-10-17):** Al incorporar artículos del catálogo de un proveedor, el sistema sugiere para cada uno una categoría y una marca a partir de la descripción y del código de barras, indicando el motivo y la confianza de la sugerencia. El sistema se abstiene cuando la confianza no alcanza el umbral que el sistema calibra en cada entrenamiento. Ninguna sugerencia se aplica sin confirmación del usuario. El modelo de categorías se reentrena localmente con los artículos confirmados, sin conexión a Internet.
 
 Al incorporarlo (2026-10-17) se cambió "el umbral configurado" por "el umbral que el sistema calibra en cada entrenamiento", para alinearlo con M-10 (recalibración automática de `τ`) y M-11 (sin configuración de negocio). También se ajustaron `RF-05`, `RF-07`, `RF-23`, `IU-04` e `IU-05` y la matriz de trazabilidad. Las tablas de los diccionarios se agregan a la matriz cuando exista su migración (Fase 5).
 
@@ -408,3 +699,5 @@ No se identificaron cambios necesarios en el plan del CRUD. Las piezas de este t
 * ¿Qué pasa con el modelo si el comercio crea, renombra o elimina una categoría?
 * ¿Cómo se evita que el modelo aprenda de sus propios errores?
 * ¿Por qué ningún modelo puede sugerir la marca de los artículos del importador `7450077`?
+* Si el prefijo EAN es determinista, ¿por qué puede contradecir a la marca escrita en la descripción? (M-17)
+* ¿Por qué `CANSON` no está en el diccionario de marcas aunque sea una marca real? (M-18)

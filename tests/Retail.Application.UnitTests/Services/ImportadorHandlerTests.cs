@@ -65,10 +65,10 @@ public class ImportadorHandlerTests
 
         var dto = new IncorporarCatalogoArticulosDto
         {
-            IdsCatalogo = new List<int> { idCatalogo },
-            IdCategoria = idCategoria,
-            IdMarca = idMarca,
-            PorcentajeGananciaSugerido = gananciaSugerida
+            Items = new List<ItemIncorporacionArticuloDto>
+            {
+                new() { IdCatalogo = idCatalogo, PorcentajeGanancia = gananciaSugerida, IdCategoria = idCategoria, IdMarca = idMarca }
+            }
         };
 
         // Act

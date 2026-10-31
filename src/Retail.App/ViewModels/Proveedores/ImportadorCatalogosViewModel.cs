@@ -5,7 +5,8 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
 using Retail.App.Services;
-using Retail.App.Views.Dialogs;
+using Retail.App.ViewModels.Pedidos;
+using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -23,7 +24,18 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     private readonly IProveedorDialogService _dialogService;
     private readonly IInventarioService _inventarioService;
     private readonly INavigationService _navigationService;
+    private readonly FlujoPedirArticulos _flujoPedir;
+
+    // Se resuelve por DI (con los servicios de clasificación de esta pantalla) y se reinicia en cada apertura del modal.
+    private readonly IncorporarArticulosModalViewModel _incorporarModalViewModel;
+    private readonly TimeProvider _reloj;
     private readonly ILogger<ImportadorCatalogosViewModel> _logger;
+
+    /// <summary>
+    /// Antigüedad a partir de la cual la lista del proveedor se marca como desactualizada: una lista vieja y barata
+    /// es la trampa que motivó A-2 del Track 4.3.
+    /// </summary>
+    public const int DiasListaDesactualizada = 30;
 
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
 
@@ -42,6 +54,27 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     private ProveedorDto? _proveedorActivo;
 
     public bool TieneProveedorActivo => ProveedorActivo != null;
+
+    /// <summary>Fecha (hora local) de la última planilla importada del proveedor activo; nula si no tiene catálogo.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoUltimaPlanilla))]
+    [NotifyPropertyChangedFor(nameof(ListaDesactualizada))]
+    private DateTime? _fechaUltimaPlanilla;
+
+    /// <summary>Días transcurridos desde la última planilla, en días calendario locales.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoUltimaPlanilla))]
+    [NotifyPropertyChangedFor(nameof(ListaDesactualizada))]
+    private int? _diasDesdeUltimaPlanilla;
+
+    public string TextoUltimaPlanilla => FechaUltimaPlanilla is { } fecha && DiasDesdeUltimaPlanilla is { } dias
+        ? $"Última planilla: {fecha:dd/MM/yyyy} ({TextoAntiguedad(dias)})"
+        : "Todavía no se importó ninguna planilla de este proveedor";
+
+    public bool ListaDesactualizada => DiasDesdeUltimaPlanilla > DiasListaDesactualizada;
+
+    public string AvisoListaDesactualizada { get; } =
+        $"La lista tiene más de {DiasListaDesactualizada} días: sus costos pueden no estar vigentes. Importe una planilla nueva antes de pedir.";
 
     // ------------------------------------------------------------------ //
     // Estado del importador y progreso                                   //
@@ -74,6 +107,9 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     private bool _isUpdatingSeleccionarTodos;
 
     public bool PuedeImportar => TieneProveedorActivo && !IsBusy;
+
+    /// <summary>Solo el Gerente y el Encargado ven las acciones de pedir (A-14).</summary>
+    public bool PuedePedir => _flujoPedir.PuedePedir;
 
     // ------------------------------------------------------------------ //
     // Catálogo importado, filtros y paginación                            //
@@ -123,12 +159,18 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         IProveedorDialogService dialogService,
         IInventarioService inventarioService,
         INavigationService navigationService,
+        IncorporarArticulosModalViewModel incorporarModalViewModel,
+        FlujoPedirArticulos flujoPedir,
+        TimeProvider reloj,
         ILogger<ImportadorCatalogosViewModel> logger)
     {
+        _incorporarModalViewModel = incorporarModalViewModel ?? throw new ArgumentNullException(nameof(incorporarModalViewModel));
+        _reloj = reloj ?? throw new ArgumentNullException(nameof(reloj));
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+        _flujoPedir = flujoPedir ?? throw new ArgumentNullException(nameof(flujoPedir));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _cargaCatalogo = new CargaSerializada(_logger);
     }
@@ -199,6 +241,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         UltimoResultado = null;
         TieneItemsSeleccionados = false;
         SeleccionarTodos = false;
+        MostrarUltimaPlanilla(null);
 
         if (value != null)
         {
@@ -304,6 +347,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
         TotalItemsCatalogo = resultado.TotalRegistros;
         TotalPaginas = Math.Max(1, resultado.TotalPaginas);
+        MostrarUltimaPlanilla(resultado.FechaUltimaPlanilla);
 
         _isUpdatingSeleccionarTodos = true;
         try
@@ -394,51 +438,192 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
             return;
         }
 
+        MensajeError = null;
+        var mensaje = await IncorporarAsync(itemsSeleccionados);
+        if (mensaje is null)
+        {
+            return;
+        }
+
+        MensajeEstado = mensaje;
+        TieneItemsSeleccionados = false;
+        SeleccionarTodos = false;
+        await CargarCatalogoAsync();
+    }
+
+    /// <summary>
+    /// Abre el modal de incorporación con los ítems y, si el usuario confirma, los incorpora a la tienda (RF-05). Lo
+    /// comparten "Incorporar seleccionados" y el primer paso de "Pedir" (G5). Devuelve el mensaje de lo incorporado, o
+    /// <c>null</c> si el usuario canceló o falló (el error queda en <see cref="MensajeError"/>).
+    /// </summary>
+    /// <remarks>
+    /// Los dos accesos a datos (los diccionarios antes del modal y la incorporación después) esperan su turno en la
+    /// fila de la pantalla y corren fuera del Dispatcher: el DbContext es uno solo y no admite dos operaciones a la vez
+    /// (Ley 4, H-19). Si se sale de la pantalla, la fila los descarta sin informar error.
+    /// </remarks>
+    private async Task<string?> IncorporarAsync(IList<CatalogoProveedorDto> items)
+    {
+        (IReadOnlyList<CategoriaDto> Categorias, IReadOnlyList<MarcaDto> Marcas)? diccionarios = null;
+        Exception? error = null;
+        await _cargaCatalogo.EjecutarOperacionAsync(
+            token => Task.Run(
+                async () =>
+                {
+                    // Secuenciales: comparten el DbContext.
+                    var categorias = await _inventarioService.ListarCategoriasAsync(token);
+                    var marcas = await _inventarioService.ListarMarcasAsync(token);
+                    return (Categorias: categorias, Marcas: marcas);
+                },
+                token),
+            d => diccionarios = d,
+            ex => error = ex);
+
+        if (diccionarios is not { } d)
+        {
+            InformarErrorDeIncorporacion(error);
+            return null;
+        }
+
+        var modalVm = _incorporarModalViewModel;
+        modalVm.Inicializar(d.Categorias, d.Marcas, items);
+
+        if (!_dialogService.MostrarIncorporacion(modalVm))
+        {
+            return null;
+        }
+
+        var dto = modalVm.ObtenerDto();
+        string? mensaje = null;
+        IsBusy = true;
         try
         {
-            var categorias = await _inventarioService.ListarCategoriasAsync();
-            var marcas = await _inventarioService.ListarMarcasAsync();
+            await _cargaCatalogo.EjecutarOperacionAsync(
+                async token =>
+                {
+                    var resultado = await Task.Run(() => _proveedorService.IncorporarArticulosATiendaAsync(dto, token), token);
 
-            var modalVm = new IncorporarArticulosModalViewModel();
-            modalVm.Inicializar(categorias, marcas, itemsSeleccionados);
-
-            var dialog = new IncorporarArticulosModalDialog
-            {
-                DataContext = modalVm,
-                Owner = System.Windows.Application.Current.MainWindow
-            };
-
-            var dialogRes = dialog.ShowDialog();
-            if (dialogRes != true || !modalVm.DialogResult)
-            {
-                return;
-            }
-
-            IsBusy = true;
-            MensajeError = null;
-
-            var dto = modalVm.ObtenerDto();
-
-            var resultado = await Task.Run(() => _proveedorService.IncorporarArticulosATiendaAsync(dto));
-            MensajeEstado = resultado.OmitidosYaVinculados > 0
-                ? $"{resultado.Incorporados} artículo(s) incorporados a la tienda. {resultado.OmitidosYaVinculados} omitido(s) porque ya estaban en la tienda."
-                : $"{resultado.Incorporados} artículo(s) incorporados a la tienda correctamente.";
-            TieneItemsSeleccionados = false;
-            SeleccionarTodos = false;
-            await CargarCatalogoAsync();
-        }
-        catch (DomainException ex)
-        {
-            MensajeError = ex.Message;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al incorporar artículos a tienda");
-            MensajeError = "Error al incorporar artículos.";
+                    // Aviso no bloqueante de reglas nuevas para revisar (Track 6.6, paso 6.8): un fallo no afecta lo
+                    // ya incorporado. Va en el mismo turno porque también usa el DbContext de la pantalla.
+                    string? avisoReglas = await modalVm.ObtenerAvisoReglasPropuestasAsync();
+                    return (Resultado: resultado, AvisoReglas: avisoReglas);
+                },
+                r => mensaje = DescribirIncorporacion(r.Resultado, r.AvisoReglas),
+                ex => error = ex);
         }
         finally
         {
             IsBusy = false;
+        }
+
+        if (mensaje is null)
+        {
+            InformarErrorDeIncorporacion(error);
+        }
+
+        return mensaje;
+    }
+
+    private static string DescribirIncorporacion(ResultadoIncorporacionDto resultado, string? avisoReglas)
+    {
+        string mensaje = resultado.OmitidosYaVinculados > 0
+            ? $"{resultado.Incorporados} artículo(s) incorporados a la tienda. {resultado.OmitidosYaVinculados} omitido(s) porque ya estaban en la tienda."
+            : $"{resultado.Incorporados} artículo(s) incorporados a la tienda correctamente.";
+
+        return avisoReglas is null ? mensaje : $"{mensaje} {avisoReglas}";
+    }
+
+    /// <summary>Sin error, el acceso se descartó al salir de la pantalla: no hay nada que informar.</summary>
+    private void InformarErrorDeIncorporacion(Exception? error)
+    {
+        switch (error)
+        {
+            case null:
+                return;
+
+            case DomainException dominio:
+                MensajeError = dominio.Message;
+                return;
+
+            default:
+                _logger.LogError(error, "Error al incorporar artículos a tienda");
+                MensajeError = "Error al incorporar artículos.";
+                return;
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Pedir al proveedor (Track 4.3, A-17)                               //
+    // ------------------------------------------------------------------ //
+
+    /// <summary>"Pedir" de una fila: es un lote de uno (G4).</summary>
+    [RelayCommand]
+    private Task PedirItemAsync(CatalogoProveedorDto? item)
+    {
+        return item is null ? Task.CompletedTask : PedirAsync([item]);
+    }
+
+    [RelayCommand]
+    private Task PedirSeleccionadosAsync()
+    {
+        var seleccionados = ItemsCatalogo.Where(i => i.EstaSeleccionado).ToList();
+        if (seleccionados.Count == 0)
+        {
+            MensajeError = "Seleccione al menos un artículo del catálogo para pedir.";
+            return Task.CompletedTask;
+        }
+
+        return PedirAsync(seleccionados);
+    }
+
+    /// <summary>
+    /// Recorrido en dos pasos (A-17): si el modal de pedido informa ítems sin incorporar y el usuario elige
+    /// incorporarlos, se abre el modal de incorporación y después se vuelve a pedir, ya sin la oferta. Si la
+    /// incorporación se cancela, se vuelve igual con los que estaban vinculados.
+    /// </summary>
+    private async Task PedirAsync(IReadOnlyList<CatalogoProveedorDto> items)
+    {
+        if (!PuedePedir)
+        {
+            return;
+        }
+
+        MensajeError = null;
+        MensajeEstado = null;
+        var ids = items.Select(i => i.Id).ToList();
+
+        var resultado = await _flujoPedir.PedirAsync(ids, [], ofrecerIncorporar: true, _cargaCatalogo);
+
+        string? mensajeIncorporacion = null;
+        if (resultado.Accion == AccionPedirArticulosEnum.IncorporarPrimero)
+        {
+            var sinIncorporar = items.Where(i => resultado.IdsSinIncorporar.Contains(i.Id)).ToList();
+            mensajeIncorporacion = await IncorporarAsync(sinIncorporar);
+
+            // Si la incorporación falló, su error ya está en pantalla y no se sigue. Si se canceló, se pide igual.
+            if (MensajeError is not null)
+            {
+                return;
+            }
+
+            resultado = await _flujoPedir.PedirAsync(ids, [], ofrecerIncorporar: false, _cargaCatalogo);
+        }
+
+        MensajeError = resultado.MensajeError;
+        var mensajes = new[] { mensajeIncorporacion, resultado.MensajeEstado }.OfType<string>().ToList();
+        MensajeEstado = mensajes.Count == 0 ? null : string.Join(" ", mensajes);
+
+        if (resultado.Accion == AccionPedirArticulosEnum.Confirmar)
+        {
+            foreach (var item in ItemsCatalogo)
+            {
+                item.EstaSeleccionado = false;
+            }
+        }
+
+        // Lo incorporado cambia el estado de las filas ("En Tienda"), aunque después se cancele el pedido.
+        if (mensajeIncorporacion is not null)
+        {
+            await CargarCatalogoAsync();
         }
     }
 
@@ -463,6 +648,34 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         {
             _isUpdatingSeleccionarTodos = false;
         }
+    }
+
+    /// <summary>
+    /// Convierte la fecha UTC de la última planilla a la hora local y calcula su antigüedad en días calendario: una
+    /// planilla importada a las 23 h de ayer es "de ayer", aunque en UTC ya sea hoy.
+    /// </summary>
+    private void MostrarUltimaPlanilla(DateTime? fechaUtc)
+    {
+        if (fechaUtc is not { } utc)
+        {
+            DiasDesdeUltimaPlanilla = null;
+            FechaUltimaPlanilla = null;
+            return;
+        }
+
+        var local = TimeZoneInfo.ConvertTimeFromUtc(utc, _reloj.LocalTimeZone);
+        DiasDesdeUltimaPlanilla = Math.Max(0, (_reloj.GetLocalNow().Date - local.Date).Days);
+        FechaUltimaPlanilla = local;
+    }
+
+    private static string TextoAntiguedad(int dias)
+    {
+        return dias switch
+        {
+            0 => "hoy",
+            1 => "hace 1 día",
+            _ => $"hace {dias} días"
+        };
     }
 
     private void LimpiarItemsCatalogo()

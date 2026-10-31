@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Retail.Application.DTOs.Articulos;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
 using Xunit;
@@ -60,12 +61,16 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
 
         var articulos = new List<Articulo>
         {
-            new() { CodigoBarras = "111", Descripcion = "Cuaderno A4", IdCategoria = cat1.Id, CostoReposicion = 100, PorcentajeGanancia = 50, PrecioVenta = 150, StockActual = 2, StockMinimo = 5, EsServicio = false },
-            new() { CodigoBarras = "222", Descripcion = "Lapicera Azul", IdCategoria = cat1.Id, CostoReposicion = 50, PorcentajeGanancia = 40, PrecioVenta = 70, StockActual = 20, StockMinimo = 10, EsServicio = false },
-            new() { CodigoBarras = "333", Descripcion = "Regla 30cm", IdCategoria = cat1.Id, CostoReposicion = 80, PorcentajeGanancia = 50, PrecioVenta = 120, StockActual = 1, StockMinimo = 3, EsServicio = false },
-            new() { CodigoBarras = "444", Descripcion = "Pendrive 32GB", IdCategoria = cat2.Id, CostoReposicion = 500, PorcentajeGanancia = 30, PrecioVenta = 650, StockActual = 4, StockMinimo = 2, EsServicio = false },
-            new() { CodigoBarras = null, Descripcion = "Servicio de Fotocopia", IdCategoria = null, CostoReposicion = 10, PorcentajeGanancia = 100, PrecioVenta = 20, StockActual = 0, StockMinimo = 0, EsServicio = true }
+            new() { CodigoBarras = "111", Descripcion = "Cuaderno A4", CostoReposicion = 100, PorcentajeGanancia = 50, PrecioVenta = 150, StockActual = 2, StockMinimo = 5, EsServicio = false },
+            new() { CodigoBarras = "222", Descripcion = "Lapicera Azul", CostoReposicion = 50, PorcentajeGanancia = 40, PrecioVenta = 70, StockActual = 20, StockMinimo = 10, EsServicio = false },
+            new() { CodigoBarras = "333", Descripcion = "Regla 30cm", CostoReposicion = 80, PorcentajeGanancia = 50, PrecioVenta = 120, StockActual = 1, StockMinimo = 3, EsServicio = false },
+            new() { CodigoBarras = "444", Descripcion = "Pendrive 32GB", CostoReposicion = 500, PorcentajeGanancia = 30, PrecioVenta = 650, StockActual = 4, StockMinimo = 2, EsServicio = false },
+            new() { CodigoBarras = null, Descripcion = "Servicio de Fotocopia", CostoReposicion = 10, PorcentajeGanancia = 100, PrecioVenta = 20, StockActual = 0, StockMinimo = 0, EsServicio = true }
         };
+        articulos[0].Clasificar(cat1.Id, OrigenClasificacionEnum.Manual, null, null);
+        articulos[1].Clasificar(cat1.Id, OrigenClasificacionEnum.Manual, null, null);
+        articulos[2].Clasificar(cat1.Id, OrigenClasificacionEnum.Manual, null, null);
+        articulos[3].Clasificar(cat2.Id, OrigenClasificacionEnum.Manual, null, null);
         _context.Articulos.AddRange(articulos);
         await _context.SaveChangesAsync();
 
@@ -124,6 +129,42 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         // Assert
         res.Items.Should().ContainSingle(a => a.Descripcion == "Articulo Critico");
         res.TotalRegistros.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_ConFiltroRubro_IncluyeTodasLasCategoriasDelRubroYAcotaConLaCategoria()
+    {
+        // Arrange: Escolar con dos categorías, Oficina con una y un artículo sin categoría.
+        var escolar = Rubro.Crear("Escolar");
+        var oficina = Rubro.Crear("Oficina");
+        _context.Rubros.AddRange(escolar, oficina);
+        await _context.SaveChangesAsync();
+
+        var cuadernos = Categoria.Crear("Cuadernos", escolar.Id);
+        var lapices = Categoria.Crear("Lápices", escolar.Id);
+        var resmas = Categoria.Crear("Resmas", oficina.Id);
+        _context.Categorias.AddRange(cuadernos, lapices, resmas);
+        await _context.SaveChangesAsync();
+
+        var cuaderno = CrearArticulo("Cuaderno A4");
+        var lapiz = CrearArticulo("Lápiz HB");
+        var resma = CrearArticulo("Resma A4");
+        var sinCategoria = CrearArticulo("Señalador");
+        cuaderno.Clasificar(cuadernos.Id, OrigenClasificacionEnum.Manual, null, null);
+        lapiz.Clasificar(lapices.Id, OrigenClasificacionEnum.Manual, null, null);
+        resma.Clasificar(resmas.Id, OrigenClasificacionEnum.Manual, null, null);
+        _context.Articulos.AddRange(cuaderno, lapiz, resma, sinCategoria);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var delRubro = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdRubro = escolar.Id });
+        var delRubroYCategoria = await _sut.ObtenerArticulosPaginadosAsync(
+            new ConsultaArticulosDto { IdRubro = escolar.Id, IdCategoria = lapices.Id });
+
+        // Assert
+        delRubro.Items.Select(a => a.Descripcion).Should().Equal("Cuaderno A4", "Lápiz HB");
+        delRubro.TotalRegistros.Should().Be(2, "el conteo filtrado también se resuelve con el rubro");
+        delRubroYCategoria.Items.Should().ContainSingle().Which.Descripcion.Should().Be("Lápiz HB");
     }
 
     [Fact]
@@ -301,9 +342,9 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         var articulo = CrearArticulo("Cuaderno Rivadavia");
-        articulo.IdCategoria = categoria.Id;
-        articulo.IdMarca = marca.Id;
-        articulo.IdCatalogoProveedor = catalogo.Id;
+        articulo.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
+        catalogo.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(catalogo);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
@@ -318,6 +359,132 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         item.CodigoProveedor.Should().Be("P-1");
         item.DescripcionProveedor.Should().Be("Cuaderno proveedor");
         item.CostoCatalogoProveedor.Should().Be(77m);
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_FiltroPorProveedor_IncluyeFuentesAdicionalesYPresentaciones()
+    {
+        // Arrange (Track 4.3, K5): Norte es la principal de "Lápiz" y una fuente adicional de "Cuaderno"; "Unidad" es
+        // una presentación derivada del cuaderno y "Artesanal" no tiene fuentes.
+        var sur = Proveedor.Crear("Distribuidora Sur", "30-12345678-1");
+        var norte = Proveedor.Crear("Mayorista Norte", "30-50001091-2");
+        var cuadernoSur = new CatalogoProveedor { Proveedor = sur, CodigoProveedor = "S-1", DescripcionProveedor = "Cuaderno", CostoReposicion = 100m };
+        var cuadernoNorte = new CatalogoProveedor { Proveedor = norte, CodigoProveedor = "N-1", DescripcionProveedor = "Cuaderno", CostoReposicion = 90m };
+        var lapizNorte = new CatalogoProveedor { Proveedor = norte, CodigoProveedor = "N-2", DescripcionProveedor = "Lápiz", CostoReposicion = 10m };
+        _context.AddRange(cuadernoSur, cuadernoNorte, lapizNorte);
+        await _context.SaveChangesAsync();
+
+        var cuaderno = CrearArticulo("Cuaderno");
+        cuadernoSur.AsignarArticulo(cuaderno);
+        cuaderno.MarcarFuentePrincipal(cuadernoSur);
+        cuadernoNorte.AsignarArticulo(cuaderno);
+        var lapiz = CrearArticulo("Lápiz");
+        lapizNorte.AsignarArticulo(lapiz);
+        lapiz.MarcarFuentePrincipal(lapizNorte);
+        _context.Articulos.AddRange(cuaderno, lapiz, CrearArticulo("Artesanal"));
+        await _context.SaveChangesAsync();
+        var unidad = CrearArticulo("Unidad");
+        unidad.DefinirComoPresentacionDe(cuaderno, 10);
+        _context.Articulos.Add(unidad);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var deNorte = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdProveedor = norte.Id });
+        var sinFuentes = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdProveedor = -1 });
+
+        // Assert
+        deNorte.Items.Select(i => i.Descripcion).Should().BeEquivalentTo("Cuaderno", "Lápiz", "Unidad");
+        sinFuentes.Items.Select(i => i.Descripcion).Should().Equal("Artesanal");
+    }
+
+    [Fact]
+    public async Task ObtenerFuentesAsync_ConVariasFuentes_OrdenaPorCostoMarcaLaPrincipalYOmiteLasBajas()
+    {
+        // Arrange (Track 4.3, A-19): Sur es la principal (100), Norte una adicional más barata (90), Este una adicional
+        // dada de baja (50) y Oeste es fuente de otro artículo.
+        var (cuaderno, sur, norte) = await SembrarCuadernoConFuentesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var fuentes = await _sut.ObtenerFuentesAsync(cuaderno);
+
+        // Assert
+        fuentes.Select(f => f.IdCatalogoProveedor).Should().Equal(norte, sur);
+        fuentes.Select(f => f.EsPrincipal).Should().Equal(false, true);
+        var principal = fuentes[1];
+        principal.RazonSocialProveedor.Should().Be("Distribuidora Sur");
+        principal.CodigoProveedor.Should().Be("S-1");
+        principal.Descripcion.Should().Be("Cuaderno Sur");
+        principal.CostoActual.Should().Be(100m);
+        principal.FechaActualizacion.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(5));
+        _context.ChangeTracker.Entries().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_ConFuentes_CuentaPrincipalYAdicionalesSinLasBajas()
+    {
+        // Arrange
+        await SembrarCuadernoConFuentesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var pagina = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto());
+
+        // Assert
+        pagina.Items.ToDictionary(i => i.Descripcion, i => i.CantidadFuentes)
+            .Should().Equal(new Dictionary<string, int> { ["Cuaderno"] = 2, ["Lápiz"] = 1, ["Artesanal"] = 0 });
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_FuenteParaPedir_EsLaPrincipalOLaMasBarataVigente()
+    {
+        // Arrange (Track 4.3, L4, paso 3c): el cuaderno pierde la principal; Este (50) es más barata pero está dada
+        // de baja, así que se pide a Norte (90)
+        var (idCuaderno, _, norte) = await SembrarCuadernoConFuentesAsync();
+        var cuaderno = await _context.Articulos.SingleAsync(a => a.Id == idCuaderno);
+        cuaderno.QuitarFuentePrincipal();
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var pagina = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto());
+
+        // Assert
+        var porDescripcion = pagina.Items.ToDictionary(i => i.Descripcion);
+        porDescripcion["Cuaderno"].IdCatalogoProveedor.Should().BeNull("pedir no convierte a la más barata en principal");
+        porDescripcion["Cuaderno"].IdFuentePedido.Should().Be(norte);
+        porDescripcion["Lápiz"].IdFuentePedido.Should().Be(porDescripcion["Lápiz"].IdCatalogoProveedor);
+        porDescripcion["Artesanal"].IdFuentePedido.Should().BeNull();
+    }
+
+    /// <summary>
+    /// "Cuaderno" con Sur (100) como principal, Norte (90) como adicional y Este (50) como adicional dada de baja;
+    /// "Lápiz" con Oeste como principal; "Artesanal" sin fuentes.
+    /// </summary>
+    private async Task<(int Cuaderno, int Sur, int Norte)> SembrarCuadernoConFuentesAsync()
+    {
+        var sur = new CatalogoProveedor { Proveedor = Proveedor.Crear("Distribuidora Sur", "30-12345678-1"), CodigoProveedor = "S-1", DescripcionProveedor = "Cuaderno Sur", CostoReposicion = 100m };
+        var norte = new CatalogoProveedor { Proveedor = Proveedor.Crear("Mayorista Norte", "30-50001091-2"), CodigoProveedor = "N-1", DescripcionProveedor = "Cuaderno Norte", CostoReposicion = 90m };
+        var este = new CatalogoProveedor { Proveedor = Proveedor.Crear("Papelera Este", "30-87654321-0"), CodigoProveedor = "E-1", DescripcionProveedor = "Cuaderno Este", CostoReposicion = 50m };
+        var oeste = new CatalogoProveedor { Proveedor = Proveedor.Crear("Librería Oeste", "30-11223344-6"), CodigoProveedor = "O-1", DescripcionProveedor = "Lápiz Oeste", CostoReposicion = 10m };
+        _context.AddRange(sur, norte, este, oeste);
+        await _context.SaveChangesAsync();
+
+        var cuaderno = CrearArticulo("Cuaderno");
+        sur.AsignarArticulo(cuaderno);
+        cuaderno.MarcarFuentePrincipal(sur);
+        norte.AsignarArticulo(cuaderno);
+        este.AsignarArticulo(cuaderno);
+        var lapiz = CrearArticulo("Lápiz");
+        oeste.AsignarArticulo(lapiz);
+        lapiz.MarcarFuentePrincipal(oeste);
+        _context.Articulos.AddRange(cuaderno, lapiz, CrearArticulo("Artesanal"));
+        await _context.SaveChangesAsync();
+
+        este.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+        return (cuaderno.Id, sur.Id, norte.Id);
     }
 
     private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int stock = 10)

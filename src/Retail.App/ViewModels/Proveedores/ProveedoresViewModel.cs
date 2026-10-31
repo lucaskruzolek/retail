@@ -220,6 +220,19 @@ public partial class ProveedoresViewModel : ObservableObject, IDisposable
         await _dialogService.AbrirImportadorCatalogosAsync(target);
     }
 
+    [RelayCommand]
+    private async Task AbrirEquivalenciasAsync(ProveedorDto? proveedor = null)
+    {
+        var target = proveedor ?? ProveedorSeleccionado;
+        if (target is null)
+        {
+            MensajeError = "Seleccione un proveedor de la grilla para ver sus equivalencias.";
+            return;
+        }
+
+        await _dialogService.AbrirEquivalenciasProveedorAsync(target);
+    }
+
     // ------------------------------------------------------------------ //
     // Comandos de Paginación                                             //
     // ------------------------------------------------------------------ //

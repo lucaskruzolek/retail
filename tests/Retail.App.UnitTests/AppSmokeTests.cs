@@ -15,12 +15,15 @@ using Retail.App.ViewModels.Reportes;
 using Retail.App.ViewModels.Usuarios;
 using Retail.App.ViewModels.Ventas;
 using Retail.App.Views.Auth;
+using Retail.App.Views.Components;
 using Retail.App.Views.Dev;
 using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Backups;
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Proveedores;
 using Retail.Application.DTOs.Reportes;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
@@ -136,12 +139,24 @@ public class AppSmokeTests
         {
             var inventarioServiceMock = Substitute.For<IInventarioService>();
             var dialogServiceMock = Substitute.For<IArticuloDialogService>();
-            var viewModel = new ArticulosViewModel(inventarioServiceMock, dialogServiceMock);
+
+            // Con un Gerente en sesión, para que también se dibujen la columna de selección y las acciones de pedir.
+            var gerente = Substitute.For<ICurrentUserSession>();
+            gerente.EsGerente.Returns(true);
+            var viewModel = new ArticulosViewModel(
+                inventarioServiceMock,
+                dialogServiceMock,
+                session: gerente,
+                flujoPedir: new Retail.App.ViewModels.Pedidos.FlujoPedirArticulos(
+                    Substitute.For<IPedidoService>(),
+                    Substitute.For<IPedidoDialogService>(),
+                    gerente,
+                    Substitute.For<ILogger<Retail.App.ViewModels.Pedidos.FlujoPedirArticulos>>()));
 
             try
             {
                 view = new ArticulosView(viewModel);
-                viewModel.Articulos.Add(new Retail.Application.DTOs.Articulos.ArticuloDto
+                viewModel.Articulos.Add(new ArticuloFila(new Retail.Application.DTOs.Articulos.ArticuloDto
                 {
                     IdArticulo = 1,
                     Descripcion = "Artículo de Prueba",
@@ -152,10 +167,13 @@ public class AppSmokeTests
                     PrecioVenta = 100m,
                     StockActual = 5,
                     StockMinimo = 10,
-                    EsServicio = false
-                });
-                // Una presentación derivada (RF-21) activa los triggers del badge y del botón Fraccionar.
-                viewModel.Articulos.Add(ArticuloDeEjemplo(idArticulo: 2, idArticuloOrigen: 1));
+                    EsServicio = false,
+                    IdCatalogoProveedor = 40,
+                    ProveedorNombre = "Distribuidora Sur"
+                }));
+                // Una presentación derivada (RF-21) activa los triggers del badge y del botón Fraccionar, y el
+                // tooltip de "no se puede pedir".
+                viewModel.Articulos.Add(new ArticuloFila(ArticuloDeEjemplo(idArticulo: 2, idArticuloOrigen: 1)));
                 view.Measure(new System.Windows.Size(1024, 768));
                 view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
                 view.UpdateLayout();
@@ -585,7 +603,13 @@ public class AppSmokeTests
                 dialog.UpdateLayout();
 
                 // Sin mostrarla, la ventana no resuelve los bindings de visibilidad ni aplica SizeToContent: se la muestra un
-                // instante para medir la altura real que tendría ante el usuario.
+                // instante para medir la altura real que tendría ante el usuario. Fuera de la pantalla, sin foco ni botón en la
+                // barra de tareas, para que correr los tests no abra ventanas visibles (como en SelectorFechaCortaTests).
+                dialog.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
+                dialog.Left = -10000;
+                dialog.Top = -10000;
+                dialog.ShowActivated = false;
+                dialog.ShowInTaskbar = false;
                 dialog.Show();
                 dialog.UpdateLayout();
                 alturaMedida = dialog.ActualHeight;
@@ -698,6 +722,45 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void ArticuloFormDialog_EdicionConFuentes_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange (Track 4.3, A-19): dos fuentes, una con la lista vieja, para que se resuelvan todos los recursos de
+        // la plantilla de renglones
+        Exception? xamlException = null;
+        ArticuloFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new ArticuloFormViewModel();
+            viewModel.ConfigurarEdicion(
+                ArticuloDeEjemplo(idArticulo: 7, idArticuloOrigen: null),
+                new[]
+                {
+                    new FuenteArticuloDto { IdCatalogoProveedor = 25, RazonSocialProveedor = "Distribuidora Sur", CodigoProveedor = "S-1", CostoActual = 1000m, FechaActualizacion = DateTime.UtcNow, EsPrincipal = true },
+                    new FuenteArticuloDto { IdCatalogoProveedor = 26, RazonSocialProveedor = "Mayorista Norte", CodigoProveedor = "N-1", CostoActual = 950m, FechaActualizacion = DateTime.UtcNow.AddDays(-90) }
+                },
+                Array.Empty<CategoriaDto>(),
+                Array.Empty<MarcaDto>());
+
+            try
+            {
+                dialog = new ArticuloFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(640, 750));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 640, 750));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("la sección Fuentes de ArticuloFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
     public void ArticuloFormDialog_EdicionDePresentacionDerivada_DebeCargarXAMLSinExcepciones()
     {
         // Arrange: el modo derivado oculta servicio y distribuidor y muestra el aviso de costo (RF-21)
@@ -709,6 +772,7 @@ public class AppSmokeTests
             var viewModel = new ArticuloFormViewModel();
             viewModel.ConfigurarEdicion(
                 ArticuloDeEjemplo(idArticulo: 8, idArticuloOrigen: 7),
+                Array.Empty<FuenteArticuloDto>(),
                 Array.Empty<CategoriaDto>(),
                 Array.Empty<MarcaDto>());
 
@@ -1076,6 +1140,31 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void ListToolbar_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var barra = new ListToolbar { TotalResultados = 248, PlaceholderText = "Buscar..." };
+                barra.Measure(new System.Windows.Size(1000, 200));
+                barra.Arrange(new System.Windows.Rect(0, 0, 1000, 200));
+                barra.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ListToolbar debe resolverse sin errores");
+    }
+
+    [Fact]
     public void StyleGalleryView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
@@ -1152,11 +1241,29 @@ public class AppSmokeTests
             var inventarioServiceMock = Substitute.For<IInventarioService>();
             var navigationServiceMock = Substitute.For<INavigationService>();
             var loggerMock = Substitute.For<ILogger<ImportadorCatalogosViewModel>>();
+
+            // Con un Gerente en sesión, para que también se dibujen las acciones de pedir (A-14).
+            var gerente = Substitute.For<ICurrentUserSession>();
+            gerente.EsGerente.Returns(true);
+            var modalViewModel = new IncorporarArticulosModalViewModel(
+                Substitute.For<IClasificacionService>(),
+                Substitute.For<ITerminoClasificacionService>(),
+                Substitute.For<IEquivalenciaClasificacionService>(),
+                Substitute.For<IRubroService>(),
+                Substitute.For<ICurrentUserSession>(),
+                Substitute.For<ILogger<IncorporarArticulosModalViewModel>>());
             var viewModel = new ImportadorCatalogosViewModel(
                 proveedorServiceMock,
                 dialogServiceMock,
                 inventarioServiceMock,
                 navigationServiceMock,
+                modalViewModel,
+                new Retail.App.ViewModels.Pedidos.FlujoPedirArticulos(
+                    Substitute.For<IPedidoService>(),
+                    Substitute.For<IPedidoDialogService>(),
+                    gerente,
+                    Substitute.For<ILogger<Retail.App.ViewModels.Pedidos.FlujoPedirArticulos>>()),
+                TimeProvider.System,
                 loggerMock);
 
             try
@@ -1378,6 +1485,7 @@ public class AppSmokeTests
                     Substitute.For<IRubroService>(),
                     Substitute.For<ICategoriaService>(),
                     Substitute.For<IMarcaService>(),
+                    Substitute.For<ITerminoClasificacionService>(),
                     Substitute.For<IClasificacionDialogService>(),
                     Substitute.For<ICurrentUserSession>());
                 vm.Rubros.Add(new RubroDto { IdRubro = 1, NombreRubro = "Librería", CantidadEnUso = 1 });
@@ -1432,19 +1540,55 @@ public class AppSmokeTests
     }
 
     [Fact]
-    public void SeleccionarCatalogoProveedorModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    public async Task SeleccionarCatalogoProveedorModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
         Exception? xamlException = null;
         SeleccionarCatalogoProveedorModalDialog? dialog = null;
 
+        var proveedorService = Substitute.For<IProveedorService>();
+        proveedorService.ListarProveedoresAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<ProveedorDto>());
+        proveedorService.ListarItemsCatalogoAsync(Arg.Any<ConsultaCatalogoProveedorDto>(), Arg.Any<CancellationToken>())
+            .Returns(new CatalogoPaginadoDto
+            {
+                Items =
+                [
+                    new CatalogoProveedorDto
+                    {
+                        Id = 1,
+                        IdProveedor = 1,
+                        ProveedorRazonSocial = "Distribuidora Norte",
+                        CodigoProveedor = "N-001",
+                        DescripcionProveedor = "Cuaderno A4 rayado",
+                        CostoReposicion = 1500m,
+                        FechaActualizacion = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc)
+                    },
+                    new CatalogoProveedorDto
+                    {
+                        Id = 2,
+                        IdProveedor = 1,
+                        ProveedorRazonSocial = "Distribuidora Norte",
+                        CodigoProveedor = "N-002",
+                        DescripcionProveedor = "Lapicera azul",
+                        CostoReposicion = 300m,
+                        FechaActualizacion = new DateTime(2026, 10, 1, 12, 0, 0, DateTimeKind.Utc),
+                        EstaVinculado = true,
+                        IdArticuloVinculado = 99,
+                        NombreArticuloTienda = "Lapicera Bic"
+                    }
+                ],
+                TotalRegistros = 2
+            });
+        var viewModel = new SeleccionarCatalogoProveedorModalViewModel(proveedorService);
+        await viewModel.InicializarAsync(new ContextoSelectorFuente(7, "Cuaderno A4", "7790001112223", []));
+
         WpfTestHelper.Run(() =>
         {
             try
             {
-                dialog = new SeleccionarCatalogoProveedorModalDialog();
-                dialog.Measure(new System.Windows.Size(750, 520));
-                dialog.Arrange(new System.Windows.Rect(0, 0, 750, 520));
+                dialog = new SeleccionarCatalogoProveedorModalDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(760, 560));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 760, 560));
                 dialog.UpdateLayout();
             }
             catch (Exception ex)
@@ -1529,5 +1673,428 @@ public class AppSmokeTests
             bindingF12.Should().NotBeNull();
             bindingF12!.Command.Should().Be(viewModel.RegistrarCompraCommand);
         });
+    }
+
+    [Fact]
+    public void EquivalenciasProveedorDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        EquivalenciasProveedorDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var session = Substitute.For<ICurrentUserSession>();
+                session.EsGerente.Returns(true);
+                var vm = new EquivalenciasProveedorViewModel(
+                    Substitute.For<IEquivalenciaClasificacionService>(),
+                    Substitute.For<ICategoriaService>(),
+                    Substitute.For<IMarcaService>(),
+                    Substitute.For<IClasificacionDialogService>(),
+                    session);
+                vm.Configurar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Distribuidora Norte", Cuit = "30-11111111-1" });
+                vm.Equivalencias.Add(new EquivalenciaProveedorFila(new EquivalenciaDto
+                {
+                    Tipo = TipoEquivalenciaEnum.Categoria,
+                    TextoRubro = "ESCOLAR",
+                    Texto = "CUADERNOS",
+                    IdCategoria = 1,
+                    NombreCategoria = "Cuadernos"
+                }));
+                vm.MensajeError = "Mensaje de prueba";
+
+                dialog = new EquivalenciasProveedorDialog { DataContext = vm };
+                dialog.Measure(new System.Windows.Size(580, 660));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 580, 660));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de EquivalenciasProveedorDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void AdministrarClasificacionDialog_SeccionesDeDiccionarios_DebenCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var terminoService = Substitute.For<ITerminoClasificacionService>();
+                terminoService.ListarAsync(Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<IReadOnlyList<TerminoDto>>([]));
+                terminoService.ListarParesAsync(Arg.Any<int?>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<IReadOnlyList<ParDto>>([]));
+                terminoService.ListarParesPropuestosAsync(Arg.Any<int?>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<IReadOnlyList<ParPropuestoDto>>([]));
+                var categoriaService = Substitute.For<ICategoriaService>();
+                categoriaService.ListarAsync(Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<IReadOnlyList<CategoriaDto>>([]));
+                var marcaService = Substitute.For<IMarcaService>();
+                marcaService.ListarAliasAsync(Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<IReadOnlyList<AliasListadoDto>>([]));
+                marcaService.ListarPrefijosAsync(Arg.Any<string?>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
+                    .Returns(Task.FromResult<IReadOnlyList<PrefijoListadoDto>>([]));
+
+                var vm = new AdministrarClasificacionViewModel(
+                    Substitute.For<IRubroService>(),
+                    categoriaService,
+                    marcaService,
+                    terminoService,
+                    Substitute.For<IClasificacionDialogService>(),
+                    Substitute.For<ICurrentUserSession>());
+                var dialog = new AdministrarClasificacionDialog { DataContext = vm };
+
+                var ambiguo = new TerminoDto { IdTermino = 1, Termino = "CUADERNO" };
+                var categoria = new CategoriaDto { IdCategoria = 10, NombreCategoria = "Cuadernos", IdRubro = 1 };
+                vm.Terminos.Terminos.Add(ambiguo);
+                vm.Terminos.Terminos.Add(new TerminoDto { IdTermino = 2, Termino = "LAPIZ", IdCategoria = 10, NombreCategoria = "Lápices" });
+                vm.Terminos.Pares.Add(new ParDto { IdTermino = 1, Termino = "CUADERNO", SegundaPalabra = "ESPIRAL" });
+                vm.Terminos.TerminoSeleccionado = ambiguo;
+                vm.Terminos.MensajeError = "Mensaje de prueba";
+
+                dialog.Measure(new System.Windows.Size(960, 640));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 960, 640));
+                dialog.UpdateLayout();
+
+                vm.MostrandoTerminos = true;
+                dialog.UpdateLayout();
+                // Marcas con el detalle de la marca seleccionada (M-68): primero la sección y la selección, cuya
+                // carga vacía el detalle, y después las filas a dibujar.
+                var rivadavia = new MarcaDto { IdMarca = 1, NombreMarca = "Rivadavia" };
+                vm.MostrandoMarcas = true;
+                vm.Marcas.Add(rivadavia);
+                vm.MarcaSeleccionada = rivadavia;
+                vm.DetalleMarca.Alias.Add(new AliasListadoDto { IdMarca = 1, NombreMarca = "Rivadavia", Alias = "RIV" });
+                vm.DetalleMarca.Prefijos.Add(new PrefijoListadoDto { IdMarca = 1, NombreMarca = "Rivadavia", Prefijo = "7790001" });
+                dialog.UpdateLayout();
+                // Pestaña "Pares propuestos" del término ambiguo (M-71): primero la pestaña, cuya carga vacía la
+                // lista, y después las filas a dibujar.
+                vm.MostrandoTerminos = true;
+                vm.Terminos.MostrandoPropuestos = true;
+                vm.Terminos.Propuestos.Categorias.Add(categoria);
+                vm.Terminos.Propuestos.Propuestas.Add(new ParPropuestoItemViewModel(
+                    new ParPropuestoDto
+                    {
+                        IdTermino = 1,
+                        Termino = "CUADERNO",
+                        SegundaPalabra = "TAPA",
+                        IdCategoria = 10,
+                        NombreCategoria = "Cuadernos",
+                        Coincidencias = 8,
+                        Total = 8,
+                        Ejemplos = ["CUADERNO TAPA DURA 48H"]
+                    },
+                    categoria));
+                vm.Terminos.Propuestos.MensajeError = "Mensaje de prueba";
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("las secciones de diccionarios de AdministrarClasificacionDialog deben resolverse sin errores");
+    }
+
+    [Fact]
+    public void AdministrarClasificacionDialog_SinDiccionariosPropios_DebeHeredarElAcentoCarminDeLaAplicacion()
+    {
+        // Arrange
+        var carmin = System.Windows.Media.Color.FromRgb(0x9D, 0x0F, 0x33);
+
+        // Act
+        var (diccionariosPropios, rellenoToggle, acentoDeLaVentana, acentoDeLaAplicacion) = WpfTestHelper.Run(() =>
+        {
+            var vm = new AdministrarClasificacionViewModel(
+                Substitute.For<IRubroService>(),
+                Substitute.For<ICategoriaService>(),
+                Substitute.For<IMarcaService>(),
+                Substitute.For<ITerminoClasificacionService>(),
+                Substitute.For<IClasificacionDialogService>(),
+                Substitute.For<ICurrentUserSession>());
+            var dialog = new AdministrarClasificacionDialog { DataContext = vm };
+
+            return (
+                dialog.Resources.MergedDictionaries.Count,
+                ((System.Windows.Media.SolidColorBrush)dialog.FindResource("ToggleSwitchFillOn")).Color,
+                dialog.FindResource("AccentFillColorDefaultBrush"),
+                System.Windows.Application.Current.FindResource("AccentFillColorDefaultBrush"));
+        });
+
+        // Assert
+        diccionariosPropios.Should().Be(0, "la ventana hereda los diccionarios de App.xaml: volver a mergearlos tapa el acento de la aplicación");
+        rellenoToggle.Should().Be(carmin, "el ToggleSwitch \"Solo ambiguos\" debe encenderse en carmín y no en el azul de Windows");
+        acentoDeLaVentana.Should().BeSameAs(acentoDeLaAplicacion, "el acento que aplica ApplicationAccentColorManager debe llegar a la ventana");
+    }
+
+    [Fact]
+    public void DiccionarioFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        DiccionarioFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var vm = new DiccionarioFormViewModel(
+                    "Nuevo término",
+                    "Término *",
+                    string.Empty,
+                    textoEditable: true,
+                    "Categoría",
+                    [new OpcionDiccionario(null, "Ambiguo (sin categoría)"), new OpcionDiccionario(10, "Cuadernos")],
+                    idOpcionInicial: null,
+                    opcionObligatoria: false);
+                vm.MensajeError = "Mensaje de prueba";
+
+                dialog = new DiccionarioFormDialog { DataContext = vm };
+                dialog.Measure(new System.Windows.Size(460, 400));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 460, 400));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de DiccionarioFormDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void IncorporarArticulosModalDialog_ConSugerenciasYPasos_DebeResolverTodosLosRecursosEnCadaPaso()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        IncorporarArticulosModalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var session = Substitute.For<ICurrentUserSession>();
+                session.EsGerente.Returns(true);
+                var viewModel = new IncorporarArticulosModalViewModel(
+                    Substitute.For<IClasificacionService>(),
+                    Substitute.For<ITerminoClasificacionService>(),
+                    Substitute.For<IEquivalenciaClasificacionService>(),
+                    Substitute.For<IRubroService>(),
+                    session,
+                    Substitute.For<ILogger<IncorporarArticulosModalViewModel>>());
+                viewModel.Inicializar(
+                    new[] { new CategoriaDto { IdCategoria = 1, NombreCategoria = "Librería" } },
+                    new[] { new MarcaDto { IdMarca = 1, NombreMarca = "Bic" } },
+                    new[]
+                    {
+                        new Retail.Application.DTOs.Proveedores.CatalogoProveedorDto
+                        {
+                            Id = 1,
+                            IdProveedor = 3,
+                            CodigoProveedor = "BIC-01",
+                            CodigoBarras = "7791234567011",
+                            DescripcionProveedor = "Bolígrafo Azul",
+                            CostoReposicion = 1000m
+                        }
+                    });
+                viewModel.PasoTraducirValores.Cargar(
+                    3,
+                    new[]
+                    {
+                        new Retail.Application.DTOs.Clasificacion.ValorSinTraducirDto
+                        {
+                            Tipo = TipoEquivalenciaEnum.Categoria,
+                            TextoRubro = "LIBRERIA",
+                            Texto = "ESCOLAR",
+                            CantidadDeItems = 4
+                        }
+                    },
+                    puedeAdministrar: true);
+                viewModel.PasoTerminosNuevos.CargarAsync(
+                    new[]
+                    {
+                        new Retail.Application.DTOs.Clasificacion.BloqueTerminoNuevoDto
+                        {
+                            Termino = "PELOTERO",
+                            IdsCatalogo = new List<int> { 1 },
+                            Ejemplos = new List<string> { "PELOTERO INFLABLE" }
+                        }
+                    },
+                    puedeAdministrar: false).GetAwaiter().GetResult();
+                viewModel.TienePasoTraducirValores = true;
+                viewModel.TienePasoTerminosNuevos = true;
+
+                dialog = new IncorporarArticulosModalDialog { DataContext = viewModel };
+
+                // Cada paso y el modo clásico materializan plantillas distintas: se miden todos.
+                foreach (var paso in new[]
+                {
+                    PasoIncorporacionEnum.TraducirValores,
+                    PasoIncorporacionEnum.TerminosNuevos,
+                    PasoIncorporacionEnum.RevisarArticulos
+                })
+                {
+                    viewModel.PasoActual = paso;
+                    dialog.Measure(new System.Windows.Size(1040, 680));
+                    dialog.Arrange(new System.Windows.Rect(0, 0, 1040, 680));
+                    dialog.UpdateLayout();
+                }
+
+                viewModel.SugerirClasificacion = false;
+                dialog.Measure(new System.Windows.Size(1040, 680));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 1040, 680));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML del modal con sugerencias y pasos debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PedidosView_InstanciacionEnHiloSTAConPedidoYDetalle_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PedidosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var reloj = new RelojDePrueba(new DateTimeOffset(2026, 10, 28, 12, 0, 0, TimeSpan.Zero));
+            var viewModel = new Retail.App.ViewModels.Pedidos.PedidosViewModel(
+                Substitute.For<IPedidoService>(),
+                Substitute.For<IProveedorService>(),
+                Substitute.For<IPedidoDialogService>(),
+                reloj,
+                Substitute.For<ILogger<Retail.App.ViewModels.Pedidos.PedidosViewModel>>());
+
+            try
+            {
+                view = new PedidosView(viewModel);
+
+                // Una fila por estado, para que la plantilla del badge resuelva sus cuatro variantes.
+                foreach (var estado in Enum.GetValues<EstadoPedidoEnum>())
+                {
+                    viewModel.Pedidos.Add(new Retail.App.ViewModels.Pedidos.PedidoFila(
+                        new Retail.Application.DTOs.Pedidos.PedidoResumenDto
+                        {
+                            IdPedido = (int)estado,
+                            RazonSocialProveedor = "Distribuidora Sur",
+                            Estado = estado,
+                            FechaCreacion = new DateTime(2026, 10, 20, 15, 0, 0),
+                            CantidadRenglones = 2,
+                            TotalEstimado = 4500m
+                        },
+                        reloj));
+                }
+
+                // El detalle de un borrador muestra la cantidad editable, el quitar y las acciones.
+                viewModel.Detalle = new Retail.Application.DTOs.Pedidos.PedidoDetalleDto
+                {
+                    IdPedido = 1,
+                    RazonSocialProveedor = "Distribuidora Sur",
+                    Estado = EstadoPedidoEnum.Borrador,
+                    FechaCreacion = new DateTime(2026, 10, 20, 15, 0, 0),
+                    CantidadRenglones = 1,
+                    TotalEstimado = 4500m
+                };
+                viewModel.Renglones.Add(new Retail.App.ViewModels.Pedidos.RenglonPedidoFila(
+                    new Retail.Application.DTOs.Pedidos.RenglonPedidoDto
+                    {
+                        IdCatalogoProveedor = 3,
+                        IdArticulo = 4,
+                        CodigoProveedor = "CU-A4",
+                        Descripcion = "Cuaderno A4 rayado",
+                        Cantidad = 3,
+                        CostoPactado = 1500m,
+                        Subtotal = 4500m,
+                        ArticuloDadoDeBaja = true
+                    },
+                    esEditable: true));
+
+                view.Measure(new System.Windows.Size(1280, 800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1280, 800));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PedidosView debe resolver todos sus recursos (badges de estado, grillas y detalle)");
+        view.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PedirArticulosDialog_InstanciacionEnHiloSTAConGruposYOmitidos_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PedirArticulosDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var vistaPrevia = new Retail.Application.DTOs.Pedidos.VistaPreviaPedidoDto
+            {
+                Destinos = new[]
+                {
+                    new Retail.Application.DTOs.Pedidos.DestinoPedidoDto { IdProveedor = 1, RazonSocialProveedor = "Distribuidora Sur", IdBorrador = 7, CantidadRenglonesBorrador = 2 },
+                    new Retail.Application.DTOs.Pedidos.DestinoPedidoDto { IdProveedor = 2, RazonSocialProveedor = "Papelera Norte" }
+                },
+                Renglones = new[]
+                {
+                    new Retail.Application.DTOs.Pedidos.RenglonVistaPreviaDto { IdCatalogoProveedor = 10, IdProveedor = 1, CodigoProveedor = "CU-A4", Descripcion = "Cuaderno A4", CostoActual = 1500m, StockActual = 1, StockMinimo = 3, CantidadEnBorrador = 4 },
+                    new Retail.Application.DTOs.Pedidos.RenglonVistaPreviaDto { IdCatalogoProveedor = 20, IdProveedor = 2, CodigoProveedor = "LAP-HB", Descripcion = "Lápiz HB", CostoActual = 200m, StockActual = 50, StockMinimo = 10 }
+                },
+                Omitidos = new[]
+                {
+                    new Retail.Application.DTOs.Pedidos.RenglonOmitidoDto { IdCatalogoProveedor = 30, CodigoProveedor = "GOM-1", Descripcion = "Goma", Motivo = Retail.Application.DTOs.Pedidos.MotivoOmisionPedidoEnum.SinIncorporar }
+                }
+            };
+
+            try
+            {
+                // Con la oferta de incorporar, para que también se dibuje el botón "Incorporar primero".
+                dialog = new PedirArticulosDialog(new Retail.App.ViewModels.Pedidos.PedirArticulosViewModel(
+                    vistaPrevia,
+                    ["Señalador: no tiene proveedor vinculado"],
+                    ofrecerIncorporar: true));
+                dialog.Measure(new System.Windows.Size(580, 660));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 580, 660));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML del modal de pedido debe resolver sus recursos y plantillas");
+        dialog.Should().NotBeNull();
     }
 }

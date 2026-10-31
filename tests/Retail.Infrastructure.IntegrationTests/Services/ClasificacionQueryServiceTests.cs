@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Services;
 using Xunit;
@@ -10,6 +11,9 @@ namespace Retail.Infrastructure.IntegrationTests.Services;
 
 public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
 {
+    private static readonly string[] TerminosSetYNandu = { "SET", "NANDU" };
+    private static readonly string[] SoloSet = { "SET" };
+
     private readonly string _dbName = $"RetailDb_Test_ClasQ_{Guid.NewGuid():N}";
     private RetailDbContext _context = null!;
     private readonly ITestOutputHelper _salida;
@@ -83,8 +87,6 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
         var articulo = new Articulo
         {
             Descripcion = descripcion,
-            IdCategoria = idCategoria,
-            IdMarca = idMarca,
             CostoReposicion = 100,
             PorcentajeGanancia = 50,
             PrecioVenta = 150,
@@ -92,6 +94,12 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
             StockMinimo = 0,
             EsServicio = false
         };
+        articulo.Clasificar(
+            idCategoria,
+            idCategoria.HasValue ? OrigenClasificacionEnum.Manual : null,
+            idMarca,
+            idMarca.HasValue ? OrigenClasificacionEnum.Manual : null);
+
         if (deBaja)
         {
             articulo.MarkAsDeleted();
@@ -317,5 +325,63 @@ public class ClasificacionQueryServiceTests : IAsyncLifetime, IDisposable
         await CrearCategoriaAsync("Obsoleta", rubro.Id, deBaja: true);
 
         (await _sut.ContarCategoriasActivasPorRubroAsync(rubro.Id)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ListarArticulosConTerminosAsync_PreFiltro_TraeLasGrafiasDelTerminoYExcluyeLosNoConfirmados()
+    {
+        var rubro = await CrearRubroAsync("Librería");
+        var geometria = await CrearCategoriaAsync("Geometría", rubro.Id);
+        var obsoleta = await CrearCategoriaAsync("Obsoleta", rubro.Id, deBaja: true);
+        await CrearArticuloAsync("**Set de geometría", geometria.Id, null);
+        await CrearArticuloAsync("set compás", geometria.Id, null);
+        await CrearArticuloAsync("Ñandú escolar", geometria.Id, null);
+        await CrearArticuloAsync("CASETE VIRGEN", geometria.Id, null);
+        await CrearArticuloAsync("SET SIN CATEGORIA", null, null);
+        await CrearArticuloAsync("SET DADO DE BAJA", geometria.Id, null, deBaja: true);
+        await CrearArticuloAsync("SET DE CATEGORIA OBSOLETA", obsoleta.Id, null);
+        await CrearArticuloAsync("CUADERNO RAYADO", geometria.Id, null);
+
+        var resultado = await _sut.ListarArticulosConTerminosAsync(TerminosSetYNandu);
+
+        // CASETE es el sobrante esperado del pre-filtro: lo descarta la regla exacta del Dominio en el servicio.
+        resultado.Select(a => a.Descripcion).Should().Equal("**Set de geometría", "set compás", "Ñandú escolar", "CASETE VIRGEN");
+        resultado.Should().OnlyContain(a => a.IdCategoria == geometria.Id && a.NombreCategoria == "Geometría");
+    }
+
+    [Fact]
+    public async Task ListarArticulosConTerminosAsync_ConVolumen_TraeSoloLosQueContienenElTermino()
+    {
+        var rubro = await CrearRubroAsync("Librería");
+        var geometria = await CrearCategoriaAsync("Geometría", rubro.Id);
+        var articulos = Enumerable.Range(1, 3000).Select(i =>
+        {
+            var articulo = new Articulo
+            {
+                Descripcion = i % 10 == 0 ? $"SET GEOMETRIA {i}" : $"CUADERNO RAYADO {i}",
+                CostoReposicion = 100,
+                PorcentajeGanancia = 50,
+                PrecioVenta = 150,
+                StockActual = 1
+            };
+            articulo.Clasificar(geometria.Id, OrigenClasificacionEnum.Manual, null, null);
+            return articulo;
+        });
+        _context.Articulos.AddRange(articulos);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        var cronometro = System.Diagnostics.Stopwatch.StartNew();
+
+        var resultado = await _sut.ListarArticulosConTerminosAsync(SoloSet);
+
+        cronometro.Stop();
+        _salida.WriteLine($"3.000 artículos, {resultado.Count} con el término: {cronometro.ElapsedMilliseconds} ms");
+        resultado.Should().HaveCount(300);
+    }
+
+    [Fact]
+    public async Task ListarArticulosConTerminosAsync_SinTerminos_DevuelveVacio()
+    {
+        (await _sut.ListarArticulosConTerminosAsync([])).Should().BeEmpty();
     }
 }

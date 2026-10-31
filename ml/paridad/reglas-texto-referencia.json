@@ -1,0 +1,322 @@
+{
+  "descripciones": [
+    {
+      "descripcion": "**CUADERNO TAPA DURA 48 HJS RAYADO",
+      "limpia": "CUADERNO TAPA DURA 48 HJS RAYADO",
+      "primera_palabra": "CUADERNO",
+      "termino": "CUADERNO",
+      "palabras_para_marca": [
+        "TAPA",
+        "DURA",
+        "48",
+        "HJS",
+        "RAYADO"
+      ],
+      "segunda_palabra": "TAPA"
+    },
+    {
+      "descripcion": "* * CUADERNO ESPIRAL",
+      "limpia": "* CUADERNO ESPIRAL",
+      "primera_palabra": "*",
+      "termino": "*",
+      "palabras_para_marca": [
+        "CUADERNO",
+        "ESPIRAL"
+      ],
+      "segunda_palabra": "CUADERNO"
+    },
+    {
+      "descripcion": "  cuaderno   tapa\tblanda  x 24 ",
+      "limpia": "CUADERNO TAPA BLANDA X 24",
+      "primera_palabra": "CUADERNO",
+      "termino": "CUADERNO",
+      "palabras_para_marca": [
+        "TAPA",
+        "BLANDA",
+        "X",
+        "24"
+      ],
+      "segunda_palabra": "TAPA"
+    },
+    {
+      "descripcion": "ABROCHADORA METÁLICA 24/6 NEGRA",
+      "limpia": "ABROCHADORA METÁLICA 24/6 NEGRA",
+      "primera_palabra": "ABROCHADORA",
+      "termino": "ABROCHADORA",
+      "palabras_para_marca": [
+        "METALICA",
+        "24",
+        "6",
+        "NEGRA"
+      ],
+      "segunda_palabra": "METALICA"
+    },
+    {
+      "descripcion": "MUÑECO DE PELUCHE OSO 30CM",
+      "limpia": "MUÑECO DE PELUCHE OSO 30CM",
+      "primera_palabra": "MUÑECO",
+      "termino": "MUNECO",
+      "palabras_para_marca": [
+        "DE",
+        "PELUCHE",
+        "OSO",
+        "30CM"
+      ],
+      "segunda_palabra": "PELUCHE"
+    },
+    {
+      "descripcion": "LÁPIZ NEGRO HB KOBY/DATA.",
+      "limpia": "LÁPIZ NEGRO HB KOBY/DATA.",
+      "primera_palabra": "LÁPIZ",
+      "termino": "LAPIZ",
+      "palabras_para_marca": [
+        "NEGRO",
+        "HB",
+        "KOBY",
+        "DATA"
+      ],
+      "segunda_palabra": "NEGRO"
+    },
+    {
+      "descripcion": "REPUESTO RIVADAVIA N°3 C/E.",
+      "limpia": "REPUESTO RIVADAVIA N°3 C/E.",
+      "primera_palabra": "REPUESTO",
+      "termino": "REPUESTO",
+      "palabras_para_marca": [
+        "RIVADAVIA",
+        "N°3",
+        "C",
+        "E"
+      ],
+      "segunda_palabra": "RIVADAVIA"
+    },
+    {
+      "descripcion": "SET ESCOLAR ARTÍSTICA DIBU X 6",
+      "limpia": "SET ESCOLAR ARTÍSTICA DIBU X 6",
+      "primera_palabra": "SET",
+      "termino": "SET",
+      "palabras_para_marca": [
+        "ESCOLAR",
+        "ARTISTICA",
+        "DIBU",
+        "X",
+        "6"
+      ],
+      "segunda_palabra": "ESCOLAR"
+    },
+    {
+      "descripcion": "100 SOBRES MANILA",
+      "limpia": "100 SOBRES MANILA",
+      "primera_palabra": "100",
+      "termino": "100",
+      "palabras_para_marca": [
+        "SOBRES",
+        "MANILA"
+      ],
+      "segunda_palabra": "SOBRES"
+    },
+    {
+      "descripcion": "CUADER.C/E 48H",
+      "limpia": "CUADER.C/E 48H",
+      "primera_palabra": "CUADER.C/E",
+      "termino": "CUADER.C/E",
+      "palabras_para_marca": [
+        "48H"
+      ],
+      "segunda_palabra": ""
+    },
+    {
+      "descripcion": "MOCHILA",
+      "limpia": "MOCHILA",
+      "primera_palabra": "MOCHILA",
+      "termino": "MOCHILA",
+      "palabras_para_marca": [],
+      "segunda_palabra": ""
+    },
+    {
+      "descripcion": "***",
+      "limpia": "",
+      "primera_palabra": "",
+      "termino": "",
+      "palabras_para_marca": [],
+      "segunda_palabra": ""
+    },
+    {
+      "descripcion": "",
+      "limpia": "",
+      "primera_palabra": "",
+      "termino": "",
+      "palabras_para_marca": [],
+      "segunda_palabra": ""
+    },
+    {
+      "descripcion": "SET DE GEOMETRIA 4 PIEZAS",
+      "limpia": "SET DE GEOMETRIA 4 PIEZAS",
+      "primera_palabra": "SET",
+      "termino": "SET",
+      "palabras_para_marca": [
+        "DE",
+        "GEOMETRIA",
+        "4",
+        "PIEZAS"
+      ],
+      "segunda_palabra": "GEOMETRIA"
+    },
+    {
+      "descripcion": "CINTA X 3 METROS",
+      "limpia": "CINTA X 3 METROS",
+      "primera_palabra": "CINTA",
+      "termino": "CINTA",
+      "palabras_para_marca": [
+        "X",
+        "3",
+        "METROS"
+      ],
+      "segunda_palabra": "METROS"
+    },
+    {
+      "descripcion": "GOMA P/ BORRAR",
+      "limpia": "GOMA P/ BORRAR",
+      "primera_palabra": "GOMA",
+      "termino": "GOMA",
+      "palabras_para_marca": [
+        "P",
+        "BORRAR"
+      ],
+      "segunda_palabra": "BORRAR"
+    },
+    {
+      "descripcion": "BLOCK C/E 48H",
+      "limpia": "BLOCK C/E 48H",
+      "primera_palabra": "BLOCK",
+      "termino": "BLOCK",
+      "palabras_para_marca": [
+        "C",
+        "E",
+        "48H"
+      ],
+      "segunda_palabra": "C/E"
+    },
+    {
+      "descripcion": "BLOCK A4 RAYADO",
+      "limpia": "BLOCK A4 RAYADO",
+      "primera_palabra": "BLOCK",
+      "termino": "BLOCK",
+      "palabras_para_marca": [
+        "A4",
+        "RAYADO"
+      ],
+      "segunda_palabra": "RAYADO"
+    },
+    {
+      "descripcion": "VASO 250ML",
+      "limpia": "VASO 250ML",
+      "primera_palabra": "VASO",
+      "termino": "VASO",
+      "palabras_para_marca": [
+        "250ML"
+      ],
+      "segunda_palabra": "250ML"
+    },
+    {
+      "descripcion": "TINTA ÑANDÚ ROJA",
+      "limpia": "TINTA ÑANDÚ ROJA",
+      "primera_palabra": "TINTA",
+      "termino": "TINTA",
+      "palabras_para_marca": [
+        "NANDU",
+        "ROJA"
+      ],
+      "segunda_palabra": "NANDU"
+    },
+    {
+      "descripcion": "**SET ESC. DIBUJO",
+      "limpia": "SET ESC. DIBUJO",
+      "primera_palabra": "SET",
+      "termino": "SET",
+      "palabras_para_marca": [
+        "ESC",
+        "DIBUJO"
+      ],
+      "segunda_palabra": "ESC"
+    },
+    {
+      "descripcion": "CINTA DE LA Y CON",
+      "limpia": "CINTA DE LA Y CON",
+      "primera_palabra": "CINTA",
+      "termino": "CINTA",
+      "palabras_para_marca": [
+        "DE",
+        "LA",
+        "Y",
+        "CON"
+      ],
+      "segunda_palabra": ""
+    },
+    {
+      "descripcion": "LIBRO",
+      "limpia": "LIBRO",
+      "primera_palabra": "LIBRO",
+      "termino": "LIBRO",
+      "palabras_para_marca": [],
+      "segunda_palabra": ""
+    }
+  ],
+  "codigos_de_barras": [
+    {
+      "codigo_interno": "INT-1",
+      "codigo": "4006381333931",
+      "gtin": "4006381333931"
+    },
+    {
+      "codigo_interno": "INT-2",
+      "codigo": "036000291452",
+      "gtin": "0036000291452"
+    },
+    {
+      "codigo_interno": "INT-3",
+      "codigo": "36000291452",
+      "gtin": "0036000291452"
+    },
+    {
+      "codigo_interno": "INT-4",
+      "codigo": "00036000291452",
+      "gtin": "0036000291452"
+    },
+    {
+      "codigo_interno": "INT-5",
+      "codigo": "10036000291459",
+      "gtin": "0036000291452"
+    },
+    {
+      "codigo_interno": "INT-6",
+      "codigo": "10036000291452",
+      "gtin": null
+    },
+    {
+      "codigo_interno": "INT-7",
+      "codigo": "96385074",
+      "gtin": "96385074"
+    },
+    {
+      "codigo_interno": "INT-8",
+      "codigo": "2000000000015",
+      "gtin": null
+    },
+    {
+      "codigo_interno": "INT-9",
+      "codigo": "4006381333932",
+      "gtin": null
+    },
+    {
+      "codigo_interno": "INT-10",
+      "codigo": "ABC123",
+      "gtin": null
+    },
+    {
+      "codigo_interno": "12345678",
+      "codigo": "12345678",
+      "gtin": null
+    }
+  ]
+}

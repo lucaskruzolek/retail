@@ -41,6 +41,19 @@ public partial class ImportarPlanillaViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PuedeImportar))]
     private string _columnaPrecio = "PRECIO";
 
+    /// <summary>
+    /// Columnas opcionales con la clasificación del proveedor (Track 6.6, M-12): sus valores alimentan las
+    /// equivalencias del proveedor. Si la planilla no trae la columna, se importa sin ese dato.
+    /// </summary>
+    [ObservableProperty]
+    private string? _columnaRubro = "RUBRO";
+
+    [ObservableProperty]
+    private string? _columnaCategoria = "CATEGORIA";
+
+    [ObservableProperty]
+    private string? _columnaMarca = "MARCA";
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeImportar))]
     private int _filaEncabezado = 1;
@@ -135,6 +148,9 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         ColumnaCodigoBarras = "EAN";
         ColumnaDescripcion = "DESCRIPCION";
         ColumnaPrecio = "PRECIO";
+        ColumnaRubro = "RUBRO";
+        ColumnaCategoria = "CATEGORIA";
+        ColumnaMarca = "MARCA";
         FilaEncabezado = 1;
         IsBusy = false;
         FilasLeidas = 0;
@@ -184,9 +200,12 @@ public partial class ImportarPlanillaViewModel : ObservableObject
             {
                 IdProveedor = Proveedor.IdProveedor,
                 ColumnaCodigo = ColumnaCodigo.Trim(),
-                ColumnaCodigoBarras = string.IsNullOrWhiteSpace(ColumnaCodigoBarras) ? null : ColumnaCodigoBarras.Trim(),
+                ColumnaCodigoBarras = Opcional(ColumnaCodigoBarras),
                 ColumnaDescripcion = ColumnaDescripcion.Trim(),
                 ColumnaPrecioCosto = ColumnaPrecio.Trim(),
+                ColumnaRubro = Opcional(ColumnaRubro),
+                ColumnaCategoria = Opcional(ColumnaCategoria),
+                ColumnaMarca = Opcional(ColumnaMarca),
                 FilaEncabezado = FilaEncabezado,
                 ExtensionArchivo = Path.GetExtension(RutaArchivo)
             };
@@ -232,6 +251,12 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>Una columna opcional vacía viaja como nula: el parser la interpreta como "la planilla no la trae".</summary>
+    private static string? Opcional(string? nombreColumna)
+    {
+        return string.IsNullOrWhiteSpace(nombreColumna) ? null : nombreColumna.Trim();
     }
 
     private static string ConstruirMensajeExito(ResultadoImportacionDto resultado)

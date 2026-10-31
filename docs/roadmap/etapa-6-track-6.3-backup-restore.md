@@ -165,6 +165,7 @@ vigente en un flujo normal. Correcciones aplicadas:
 * El Administrador ve el historial en solo lectura; la autoridad sigue siendo el servicio (D-9).
 * Tras restaurar se muestran las advertencias y la aplicación se reinicia (`IReinicioAplicacion`): primero arranca la instancia nueva y después se cierra la actual.
 * `MainViewModel` (Singleton, Ley 10) abre un scope propio para consultar la última restauración y muestra el aviso de R-20 si ocurrió en los últimos 7 días. `IServiceScopeFactory` es obligatorio en su constructor.
+* El aviso se confirma por operador y por restauración en `%LOCALAPPDATA%\Retail POS\avisos-restauracion.json` (`IConfirmacionesAvisoRestauracion`). Limitación aceptada: es por perfil de Windows, no está en la base de datos; si el archivo no se puede leer, el aviso se muestra.
 * `ObtenerUltimaRestauracionAsync` ordena en memoria: la tabla tiene pocas filas (las restauraciones son excepcionales). Excepción consciente a la Ley 8.
 * **Pendiente:** prueba manual en la aplicación real (login con cambio forzado, usuarios, copia, restauración y el reinicio, que nunca se ejecutó de verdad).
 

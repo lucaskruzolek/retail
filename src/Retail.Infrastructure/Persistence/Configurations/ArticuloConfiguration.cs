@@ -22,6 +22,20 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
                 "([id_articulo_origen] IS NULL AND [unidades_por_origen] IS NULL) OR " +
                 "([id_articulo_origen] IS NOT NULL AND [unidades_por_origen] IS NOT NULL AND [unidades_por_origen] >= 1 " +
                 "AND [id_catalogo_proveedor] IS NULL AND [es_servicio] = 0 AND [id_articulo_origen] <> [id_articulo])");
+
+            // Origen de la clasificación (Track 6.6, sección 8.2 y M-30): la categoría y su origen van juntos; una
+            // marca asignada tiene origen, y un origen sin marca es "Sin marca" confirmada. Los valores son los del
+            // enum guardado como texto. El IS NOT NULL antes del IN es necesario: NULL IN (...) da UNKNOWN, y un CHECK
+            // acepta UNKNOWN, así que sin él una categoría sin origen pasaría (lo detectó un test de la Fase 3).
+            t.HasCheckConstraint(
+                "CK_ARTICULOS_OrigenCategoria",
+                "([id_categoria] IS NULL AND [origen_categoria] IS NULL) OR " +
+                "([id_categoria] IS NOT NULL AND [origen_categoria] IS NOT NULL AND " +
+                "[origen_categoria] IN ('Manual', 'SugerenciaAceptada', 'SugerenciaCorregida'))");
+            t.HasCheckConstraint(
+                "CK_ARTICULOS_OrigenMarca",
+                "([id_marca] IS NULL AND [origen_marca] IS NULL) OR " +
+                "([origen_marca] IS NOT NULL AND [origen_marca] IN ('Manual', 'SugerenciaAceptada', 'SugerenciaCorregida'))");
         });
 
         builder.HasKey(a => a.Id);
@@ -56,6 +70,18 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
 
         builder.Property(a => a.IdMarca)
             .HasColumnName("id_marca")
+            .IsRequired(false);
+
+        builder.Property(a => a.OrigenCategoria)
+            .HasColumnName("origen_categoria")
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .IsRequired(false);
+
+        builder.Property(a => a.OrigenMarca)
+            .HasColumnName("origen_marca")
+            .HasConversion<string>()
+            .HasMaxLength(20)
             .IsRequired(false);
 
         builder.Property(a => a.IdCatalogoProveedor)

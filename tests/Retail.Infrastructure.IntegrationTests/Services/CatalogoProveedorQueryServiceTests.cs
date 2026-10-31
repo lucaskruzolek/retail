@@ -96,19 +96,30 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         };
     }
 
-    private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int? idCatalogo = null)
+    /// <summary>
+    /// Artículo de la tienda; con <paramref name="fuente"/>, la tiene como fuente y principal (A-16). La fuente debe
+    /// estar guardada en el mismo contexto.
+    /// </summary>
+    private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, CatalogoProveedor? fuente = null)
     {
-        return new Articulo
+        var articulo = new Articulo
         {
             Descripcion = descripcion,
             CodigoBarras = codigoBarras,
-            IdCatalogoProveedor = idCatalogo,
             CostoReposicion = 100m,
             PorcentajeGanancia = 50,
             PrecioVenta = 150m,
             StockActual = 7,
             StockMinimo = 1
         };
+
+        if (fuente != null)
+        {
+            fuente.AsignarArticulo(articulo);
+            articulo.MarcarFuentePrincipal(fuente);
+        }
+
+        return articulo;
     }
 
     [Fact]
@@ -120,7 +131,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var libre = CrearItem(proveedor.Id, "L1", "Item libre");
         _context.CatalogosProveedores.AddRange(vinculado, libre);
         await _context.SaveChangesAsync();
-        var articulo = CrearArticulo("Mi articulo", idCatalogo: vinculado.Id);
+        var articulo = CrearArticulo("Mi articulo", fuente: vinculado);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
@@ -155,7 +166,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var libre = CrearItem(proveedor.Id, "L1", "Item libre");
         _context.CatalogosProveedores.AddRange(vinculado, libre);
         await _context.SaveChangesAsync();
-        _context.Articulos.Add(CrearArticulo("Mi articulo", idCatalogo: vinculado.Id));
+        _context.Articulos.Add(CrearArticulo("Mi articulo", fuente: vinculado));
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
 
@@ -178,7 +189,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var item = CrearItem(proveedor.Id, "V1", "Item");
         _context.CatalogosProveedores.Add(item);
         await _context.SaveChangesAsync();
-        var articulo = CrearArticulo("Dado de baja", idCatalogo: item.Id);
+        var articulo = CrearArticulo("Dado de baja", fuente: item);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         articulo.MarkAsDeleted();
@@ -192,6 +203,33 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var dto = res.Items.Should().ContainSingle().Subject;
         dto.EstaVinculado.Should().BeFalse();
         dto.IdArticuloVinculado.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConFuenteAdicional_LaMuestraVinculadaAlArticulo()
+    {
+        // Arrange: el artículo tiene una fuente principal y una adicional (Track 4.3, J6)
+        var proveedor = await CrearProveedorAsync();
+        var principal = CrearItem(proveedor.Id, "P1", "Item principal");
+        var adicional = CrearItem(proveedor.Id, "A1", "Item adicional");
+        _context.CatalogosProveedores.AddRange(principal, adicional);
+        await _context.SaveChangesAsync();
+        var articulo = CrearArticulo("Mi articulo", fuente: principal);
+        adicional.AsignarArticulo(articulo);
+        _context.Articulos.Add(articulo);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var yaEnTienda = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            EstadoVinculacion = EstadoVinculacionCatalogoEnum.YaEnTienda
+        });
+
+        // Assert
+        yaEnTienda.Items.Should().HaveCount(2)
+            .And.OnlyContain(i => i.EstaVinculado && i.IdArticuloVinculado == articulo.Id);
     }
 
     [Fact]
@@ -218,15 +256,15 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task ObtenerCatalogoPaginadoAsync_ConArticuloYaVinculadoConElMismoCodigoDeBarras_NoMarcaCoincidencia()
+    public async Task ObtenerCatalogoPaginadoAsync_ConArticuloConOtraFuenteYElMismoCodigoDeBarras_MarcaLaCoincidencia()
     {
-        // Arrange: un artículo vinculado a otro ítem no cuenta como "propio no vinculado"
+        // Arrange: el artículo ya tiene otra fuente, y el ítem se le puede sumar como adicional (Track 4.3, K4)
         var proveedor = await CrearProveedorAsync();
         var otro = CrearItem(proveedor.Id, "O1", "Otro");
         var candidato = CrearItem(proveedor.Id, "C1", "Candidato", "555");
         _context.CatalogosProveedores.AddRange(otro, candidato);
         await _context.SaveChangesAsync();
-        _context.Articulos.Add(CrearArticulo("Vinculado a otro", "555", otro.Id));
+        _context.Articulos.Add(CrearArticulo("Vinculado a otro", "555", otro));
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
 
@@ -234,7 +272,29 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var res = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id });
 
         // Assert
-        res.Items.Single(i => i.CodigoProveedor == "C1").CoincideConArticuloTienda.Should().BeFalse();
+        res.Items.Single(i => i.CodigoProveedor == "C1").CoincideConArticuloTienda.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConPresentacionDerivadaConElMismoCodigoDeBarras_NoMarcaCoincidencia()
+    {
+        // Arrange: una presentación derivada no puede tener fuentes (RF-21), así que no es candidata
+        var proveedor = await CrearProveedorAsync();
+        _context.CatalogosProveedores.Add(CrearItem(proveedor.Id, "C1", "Candidato", "555"));
+        var origen = CrearArticulo("Pack");
+        _context.Articulos.Add(origen);
+        await _context.SaveChangesAsync();
+        var derivado = CrearArticulo("Unidad", "555");
+        derivado.DefinirComoPresentacionDe(origen, 10);
+        _context.Articulos.Add(derivado);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var res = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto { IdProveedor = proveedor.Id });
+
+        // Assert
+        res.Items.Single().CoincideConArticuloTienda.Should().BeFalse();
     }
 
     [Fact]
@@ -282,5 +342,60 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         sinAcentos.Items.Should().ContainSingle(i => i.CodigoProveedor == "A1");
         conEnie.Items.Should().ContainSingle(i => i.CodigoProveedor == "A2");
         sinEnie.Items.Should().BeEmpty("en castellano la ñ es una letra distinta de la n");
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ConBusqueda_FechaUltimaPlanillaEsLaMasRecienteDelCatalogoVigenteDelProveedor()
+    {
+        // Arrange
+        var proveedor = await CrearProveedorAsync();
+        var otroProveedor = Proveedor.Crear("Distribuidora Norte", "30-87654321-0");
+        _context.Proveedores.Add(otroProveedor);
+        await _context.SaveChangesAsync();
+
+        var antiguo = CrearItem(proveedor.Id, "A-1", "Cuaderno rayado");
+        antiguo.FechaActualizacion = new DateTime(2026, 10, 1, 12, 0, 0);
+        var reciente = CrearItem(proveedor.Id, "A-2", "Lápiz negro");
+        reciente.FechaActualizacion = new DateTime(2026, 10, 15, 12, 0, 0);
+        var dadoDeBaja = CrearItem(proveedor.Id, "A-3", "Goma blanca");
+        dadoDeBaja.FechaActualizacion = new DateTime(2026, 10, 20, 12, 0, 0);
+        var deOtroProveedor = CrearItem(otroProveedor.Id, "B-1", "Regla");
+        deOtroProveedor.FechaActualizacion = new DateTime(2026, 10, 25, 12, 0, 0);
+        _context.CatalogosProveedores.AddRange(antiguo, reciente, dadoDeBaja, deOtroProveedor);
+        await _context.SaveChangesAsync();
+        dadoDeBaja.MarkAsDeleted();
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act: la búsqueda solo trae el ítem antiguo, pero la fecha es la de la lista completa.
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            TerminoBusqueda = "Cuaderno",
+            Pagina = 1,
+            TamañoPagina = 50
+        });
+
+        // Assert: ni el ítem dado de baja ni el de otro proveedor cuentan.
+        resultado.Items.Should().ContainSingle();
+        resultado.FechaUltimaPlanilla.Should().Be(new DateTime(2026, 10, 15, 12, 0, 0));
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_ProveedorSinCatalogo_FechaUltimaPlanillaNula()
+    {
+        // Arrange
+        var proveedor = await CrearProveedorAsync();
+
+        // Act
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            Pagina = 1,
+            TamañoPagina = 50
+        });
+
+        // Assert
+        resultado.FechaUltimaPlanilla.Should().BeNull();
     }
 }

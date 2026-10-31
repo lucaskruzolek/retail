@@ -19,7 +19,7 @@
         <KeyBinding Key="F9" Command="{Binding ImportarPlanillaCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -31,7 +31,7 @@
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
                 Padding="20,14"
-                Margin="0,0,0,16">
+                Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <iconPacks:PackIconBoxIcons Kind="RegularFileDetail"
@@ -49,19 +49,48 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- Selector de Distribuidor -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
-                        <TextBlock Text="Distribuidor:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0" />
-                        <ComboBox ItemsSource="{Binding ProveedoresDisponibles}"
-                                  SelectedItem="{Binding ProveedorActivo, Mode=TwoWay}"
-                                  DisplayMemberPath="RazonSocial"
-                                  Width="220"
-                                  Height="36"
-                                  VerticalAlignment="Center" />
+                    <!-- Selector de Distribuidor y antigüedad de su lista -->
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock Text="Distribuidor:"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0" />
+                            <ComboBox ItemsSource="{Binding ProveedoresDisponibles}"
+                                      SelectedItem="{Binding ProveedorActivo, Mode=TwoWay}"
+                                      DisplayMemberPath="RazonSocial"
+                                      Width="220"
+                                      Height="36"
+                                      VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Fecha de la última planilla del proveedor; en ámbar si supera el umbral (A-2) -->
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    Margin="0,6,0,0"
+                                    Visibility="{Binding TieneProveedorActivo, Converter={StaticResource BoolToVisConverter}}">
+                            <iconPacks:PackIconBoxIcons Kind="SolidAlertTriangle"
+                                                        Width="12" Height="12"
+                                                        Margin="0,0,6,0"
+                                                        VerticalAlignment="Center"
+                                                        Foreground="{DynamicResource WarningForegroundBrush}"
+                                                        ToolTip="{Binding AvisoListaDesactualizada}"
+                                                        Visibility="{Binding ListaDesactualizada, Converter={StaticResource BoolToVisConverter}}" />
+                            <TextBlock Text="{Binding TextoUltimaPlanilla}" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockCaptionSecondary}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ListaDesactualizada}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                <Setter Property="ToolTip" Value="{Binding AvisoListaDesactualizada}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Importar Planilla (F9) -->
@@ -161,6 +190,21 @@
                             <Run Text=" ítem(s)" />
                         </TextBlock>
 
+                        <!-- Pedir los seleccionados al proveedor (Track 4.3, A-17): solo Encargado y Gerente (A-14) -->
+                        <Button Style="{StaticResource KeycapButtonStyle}"
+                                Padding="14,8"
+                                Margin="0,0,8,0"
+                                VerticalAlignment="Center"
+                                Command="{Binding PedirSeleccionadosCommand}"
+                                IsEnabled="{Binding TieneItemsSeleccionados}"
+                                Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
+                                ToolTip="Agregar los ítems seleccionados al borrador de pedido del proveedor">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Pedir Seleccionados" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
                         <!-- Botón incorporar seleccionados a tienda -->
                         <Button x:Name="BtnIncorporar"
                                 Style="{StaticResource PrimaryActionButtonStyle}"
@@ -180,14 +224,14 @@
                 <DataGrid x:Name="GrillaCatalogo"
                           Grid.Row="1"
                           ItemsSource="{Binding ItemsCatalogo}"
-                          Style="{StaticResource DataGridRetailStyle}"
+                          Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           SelectionMode="Single"
                           SelectionChanged="GrillaCatalogo_SelectionChanged"
                           BorderThickness="1"
                           Margin="16,0,16,8">
                     <DataGrid.RowStyle>
-                        <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowRetailStyle}">
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowListadoStyle}">
                             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridRow_PreviewMouseLeftButtonDown" />
                         </Style>
                     </DataGrid.RowStyle>
@@ -254,10 +298,12 @@
                         <DataGridTextColumn Header="Descripción (Proveedor)"
                                             Binding="{Binding DescripcionProveedor}"
                                             ElementStyle="{StaticResource TextBlockTextCell}"
-                                            Width="*" />
+                                            Width="*"
+                                            MinWidth="240" />
 
                         <!-- Precio de costo -->
                         <DataGridTextColumn Header="Costo Reposición"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding CostoReposicion, StringFormat=C2}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="130" />
@@ -308,24 +354,39 @@
 
                         <!-- Precio de venta tienda -->
                         <DataGridTextColumn Header="Precio Venta"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding PrecioVentaTienda, StringFormat=C2}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="110" />
 
-                        <!-- Acción vinculación manual (RF-05) -->
-                        <DataGridTemplateColumn Header="Acción" Width="100">
+                        <!-- Acciones: vinculación manual (RF-05) y pedir la fila (A-17, G4) -->
+                        <DataGridTemplateColumn Header="Acción" Width="180">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Button Command="{Binding DataContext.VincularArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Style="{StaticResource KeycapButtonStyle}"
-                                            Padding="8,4"
-                                            ToolTip="Vincular a artículo en tienda (RF-05)">
-                                        <StackPanel Orientation="Horizontal">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="Vincular" FontSize="11" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                    </Button>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Command="{Binding DataContext.VincularArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource KeycapButtonStyle}"
+                                                Padding="8,4"
+                                                ToolTip="Vincular a artículo en tienda (RF-05)">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Vincular" FontSize="11" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Command="{Binding DataContext.PedirItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                Style="{StaticResource KeycapButtonStyle}"
+                                                Padding="8,4"
+                                                Margin="6,0,0,0"
+                                                Visibility="{Binding DataContext.PuedePedir, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisConverter}}"
+                                                ToolTip="Agregar este ítem al borrador de pedido del proveedor; si no está en la tienda, se ofrece incorporarlo primero">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Pedir" FontSize="11" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

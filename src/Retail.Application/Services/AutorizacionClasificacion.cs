@@ -5,8 +5,9 @@ using Retail.Domain.Exceptions;
 namespace Retail.Application.Services;
 
 /// <summary>
-/// Centraliza la autorización de las escrituras sobre rubros, categorías y marcas (Track 6.5, D-5), para que
-/// los tres servicios apliquen exactamente la misma regla y el mismo mensaje. El actor se vuelve a leer de la
+/// Centraliza la autorización de las escrituras sobre rubros, categorías y marcas (Track 6.5, D-5) y sobre los
+/// diccionarios del motor de catalogación (Track 6.6), para que todos los servicios apliquen exactamente la misma
+/// regla y el mismo mensaje. El actor se vuelve a leer de la
 /// base en cada operación: así una baja o un cambio de rol surten efecto sin esperar a que cierre la sesión.
 /// </summary>
 internal static class AutorizacionClasificacion
@@ -24,7 +25,7 @@ internal static class AutorizacionClasificacion
 
         if (!actor.PuedeAdministrarClasificacion())
         {
-            throw new OperacionNoAutorizadaException("Solo un Gerente o un Encargado puede administrar rubros, categorías y marcas.");
+            throw new OperacionNoAutorizadaException("Solo un Gerente o un Encargado puede administrar la clasificación de artículos.");
         }
     }
 }

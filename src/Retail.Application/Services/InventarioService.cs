@@ -22,7 +22,7 @@ public class InventarioService : IInventarioService
     private readonly IValidator<ActualizarArticuloDto> _actualizarArticuloValidator;
     private readonly IValidator<CrearPresentacionDto> _crearPresentacionValidator;
     private readonly IValidator<FraccionarDto> _fraccionarValidator;
-    private readonly ICatalogoProveedorQueryService? _catalogoQueryService;
+    private readonly ICatalogoProveedorQueryService _catalogoQueryService;
     private readonly IArticuloQueryService? _articuloQueryService;
 
     public InventarioService(
@@ -34,7 +34,7 @@ public class InventarioService : IInventarioService
         IValidator<ActualizarArticuloDto> actualizarArticuloValidator,
         IValidator<CrearPresentacionDto> crearPresentacionValidator,
         IValidator<FraccionarDto> fraccionarValidator,
-        ICatalogoProveedorQueryService? catalogoQueryService = null,
+        ICatalogoProveedorQueryService catalogoQueryService,
         IArticuloQueryService? articuloQueryService = null)
     {
         _articuloRepository = articuloRepository ?? throw new ArgumentNullException(nameof(articuloRepository));
@@ -45,7 +45,7 @@ public class InventarioService : IInventarioService
         _actualizarArticuloValidator = actualizarArticuloValidator ?? throw new ArgumentNullException(nameof(actualizarArticuloValidator));
         _crearPresentacionValidator = crearPresentacionValidator ?? throw new ArgumentNullException(nameof(crearPresentacionValidator));
         _fraccionarValidator = fraccionarValidator ?? throw new ArgumentNullException(nameof(fraccionarValidator));
-        _catalogoQueryService = catalogoQueryService;
+        _catalogoQueryService = catalogoQueryService ?? throw new ArgumentNullException(nameof(catalogoQueryService));
         _articuloQueryService = articuloQueryService;
     }
 
@@ -110,7 +110,7 @@ public class InventarioService : IInventarioService
             .Distinct()
             .ToList();
 
-        var catalogos = (catalogosIds.Count > 0 && _catalogoQueryService != null)
+        var catalogos = (catalogosIds.Count > 0)
             ? (await _catalogoQueryService.ObtenerPorIdsAsync(catalogosIds, cancellationToken)).ToDictionary(c => c.Id, c => c)
             : new Dictionary<int, CatalogoProveedor>();
 
@@ -168,7 +168,7 @@ public class InventarioService : IInventarioService
         var marca = articulo.IdMarca.HasValue
             ? await _marcaRepository.GetByIdAsync(articulo.IdMarca.Value, cancellationToken)
             : null;
-        var catalogo = (articulo.IdCatalogoProveedor.HasValue && _catalogoQueryService != null)
+        var catalogo = (articulo.IdCatalogoProveedor.HasValue)
             ? await _catalogoQueryService.ObtenerPorIdAsync(articulo.IdCatalogoProveedor.Value, cancellationToken)
             : null;
 
@@ -204,6 +204,23 @@ public class InventarioService : IInventarioService
         return MapToDto(articulo, categoria?.NombreCategoria, marca?.NombreMarca);
     }
 
+    public async Task<IReadOnlyList<FuenteArticuloDto>> ObtenerFuentesDeArticuloAsync(int idArticulo, CancellationToken cancellationToken = default)
+    {
+        if (idArticulo <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idArticulo), "El identificador del artículo debe ser mayor a cero.");
+        }
+
+        // A diferencia del listado paginado, no hay respaldo en memoria: la consulta es nueva (A-19) y la aplicación
+        // siempre registra IArticuloQueryService.
+        if (_articuloQueryService == null)
+        {
+            throw new InvalidOperationException("La consulta de fuentes del artículo requiere IArticuloQueryService.");
+        }
+
+        return await _articuloQueryService.ObtenerFuentesAsync(idArticulo, cancellationToken);
+    }
+
     public async Task<ArticuloDto> CrearArticuloAsync(CrearArticuloDto dto, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(dto);
@@ -221,8 +238,19 @@ public class InventarioService : IInventarioService
             porcentajeGanancia: dto.PorcentajeGanancia,
             stockActual: dto.StockActual,
             stockMinimo: dto.StockMinimo,
-            esServicio: dto.EsServicio,
-            idCatalogoProveedor: dto.IdCatalogoProveedor);
+            esServicio: dto.EsServicio);
+
+        try
+        {
+            await AplicarFuentesDelFormularioAsync(articulo, dto.IdsFuentes, dto.IdCatalogoProveedor, cancellationToken);
+        }
+        catch (DomainException)
+        {
+            // Los ítems ya cargados apuntan al artículo nuevo por su navegación: la próxima operación del contexto
+            // los guardaría y, con ellos, el artículo (Ley 9 de persistencia).
+            _unitOfWork.DescartarCambios();
+            throw;
+        }
 
         await _articuloRepository.AddAsync(articulo, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -233,7 +261,7 @@ public class InventarioService : IInventarioService
         var marca = articulo.IdMarca.HasValue
             ? await _marcaRepository.GetByIdAsync(articulo.IdMarca.Value, cancellationToken)
             : null;
-        var catalogo = (articulo.IdCatalogoProveedor.HasValue && _catalogoQueryService != null)
+        var catalogo = (articulo.IdCatalogoProveedor.HasValue)
             ? await _catalogoQueryService.ObtenerPorIdAsync(articulo.IdCatalogoProveedor.Value, cancellationToken)
             : null;
 
@@ -266,17 +294,29 @@ public class InventarioService : IInventarioService
 
         var costoAnterior = articulo.CostoReposicion;
 
-        articulo.ActualizarDatos(
-            descripcion: dto.Descripcion,
-            idCategoria: dto.IdCategoria,
-            idMarca: dto.IdMarca,
-            codigoBarras: dto.CodigoBarras,
-            costoReposicion: dto.CostoReposicion,
-            porcentajeGanancia: dto.PorcentajeGanancia,
-            stockActual: dto.StockActual,
-            stockMinimo: dto.StockMinimo,
-            esServicio: dto.EsServicio,
-            idCatalogoProveedor: dto.IdCatalogoProveedor);
+        try
+        {
+            articulo.ActualizarDatos(
+                descripcion: dto.Descripcion,
+                idCategoria: dto.IdCategoria,
+                idMarca: dto.IdMarca,
+                codigoBarras: dto.CodigoBarras,
+                costoReposicion: dto.CostoReposicion,
+                porcentajeGanancia: dto.PorcentajeGanancia,
+                stockActual: dto.StockActual,
+                stockMinimo: dto.StockMinimo,
+                esServicio: dto.EsServicio);
+
+            // Va después de los datos: si cambia la principal, su costo reemplaza al del formulario (A-2).
+            await AplicarFuentesDelFormularioAsync(articulo, dto.IdsFuentes, dto.IdCatalogoProveedor, cancellationToken);
+        }
+        catch (DomainException)
+        {
+            // El artículo ya cambió en memoria: el contexto vive lo que la pantalla y lo guardaría con la próxima
+            // operación (Ley 9 de persistencia).
+            _unitOfWork.DescartarCambios();
+            throw;
+        }
 
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
         if (articulo.CostoReposicion != costoAnterior)
@@ -292,7 +332,7 @@ public class InventarioService : IInventarioService
         var marca = articulo.IdMarca.HasValue
             ? await _marcaRepository.GetByIdAsync(articulo.IdMarca.Value, cancellationToken)
             : null;
-        var catalogo = (articulo.IdCatalogoProveedor.HasValue && _catalogoQueryService != null)
+        var catalogo = (articulo.IdCatalogoProveedor.HasValue)
             ? await _catalogoQueryService.ObtenerPorIdAsync(articulo.IdCatalogoProveedor.Value, cancellationToken)
             : null;
 
@@ -322,6 +362,15 @@ public class InventarioService : IInventarioService
                 $"por ejemplo '{presentaciones[0].Descripcion}'. Dé de baja primero las presentaciones.");
         }
 
+        // Sus fuentes quedan libres para volver a incorporarse: atadas a un artículo dado de baja, no podrían
+        // vincularse a otro (A-1, J3).
+        var fuentes = await _catalogoQueryService.ObtenerFuentesDeArticuloAsync(articulo.Id, cancellationToken);
+        foreach (var fuente in fuentes)
+        {
+            fuente.LiberarArticulo();
+        }
+
+        articulo.QuitarFuentePrincipal();
         articulo.MarkAsDeleted();
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -458,7 +507,8 @@ public class InventarioService : IInventarioService
             .Select(c => new CategoriaDto
             {
                 IdCategoria = c.Id,
-                NombreCategoria = c.NombreCategoria
+                NombreCategoria = c.NombreCategoria,
+                IdRubro = c.IdRubro
             })
             .ToList();
     }
@@ -529,6 +579,63 @@ public class InventarioService : IInventarioService
             presentacion.RecalcularCostoDesdeOrigen(origen.CostoReposicion);
             await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// Lleva las fuentes del artículo al estado deseado del formulario (Track 4.3, A-19): libera las que ya no figuran,
+    /// vincula las nuevas y fija la principal, todo sobre entidades con tracking para un único <c>SaveChanges</c>. Las
+    /// reglas las aplica el dominio: un ítem de otro artículo se rechaza (A-1) y la principal toma su costo (A-2). Si
+    /// la principal no cambió, no se toca, así el formulario conserva el costo editado a mano.
+    /// </summary>
+    private async Task AplicarFuentesDelFormularioAsync(
+        Articulo articulo,
+        IReadOnlyList<int> idsFuentes,
+        int? idPrincipal,
+        CancellationToken cancellationToken)
+    {
+        var actuales = articulo.Id > 0
+            ? await _catalogoQueryService.ObtenerFuentesDeArticuloAsync(articulo.Id, cancellationToken)
+            : Array.Empty<CatalogoProveedor>();
+
+        foreach (var fuente in actuales.Where(f => !idsFuentes.Contains(f.Id)))
+        {
+            if (articulo.IdCatalogoProveedor == fuente.Id)
+            {
+                articulo.QuitarFuentePrincipal();
+            }
+
+            fuente.LiberarArticulo();
+        }
+
+        var idsNuevas = idsFuentes.Except(actuales.Select(f => f.Id)).ToList();
+        var nuevas = idsNuevas.Count > 0
+            ? await _catalogoQueryService.ObtenerPorIdsAsync(idsNuevas, cancellationToken)
+            : Array.Empty<CatalogoProveedor>();
+        var inexistente = idsNuevas.Except(nuevas.Select(f => f.Id)).FirstOrDefault();
+        if (inexistente > 0)
+        {
+            throw new DomainException($"No se encontró el ítem de catálogo con ID {inexistente}.");
+        }
+
+        foreach (var nueva in nuevas)
+        {
+            nueva.AsignarArticulo(articulo);
+        }
+
+        if (idPrincipal == articulo.IdCatalogoProveedor)
+        {
+            return;
+        }
+
+        if (idPrincipal is not int id)
+        {
+            articulo.QuitarFuentePrincipal();
+            return;
+        }
+
+        // El validador garantiza que la principal está entre las fuentes deseadas, y ya son todas fuentes del artículo.
+        var principal = actuales.Concat(nuevas).First(f => f.Id == id);
+        articulo.MarcarFuentePrincipal(principal);
     }
 
     private static ArticuloDto MapToDto(

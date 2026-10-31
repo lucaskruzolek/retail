@@ -21,7 +21,15 @@ public partial class MainViewModel : ObservableObject
     private readonly ICurrentUserSession _session;
     private readonly INavigationService _navigationService;
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IConfirmacionesAvisoRestauracion? _confirmaciones;
     private readonly ILogger<MainViewModel> _logger;
+
+    /// <summary>
+    /// Operador y restauración del aviso que se está mostrando. Se capturan al cargarlo para que un cambio de
+    /// sesión entre la carga y el cierre no confirme la restauración a nombre de otro operador.
+    /// </summary>
+    private int? _idUsuarioAvisado;
+    private Guid? _referenciaAvisada;
 
     /// <summary>
     /// Días durante los cuales una restauración se avisa al iniciar sesión (R-20).
@@ -66,6 +74,11 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public bool PuedeOperarNegocio => !EsAdministrador;
 
+    /// <summary>
+    /// Pedidos a proveedor: solo Encargado y Gerente; el Cajero no tiene acceso (A-14 del Track 4.3, G1).
+    /// </summary>
+    public bool PuedeAbastecer => EsGerente || EsEncargado;
+
     public bool MostrarCabeceraAdmin => IsSidebarExpanded && PuedeGestionarUsuarios;
 
     public bool MostrarCabecerasOperativas => IsSidebarExpanded && PuedeOperarNegocio;
@@ -89,16 +102,19 @@ public partial class MainViewModel : ObservableObject
     /// <remarks>
     /// El Shell es Singleton (Ley 10) y <see cref="IRestauracionService"/> es Scoped: para consultar la última
     /// restauración se abre un scope propio en lugar de inyectar el servicio. Sin fábrica de scopes no hay aviso.
+    /// Sin <paramref name="confirmaciones"/> el aviso nunca se da por confirmado y reaparece en cada inicio de sesión.
     /// </remarks>
     public MainViewModel(
         ICurrentUserSession session,
         INavigationService navigationService,
         IServiceScopeFactory scopeFactory,
+        IConfirmacionesAvisoRestauracion? confirmaciones = null,
         ILogger<MainViewModel>? logger = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
+        _confirmaciones = confirmaciones;
         _logger = logger ?? NullLogger<MainViewModel>.Instance;
 
         _session.SessionChanged += OnSessionChanged;
@@ -117,6 +133,7 @@ public partial class MainViewModel : ObservableObject
         EsAdministrador = _session.EsAdministrador;
         OnPropertyChanged(nameof(PuedeGestionarUsuarios));
         OnPropertyChanged(nameof(PuedeOperarNegocio));
+        OnPropertyChanged(nameof(PuedeAbastecer));
         OnPropertyChanged(nameof(MostrarCabeceraAdmin));
         OnPropertyChanged(nameof(MostrarCabecerasOperativas));
     }
@@ -138,12 +155,16 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Consulta la última restauración y, si ocurrió en los últimos días, arma el aviso para el Gerente o el
-    /// Administrador. Nunca lanza: un fallo al consultar no debe impedir trabajar (el aviso es informativo).
+    /// Consulta la última restauración y, si ocurrió en los últimos días y el operador todavía no la confirmó,
+    /// arma el aviso para el Gerente o el Administrador. Nunca lanza: un fallo al consultar no debe impedir
+    /// trabajar (el aviso es informativo). Si no se puede leer la confirmación, el aviso se muestra igual: es una
+    /// advertencia de seguridad y ante la duda se prefiere avisar de más.
     /// </summary>
     public async Task CargarAvisoRestauracionAsync()
     {
         AvisoRestauracion = null;
+        _idUsuarioAvisado = null;
+        _referenciaAvisada = null;
 
         if (!_session.EstaAutenticado || !PuedeGestionarUsuarios)
         {
@@ -172,6 +193,13 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
+            if (await EstaConfirmadaPorElOperadorAsync(idActor, ultima.Referencia))
+            {
+                return;
+            }
+
+            _idUsuarioAvisado = idActor;
+            _referenciaAvisada = ultima.Referencia;
             AvisoRestauracion =
                 $"Se restauró la base el {fechaUtc.ToLocalTime():dd/MM/yyyy HH:mm} por {ultima.NombreUsuario} " +
                 $"({EnumATextoConverter.ATexto(ultima.Origen)}).";
@@ -182,10 +210,52 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    public void CerrarAvisoRestauracion()
+    private async Task<bool> EstaConfirmadaPorElOperadorAsync(int idUsuario, Guid referencia)
     {
+        if (_confirmaciones is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            return await Task.Run(() => _confirmaciones.EstaConfirmadaAsync(idUsuario, referencia));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo leer la confirmación del aviso de restauración: {Mensaje}", ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Oculta el aviso en el acto y registra, sin bloquear la interfaz, que el operador lo leyó para que no
+    /// reaparezca en su próximo inicio de sesión. Si no se puede guardar la confirmación solo se registra el
+    /// fallo: el aviso ya se cerró y el operador puede seguir trabajando.
+    /// </summary>
+    [RelayCommand]
+    public async Task CerrarAvisoRestauracionAsync()
+    {
+        var idUsuario = _idUsuarioAvisado;
+        var referencia = _referenciaAvisada;
+
         AvisoRestauracion = null;
+        _idUsuarioAvisado = null;
+        _referenciaAvisada = null;
+
+        if (_confirmaciones is null || idUsuario is null || referencia is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.Run(() => _confirmaciones.ConfirmarAsync(idUsuario.Value, referencia.Value));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo guardar la confirmación del aviso de restauración: {Mensaje}", ex.Message);
+        }
     }
 
     /// <summary>
@@ -255,6 +325,11 @@ public partial class MainViewModel : ObservableObject
         {
             ModuloActivo = "Compras";
             TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
+        }
+        else if (viewType == typeof(PedidosView))
+        {
+            ModuloActivo = "Pedidos";
+            TituloModuloActual = "Pedidos a Proveedores";
         }
         else if (viewType == typeof(ModuloEnConstruccionView))
         {
@@ -356,6 +431,19 @@ public partial class MainViewModel : ObservableObject
         ModuloActivo = "Compras";
         TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
         _navigationService.NavigateTo<ComprasView>();
+    }
+
+    [RelayCommand]
+    public void NavegarPedidos()
+    {
+        if (!PuedeAbastecer)
+        {
+            return;
+        }
+
+        ModuloActivo = "Pedidos";
+        TituloModuloActual = "Pedidos a Proveedores";
+        _navigationService.NavigateTo<PedidosView>();
     }
 
     [RelayCommand]

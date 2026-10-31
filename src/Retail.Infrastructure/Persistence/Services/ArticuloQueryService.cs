@@ -47,6 +47,13 @@ public class ArticuloQueryService : IArticuloQueryService
             query = query.Where(a => a.IdCategoria == consulta.IdCategoria.Value);
         }
 
+        if (consulta.IdRubro.HasValue && consulta.IdRubro.Value > 0)
+        {
+            // El rubro se deriva de la categoría (RF-04): se resuelve con un JOIN a CATEGORIAS en SQL Server.
+            int idRubro = consulta.IdRubro.Value;
+            query = query.Where(a => a.Categoria != null && a.Categoria.IdRubro == idRubro);
+        }
+
         if (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0)
         {
             query = query.Where(a => a.IdMarca == consulta.IdMarca.Value);
@@ -54,17 +61,18 @@ public class ArticuloQueryService : IArticuloQueryService
 
         if (consulta.IdProveedor == -1)
         {
-            // Ninguno (o manual): ni el artículo ni su artículo origen tienen proveedor asignado
+            // Ninguno (o manual): ni el artículo ni su artículo origen tienen fuentes, ni principal ni adicionales
+            // (Track 4.3, K5). La presentación derivada se compra a través de su origen (RF-21).
             query = query.Where(a =>
-                (a.IdArticuloOrigen == null && a.IdCatalogoProveedor == null) ||
-                (a.IdArticuloOrigen != null && a.ArticuloOrigen!.IdCatalogoProveedor == null));
+                !_context.CatalogosProveedores.Any(c => c.IdArticulo == (a.IdArticuloOrigen ?? a.Id)));
         }
         else if (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value > 0)
         {
             int idProv = consulta.IdProveedor.Value;
+            // El distribuidor puede ser cualquier fuente del artículo, o de su origen si es una presentación derivada, no
+            // solo la principal (Track 4.3, K5).
             query = query.Where(a =>
-                (a.CatalogoProveedor != null && a.CatalogoProveedor.IdProveedor == idProv) ||
-                (a.ArticuloOrigen != null && a.ArticuloOrigen.CatalogoProveedor != null && a.ArticuloOrigen.CatalogoProveedor.IdProveedor == idProv));
+                _context.CatalogosProveedores.Any(c => c.IdProveedor == idProv && c.IdArticulo == (a.IdArticuloOrigen ?? a.Id)));
         }
 
         if (consulta.FiltroStock == FiltroStockArticuloEnum.StockCritico)
@@ -78,6 +86,7 @@ public class ArticuloQueryService : IArticuloQueryService
 
         bool esConsultaFiltrada = !string.IsNullOrWhiteSpace(consulta.TerminoBusqueda) ||
             (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0) ||
+            (consulta.IdRubro.HasValue && consulta.IdRubro.Value > 0) ||
             (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0) ||
             (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value != 0) ||
             consulta.FiltroStock != FiltroStockArticuloEnum.Todos;
@@ -116,6 +125,15 @@ public class ArticuloQueryService : IArticuloQueryService
                 CodigoProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.CodigoProveedor : null,
                 DescripcionProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.DescripcionProveedor : null,
                 CostoCatalogoProveedor = a.CatalogoProveedor != null ? a.CatalogoProveedor.CostoReposicion : null,
+                // Subconsulta correlacionada, solo para las filas de la página (A-19); el filtro global omite las bajas.
+                CantidadFuentes = _context.CatalogosProveedores.Count(c => c.IdArticulo == a.Id),
+                // Sin principal se pide a la más barata, con el mismo orden que el combo del modal (costo, id).
+                IdFuentePedido = a.IdCatalogoProveedor ?? _context.CatalogosProveedores
+                    .Where(c => c.IdArticulo == a.Id)
+                    .OrderBy(c => c.CostoReposicion)
+                    .ThenBy(c => c.Id)
+                    .Select(c => (int?)c.Id)
+                    .FirstOrDefault(),
                 CostoReposicion = a.CostoReposicion,
                 PorcentajeGanancia = a.PorcentajeGanancia,
                 PrecioVenta = a.PrecioVenta,
@@ -189,6 +207,29 @@ public class ArticuloQueryService : IArticuloQueryService
                 DescripcionOrigen = a.ArticuloOrigen != null ? a.ArticuloOrigen.Descripcion : null,
                 UnidadesPorOrigen = a.UnidadesPorOrigen,
                 StockOrigen = a.ArticuloOrigen != null ? a.ArticuloOrigen.StockActual : null
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<FuenteArticuloDto>> ObtenerFuentesAsync(int idArticulo, CancellationToken cancellationToken = default)
+    {
+        // Proyección sin tracking (Ley 8): el formulario solo muestra las fuentes; al guardar, el servicio las vuelve a
+        // leer con tracking para modificarlas (A-19).
+        return await _context.CatalogosProveedores
+            .AsNoTracking()
+            .Where(c => c.IdArticulo == idArticulo)
+            .OrderBy(c => c.CostoReposicion)
+            .ThenBy(c => c.Id)
+            .Select(c => new FuenteArticuloDto
+            {
+                IdCatalogoProveedor = c.Id,
+                IdProveedor = c.IdProveedor,
+                RazonSocialProveedor = c.Proveedor!.RazonSocial,
+                CodigoProveedor = c.CodigoProveedor,
+                Descripcion = c.DescripcionProveedor,
+                CostoActual = c.CostoReposicion,
+                FechaActualizacion = c.FechaActualizacion,
+                EsPrincipal = c.Articulo != null && c.Articulo.IdCatalogoProveedor == c.Id
             })
             .ToListAsync(cancellationToken);
     }

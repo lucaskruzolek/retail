@@ -1,10 +1,12 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Pedidos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
@@ -27,11 +29,18 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     private readonly ILogger<ArticulosViewModel> _logger;
     private readonly IClasificacionDialogService? _clasificacionDialogService;
     private readonly ICurrentUserSession? _session;
+    private readonly FlujoPedirArticulos? _flujoPedir;
+    private readonly IRubroService? _rubroService;
 
     // Selección de los combos a restaurar cuando el diálogo de clasificación cambió sus listas.
+    private int? _idRubroARestaurar;
     private int? _idCategoriaARestaurar;
     private int? _idMarcaARestaurar;
 
+    // Mientras el rubro reinicia la categoría, el cambio de categoría no dispara su propia carga.
+    private bool _cambiandoRubro;
+
+    private List<RubroDto> _cacheRubros = new();
     private List<CategoriaDto> _cacheCategorias = new();
     private List<MarcaDto> _cacheMarcas = new();
     private List<ProveedorDto> _cacheProveedores = new();
@@ -42,8 +51,11 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     // tiempo, solo la vigente actualiza la grilla y al salir de la pantalla se cancela (H-19).
     private readonly CargaSerializada _cargaArticulos;
 
-    public ObservableCollection<ArticuloDto> Articulos { get; } = new();
+    public ObservableCollection<ArticuloFila> Articulos { get; } = new();
 
+    public ObservableCollection<RubroDto> RubrosFiltro { get; } = new();
+
+    /// <summary>Las categorías del rubro elegido, o todas si el rubro es "Todos los Rubros".</summary>
     public ObservableCollection<CategoriaDto> CategoriasFiltro { get; } = new();
 
     public ObservableCollection<MarcaDto> MarcasFiltro { get; } = new();
@@ -55,8 +67,24 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private ArticuloDto? _articuloSeleccionado;
 
+    /// <summary>Encabezado de la columna de selección: <c>null</c> cuando hay algunas filas marcadas y otras no.</summary>
+    [ObservableProperty]
+    private bool? _seleccionarTodos = false;
+
+    [ObservableProperty]
+    private bool _tieneArticulosSeleccionados;
+
+    /// <summary>Filas marcadas en la página actual; la barra de acciones masivas la muestra.</summary>
+    [ObservableProperty]
+    private int _cantidadSeleccionados;
+
+    private bool _actualizandoSeleccion;
+
     [ObservableProperty]
     private string _textoBusqueda = string.Empty;
+
+    [ObservableProperty]
+    private int _idRubroFiltro;
 
     [ObservableProperty]
     private int _idCategoriaFiltro;
@@ -117,6 +145,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
     public bool HayFiltrosActivos =>
         !string.IsNullOrWhiteSpace(TextoBusqueda) ||
+        IdRubroFiltro > 0 ||
         IdCategoriaFiltro > 0 ||
         IdMarcaFiltro > 0 ||
         IdDistribuidorFiltro != 0 ||
@@ -130,13 +159,18 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         _session is not null &&
         (_session.EsGerente || _session.EsEncargado);
 
+    /// <summary>Solo el Gerente y el Encargado ven las acciones de pedir (A-14).</summary>
+    public bool PuedePedir => _flujoPedir?.PuedePedir == true;
+
     public ArticulosViewModel(
         IInventarioService inventarioService,
         IArticuloDialogService dialogService,
         IProveedorService? proveedorService = null,
         ILogger<ArticulosViewModel>? logger = null,
         IClasificacionDialogService? clasificacionDialogService = null,
-        ICurrentUserSession? session = null)
+        ICurrentUserSession? session = null,
+        FlujoPedirArticulos? flujoPedir = null,
+        IRubroService? rubroService = null)
     {
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
@@ -145,6 +179,8 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         _cargaArticulos = new CargaSerializada(_logger);
         _clasificacionDialogService = clasificacionDialogService;
         _session = session;
+        _flujoPedir = flujoPedir;
+        _rubroService = rubroService;
 
         InicializarOpcionesFiltroEstaticas();
     }
@@ -161,6 +197,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     public void LimpiarFiltros()
     {
         TextoBusqueda = string.Empty;
+        IdRubroFiltro = 0;
         IdCategoriaFiltro = 0;
         IdMarcaFiltro = 0;
         IdDistribuidorFiltro = 0;
@@ -200,15 +237,18 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Vacía las cachés y los combos de categorías y marcas para que la carga habitual los vuelva a llenar,
-    /// y conserva la selección de cada combo si el elemento sigue existiendo (si no, vuelve a "Todas").
+    /// Vacía las cachés y los combos de rubros, categorías y marcas para que la carga habitual los vuelva a llenar,
+    /// y conserva la selección de cada combo si el elemento sigue existiendo (si no, vuelve a "Todos").
     /// </summary>
     private Task RecargarClasificacionAsync()
     {
+        _idRubroARestaurar = IdRubroFiltro;
         _idCategoriaARestaurar = IdCategoriaFiltro;
         _idMarcaARestaurar = IdMarcaFiltro;
+        _cacheRubros = new List<RubroDto>();
         _cacheCategorias = new List<CategoriaDto>();
         _cacheMarcas = new List<MarcaDto>();
+        RubrosFiltro.Clear();
         CategoriasFiltro.Clear();
         MarcasFiltro.Clear();
 
@@ -222,8 +262,52 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         _ = CargarArticulosConEsperaAsync(EsperaBusqueda);
     }
 
+    /// <summary>
+    /// Elegir un rubro acota las opciones de categoría a las suyas y vuelve a "Todas las Categorías", que pasa a
+    /// significar "todas las del rubro". Los dos cambios disparan una sola carga.
+    /// </summary>
+    partial void OnIdRubroFiltroChanged(int value)
+    {
+        _idCategoriaARestaurar = null;
+        _cambiandoRubro = true;
+        try
+        {
+            IdCategoriaFiltro = 0;
+            EjecutarEnDispatcher(LlenarCategoriasFiltro);
+        }
+        finally
+        {
+            _cambiandoRubro = false;
+        }
+
+        // El combo de categorías se vació y se volvió a llenar: se le vuelve a indicar cuál está elegida.
+        OnPropertyChanged(nameof(IdCategoriaFiltro));
+        PaginaActual = 1;
+        ActualizarEstadoFiltros();
+        _ = CargarArticulosAsync();
+    }
+
+    /// <summary>
+    /// Las opciones salen del diccionario de categorías que la pantalla ya cargó (cada una trae su rubro): recortar
+    /// unas decenas de opciones de un combo no es una consulta de datos. Los artículos sí se filtran en SQL (Ley 8).
+    /// </summary>
+    private void LlenarCategoriasFiltro()
+    {
+        CategoriasFiltro.Clear();
+        CategoriasFiltro.Add(new CategoriaDto { IdCategoria = 0, NombreCategoria = "Todas las Categorías" });
+        foreach (var categoria in _cacheCategorias.Where(c => IdRubroFiltro == 0 || c.IdRubro == IdRubroFiltro))
+        {
+            CategoriasFiltro.Add(categoria);
+        }
+    }
+
     partial void OnIdCategoriaFiltroChanged(int value)
     {
+        if (_cambiandoRubro)
+        {
+            return;
+        }
+
         PaginaActual = 1;
         ActualizarEstadoFiltros();
         _ = CargarArticulosAsync();
@@ -271,10 +355,12 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
     private async Task CargarArticulosConEsperaAsync(TimeSpan espera, CancellationToken cancellationToken = default)
     {
-        bool cargarFiltros = CategoriasFiltro.Count == 0 || MarcasFiltro.Count == 0 || DistribuidoresFiltro.Count == 0;
+        bool cargarFiltros = CategoriasFiltro.Count == 0 || MarcasFiltro.Count == 0 || DistribuidoresFiltro.Count == 0 ||
+            (_rubroService != null && RubrosFiltro.Count == 0);
         var consulta = new ConsultaArticulosDto
         {
             TerminoBusqueda = TextoBusqueda,
+            IdRubro = IdRubroFiltro > 0 ? IdRubroFiltro : null,
             IdCategoria = IdCategoriaFiltro > 0 ? IdCategoriaFiltro : null,
             IdMarca = IdMarcaFiltro > 0 ? IdMarcaFiltro : null,
             IdProveedor = IdDistribuidorFiltro != 0 ? IdDistribuidorFiltro : null,
@@ -291,12 +377,18 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
             async token =>
             {
                 // Las consultas de una misma carga son secuenciales: nunca se solapan sobre el DbContext.
+                IReadOnlyList<RubroDto>? rubros = null;
                 IReadOnlyList<CategoriaDto>? categorias = null;
                 IReadOnlyList<MarcaDto>? marcas = null;
                 IReadOnlyList<ProveedorDto>? proveedores = null;
 
                 if (cargarFiltros)
                 {
+                    if (_rubroService != null)
+                    {
+                        rubros = await _rubroService.ListarAsync(null, token);
+                    }
+
                     categorias = await _inventarioService.ListarCategoriasAsync(token);
                     marcas = await _inventarioService.ListarMarcasAsync(token);
                     if (_proveedorService != null)
@@ -306,9 +398,9 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                 }
 
                 var pagina = await Task.Run(() => _inventarioService.ListarArticulosPaginadosAsync(consulta, token), token);
-                return (Categorias: categorias, Marcas: marcas, Proveedores: proveedores, Pagina: pagina);
+                return (Rubros: rubros, Categorias: categorias, Marcas: marcas, Proveedores: proveedores, Pagina: pagina);
             },
-            resultado => MostrarArticulos(resultado.Categorias, resultado.Marcas, resultado.Proveedores, resultado.Pagina),
+            resultado => MostrarArticulos(resultado.Rubros, resultado.Categorias, resultado.Marcas, resultado.Proveedores, resultado.Pagina),
             ex =>
             {
                 _logger.LogError(ex, "Error al cargar el catálogo de artículos: {Mensaje}", ex.Message);
@@ -322,6 +414,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     }
 
     private void MostrarArticulos(
+        IReadOnlyList<RubroDto>? rubros,
         IReadOnlyList<CategoriaDto>? categorias,
         IReadOnlyList<MarcaDto>? marcas,
         IReadOnlyList<ProveedorDto>? proveedores,
@@ -331,6 +424,10 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         {
             _cacheCategorias = categorias.ToList();
             _cacheMarcas = marcas.ToList();
+            if (rubros is not null)
+            {
+                _cacheRubros = rubros.ToList();
+            }
             if (proveedores is not null)
             {
                 _cacheProveedores = proveedores.ToList();
@@ -338,14 +435,25 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
             EjecutarEnDispatcher(() =>
             {
+                // Primero el rubro: si el que estaba elegido ya no existe, volver a "Todos" reinicia la categoría.
+                if (RubrosFiltro.Count == 0 && _rubroService != null)
+                {
+                    RubrosFiltro.Add(new RubroDto { IdRubro = 0, NombreRubro = "Todos los Rubros" });
+                    foreach (var rubro in _cacheRubros)
+                    {
+                        RubrosFiltro.Add(rubro);
+                    }
+
+                    if (_idRubroARestaurar is int idRubro)
+                    {
+                        _idRubroARestaurar = null;
+                        IdRubroFiltro = RubrosFiltro.Any(r => r.IdRubro == idRubro) ? idRubro : 0;
+                    }
+                }
+
                 if (CategoriasFiltro.Count == 0)
                 {
-                    CategoriasFiltro.Clear();
-                    CategoriasFiltro.Add(new CategoriaDto { IdCategoria = 0, NombreCategoria = "Todas las Categorías" });
-                    foreach (var cat in _cacheCategorias)
-                    {
-                        CategoriasFiltro.Add(cat);
-                    }
+                    LlenarCategoriasFiltro();
 
                     if (_idCategoriaARestaurar is int idCategoria)
                     {
@@ -385,11 +493,15 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
         EjecutarEnDispatcher(() =>
         {
-            Articulos.Clear();
+            LimpiarFilas();
             foreach (var art in resultado.Items)
             {
-                Articulos.Add(art);
+                var fila = new ArticuloFila(art);
+                fila.PropertyChanged += Fila_PropertyChanged;
+                Articulos.Add(fila);
             }
+
+            ActualizarEstadoSeleccion();
         });
 
         TotalArticulos = resultado.TotalArticulos;
@@ -459,8 +571,15 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                 _cacheMarcas = (await _inventarioService.ListarMarcasAsync()).ToList();
             }
 
+            // Se leen al abrir y no se cachean: otra pantalla pudo cambiar las fuentes (A-19). Una presentación derivada
+            // no tiene fuentes propias (RF-21).
+            IReadOnlyList<FuenteArticuloDto> fuentes = target.EsDerivado
+                ? []
+                : await _inventarioService.ObtenerFuentesDeArticuloAsync(target.IdArticulo);
+
             var modificadoDto = _dialogService.MostrarDialogoModificar(
                 target,
+                fuentes,
                 _cacheCategorias,
                 _cacheMarcas,
                 async (actDto) =>
@@ -630,6 +749,137 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
             _logger.LogError(ex, "Error inesperado al fraccionar: {Mensaje}", ex.Message);
             _dialogService.MostrarError("Error Inesperado", ex.Message);
         }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Selección y pedido al proveedor (Track 4.3, A-17)                  //
+    // ------------------------------------------------------------------ //
+
+    /// <summary>"Pedir" de una fila: es un lote de uno (G4).</summary>
+    [RelayCommand]
+    private Task PedirArticuloAsync(ArticuloFila? fila)
+    {
+        return fila is null ? Task.CompletedTask : PedirAsync([fila]);
+    }
+
+    [RelayCommand]
+    private Task PedirSeleccionadosAsync()
+    {
+        var seleccionadas = Articulos.Where(f => f.EstaSeleccionado).ToList();
+        return seleccionadas.Count == 0 ? Task.CompletedTask : PedirAsync(seleccionadas);
+    }
+
+    /// <summary>
+    /// Pide los artículos que tienen alguna fuente, a la principal o, sin ella, a la más barata (paso 3c); los demás se
+    /// informan en el modal con su motivo. Aquí no se ofrece incorporar: un artículo ya está en la tienda, lo que le
+    /// falta es la fuente (A-17).
+    /// </summary>
+    private async Task PedirAsync(IReadOnlyList<ArticuloFila> filas)
+    {
+        if (_flujoPedir is null || !PuedePedir)
+        {
+            return;
+        }
+
+        var idsCatalogo = filas
+            .Where(f => f.SePuedePedir)
+            .Select(f => f.IdFuenteParaPedir!.Value)
+            .Distinct()
+            .ToList();
+        var avisosPrevios = filas
+            .Where(f => !f.SePuedePedir)
+            .Select(f => $"{f.Articulo.Descripcion}: {f.MotivoNoSePuedePedir}")
+            .ToList();
+
+        // Filtrar por un distribuidor es elegir a quién reponer: el modal arranca en su fuente (Track 4.3, K6).
+        var resultado = await _flujoPedir.PedirAsync(
+            idsCatalogo,
+            avisosPrevios,
+            ofrecerIncorporar: false,
+            _cargaArticulos,
+            idProveedorPreferido: IdDistribuidorFiltro > 0 ? IdDistribuidorFiltro : null);
+
+        if (resultado.MensajeError is not null)
+        {
+            _dialogService.MostrarError("No se pudo pedir", resultado.MensajeError);
+            return;
+        }
+
+        if (resultado.Accion == AccionPedirArticulosEnum.Confirmar)
+        {
+            foreach (var fila in Articulos)
+            {
+                fila.EstaSeleccionado = false;
+            }
+
+            _dialogService.MostrarInformacion("Pedido a proveedor", resultado.MensajeEstado!);
+        }
+    }
+
+    /// <summary>Quita la marca de todas las filas de la página ("Cancelar selección" de la barra de acciones masivas).</summary>
+    [RelayCommand]
+    private void LimpiarSeleccion()
+    {
+        SeleccionarTodos = false;
+    }
+
+    partial void OnSeleccionarTodosChanged(bool? value)
+    {
+        if (_actualizandoSeleccion || value is null)
+        {
+            return;
+        }
+
+        _actualizandoSeleccion = true;
+        try
+        {
+            foreach (var fila in Articulos)
+            {
+                fila.EstaSeleccionado = value.Value;
+            }
+        }
+        finally
+        {
+            _actualizandoSeleccion = false;
+        }
+
+        ActualizarEstadoSeleccion();
+    }
+
+    private void Fila_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ArticuloFila.EstaSeleccionado) && !_actualizandoSeleccion)
+        {
+            ActualizarEstadoSeleccion();
+        }
+    }
+
+    /// <summary>Recalcula el encabezado (todas, ninguna o algunas) y si hay algo para pedir.</summary>
+    private void ActualizarEstadoSeleccion()
+    {
+        int seleccionadas = Articulos.Count(f => f.EstaSeleccionado);
+        TieneArticulosSeleccionados = seleccionadas > 0;
+        CantidadSeleccionados = seleccionadas;
+
+        _actualizandoSeleccion = true;
+        try
+        {
+            SeleccionarTodos = seleccionadas == 0 ? false : seleccionadas == Articulos.Count ? true : null;
+        }
+        finally
+        {
+            _actualizandoSeleccion = false;
+        }
+    }
+
+    private void LimpiarFilas()
+    {
+        foreach (var fila in Articulos)
+        {
+            fila.PropertyChanged -= Fila_PropertyChanged;
+        }
+
+        Articulos.Clear();
     }
 
     [RelayCommand]

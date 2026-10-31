@@ -6,12 +6,15 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
+             xmlns:converters="clr-namespace:Retail.App.Converters"
              mc:Ignorable="d"
              Focusable="True"
              Background="{DynamicResource SurfaceBackgroundBrush}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <converters:AMayusculasConverter x:Key="AMayusculasConverter" />
     </UserControl.Resources>
 
     <UserControl.InputBindings>
@@ -19,71 +22,45 @@
         <KeyBinding Key="F5" Command="{Binding CargarArticulosCommand}" />
     </UserControl.InputBindings>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO Y TÍTULO DEL MÓDULO                             -->
+        <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta)                      -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0"
-                Style="{StaticResource CardBorderStyle}"
-                Padding="20,16"
-                Margin="0,0,0,16">
-            <DockPanel LastChildFill="False">
-                <StackPanel VerticalAlignment="Center">
+        <components:PageHeader Grid.Row="0"
+                               Margin="{StaticResource SectionSpacing}"
+                               Titulo="Catálogo de Artículos e Inventario">
+            <StackPanel Orientation="Horizontal">
+                <!-- Administrar rubros, categorías y marcas (solo Gerente y Encargado; sin atajo, D-27) -->
+                <Button Command="{Binding AdministrarClasificacionCommand}"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        Padding="16,10"
+                        Margin="0,0,10,0"
+                        Visibility="{Binding PuedeAdministrarClasificacion, Converter={StaticResource BoolToVisConverter}}">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Catálogo de Artículos e Inventario"
-                                   Style="{StaticResource TextBlockHeader1}" />
-                        
-
-                        <Border x:Name="BadgeStockAlertas"
-                                Style="{StaticResource BadgeWarningStyle}"
-                                Margin="0,0,0,0"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding TotalAlertasStock, Converter={StaticResource BoolToVisConverter}}">
-                            <TextBlock Text="{Binding TotalAlertasStock, StringFormat={}⚠ {0} Stock Crítico}"
-                                       FontSize="11"
-                                       FontWeight="Bold"
-                                       Foreground="{DynamicResource WarningForegroundBrush}" />
-                        </Border>
+                        <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Clasificación" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
+                </Button>
 
-                    <TextBlock Text="Padrón central de productos."
-                               Style="{StaticResource TextBlockBodySecondary}"
-                               Margin="0,4,0,0" />
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- Administrar rubros, categorías y marcas (solo Gerente y Encargado; sin atajo, D-27) -->
-                    <Button Command="{Binding AdministrarClasificacionCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Padding="16,8"
-                            Margin="0,0,10,0"
-                            Visibility="{Binding PuedeAdministrarClasificacion, Converter={StaticResource BoolToVisConverter}}">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Clasificación" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-
-                    <!-- Botón Nuevo Artículo (F2) -->
-                    <Button Command="{Binding NuevoArticuloCommand}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            Padding="16,8">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Nuevo Artículo" FontWeight="Bold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
+                <!-- Botón Nuevo Artículo (F2) -->
+                <Button Command="{Binding NuevoArticuloCommand}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        Padding="20,10">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Nuevo Artículo" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </components:PageHeader>
 
         <!-- ============================================================= -->
-        <!-- 2. PANEL UNIFICADO: FILTROS + TABLA + PAGINACIÓN              -->
+        <!-- 2. PANEL UNIFICADO: BÚSQUEDA + FILTROS + TABLA + PAGINACIÓN   -->
         <!-- ============================================================= -->
         <Border Grid.Row="1"
                 Background="{DynamicResource SurfaceCardBrush}"
@@ -92,147 +69,255 @@
                 CornerRadius="8">
             <Grid>
                 <Grid.RowDefinitions>
-                    <!-- Barra de Búsqueda y Filtros (Mismo surface, solo espaciado) -->
+                    <!-- Búsqueda (o acciones masivas si hay filas marcadas) -->
                     <RowDefinition Height="Auto" />
-                    <!-- Grilla Principal DataGrid -->
+                    <!-- Banda de filtros -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Grilla principal -->
                     <RowDefinition Height="*" />
-                    <!-- Barra de Paginación al final de la tabla -->
+                    <!-- Paginación -->
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <!-- ========================================================= -->
-                <!-- 2.1 BARRA DE HERRAMIENTAS Y FILTROS                       -->
+                <!-- 2.1 BÚSQUEDA, CONTADOR DE RESULTADOS Y CARGA              -->
+                <!--     Con filas marcadas, las acciones masivas ocupan el     -->
+                <!--     lugar de "Limpiar filtros". El contador va en el pie.  -->
                 <!-- ========================================================= -->
-                <WrapPanel Grid.Row="0"
-                           Orientation="Horizontal"
-                           Margin="16,14,16,8"
-                           VerticalAlignment="Center">
-                    <!-- Búsqueda rápida por texto o código de barras -->
-                    <ui:TextBox Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="Buscar por código, descripción o marca..."
-                                Width="260"
-                                Margin="0,0,12,6"
-                                VerticalAlignment="Center">
-                        <ui:TextBox.Icon>
-                            <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                          Width="16"
-                                          Height="16" />
-                        </ui:TextBox.Icon>
-                    </ui:TextBox>
+                <components:ListToolbar x:Name="BarraBusqueda"
+                                        Grid.Row="0"
+                                        Margin="16,16,16,12"
+                                        MostrarContador="False"
+                                        Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="Buscar por código, descripción o marca..."
+                                        ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
+                                        EstaCargando="{Binding IsBusy}"
+                                        TotalResultados="{Binding TotalRegistrosFiltrados}"
+                                        HaySeleccion="{Binding TieneArticulosSeleccionados}">
+                    <components:ListToolbar.AccionesDeSeleccion>
+                        <components:BulkActionBar CantidadSeleccionados="{Binding CantidadSeleccionados}"
+                                                  ComandoCancelar="{Binding LimpiarSeleccionCommand}">
+                            <!-- Acciones sobre los seleccionados: botones sueltos a la derecha, sin recuadro que los agrupe -->
+                            <StackPanel Orientation="Horizontal">
+                                <!-- Pedir los seleccionados (Track 4.3, A-17): solo Encargado y Gerente (A-14). Con borde, por ser
+                                     la acción con lógica; el único acento carmín de la vista sigue siendo "Nuevo Artículo" -->
+                                <Button Command="{Binding PedirSeleccionadosCommand}"
+                                        Style="{StaticResource KeycapButtonStyle}"
+                                        Padding="12,4"
+                                        Margin="0,0,4,0"
+                                        Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
+                                        ToolTip="Agregar los artículos seleccionados al borrador de pedido de su proveedor">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Pedir seleccionados" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
 
-                    <!-- Filtro por Categoría -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
-                        <TextBlock Text="Categoría:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,6,0" />
-                        <ComboBox ItemsSource="{Binding CategoriasFiltro}"
-                                  SelectedValue="{Binding IdCategoriaFiltro}"
-                                  SelectedValuePath="IdCategoria"
-                                  DisplayMemberPath="NombreCategoria"
-                                  Width="150"
-                                  Height="35"
-                                  VerticalAlignment="Center" />
-                    </StackPanel>
+                                <!-- Eliminar seleccionados: todavía sin lógica; queda a la vista, deshabilitado y con su tooltip -->
+                                <Button Style="{StaticResource GhostNeutralButtonStyle}"
+                                        IsEnabled="False"
+                                        Padding="10,4"
+                                        Margin="0,0,4,0"
+                                        ToolTipService.ShowOnDisabled="True"
+                                        ToolTip="Disponible próximamente: dar de baja los artículos seleccionados en una sola operación">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularTrash"
+                                                                    Width="14"
+                                                                    Height="14"
+                                                                    Margin="0,0,6,0"
+                                                                    VerticalAlignment="Center"
+                                                                    Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                        <TextBlock Text="Eliminar seleccionados" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
 
-                    <!-- Filtro por Marca -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
-                        <TextBlock Text="Marca:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,6,0" />
-                        <ComboBox ItemsSource="{Binding MarcasFiltro}"
-                                  SelectedValue="{Binding IdMarcaFiltro}"
-                                  SelectedValuePath="IdMarca"
-                                  DisplayMemberPath="NombreMarca"
-                                  Width="140"
-                                  Height="35"
-                                  VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <!-- Filtro por Distribuidor -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
-                        <TextBlock Text="Distribuidor:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,6,0" />
-                        <ComboBox ItemsSource="{Binding DistribuidoresFiltro}"
-                                  SelectedValue="{Binding IdDistribuidorFiltro}"
-                                  SelectedValuePath="IdProveedor"
-                                  DisplayMemberPath="Nombre"
-                                  Width="160"
-                                  Height="35"
-                                  VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <!-- Filtro por Stock -->
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,6">
-                        <TextBlock Text="Stock:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,6,0" />
-                        <ComboBox ItemsSource="{Binding OpcionesStockFiltro}"
-                                  SelectedValue="{Binding FiltroStock}"
-                                  SelectedValuePath="Valor"
-                                  DisplayMemberPath="Descripcion"
-                                  Width="130"
-                                  Height="35"
-                                  VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <!-- Botón Limpiar Filtros -->
-                    <Button Command="{Binding LimpiarFiltrosCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Height="35"
-                            Padding="12,0"
-                            Margin="0,0,12,6"
-                            VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularEraser"
-                                                        Width="14"
-                                                        Height="14"
-                                                        Margin="0,0,6,0"
-                                                        VerticalAlignment="Center" />
-                            <TextBlock Text="Limpiar"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-
-                    <!-- Indicador de Carga Asíncrona -->
-                    <StackPanel Orientation="Horizontal"
-                                VerticalAlignment="Center"
-                                Margin="4,0,0,6"
-                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
-                        <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
-                        <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </WrapPanel>
+                                <!-- Más acciones (último: el menú abre alineado a su borde derecho). Todavía sin lógica: quedan
+                                     deshabilitadas en el menú, con su tooltip, hasta implementar cada una -->
+                                <Button Style="{StaticResource GhostNeutralButtonStyle}"
+                                        Padding="10,4"
+                                        helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
+                                        ToolTip="Más acciones sobre los artículos seleccionados"
+                                        AutomationProperties.Name="Más acciones">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Más" VerticalAlignment="Center" />
+                                        <!-- Flecha liviana dibujada a mano: el chevron del pack de íconos es grueso para este tamaño -->
+                                        <Path Data="M 0,0 L 4,4 L 8,0"
+                                              Width="8"
+                                              Height="4"
+                                              Margin="6,1,0,0"
+                                              Stretch="None"
+                                              Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                              StrokeThickness="1.2"
+                                              StrokeStartLineCap="Round"
+                                              StrokeEndLineCap="Round"
+                                              StrokeLineJoin="Round"
+                                              VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <Button.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Cambiar rubro"
+                                                      FontWeight="Normal"
+                                                      IsEnabled="False"
+                                                      ToolTipService.ShowOnDisabled="True"
+                                                      ToolTip="Disponible próximamente: cambiar el rubro de los artículos seleccionados">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularBookmarks" Width="14" Height="14" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Cambiar categoría"
+                                                      FontWeight="Normal"
+                                                      IsEnabled="False"
+                                                      ToolTipService.ShowOnDisabled="True"
+                                                      ToolTip="Disponible próximamente: cambiar la categoría de los artículos seleccionados">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularTag" Width="14" Height="14" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
+                            </StackPanel>
+                        </components:BulkActionBar>
+                    </components:ListToolbar.AccionesDeSeleccion>
+                </components:ListToolbar>
 
                 <!-- ========================================================= -->
-                <!-- 2.2 GRILLA PRINCIPAL DE ARTÍCULOS                         -->
+                <!-- 2.2 BANDA DE FILTROS (una fila, etiqueta arriba)          -->
                 <!-- ========================================================= -->
-                <DataGrid Grid.Row="1"
+                <Border Grid.Row="1" Style="{StaticResource FilterBandStyle}" Margin="16,0,16,12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.2*" />
+                            <ColumnDefinition Width="1.1*" />
+                            <ColumnDefinition Width="1.3*" />
+                            <ColumnDefinition Width="0.9*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Rubro (RF-04): acota las opciones de Categoría a las del rubro -->
+                        <HeaderedContentControl Grid.Column="0" Header="Rubro" Style="{StaticResource FilterFieldStyle}" Margin="0,0,12,0">
+                            <ComboBox Style="{StaticResource ComboBoxFiltroStyle}"
+                                      ItemsSource="{Binding RubrosFiltro}"
+                                      SelectedValue="{Binding IdRubroFiltro}"
+                                      SelectedValuePath="IdRubro"
+                                      DisplayMemberPath="NombreRubro" />
+                        </HeaderedContentControl>
+
+                        <!-- Categoría (del rubro elegido, o todas) -->
+                        <HeaderedContentControl Grid.Column="1" Header="Categoría" Style="{StaticResource FilterFieldStyle}" Margin="0,0,12,0">
+                            <ComboBox Style="{StaticResource ComboBoxFiltroStyle}"
+                                      ItemsSource="{Binding CategoriasFiltro}"
+                                      SelectedValue="{Binding IdCategoriaFiltro}"
+                                      SelectedValuePath="IdCategoria"
+                                      DisplayMemberPath="NombreCategoria" />
+                        </HeaderedContentControl>
+
+                        <!-- Marca -->
+                        <HeaderedContentControl Grid.Column="2" Header="Marca" Style="{StaticResource FilterFieldStyle}" Margin="0,0,12,0">
+                            <ComboBox Style="{StaticResource ComboBoxFiltroStyle}"
+                                      ItemsSource="{Binding MarcasFiltro}"
+                                      SelectedValue="{Binding IdMarcaFiltro}"
+                                      SelectedValuePath="IdMarca"
+                                      DisplayMemberPath="NombreMarca" />
+                        </HeaderedContentControl>
+
+                        <!-- Distribuidor -->
+                        <HeaderedContentControl Grid.Column="3" Header="Distribuidor" Style="{StaticResource FilterFieldStyle}" Margin="0,0,12,0">
+                            <ComboBox Style="{StaticResource ComboBoxFiltroStyle}"
+                                      ItemsSource="{Binding DistribuidoresFiltro}"
+                                      SelectedValue="{Binding IdDistribuidorFiltro}"
+                                      SelectedValuePath="IdProveedor"
+                                      DisplayMemberPath="Nombre" />
+                        </HeaderedContentControl>
+
+                        <!-- Stock -->
+                        <HeaderedContentControl Grid.Column="4" Header="Stock" Style="{StaticResource FilterFieldStyle}">
+                            <ComboBox Style="{StaticResource ComboBoxFiltroStyle}"
+                                      ItemsSource="{Binding OpcionesStockFiltro}"
+                                      SelectedValue="{Binding FiltroStock}"
+                                      SelectedValuePath="Valor"
+                                      DisplayMemberPath="Descripcion" />
+                        </HeaderedContentControl>
+                    </Grid>
+                </Border>
+
+                <!-- ========================================================= -->
+                <!-- 2.3 GRILLA PRINCIPAL DE ARTÍCULOS                         -->
+                <!-- ========================================================= -->
+                <DataGrid Grid.Row="2"
                           ItemsSource="{Binding Articulos}"
-                          SelectedItem="{Binding ArticuloSeleccionado, Mode=TwoWay}"
-                          Style="{StaticResource DataGridRetailStyle}"
+                          SelectedValuePath="Articulo"
+                          SelectedValue="{Binding ArticuloSeleccionado, Mode=TwoWay}"
+                          Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
-                          BorderThickness="1"
-                          Margin="16,0,16,8">
+                          Margin="16,0,16,12">
+                <!-- Doble clic en la fila abre la edición; el estilo base conserva el aspecto de fila del listado.
+                     El tinte carmín sigue a la casilla (la selección sobre la que actúan las acciones masivas) y no a la
+                     fila actual de la grilla: un clic en una fila no cambia su aspecto; el gris es solo del hover. Estos
+                     triggers se aplican después de los del estilo base, así que ganan (el último que se cumple manda). -->
+                <DataGrid.RowStyle>
+                    <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowListadoStyle}">
+                        <EventSetter Event="MouseDoubleClick" Handler="Fila_MouseDoubleClick" />
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding EstaSeleccionado}" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </DataGrid.RowStyle>
                 <DataGrid.Columns>
-                    <!-- Descripción (el código de barras no se muestra en la grilla para aliviarla;
-                         la búsqueda por código sigue disponible y el dato se ve al editar el artículo) -->
-                    <DataGridTextColumn Header="Descripción"
-                                        Binding="{Binding Descripcion}"
+                    <!-- Selección para pedir (Track 4.3, A-17): la casilla vive en ArticuloFila, no en el DTO -->
+                    <!-- Su visibilidad la fija el code-behind: una columna no está en el árbol visual y no hereda el DataContext -->
+                    <DataGridTemplateColumn x:Name="ColumnaSeleccion"
+                                            Width="44"
+                                            CanUserResize="False"
+                                            CanUserSort="False">
+                        <DataGridTemplateColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRetailStyle}">
+                                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </DataGridTemplateColumn.HeaderStyle>
+                        <DataGridTemplateColumn.CellStyle>
+                            <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </DataGridTemplateColumn.CellStyle>
+                        <DataGridTemplateColumn.Header>
+                            <CheckBox IsChecked="{Binding DataContext.SeleccionarTodos, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                      Style="{StaticResource CheckBoxCompactStyle}"
+                                      ToolTip="Seleccionar / deseleccionar todos los de esta página" />
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding EstaSeleccionado, UpdateSourceTrigger=PropertyChanged}"
+                                          Style="{StaticResource CheckBoxCompactStyle}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <!-- Artículo: solo la descripción (el código no es dato relevante para el mostrador; la búsqueda por código
+                         sigue disponible y el dato se ve al editar el artículo) -->
+                    <DataGridTextColumn Header="Artículo"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
+                                        Binding="{Binding Articulo.Descripcion, Converter={StaticResource AMayusculasConverter}}"
                                         Width="*"
+                                        MinWidth="200"
                                         ElementStyle="{StaticResource TextBlockTextCell}" />
 
                     <!-- Categoría -->
-                    <DataGridTemplateColumn Header="Categoría" Width="130">
+                    <DataGridTemplateColumn Header="Categoría" Width="150">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Border Style="{StaticResource BadgeNeutralStyle}">
-                                    <TextBlock Text="{Binding CategoriaNombre}"
+                                <Border Style="{StaticResource BadgeNeutralStyle}" HorizontalAlignment="Left">
+                                    <TextBlock Text="{Binding Articulo.CategoriaNombre}"
                                                FontSize="11"
                                                FontWeight="SemiBold"
                                                Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -243,21 +328,22 @@
 
                     <!-- Marca -->
                     <DataGridTextColumn Header="Marca"
-                                        Binding="{Binding MarcaNombre}"
-                                        Width="110"
+                                        Binding="{Binding Articulo.MarcaNombre}"
+                                        Width="130"
                                         ElementStyle="{StaticResource TextBlockTextCell}" />
 
                     <!-- Distribuidor / Enlace (RF-05) -->
-                    <DataGridTemplateColumn Header="Distribuidor" Width="140">
+                    <DataGridTemplateColumn Header="Distribuidor" Width="160">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Grid VerticalAlignment="Center">
                                     <!-- Caso 1: Vinculado a Distribuidor -->
                                     <Border x:Name="BadgeVinculado"
-                                            Background="{DynamicResource PrimaryLightBrush}"
-                                            BorderBrush="{DynamicResource PrimaryBrush}"
+                                            Background="{DynamicResource SurfaceBackgroundBrush}"
+                                            BorderBrush="{DynamicResource SurfaceBorderBrush}"
                                             BorderThickness="1"
-                                            CornerRadius="4"
+                                            CornerRadius="12"
                                             Padding="6,2"
                                             HorizontalAlignment="Left"
                                             VerticalAlignment="Center"
@@ -265,18 +351,18 @@
                                         <Border.ToolTip>
                                             <ToolTip>
                                                 <StackPanel>
-                                                    <TextBlock Text="{Binding ProveedorNombre}" FontWeight="Bold" />
-                                                    <TextBlock Text="{Binding CodigoProveedor, StringFormat={}Cód: {0}}" />
-                                                    <TextBlock Text="{Binding DescripcionProveedor}" FontStyle="Italic" />
+                                                    <TextBlock Text="{Binding Articulo.ProveedorNombre}" FontWeight="Bold" />
+                                                    <TextBlock Text="{Binding Articulo.CodigoProveedor, StringFormat={}Cód: {0}}" />
+                                                    <TextBlock Text="{Binding Articulo.DescripcionProveedor}" FontStyle="Italic" />
                                                 </StackPanel>
                                             </ToolTip>
                                         </Border.ToolTip>
                                         <StackPanel Orientation="Horizontal">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="11" Height="11" Foreground="{DynamicResource PrimaryBrush}" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding ProveedorNombre}"
+                                            <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="11" Height="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Articulo.ProveedorNombre}"
                                                        FontSize="11"
                                                        FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource PrimaryPressedBrush}"
+                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                        TextTrimming="CharacterEllipsis"
                                                        MaxWidth="105"
                                                        VerticalAlignment="Center" />
@@ -292,6 +378,15 @@
                                                VerticalAlignment="Center"
                                                Visibility="Visible" />
 
+                                    <!-- Caso 2b: tiene fuentes pero ninguna es la principal (Track 4.3, A-19) -->
+                                    <TextBlock x:Name="TextoSinPrincipal"
+                                               Text="Sin principal"
+                                               FontStyle="Italic"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Visibility="Collapsed" />
+
                                     <!-- Caso 3: Presentación derivada (RF-21): su costo sale del artículo de origen -->
                                     <Border x:Name="BadgePresentacion"
                                             Style="{StaticResource BadgeNeutralStyle}"
@@ -300,7 +395,7 @@
                                             Visibility="Collapsed">
                                         <StackPanel Orientation="Horizontal">
                                             <iconPacks:PackIconBoxIcons Kind="RegularGitBranch" Width="11" Height="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding UnidadesPorOrigen, StringFormat={}Presentación ×{0}}"
+                                            <TextBlock Text="{Binding Articulo.UnidadesPorOrigen, StringFormat={}Presentación ×{0}}"
                                                        FontSize="11"
                                                        FontWeight="SemiBold"
                                                        Foreground="{DynamicResource TextSecondaryBrush}"
@@ -309,160 +404,233 @@
                                     </Border>
                                 </Grid>
 
+                                <!-- Fuentes adicionales (Track 4.3, A-19): solo informa; las fuentes se ven y se cambian al abrir el artículo -->
+                                <Border x:Name="ChipFuentesAdicionales"
+                                        Style="{StaticResource BadgeNeutralStyle}"
+                                        Padding="6,1"
+                                        Margin="6,0,0,0"
+                                        ToolTip="{Binding TooltipFuentes}"
+                                        Visibility="Collapsed">
+                                    <TextBlock Text="{Binding TextoFuentesAdicionales}"
+                                               FontSize="11"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </Border>
+                                </StackPanel>
+
                                 <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding EstaVinculadoAProveedor}" Value="True">
+                                    <DataTrigger Binding="{Binding Articulo.EstaVinculadoAProveedor}" Value="True">
                                         <Setter TargetName="BadgeVinculado" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
-                                    <DataTrigger Binding="{Binding EsDerivado}" Value="True">
+                                    <DataTrigger Binding="{Binding TieneFuentesSinPrincipal}" Value="True">
+                                        <Setter TargetName="TextoSinPrincipal" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding TieneFuentesAdicionales}" Value="True">
+                                        <Setter TargetName="ChipFuentesAdicionales" Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <!-- Un derivado no tiene fuentes propias (RF-21): nunca muestra "+n" -->
+                                    <DataTrigger Binding="{Binding Articulo.EsDerivado}" Value="True">
                                         <Setter TargetName="BadgePresentacion" Property="Visibility" Value="Visible" />
                                         <Setter TargetName="TextoManual" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="TextoSinPrincipal" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="ChipFuentesAdicionales" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </DataTemplate.Triggers>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <!-- Costo de Reposición -->
-                    <DataGridTextColumn Header="Costo ($)"
-                                        Binding="{Binding CostoReposicion, StringFormat={}{0:N2}}"
-                                        Width="95"
+                    <!-- Costo de reposición -->
+                    <DataGridTextColumn Header="Costo"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                        Binding="{Binding Articulo.CostoReposicion, StringFormat={}{0:C2}}"
+                                        Width="110"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
-                    <!-- Margen Ganancia -->
-                    <DataGridTextColumn Header="Margen (%)"
-                                        Binding="{Binding PorcentajeGanancia, StringFormat={}{0:N1}}"
-                                        Width="85"
+                    <!-- Margen de ganancia -->
+                    <DataGridTextColumn Header="Margen"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                        Binding="{Binding Articulo.PorcentajeGanancia, StringFormat={}{0:0.##}%}"
+                                        Width="80"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
-                    <!-- Precio de Venta (Destacado Carmín) -->
-                    <DataGridTemplateColumn Header="Precio Venta ($)" Width="120">
+                    <!-- Precio de venta (en negrita; el carmín queda para la marca y las acciones) -->
+                    <DataGridTextColumn Header="Precio de venta"
+                                        HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                        Binding="{Binding Articulo.PrecioVenta, StringFormat={}{0:C2}}"
+                                        Width="120"
+                                        ElementStyle="{StaticResource TextBlockPriceCell}" />
+
+                    <!-- Stock (RF-08): punto de color + cantidad; el mínimo y el ⚠ solo cuando hay alerta -->
+                    <!-- Alineado a la derecha como las demás columnas numéricas, con 8 de relleno derecho: el aire entre
+                         el stock y el "⋮" es igual al del "⋮" hasta el borde de la grilla. Mide lo justo para su título
+                         (el mínimo no se muestra); el ancho que no usa lo absorbe la descripción -->
+                    <DataGridTemplateColumn Header="Stock"
+                                            Width="64">
+                        <DataGridTemplateColumn.HeaderStyle>
+                            <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRightListadoStyle}">
+                                <Setter Property="Padding" Value="12,10,8,10" />
+                            </Style>
+                        </DataGridTemplateColumn.HeaderStyle>
+                        <DataGridTemplateColumn.CellStyle>
+                            <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                <Setter Property="Padding" Value="12,8,8,8" />
+                            </Style>
+                        </DataGridTemplateColumn.CellStyle>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding PrecioVenta, StringFormat={}{0:N2}}"
-                                           FontFamily="{StaticResource FontFamilyNumeric}"
-                                           Typography.NumeralAlignment="Tabular"
-                                           FontWeight="Bold"
-                                           FontSize="13"
-                                           Foreground="{DynamicResource PrimaryBrush}"
-                                           HorizontalAlignment="Right"
-                                           VerticalAlignment="Center"
-                                           Margin="0,0,8,0" />
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
+                                <Grid VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <!-- Servicio: no lleva stock. Un guion, porque la insignia "Servicio" no entra en la columna -->
+                                    <TextBlock x:Name="BadgeServicio"
+                                               Text="—"
+                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"
+                                               ToolTip="Servicio: no lleva stock"
+                                               Visibility="Collapsed" />
 
-                    <!-- Stock y Alerta (RF-08) -->
-                    <DataGridTemplateColumn Header="Stock" Width="130">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <Grid VerticalAlignment="Center">
-                                    <!-- Caso 1: Servicio (Sin Stock) -->
-                                    <Border x:Name="BadgeServicio"
-                                            Style="{StaticResource BadgeNeutralStyle}"
-                                            Visibility="Collapsed">
-                                        <TextBlock Text="Servicio"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextMutedBrush}" />
-                                    </Border>
-
-                                    <!-- Caso 2: Stock Crítico / Bajo (Alerta RF-08) -->
-                                    <Border x:Name="BadgeAlerta"
-                                            Style="{StaticResource BadgeWarningStyle}"
-                                            Visibility="Collapsed">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="⚠ " Foreground="{DynamicResource WarningForegroundBrush}" FontWeight="Bold" FontSize="11" />
-                                            <TextBlock Text="{Binding StockActual}" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource WarningForegroundBrush}" />
-                                            <TextBlock Text="{Binding StockMinimo, StringFormat={} (Mín: {0})}" FontSize="10" Foreground="{DynamicResource WarningForegroundBrush}" />
-                                        </StackPanel>
-                                    </Border>
-
-                                    <!-- Caso 3: Stock Normal -->
-                                    <Border x:Name="BadgeNormal"
-                                            Style="{StaticResource BadgeSuccessStyle}"
-                                            Visibility="Visible">
-                                        <TextBlock Text="{Binding StockActual, StringFormat={}{0} unid.}"
-                                                   FontSize="11"
-                                                   FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource SuccessForegroundBrush}" />
-                                    </Border>
+                                    <StackPanel x:Name="PanelStock" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <Ellipse x:Name="PuntoStock"
+                                                 Width="8"
+                                                 Height="8"
+                                                 Fill="{DynamicResource SuccessBrush}"
+                                                 Margin="0,0,8,0"
+                                                 VerticalAlignment="Center" />
+                                        <TextBlock x:Name="AvisoStock"
+                                                   Text="⚠"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource WarningBrush}"
+                                                   Margin="0,0,4,0"
+                                                   VerticalAlignment="Center"
+                                                   Visibility="Collapsed" />
+                                        <TextBlock Text="{Binding Articulo.StockActual}"
+                                                   Style="{StaticResource TextBlockNumericCell}" />
+                                    </StackPanel>
                                 </Grid>
 
                                 <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding EsServicio}" Value="True">
-                                        <Setter TargetName="BadgeServicio" Property="Visibility" Value="Visible" />
-                                        <Setter TargetName="BadgeAlerta" Property="Visibility" Value="Collapsed" />
-                                        <Setter TargetName="BadgeNormal" Property="Visibility" Value="Collapsed" />
+                                    <DataTrigger Binding="{Binding Articulo.StockBajo}" Value="True">
+                                        <!-- El ⚠ reemplaza al punto: la alerta no depende solo del color -->
+                                        <Setter TargetName="PuntoStock" Property="Visibility" Value="Collapsed" />
+                                        <Setter TargetName="AvisoStock" Property="Visibility" Value="Visible" />
                                     </DataTrigger>
-                                    <DataTrigger Binding="{Binding StockBajo}" Value="True">
-                                        <Setter TargetName="BadgeAlerta" Property="Visibility" Value="Visible" />
-                                        <Setter TargetName="BadgeNormal" Property="Visibility" Value="Collapsed" />
-                                        <Setter TargetName="BadgeServicio" Property="Visibility" Value="Collapsed" />
+                                    <DataTrigger Binding="{Binding Articulo.EsServicio}" Value="True">
+                                        <Setter TargetName="BadgeServicio" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="PanelStock" Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </DataTemplate.Triggers>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <!-- Acciones Contextuales -->
-                    <DataGridTemplateColumn Header="Acciones" Width="140">
+                    <!-- Acciones de la fila: un solo "⋮" con menú (el doble clic en la fila ya abre la edición). La columna no
+                         lleva título para no gastar ancho. -->
+                    <DataGridTemplateColumn Width="40"
+                                            CanUserResize="False"
+                                            CanUserSort="False"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}">
+                        <DataGridTemplateColumn.CellStyle>
+                            <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                <Setter Property="Padding" Value="0" />
+                            </Style>
+                        </DataGridTemplateColumn.CellStyle>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <!-- Crear presentación (RF-21): solo en artículos de compra que no son servicios -->
-                                    <Button x:Name="BtnCrearPresentacion"
-                                            Command="{Binding DataContext.CrearPresentacionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Style="{StaticResource KeycapButtonStyle}"
-                                            Padding="6,4"
-                                            Margin="0,0,4,0"
-                                            ToolTip="Crear presentación de venta (por ejemplo, la unidad suelta)">
-                                        <iconPacks:PackIconBoxIcons Kind="RegularGitBranch" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    </Button>
+                                <!-- Tag lleva el ViewModel de la página: el ContextMenu no está en el árbol visual de la vista -->
+                                <Button Style="{StaticResource RowMenuButtonStyle}"
+                                        helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
+                                        Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        HorizontalAlignment="Left"
+                                        ToolTip="Acciones del artículo"
+                                        AutomationProperties.Name="Acciones del artículo">
+                                    <iconPacks:PackIconBoxIcons Kind="RegularDotsVerticalRounded" Width="14" Height="14" />
+                                    <Button.ContextMenu>
+                                        <ContextMenu>
+                                            <!-- Pedir al proveedor (A-17, G4): deshabilitado con su motivo si no tiene fuente -->
+                                            <MenuItem Header="Pedir al proveedor"
+                                                      Command="{Binding PlacementTarget.Tag.PedirArticuloCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      IsEnabled="{Binding PlacementTarget.DataContext.SePuedePedir, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      ToolTip="{Binding PlacementTarget.DataContext.MotivoNoSePuedePedir, RelativeSource={RelativeSource AncestorType=ContextMenu}, StringFormat=No se puede pedir: {0}}"
+                                                      ToolTipService.ShowOnDisabled="True">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" />
+                                                </MenuItem.Icon>
+                                                <MenuItem.Style>
+                                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding PlacementTarget.Tag.PuedePedir, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Value="False">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </MenuItem.Style>
+                                            </MenuItem>
 
-                                    <!-- Fraccionar (RF-21): solo en presentaciones derivadas -->
-                                    <Button x:Name="BtnFraccionar"
-                                            Command="{Binding DataContext.FraccionarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Style="{StaticResource KeycapButtonStyle}"
-                                            Padding="6,4"
-                                            Margin="0,0,4,0"
-                                            Visibility="Collapsed"
-                                            ToolTip="Fraccionar: abrir unidades del artículo de origen">
-                                        <iconPacks:PackIconBoxIcons Kind="RegularCut" Width="14" Height="14" Foreground="{DynamicResource PrimaryBrush}" />
-                                    </Button>
+                                            <!-- Crear presentación (RF-21): solo en artículos de compra que no son servicios -->
+                                            <MenuItem Header="Crear presentación"
+                                                      Command="{Binding PlacementTarget.Tag.CrearPresentacionCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext.Articulo, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularGitBranch" Width="14" Height="14" />
+                                                </MenuItem.Icon>
+                                                <MenuItem.Style>
+                                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding PlacementTarget.DataContext.Articulo.EsDerivado, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding PlacementTarget.DataContext.Articulo.EsServicio, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </MenuItem.Style>
+                                            </MenuItem>
 
-                                    <!-- Editar -->
-                                    <Button Command="{Binding DataContext.EditarArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Style="{StaticResource KeycapButtonStyle}"
-                                            Padding="6,4"
-                                            Margin="0,0,4,0"
-                                            ToolTip="Modificar artículo">
-                                        <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    </Button>
+                                            <!-- Fraccionar (RF-21): solo en presentaciones derivadas -->
+                                            <MenuItem Header="Fraccionar"
+                                                      Command="{Binding PlacementTarget.Tag.FraccionarCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext.Articulo, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularCut" Width="14" Height="14" />
+                                                </MenuItem.Icon>
+                                                <MenuItem.Style>
+                                                    <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding PlacementTarget.DataContext.Articulo.EsDerivado, RelativeSource={RelativeSource AncestorType=ContextMenu}}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </MenuItem.Style>
+                                            </MenuItem>
 
-                                    <!-- Baja Lógica -->
-                                    <Button Command="{Binding DataContext.BajaArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}"
-                                            Style="{StaticResource KeycapButtonStyle}"
-                                            Padding="6,4"
-                                            ToolTip="Dar de baja artículo (Soft Delete)">
-                                        <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" Foreground="{DynamicResource DangerBrush}" />
-                                    </Button>
-                                </StackPanel>
+                                            <MenuItem Header="Editar artículo"
+                                                      Command="{Binding PlacementTarget.Tag.EditarArticuloCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext.Articulo, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
 
-                                <!-- Un derivado no puede ser origen de otro (un solo nivel) y un servicio no tiene presentaciones -->
-                                <DataTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding EsDerivado}" Value="True">
-                                        <Setter TargetName="BtnCrearPresentacion" Property="Visibility" Value="Collapsed" />
-                                        <Setter TargetName="BtnFraccionar" Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                    <DataTrigger Binding="{Binding EsServicio}" Value="True">
-                                        <Setter TargetName="BtnCrearPresentacion" Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </DataTemplate.Triggers>
+                                            <Separator />
+
+                                            <!-- Baja lógica (soft delete) -->
+                                            <MenuItem Header="Dar de baja"
+                                                      Style="{StaticResource MenuItemDangerStyle}"
+                                                      Command="{Binding PlacementTarget.Tag.BajaArticuloCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                      CommandParameter="{Binding PlacementTarget.DataContext.Articulo, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                                <MenuItem.Icon>
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" Foreground="{DynamicResource DangerBrush}" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Button.ContextMenu>
+                                </Button>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -470,9 +638,19 @@
             </DataGrid>
 
             <!-- ========================================================= -->
-            <!-- 2.3 BARRA DE PAGINACIÓN AL FINAL DE LA TABLA               -->
+            <!-- 2.4 PIE: "N RESULTADOS" (IZQ.) Y PAGINACIÓN (DER.)           -->
+            <!--     El texto es el del contador de la barra del buscador     -->
+            <!--     (mismo formato es-AR), que ahí no se muestra             -->
             <!-- ========================================================= -->
-            <components:PaginationBar Grid.Row="2" />
+            <Grid Grid.Row="3">
+                <TextBlock Text="{Binding TextoContador, ElementName=BarraBusqueda}"
+                           Style="{StaticResource TextBlockBodySecondary}"
+                           FontSize="12"
+                           Margin="16,0,0,0"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Center" />
+                <components:PaginationBar HorizontalAlignment="Right" MostrarResumen="False" />
+            </Grid>
             </Grid>
         </Border>
     </Grid>

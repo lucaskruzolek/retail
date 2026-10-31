@@ -11,4 +11,13 @@ public record class ItemCatalogoImportadoDto
     public string? CodigoBarras { get; init; }
     public required string Descripcion { get; init; }
     public required decimal PrecioCosto { get; init; }
+
+    /// <summary>
+    /// Rubro, categoría y marca tal como los escribe el proveedor, si la planilla los trae (Track 6.6, M-12).
+    /// </summary>
+    public string? RubroProveedor { get; init; }
+
+    public string? CategoriaProveedor { get; init; }
+
+    public string? MarcaProveedor { get; init; }
 }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
 
 namespace Retail.Infrastructure.Persistence.Configurations;
@@ -55,6 +56,19 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
             .HasColumnName("fecha_actualizacion")
             .IsRequired();
 
+        // Clasificación del proveedor tal como la escribe (Track 6.6, M-12): texto para mostrar, no clave foránea.
+        builder.Property(cp => cp.RubroProveedor)
+            .HasColumnName("rubro_proveedor")
+            .HasMaxLength(ReglasClasificacion.LongitudMaximaTextoDeProveedor);
+
+        builder.Property(cp => cp.CategoriaProveedor)
+            .HasColumnName("categoria_proveedor")
+            .HasMaxLength(ReglasClasificacion.LongitudMaximaTextoDeProveedor);
+
+        builder.Property(cp => cp.MarcaProveedor)
+            .HasColumnName("marca_proveedor")
+            .HasMaxLength(ReglasClasificacion.LongitudMaximaTextoDeProveedor);
+
         builder.Property(cp => cp.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
@@ -67,6 +81,18 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
         builder.HasOne(cp => cp.Proveedor)
             .WithMany(p => p.Catalogos)
             .HasForeignKey(cp => cp.IdProveedor)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Fuente del artículo, principal o adicional (Track 4.3, A-1 y A-16). ARTICULOS.id_catalogo_proveedor guarda
+        // solo la principal; que esta sea una de estas fuentes lo garantiza el dominio (J1). Se declara explícita
+        // porque hay dos relaciones entre las mismas tablas, y Restrict porque el borrado físico está prohibido.
+        builder.Property(cp => cp.IdArticulo)
+            .HasColumnName("id_articulo");
+
+        builder.HasOne(cp => cp.Articulo)
+            .WithMany()
+            .HasForeignKey(cp => cp.IdArticulo)
+            .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

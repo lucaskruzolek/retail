@@ -130,6 +130,19 @@ public static class ReglasComunesExtensions
     }
 
     /// <param name="campo">Nombre del campo con su artículo, tal como aparece en el mensaje.</param>
+    /// <summary>
+    /// Término de la tabla de términos del motor de catalogación (Track 6.6, M-16): una sola palabra.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> TerminoDeClasificacion<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("Complete el término.")
+            .Must(valor => ReglasClasificacion.EsTerminoValido(valor))
+            .WithMessage(
+                $"Revise el término: debe ser una sola palabra, sin espacios, de hasta " +
+                $"{ReglasClasificacion.LongitudMaximaTermino} caracteres.");
+    }
+
     public static IRuleBuilderOptions<T, string> NombreClasificacion<T>(this IRuleBuilder<T, string> ruleBuilder, string campo)
     {
         return ruleBuilder
@@ -138,6 +151,30 @@ public static class ReglasComunesExtensions
             .WithMessage(
                 $"Revise {campo}: no puede estar vacío ni superar los " +
                 $"{ReglasTexto.LongitudMaximaNombreClasificacion} caracteres.");
+    }
+
+    /// <param name="campo">Nombre del campo con su artículo, tal como aparece en el mensaje.</param>
+    public static IRuleBuilderOptions<T, string> TextoDeProveedor<T>(this IRuleBuilder<T, string> ruleBuilder, string campo)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage($"Complete {campo}.")
+            .Must(valor => ReglasClasificacion.EsTextoDeProveedorValido(valor))
+            .WithMessage(
+                $"Revise {campo}: no puede superar los {ReglasClasificacion.LongitudMaximaTextoDeProveedor} caracteres.");
+    }
+
+    /// <summary>
+    /// Segunda palabra de un par de clasificación (Track 6.6, Fase 5): la regla de
+    /// <see cref="ReglasClasificacion.ExigirSegundaPalabra"/>.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> SegundaPalabraDePar<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("Complete la segunda palabra.")
+            .Must(valor => ReglasClasificacion.EsSegundaPalabraValida(valor))
+            .WithMessage(
+                $"Revise la segunda palabra: debe ser una sola palabra de hasta {ReglasClasificacion.LongitudMaximaTermino} " +
+                "caracteres, con al menos 2 letras y que no sea de relleno (DE, CON, PARA…).");
     }
 
     public static IRuleBuilderOptions<T, string> Cuit<T>(this IRuleBuilder<T, string> ruleBuilder)

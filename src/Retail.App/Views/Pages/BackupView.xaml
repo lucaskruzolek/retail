@@ -14,7 +14,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
     </UserControl.Resources>
 
-    <Grid Margin="24">
+    <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -27,7 +27,7 @@
         <Border Grid.Row="0"
                 Style="{StaticResource CardBorderStyle}"
                 Padding="20,16"
-                Margin="0,0,0,16">
+                Margin="{StaticResource SectionSpacing}">
             <DockPanel LastChildFill="False">
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock Text="Copias de Seguridad y Restauración"
@@ -209,6 +209,7 @@
 
                         <!-- Tamaño del archivo -->
                         <DataGridTextColumn Header="Tamaño"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding TamanoTexto}"
                                             Width="110"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
