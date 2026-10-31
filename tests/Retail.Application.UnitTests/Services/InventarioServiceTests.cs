@@ -44,6 +44,7 @@ public class InventarioServiceTests
             _actualizarValidator,
             new CrearPresentacionValidator(),
             new FraccionarValidator(),
+            new ConsultaArticulosValidator(),
             _catalogoQueryService);
     }
 
@@ -896,6 +897,7 @@ public class InventarioServiceTests
             _actualizarValidator,
             new CrearPresentacionValidator(),
             new FraccionarValidator(),
+            new ConsultaArticulosValidator(),
             _catalogoQueryService,
             consulta);
 
@@ -914,6 +916,68 @@ public class InventarioServiceTests
 
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*IArticuloQueryService*");
+    }
+
+    [Fact]
+    public async Task ListarArticulosPaginadosAsync_ConsultaValida_DelegaEnIArticuloQueryService()
+    {
+        // Arrange
+        var consultaService = Substitute.For<IArticuloQueryService>();
+        var pagina = new ArticulosPaginadosDto { Items = [], PaginaActual = 1, TamanoPagina = 10 };
+        var consulta = new ConsultaArticulosDto
+        {
+            IdsCategoria = [3, 7],
+            IdsProveedor = [ConsultaArticulosDto.IdProveedorManual],
+            EstadosStock = [FiltroStockArticuloEnum.StockBajo]
+        };
+        consultaService.ObtenerArticulosPaginadosAsync(consulta, Arg.Any<CancellationToken>()).Returns(pagina);
+
+        // Act
+        var resultado = await CrearSutConConsulta(consultaService).ListarArticulosPaginadosAsync(consulta);
+
+        // Assert
+        resultado.Should().BeSameAs(pagina);
+    }
+
+    [Fact]
+    public async Task ListarArticulosPaginadosAsync_ConsultaInvalida_LanzaValidationExceptionSinConsultarLaBase()
+    {
+        // Arrange
+        var consultaService = Substitute.For<IArticuloQueryService>();
+        var consulta = new ConsultaArticulosDto { IdsCategoria = [0] };
+
+        // Act
+        var act = () => CrearSutConConsulta(consultaService).ListarArticulosPaginadosAsync(consulta);
+
+        // Assert
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        await consultaService.DidNotReceive().ObtenerArticulosPaginadosAsync(Arg.Any<ConsultaArticulosDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ListarArticulosPaginadosAsync_SinConsulta_LanzaInvalidOperationException()
+    {
+        // Act
+        var act = () => _sut.ListarArticulosPaginadosAsync(new ConsultaArticulosDto());
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*IArticuloQueryService*");
+    }
+
+    private InventarioService CrearSutConConsulta(IArticuloQueryService consultaService)
+    {
+        return new InventarioService(
+            _articuloRepository,
+            _categoriaRepository,
+            _marcaRepository,
+            _unitOfWork,
+            _crearValidator,
+            _actualizarValidator,
+            new CrearPresentacionValidator(),
+            new FraccionarValidator(),
+            new ConsultaArticulosValidator(),
+            _catalogoQueryService,
+            consultaService);
     }
 
     [Fact]

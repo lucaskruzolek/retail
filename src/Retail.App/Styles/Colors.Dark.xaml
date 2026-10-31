@@ -42,6 +42,8 @@
     <!-- TOKENS DE SUPERFICIES Y FONDOS (ZINC NEUTRAL)                     -->
     <!-- ================================================================= -->
     <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#09090B" />
+    <!-- Fondo de un diálogo: más oscuro que sus secciones (SurfaceCardBrush), que así quedan "arriba" sin borde -->
+    <SolidColorBrush x:Key="DialogBackgroundBrush" Color="#111113" />
     <SolidColorBrush x:Key="SurfaceCardBrush" Color="#18181B" />
     <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#27272A" />
     <SolidColorBrush x:Key="SurfaceBorderFocusedBrush" Color="#D63A62" />

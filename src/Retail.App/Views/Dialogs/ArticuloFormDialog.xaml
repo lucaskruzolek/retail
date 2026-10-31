@@ -14,7 +14,7 @@
                   WindowStartupLocation="CenterOwner"
                   ExtendsContentIntoTitleBar="True"
                   WindowBackdropType="Mica"
-                  Background="{DynamicResource SurfaceBackgroundBrush}"
+                  Background="{DynamicResource DialogBackgroundBrush}"
                   ResizeMode="NoResize">
 
     <ui:FluentWindow.Resources>
@@ -35,27 +35,11 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de Título Fluent Estandarizada (Título Centrado y Estilizado) -->
-        <Grid Grid.Row="0">
-            <ui:TitleBar Height="32"
-                         Padding="8,0"
-                         Background="{DynamicResource SurfaceBackgroundBrush}"
-                         ShowMaximize="False"
-                         CanMaximize="False" />
-            <TextBlock Text="{Binding TituloVentana}"
-                       FontFamily="{StaticResource FontFamilyText}"
-                       FontSize="12"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource TextPrimaryBrush}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Margin="48,0"
-                       TextTrimming="CharacterEllipsis"
-                       IsHitTestVisible="False" />
-        </Grid>
+        <!-- Barra de título: título y botones de ventana en la misma banda -->
+        <components:EncabezadoDialogo Titulo="{Binding TituloVentana}" />
 
         <!-- Formulario en dos columnas. El ScrollViewer externo es una red de seguridad para pantallas de 768p -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,12">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12,0,12,12">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -87,7 +71,7 @@
                 <StackPanel Grid.Row="1" Grid.Column="0">
 
                     <!-- Tarjeta Identificación -->
-                    <Border Style="{StaticResource CardBorderStyle}" Padding="16">
+                    <Border Style="{StaticResource DialogSectionStyle}" Padding="16">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                 <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
@@ -187,7 +171,7 @@
                     </Border>
 
                     <!-- Tarjeta Stock: se oculta entera para los servicios -->
-                    <Border Style="{StaticResource CardBorderStyle}"
+                    <Border Style="{StaticResource DialogSectionStyle}"
                             Padding="16"
                             Margin="0,12,0,0"
                             Visibility="{Binding ManejaStockFisico, Converter={StaticResource BoolToVisConverter}}">
@@ -293,7 +277,7 @@
                     <!-- Tarjeta Fuentes del artículo (Track 4.3, A-19, RF-28). Todo queda pendiente hasta Guardar; solo el
                          artículo de compra tiene fuentes (RF-21) -->
                     <!-- El espacio hasta Precio va en esta tarjeta: si se oculta, Precio queda alineado con Identificación -->
-                    <Border Style="{StaticResource CardBorderStyle}"
+                    <Border Style="{StaticResource DialogSectionStyle}"
                             Padding="16"
                             Margin="0,0,0,12"
                             Visibility="{Binding MostrarFuentes, Converter={StaticResource BoolToVisConverter}}">
@@ -455,7 +439,7 @@
                     </Border>
 
                     <!-- Tarjeta Precio -->
-                    <Border Style="{StaticResource CardBorderStyle}" Padding="16">
+                    <Border Style="{StaticResource DialogSectionStyle}" Padding="16">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
                                 <iconPacks:PackIconBoxIcons Kind="RegularCalculator" Style="{StaticResource CardHeaderIconStyle}" />
@@ -560,11 +544,7 @@
         </ScrollViewer>
 
         <!-- Botones de Acción Inferiores -->
-        <Border Grid.Row="2"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="0,1,0,0"
-                Padding="24,12">
+        <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
             <DockPanel LastChildFill="False">
                 <Button Content="Cancelar"
                         Click="BtnCancelar_Click"
@@ -573,6 +553,7 @@
                         Width="100" />
 
                 <Button Content="Guardar Artículo"
+                        IsDefault="True"
                         Click="BtnGuardar_Click"
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         IsEnabled="{Binding IsNotBusy}"

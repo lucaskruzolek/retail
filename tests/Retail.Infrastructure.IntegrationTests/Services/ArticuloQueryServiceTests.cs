@@ -114,7 +114,7 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task ObtenerArticulosPaginadosAsync_ConSoloStockCritico_RetornaExclusivamenteAlertas()
+    public async Task ObtenerArticulosPaginadosAsync_ConSinStockYStockBajo_RetornaExclusivamenteAlertas()
     {
         // Arrange
         _context.Articulos.AddRange(
@@ -124,7 +124,10 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        var res = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { SoloStockCritico = true });
+        var res = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto
+        {
+            EstadosStock = [FiltroStockArticuloEnum.SinStock, FiltroStockArticuloEnum.StockBajo]
+        });
 
         // Assert
         res.Items.Should().ContainSingle(a => a.Descripcion == "Articulo Critico");
@@ -132,9 +135,10 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
-    public async Task ObtenerArticulosPaginadosAsync_ConFiltroRubro_IncluyeTodasLasCategoriasDelRubroYAcotaConLaCategoria()
+    public async Task ObtenerArticulosPaginadosAsync_ConVariasCategorias_IncluyeLasDeTodasYUnaSolaAcota()
     {
-        // Arrange: Escolar con dos categorías, Oficina con una y un artículo sin categoría.
+        // Arrange: Escolar con dos categorías, Oficina con una y un artículo sin categoría. Filtrar por rubro es pasar
+        // todas las categorías del rubro.
         var escolar = Rubro.Crear("Escolar");
         var oficina = Rubro.Crear("Oficina");
         _context.Rubros.AddRange(escolar, oficina);
@@ -157,14 +161,15 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         // Act
-        var delRubro = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdRubro = escolar.Id });
-        var delRubroYCategoria = await _sut.ObtenerArticulosPaginadosAsync(
-            new ConsultaArticulosDto { IdRubro = escolar.Id, IdCategoria = lapices.Id });
+        var delRubro = await _sut.ObtenerArticulosPaginadosAsync(
+            new ConsultaArticulosDto { IdsCategoria = [cuadernos.Id, lapices.Id] });
+        var unaCategoria = await _sut.ObtenerArticulosPaginadosAsync(
+            new ConsultaArticulosDto { IdsCategoria = [lapices.Id] });
 
         // Assert
         delRubro.Items.Select(a => a.Descripcion).Should().Equal("Cuaderno A4", "Lápiz HB");
-        delRubro.TotalRegistros.Should().Be(2, "el conteo filtrado también se resuelve con el rubro");
-        delRubroYCategoria.Items.Should().ContainSingle().Which.Descripcion.Should().Be("Lápiz HB");
+        delRubro.TotalRegistros.Should().Be(2, "el conteo filtrado también se resuelve con la lista de categorías");
+        unaCategoria.Items.Should().ContainSingle().Which.Descripcion.Should().Be("Lápiz HB");
     }
 
     [Fact]
@@ -390,12 +395,144 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         _context.ChangeTracker.Clear();
 
         // Act
-        var deNorte = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdProveedor = norte.Id });
-        var sinFuentes = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdProveedor = -1 });
+        var deNorte = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdsProveedor = [norte.Id] });
+        var sinFuentes = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { IdsProveedor = [ConsultaArticulosDto.IdProveedorManual] });
 
         // Assert
         deNorte.Items.Select(i => i.Descripcion).Should().BeEquivalentTo("Cuaderno", "Lápiz", "Unidad");
         sinFuentes.Items.Select(i => i.Descripcion).Should().Equal("Artesanal");
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_DosMarcas_DevuelveLosArticulosDeAmbasYExcluyeLosDemas()
+    {
+        // Arrange
+        var rivadavia = Marca.Crear("Rivadavia");
+        var faber = Marca.Crear("Faber");
+        var bic = Marca.Crear("Bic");
+        _context.Marcas.AddRange(rivadavia, faber, bic);
+        await _context.SaveChangesAsync();
+
+        var cuaderno = CrearArticulo("Cuaderno");
+        var lapiz = CrearArticulo("Lápiz");
+        var birome = CrearArticulo("Birome");
+        var sinMarca = CrearArticulo("Señalador");
+        cuaderno.Clasificar(null, null, rivadavia.Id, OrigenClasificacionEnum.Manual);
+        lapiz.Clasificar(null, null, faber.Id, OrigenClasificacionEnum.Manual);
+        birome.Clasificar(null, null, bic.Id, OrigenClasificacionEnum.Manual);
+        _context.Articulos.AddRange(cuaderno, lapiz, birome, sinMarca);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.ObtenerArticulosPaginadosAsync(
+            new ConsultaArticulosDto { IdsMarca = [rivadavia.Id, faber.Id] });
+
+        // Assert
+        resultado.Items.Select(a => a.Descripcion).Should().Equal("Cuaderno", "Lápiz");
+        resultado.TotalRegistros.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_ListasVacias_NoFiltra()
+    {
+        // Arrange
+        _context.Articulos.AddRange(
+            CrearArticulo("Cuaderno"),
+            CrearArticulo("Lápiz", stock: 0),
+            CrearArticulo("Fotocopia", esServicio: true));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto
+        {
+            IdsCategoria = [],
+            IdsMarca = [],
+            IdsProveedor = [],
+            EstadosStock = []
+        });
+
+        // Assert
+        resultado.Items.Should().HaveCount(3);
+        resultado.TotalRegistros.Should().Be(resultado.TotalArticulos);
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_ManualYUnDistribuidor_CombinaAmbosConO()
+    {
+        // Arrange: Cuaderno (fuentes Sur y Norte), Lápiz (solo Oeste) y Artesanal (sin fuentes).
+        var (_, idCatalogoSur, _) = await SembrarCuadernoConFuentesAsync();
+        var idSur = await _context.CatalogosProveedores.Where(c => c.Id == idCatalogoSur).Select(c => c.IdProveedor).SingleAsync();
+        var idOeste = await _context.Proveedores.Where(p => p.RazonSocial == "Librería Oeste").Select(p => p.Id).SingleAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var manualYSur = await _sut.ObtenerArticulosPaginadosAsync(
+            new ConsultaArticulosDto { IdsProveedor = [ConsultaArticulosDto.IdProveedorManual, idSur] });
+        var manualYOeste = await _sut.ObtenerArticulosPaginadosAsync(
+            new ConsultaArticulosDto { IdsProveedor = [ConsultaArticulosDto.IdProveedorManual, idOeste] });
+
+        // Assert
+        manualYSur.Items.Select(a => a.Descripcion).Should().BeEquivalentTo("Cuaderno", "Artesanal");
+        manualYOeste.Items.Select(a => a.Descripcion).Should().BeEquivalentTo("Lápiz", "Artesanal");
+    }
+
+    [Theory]
+    [InlineData(FiltroStockArticuloEnum.SinStock, "Sin stock")]
+    [InlineData(FiltroStockArticuloEnum.StockBajo, "Stock bajo")]
+    [InlineData(FiltroStockArticuloEnum.ConStock, "Con stock")]
+    public async Task ObtenerArticulosPaginadosAsync_UnEstadoDeStock_DevuelveSoloSuProductoYNuncaElServicio(
+        FiltroStockArticuloEnum estado,
+        string descripcionEsperada)
+    {
+        // Arrange
+        _context.Articulos.AddRange(
+            CrearArticulo("Sin stock", stock: 0, stockMinimo: 5),
+            CrearArticulo("Stock bajo", stock: 2, stockMinimo: 5),
+            CrearArticulo("Con stock", stock: 20, stockMinimo: 5),
+            CrearArticulo("Fotocopia", stock: 0, stockMinimo: 0, esServicio: true));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto { EstadosStock = [estado] });
+
+        // Assert
+        resultado.Items.Should().ContainSingle().Which.Descripcion.Should().Be(descripcionEsperada);
+        resultado.TotalRegistros.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ObtenerArticulosPaginadosAsync_CategoriaYEstadoDeStock_CombinaLosFiltrosConY()
+    {
+        // Arrange
+        var idRubro = await IdRubroAsync();
+        var cuadernos = Categoria.Crear("Cuadernos", idRubro);
+        var lapices = Categoria.Crear("Lápices", idRubro);
+        _context.Categorias.AddRange(cuadernos, lapices);
+        await _context.SaveChangesAsync();
+
+        var cuadernoAgotado = CrearArticulo("Cuaderno agotado", stock: 0);
+        var cuadernoConStock = CrearArticulo("Cuaderno con stock", stock: 20);
+        var lapizAgotado = CrearArticulo("Lápiz agotado", stock: 0);
+        cuadernoAgotado.Clasificar(cuadernos.Id, OrigenClasificacionEnum.Manual, null, null);
+        cuadernoConStock.Clasificar(cuadernos.Id, OrigenClasificacionEnum.Manual, null, null);
+        lapizAgotado.Clasificar(lapices.Id, OrigenClasificacionEnum.Manual, null, null);
+        _context.Articulos.AddRange(cuadernoAgotado, cuadernoConStock, lapizAgotado);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.ObtenerArticulosPaginadosAsync(new ConsultaArticulosDto
+        {
+            IdsCategoria = [cuadernos.Id],
+            EstadosStock = [FiltroStockArticuloEnum.SinStock]
+        });
+
+        // Assert
+        resultado.Items.Should().ContainSingle().Which.Descripcion.Should().Be("Cuaderno agotado");
+        resultado.TotalRegistros.Should().Be(1);
     }
 
     [Fact]
@@ -487,7 +624,7 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         return (cuaderno.Id, sur.Id, norte.Id);
     }
 
-    private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int stock = 10)
+    private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int stock = 10, int stockMinimo = 1, bool esServicio = false)
     {
         return new Articulo
         {
@@ -497,7 +634,8 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
             PorcentajeGanancia = 50,
             PrecioVenta = 150,
             StockActual = stock,
-            StockMinimo = 1
+            StockMinimo = stockMinimo,
+            EsServicio = esServicio
         };
     }
 }

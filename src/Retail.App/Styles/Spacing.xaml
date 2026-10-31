@@ -73,6 +73,8 @@
     <!-- Fila de las grillas de listado y de las del mostrador (POS, más alta para tocarla con precisión) -->
     <sys:Double x:Key="RowHeightListado">36</sys:Double>
     <sys:Double x:Key="RowHeightPos">42</sys:Double>
+    <!-- Banda superior de un diálogo: título y botones de ventana en la misma franja (EncabezadoDialogo) -->
+    <sys:Double x:Key="DialogTitleBarHeight">56</sys:Double>
 
     <!-- ================================================================= -->
     <!-- MOVIMIENTO                                                        -->

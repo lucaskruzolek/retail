@@ -41,6 +41,7 @@ public class InventarioPresentacionesIntegrationTests : IAsyncLifetime, IDisposa
             new ActualizarArticuloValidator(),
             new CrearPresentacionValidator(),
             new FraccionarValidator(),
+            new ConsultaArticulosValidator(),
             new CatalogoProveedorQueryService(_context));
     }
 
