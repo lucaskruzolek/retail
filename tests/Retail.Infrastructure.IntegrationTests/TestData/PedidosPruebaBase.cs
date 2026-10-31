@@ -32,7 +32,7 @@ public abstract class PedidosPruebaBase : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Contexto = new RetailDbContext(_opciones);
-        await Contexto.Database.MigrateAsync();
+        await Contexto.Database.CrearDesdePlantillaAsync();
 
         var usuario = Usuario.Crear(
             "operador.pedidos", "Ana", "Perez", "hash-de-prueba", RolUsuarioEnum.Gerente, "ana@example.com");

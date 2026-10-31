@@ -30,7 +30,7 @@ public class InventarioPresentacionesIntegrationTests : IAsyncLifetime, IDisposa
             .Options;
 
         _context = new RetailDbContext(options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
 
         _sut = new InventarioService(
             new Repository<Articulo>(_context),

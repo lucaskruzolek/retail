@@ -23,7 +23,7 @@ public class RegistroAccesosServiceIntegrationTests : IAsyncLifetime, IDisposabl
     {
         _connectionString = ServidorDePruebas.CadenaDeConexion(_dbName);
         _context = new RetailDbContext(new DbContextOptionsBuilder<RetailDbContext>().UseSqlServer(_connectionString).Options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
         _sut = new RegistroAccesosService(_context);
     }
 
