@@ -246,6 +246,7 @@
                                                     Click="OnAjusteCantidadClick"
                                                     Width="24"
                                                     Height="24"
+                                                    MinHeight="0"
                                                     Padding="0"
                                                     Margin="0,0,4,0"
                                                     ToolTip="Restar una unidad">
@@ -274,6 +275,7 @@
                                                     Click="OnAjusteCantidadClick"
                                                     Width="24"
                                                     Height="24"
+                                                    MinHeight="0"
                                                     Padding="0"
                                                     Margin="4,0,0,0"
                                                     ToolTip="Sumar una unidad">
@@ -338,6 +340,7 @@
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding SeleccionarClienteCommand}"
                                     Style="{StaticResource KeycapButtonStyle}"
+                                    MinHeight="{StaticResource ControlHeightLg}"
                                     Padding="12,6"
                                     ToolTip="Cambiar el cliente de la venta">
                                 <StackPanel Orientation="Horizontal">

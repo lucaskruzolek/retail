@@ -23,7 +23,8 @@
                     Text="{Binding Texto, ElementName=Raiz, UpdateSourceTrigger=PropertyChanged}"
                     PlaceholderText="{Binding PlaceholderText, ElementName=Raiz}"
                     Width="390"
-                    Height="40"
+                    Height="{StaticResource ControlHeight}"
+                    FontSize="{StaticResource FontSizeBase}"
                     VerticalAlignment="Center">
             <ui:TextBox.Icon>
                 <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
@@ -85,7 +86,8 @@
                        Text="{Binding TextoContador, ElementName=Raiz}"
                        Visibility="{Binding MostrarContador, ElementName=Raiz, Converter={StaticResource BoolToVisConverter}}"
                        Style="{StaticResource TextBlockBodySecondary}"
-                       FontSize="12"
+                       FontSize="{StaticResource FontSizeSm}"
+                       Foreground="{DynamicResource TextSubtleBrush}"
                        VerticalAlignment="Center" />
         </Grid>
 

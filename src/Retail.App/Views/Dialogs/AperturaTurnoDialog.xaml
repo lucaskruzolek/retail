@@ -72,12 +72,14 @@
             <DockPanel LastChildFill="False">
                 <Button Content="Cancelar"
                         Style="{StaticResource KeycapButtonStyle}"
+                        MinHeight="{StaticResource ControlHeightLg}"
                         Width="100"
                         DockPanel.Dock="Left"
                         Click="Cancelar_Click" />
 
                 <Button Content="Abrir Turno"
                         Style="{StaticResource PrimaryActionButtonStyle}"
+                        MinHeight="{StaticResource ControlHeightLg}"
                         Width="120"
                         DockPanel.Dock="Right"
                         Click="Aceptar_Click" />
