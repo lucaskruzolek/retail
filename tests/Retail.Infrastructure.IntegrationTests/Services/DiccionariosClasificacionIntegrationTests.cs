@@ -37,7 +37,7 @@ public class DiccionariosClasificacionIntegrationTests : IAsyncLifetime, IDispos
             .Options;
 
         _context = new RetailDbContext(_options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
 
         var gerente = Usuario.Crear("gerente", "Ana", "Gómez", "hash", RolUsuarioEnum.Gerente, "gerente@libreria.com");
         _context.Usuarios.Add(gerente);

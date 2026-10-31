@@ -36,7 +36,7 @@ public class RestauradorIntegracionTests : IAsyncLifetime
     {
         Directory.CreateDirectory(_directorio);
         _context = ContextoDe(CadenaDe(_vigente));
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
     }
 
     public async Task DisposeAsync()

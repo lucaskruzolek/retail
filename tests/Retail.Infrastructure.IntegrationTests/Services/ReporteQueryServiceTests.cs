@@ -39,7 +39,7 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
             .UseSqlServer(ServidorDePruebas.CadenaDeConexion(_dbName))
             .Options;
         _context = new RetailDbContext(options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
         _sut = new ReporteQueryService(_context);
 
         _context.Roles.Add(new Rol { NombreRol = "Cajero", Descripcion = "Atiende el mostrador" });
