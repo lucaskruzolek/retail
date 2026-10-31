@@ -48,10 +48,12 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
+                    <!-- Con 6 opciones o menos el buscador y los atajos se ocultan (MostrarBusqueda) -->
                     <!-- Buscar dentro de las opciones (no consulta la base: oculta casillas) -->
                     <ui:TextBox x:Name="Busqueda"
                                 Grid.Row="0"
                                 Margin="8,8,8,4"
+                                Visibility="{Binding MostrarBusqueda, Converter={StaticResource BoolToVisConverter}}"
                                 Height="{StaticResource ControlHeight}"
                                 FontSize="{StaticResource FontSizeBase}"
                                 Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
@@ -64,7 +66,8 @@
                         </ui:TextBox.Icon>
                     </ui:TextBox>
 
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="4,0,4,4">
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="4,0,4,4"
+                                Visibility="{Binding MostrarBusqueda, Converter={StaticResource BoolToVisConverter}}">
                         <Button Content="Seleccionar todo"
                                 Command="{Binding SeleccionarTodoCommand}"
                                 Style="{StaticResource GhostNeutralButtonStyle}" />

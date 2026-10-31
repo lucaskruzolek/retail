@@ -3,6 +3,7 @@
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                   xmlns:components="clr-namespace:Retail.App.Views.Components"
+                  xmlns:helpers="clr-namespace:Retail.App.Helpers"
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   Title="{Binding TituloVentana}"
                   Width="540"
@@ -38,34 +39,33 @@
                         BorderBrush="{DynamicResource DangerBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="12,8"
-                        Margin="0,0,0,16"
+                        Padding="{StaticResource InsetCompact}"
+                        Margin="{StaticResource StackLg}"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
                 <!-- Grupo 1: Identificación y Datos Fiscales -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <TextBlock Text="Identificación del Cliente"
-                                   FontWeight="SemiBold"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   Margin="0,0,0,12" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularUser" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Identificación del Cliente" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
                         <!-- Razón Social o Nombre -->
                         <TextBlock Text="Razón Social o Nombre Completo *"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding RazonSocialONombre, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="ej. Librería &amp; Papelería Belgrano S.A."
-                                    Margin="0,0,0,12" />
+                                    Margin="{StaticResource StackMd}" />
 
                         <!-- Tipo y Número de Documento en 2 columnas -->
-                        <Grid Margin="0,0,0,12">
+                        <Grid Margin="{StaticResource StackMd}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="140" />
                                 <ColumnDefinition Width="12" />
@@ -75,7 +75,7 @@
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Tipo Documento *"
                                            Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
+                                           Margin="{StaticResource StackXs}" />
                                 <ComboBox ItemsSource="{Binding TiposDocumentoDisponibles}"
                                           ItemTemplate="{StaticResource EnumTextoItemTemplate}"
                                           SelectedItem="{Binding TipoDocumento, Mode=TwoWay}"
@@ -85,8 +85,9 @@
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Número de Documento / CUIT *"
                                            Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
+                                           Margin="{StaticResource StackXs}" />
                                 <ui:TextBox Text="{Binding NumeroDocumento, UpdateSourceTrigger=PropertyChanged}"
+                                            helpers:EntradaTextoHelper.Tipo="Documento"
                                             PlaceholderText="ej. 30-71234567-8"
                                             FontFamily="{StaticResource FontFamilyMonospace}" />
                             </StackPanel>
@@ -95,7 +96,7 @@
                         <!-- Condición de IVA -->
                         <TextBlock Text="Condición frente al IVA *"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ComboBox ItemsSource="{Binding CondicionesIvaDisponibles}"
                                   ItemTemplate="{StaticResource EnumTextoItemTemplate}"
                                   SelectedItem="{Binding CondicionIva, Mode=TwoWay}"
@@ -104,20 +105,19 @@
                 </Border>
 
                 <!-- Grupo 2: Contacto y Domicilio -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <TextBlock Text="Contacto y Domicilio Fiscal"
-                                   FontWeight="SemiBold"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   Margin="0,0,0,12" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularMap" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Contacto y Domicilio Fiscal" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
                         <TextBlock Text="Domicilio Fiscal"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding DomicilioFiscal, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="ej. San Martín 456, Piso 2, Dpto B"
-                                    Margin="0,0,0,12" />
+                                    Margin="{StaticResource StackMd}" />
 
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -129,15 +129,16 @@
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Teléfono"
                                            Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
+                                           Margin="{StaticResource StackXs}" />
                                 <ui:TextBox Text="{Binding Telefono, UpdateSourceTrigger=PropertyChanged}"
+                                            helpers:EntradaTextoHelper.Tipo="Telefono"
                                             PlaceholderText="ej. 11-4567-8901" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Correo Electrónico"
                                            Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
+                                           Margin="{StaticResource StackXs}" />
                                 <ui:TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
                                             PlaceholderText="ej. compras@empresa.com" />
                             </StackPanel>
@@ -146,14 +147,13 @@
                 </Border>
 
                 <!-- Grupo 3: Cuenta Corriente y Crédito Comercial -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,8">
+                <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <DockPanel Margin="0,0,0,12">
-                            <TextBlock Text="Cuenta Corriente Comercial"
-                                       FontWeight="SemiBold"
-                                       FontSize="14"
-                                       Foreground="{DynamicResource TextPrimaryBrush}"
-                                       VerticalAlignment="Center" />
+                        <DockPanel Margin="{StaticResource StackMd}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <iconPacks:PackIconBoxIcons Kind="RegularWallet" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Cuenta Corriente Comercial" Style="{StaticResource CardHeaderTextStyle}" />
+                            </StackPanel>
                             <CheckBox IsChecked="{Binding TieneCuentaCorriente, Mode=TwoWay}"
                                       Content="Habilitada"
                                       HorizontalAlignment="Right"
@@ -162,15 +162,16 @@
 
                         <TextBlock Text="Límite de Crédito Autorizado ($) *"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding LimiteCredito, UpdateSourceTrigger=PropertyChanged, StringFormat='{}{0:N2}'}"
+                                    helpers:EntradaTextoHelper.Tipo="NumeroDecimal"
                                     IsEnabled="{Binding TieneCuentaCorriente}"
                                     FontFamily="{StaticResource FontFamilyNumeric}"
                                     Typography.NumeralAlignment="Tabular"
                                     PlaceholderText="0.00" />
                         <TextBlock Text="Monto máximo que el cliente puede adeudar por ventas a crédito."
                                    Style="{StaticResource TextBlockBodyMuted}"
-                                   FontSize="11"
+                                   FontSize="{StaticResource FontSizeXs}"
                                    Margin="0,4,0,0" />
                     </StackPanel>
                 </Border>
@@ -184,7 +185,7 @@
                 <StackPanel Orientation="Horizontal"
                             VerticalAlignment="Center"
                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
-                    <ui:ProgressRing IsIndeterminate="True" Width="18" Height="18" Margin="0,0,8,0" />
+                    <ui:ProgressRing IsIndeterminate="True" Width="16" Height="16" Margin="{StaticResource InlineSm}" />
                     <TextBlock Text="Guardando cliente..."
                                Style="{StaticResource TextBlockBodySecondary}"
                                VerticalAlignment="Center" />
@@ -194,18 +195,18 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Content="Cancelar"
                             Click="BtnCancelar_Click"
+                            IsCancel="True"
                             IsEnabled="{Binding IsNotBusy}"
-                            Padding="16,6"
-                            Margin="0,0,8,0" />
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="{StaticResource InlineSm}" />
 
                     <Button Click="BtnGuardar_Click"
                             IsDefault="True"
                             IsEnabled="{Binding IsNotBusy}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            Padding="20,6">
+                            Style="{StaticResource PrimaryActionButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Guardar Cliente" FontWeight="SemiBold" />
+                            <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Guardar Cliente" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                 </StackPanel>

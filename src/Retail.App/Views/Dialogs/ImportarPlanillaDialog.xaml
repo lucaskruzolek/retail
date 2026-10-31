@@ -3,6 +3,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                     xmlns:components="clr-namespace:Retail.App.Views.Components"
+                    xmlns:helpers="clr-namespace:Retail.App.Helpers"
                     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                     Title="Importar Planilla de Proveedor"
                     Width="580"
@@ -36,7 +37,7 @@
         <components:EncabezadoDialogo Titulo="Importar Planilla de Proveedor" />
 
         <!-- Contenido Central -->
-        <ScrollViewer Grid.Row="1" Margin="0,12" Padding="24,0" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" Padding="12,0,12,12" VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <!-- Alerta de Validación / Error -->
                 <Border Background="{DynamicResource DangerBackgroundBrush}"
@@ -48,36 +49,37 @@
                         Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
                 <!-- Identificación del Proveedor -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="14,10" Margin="0,0,0,12">
-                    <DockPanel LastChildFill="True">
-                        <iconPacks:PackIconBoxIcons Kind="SolidTruck" Width="18" Height="18"
-                                                    Foreground="{DynamicResource PrimaryBrush}"
-                                                    VerticalAlignment="Center"
-                                                    Margin="0,0,10,0" />
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{Binding Proveedor.RazonSocial}"
-                                       FontWeight="Bold"
-                                       FontSize="14"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" />
-                            <TextBlock Text="{Binding Proveedor.Cuit, StringFormat={}CUIT: {0}}"
-                                       Style="{StaticResource TextBlockCaption}"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularTruck" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Proveedor" Style="{StaticResource CardHeaderTextStyle}" />
                         </StackPanel>
-                    </DockPanel>
+                        <TextBlock Text="{Binding Proveedor.RazonSocial}"
+                                   FontWeight="Bold"
+                                   FontSize="{StaticResource FontSizeMd}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding Proveedor.Cuit, StringFormat={}CUIT: {0}}"
+                                   Style="{StaticResource TextBlockCaption}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
                 </Border>
 
                 <!-- Selección de Archivo -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="14,12" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <TextBlock Text="Archivo de Planilla (Excel o CSV) *"
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularFile" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Archivo de planilla" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
+                        <TextBlock Text="Excel o CSV *"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,6" />
+                                   Margin="{StaticResource StackXs}" />
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -90,12 +92,10 @@
                                      Margin="0,0,8,0" />
                             <Button Grid.Column="1"
                                     Command="{Binding ExaminarArchivoCommand}"
-                                    Style="{StaticResource KeycapButtonStyle}"
-                                    Padding="10,6">
+                                    Style="{StaticResource KeycapButtonStyle}">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="RegularFolder" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularFolder" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                                     <TextBlock Text="Examinar" VerticalAlignment="Center" />
-                                    
                                 </StackPanel>
                             </Button>
                         </Grid>
@@ -103,16 +103,19 @@
                 </Border>
 
                 <!-- Mapeo de Columnas -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="14,12" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <TextBlock Text="Mapeo de Nombres de Columnas en el Archivo"
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularTableColumns" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Mapeo de columnas" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
+                        <TextBlock Text="Nombres de las columnas tal como figuran en el archivo."
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,10" />
+                                   Margin="{StaticResource StackMd}" />
 
                         <!-- Fila de Encabezado (H-05): las planillas suelen traer filas de título antes de los encabezados.
                              Va primero porque define dónde se buscan todos los nombres de columna. -->
-                        <Grid Margin="0,0,0,14">
+                        <Grid Margin="0,0,0,16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
@@ -123,6 +126,7 @@
                                            Foreground="{DynamicResource TextSecondaryBrush}"
                                            Margin="0,0,0,4" />
                                 <TextBox Text="{Binding FilaEncabezado, UpdateSourceTrigger=PropertyChanged}"
+                                         helpers:EntradaTextoHelper.Tipo="Entero"
                                          FontFamily="{StaticResource FontFamilyMonospace}"
                                          Height="32" />
                             </StackPanel>
@@ -140,8 +144,8 @@
                                    Style="{StaticResource TextBlockCaption}"
                                    FontWeight="SemiBold"
                                    Foreground="{DynamicResource TextPrimaryBrush}"
-                                   Margin="0,0,0,6" />
-                        <Grid Margin="0,0,0,14">
+                                   Margin="0,0,0,8" />
+                        <Grid Margin="0,0,0,16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
@@ -205,7 +209,7 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
-                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,10">
+                                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,12">
                                         <TextBlock Text="Cód. Barras"
                                                    Style="{StaticResource TextBlockCaption}"
                                                    Foreground="{DynamicResource TextSecondaryBrush}"
@@ -215,7 +219,7 @@
                                                  Height="32" />
                                     </StackPanel>
 
-                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,10">
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,12">
                                         <TextBlock Text="Rubro"
                                                    Style="{StaticResource TextBlockCaption}"
                                                    Foreground="{DynamicResource TextSecondaryBrush}"
@@ -252,7 +256,7 @@
 
                 <!-- Feedback de Progreso / Estado -->
                 <StackPanel Margin="0,0,0,8">
-                    <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}" Margin="0,0,0,6">
+                    <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}" Margin="0,0,0,8">
                         <TextBlock Text="{Binding MensajeEstado}"
                                    Style="{StaticResource TextBlockCaption}"
                                    Foreground="{DynamicResource TextSecondaryBrush}"
@@ -267,7 +271,7 @@
                     <!-- Aviso de importación completada (verde) o con observaciones (ámbar) -->
                     <Border CornerRadius="6"
                             BorderThickness="1"
-                            Padding="12,10"
+                            Padding="12,12"
                             Margin="0,0,0,4"
                             Visibility="{Binding ImportacionCompletada, Converter={StaticResource BoolToVisConverter}}">
                         <Border.Style>
@@ -286,14 +290,14 @@
                             <iconPacks:PackIconBoxIcons Width="20" Height="20"
                                                         DockPanel.Dock="Left"
                                                         VerticalAlignment="Top"
-                                                        Margin="0,1,10,0">
+                                                        Margin="0,1,12,0">
                                 <iconPacks:PackIconBoxIcons.Style>
                                     <Style TargetType="iconPacks:PackIconBoxIcons">
-                                        <Setter Property="Kind" Value="SolidCheckCircle" />
+                                        <Setter Property="Kind" Value="RegularCheckCircle" />
                                         <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ImportacionConObservaciones}" Value="True">
-                                                <Setter Property="Kind" Value="SolidAlertTriangle" />
+                                                <Setter Property="Kind" Value="RegularAlertTriangle" />
                                                 <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -301,7 +305,7 @@
                                 </iconPacks:PackIconBoxIcons.Style>
                             </iconPacks:PackIconBoxIcons>
                             <StackPanel>
-                                <TextBlock FontSize="13" FontWeight="Bold" Margin="0,0,0,2">
+                                <TextBlock FontSize="{StaticResource FontSizeBase}" FontWeight="Bold" Margin="0,0,0,2">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Text" Value="Importación completada" />
@@ -316,7 +320,7 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                                 <TextBlock Text="{Binding MensajeExito}"
-                                           FontSize="12"
+                                           FontSize="{StaticResource FontSizeSm}"
                                            TextWrapping="Wrap"
                                            Foreground="{DynamicResource TextPrimaryBrush}" />
                             </StackPanel>
@@ -328,32 +332,30 @@
                                 Margin="0,4,0,0">
                         <Border Style="{StaticResource BadgeSuccessStyle}" Margin="0,0,8,0">
                             <TextBlock Text="{Binding UltimoResultado.NuevosRegistros, StringFormat={}✚ {0} nuevos}"
-                                       FontSize="11" FontWeight="Bold"
+                                       FontSize="{StaticResource FontSizeXs}" FontWeight="Bold"
                                        Foreground="{DynamicResource SuccessForegroundBrush}" />
                         </Border>
                         <Border Style="{StaticResource BadgeWarningStyle}" Margin="0,0,8,0">
                             <TextBlock Text="{Binding UltimoResultado.PreciosActualizados, StringFormat={}↑ {0} precios}"
-                                       FontSize="11" FontWeight="Bold"
+                                       FontSize="{StaticResource FontSizeXs}" FontWeight="Bold"
                                        Foreground="{DynamicResource WarningForegroundBrush}" />
                         </Border>
                         <Border Style="{StaticResource BadgeDangerStyle}">
                             <TextBlock Text="{Binding UltimoResultado.FilasConError, StringFormat={}✕ {0} errores}"
-                                       FontSize="11" FontWeight="Bold"
+                                       FontSize="{StaticResource FontSizeXs}" FontWeight="Bold"
                                        Foreground="{DynamicResource DangerForegroundBrush}" />
                         </Border>
                     </StackPanel>
 
                     <!-- Detalle de Filas con Error (H-01) -->
                     <Border Style="{StaticResource DialogSectionStyle}"
-                            Padding="12,8"
                             Margin="0,8,0,0"
                             Visibility="{Binding TieneErroresDetalle, Converter={StaticResource BoolToVisConverter}}">
                         <StackPanel>
-                            <TextBlock Text="Detalle de filas con error"
-                                       Style="{StaticResource TextBlockCaption}"
-                                       FontWeight="SemiBold"
-                                       Foreground="{DynamicResource DangerForegroundBrush}"
-                                       Margin="0,0,0,4" />
+                            <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
+                                <iconPacks:PackIconBoxIcons Kind="RegularAlertTriangle" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Detalle de filas con error" Style="{StaticResource CardHeaderTextStyle}" />
+                            </StackPanel>
                             <ScrollViewer MaxHeight="96"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
@@ -382,10 +384,9 @@
                 <Button Command="{Binding CerrarCommand}"
                         CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                         Style="{StaticResource KeycapButtonStyle}"
-                        Margin="0,0,10,0"
+                        Margin="0,0,8,0"
                         IsCancel="True">
                     <StackPanel Orientation="Horizontal">
-                        
                         <TextBlock Text="{Binding TextoBotonCerrar}" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
@@ -395,9 +396,8 @@
                         IsEnabled="{Binding PuedeImportar}"
                         Style="{StaticResource PrimaryActionButtonStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularFilePlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Importar Planilla" FontWeight="Bold" VerticalAlignment="Center" />
-                        
+                        <iconPacks:PackIconBoxIcons Kind="RegularFilePlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Importar Planilla" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>

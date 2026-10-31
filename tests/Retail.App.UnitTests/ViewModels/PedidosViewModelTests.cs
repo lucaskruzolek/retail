@@ -6,6 +6,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
+using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
@@ -117,44 +118,106 @@ public class PedidosViewModelTests : IDisposable
         condicion().Should().BeTrue("la condición debía cumplirse tras la carga asíncrona");
     }
 
+    private int LlamadasAlListado => _pedidoService.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IPedidoService.ListarPedidosAsync));
+
+    /// <summary>Marca las opciones indicadas del filtro y lo aplica, como hace el usuario con las casillas y "Aplicar".</summary>
+    private static void AplicarFiltro(FiltroColumnaViewModel filtro, params int[] ids)
+    {
+        foreach (var opcion in filtro.Grupos.SelectMany(g => g.Opciones))
+        {
+            opcion.Seleccionada = ids.Contains(opcion.Id);
+        }
+
+        filtro.AplicarCommand.Execute(null);
+    }
+
     [Fact]
-    public async Task InicializarAsync_CargaProveedoresOrdenadosConTodosYPrimeraPaginaSinFiltros()
+    public async Task InicializarAsync_CargaOpcionesDeProveedorOrdenadasYPrimeraPaginaSinFiltros()
     {
         await _sut.InicializarAsync();
 
-        _sut.Proveedores.Select(p => p.Nombre).Should().Equal("Todos", "Alfa Distribuidora", "Zeta Papelera");
-        _sut.ProveedorFiltro!.Id.Should().BeNull();
+        _sut.FiltroProveedor.Grupos.SelectMany(g => g.Opciones).Select(o => o.Nombre)
+            .Should().Equal("Alfa Distribuidora", "Zeta Papelera");
+        _sut.FiltroEstado.Grupos.SelectMany(g => g.Opciones).Select(o => o.Id)
+            .Should().Equal((int)EstadoPedidoEnum.Borrador, (int)EstadoPedidoEnum.Emitido, (int)EstadoPedidoEnum.Recibido, (int)EstadoPedidoEnum.Cancelado);
         _sut.Pedidos.Should().ContainSingle().Which.IdPedido.Should().Be(IdPedido);
         await _pedidoService.Received(1).ListarPedidosAsync(
-            Arg.Is<ConsultaPedidosDto>(c => c.Estado == null && c.IdProveedor == null && c.Pagina == 1),
+            Arg.Is<ConsultaPedidosDto>(c => c.Estados.Count == 0 && c.IdsProveedor.Count == 0 && c.Pagina == 1),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task EstadoFiltro_CambiaAEmitidos_ConsultaPorEstadoDesdeLaPrimeraPagina()
+    public async Task FiltroEstado_AplicaVariosEstados_ConsultaPorEstadosDesdeLaPrimeraPagina()
     {
         await _sut.InicializarAsync();
         _sut.PaginaActual = 3;
 
-        _sut.EstadoFiltro = _sut.OpcionesEstado.Single(o => o.Estado == EstadoPedidoEnum.Emitido);
+        AplicarFiltro(_sut.FiltroEstado, (int)EstadoPedidoEnum.Borrador, (int)EstadoPedidoEnum.Emitido);
 
-        await EsperarAsync(() => _pedidoService.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IPedidoService.ListarPedidosAsync)) == 2);
+        await EsperarAsync(() => LlamadasAlListado == 2);
         _sut.PaginaActual.Should().Be(1);
         await _pedidoService.Received(1).ListarPedidosAsync(
-            Arg.Is<ConsultaPedidosDto>(c => c.Estado == EstadoPedidoEnum.Emitido && c.Pagina == 1),
+            Arg.Is<ConsultaPedidosDto>(c => c.Estados.SequenceEqual(new[] { EstadoPedidoEnum.Borrador, EstadoPedidoEnum.Emitido }) && c.Pagina == 1),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task ProveedorFiltro_Cambia_ConsultaPorProveedor()
+    public async Task FiltroProveedor_AplicaUnProveedor_ConsultaPorEseProveedor()
     {
         await _sut.InicializarAsync();
 
-        _sut.ProveedorFiltro = _sut.Proveedores.Single(p => p.Id == 2);
+        AplicarFiltro(_sut.FiltroProveedor, 2);
 
-        await EsperarAsync(() => _pedidoService.ReceivedCalls().Count(c => c.GetMethodInfo().Name == nameof(IPedidoService.ListarPedidosAsync)) == 2);
+        await EsperarAsync(() => LlamadasAlListado == 2);
         await _pedidoService.Received(1).ListarPedidosAsync(
-            Arg.Is<ConsultaPedidosDto>(c => c.IdProveedor == 2),
+            Arg.Is<ConsultaPedidosDto>(c => c.IdsProveedor.Count == 1 && c.IdsProveedor[0] == 2),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TextoBusqueda_Cambia_ConsultaConElTermino()
+    {
+        await _sut.InicializarAsync();
+
+        _sut.TextoBusqueda = "alfa";
+
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        await _pedidoService.Received(1).ListarPedidosAsync(
+            Arg.Is<ConsultaPedidosDto>(c => c.TerminoBusqueda == "alfa" && c.Pagina == 1),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HayFiltrosActivos_ConFiltroDeColumna_HabilitaLimpiarFiltros()
+    {
+        await _sut.InicializarAsync();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
+
+        AplicarFiltro(_sut.FiltroEstado, (int)EstadoPedidoEnum.Cancelado);
+
+        _sut.HayFiltrosActivos.Should().BeTrue();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task LimpiarFiltros_ConBusquedaYFiltros_QuitaTodoYConsultaUnaSolaVez()
+    {
+        await _sut.InicializarAsync();
+        AplicarFiltro(_sut.FiltroProveedor, 1);
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        _sut.TextoBusqueda = "alfa";
+        await EsperarAsync(() => LlamadasAlListado == 3);
+
+        _sut.LimpiarFiltrosCommand.Execute(null);
+
+        await EsperarAsync(() => LlamadasAlListado == 4);
+        _sut.TextoBusqueda.Should().BeEmpty();
+        _sut.FiltroProveedor.HayFiltroActivo.Should().BeFalse();
+        _sut.HayFiltrosActivos.Should().BeFalse();
+        LlamadasAlListado.Should().Be(4, "limpiar todo consulta una sola vez");
+        // Sin filtros: la carga inicial y la de limpiar
+        await _pedidoService.Received(2).ListarPedidosAsync(
+            Arg.Is<ConsultaPedidosDto>(c => string.IsNullOrEmpty(c.TerminoBusqueda) && c.Estados.Count == 0 && c.IdsProveedor.Count == 0),
             Arg.Any<CancellationToken>());
     }
 

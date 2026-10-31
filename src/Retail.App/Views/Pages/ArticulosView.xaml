@@ -73,7 +73,6 @@
                                 PlaceholderText="Buscar por código, descripción o marca..."
                                 ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
                                 EstaCargando="{Binding IsBusy}"
-                                TotalResultados="{Binding TotalRegistrosFiltrados}"
                                 HaySeleccion="{Binding TieneArticulosSeleccionados}">
             <components:ListToolbar.AccionesDeSeleccion>
                 <components:BulkActionBar CantidadSeleccionados="{Binding CantidadSeleccionados}"
@@ -538,7 +537,7 @@
                                                       Command="{Binding PlacementTarget.Tag.EditarArticuloCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
                                                       CommandParameter="{Binding PlacementTarget.DataContext.Articulo, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                                 <MenuItem.Icon>
-                                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" />
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                                 </MenuItem.Icon>
                                             </MenuItem>
 
@@ -564,7 +563,7 @@
 
                 <!-- Paginación pegada a la grilla, separada por una línea -->
                 <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0">
-                    <components:PaginationBar MostrarResumen="False" />
+                    <components:PaginationBar />
                 </Border>
             </Grid>
         </Border>

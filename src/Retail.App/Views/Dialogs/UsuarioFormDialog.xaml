@@ -6,9 +6,9 @@
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   Title="{Binding TituloVentana}"
                   Width="520"
-                  Height="644"
                   MinWidth="480"
-                  MinHeight="544"
+                  MinHeight="0"
+                  SizeToContent="Height"
                   WindowStartupLocation="CenterOwner"
                   ExtendsContentIntoTitleBar="True"
                   Background="{DynamicResource DialogBackgroundBrush}"
@@ -38,70 +38,86 @@
                         BorderBrush="{DynamicResource DangerBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="12,8"
-                        Margin="0,0,0,16"
+                        Padding="{StaticResource InsetCompact}"
+                        Margin="{StaticResource StackLg}"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Nombre de Usuario -->
-                <TextBlock Text="Nombre de Usuario (Login)" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                <ui:TextBox x:Name="TxtNombreUsuario"
-                            Text="{Binding NombreUsuario, UpdateSourceTrigger=PropertyChanged}"
-                            IsEnabled="{Binding EsAlta}"
-                            PreviewKeyDown="TxtNombreUsuario_PreviewKeyDown"
-                            PreviewTextInput="TxtNombreUsuario_PreviewTextInput"
-                            PlaceholderText="ej. jperez"
-                            Margin="0,0,0,14" />
+                <!-- Sección 1: identificación del operador -->
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularUser" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Datos del Operador" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
-                <!-- Nombre -->
-                <TextBlock Text="Nombre" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                <ui:TextBox Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="ej. Juan Carlos"
-                            Margin="0,0,0,14" />
+                        <!-- Nombre de Usuario -->
+                        <TextBlock Text="Nombre de Usuario (Login)" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:TextBox x:Name="TxtNombreUsuario"
+                                    Text="{Binding NombreUsuario, UpdateSourceTrigger=PropertyChanged}"
+                                    IsEnabled="{Binding EsAlta}"
+                                    PreviewKeyDown="TxtNombreUsuario_PreviewKeyDown"
+                                    PreviewTextInput="TxtNombreUsuario_PreviewTextInput"
+                                    PlaceholderText="ej. jperez"
+                                    Margin="{StaticResource StackMd}" />
 
-                <!-- Apellido -->
-                <TextBlock Text="Apellido" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                <ui:TextBox Text="{Binding Apellido, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="ej. Pérez"
-                            Margin="0,0,0,14" />
+                        <!-- Nombre -->
+                        <TextBlock Text="Nombre" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:TextBox Text="{Binding Nombre, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="ej. Juan Carlos"
+                                    Margin="{StaticResource StackMd}" />
 
-                <!-- Contraseña (Solo en Alta) -->
-                <StackPanel Visibility="{Binding EsAlta, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="Contraseña Inicial" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                    <ui:PasswordBox x:Name="TxtPasswordBox"
-                                    PasswordChanged="TxtPasswordBox_PasswordChanged"
-                                    PlaceholderText="Mínimo 6 caracteres"
-                                    Margin="0,0,0,14" />
+                        <!-- Apellido -->
+                        <TextBlock Text="Apellido" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:TextBox Text="{Binding Apellido, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="ej. Pérez" />
+                    </StackPanel>
+                </Border>
 
-                    <TextBlock Text="Confirmar Contraseña" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                    <ui:PasswordBox x:Name="TxtConfirmarPasswordBox"
-                                    PasswordChanged="TxtConfirmarPasswordBox_PasswordChanged"
-                                    PlaceholderText="Repita la contraseña"
-                                    Margin="0,0,0,14" />
-                </StackPanel>
+                <!-- Sección 2: acceso y recuperación -->
+                <Border Style="{StaticResource DialogSectionStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularLock" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Acceso y Seguridad" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
+                        <!-- Contraseña (Solo en Alta) -->
+                        <StackPanel Visibility="{Binding EsAlta, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="Contraseña Inicial" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                            <ui:PasswordBox x:Name="TxtPasswordBox"
+                                            PasswordChanged="TxtPasswordBox_PasswordChanged"
+                                            PlaceholderText="Mínimo 6 caracteres"
+                                            Margin="{StaticResource StackMd}" />
 
-                <!-- Rol RBAC -->
-                <TextBlock Text="Rol de Acceso (RBAC)" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                <ComboBox ItemsSource="{Binding RolesDisponibles}"
-                          SelectedItem="{Binding Rol}"
-                          Margin="0,0,0,14"
-                          Padding="8,6" />
+                            <TextBlock Text="Confirmar Contraseña" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                            <ui:PasswordBox x:Name="TxtConfirmarPasswordBox"
+                                            PasswordChanged="TxtConfirmarPasswordBox_PasswordChanged"
+                                            PlaceholderText="Repita la contraseña"
+                                            Margin="{StaticResource StackMd}" />
+                        </StackPanel>
 
-                <!-- Email de Recuperación (obligatorio para Gerente, RF-03) -->
-                <TextBlock Text="{Binding EtiquetaEmail}" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                <ui:TextBox Text="{Binding EmailRecuperacion, UpdateSourceTrigger=PropertyChanged}"
-                            PlaceholderText="ej. jperez@libreria.com"
-                            Margin="0,0,0,4" />
-                <TextBlock Text="Se usará para recuperar la contraseña cuando el envío de correos esté disponible."
-                           Style="{StaticResource TextBlockCaption}"
-                           Foreground="{DynamicResource TextMutedBrush}"
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,14" />
+                        <!-- Rol RBAC -->
+                        <TextBlock Text="Rol de Acceso (RBAC)" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ComboBox ItemsSource="{Binding RolesDisponibles}"
+                                  SelectedItem="{Binding Rol}"
+                                  Margin="{StaticResource StackMd}" />
+
+                        <!-- Email de Recuperación (obligatorio para Gerente, RF-03) -->
+                        <TextBlock Text="{Binding EtiquetaEmail}" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:TextBox Text="{Binding EmailRecuperacion, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="ej. jperez@libreria.com"
+                                    Margin="{StaticResource StackXs}" />
+                        <TextBlock Text="Se usará para recuperar la contraseña cuando el envío de correos esté disponible."
+                                   Style="{StaticResource TextBlockCaption}"
+                                   Foreground="{DynamicResource TextMutedBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
 
@@ -112,17 +128,17 @@
                         Click="BtnCancelar_Click"
                         IsEnabled="{Binding IsNotBusy}"
                         IsCancel="True"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        DockPanel.Dock="Right"
-                        Margin="8,0,0,0"
-                        Width="100" />
-                <Button Content="Guardar"
-                        Click="BtnGuardar_Click"
+                        Style="{StaticResource KeycapButtonStyle}" />
+                <Button Click="BtnGuardar_Click"
                         IsEnabled="{Binding IsNotBusy}"
                         IsDefault="True"
                         Style="{StaticResource PrimaryActionButtonStyle}"
-                        DockPanel.Dock="Right"
-                        Width="110" />
+                        DockPanel.Dock="Right">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Guardar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </DockPanel>
         </Border>
     </Grid>

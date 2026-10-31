@@ -289,17 +289,16 @@ public class ArticulosViewInteraccionTests
     }
 
     [Fact]
-    public void AccionesMasivas_AlMarcarFilas_ReemplazanAlContadorEnLaBarraDelBuscador()
+    public void AccionesMasivas_AlMarcarFilas_ReemplazanALaCargaEnLaBarraDelBuscador()
     {
         bool masivasSinMarcas = true;
-        bool contadorSinMarcas = false;
+        bool panelNormalSinMarcas = false;
         bool masivasConMarcas = false;
-        bool contadorConMarcas = true;
+        bool panelNormalConMarcas = true;
         bool busquedaConMarcas = false;
         bool limpiarConMarcas = false;
         bool heredaElViewModel = false;
         bool pedirEnlazado = false;
-        bool paginacionSinResumen = false;
         string? texto = null;
 
         WpfTestHelper.Run(() =>
@@ -311,13 +310,12 @@ public class ArticulosViewInteraccionTests
             var panelSeleccion = (FrameworkElement)barra.FindName("PanelSeleccion");
             // Fuera de una ventana IsVisible es siempre falso: se mira la Visibility de cada panel
             masivasSinMarcas = panelSeleccion.Visibility == Visibility.Visible;
-            contadorSinMarcas = panelNormal.Visibility == Visibility.Visible;
-            paginacionSinResumen = !Descendientes<PaginationBar>(e.Vista).Single().MostrarResumen;
+            panelNormalSinMarcas = panelNormal.Visibility == Visibility.Visible;
 
             e.Vista.ViewModel.SeleccionarTodos = true;
             e.Vista.UpdateLayout();
             masivasConMarcas = panelSeleccion.Visibility == Visibility.Visible && Descendientes<BulkActionBar>(barra).Contains(masivas);
-            contadorConMarcas = panelNormal.Visibility == Visibility.Visible;
+            panelNormalConMarcas = panelNormal.Visibility == Visibility.Visible;
             busquedaConMarcas = Descendientes<Wpf.Ui.Controls.TextBox>(barra).Single().Visibility == Visibility.Visible;
             var limpiar = Descendientes<Button>(barra).Single(b => ReferenceEquals(b.Command, e.Vista.ViewModel.LimpiarFiltrosCommand));
             limpiarConMarcas = limpiar.Visibility == Visibility.Visible && ((FrameworkElement)limpiar.Parent).Visibility == Visibility.Visible;
@@ -327,14 +325,13 @@ public class ArticulosViewInteraccionTests
         });
 
         masivasSinMarcas.Should().BeFalse();
-        contadorSinMarcas.Should().BeTrue();
+        panelNormalSinMarcas.Should().BeTrue();
         masivasConMarcas.Should().BeTrue("aparecen junto a las casillas que las activan");
-        contadorConMarcas.Should().BeFalse("las acciones masivas ocupan el lugar de la carga y el contador");
+        panelNormalConMarcas.Should().BeFalse("las acciones masivas ocupan el lugar de la carga");
         busquedaConMarcas.Should().BeTrue("la búsqueda no se tapa al marcar filas");
         limpiarConMarcas.Should().BeFalse("el badge \"N seleccionados ✕\" ocupa el lugar de \"Limpiar filtros\"");
         heredaElViewModel.Should().BeTrue("la barra no tiene padre lógico y hereda el DataContext por el árbol visual");
         pedirEnlazado.Should().BeTrue();
-        paginacionSinResumen.Should().BeTrue("el contador de arriba ya informa la cantidad");
         texto.Should().Be("2 seleccionados", "la selección es de la página visible: no se informa \"de M\"");
     }
 

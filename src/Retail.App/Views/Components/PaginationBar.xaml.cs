@@ -21,9 +21,6 @@ public partial class PaginationBar : UserControl
     // Siempre siete lugares: con más páginas, los tres primeros y los tres últimos o la actual con sus vecinas
     private const int LugaresVisibles = 7;
 
-    public static readonly DependencyProperty MostrarResumenProperty =
-        DependencyProperty.Register(nameof(MostrarResumen), typeof(bool), typeof(PaginationBar), new PropertyMetadata(true));
-
     public static readonly DependencyProperty PaginaActualProperty =
         DependencyProperty.Register(nameof(PaginaActual), typeof(int), typeof(PaginationBar), new PropertyMetadata(1, AlCambiarPaginas));
 
@@ -45,16 +42,6 @@ public partial class PaginationBar : UserControl
 
         CuadroPagina.KeyDown += AlPresionarTeclaEnCuadro;
         CuadroPagina.LostKeyboardFocus += (_, _) => IrALaPaginaEscrita();
-    }
-
-    /// <summary>
-    /// Muestra el "Mostrando X a Y de Z" a la izquierda. Una página que ya informa la cantidad de resultados en otro
-    /// lugar lo oculta.
-    /// </summary>
-    public bool MostrarResumen
-    {
-        get => (bool)GetValue(MostrarResumenProperty);
-        set => SetValue(MostrarResumenProperty, value);
     }
 
     public int PaginaActual

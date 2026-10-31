@@ -14,13 +14,11 @@
             <StackPanel HorizontalAlignment="Center">
                 <!-- Icono de Trabajo en Progreso -->
                 <Border Background="{DynamicResource PrimaryLightBrush}"
-                        BorderBrush="{DynamicResource PrimaryBrush}"
-                        BorderThickness="1"
                         CornerRadius="40"
                         Width="80"
                         Height="80"
                         HorizontalAlignment="Center"
-                        Margin="0,0,0,16">
+                        Margin="{StaticResource StackLg}">
                     <iconPacks:PackIconBoxIcons Kind="RegularCode"
                                                 Width="36"
                                                 Height="36"
@@ -34,16 +32,15 @@
                            Text="Módulo en Desarrollo"
                            Style="{StaticResource TextBlockHeader1}"
                            HorizontalAlignment="Center"
-                           Margin="0,0,0,8" />
+                           Margin="{StaticResource StackSm}" />
 
                 <!-- Badge de Estado en Roadmap -->
                 <Border Style="{StaticResource BadgeWarningStyle}"
                         HorizontalAlignment="Center"
-                        Margin="0,0,0,16">
+                        Margin="{StaticResource StackLg}">
                     <TextBlock x:Name="TxtEtapaBadge"
                                Text="Próximamente según Roadmap"
-                               FontSize="12"
-                               FontWeight="Bold"
+                               Style="{StaticResource BadgeNeutralTextStyle}"
                                Foreground="{DynamicResource WarningForegroundBrush}" />
                 </Border>
 
@@ -55,32 +52,28 @@
                            TextAlignment="Center"
                            TextWrapping="Wrap"
                            MaxWidth="520"
-                           Margin="0,0,0,12" />
+                           Margin="{StaticResource StackMd}" />
 
                 <TextBlock x:Name="TxtDetalles"
                            Text="Responsable y Especificación Técnica según ERS v3.2."
-                           FontSize="12"
-                           Foreground="{DynamicResource TextMutedBrush}"
+                           Style="{StaticResource TextBlockCaption}"
                            TextAlignment="Center"
                            TextWrapping="Wrap"
                            MaxWidth="520"
-                           Margin="0,0,0,24" />
+                           Margin="{StaticResource StackXl}" />
 
                 <!-- Separador -->
                 <Border Height="1"
                         Background="{DynamicResource SurfaceBorderBrush}"
-                        Margin="0,0,0,20" />
+                        Margin="{StaticResource StackXl}" />
 
                 <!-- Botón para regresar a Catálogo -->
                 <Button x:Name="BtnVolverCatalogo"
                         Click="BtnVolverCatalogo_Click"
                         Style="{StaticResource KeycapButtonStyle}"
-                        HorizontalAlignment="Center"
-                        Padding="16,8">
+                        HorizontalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <Path Data="{StaticResource GeometryBox}"
-                              Fill="{DynamicResource PrimaryBrush}"
-                              Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                         <TextBlock Text="Ir al Catálogo de Artículos" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>

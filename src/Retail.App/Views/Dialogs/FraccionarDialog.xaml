@@ -6,9 +6,9 @@
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   Title="Fraccionar Artículo de Origen"
                   Width="480"
-                  Height="484"
+                  Height="564"
                   MinWidth="440"
-                  MinHeight="444"
+                  MinHeight="524"
                   WindowStartupLocation="CenterOwner"
                   ExtendsContentIntoTitleBar="True"
                   Background="{DynamicResource DialogBackgroundBrush}"
@@ -37,32 +37,45 @@
                         BorderBrush="{DynamicResource DangerBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="12,8"
-                        Margin="0,0,0,12"
+                        Padding="{StaticResource InsetCompact}"
+                        Margin="{StaticResource StackMd}"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
-                <TextBlock Text="{Binding UnidadesPorOrigen, StringFormat={}Cada unidad del origen se abre en {0} unidades de la presentación.}"
-                           Style="{StaticResource TextBlockBodySecondary}"
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,12" />
+                <!-- Sección 1: cantidad a fraccionar -->
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularCut" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Cantidad a Fraccionar" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
-                <!-- Cantidad a fraccionar -->
-                <TextBlock Text="Unidades del origen a abrir *"
-                           Style="{StaticResource TextBlockBodySecondary}"
-                           Margin="0,0,0,4" />
-                <ui:TextBox Text="{Binding CantidadOrigen, UpdateSourceTrigger=PropertyChanged}"
-                            FontFamily="{StaticResource FontFamilyNumeric}"
-                            Typography.NumeralAlignment="Tabular"
-                            PlaceholderText="1"
-                            Margin="0,0,0,16" />
+                        <TextBlock Text="{Binding UnidadesPorOrigen, StringFormat={}Cada unidad del origen se abre en {0} unidades de la presentación.}"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   TextWrapping="Wrap"
+                                   Margin="{StaticResource StackMd}" />
+
+                        <TextBlock Text="Unidades del origen a abrir *"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="{StaticResource StackXs}" />
+                        <ui:TextBox Text="{Binding CantidadOrigen, UpdateSourceTrigger=PropertyChanged}"
+                                    FontFamily="{StaticResource FontFamilyNumeric}"
+                                    Typography.NumeralAlignment="Tabular"
+                                    PlaceholderText="1" />
+                    </StackPanel>
+                </Border>
 
                 <!-- Vista previa: stocks antes y después -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16,12">
+                <Border Style="{StaticResource DialogSectionStyle}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Stock Antes y Después" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -79,10 +92,10 @@
                                    Text="{Binding DescripcionOrigen}"
                                    Style="{StaticResource TextBlockBody}"
                                    TextTrimming="CharacterEllipsis" />
-                        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,2,0,10">
+                        <StackPanel Grid.Row="1" Grid.Column="0" Orientation="Horizontal" Margin="0,2,0,8">
                             <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="12" Height="12"
                                                         Foreground="{DynamicResource TextSecondaryBrush}"
-                                                        Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                        Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
                             <TextBlock Text="Origen" Style="{StaticResource TextBlockCaption}" />
                         </StackPanel>
                         <TextBlock Grid.Row="0" Grid.RowSpan="2" Grid.Column="1"
@@ -103,7 +116,7 @@
                         <StackPanel Grid.Row="3" Grid.Column="0" Orientation="Horizontal" Margin="0,2,0,0">
                             <iconPacks:PackIconBoxIcons Kind="RegularCut" Width="12" Height="12"
                                                         Foreground="{DynamicResource TextSecondaryBrush}"
-                                                        Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                        Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding UnidadesResultantes, StringFormat={}Presentación (+{0} unid.)}"
                                        Style="{StaticResource TextBlockCaption}" />
                         </StackPanel>
@@ -118,6 +131,7 @@
                             <Run Text="{Binding StockDerivadoResultante, Mode=OneWay}" />
                         </TextBlock>
                     </Grid>
+                    </StackPanel>
                 </Border>
             </StackPanel>
         </Border>
@@ -127,17 +141,20 @@
             <DockPanel LastChildFill="False">
                 <Button Content="Cancelar"
                         Click="BtnCancelar_Click"
+                        IsCancel="True"
                         Style="{StaticResource KeycapButtonStyle}"
-                        IsEnabled="{Binding IsNotBusy}"
-                        Width="100" />
+                        IsEnabled="{Binding IsNotBusy}" />
 
-                <Button Content="Fraccionar"
-                        IsDefault="True"
+                <Button IsDefault="True"
                         Click="BtnConfirmar_Click"
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         IsEnabled="{Binding IsNotBusy}"
-                        DockPanel.Dock="Right"
-                        Padding="16,8" />
+                        DockPanel.Dock="Right">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularCut" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Fraccionar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </DockPanel>
         </Border>
     </Grid>

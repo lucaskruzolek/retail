@@ -64,10 +64,6 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
-    public string InformacionPaginacion => TotalRegistrosFiltrados == 0
-        ? "Sin operadores registrados"
-        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistrosFiltrados)} de {TotalRegistrosFiltrados} operadores";
-
     /// <summary>
     /// Solo el Gerente ve el botón de desbloqueo (D-31); la autoridad real la decide <c>UsuarioService</c>.
     /// </summary>
@@ -168,8 +164,7 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
 
                 PaginaActual = 1;
                 AplicarFiltroLocal();
-
-                MensajeEstado = $"Se cargaron {_cacheUsuarios.Count} operadores.";
+                MensajeEstado = string.Empty;
             },
             ex =>
             {
@@ -529,7 +524,6 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(PuedeRetrocederPagina));
         OnPropertyChanged(nameof(PuedeAvanzarPagina));
-        OnPropertyChanged(nameof(InformacionPaginacion));
     }
 
     /// <summary>

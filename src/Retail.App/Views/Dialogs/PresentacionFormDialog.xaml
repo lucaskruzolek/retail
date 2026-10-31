@@ -38,35 +38,27 @@
                         BorderBrush="{DynamicResource DangerBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="12,8"
-                        Margin="0,0,0,16"
+                        Padding="{StaticResource InsetCompact}"
+                        Margin="{StaticResource StackLg}"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
                 <!-- Grupo 1: Artículo de origen (solo lectura) -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <iconPacks:PackIconBoxIcons Kind="RegularPackage"
-                                                        Width="14"
-                                                        Height="14"
-                                                        Foreground="{DynamicResource PrimaryBrush}"
-                                                        Margin="0,0,6,0"
-                                                        VerticalAlignment="Center" />
-                            <TextBlock Text="Artículo de Origen (se compra)"
-                                       FontWeight="SemiBold"
-                                       FontSize="14"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Artículo de Origen (se compra)" Style="{StaticResource CardHeaderTextStyle}" />
                         </StackPanel>
 
                         <TextBlock Text="{Binding DescripcionOrigen}"
                                    Style="{StaticResource TextBlockBody}"
                                    TextWrapping="Wrap"
-                                   Margin="0,0,0,6" />
+                                   Margin="{StaticResource StackSm}" />
 
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="Costo: "
@@ -93,29 +85,28 @@
                 </Border>
 
                 <!-- Grupo 2: Datos de la presentación -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <TextBlock Text="Presentación (se vende)"
-                                   FontWeight="SemiBold"
-                                   FontSize="14"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   Margin="0,0,0,12" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Presentación (se vende)" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
                         <TextBlock Text="Descripción *"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding Descripcion, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="ej. Sobre manila A4 (unidad)"
-                                    Margin="0,0,0,12" />
+                                    Margin="{StaticResource StackMd}" />
 
                         <TextBlock Text="Código de barras o interno (opcional)"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding CodigoBarras, UpdateSourceTrigger=PropertyChanged}"
                                     helpers:EntradaNumericaHelper.SoloDigitos="True"
                                     PlaceholderText="ej. 7791234567890 o 512"
                                     FontFamily="{StaticResource FontFamilyMonospace}"
-                                    Margin="0,0,0,12" />
+                                    Margin="{StaticResource StackMd}" />
 
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -129,7 +120,7 @@
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="Unidades por origen *"
                                            Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
+                                           Margin="{StaticResource StackXs}" />
                                 <ui:TextBox Text="{Binding UnidadesPorOrigen, UpdateSourceTrigger=PropertyChanged}"
                                             FontFamily="{StaticResource FontFamilyNumeric}"
                                             Typography.NumeralAlignment="Tabular"
@@ -139,7 +130,7 @@
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Margen (%)"
                                            Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
+                                           Margin="{StaticResource StackXs}" />
                                 <ui:TextBox Text="{Binding PorcentajeGanancia, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}"
                                             FontFamily="{StaticResource FontFamilyNumeric}"
                                             Typography.NumeralAlignment="Tabular"
@@ -149,7 +140,7 @@
                             <StackPanel Grid.Column="4">
                                 <TextBlock Text="Stock mínimo"
                                            Style="{StaticResource TextBlockBodySecondary}"
-                                           Margin="0,0,0,4" />
+                                           Margin="{StaticResource StackXs}" />
                                 <ui:TextBox Text="{Binding StockMinimo, UpdateSourceTrigger=PropertyChanged}"
                                             FontFamily="{StaticResource FontFamilyNumeric}"
                                             Typography.NumeralAlignment="Tabular"
@@ -160,7 +151,7 @@
                         <TextBlock Text="La presentación arranca sin stock: recibe unidades al fraccionar el artículo de origen."
                                    Style="{StaticResource TextBlockCaption}"
                                    TextWrapping="Wrap"
-                                   Margin="0,10,0,0" />
+                                   Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
 
@@ -169,17 +160,17 @@
                         BorderBrush="{DynamicResource PrimaryBrush}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="16,10">
+                        Padding="16,12">
                     <StackPanel>
-                        <DockPanel LastChildFill="False" Margin="0,0,0,6">
+                        <DockPanel LastChildFill="False" Margin="{StaticResource StackSm}">
                             <TextBlock Text="COSTO UNITARIO"
                                        Foreground="{DynamicResource PrimaryPressedBrush}"
-                                       FontSize="11"
+                                       FontSize="{StaticResource FontSizeXs}"
                                        FontWeight="Bold"
                                        VerticalAlignment="Center" />
                             <TextBlock DockPanel.Dock="Right"
                                        Text="{Binding CostoUnitarioCalculado, StringFormat={}$ {0:N2}}"
-                                       FontSize="14"
+                                       FontSize="{StaticResource FontSizeMd}"
                                        FontWeight="SemiBold"
                                        FontFamily="{StaticResource FontFamilyNumeric}"
                                        Typography.NumeralAlignment="Tabular"
@@ -189,12 +180,12 @@
                         <DockPanel LastChildFill="False">
                             <TextBlock Text="PRECIO DE VENTA"
                                        Foreground="{DynamicResource PrimaryPressedBrush}"
-                                       FontSize="11"
+                                       FontSize="{StaticResource FontSizeXs}"
                                        FontWeight="Bold"
                                        VerticalAlignment="Center" />
                             <TextBlock DockPanel.Dock="Right"
                                        Text="{Binding PrecioVentaCalculado, StringFormat={}$ {0:N2}}"
-                                       FontSize="22"
+                                       FontSize="{StaticResource FontSizeXl}"
                                        FontWeight="Bold"
                                        FontFamily="{StaticResource FontFamilyNumeric}"
                                        Typography.NumeralAlignment="Tabular"
@@ -211,17 +202,20 @@
             <DockPanel LastChildFill="False">
                 <Button Content="Cancelar"
                         Click="BtnCancelar_Click"
+                        IsCancel="True"
                         Style="{StaticResource KeycapButtonStyle}"
-                        IsEnabled="{Binding IsNotBusy}"
-                        Width="100" />
+                        IsEnabled="{Binding IsNotBusy}" />
 
-                <Button Content="Crear Presentación"
-                        IsDefault="True"
+                <Button IsDefault="True"
                         Click="BtnGuardar_Click"
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         IsEnabled="{Binding IsNotBusy}"
-                        DockPanel.Dock="Right"
-                        Padding="16,8" />
+                        DockPanel.Dock="Right">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Crear Presentación" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </DockPanel>
         </Border>
     </Grid>

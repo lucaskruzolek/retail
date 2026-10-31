@@ -5,18 +5,9 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              x:Name="Raiz">
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
-    </UserControl.Resources>
-
     <DockPanel LastChildFill="False" Margin="16,10">
         <!-- Izquierda: dónde estoy y cuántas filas veo -->
         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="{Binding InformacionPaginacion}"
-                       Visibility="{Binding MostrarResumen, ElementName=Raiz, Converter={StaticResource BoolToVisConverter}}"
-                       Style="{StaticResource PaginacionTextoStyle}"
-                       Margin="0,0,16,0" />
-
             <TextBlock Text="Página" Style="{StaticResource PaginacionTextoStyle}" />
             <!-- Editable: un número y Enter (o salir del cuadro) va a esa página -->
             <TextBox x:Name="CuadroPagina"

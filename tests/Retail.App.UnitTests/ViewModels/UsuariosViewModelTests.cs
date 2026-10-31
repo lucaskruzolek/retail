@@ -56,7 +56,7 @@ public class UsuariosViewModelTests : IDisposable
         _sut.Usuarios.Should().HaveCount(2);
         _sut.IsBusy.Should().BeFalse();
         _sut.MensajeError.Should().BeNull();
-        _sut.MensajeEstado.Should().Contain("2 operadores");
+        _sut.MensajeEstado.Should().BeEmpty("al terminar la carga no queda el texto de progreso");
     }
 
     [Fact]

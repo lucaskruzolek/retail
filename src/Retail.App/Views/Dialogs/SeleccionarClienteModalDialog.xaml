@@ -55,20 +55,20 @@
                     BorderBrush="{DynamicResource SurfaceBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
-                    Padding="12,10"
+                    Padding="12,12"
                     Margin="0,0,0,12">
                 <DockPanel LastChildFill="True">
                     <Button DockPanel.Dock="Right"
                             Click="OnConsumidorFinalClick"
                             Style="{StaticResource KeycapButtonStyle}"
-                            Padding="12,6">
+                            Padding="12,8">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
                             <TextBlock Text="Asignar" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Consumidor Final" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="Consumidor Final" FontWeight="SemiBold" FontSize="{StaticResource FontSizeMd}" Foreground="{DynamicResource TextPrimaryBrush}" />
                         <TextBlock Text="Venta sin comprobante a nombre de cliente o cuenta corriente." Style="{StaticResource TextBlockCaptionSecondary}" />
                     </StackPanel>
                 </DockPanel>
@@ -102,13 +102,13 @@
                                 <DataTemplate>
                                     <Border HorizontalAlignment="Center"
                                             CornerRadius="4"
-                                            Padding="6,2"
+                                            Padding="8,2"
                                             Visibility="{Binding TieneCuentaCorriente, Converter={StaticResource BoolToVisConverter}}"
                                             Background="{DynamicResource SuccessBackgroundBrush}"
                                             BorderBrush="{DynamicResource SuccessBorderBrush}"
                                             BorderThickness="1">
                                         <TextBlock Text="Habilitada"
-                                                   FontSize="10"
+                                                   FontSize="{StaticResource FontSize2Xs}"
                                                    FontWeight="Bold"
                                                    Foreground="{DynamicResource SuccessForegroundBrush}" />
                                     </Border>

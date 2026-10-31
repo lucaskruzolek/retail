@@ -31,7 +31,7 @@
         <components:EncabezadoDialogo Titulo="Checkout y Cobro Multimedio" />
 
         <!-- Contenido Central Scrollable -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="20,12">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12,0,12,12">
             <StackPanel>
                 <!-- Alerta de Error si la hubiera -->
                 <Border Background="{DynamicResource DangerBackgroundBrush}"
@@ -39,18 +39,23 @@
                         BorderThickness="1"
                         CornerRadius="6"
                         Padding="12,8"
-                        Margin="0,0,0,12"
+                        Margin="{StaticResource StackMd}"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
                 <!-- Tarjeta 1: Cliente, total y estado del cobro (D-17). El total tiene su propia fila a todo el
                      ancho: en una columna compartida, un importe largo desbordaba sobre la pastilla del saldo. -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Resumen del cobro" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
+
                         <TextBlock Text="CLIENTE"
                                    Style="{StaticResource TextBlockCaptionSecondary}"
                                    FontWeight="Bold" />
@@ -81,25 +86,18 @@
                             </Grid.ColumnDefinitions>
 
                             <!-- Lo ya imputado con los pagos cargados -->
-                            <Border Grid.Column="0"
-                                    CornerRadius="6"
-                                    Padding="12,8"
-                                    Background="{DynamicResource SurfaceBackgroundBrush}"
-                                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                                    BorderThickness="1">
-                                <StackPanel>
-                                    <TextBlock Text="IMPUTADO"
-                                               FontSize="10"
-                                               FontWeight="Bold"
-                                               Foreground="{DynamicResource TextSecondaryBrush}" />
-                                    <TextBlock Text="{Binding TotalImputadoFormateado}"
-                                               FontFamily="{StaticResource FontFamilyNumeric}"
-                                               Typography.NumeralAlignment="Tabular"
-                                               FontSize="16"
-                                               FontWeight="Bold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </StackPanel>
-                            </Border>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="IMPUTADO"
+                                           FontSize="{StaticResource FontSize2Xs}"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBlock Text="{Binding TotalImputadoFormateado}"
+                                           FontFamily="{StaticResource FontFamilyNumeric}"
+                                           Typography.NumeralAlignment="Tabular"
+                                           FontSize="{StaticResource FontSizeLg}"
+                                           FontWeight="Bold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </StackPanel>
 
                             <!-- Saldo pendiente: carmín mientras falte cobrar, verde cuando llega a cero -->
                             <Border Grid.Column="2"
@@ -122,12 +120,12 @@
                                 </Border.Style>
                                 <StackPanel>
                                     <TextBlock Text="SALDO PENDIENTE"
-                                               FontSize="10"
+                                               FontSize="{StaticResource FontSize2Xs}"
                                                FontWeight="Bold" />
                                     <TextBlock Text="{Binding SaldoPendienteFormateado}"
                                                FontFamily="{StaticResource FontFamilyNumeric}"
                                                Typography.NumeralAlignment="Tabular"
-                                               FontSize="16"
+                                               FontSize="{StaticResource FontSizeLg}"
                                                FontWeight="Bold" />
                                 </StackPanel>
                             </Border>
@@ -136,9 +134,12 @@
                 </Border>
 
                 <!-- Tarjeta 2: Selección del Medio de Pago e Imputación -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <TextBlock Text="Medio de Pago" Style="{StaticResource TextBlockHeader2}" Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularCreditCard" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Medio de pago" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
                         <!-- Selector de Medios de Pago -->
                         <ComboBox ItemsSource="{Binding MediosPagoDisponibles}"
@@ -151,53 +152,41 @@
                         <ui:TextBox Text="{Binding MontoImputar, UpdateSourceTrigger=PropertyChanged}"
                                     FontFamily="{StaticResource FontFamilyNumeric}"
                                     Typography.NumeralAlignment="Tabular"
-                                    FontSize="15"
+                                    FontSize="{StaticResource FontSizeMd}"
                                     FontWeight="SemiBold"
                                     Margin="0,0,0,12" />
 
                         <!-- VISTA DINÁMICA: Efectivo -->
                         <StackPanel Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisConverter}}">
-                            <TextBlock Text="Billetes Rápidos (Efectivo Recibido)" Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,0,0,6" />
-                            <WrapPanel Margin="0,0,0,10">
+                            <TextBlock Text="Billetes Rápidos (Efectivo Recibido)" Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,0,0,8" />
+                            <WrapPanel Margin="0,0,0,12">
                                 <Button Command="{Binding EstablecerPagoExactoCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="Exacto"
-                                        Padding="10,6"
-                                        Margin="0,0,6,6" />
+                                        Margin="0,0,8,8" />
                                 <Button Command="{Binding SumarMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$1.000"
-                                        Padding="10,6"
-                                        Margin="0,0,6,6" />
+                                        Margin="0,0,8,8" />
                                 <Button Command="{Binding SumarDosMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$2.000"
-                                        Padding="10,6"
-                                        Margin="0,0,6,6" />
+                                        Margin="0,0,8,8" />
                                 <Button Command="{Binding SumarCincoMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$5.000"
-                                        Padding="10,6"
-                                        Margin="0,0,6,6" />
+                                        Margin="0,0,8,8" />
                                 <Button Command="{Binding SumarDiezMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$10.000"
-                                        Padding="10,6"
-                                        Margin="0,0,6,6" />
+                                        Margin="0,0,8,8" />
                                 <Button Command="{Binding SumarVeinteMilCommand}"
                                         Style="{StaticResource KeycapButtonStyle}"
-                                        MinHeight="{StaticResource ControlHeightLg}"
                                         Content="$20.000"
-                                        Padding="10,6"
-                                        Margin="0,0,6,6" />
+                                        Margin="0,0,8,8" />
                             </WrapPanel>
 
-                            <Grid Margin="0,0,0,10">
+                            <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
@@ -208,7 +197,7 @@
                                     <ui:TextBox Text="{Binding EfectivoRecibido, UpdateSourceTrigger=PropertyChanged}"
                                                 FontFamily="{StaticResource FontFamilyNumeric}"
                                                 Typography.NumeralAlignment="Tabular"
-                                                FontSize="15"
+                                                FontSize="{StaticResource FontSizeMd}"
                                                 FontWeight="SemiBold" />
                                 </StackPanel>
 
@@ -217,17 +206,17 @@
                                         BorderBrush="{DynamicResource SuccessBorderBrush}"
                                         BorderThickness="1"
                                         CornerRadius="6"
-                                        Padding="12,6"
+                                        Padding="12,8"
                                         VerticalAlignment="Bottom">
                                     <StackPanel>
                                         <TextBlock Text="VUELTO A ENTREGAR"
-                                                   FontSize="10"
+                                                   FontSize="{StaticResource FontSize2Xs}"
                                                    FontWeight="Bold"
                                                    Foreground="{DynamicResource SuccessForegroundBrush}" />
                                         <TextBlock Text="{Binding VueltoFormateado}"
                                                    FontFamily="{StaticResource FontFamilyNumeric}"
                                                    Typography.NumeralAlignment="Tabular"
-                                                   FontSize="18"
+                                                   FontSize="{StaticResource FontSizeLg}"
                                                    FontWeight="Bold"
                                                    Foreground="{DynamicResource SuccessForegroundBrush}" />
                                     </StackPanel>
@@ -242,7 +231,7 @@
                                     BorderThickness="1"
                                     CornerRadius="6"
                                     Padding="12,8"
-                                    Margin="0,0,0,10">
+                                    Margin="0,0,0,12">
                                 <StackPanel>
                                     <TextBlock Text="Crédito Disponible de Cuenta Corriente"
                                                FontWeight="SemiBold"
@@ -250,7 +239,7 @@
                                     <TextBlock Text="{Binding CreditoDisponibleFormateado}"
                                                FontFamily="{StaticResource FontFamilyNumeric}"
                                                Typography.NumeralAlignment="Tabular"
-                                               FontSize="16"
+                                               FontSize="{StaticResource FontSizeLg}"
                                                FontWeight="Bold"
                                                Foreground="{DynamicResource WarningForegroundBrush}"
                                                Margin="0,2,0,0" />
@@ -263,38 +252,36 @@
                              PAGOS_VENTA.referencia_pago y el Dominio lo siguen admitiendo si un RF futuro lo requiere. -->
                         <Button Command="{Binding ImputarPagoCommand}"
                                 Style="{StaticResource KeycapButtonStyle}"
-                                MinHeight="{StaticResource ControlHeightLg}"
-                                HorizontalAlignment="Stretch"
-                                Padding="14,8">
+                                HorizontalAlignment="Stretch">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Imputar Pago al Ticket" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                                <TextBlock Text="Imputar Pago al Ticket" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
                 </Border>
 
                 <!-- Tarjeta 3: Lista de Pagos Imputados -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16">
+                <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <TextBlock Text="Pagos Registrados en esta Operación" Style="{StaticResource TextBlockHeader2}" Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularWallet" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Pagos registrados en esta operación" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
                         <ItemsControl ItemsSource="{Binding PagosImputados}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{DynamicResource SurfaceBackgroundBrush}"
-                                            BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="6"
-                                            Padding="12,8"
-                                            Margin="0,0,0,6">
+                                    <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                            BorderThickness="0,0,0,1"
+                                            Padding="0,8">
                                         <DockPanel LastChildFill="True">
                                             <Button DockPanel.Dock="Right"
                                                     Command="{Binding DataContext.RemoverPagoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{StaticResource IconDangerButtonStyle}"
                                                     ToolTip="Quitar pago">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="16" Height="16" />
+                                                <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
                                             </Button>
 
                                             <StackPanel DockPanel.Dock="Right" Margin="0,0,16,0" VerticalAlignment="Center">
@@ -302,7 +289,7 @@
                                                            FontFamily="{StaticResource FontFamilyNumeric}"
                                                            Typography.NumeralAlignment="Tabular"
                                                            FontWeight="Bold"
-                                                           FontSize="14"
+                                                           FontSize="{StaticResource FontSizeMd}"
                                                            HorizontalAlignment="Right" />
                                             </StackPanel>
 
@@ -317,7 +304,7 @@
 
                         <CheckBox IsChecked="{Binding ImprimirTicket, Mode=TwoWay}"
                                   Content="Imprimir ticket de venta oficial al confirmar (FileDebugTicketPrinterService)"
-                                  Margin="0,8,0,0" />
+                                  Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -329,20 +316,17 @@
                 <Button DockPanel.Dock="Left"
                         Click="OnCancelarClick"
                         Content="Volver (Esc)"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        MinHeight="{StaticResource ControlHeightLg}"
-                        Padding="16,8" />
+                        IsCancel="True"
+                        Style="{StaticResource KeycapButtonStyle}" />
 
                 <Button DockPanel.Dock="Right"
                         IsDefault="True"
                         Click="OnConfirmarClick"
                         IsEnabled="{Binding PuedeConfirmar}"
-                        Style="{StaticResource PrimaryActionButtonStyle}"
-                        MinHeight="{StaticResource ControlHeightLg}"
-                        Padding="20,8">
+                        Style="{StaticResource PrimaryActionButtonStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidReceipt" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Confirmar Cobro" FontWeight="Bold" VerticalAlignment="Center" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Confirmar Cobro" VerticalAlignment="Center" />
                         <Border Style="{StaticResource KeycapPrimaryBadgeStyle}" Margin="8,0,0,0">
                             <TextBlock Text="F12" Style="{StaticResource TextBlockKeycap}" Foreground="White" />
                         </Border>

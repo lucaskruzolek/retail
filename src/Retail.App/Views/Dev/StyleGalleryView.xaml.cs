@@ -60,7 +60,10 @@ public partial class StyleGalleryView : UserControl
             new OpcionFiltroColumna(2, "Papel para impresión", "Oficina"),
             new OpcionFiltroColumna(3, "Cuadernos", "Papelería"),
             new OpcionFiltroColumna(4, "Escritura", "Papelería"),
-            new OpcionFiltroColumna(5, "Servicios", "Servicios")
+            new OpcionFiltroColumna(5, "Servicios", "Servicios"),
+            new OpcionFiltroColumna(6, "Mochilas", "Escolar"),
+            new OpcionFiltroColumna(7, "Marcadores", "Papelería"),
+            new OpcionFiltroColumna(8, "Calculadoras", "Oficina")
         ]);
 
         FiltroStock.CargarOpciones(

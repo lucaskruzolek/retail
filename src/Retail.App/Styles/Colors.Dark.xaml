@@ -40,7 +40,7 @@
 
     <!-- Campo de texto con foco: contorno neutro más marcado en lugar del carmín de acento, y sin el subrayado de 2 px -->
     <SolidColorBrush x:Key="ControlFocusedBorderBrush" Color="#71717A" />
-    <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="#71717A" />
+    <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="Transparent" />
     <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
 
     <!-- ================================================================= -->

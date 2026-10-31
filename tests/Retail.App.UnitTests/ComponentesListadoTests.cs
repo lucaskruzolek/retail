@@ -85,25 +85,6 @@ public class ComponentesListadoTests
         contextoDelBoton.Should().BeSameAs(viewModel, "es la razón de que PageHeader sea un control con contenido");
     }
 
-    [Theory]
-    [InlineData(0, "0 resultados")]
-    [InlineData(1, "1 resultado")]
-    [InlineData(248, "248 resultados")]
-    [InlineData(1234, "1.234 resultados")]
-    public void ListToolbar_TotalDeResultados_SeMuestraEnEsAr(int total, string esperado)
-    {
-        string? texto = null;
-
-        WpfTestHelper.Run(() =>
-        {
-            var barra = new ListToolbar { TotalResultados = total };
-            Distribuir(barra);
-            texto = barra.TextoContador;
-        });
-
-        texto.Should().Be(esperado);
-    }
-
     [Fact]
     public void ListToolbar_ComandoLimpiarYTexto_SeEnlazanALosControlesInternos()
     {
@@ -163,9 +144,9 @@ public class ComponentesListadoTests
     }
 
     [Fact]
-    public void ListToolbar_ConSeleccion_LasAccionesReemplazanALimpiarFiltrosYAlContador()
+    public void ListToolbar_ConSeleccion_LasAccionesReemplazanALimpiarFiltrosYALaCarga()
     {
-        bool contadorVisible = true;
+        bool panelNormalVisible = true;
         bool accionesVisibles = false;
         bool limpiarVisible = false;
         object? contextoDeLasAcciones = null;
@@ -175,12 +156,12 @@ public class ComponentesListadoTests
         {
             var limpiar = new RelayCommand(() => { });
             var acciones = new BulkActionBar { CantidadSeleccionados = 2 };
-            var barra = new ListToolbar { TotalResultados = 10, ComandoLimpiar = limpiar, AccionesDeSeleccion = acciones, HaySeleccion = true };
+            var barra = new ListToolbar { ComandoLimpiar = limpiar, AccionesDeSeleccion = acciones, HaySeleccion = true };
             var pagina = new Grid { DataContext = viewModel };
             pagina.Children.Add(barra);
             Distribuir(pagina);
             // Fuera de una ventana IsVisible es siempre falso: se mira la Visibility de cada elemento
-            contadorVisible = ((FrameworkElement)barra.FindName("PanelNormal")).Visibility == Visibility.Visible;
+            panelNormalVisible = ((FrameworkElement)barra.FindName("PanelNormal")).Visibility == Visibility.Visible;
             accionesVisibles = ((FrameworkElement)barra.FindName("PanelSeleccion")).Visibility == Visibility.Visible
                 && Descendientes<BulkActionBar>(barra).Contains(acciones);
             var botonLimpiar = Descendientes<Button>(barra).Single(b => ReferenceEquals(b.Command, limpiar));
@@ -189,7 +170,7 @@ public class ComponentesListadoTests
             contextoDeLasAcciones = acciones.DataContext;
         });
 
-        contadorVisible.Should().BeFalse();
+        panelNormalVisible.Should().BeFalse();
         accionesVisibles.Should().BeTrue();
         limpiarVisible.Should().BeFalse("el badge \"N seleccionados ✕\" ocupa el lugar de \"Limpiar filtros\"");
         contextoDeLasAcciones.Should().BeSameAs(viewModel, "así los botones de las acciones se enlazan a los comandos de la página");
@@ -320,23 +301,5 @@ public class ComponentesListadoTests
         marcaMarcada.Should().Be(Visibility.Visible);
         guionMarcada.Should().Be(Visibility.Collapsed);
         guionIntermedio.Should().Be(Visibility.Visible);
-    }
-
-    [Theory]
-    [InlineData(true, Visibility.Visible)]
-    [InlineData(false, Visibility.Collapsed)]
-    public void PaginationBar_MostrarResumen_ControlaElTextoDeRegistros(bool mostrar, Visibility esperado)
-    {
-        Visibility visibilidad = Visibility.Hidden;
-
-        WpfTestHelper.Run(() =>
-        {
-            var barra = new PaginationBar { MostrarResumen = mostrar };
-            Distribuir(barra);
-            var resumen = Descendientes<TextBlock>(barra).First(t => DockPanel.GetDock(t) == Dock.Left);
-            visibilidad = resumen.Visibility;
-        });
-
-        visibilidad.Should().Be(esperado);
     }
 }

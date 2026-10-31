@@ -200,6 +200,65 @@ public class FiltroColumnaViewModelTests
     }
 
     [Fact]
+    public void MostrarBusqueda_ConPocasOpciones_EsFalso()
+    {
+        var filtro = new FiltroColumnaViewModel("Stock");
+        filtro.CargarOpciones(Opciones(3));
+
+        filtro.MostrarBusqueda.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MostrarBusqueda_ConSeisOpciones_EsFalso()
+    {
+        var filtro = new FiltroColumnaViewModel("Stock");
+        filtro.CargarOpciones(Opciones(6));
+
+        filtro.MostrarBusqueda.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MostrarBusqueda_ConSieteOpciones_EsVerdadero()
+    {
+        var filtro = new FiltroColumnaViewModel("Marca");
+        filtro.CargarOpciones(Opciones(7));
+
+        filtro.MostrarBusqueda.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MostrarBusqueda_ConGrupos_SumaLasOpcionesDeTodosLosGrupos()
+    {
+        var filtro = new FiltroColumnaViewModel("Categoría");
+        filtro.CargarOpciones(
+        [
+            .. Enumerable.Range(1, 4).Select(i => new OpcionFiltroColumna(i, "A" + i, "Escolar")),
+            .. Enumerable.Range(5, 3).Select(i => new OpcionFiltroColumna(i, "B" + i, "Oficina"))
+        ]);
+
+        filtro.MostrarBusqueda.Should().BeTrue("4 + 3 opciones superan el máximo aunque cada grupo sea chico");
+    }
+
+    [Fact]
+    public void CargarOpciones_CambiandoLaCantidad_NotificaMostrarBusqueda()
+    {
+        var filtro = new FiltroColumnaViewModel("Marca");
+        filtro.CargarOpciones(Opciones(3));
+        var notificadas = new List<string?>();
+        filtro.PropertyChanged += (_, e) => notificadas.Add(e.PropertyName);
+
+        filtro.CargarOpciones(Opciones(8));
+
+        filtro.MostrarBusqueda.Should().BeTrue();
+        notificadas.Should().Contain(nameof(FiltroColumnaViewModel.MostrarBusqueda));
+    }
+
+    private static List<OpcionFiltroColumna> Opciones(int cantidad)
+    {
+        return Enumerable.Range(1, cantidad).Select(i => new OpcionFiltroColumna(i, "Opción " + i)).ToList();
+    }
+
+    [Fact]
     public void CargarOpciones_DeNuevoSinPerderNadaAplicado_NoAvisa()
     {
         var filtro = CrearFiltroAgrupado();

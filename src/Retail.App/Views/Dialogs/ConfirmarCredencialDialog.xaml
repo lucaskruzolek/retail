@@ -2,6 +2,7 @@
                   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   xmlns:components="clr-namespace:Retail.App.Views.Components"
                   Title="Confirmar con contraseña"
                   Width="500"
@@ -30,7 +31,7 @@
         <components:EncabezadoDialogo Titulo="{Binding Titulo}" />
 
         <!-- Formulario -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,16">
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12,0,12,12">
             <StackPanel>
                 <!-- Error (contraseña incorrecta, palabra de confirmación faltante) -->
                 <Border Background="{DynamicResource DangerBackgroundBrush}"
@@ -38,19 +39,13 @@
                         BorderThickness="1"
                         CornerRadius="6"
                         Padding="12,8"
-                        Margin="0,0,0,12"
+                        Margin="{StaticResource StackMd}"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
-
-                <!-- Qué va a pasar -->
-                <TextBlock Text="{Binding Mensaje}"
-                           Style="{StaticResource TextBlockBody}"
-                           TextWrapping="Wrap"
-                           Margin="0,0,0,12" />
 
                 <!-- Aviso destacado (restauración: conciliación fiscal con ARCA) -->
                 <Border Background="{DynamicResource WarningBackgroundBrush}"
@@ -58,59 +53,74 @@
                         BorderThickness="1"
                         CornerRadius="6"
                         Padding="12,8"
-                        Margin="0,0,0,12"
+                        Margin="{StaticResource StackMd}"
                         Visibility="{Binding TieneAviso, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding Aviso}"
                                Foreground="{DynamicResource WarningForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Palabra de confirmación (solo restauración) -->
-                <StackPanel Visibility="{Binding ExigeFrase, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="Escriba RESTAURAR para confirmar" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                    <ui:TextBox Text="{Binding Frase, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="RESTAURAR"
-                                TabIndex="0"
-                                IsEnabled="{Binding IsNotBusy}"
-                                Margin="0,0,0,10" />
-                </StackPanel>
+                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularKey" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Confirmación" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
 
-                <!-- Contraseña del Administrador que ejecuta (solo restauración autorizada, D-33) -->
-                <StackPanel Visibility="{Binding PideUsuarioAutorizante, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="Su contraseña (Administrador)" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                    <ui:PasswordBox x:Name="TxtPasswordActor"
-                                    PasswordChanged="TxtPasswordActor_PasswordChanged"
-                                    PlaceholderText="Su contraseña"
-                                    TabIndex="1"
-                                    IsEnabled="{Binding IsNotBusy}"
-                                    Margin="0,0,0,10" />
-                </StackPanel>
+                        <!-- Qué va a pasar -->
+                        <TextBlock Text="{Binding Mensaje}"
+                                   Style="{StaticResource TextBlockBody}"
+                                   TextWrapping="Wrap"
+                                   Margin="{StaticResource StackMd}" />
 
-                <!-- Usuario del Gerente que autoriza (solo restauración ejecutada por un Administrador, D-30) -->
-                <StackPanel Visibility="{Binding PideUsuarioAutorizante, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="Usuario del Gerente que autoriza" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                    <ui:TextBox x:Name="TxtUsuarioAutorizante"
-                                Text="{Binding NombreUsuarioAutorizante, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="Usuario del Gerente"
-                                TabIndex="2"
-                                IsEnabled="{Binding IsNotBusy}"
-                                Margin="0,0,0,10" />
-                </StackPanel>
+                        <!-- Palabra de confirmación (solo restauración) -->
+                        <StackPanel Visibility="{Binding ExigeFrase, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="Escriba RESTAURAR para confirmar" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                            <ui:TextBox Text="{Binding Frase, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="RESTAURAR"
+                                        TabIndex="0"
+                                        IsEnabled="{Binding IsNotBusy}"
+                                        Margin="{StaticResource StackMd}" />
+                        </StackPanel>
 
-                <!-- Contraseña (propia, o la del Gerente que autoriza) -->
-                <TextBlock Text="{Binding EtiquetaPassword}" Style="{StaticResource TextBlockBodySecondary}" Margin="0,0,0,4" />
-                <ui:PasswordBox x:Name="TxtPassword"
-                                PasswordChanged="TxtPassword_PasswordChanged"
-                                PlaceholderText="{Binding PlaceholderPassword}"
-                                TabIndex="3"
-                                IsEnabled="{Binding IsNotBusy}"
-                                Margin="0,0,0,10" />
+                        <!-- Contraseña del Administrador que ejecuta (solo restauración autorizada, D-33) -->
+                        <StackPanel Visibility="{Binding PideUsuarioAutorizante, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="Su contraseña (Administrador)" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                            <ui:PasswordBox x:Name="TxtPasswordActor"
+                                            PasswordChanged="TxtPasswordActor_PasswordChanged"
+                                            PlaceholderText="Su contraseña"
+                                            TabIndex="1"
+                                            IsEnabled="{Binding IsNotBusy}"
+                                            Margin="{StaticResource StackMd}" />
+                        </StackPanel>
+
+                        <!-- Usuario del Gerente que autoriza (solo restauración ejecutada por un Administrador, D-30) -->
+                        <StackPanel Visibility="{Binding PideUsuarioAutorizante, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="Usuario del Gerente que autoriza" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                            <ui:TextBox x:Name="TxtUsuarioAutorizante"
+                                        Text="{Binding NombreUsuarioAutorizante, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="Usuario del Gerente"
+                                        TabIndex="2"
+                                        IsEnabled="{Binding IsNotBusy}"
+                                        Margin="{StaticResource StackMd}" />
+                        </StackPanel>
+
+                        <!-- Contraseña (propia, o la del Gerente que autoriza) -->
+                        <TextBlock Text="{Binding EtiquetaPassword}" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:PasswordBox x:Name="TxtPassword"
+                                        PasswordChanged="TxtPassword_PasswordChanged"
+                                        PlaceholderText="{Binding PlaceholderPassword}"
+                                        TabIndex="3"
+                                        IsEnabled="{Binding IsNotBusy}"
+                                        Margin="{StaticResource StackMd}" />
+                    </StackPanel>
+                </Border>
 
                 <!-- Progreso de la operación -->
                 <StackPanel Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
-                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progreso, Mode=OneWay}" Height="6" />
-                    <TextBlock Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,6,0,0">
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progreso, Mode=OneWay}" Height="8" />
+                    <TextBlock Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,8,0,0">
                         <Run Text="{Binding Progreso, Mode=OneWay}" /><Run Text="% completado" />
                     </TextBlock>
                 </StackPanel>
@@ -125,25 +135,30 @@
                         IsEnabled="{Binding IsNotBusy}"
                         IsCancel="True"
                         Style="{StaticResource KeycapButtonStyle}"
-                        DockPanel.Dock="Right"
-                        Margin="8,0,0,0"
-                        Width="100" />
-                <Button Content="{Binding TextoBoton}"
-                        Click="BtnConfirmar_Click"
+                        DockPanel.Dock="Left"
+                        MinWidth="100" />
+                <Button Click="BtnConfirmar_Click"
                         IsEnabled="{Binding IsNotBusy}"
                         IsDefault="True"
                         Style="{StaticResource DangerActionButtonStyle}"
                         DockPanel.Dock="Right"
-                        Width="150"
-                        Visibility="{Binding EsDestructiva, Converter={StaticResource BoolToVisConverter}}" />
-                <Button Content="{Binding TextoBoton}"
-                        Click="BtnConfirmar_Click"
+                        Visibility="{Binding EsDestructiva, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding TextoBoton}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Click="BtnConfirmar_Click"
                         IsEnabled="{Binding IsNotBusy}"
                         IsDefault="True"
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         DockPanel.Dock="Right"
-                        Width="150"
-                        Visibility="{Binding NoEsDestructiva, Converter={StaticResource BoolToVisConverter}}" />
+                        Visibility="{Binding NoEsDestructiva, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding TextoBoton}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
             </DockPanel>
         </Border>
     </Grid>

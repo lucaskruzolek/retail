@@ -20,6 +20,12 @@ namespace Retail.App.ViewModels.Comun;
 /// </summary>
 public partial class FiltroColumnaViewModel : ObservableObject
 {
+    /// <summary>
+    /// Hasta esta cantidad de opciones (sumando todos los grupos) el panel no muestra el buscador ni "Limpiar" ni
+    /// "Seleccionar todo": con tan pocas casillas, buscar o marcar en bloque sobra.
+    /// </summary>
+    private const int MaximoOpcionesSinBusqueda = 6;
+
     private static readonly CompareInfo Comparacion = CultureInfo.GetCultureInfo("es-AR").CompareInfo;
 
     private IReadOnlyList<int> _idsAplicados = [];
@@ -44,6 +50,9 @@ public partial class FiltroColumnaViewModel : ObservableObject
     public ObservableCollection<GrupoFiltroColumna> Grupos { get; } = new();
 
     public bool TieneOpciones => Grupos.Count > 0;
+
+    /// <summary>Verdadero si hay más de <see cref="MaximoOpcionesSinBusqueda"/> opciones: recién ahí el panel lleva buscador y atajos.</summary>
+    public bool MostrarBusqueda => TodasLasOpciones().Count() > MaximoOpcionesSinBusqueda;
 
     /// <summary>Valores elegidos con "Aplicar"; vacío = sin filtro.</summary>
     public IReadOnlyList<int> IdsAplicados => _idsAplicados;
@@ -76,6 +85,7 @@ public partial class FiltroColumnaViewModel : ObservableObject
         RestaurarBorrador();
         AplicarBusqueda();
         OnPropertyChanged(nameof(TieneOpciones));
+        OnPropertyChanged(nameof(MostrarBusqueda));
         NotificarAplicado();
 
         if (cambio)

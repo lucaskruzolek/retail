@@ -3,6 +3,7 @@
                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                    xmlns:components="clr-namespace:Retail.App.Views.Components"
+                   xmlns:helpers="clr-namespace:Retail.App.Helpers"
                    xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                    Title="{Binding TituloVentana}"
                    Width="480"
@@ -38,47 +39,53 @@
                         BorderBrush="{DynamicResource DangerBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6"
-                        Padding="12,8"
-                        Margin="0,0,0,12"
+                        Padding="{StaticResource InsetCompact}"
+                        Margin="{StaticResource StackMd}"
                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="{Binding MensajeError}"
                                Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="12"
+                               FontSize="{StaticResource FontSizeSm}"
                                TextWrapping="Wrap" />
                 </Border>
 
                 <!-- Grupo de Datos del Distribuidor -->
-                <Border Style="{StaticResource DialogSectionStyle}" Padding="16" Margin="0,0,0,12">
+                <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularStore" Style="{StaticResource CardHeaderIconStyle}" />
+                            <TextBlock Text="Datos del Distribuidor" Style="{StaticResource CardHeaderTextStyle}" />
+                        </StackPanel>
+
                         <!-- Razón Social -->
                         <TextBlock Text="Razón Social *"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding RazonSocial, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="ej. Distribuidora Papelera Austral S.A."
-                                    Margin="0,0,0,12" />
+                                    Margin="{StaticResource StackMd}" />
 
                         <!-- CUIT -->
                         <TextBlock Text="CUIT (11 dígitos numéricos) *"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding Cuit, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="ej. 30712345678"
                                     FontFamily="{StaticResource FontFamilyMonospace}"
-                                    Margin="0,0,0,12" />
+                                    Margin="{StaticResource StackMd}" />
 
                         <!-- Teléfono -->
                         <TextBlock Text="Teléfono de Contacto"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding Telefono, UpdateSourceTrigger=PropertyChanged}"
+                                    helpers:EntradaTextoHelper.Tipo="Telefono"
                                     PlaceholderText="ej. +54 11 4321-9876"
-                                    Margin="0,0,0,12" />
+                                    Margin="{StaticResource StackMd}" />
 
                         <!-- Email -->
                         <TextBlock Text="Correo Electrónico"
                                    Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,0,0,4" />
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="ej. ventas@austral.com.ar" />
                     </StackPanel>
@@ -92,7 +99,7 @@
                 <Button Command="{Binding CancelarCommand}"
                         CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                         Style="{StaticResource KeycapButtonStyle}"
-                        Margin="0,0,10,0"
+                        Margin="{StaticResource InlineSm}"
                         IsCancel="True">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="Cancelar" VerticalAlignment="Center" />
@@ -104,7 +111,7 @@
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         IsDefault="True">
                     <StackPanel Orientation="Horizontal">
-                        
+                        <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
                         <TextBlock Text="Guardar Proveedor" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>

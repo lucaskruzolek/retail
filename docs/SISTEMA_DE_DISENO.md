@@ -250,6 +250,22 @@ Es una superficie **clara en el tema claro** (`#F4F4F5`, el mismo gris que el ri
 
 ---
 
+## 📏 Reglas de Pantalla (Fase 3 de la migración)
+
+Reglas que toda vista y todo diálogo cumple. Son revisables por captura y por `grep`.
+
+| # | Regla |
+| :--- | :--- |
+| R1 | **Todo botón lleva un ícono**, salvo "Cancelar". El ícono sale de BoxIcons y es siempre de variante **Regular** (`PackIconBoxIcons Kind="Regular…"`), de 14 px junto al texto. Nada de `Solid…`, emojis ni geometrías propias cuando existe el equivalente. |
+| R2 | **"Cancelar" conserva su contorno** (`KeycapButtonStyle`) y no lleva ícono. |
+| R3 | **Los botones usan los estilos del sistema** (`PrimaryActionButtonStyle`, `KeycapButtonStyle`, `DangerActionButtonStyle`, `GhostNeutralButtonStyle`…). Prohibido repetir en la vista `Padding`, `FontWeight`, `Width`/`Height` o colores sueltos: el estilo ya los fija. Solo se admiten `Margin` y `MinWidth` cuando la composición lo pide. |
+| R4 | **Acciones de fila en una tabla:** solo ícono, sin texto ni borde (`RowActionButtonStyle`, o `IconDangerButtonStyle` si es destructiva), siempre con `ToolTip`. La columna que las contiene **no lleva título** (`Header` vacío), no se ordena y mide lo justo (unos 36 px por acción). Si hay más de tres acciones, van al menú "⋮". |
+| R5 | **Encabezado de sección de un modal:** siempre ícono (`CardHeaderIconStyle`) y título (`CardHeaderTextStyle`), dentro de un `DialogSectionStyle`. Los dos toman `SectionTitleBrush`. |
+| R6 | **Sin contadores de elementos:** ninguna pantalla ni tabla muestra "N resultados", "Mostrando X de Y" ni "N ítems". La paginación muestra solo "Página n de N". |
+| R7 | **Enter acepta y Esc cancela** en todo diálogo: el botón principal lleva `IsDefault="True"`. |
+| R8 | **Filtros de una tabla en su cabecera** (`FiltroColumna`), no en combos ni botones sobre la grilla. La toolbar queda con el buscador y "Limpiar filtros". |
+| R9 | **Elegir entre pocas vistas o modos** (pestañas de un tablero, por ejemplo) usa `SelectorSegmentado`, no botones sueltos. |
+
 ## 📋 Páginas de Listado (Buscador + Filtros + Grilla)
 
 Patrón de las páginas de catálogo y padrón (Artículos como piloto; Clientes, Proveedores, Usuarios, Importador y Pedidos adoptan el encabezado y la grilla). Los estilos viven en [`Styles/Listados.xaml`](../src/Retail.App/Styles/Listados.xaml) y los componentes en [`Views/Components/`](../src/Retail.App/Views/Components/).
