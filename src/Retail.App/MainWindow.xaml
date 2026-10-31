@@ -27,7 +27,7 @@
             <Setter Property="ClipToBounds" Value="True" />
             <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
             <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
-            <Setter Property="Width" Value="68" />
+            <Setter Property="Width" Value="58" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
                     <Setter Property="ToolTipService.IsEnabled" Value="False" />
@@ -35,7 +35,7 @@
                         <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                 To="240"
+                                                 To="200"
                                                  Duration="0:0:0.22">
                                     <DoubleAnimation.EasingFunction>
                                         <CubicEase EasingMode="EaseOut" />
@@ -48,7 +48,7 @@
                         <BeginStoryboard HandoffBehavior="SnapshotAndReplace">
                             <Storyboard>
                                 <DoubleAnimation Storyboard.TargetProperty="Width"
-                                                 To="68"
+                                                 To="58"
                                                  Duration="0:0:0.22">
                                     <DoubleAnimation.EasingFunction>
                                         <CubicEase EasingMode="EaseOut" />
@@ -92,9 +92,7 @@
                             Padding="8,8">
                         <Button Command="{Binding ToggleSidebarCommand}"
                                 Style="{StaticResource SidebarHamburgerButtonStyle}"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Center"
-                                Margin="6,0,0,0">
+                                VerticalAlignment="Center">
                             <Button.ToolTip>
                                 <ToolTip Style="{StaticResource SidebarToolTipStyle}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -758,6 +756,51 @@
                                                                 VerticalAlignment="Center" />
                                     <TextBlock Grid.Column="1"
                                                Text="Respaldos"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
+                            <!-- TEMPORAL (desarrollo): acceso a la galería de estilos para revisar componentes a mano. Se quita
+                                 antes del release de producción (Etapa 6), junto con este divisor. -->
+                            <Border Height="1"
+                                    Margin="12,8"
+                                    Background="{DynamicResource SidebarBorderBrush}" />
+                            <Button Command="{Binding NavegarGaleriaDevCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Galeria">
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <TextBlock Text="Galería de estilos (Dev)" FontWeight="SemiBold" />
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="RegularPalette"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Galería (Dev)"
                                                VerticalAlignment="Center"
                                                TextTrimming="CharacterEllipsis"
                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"

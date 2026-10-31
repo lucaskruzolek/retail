@@ -10,7 +10,10 @@ public class CajaDialogService : ICajaDialogService
     public bool? MostrarDialogoApertura(out decimal saldoInicial)
     {
         saldoInicial = 0;
-        var dialog = new AperturaTurnoDialog();
+        var dialog = new AperturaTurnoDialog
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
         var result = dialog.ShowDialog();
 
         if (result == true && dialog.DataContext is AperturaTurnoViewModel vm)
@@ -23,7 +26,10 @@ public class CajaDialogService : ICajaDialogService
 
     public MovimientoCajaDto? MostrarDialogoMovimiento(int idTurno)
     {
-        var dialog = new MovimientoCajaDialog(idTurno);
+        var dialog = new MovimientoCajaDialog(idTurno)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
         var result = dialog.ShowDialog();
 
         if (result == true && dialog.DataContext is MovimientoCajaViewModel vm)
@@ -45,7 +51,10 @@ public class CajaDialogService : ICajaDialogService
         saldoDeclarado = 0;
         montoRetenido = 0;
 
-        var dialog = new ArqueoCiegoDialog(idTurno);
+        var dialog = new ArqueoCiegoDialog(idTurno)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
         var result = dialog.ShowDialog();
 
         if (result == true && dialog.DataContext is ArqueoCiegoViewModel vm)

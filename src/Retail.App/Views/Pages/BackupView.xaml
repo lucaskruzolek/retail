@@ -5,6 +5,8 @@
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
              xmlns:enums="clr-namespace:Retail.Domain.Enums;assembly=Retail.Domain"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="1100"
@@ -16,143 +18,114 @@
 
     <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
+            <!-- Encabezado -->
             <RowDefinition Height="Auto" />
+            <!-- Avisos (errores) -->
             <RowDefinition Height="Auto" />
+            <!-- Selector de vista y estado, directo sobre el fondo -->
+            <RowDefinition Height="Auto" />
+            <!-- Tabla: la única superficie de la página -->
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO Y ACCIONES (Gerente y Administrador operan, D-30 y D-32)         -->
+        <!-- 1. ENCABEZADO Y ACCIONES (Gerente y Administrador operan, D-30 y D-32), sin tarjeta -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0"
-                Style="{StaticResource CardBorderStyle}"
-                Padding="20,16"
-                Margin="{StaticResource SectionSpacing}">
-            <DockPanel LastChildFill="False">
-                <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Copias de Seguridad y Restauración"
-                               Style="{StaticResource TextBlockHeader1}" />
-                    <TextBlock Text="Historial de copias completas de la base de datos y restauración desde una copia verificada (RF-22)"
-                               Style="{StaticResource TextBlockBodySecondary}"
-                               Margin="0,4,0,0" />
-                    <TextBlock Text="Modo solo lectura: únicamente un Gerente o un Administrador pueden crear o restaurar copias."
-                               Style="{StaticResource TextBlockBodyMuted}"
-                               Margin="0,4,0,0"
-                               Visibility="{Binding EsSoloLectura, Converter={StaticResource BoolToVisConverter}}" />
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal"
-                            DockPanel.Dock="Right"
-                            VerticalAlignment="Center"
-                            Visibility="{Binding PuedeOperar, Converter={StaticResource BoolToVisConverter}}">
-                    <Button Command="{Binding RestaurarCopiaCommand}"
-                            Style="{StaticResource DangerActionButtonStyle}"
-                            Padding="16,8"
-                            Margin="0,0,8,0"
-                            ToolTip="Restaurar la copia seleccionada (solo copias verificadas)">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Restaurar" FontWeight="Bold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                    <Button Command="{Binding CrearBackupManualCommand}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            Padding="16,8"
-                            ToolTip="Crear una copia de seguridad ahora">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Crear copia" FontWeight="Bold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
+        <components:PageHeader Grid.Row="0"
+                               Margin="{StaticResource SectionSpacing}"
+                               Titulo="Copias de Seguridad y Restauración"
+                               Subtitulo="Historial de copias completas de la base de datos y restauración desde una copia verificada (RF-22)">
+            <StackPanel Orientation="Horizontal"
+                        Visibility="{Binding PuedeOperar, Converter={StaticResource BoolToVisConverter}}">
+                <Button Command="{Binding RestaurarCopiaCommand}"
+                        Style="{StaticResource DangerActionButtonStyle}"
+                        Margin="{StaticResource InlineSm}"
+                        ToolTip="Restaurar la copia seleccionada (solo copias verificadas)">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Restaurar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Command="{Binding CrearBackupManualCommand}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        ToolTip="Crear una copia de seguridad ahora">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Crear copia" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </components:PageHeader>
 
         <!-- ============================================================= -->
-        <!-- 2. AVISO DE LA ÚLTIMA RESTAURACIÓN (R-20) Y ERRORES           -->
+        <!-- 2. AVISOS: modo solo lectura y errores -->
         <!-- ============================================================= -->
         <StackPanel Grid.Row="1">
-            <Border Background="{DynamicResource WarningBackgroundBrush}"
-                    BorderBrush="{DynamicResource WarningBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="12,8"
-                    Margin="0,0,0,12"
-                    Visibility="{Binding TieneUltimaRestauracion, Converter={StaticResource BoolToVisConverter}}">
-                <TextBlock Text="{Binding UltimaRestauracionTexto}"
-                           Foreground="{DynamicResource WarningForegroundBrush}"
-                           FontSize="12"
-                           TextWrapping="Wrap" />
-            </Border>
+            <TextBlock Text="Modo solo lectura: únicamente un Gerente o un Administrador pueden crear o restaurar copias."
+                       Style="{StaticResource TextBlockBodyMuted}"
+                       Margin="{StaticResource StackMd}"
+                       Visibility="{Binding EsSoloLectura, Converter={StaticResource BoolToVisConverter}}" />
 
             <Border Background="{DynamicResource DangerBackgroundBrush}"
                     BorderBrush="{DynamicResource DangerBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="12,8"
-                    Margin="0,0,0,12"
+                    CornerRadius="{StaticResource RadiusMd}"
+                    Padding="{StaticResource InsetCompact}"
+                    Margin="{StaticResource StackMd}"
                     Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                 <TextBlock Text="{Binding MensajeError}"
                            Foreground="{DynamicResource DangerForegroundBrush}"
-                           FontSize="12"
+                           FontSize="{StaticResource FontSizeSm}"
                            TextWrapping="Wrap" />
             </Border>
         </StackPanel>
 
         <!-- ============================================================= -->
-        <!-- 3. HISTORIAL DE COPIAS                                        -->
+        <!-- 3. SELECTOR DE VISTA (D-34, R9), ESTADO Y CARGA, sin tarjeta   -->
         <!-- ============================================================= -->
-        <Border Grid.Row="2"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
+        <DockPanel Grid.Row="2" LastChildFill="False" Margin="{StaticResource StackMd}">
+            <components:SelectorSegmentado DockPanel.Dock="Left"
+                                           VerticalAlignment="Center"
+                                           Margin="{StaticResource InlineMd}">
+                <UniformGrid Columns="2">
+                    <RadioButton GroupName="VistaRespaldos"
+                                 IsChecked="{Binding MostrandoCopias, Mode=TwoWay}"
+                                 Style="{StaticResource SegmentedRadioButtonStyle}"
+                                 Content="Copias" />
+                    <RadioButton GroupName="VistaRespaldos"
+                                 IsChecked="{Binding MostrandoRestauraciones, Mode=TwoWay}"
+                                 Style="{StaticResource SegmentedRadioButtonStyle}"
+                                 Content="Restauraciones" />
+                </UniformGrid>
+            </components:SelectorSegmentado>
+
+            <TextBlock Text="{Binding MensajeEstado}"
+                       Style="{StaticResource TextBlockBodySecondary}"
+                       VerticalAlignment="Center" />
+
+            <!-- Indicador de carga o de operación en curso -->
+            <StackPanel Orientation="Horizontal"
+                        DockPanel.Dock="Right"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
+                <ui:ProgressRing Width="20" Height="20" Margin="{StaticResource InlineSm}" IsIndeterminate="True" />
+                <TextBlock Text="Procesando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- ============================================================= -->
+        <!-- 4. TABLA: una sola superficie con la vista elegida             -->
+        <!-- ============================================================= -->
+        <Border Grid.Row="3" Style="{StaticResource TablaListadoStyle}">
             <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <DockPanel Grid.Row="0" LastChildFill="False" Margin="16,14,16,12">
-                    <!-- Selector de pestaña (D-34): el sistema de diseño no tiene TabControl, se usa el toggle de mostrador -->
-                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0,0,16,0">
-                        <RadioButton GroupName="VistaRespaldos"
-                                     IsChecked="{Binding MostrandoCopias, Mode=TwoWay}"
-                                     Style="{StaticResource KeycapToggleButtonStyle}"
-                                     Padding="12,6"
-                                     Margin="0,0,8,0">
-                            <TextBlock Text="Copias" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </RadioButton>
-                        <RadioButton GroupName="VistaRespaldos"
-                                     IsChecked="{Binding MostrandoRestauraciones, Mode=TwoWay}"
-                                     Style="{StaticResource KeycapToggleButtonStyle}"
-                                     Padding="12,6">
-                            <TextBlock Text="Restauraciones" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </RadioButton>
-                    </StackPanel>
-
-                    <TextBlock Text="{Binding MensajeEstado}"
-                               Style="{StaticResource TextBlockBodySecondary}"
-                               VerticalAlignment="Center" />
-
-                    <!-- Indicador de carga o de operación en curso -->
-                    <StackPanel Orientation="Horizontal"
-                                DockPanel.Dock="Right"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
-                        <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
-                        <TextBlock Text="Procesando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </DockPanel>
-
-                <DataGrid Grid.Row="1"
-                          Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}"
+                <!-- Historial de copias -->
+                <DataGrid Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}"
                           ItemsSource="{Binding Copias}"
                           SelectedItem="{Binding CopiaSeleccionada, Mode=TwoWay}"
-                          Style="{StaticResource DataGridRetailStyle}"
+                          Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
-                          BorderThickness="1"
-                          Margin="16,0,16,16">
+                          BorderThickness="0"
+                          helpers:EsquinasHelper.Esquinas="7">
                     <DataGrid.Columns>
                         <!-- Fecha local de inicio -->
                         <DataGridTextColumn Header="Fecha"
@@ -178,12 +151,11 @@
                                 <DataTemplate>
                                     <Border x:Name="EstadoBadge"
                                             Style="{StaticResource BadgeNeutralStyle}"
+                                            HorizontalAlignment="Left"
                                             ToolTip="{Binding MensajeError}">
                                         <TextBlock x:Name="TxtEstado"
                                                    Text="{Binding Estado, Converter={StaticResource EnumATextoConverter}}"
-                                                   FontSize="11"
-                                                   FontWeight="Bold"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                   Style="{StaticResource BadgeNeutralTextStyle}" />
                                     </Border>
                                     <DataTemplate.Triggers>
                                         <DataTrigger Binding="{Binding Estado}" Value="{x:Static enums:EstadoBackupEnum.Verificado}">
@@ -209,7 +181,7 @@
 
                         <!-- Tamaño del archivo -->
                         <DataGridTextColumn Header="Tamaño"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding TamanoTexto}"
                                             Width="110"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
@@ -235,14 +207,13 @@
                 </DataGrid>
 
                 <!-- Historial de restauraciones (D-34): solo lectura -->
-                <Grid Grid.Row="1"
-                      Visibility="{Binding MostrandoRestauraciones, Converter={StaticResource BoolToVisConverter}}">
+                <Grid Visibility="{Binding MostrandoRestauraciones, Converter={StaticResource BoolToVisConverter}}">
                     <DataGrid ItemsSource="{Binding Restauraciones}"
-                              Style="{StaticResource DataGridRetailStyle}"
+                              Style="{StaticResource DataGridListadoStyle}"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
-                              BorderThickness="1"
-                              Margin="16,0,16,16">
+                              BorderThickness="0"
+                              helpers:EsquinasHelper.Esquinas="7">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Fecha"
                                                 Binding="{Binding FechaLocal, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}"
@@ -264,11 +235,7 @@
                                                 Binding="{Binding ArchivoCopia}"
                                                 Width="2*"
                                                 ElementStyle="{StaticResource TextBlockMonospaceCell}" />
-                            <DataGridTextColumn Header="Copia previa"
-                                                Binding="{Binding CopiaPreviaTexto}"
-                                                Width="100"
-                                                ElementStyle="{StaticResource TextBlockTextCell}" />
-                            <DataGridTextColumn Header="Base anterior"
+                <DataGridTextColumn Header="Base anterior"
                                                 Binding="{Binding BaseAnteriorTexto}"
                                                 Width="2*"
                                                 ElementStyle="{StaticResource TextBlockMonospaceCell}" />

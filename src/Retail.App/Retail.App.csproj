@@ -35,6 +35,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Fuentes embebidas (DM Sans y JetBrains Mono): las licencias OFL.txt quedan solo en el repositorio -->
+    <Resource Include="Fonts\**\*.ttf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -24,7 +24,7 @@ public class ClienteQueryServiceTests : IAsyncLifetime, IDisposable
             .Options;
 
         _context = new RetailDbContext(options);
-        await _context.Database.MigrateAsync();
+        await _context.Database.CrearDesdePlantillaAsync();
 
         _sut = new ClienteQueryService(_context);
     }
@@ -70,6 +70,42 @@ public class ClienteQueryServiceTests : IAsyncLifetime, IDisposable
         resultado.TotalClientesConDeuda.Should().Be(2);
         resultado.TotalDeudaCartera.Should().Be(20000m);
         resultado.TotalPaginas.Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda }, null, new[] { "Con deuda" })]
+    [InlineData(new[] { FiltroDeudaClienteEnum.SinDeuda }, null, new[] { "Habilitado sin deuda", "Sin cuenta" })]
+    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda, FiltroDeudaClienteEnum.SinDeuda }, null, new[] { "Con deuda", "Habilitado sin deuda", "Sin cuenta" })]
+    [InlineData(null, new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente }, new[] { "Con deuda", "Habilitado sin deuda" })]
+    [InlineData(null, new[] { FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente }, new[] { "Sin cuenta" })]
+    [InlineData(new[] { FiltroDeudaClienteEnum.SinDeuda }, new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente }, new[] { "Habilitado sin deuda" })]
+    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda }, new[] { FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente }, new string[0])]
+    public async Task ObtenerClientesPaginadosAsync_ConEstadosDeDeudaYCuentaCorriente_FiltraEnServidor(
+        FiltroDeudaClienteEnum[]? estadosDeuda,
+        FiltroCuentaCorrienteClienteEnum[]? estadosCuentaCorriente,
+        string[] esperados)
+    {
+        // Arrange
+        _context.Clientes.AddRange(
+            ClientesDePrueba.Crear(razonSocialONombre: "Con deuda", numeroDocumento: "30101010100", tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 15000m),
+            ClientesDePrueba.Crear(razonSocialONombre: "Habilitado sin deuda", numeroDocumento: "30202020204", tieneCuentaCorriente: true, limiteCredito: 20000m, saldoCuentaCorriente: 0m),
+            ClientesDePrueba.Crear(razonSocialONombre: "Sin cuenta", numeroDocumento: "30303030308", tieneCuentaCorriente: false));
+        await _context.SaveChangesAsync();
+
+        var consulta = new ConsultaClientesDto
+        {
+            EstadosDeuda = estadosDeuda ?? [],
+            EstadosCuentaCorriente = estadosCuentaCorriente ?? [],
+            TamanoPagina = 50
+        };
+
+        // Act
+        var resultado = await _sut.ObtenerClientesPaginadosAsync(consulta);
+
+        // Assert
+        resultado.Items.Select(c => c.RazonSocialONombre).Should().BeEquivalentTo(esperados);
+        resultado.TotalRegistros.Should().Be(esperados.Length);
+        resultado.TotalClientes.Should().Be(3);
     }
 
     [Fact]

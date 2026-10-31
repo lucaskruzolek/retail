@@ -23,7 +23,8 @@
                     Text="{Binding Texto, ElementName=Raiz, UpdateSourceTrigger=PropertyChanged}"
                     PlaceholderText="{Binding PlaceholderText, ElementName=Raiz}"
                     Width="390"
-                    Height="40"
+                    Height="{StaticResource ControlHeight}"
+                    FontSize="{StaticResource FontSizeMd}"
                     VerticalAlignment="Center">
             <ui:TextBox.Icon>
                 <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
@@ -44,6 +45,10 @@
                         <DataTrigger Binding="{Binding HaySeleccion, ElementName=Raiz}" Value="True">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
+                        <!-- Una página sin filtros no enlaza ComandoLimpiar: el botón no se muestra -->
+                        <DataTrigger Binding="{Binding ComandoLimpiar, ElementName=Raiz}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
                     </Style.Triggers>
                 </Style>
             </Button.Style>
@@ -53,13 +58,8 @@
             </StackPanel>
         </Button>
 
-        <!-- Sin selección: carga y contador, a la derecha -->
+        <!-- Sin selección: indicador de carga, a la derecha -->
         <Grid x:Name="PanelNormal" Grid.Column="2">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Style.Triggers>
@@ -71,22 +71,14 @@
             </Grid.Style>
 
             <!-- Indicador de carga asíncrona -->
-            <StackPanel Grid.Column="1"
-                        Orientation="Horizontal"
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Margin="0,0,16,0"
                         Visibility="{Binding EstaCargando, ElementName=Raiz, Converter={StaticResource BoolToVisConverter}}">
                 <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
                 <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
             </StackPanel>
-
-            <!-- Cantidad de resultados -->
-            <TextBlock Grid.Column="2"
-                       Text="{Binding TextoContador, ElementName=Raiz}"
-                       Visibility="{Binding MostrarContador, ElementName=Raiz, Converter={StaticResource BoolToVisConverter}}"
-                       Style="{StaticResource TextBlockBodySecondary}"
-                       FontSize="12"
-                       VerticalAlignment="Center" />
         </Grid>
 
         <!-- Con selección: las acciones masivas de la página (una BulkActionBar) ocupan todo lo que sigue al buscador -->

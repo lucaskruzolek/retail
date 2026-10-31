@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -28,6 +29,12 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ClienteDto> Clientes { get; } = new();
 
+    /// <summary>Filtro de la columna Cta. Cte.: con o sin cuenta corriente habilitada.</summary>
+    public FiltroColumnaViewModel FiltroCuentaCorriente { get; } = new("Cta. Cte.");
+
+    /// <summary>Filtro de la columna Saldo Deudor: con o sin deuda.</summary>
+    public FiltroColumnaViewModel FiltroDeuda { get; } = new("Saldo Deudor");
+
     public IReadOnlyList<CondicionIvaEnum?> CondicionesIvaDisponibles { get; } =
     [
         null,
@@ -45,12 +52,6 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     private CondicionIvaEnum? _condicionIvaFiltro;
-
-    [ObservableProperty]
-    private bool _soloConDeuda;
-
-    [ObservableProperty]
-    private bool _soloConCuentaCorriente;
 
     [ObservableProperty]
     private bool _isBusy;
@@ -90,11 +91,13 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
-    public string InformacionPaginacion => TotalRegistrosFiltrados == 0
-        ? "Sin clientes registrados"
-        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistrosFiltrados)} de {TotalRegistrosFiltrados} clientes";
-
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
+
+    public bool HayFiltrosActivos =>
+        !string.IsNullOrWhiteSpace(TextoBusqueda) ||
+        FiltrosDeColumna.Any(f => f.HayFiltroActivo);
+
+    private IEnumerable<FiltroColumnaViewModel> FiltrosDeColumna => [FiltroCuentaCorriente, FiltroDeuda];
 
     public ClientesViewModel(
         IClienteService clienteService,
@@ -104,6 +107,51 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
         _clienteService = clienteService ?? throw new ArgumentNullException(nameof(clienteService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _logger = logger ?? NullLogger<ClientesViewModel>.Instance;
+
+        // Las opciones de ambos filtros son fijas.
+        FiltroCuentaCorriente.CargarOpciones(
+        [
+            new OpcionFiltroColumna((int)FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente, "Con cuenta corriente"),
+            new OpcionFiltroColumna((int)FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente, "Sin cuenta corriente")
+        ]);
+        FiltroDeuda.CargarOpciones(
+        [
+            new OpcionFiltroColumna((int)FiltroDeudaClienteEnum.ConDeuda, "Con deuda"),
+            new OpcionFiltroColumna((int)FiltroDeudaClienteEnum.SinDeuda, "Sin deuda")
+        ]);
+
+        foreach (var filtro in FiltrosDeColumna)
+        {
+            filtro.Aplicado += AlAplicarFiltroDeColumna;
+        }
+    }
+
+    private void AlAplicarFiltroDeColumna(object? sender, EventArgs e)
+    {
+        PaginaActual = 1;
+        ActualizarEstadoFiltros();
+        _ = CargarClientesAsync();
+    }
+
+    /// <summary>Vuelve a la lista completa: borra la búsqueda y los filtros de columna y consulta una sola vez.</summary>
+    [RelayCommand(CanExecute = nameof(HayFiltrosActivos))]
+    public void LimpiarFiltros()
+    {
+        TextoBusqueda = string.Empty;
+        foreach (var filtro in FiltrosDeColumna)
+        {
+            filtro.QuitarFiltro();
+        }
+
+        ActualizarEstadoFiltros();
+        PaginaActual = 1;
+        _ = CargarClientesAsync();
+    }
+
+    private void ActualizarEstadoFiltros()
+    {
+        OnPropertyChanged(nameof(HayFiltrosActivos));
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnClienteSeleccionadoChanged(ClienteDto? value)
@@ -115,22 +163,11 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
     partial void OnTextoBusquedaChanged(string value)
     {
         PaginaActual = 1;
+        ActualizarEstadoFiltros();
         _ = CargarClientesConEsperaAsync(EsperaBusqueda);
     }
 
     partial void OnCondicionIvaFiltroChanged(CondicionIvaEnum? value)
-    {
-        PaginaActual = 1;
-        _ = CargarClientesAsync();
-    }
-
-    partial void OnSoloConDeudaChanged(bool value)
-    {
-        PaginaActual = 1;
-        _ = CargarClientesAsync();
-    }
-
-    partial void OnSoloConCuentaCorrienteChanged(bool value)
     {
         PaginaActual = 1;
         _ = CargarClientesAsync();
@@ -154,8 +191,8 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
         {
             TerminoBusqueda = TextoBusqueda,
             CondicionIva = CondicionIvaFiltro,
-            SoloConDeuda = SoloConDeuda,
-            SoloConCuentaCorriente = SoloConCuentaCorriente,
+            EstadosCuentaCorriente = FiltroCuentaCorriente.IdsAplicados.Select(id => (FiltroCuentaCorrienteClienteEnum)id).ToList(),
+            EstadosDeuda = FiltroDeuda.IdsAplicados.Select(id => (FiltroDeudaClienteEnum)id).ToList(),
             Pagina = PaginaActual,
             TamanoPagina = TamanoPagina
         };
@@ -198,9 +235,6 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
 
         OnPropertyChanged(nameof(PuedeRetrocederPagina));
         OnPropertyChanged(nameof(PuedeAvanzarPagina));
-        OnPropertyChanged(nameof(InformacionPaginacion));
-
-        MensajeEstado = $"Mostrando {Clientes.Count} de {TotalClientes} clientes (Deuda total: {TotalDeudaCartera:C}).";
     }
 
     [RelayCommand]
@@ -325,10 +359,20 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Alterna el filtro "solo con deuda" de la columna Saldo Deudor: si ya está aplicado lo quita; si no, deja marcada
+    /// únicamente la opción "Con deuda". Pasa por el mismo "Aplicar" que el filtro de la cabecera.
+    /// </summary>
     [RelayCommand]
     public void AlternarSoloConDeuda()
     {
-        SoloConDeuda = !SoloConDeuda;
+        bool yaFiltrado = FiltroDeuda.IdsAplicados is [(int)FiltroDeudaClienteEnum.ConDeuda];
+        foreach (var opcion in FiltroDeuda.Grupos.SelectMany(g => g.Opciones))
+        {
+            opcion.Seleccionada = !yaFiltrado && opcion.Id == (int)FiltroDeudaClienteEnum.ConDeuda;
+        }
+
+        FiltroDeuda.AplicarCommand.Execute(null);
     }
 
     [RelayCommand]
@@ -367,6 +411,17 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
         if (PaginaActual != TotalPaginas)
         {
             PaginaActual = TotalPaginas;
+            await CargarClientesAsync();
+        }
+    }
+
+    /// <summary>Va a una página puntual (los números de la barra de paginación); fuera de rango no hace nada.</summary>
+    [RelayCommand]
+    public async Task IrAPaginaAsync(int pagina)
+    {
+        if (pagina >= 1 && pagina <= TotalPaginas && pagina != PaginaActual)
+        {
+            PaginaActual = pagina;
             await CargarClientesAsync();
         }
     }

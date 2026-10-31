@@ -128,7 +128,7 @@ El paso de tests declara explícitamente `env: RETAIL_TEST_SQLSERVER: .\SQLEXPRE
 ## 🛠️ Comandos Canónicos de CLI para Agentes
 
 ### Bucle de Verificación Local (*Inner Loop*)
-Ejecutar siempre antes de dar por concluida una tarea de código:
+Validación integral, para el cierre de una etapa o de un módulo completo. Antes de un PR alcanza con la verificación selectiva por rutas del diff descrita en `AGENTS.md` (§ Bucle de Verificación, "Previo a un PR"): la suite completa la corre `ci.yml` en cada PR.
 
 ```powershell
 # 1. Compilación estricta en Release

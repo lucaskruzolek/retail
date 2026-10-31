@@ -3,7 +3,8 @@
                     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                     xmlns:helpers="clr-namespace:Retail.App.Helpers"
                     xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
-                    xmlns:converters="clr-namespace:Retail.App.Converters">
+                    xmlns:converters="clr-namespace:Retail.App.Converters"
+                    xmlns:components="clr-namespace:Retail.App.Views.Components">
 
     <!-- ================================================================= -->
     <!-- TEXTO LEGIBLE PARA ENUMS (MedioPago, TipoDocumento, CondicionIva) -->
@@ -22,99 +23,168 @@
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Padding" Value="16" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
+        <Setter Property="Padding" Value="{StaticResource InsetCard}" />
     </Style>
 
-    <!-- Encabezado de tarjeta de formulario: ícono y título en el mismo gris suave, como grabados en la tarjeta. Para
+    <!-- Diálogo como una sola superficie gris (DialogBackgroundBrush): la barra de título, el cuerpo y el pie comparten el
+         fondo, sin franjas ni líneas que los separen. Sobre ese fondo, el contenido se agrupa en secciones blancas SIN borde
+         (DialogSectionStyle), separadas solo por el aire entre ellas, a 12 px de los bordes del diálogo. El título y el
+         contenido de las secciones comparten la vertical de 28 (12 de margen + 16 de relleno). -->
+    <Style x:Key="DialogSectionStyle" TargetType="Border" BasedOn="{StaticResource CardBorderStyle}">
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <!-- Pie de un diálogo: sobre el mismo fondo gris, sin línea; los botones alineados con los bordes de las secciones.
+         Cancelar a la izquierda y la acción primaria (IsDefault: Enter la acepta) a la derecha. -->
+    <Style x:Key="DialogFooterStyle" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,4,12,12" />
+    </Style>
+
+    <!-- Minimizar / maximizar / cerrar de un diálogo: solo el ícono, gris; en hover se oscurece a TextPrimary sin fondo
+         ni rojo (no imita los botones de Windows). No toman el foco del teclado: Esc cierra el diálogo. -->
+    <Style x:Key="DialogWindowButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Encabezado de tarjeta de formulario: ícono y título con el mismo color (SectionTitleBrush). Para
          calibrar el tamaño, cambiar Width/Height del ícono y FontSize del título acá: todas las tarjetas lo toman. -->
     <Style x:Key="CardHeaderIconStyle" TargetType="iconPacks:PackIconBoxIcons">
         <Setter Property="Width" Value="16" />
         <Setter Property="Height" Value="16" />
-        <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SectionTitleBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Margin" Value="0,0,8,0" />
     </Style>
 
     <Style x:Key="CardHeaderTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SectionTitleBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- ANILLO DE FOCO DE TECLADO                                         -->
+    <!-- ================================================================= -->
+    <!-- WPF dibuja el FocusVisualStyle solo cuando el foco llega por teclado (Tab o flechas), nunca por un clic: es el
+         equivalente de :focus-visible en la web. Un trigger IsKeyboardFocused/IsFocused, en cambio, también se activa
+         al hacer clic (el clic le da el foco al control) y dejaba un borde de color pegado al botón recién presionado.
+         Anillo neutro, 2 px por fuera del control: radio 6 + 2 = 8, concéntrico con el del control. -->
+    <Style x:Key="FocusVisualRetailStyle">
+        <Setter Property="Control.Template">
+            <Setter.Value>
+                <ControlTemplate>
+                    <Border Margin="-2"
+                            BorderThickness="2"
+                            CornerRadius="{StaticResource RadiusLg}"
+                            BorderBrush="{DynamicResource TextSubtleBrush}"
+                            SnapsToDevicePixels="True" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- ================================================================= -->
     <!-- BOTÓN DE MOSTRADOR CON TECLA RÁPIDA (KeycapButton - F1 a F12)     -->
     <!-- ================================================================= -->
     <Style x:Key="KeycapButtonStyle" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Padding" Value="12,6" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
-                            Padding="{TemplateBinding Padding}">
-                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ContentPresenter x:Name="contentPresenter"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter x:Name="contentPresenter"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
 
-                            <StackPanel x:Name="loadingPanel"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed">
-                                <ui:ProgressRing Width="16"
-                                                 Height="16"
-                                                 IsIndeterminate="True"
-                                                 Foreground="{TemplateBinding Foreground}" />
-                                <TextBlock x:Name="txtLoading"
-                                           Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <Trigger Property="Text" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                                <Trigger Property="Text" Value="">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <StackPanel x:Name="loadingPanel"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <ui:ProgressRing Width="16"
+                                                     Height="16"
+                                                     IsIndeterminate="True"
+                                                     Foreground="{TemplateBinding Foreground}" />
+                                    <TextBlock x:Name="txtLoading"
+                                               Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="#FCE7EC" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryPressedBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsFocused" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="border" Property="BorderThickness" Value="1.5" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5" />
@@ -137,41 +207,46 @@
     <!-- BOTÓN DE CONMUTACIÓN DE MOSTRADOR (KeycapToggleButton)            -->
     <!-- ================================================================= -->
     <Style x:Key="KeycapToggleButtonStyle" TargetType="ToggleButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Padding" Value="12,6" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ToggleButton">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
-                    </Border>
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource WarningBorderBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsFocused" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="border" Property="BorderThickness" Value="1.5" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5" />
@@ -186,60 +261,70 @@
     <!-- Botón Primario de Acción (Cobrar / Confirmar) -->
     <Style x:Key="PrimaryActionButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="Padding" Value="14,6" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
-                            Padding="{TemplateBinding Padding}">
-                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ContentPresenter x:Name="contentPresenter"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter x:Name="contentPresenter"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
 
-                            <StackPanel x:Name="loadingPanel"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed">
-                                <ui:ProgressRing Width="16"
-                                                 Height="16"
-                                                 IsIndeterminate="True"
-                                                 Foreground="{TemplateBinding Foreground}" />
-                                <TextBlock x:Name="txtLoading"
-                                           Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <Trigger Property="Text" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                                <Trigger Property="Text" Value="">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <StackPanel x:Name="loadingPanel"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <ui:ProgressRing Width="16"
+                                                     Height="16"
+                                                     IsIndeterminate="True"
+                                                     Foreground="{TemplateBinding Foreground}" />
+                                    <TextBlock x:Name="txtLoading"
+                                               Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryHoverBrush}" />
@@ -250,7 +335,7 @@
                             <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryPressedBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="border" Property="Opacity" Value="0.45" />
+                            <Setter TargetName="border" Property="Opacity" Value="0.5" />
                             <Setter Property="Cursor" Value="No" />
                         </Trigger>
                         <Trigger Property="helpers:ButtonHelper.IsLoading" Value="True">
@@ -269,71 +354,81 @@
     <!-- Botón de Acción Crítica / Peligrosa (Anulación / Cancelación) -->
     <Style x:Key="DangerActionButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
         <Setter Property="Background" Value="{DynamicResource DangerBrush}" />
-        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="Padding" Value="14,6" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
-                            Padding="{TemplateBinding Padding}">
-                        <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <ContentPresenter x:Name="contentPresenter"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              RecognizesAccessKey="True" />
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <ContentPresenter x:Name="contentPresenter"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True" />
 
-                            <StackPanel x:Name="loadingPanel"
-                                        Orientation="Horizontal"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Visibility="Collapsed">
-                                <ui:ProgressRing Width="16"
-                                                 Height="16"
-                                                 IsIndeterminate="True"
-                                                 Foreground="{TemplateBinding Foreground}" />
-                                <TextBlock x:Name="txtLoading"
-                                           Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
-                                           Foreground="{TemplateBinding Foreground}"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           Margin="8,0,0,0">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Style.Triggers>
-                                                <Trigger Property="Text" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                                <Trigger Property="Text" Value="">
-                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
+                                <StackPanel x:Name="loadingPanel"
+                                            Orientation="Horizontal"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Visibility="Collapsed">
+                                    <ui:ProgressRing Width="16"
+                                                     Height="16"
+                                                     IsIndeterminate="True"
+                                                     Foreground="{TemplateBinding Foreground}" />
+                                    <TextBlock x:Name="txtLoading"
+                                               Text="{TemplateBinding helpers:ButtonHelper.LoadingText}"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <Trigger Property="Text" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                    <Trigger Property="Text" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="#B91C1C" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="#B91C1C" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource DangerForegroundBrush}" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource DangerForegroundBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="#991B1B" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="#991B1B" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource DangerForegroundBrush}" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource DangerForegroundBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="border" Property="Opacity" Value="0.45" />
+                            <Setter TargetName="border" Property="Opacity" Value="0.5" />
                             <Setter Property="Cursor" Value="No" />
                         </Trigger>
                         <Trigger Property="helpers:ButtonHelper.IsLoading" Value="True">
@@ -390,9 +485,9 @@
     <Style x:Key="BadgeWarningStyle" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource WarningBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource WarningBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="6,2" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -401,9 +496,9 @@
     <Style x:Key="BadgeDangerStyle" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource DangerBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource DangerBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="6,2" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -412,9 +507,9 @@
     <Style x:Key="BadgeSuccessStyle" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource SuccessBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SuccessBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="6,2" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
@@ -423,22 +518,33 @@
     <Style x:Key="BadgePrimaryStyle" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="6,2" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <!-- Badge Neutro / Cajero / Inactivo -->
     <Style x:Key="BadgeNeutralStyle" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceSubtleBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="12" />
-        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusSm}" />
+        <Setter Property="Padding" Value="6,2" />
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Texto de una insignia neutra (11 Medium, gris secundario). Si no entra, se recorta con "…" y el valor completo va
+         en el tooltip de la insignia. -->
+    <Style x:Key="BadgeNeutralTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeXs}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
     </Style>
 
 
@@ -447,10 +553,10 @@
     <!-- ================================================================= -->
     <Style x:Key="DataGridColumnHeaderRetailStyle" TargetType="DataGridColumnHeader">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-        <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSubtleBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
         <Setter Property="Padding" Value="12,10" />
@@ -469,7 +575,7 @@
 
     <!-- Celda sin bordes verticales ni halos azules al seleccionarse -->
     <Style x:Key="DataGridCellRetailStyle" TargetType="DataGridCell">
-        <Setter Property="Padding" Value="12,8" />
+        <Setter Property="Padding" Value="12,0" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="Background" Value="Transparent" />
@@ -488,7 +594,6 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="0" />
@@ -498,7 +603,7 @@
 
     <!-- Fila con selección limpia en tinte carmín suave y bordes horizontales únicamente -->
     <Style x:Key="DataGridRowRetailStyle" TargetType="DataGridRow">
-        <Setter Property="Height" Value="42" />
+        <Setter Property="Height" Value="{StaticResource RowHeightPos}" />
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
         <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
@@ -543,7 +648,7 @@
                                 <Condition Property="IsSelected" Value="False" />
                                 <Condition Property="IsMouseOver" Value="True" />
                             </MultiTrigger.Conditions>
-                            <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                            <Setter TargetName="DGR_Border" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                         </MultiTrigger>
                         <MultiTrigger>
                             <MultiTrigger.Conditions>
@@ -566,8 +671,8 @@
          el ícono de 16 no quede recortado. Los estados van en Style.Triggers (no en el template) para que los estilos
          derivados puedan redefinir sus colores. El ícono hereda Foreground: no se le fija color propio. -->
     <Style x:Key="IconDangerButtonStyle" TargetType="Button">
-        <Setter Property="Width" Value="28" />
-        <Setter Property="Height" Value="28" />
+        <Setter Property="Width" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightSm}" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
@@ -581,7 +686,7 @@
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource RadiusMd}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
@@ -597,19 +702,19 @@
                 <Setter Property="Background" Value="{DynamicResource DangerBorderBrush}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.4" />
+                <Setter Property="Opacity" Value="0.5" />
             </Trigger>
         </Style.Triggers>
     </Style>
 
     <!-- Acción secundaria de texto dentro de una fila o tarjeta (p. ej. "Restablecer" en una fila corregida, M-70):
-         ícono + texto carmín sin borde ni fondo; en hover, fondo carmín suave. Más visible que un ícono suelto y más
+         ícono + texto carmín sin borde ni fondo; en hover, fondo gris suave. Más visible que un ícono suelto y más
          liviano que un Keycap, para no competir con los controles de la fila. -->
     <Style x:Key="GhostPrimaryButtonStyle" TargetType="Button">
-        <Setter Property="Padding" Value="6,3" />
-        <Setter Property="MinHeight" Value="24" />
-        <Setter Property="FontSize" Value="12" />
-        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
         <Setter Property="Cursor" Value="Hand" />
@@ -618,7 +723,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border Background="{TemplateBinding Background}"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource RadiusMd}"
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -628,13 +733,13 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
                 <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.4" />
+                <Setter Property="Opacity" Value="0.5" />
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -643,8 +748,9 @@
          marcado usa la marca (carmín suave), nunca los colores de estado Warning/Danger/Success: esos indican
          stock bajo, error o éxito, no selección. -->
     <Style x:Key="PillRadioButtonStyle" TargetType="RadioButton">
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -656,29 +762,34 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
-                            Padding="{TemplateBinding Padding}">
-                        <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
-                    </Border>
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                SnapsToDevicePixels="True"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimarySoftBorderBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimarySoftBorderBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource PrimaryPressedBrush}" />
-                        </Trigger>
-                        <Trigger Property="IsFocused" Value="True">
-                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="border" Property="BorderThickness" Value="1.5" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.5" />
@@ -690,31 +801,113 @@
     </Style>
 
     <!-- Selector segmentado: dos o tres opciones excluyentes y fijas (p. ej. Producto / Servicio) dentro de un riel gris.
-         La elegida "flota" como una tarjeta blanca; sin carmín, para no competir con la acción principal. Las opciones van
-         en un UniformGrid dentro del riel para que midan lo mismo. Las flechas del teclado recorren el grupo. -->
-    <Style x:Key="SegmentedControlBorderStyle" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource SurfaceBorderBrush}" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="Padding" Value="3" />
+         Reparto de responsabilidades: SelectorSegmentado dibuja el riel y UN indicador que se desliza hasta la opción marcada
+         (por eso el RadioButton no pinta fondo propio: si lo hiciera, la selección saltaría en lugar de moverse); el
+         RadioButton solo dibuja su texto y conserva binding, IsEnabled, tooltip y las flechas del teclado.
+         Radios concéntricos: riel 8 - relleno 3 = indicador 5. Con esa resta las curvas de las dos formas quedan paralelas;
+         si el indicador usara el mismo radio que el riel, las esquinas se verían más "gordas" que el marco que las rodea.
+         El estilo es implícito (por TargetType): se aplica a todo SelectorSegmentado sin referenciarlo. -->
+    <Style TargetType="components:SelectorSegmentado">
         <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="components:SelectorSegmentado">
+                    <Border Background="{DynamicResource SurfaceSubtleBrush}"
+                            CornerRadius="{StaticResource RadiusLg}"
+                            Padding="3">
+                        <Grid x:Name="PART_Capas">
+                            <Border x:Name="PART_Indicador"
+                                    Visibility="Collapsed"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Top"
+                                    Background="{DynamicResource SurfaceCardBrush}"
+                                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="5"
+                                    IsHitTestVisible="False" />
+                            <ContentPresenter />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
+    <!-- Barra de título de los diálogos: una banda de 56 px sobre el mismo fondo gris del diálogo (sin franja propia), con
+         el título de 20 SemiBold (DM Sans Display) a 28 px del borde -la vertical del contenido de las secciones- y, a la
+         derecha, minimizar / maximizar / cerrar dibujados como íconos (DialogWindowButtonStyle). La banda es transparente
+         al clic: arrastrarla mueve la ventana (DragMove) y el doble clic maximiza si el diálogo lo permite. -->
+    <Style TargetType="components:EncabezadoDialogo">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="components:EncabezadoDialogo">
+                    <Grid x:Name="PART_Banda" Height="{StaticResource DialogTitleBarHeight}" Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{TemplateBinding Titulo}"
+                                   FontFamily="{StaticResource FontFamilyDisplay}"
+                                   FontSize="{StaticResource FontSizeXl}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="28,0,8,0"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                            <Button x:Name="PART_Minimizar"
+                                    Style="{StaticResource DialogWindowButtonStyle}"
+                                    ToolTip="Minimizar"
+                                    AutomationProperties.Name="Minimizar">
+                                <iconPacks:PackIconBoxIcons Kind="RegularMinus" Width="10" Height="10" />
+                            </Button>
+                            <Button x:Name="PART_Maximizar"
+                                    Style="{StaticResource DialogWindowButtonStyle}"
+                                    ToolTip="Maximizar"
+                                    AutomationProperties.Name="Maximizar">
+                                <iconPacks:PackIconBoxIcons Kind="RegularSquareRounded" Width="12" Height="12" />
+                            </Button>
+                            <Button x:Name="PART_Cerrar"
+                                    Style="{StaticResource DialogWindowButtonStyle}"
+                                    ToolTip="Cerrar (Esc)"
+                                    AutomationProperties.Name="Cerrar">
+                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="12" Height="12" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="PermitirMaximizar" Value="False">
+                            <Setter TargetName="PART_Maximizar" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Opción del selector segmentado: solo texto. El fondo es siempre transparente (el resalte lo da el indicador de
+         SelectorSegmentado). La marcada solo cambia de color, no de peso: así el ancho de la etiqueta no varía al elegirla.
+         Alto: 4 + 4 de relleno + 2 de borde + ~18 de texto = 28, más 2 + 2 del riel = 32 (la altura de un control). El borde
+         de 1 px, transparente en reposo, reserva sitio al anillo de foco para que nada se corra cuando aparece. -->
     <Style x:Key="SegmentedRadioButtonStyle" TargetType="RadioButton">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-        <Setter Property="Padding" Value="16,6" />
+        <Setter Property="Padding" Value="12,5" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="RadioButton">
                     <Border x:Name="segmento"
-                            Background="{TemplateBinding Background}"
+                            Background="Transparent"
                             BorderBrush="Transparent"
                             BorderThickness="1"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource RadiusMd}"
                             Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center"
                                           VerticalAlignment="Center"
@@ -725,12 +918,7 @@
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="segmento" Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                            <Setter Property="FontWeight" Value="SemiBold" />
-                        </Trigger>
-                        <Trigger Property="IsKeyboardFocused" Value="True">
-                            <Setter TargetName="segmento" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="segmento" Property="Opacity" Value="0.5" />
@@ -743,6 +931,43 @@
 
     <!-- Cuadrado carmín junto al botón de cobro (D-24): en reposo rosa claro con borde e ícono carmín, para no competir
          con el primario; en hover toma el carmín sólido del botón Cobrar. Deshabilitado igual que Cobrar. -->
+    <!-- Acción de una fila de tabla: solo el ícono (BoxIcons Regular de 16), sin texto ni borde ni fondo en reposo. En hover
+         se oscurece el ícono y aparece el gris neutro. Para las acciones destructivas (dar de baja, quitar) se usa
+         IconDangerButtonStyle, que en hover se tiñe de rojo. Siempre con ToolTip: sin texto, el tooltip es la etiqueta. -->
+    <Style x:Key="RowActionButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="IconPrimarySquareButtonStyle" TargetType="Button" BasedOn="{StaticResource IconDangerButtonStyle}">
         <Setter Property="Width" Value="56" />
         <Setter Property="Height" Value="56" />
@@ -804,7 +1029,7 @@
     <!-- Textos de la fila: cambian a tonos claros sobre el carmín de la fila seleccionada -->
     <Style x:Key="SearchResultTitleTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -818,7 +1043,7 @@
     <Style x:Key="SearchResultAmountTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
         <Style.Triggers>
@@ -829,7 +1054,7 @@
     </Style>
 
     <Style x:Key="SearchResultMetaTextStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeXs}" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
@@ -936,17 +1161,20 @@
     <!-- ================================================================= -->
     <Style x:Key="SidebarItemButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Height" Value="40" />
+        <Setter Property="Height" Value="{StaticResource RowHeightListado}" />
         <Setter Property="Margin" Value="0,4" />
-        <Setter Property="Padding" Value="8,0" />
+        <!-- Riel colapsado: sin relleno lateral el ítem mide el ancho completo del ScrollViewer (46 px con el riel en 58),
+             de modo que la grilla de 36 px del ícono entra sin desbordar y se centra en el eje del riel. El trigger de
+             IsSidebarExpanded devuelve el relleno de 8 px y el estirado que necesita el nombre al expandirse. -->
+        <Setter Property="Padding" Value="0,0" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
         <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
         <Setter Property="ToolTipService.Placement" Value="Right" />
@@ -955,17 +1183,25 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
-                            Padding="{TemplateBinding Padding}"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
-                    </Border>
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="border" Property="Opacity" Value="0.45" />
@@ -976,7 +1212,7 @@
             </Setter.Value>
         </Setter>
         <!-- Hover y pressed van acá y no en el template: los estilos derivados (el ítem activo de MainWindow) declaran sus
-             triggers después de estos y así su fondo carmín prevalece sobre el hover. -->
+             triggers después de estos y así su fondo activo prevalece sobre el hover. -->
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
@@ -987,6 +1223,8 @@
                 <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
             </Trigger>
             <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                <Setter Property="Padding" Value="8,0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="ToolTipService.IsEnabled" Value="False" />
             </DataTrigger>
         </Style.Triggers>
@@ -1005,6 +1243,9 @@
         <Setter Property="Width" Value="36" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <!-- Riel colapsado: el botón (36 px) se centra en los 42 px útiles de la cabecera. Expandido, el trigger lo
+             devuelve al margen izquierdo, que es su lugar junto al contenido. -->
+        <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
         <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
         <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
@@ -1014,10 +1255,11 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="border"
+                            UseLayoutRounding="True"
                             Background="{TemplateBinding Background}"
                             BorderBrush="Transparent"
                             BorderThickness="0"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource RadiusMd}"
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center"
@@ -1036,6 +1278,12 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="Margin" Value="6,0,0,0" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- ================================================================= -->
@@ -1045,7 +1293,7 @@
          un ítem del menú. Sin borde: el relleno de hover delimita el botón. -->
     <Style x:Key="SidebarGhostButtonStyle" TargetType="Button">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
@@ -1056,17 +1304,25 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
-                            Padding="{TemplateBinding Padding}"
-                            SnapsToDevicePixels="True">
-                        <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          RecognizesAccessKey="True" />
-                    </Border>
+                    <Grid>
+                        <!-- Relleno sólido debajo del contorno: sin él, WPF suaviza por separado el relleno y el borde y entre los dos
+                             queda una costura con el blanco de atrás (se ve en las esquinas de los botones oscuros) -->
+                        <Border CornerRadius="{StaticResource RadiusMd}"
+                                Background="{Binding Background, ElementName=border}"
+                                Opacity="{Binding Opacity, ElementName=border}" />
+                        <Border x:Name="border"
+                                UseLayoutRounding="True"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
@@ -1204,7 +1460,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Padding" Value="8,5" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
         <Setter Property="HasDropShadow" Value="True" />
         <Setter Property="Template">
@@ -1213,7 +1469,7 @@
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource RadiusMd}"
                             Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter />

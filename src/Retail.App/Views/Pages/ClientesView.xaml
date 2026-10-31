@@ -6,6 +6,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
              mc:Ignorable="d"
              Focusable="True"
              Background="{DynamicResource SurfaceBackgroundBrush}">
@@ -22,151 +23,115 @@
 
     <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
+            <!-- Encabezado -->
             <RowDefinition Height="Auto" />
+            <!-- Búsqueda, directo sobre el fondo -->
+            <RowDefinition Height="Auto" />
+            <!-- Tabla + paginación: la única superficie de la página -->
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO Y TÍTULO DEL MÓDULO                             -->
+        <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta)                      -->
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
                                Titulo="Padrón de Clientes y Cuentas Corrientes">
             <StackPanel Orientation="Horizontal">
-                <!-- Botón Cobrar Cta Cte (F4) -->
+                <!-- Cobrar Cta Cte (F4): secundaria con contorno; el único acento carmín de la vista es "Nuevo Cliente" -->
                 <Button Command="{Binding CobrarCuentaCorrienteCommand}"
-                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        Style="{StaticResource KeycapButtonStyle}"
                         IsEnabled="{Binding PuedeCobrar}"
-                        Padding="14,8"
-                        Margin="0,0,10,0"
+                        Margin="0,0,8,0"
                         ToolTip="Registrar cobranza de cuenta corriente para el cliente seleccionado (F4)">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidCreditCard" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Cobrar Deuda" FontWeight="Bold" VerticalAlignment="Center" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularCreditCard" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Cobrar Deuda" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
 
-                <!-- Botón Nuevo Cliente (F2) -->
+                <!-- Nuevo Cliente (F2) -->
                 <Button Command="{Binding NuevoClienteCommand}"
                         Style="{StaticResource PrimaryActionButtonStyle}"
-                        Padding="16,8">
+                        ToolTip="Registrar un cliente nuevo (F2)">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidUserPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Nuevo Cliente" FontWeight="Bold" VerticalAlignment="Center" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularUserPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Nuevo Cliente" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>
         </components:PageHeader>
 
         <!-- ============================================================= -->
-        <!-- 2. PANEL UNIFICADO: FILTROS + TABLA + PAGINACIÓN              -->
+        <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta)                             -->
+        <!--    Los filtros de Cta. Cte. y deuda viven en las cabeceras.   -->
         <!-- ============================================================= -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
+        <components:ListToolbar Grid.Row="1"
+                                Margin="0,0,0,12"
+                                Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="Buscar por Razón Social, CUIT, DNI o Email..."
+                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
+                                EstaCargando="{Binding IsBusy}" />
+
+        <!-- ============================================================= -->
+        <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->
+        <!-- ============================================================= -->
+        <Border Grid.Row="2" Style="{StaticResource TablaListadoStyle}">
             <Grid>
                 <Grid.RowDefinitions>
-                    <!-- Barra de Búsqueda y Filtros (Mismo surface, solo espaciado) -->
-                    <RowDefinition Height="Auto" />
-                    <!-- Grilla Principal DataGrid -->
                     <RowDefinition Height="*" />
-                    <!-- Barra de Paginación al final de la tabla -->
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- ========================================================= -->
-                <!-- 2.1 BARRA DE HERRAMIENTAS Y FILTROS                       -->
-                <!-- ========================================================= -->
-                <DockPanel Grid.Row="0"
-                           LastChildFill="True"
-                           Margin="16,14,16,12">
-                    <!-- Búsqueda rápida por nombre, DNI o CUIT -->
-                    <ui:TextBox DockPanel.Dock="Left"
-                                Width="360"
-                                PlaceholderText="Buscar por Razón Social, CUIT, DNI o Email..."
-                                Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                                Margin="0,0,16,0"
-                                VerticalAlignment="Center">
-                        <ui:TextBox.Icon>
-                            <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                          Width="16"
-                                          Height="16" />
-                        </ui:TextBox.Icon>
-                    </ui:TextBox>
-
-                    <!-- Toggle Solo con Cuenta Corriente -->
-                    <CheckBox DockPanel.Dock="Left"
-                              IsChecked="{Binding SoloConCuentaCorriente, Mode=TwoWay}"
-                              Content="Solo con Cta. Cte."
-                              Margin="0,0,14,0"
-                              VerticalAlignment="Center" />
-
-                    <!-- Toggle Solo con Deuda con KeycapToggleButtonStyle -->
-                    <ToggleButton DockPanel.Dock="Left"
-                                  IsChecked="{Binding SoloConDeuda, Mode=TwoWay}"
-                                  Style="{StaticResource KeycapToggleButtonStyle}"
-                                  Padding="10,6"
-                                  VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="SolidDollarCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" Foreground="{DynamicResource DangerBrush}" />
-                            <TextBlock Text="Solo con Deuda" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ToggleButton>
-
-                    <!-- Indicador de Carga Asíncrona -->
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
-                        <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
-                        <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </DockPanel>
-
-                <!-- ========================================================= -->
-                <!-- 2.2 GRILLA PRINCIPAL DE CLIENTES                          -->
-                <!-- ========================================================= -->
-                <DataGrid Grid.Row="1"
+                <DataGrid Grid.Row="0"
                           ItemsSource="{Binding Clientes}"
                           SelectedItem="{Binding ClienteSeleccionado, Mode=TwoWay}"
                           Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
-                          BorderThickness="1"
-                          Margin="16,0,16,8">
+                          BorderThickness="0"
+                          helpers:EsquinasHelper.Esquinas="7,7,0,0">
                     <DataGrid.Columns>
                         <!-- ID Cliente -->
                         <DataGridTextColumn Header="ID"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding IdCliente, StringFormat=#{0:D4}}"
-                                            Width="65"
+                                            Width="80"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                         <!-- Razón Social o Nombre -->
                         <DataGridTextColumn Header="Razón Social / Nombre"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
                                             Binding="{Binding RazonSocialONombre}"
                                             Width="2*"
                                             ElementStyle="{StaticResource TextBlockTextCell}" />
 
                         <!-- Tipo y Número de Documento -->
-                        <DataGridTemplateColumn Header="Documento / CUIT" Width="150">
+                        <DataGridTemplateColumn Header="Documento / CUIT"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
+                                                Width="152">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
-                                        <TextBlock Text="{Binding TipoDocumento, Converter={StaticResource EnumATextoConverter}}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0" FontSize="11" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding NumeroDocumento}" FontFamily="{StaticResource FontFamilyMonospace}" FontWeight="SemiBold" FontSize="12" VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding TipoDocumento, Converter={StaticResource EnumATextoConverter}}"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   FontSize="{StaticResource FontSizeXs}"
+                                                   Margin="0,0,8,0"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding NumeroDocumento}" Style="{StaticResource TextBlockMonospaceCell}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
                         <!-- Condición frente al IVA -->
-                        <DataGridTemplateColumn Header="Condición IVA" Width="160">
+                        <DataGridTemplateColumn Header="Condición IVA"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
+                                                Width="160">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <Border Style="{StaticResource BadgeNeutralStyle}">
-                                        <TextBlock Text="{Binding CondicionIva, Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    <Border Style="{StaticResource BadgeNeutralStyle}" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding CondicionIva, Converter={StaticResource EnumATextoConverter}}"
+                                                   Style="{StaticResource BadgeNeutralTextStyle}" />
                                     </Border>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
@@ -174,20 +139,28 @@
 
                         <!-- Teléfono / Contacto -->
                         <DataGridTextColumn Header="Teléfono"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
                                             Binding="{Binding Telefono, TargetNullValue='-'}"
-                                            Width="120"
+                                            Width="144"
                                             ElementStyle="{StaticResource TextBlockTextCell}" />
 
-                        <!-- Cuenta Corriente Status (Badge Semántico Canónico) -->
-                        <DataGridTemplateColumn Header="Cta. Cte." Width="110">
+                        <!-- Cuenta corriente: su cabecera lleva el filtro de selección múltiple (FiltroColumna). Una columna no
+                             está en el árbol visual: el filtro toma el DataContext de la página buscando el UserControl ancestro. -->
+                        <DataGridTemplateColumn Width="140">
+                            <DataGridTemplateColumn.Header>
+                                <components:FiltroColumna Filtro="{Binding DataContext.FiltroCuentaCorriente, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Grid VerticalAlignment="Center">
-                                        <Border x:Name="BadgeCtaHabilitada" Style="{StaticResource BadgeSuccessStyle}" Visibility="Collapsed">
-                                            <TextBlock Text="Habilitada" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                                        <Border x:Name="BadgeCtaHabilitada" Style="{StaticResource BadgeSuccessStyle}" HorizontalAlignment="Left" Visibility="Collapsed">
+                                            <TextBlock Text="Habilitada"
+                                                       FontSize="{StaticResource FontSizeXs}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource SuccessForegroundBrush}" />
                                         </Border>
-                                        <Border x:Name="BadgeCtaInactiva" Style="{StaticResource BadgeNeutralStyle}" Visibility="Visible">
-                                            <TextBlock Text="No activa" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextMutedBrush}" />
+                                        <Border x:Name="BadgeCtaInactiva" Style="{StaticResource BadgeNeutralStyle}" HorizontalAlignment="Left" Visibility="Visible">
+                                            <TextBlock Text="No activa" Style="{StaticResource BadgeNeutralTextStyle}" />
                                         </Border>
                                     </Grid>
                                     <DataTemplate.Triggers>
@@ -204,23 +177,20 @@
                         <DataGridTextColumn Header="Límite Crédito"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding LimiteCredito, StringFormat={}{0:C}}"
-                                            Width="120"
+                                            Width="124"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
-                        <!-- Saldo Deudor -->
-                        <DataGridTemplateColumn Header="Saldo Deudor" HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}" Width="130">
+                        <!-- Saldo Deudor: su cabecera lleva el filtro con deuda / sin deuda -->
+                        <DataGridTemplateColumn Width="136"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}">
+                            <DataGridTemplateColumn.Header>
+                                <components:FiltroColumna Filtro="{Binding DataContext.FiltroDeuda, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding SaldoCuentaCorriente, StringFormat={}{0:C}}"
-                                               FontFamily="{StaticResource FontFamilyNumeric}"
-                                               Typography.NumeralAlignment="Tabular"
-                                               FontWeight="Bold"
-                                               FontSize="12"
-                                               TextAlignment="Right"
-                                               Margin="0,0,12,0"
-                                               VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding SaldoCuentaCorriente, StringFormat={}{0:C}}">
                                         <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
+                                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockPriceCell}">
                                                 <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding TieneDeuda}" Value="True">
@@ -235,54 +205,46 @@
                         </DataGridTemplateColumn>
 
                         <!-- Crédito Disponible -->
-                        <DataGridTemplateColumn Header="Crédito Disp." HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}" Width="120">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding CreditoDisponible, StringFormat={}{0:C}}"
-                                               FontFamily="{StaticResource FontFamilyNumeric}"
-                                               Typography.NumeralAlignment="Tabular"
-                                               FontSize="12"
-                                               FontWeight="SemiBold"
-                                               Foreground="{DynamicResource SuccessForegroundBrush}"
-                                               TextAlignment="Right"
-                                               Margin="0,0,12,0"
-                                               VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="Crédito Disp."
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                            Binding="{Binding CreditoDisponible, StringFormat={}{0:C}}"
+                                            Width="124"
+                                            ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
-                        <!-- Columna de Acciones Contextuales -->
-                        <DataGridTemplateColumn Header="Acciones" Width="130">
+                        <!-- Acciones de la fila: solo íconos (R4), sin título; 3 x 36 + 8 de ancho -->
+                        <DataGridTemplateColumn Header=""
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
+                                                Width="116"
+                                                CanUserResize="False"
+                                                CanUserSort="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                         <!-- Cobrar Cta Cte -->
                                         <Button Command="{Binding DataContext.CobrarCuentaCorrienteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="6,4"
-                                                Margin="0,0,4,0"
-                                                ToolTip="Registrar Cobranza de Cuenta Corriente (F4)">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularDollarCircle" Width="14" Height="14" Foreground="{DynamicResource SuccessBrush}" />
+                                                Style="{StaticResource RowActionButtonStyle}"
+                                                ToolTip="Registrar cobranza de cuenta corriente (F4)"
+                                                AutomationProperties.Name="Cobrar cuenta corriente">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularDollarCircle" Width="14" Height="16" />
                                         </Button>
 
                                         <!-- Modificar -->
                                         <Button Command="{Binding DataContext.EditarClienteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="6,4"
-                                                Margin="0,0,4,0"
-                                                ToolTip="Modificar Datos del Cliente">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                Style="{StaticResource RowActionButtonStyle}"
+                                                ToolTip="Modificar los datos del cliente"
+                                                AutomationProperties.Name="Modificar cliente">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                         </Button>
 
-                                        <!-- Dar de Baja -->
+                                        <!-- Baja lógica (soft delete) -->
                                         <Button Command="{Binding DataContext.DarDeBajaClienteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="6,4"
-                                                ToolTip="Dar de Baja Lógica al Cliente (Soft Delete)">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" Foreground="{DynamicResource DangerBrush}" />
+                                                Style="{StaticResource IconDangerButtonStyle}"
+                                                ToolTip="Dar de baja al cliente"
+                                                AutomationProperties.Name="Dar de baja al cliente">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
                                         </Button>
                                     </StackPanel>
                                 </DataTemplate>
@@ -291,10 +253,10 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- ========================================================= -->
-                <!-- 2.3 BARRA DE PAGINACIÓN AL FINAL DE LA TABLA               -->
-                <!-- ========================================================= -->
-                <components:PaginationBar Grid.Row="2" />
+                <!-- Paginación pegada a la grilla, separada por una línea -->
+                <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0">
+                    <components:PaginationBar />
+                </Border>
             </Grid>
         </Border>
     </Grid>

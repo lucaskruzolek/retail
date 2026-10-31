@@ -44,47 +44,6 @@ public class AppSmokeTests
     }
 
     [Fact]
-    public void ArticuloMuestra_CreacionValida_DebePreservarPropiedades()
-    {
-        // Arrange & Act
-        var articulo = new ArticuloMuestra(
-            CodigoBarras: "9789500762885",
-            Descripcion: "El Principito",
-            Categoria: "Literatura",
-            Stock: 3,
-            StockBajo: true,
-            PrecioVentaFormateado: "$ 12.500,00"
-        );
-
-        // Assert
-        articulo.CodigoBarras.Should().Be("9789500762885");
-        articulo.Descripcion.Should().Be("El Principito");
-        articulo.Categoria.Should().Be("Literatura");
-        articulo.Stock.Should().Be(3);
-        articulo.StockBajo.Should().BeTrue();
-        articulo.PrecioVentaFormateado.Should().Be("$ 12.500,00");
-    }
-
-    [Fact]
-    public void ArticuloMuestra_ArtesaniaSinCodigo_DebeAdmitirIdentificadorArtesanal()
-    {
-        // Arrange & Act
-        var artesania = new ArticuloMuestra(
-            CodigoBarras: "(Artesanal)",
-            Descripcion: "Señalador de Madera",
-            Categoria: "Regalería",
-            Stock: 10,
-            StockBajo: false,
-            PrecioVentaFormateado: "$ 1.800,00"
-        );
-
-        // Assert
-        artesania.CodigoBarras.Should().Be("(Artesanal)");
-        artesania.StockBajo.Should().BeFalse();
-        artesania.Stock.Should().BeGreaterThan(0);
-    }
-
-    [Fact]
     public void AccentManager_ColorCarmín_DebeAplicarseCorrectamente()
     {
         // Verificar que la API de WPF-UI aplique el color carmín a la paleta de acento
@@ -628,7 +587,7 @@ public class AppSmokeTests
 
         // El alto lo da el contenido (patrón de ClasificacionFormDialog) y respeta la salvaguarda de SISTEMA_DE_DISENO.md.
         sizeToContent.Should().Be(System.Windows.SizeToContent.Height);
-        alturaMedida.Should().BeLessThanOrEqualTo(680, $"el modo {modo} no debe superar la altura máxima de un modal");
+        alturaMedida.Should().BeLessThanOrEqualTo(728, $"el modo {modo} debe entrar en una pantalla de 768 px de alto descontada la barra de tareas (si crece más, el diálogo scrollea)");
     }
 
     [Fact]
@@ -1184,7 +1143,7 @@ public class AppSmokeTests
         {
             try
             {
-                var barra = new ListToolbar { TotalResultados = 248, PlaceholderText = "Buscar..." };
+                var barra = new ListToolbar { PlaceholderText = "Buscar..." };
                 barra.Measure(new System.Windows.Size(1000, 200));
                 barra.Arrange(new System.Windows.Rect(0, 0, 1000, 200));
                 barra.UpdateLayout();
@@ -1197,6 +1156,34 @@ public class AppSmokeTests
 
         // Assert
         xamlException.Should().BeNull("el XAML de ListToolbar debe resolverse sin errores");
+    }
+
+    [Fact]
+    public void FiltroColumna_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                // Los StaticResource del panel (que es un Popup cerrado) se resuelven al cargar el XAML
+                var filtro = new Retail.App.ViewModels.Comun.FiltroColumnaViewModel("Categoría");
+                filtro.CargarOpciones([new Retail.App.ViewModels.Comun.OpcionFiltroColumna(1, "Cuadernos", "Escolar")]);
+                var control = new FiltroColumna { Filtro = filtro };
+                control.Measure(new System.Windows.Size(200, 40));
+                control.Arrange(new System.Windows.Rect(0, 0, 200, 40));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de FiltroColumna debe resolverse sin errores");
     }
 
     [Fact]
@@ -1224,6 +1211,31 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de StyleGalleryView debe resolverse sin errores");
         view.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void DialogoMuestraDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var dialogo = new DialogoMuestraDialog();
+                dialogo.Measure(new System.Windows.Size(520, 800));
+                dialogo.Arrange(new System.Windows.Rect(0, 0, 520, 800));
+                dialogo.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML del modal de muestra de la galería debe resolverse sin errores");
     }
 
     [Fact]
@@ -1842,10 +1854,10 @@ public class AppSmokeTests
     }
 
     [Fact]
-    public void AdministrarClasificacionDialog_SinDiccionariosPropios_DebeHeredarElAcentoCarminDeLaAplicacion()
+    public void AdministrarClasificacionDialog_SinDiccionariosPropios_DebeHeredarElAcentoDeLaAplicacion()
     {
         // Arrange
-        var carmin = System.Windows.Media.Color.FromRgb(0x9D, 0x0F, 0x33);
+        var tintaNeutra = System.Windows.Media.Color.FromRgb(0x18, 0x18, 0x1B);
 
         // Act
         var (diccionariosPropios, rellenoToggle, acentoDeLaVentana, acentoDeLaAplicacion) = WpfTestHelper.Run(() =>
@@ -1868,7 +1880,7 @@ public class AppSmokeTests
 
         // Assert
         diccionariosPropios.Should().Be(0, "la ventana hereda los diccionarios de App.xaml: volver a mergearlos tapa el acento de la aplicación");
-        rellenoToggle.Should().Be(carmin, "el ToggleSwitch \"Solo ambiguos\" debe encenderse en carmín y no en el azul de Windows");
+        rellenoToggle.Should().Be(tintaNeutra, "el ToggleSwitch \"Solo ambiguos\" debe encenderse en la tinta neutra del tema y no en el azul de Windows");
         acentoDeLaVentana.Should().BeSameAs(acentoDeLaAplicacion, "el acento que aplica ApplicationAccentColorManager debe llegar a la ventana");
     }
 

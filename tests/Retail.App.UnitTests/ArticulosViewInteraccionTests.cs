@@ -205,7 +205,7 @@ public class ArticulosViewInteraccionTests
             total = grilla.ActualWidth;
         });
 
-        accion.Should().Be(40, "el botón de 32 más 8 de aire hasta el borde; los 8 del otro lado los pone el relleno de Stock");
+        accion.Should().Be(36, "el botón de 28 más 8 de aire hasta el borde; los 8 del otro lado los pone el relleno de Stock");
         (descripcion + fijas).Should().BeApproximately(total, 3, "la columna * ocupa todo lo que no usan las fijas (menos el borde de la grilla)");
         descripcion.Should().BeGreaterThan(200);
     }
@@ -221,8 +221,8 @@ public class ArticulosViewInteraccionTests
             var e = Crear();
             var fila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Primero));
             var stock = Descendientes<StackPanel>(fila).Single(p => p.Name == "PanelStock");
-            var boton = Descendientes<Button>(fila).Single(b => b.ContextMenu is not null);
-            var celdaDelBoton = Descendientes<DataGridCell>(fila).Single(c => Descendientes<Button>(c).Contains(boton));
+            var boton = Descendientes<ToggleButton>(fila).Single(b => b.ContextMenu is not null);
+            var celdaDelBoton = Descendientes<DataGridCell>(fila).Single(c => Descendientes<ToggleButton>(c).Contains(boton));
 
             double finDelStock = stock.TranslatePoint(new Point(stock.ActualWidth, 0), fila).X;
             double inicioDelBoton = boton.TranslatePoint(new Point(0, 0), fila).X;
@@ -233,7 +233,7 @@ public class ArticulosViewInteraccionTests
         });
 
         aireIzquierdo.Should().BeApproximately(8, 0.5, "el stock va a la derecha de su columna, con 8 de relleno");
-        aireDerecho.Should().BeApproximately(8, 0.5, "el botón de 32 va a la izquierda de su columna de 40");
+        aireDerecho.Should().BeApproximately(8, 0.5, "el botón de 28 va a la izquierda de su columna de 36: el mismo aire que hacia el stock");
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public class ArticulosViewInteraccionTests
             recortada = Descendientes<ScrollViewer>(grilla).First().Clip is not null;
         });
 
-        radio.Should().Be(new CornerRadius(8));
+        radio.Should().Be(new CornerRadius(7, 7, 0, 0), "arriba sigue la superficie de la tabla (radio 8 menos su borde); abajo continúa la paginación");
         recortada.Should().BeTrue("sin recorte, el fondo del encabezado se saldría de las esquinas");
     }
 
@@ -289,17 +289,16 @@ public class ArticulosViewInteraccionTests
     }
 
     [Fact]
-    public void AccionesMasivas_AlMarcarFilas_ReemplazanAlContadorEnLaBarraDelBuscador()
+    public void AccionesMasivas_AlMarcarFilas_ReemplazanALaCargaEnLaBarraDelBuscador()
     {
         bool masivasSinMarcas = true;
-        bool contadorSinMarcas = false;
+        bool panelNormalSinMarcas = false;
         bool masivasConMarcas = false;
-        bool contadorConMarcas = true;
+        bool panelNormalConMarcas = true;
         bool busquedaConMarcas = false;
         bool limpiarConMarcas = false;
         bool heredaElViewModel = false;
         bool pedirEnlazado = false;
-        bool paginacionSinResumen = false;
         string? texto = null;
 
         WpfTestHelper.Run(() =>
@@ -311,13 +310,12 @@ public class ArticulosViewInteraccionTests
             var panelSeleccion = (FrameworkElement)barra.FindName("PanelSeleccion");
             // Fuera de una ventana IsVisible es siempre falso: se mira la Visibility de cada panel
             masivasSinMarcas = panelSeleccion.Visibility == Visibility.Visible;
-            contadorSinMarcas = panelNormal.Visibility == Visibility.Visible;
-            paginacionSinResumen = !Descendientes<PaginationBar>(e.Vista).Single().MostrarResumen;
+            panelNormalSinMarcas = panelNormal.Visibility == Visibility.Visible;
 
             e.Vista.ViewModel.SeleccionarTodos = true;
             e.Vista.UpdateLayout();
             masivasConMarcas = panelSeleccion.Visibility == Visibility.Visible && Descendientes<BulkActionBar>(barra).Contains(masivas);
-            contadorConMarcas = panelNormal.Visibility == Visibility.Visible;
+            panelNormalConMarcas = panelNormal.Visibility == Visibility.Visible;
             busquedaConMarcas = Descendientes<Wpf.Ui.Controls.TextBox>(barra).Single().Visibility == Visibility.Visible;
             var limpiar = Descendientes<Button>(barra).Single(b => ReferenceEquals(b.Command, e.Vista.ViewModel.LimpiarFiltrosCommand));
             limpiarConMarcas = limpiar.Visibility == Visibility.Visible && ((FrameworkElement)limpiar.Parent).Visibility == Visibility.Visible;
@@ -327,14 +325,13 @@ public class ArticulosViewInteraccionTests
         });
 
         masivasSinMarcas.Should().BeFalse();
-        contadorSinMarcas.Should().BeTrue();
+        panelNormalSinMarcas.Should().BeTrue();
         masivasConMarcas.Should().BeTrue("aparecen junto a las casillas que las activan");
-        contadorConMarcas.Should().BeFalse("las acciones masivas ocupan el lugar de la carga y el contador");
+        panelNormalConMarcas.Should().BeFalse("las acciones masivas ocupan el lugar de la carga");
         busquedaConMarcas.Should().BeTrue("la búsqueda no se tapa al marcar filas");
         limpiarConMarcas.Should().BeFalse("el badge \"N seleccionados ✕\" ocupa el lugar de \"Limpiar filtros\"");
         heredaElViewModel.Should().BeTrue("la barra no tiene padre lógico y hereda el DataContext por el árbol visual");
         pedirEnlazado.Should().BeTrue();
-        paginacionSinResumen.Should().BeTrue("el contador de arriba ya informa la cantidad");
         texto.Should().Be("2 seleccionados", "la selección es de la página visible: no se informa \"de M\"");
     }
 
@@ -351,7 +348,7 @@ public class ArticulosViewInteraccionTests
         {
             var e = Crear();
             var masivas = (BulkActionBar)Descendientes<ListToolbar>(e.Vista).Single().AccionesDeSeleccion!;
-            var botones = LogicalTreeHelper.GetChildren((StackPanel)masivas.Content).OfType<Button>().ToList();
+            var botones = LogicalTreeHelper.GetChildren((StackPanel)masivas.Content).OfType<ButtonBase>().ToList();
             var mas = botones.Single(b => b.ContextMenu is not null);
             var items = mas.ContextMenu!.Items.OfType<MenuItem>().ToList();
             opciones = items.Select(i => (string)i.Header).ToArray();
@@ -408,7 +405,7 @@ public class ArticulosViewInteraccionTests
         {
             var e = Crear();
             var segundaFila = Descendientes<DataGridRow>(e.Vista).Single(f => ReferenceEquals((f.Item as ArticuloFila)?.Articulo, e.Segundo));
-            var botonMenu = Descendientes<Button>(segundaFila).Single(b => b.ContextMenu is not null);
+            var botonMenu = Descendientes<ToggleButton>(segundaFila).Single(b => b.ContextMenu is not null);
             var menu = botonMenu.ContextMenu!;
             menu.PlacementTarget = botonMenu;
 
@@ -422,6 +419,50 @@ public class ArticulosViewInteraccionTests
         opciones.Should().Contain(["Editar artículo", "Dar de baja", "Crear presentación"]);
         opciones.Should().NotContain("Fraccionar", "solo las presentaciones derivadas se fraccionan");
         llamadas.Should().Be(1);
+    }
+
+    [Fact]
+    public void Cabeceras_FiltrosDeColumna_SeEnlazanALosFiltrosDelViewModel()
+    {
+        // Las columnas no están en el árbol visual: si el binding del Header fallara, el filtro quedaría nulo en silencio
+        string?[] titulos = [];
+        bool enlazados = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var vm = (ArticulosViewModel)e.Vista.DataContext;
+            var filtros = Descendientes<FiltroColumna>(e.Vista).ToList();
+
+            titulos = filtros.Select(f => f.Filtro?.Titulo).ToArray();
+            enlazados = filtros.Select(f => f.Filtro).SequenceEqual(
+                [vm.FiltroCategoria, vm.FiltroMarca, vm.FiltroDistribuidor, vm.FiltroEstadoStock]);
+        });
+
+        titulos.Should().Equal("Categoría", "Marca", "Distribuidor", "Stock");
+        enlazados.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FiltroColumna_ClicSobreElFondoDelPanel_NoLlegaALaCabecera()
+    {
+        // Un clic que subiera hasta la DataGridColumnHeader ordenaría la columna o empezaría a arrastrarla
+        bool atendido = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var filtro = Descendientes<FiltroColumna>(Crear().Vista).First();
+            var tarjeta = (Border)filtro.FindName("Tarjeta");
+            var clic = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+            {
+                RoutedEvent = UIElement.MouseLeftButtonDownEvent
+            };
+
+            tarjeta.RaiseEvent(clic);
+            atendido = clic.Handled;
+        });
+
+        atendido.Should().BeTrue();
     }
 
     private static IEnumerable<T> Descendientes<T>(DependencyObject raiz) where T : DependencyObject

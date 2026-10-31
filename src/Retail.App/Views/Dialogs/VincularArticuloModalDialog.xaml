@@ -2,16 +2,16 @@
                    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                   xmlns:components="clr-namespace:Retail.App.Views.Components"
                    xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                    Title="Vincular a Artículo Existente"
                    Width="580"
-                   Height="600"
+                   Height="624"
                    MinWidth="520"
-                   MinHeight="480"
+                   MinHeight="504"
                    WindowStartupLocation="CenterOwner"
                    ExtendsContentIntoTitleBar="True"
-                   WindowBackdropType="Mica"
-                   Background="{DynamicResource SurfaceBackgroundBrush}"
+                   Background="{DynamicResource DialogBackgroundBrush}"
                    ResizeMode="NoResize">
 
     <ui:FluentWindow.Resources>
@@ -27,24 +27,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de Título Fluent -->
-        <Grid Grid.Row="0">
-            <ui:TitleBar Height="32"
-                         Padding="8,0"
-                         Background="{DynamicResource SurfaceBackgroundBrush}"
-                         ShowMaximize="False"
-                         CanMaximize="False" />
-            <TextBlock Text="Vincular Ítem a Artículo de Tienda"
-                       FontFamily="{StaticResource FontFamilyText}"
-                       FontSize="12"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource TextPrimaryBrush}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Margin="48,0"
-                       TextTrimming="CharacterEllipsis"
-                       IsHitTestVisible="False" />
-        </Grid>
+        <!-- Barra de título: título y botones de ventana en la misma banda -->
+        <components:EncabezadoDialogo Titulo="Vincular Ítem a Artículo de Tienda" />
 
         <!-- Contenido Central -->
         <Grid Grid.Row="1" Margin="20,12">
@@ -56,30 +40,49 @@
             </Grid.RowDefinitions>
 
             <!-- 1. Tarjeta resumen del ítem mayorista -->
-            <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Padding="12" Margin="0,0,0,10">
+            <Border Grid.Row="0" Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackSm}">
                 <StackPanel>
-                    <TextBlock Text="Ítem del Catálogo Mayorista" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding ItemCatalogo.DescripcionProveedor}" FontWeight="SemiBold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,2,0,4" />
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Código Prov: " Style="{StaticResource TextBlockBodySecondary}" FontSize="12" />
-                        <TextBlock Text="{Binding ItemCatalogo.CodigoProveedor}" FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" Margin="0,0,16,0" />
-                        <TextBlock Text="Costo Reposición: " Style="{StaticResource TextBlockBodySecondary}" FontSize="12" />
-                        <TextBlock Text="{Binding ItemCatalogo.CostoReposicion, StringFormat={}{0:C2}}" FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="SemiBold" />
+                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularStore" Style="{StaticResource CardHeaderIconStyle}" />
+                        <TextBlock Text="Ítem del Catálogo Mayorista" Style="{StaticResource CardHeaderTextStyle}" />
                     </StackPanel>
+                    <TextBlock Text="{Binding ItemCatalogo.DescripcionProveedor}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeMd}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="{StaticResource StackXs}" />
+                    <!-- Etiqueta | valor: los valores arrancan en la misma columna -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Código de barras" Style="{StaticResource TextBlockBodySecondary}" FontSize="{StaticResource FontSizeSm}" Margin="0,0,16,4" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CodigoBarrasItem, TargetNullValue=-, FallbackValue=-}" HorizontalAlignment="Left" FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{StaticResource FontSizeSm}" Margin="0,0,0,4" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Código del proveedor" Style="{StaticResource TextBlockBodySecondary}" FontSize="{StaticResource FontSizeSm}" Margin="0,0,16,4" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ItemCatalogo.CodigoProveedor}" HorizontalAlignment="Left" FontFamily="{StaticResource FontFamilyMonospace}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{StaticResource FontSizeSm}" Margin="0,0,0,4" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Costo de reposición" Style="{StaticResource TextBlockBodySecondary}" FontSize="{StaticResource FontSizeSm}" Margin="0,0,16,0" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ItemCatalogo.CostoReposicion, StringFormat={}{0:C2}}" HorizontalAlignment="Left" FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold" />
+                    </Grid>
                 </StackPanel>
             </Border>
 
             <!-- 2. Buscador de artículos -->
-            <Grid Grid.Row="1" Margin="0,0,0,10">
+            <Grid Grid.Row="1" Margin="{StaticResource StackSm}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <ui:TextBox Grid.Column="0"
+                            x:Name="CuadroBusqueda"
                             Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
                             PlaceholderText="Buscar por código de barras o descripción..."
-                            Margin="0,0,8,0">
+                            Margin="{StaticResource InlineSm}">
                     <ui:TextBox.Icon>
                         <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
                                       Width="16" Height="16" />
@@ -91,10 +94,9 @@
 
                 <Button Grid.Column="1"
                         Command="{Binding BuscarArticulosCommand}"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        Padding="12,6">
+                        Style="{StaticResource KeycapButtonStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularSearch" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularSearch" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
                         <TextBlock Text="Buscar" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
@@ -102,9 +104,19 @@
 
             <!-- 3. Resultados de búsqueda -->
             <Border Grid.Row="2"
-                    Style="{StaticResource CardBorderStyle}"
+                    Style="{StaticResource DialogSectionStyle}"
                     Padding="0">
-                <DataGrid ItemsSource="{Binding ArticulosEncontrados}"
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="16,16,16,12">
+                        <iconPacks:PackIconBoxIcons Kind="RegularSearch" Style="{StaticResource CardHeaderIconStyle}" />
+                        <TextBlock Text="Artículos de la Tienda" Style="{StaticResource CardHeaderTextStyle}" />
+                    </StackPanel>
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding ArticulosEncontrados}"
                           SelectedItem="{Binding ArticuloSeleccionado, Mode=TwoWay}"
                           Style="{StaticResource DataGridRetailStyle}"
                           AutoGenerateColumns="False"
@@ -131,6 +143,7 @@
                                              Width="70" />
                     </DataGrid.Columns>
                 </DataGrid>
+                </Grid>
             </Border>
 
             <!-- 4. Rol de la fuente (Track 4.3, J4): adicional por defecto; la principal fija costo y precio (A-2) -->
@@ -145,21 +158,14 @@
         </Grid>
 
         <!-- Barra Inferior de Acciones -->
-        <Border Grid.Row="2"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="0,1,0,0"
-                Padding="16,12">
+        <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Command="{Binding CancelarCommand}"
                         CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
                         Style="{StaticResource KeycapButtonStyle}"
-                        Margin="0,0,10,0"
+                        Margin="{StaticResource InlineSm}"
                         IsCancel="True">
-                    <StackPanel Orientation="Horizontal">
-                        
-                        <TextBlock Text="Cancelar" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <TextBlock Text="Cancelar" VerticalAlignment="Center" />
                 </Button>
 
                 <Button Command="{Binding AceptarCommand}"
@@ -167,7 +173,7 @@
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         IsDefault="True">
                     <StackPanel Orientation="Horizontal">
-                       
+                        <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
                         <TextBlock Text="Confirmar Vinculación" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>

@@ -1,0 +1,130 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Paleta del tema oscuro. Tiene exactamente las mismas claves que Colors.xaml (lo garantiza PaletaTemasTests).
+         El carmín se aclara para mantener contraste sobre fondos oscuros. -->
+
+    <!-- ================================================================= -->
+    <!-- SOBRESCRITURA DE PALETA DE ACENTO DE WPF-UI (Carmín aclarado)     -->
+    <!-- ================================================================= -->
+    <Color x:Key="SystemAccentColor">#D63A62</Color>
+    <Color x:Key="SystemAccentColorLight1">#E04D73</Color>
+    <Color x:Key="SystemAccentColorLight2">#EA6B8C</Color>
+    <Color x:Key="SystemAccentColorLight3">#F393AC</Color>
+    <Color x:Key="SystemAccentColorDark1">#B82E52</Color>
+    <Color x:Key="SystemAccentColorDark2">#9D0F33</Color>
+    <Color x:Key="SystemAccentColorDark3">#7A0C28</Color>
+
+    <SolidColorBrush x:Key="SystemAccentBrush" Color="{StaticResource SystemAccentColor}" />
+    <SolidColorBrush x:Key="SystemAccentBrushLight1" Color="{StaticResource SystemAccentColorLight1}" />
+    <SolidColorBrush x:Key="SystemAccentBrushLight2" Color="{StaticResource SystemAccentColorLight2}" />
+    <SolidColorBrush x:Key="SystemAccentBrushLight3" Color="{StaticResource SystemAccentColorLight3}" />
+    <SolidColorBrush x:Key="SystemAccentBrushDark1" Color="{StaticResource SystemAccentColorDark1}" />
+    <SolidColorBrush x:Key="SystemAccentBrushDark2" Color="{StaticResource SystemAccentColorDark2}" />
+    <SolidColorBrush x:Key="SystemAccentBrushDark3" Color="{StaticResource SystemAccentColorDark3}" />
+
+    <!-- Casillas e interruptores encendidos en neutro (tinta del tema), no en carmín: el acento queda para la acción
+         principal, el foco y el ítem activo. La marca de la casilla y la perilla toman el color opuesto para contrastar. -->
+    <SolidColorBrush x:Key="ControlCheckedBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="ControlCheckedHoverBrush" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="ControlCheckedForegroundBrush" Color="#18181B" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#E4E4E7" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#18181B" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#18181B" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#18181B" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#E4E4E7" />
+
+    <!-- Campo de texto con foco: contorno neutro más marcado en lugar del carmín de acento, y sin el subrayado de 2 px -->
+    <SolidColorBrush x:Key="ControlFocusedBorderBrush" Color="#71717A" />
+    <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="Transparent" />
+    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+
+    <!-- ================================================================= -->
+    <!-- TOKENS SEMÁNTICOS DE MARCA Y ACCIÓN PRINCIPAL (RETAIL)            -->
+    <!-- ================================================================= -->
+    <SolidColorBrush x:Key="PrimaryBrush" Color="#D63A62" />
+    <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#E04D73" />
+    <SolidColorBrush x:Key="PrimaryPressedBrush" Color="#B82E52" />
+    <SolidColorBrush x:Key="PrimaryLightBrush" Color="#3A1520" />
+    <SolidColorBrush x:Key="PrimarySoftBorderBrush" Color="#6B2438" />
+    <SolidColorBrush x:Key="PrimaryForegroundBrush" Color="#FFFFFF" />
+
+    <!-- ================================================================= -->
+    <!-- TOKENS DE SUPERFICIES Y FONDOS (ZINC NEUTRAL)                     -->
+    <!-- ================================================================= -->
+    <SolidColorBrush x:Key="SurfaceBackgroundBrush" Color="#09090B" />
+    <!-- Fondo de un diálogo: más oscuro que sus secciones (SurfaceCardBrush), que así quedan "arriba" sin borde -->
+    <SolidColorBrush x:Key="DialogBackgroundBrush" Color="#111113" />
+    <SolidColorBrush x:Key="SurfaceCardBrush" Color="#18181B" />
+    <SolidColorBrush x:Key="SurfaceBorderBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SurfaceBorderFocusedBrush" Color="#D63A62" />
+    <SolidColorBrush x:Key="SurfaceHoverBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SurfaceSubtleBrush" Color="#1F1F23" />
+    <SolidColorBrush x:Key="SurfaceSelectedBrush" Color="#2A2A2E" />
+    <SolidColorBrush x:Key="SurfacePressedBrush" Color="#3F3F46" />
+    <SolidColorBrush x:Key="SurfaceBorderSubtleBrush" Color="#1F1F23" />
+    <SolidColorBrush x:Key="HeaderBackgroundBrush" Color="#27272A" />
+
+    <!-- ================================================================= -->
+    <!-- TOKENS DE TEXTO                                                   -->
+    <!-- ================================================================= -->
+    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A1A1AA" />
+    <SolidColorBrush x:Key="TextMutedBrush" Color="#71717A" />
+    <SolidColorBrush x:Key="TextSubtleBrush" Color="#8B8B94" />
+    <SolidColorBrush x:Key="TextOnDarkBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="SectionTitleBrush" Color="#FAFAFA" />
+
+    <!-- ================================================================= -->
+    <!-- TOKENS DE ESTADO Y SEMÁFOROS DE NEGOCIO (LIBRERÍA POS)            -->
+    <!-- ================================================================= -->
+    <!-- Alerta de Stock Mínimo / Advertencia de Caja -->
+    <Color x:Key="WarningColor">#F59E0B</Color>
+    <SolidColorBrush x:Key="WarningBrush" Color="{StaticResource WarningColor}" />
+    <SolidColorBrush x:Key="WarningBackgroundBrush" Color="#3B2A0A" />
+    <SolidColorBrush x:Key="WarningForegroundBrush" Color="#FCD34D" />
+    <SolidColorBrush x:Key="WarningBorderBrush" Color="#78510F" />
+
+    <!-- Error Fiscal ARCA / Límite de Crédito Excedido -->
+    <Color x:Key="DangerColor">#F87171</Color>
+    <SolidColorBrush x:Key="DangerBrush" Color="{StaticResource DangerColor}" />
+    <SolidColorBrush x:Key="DangerBackgroundBrush" Color="#3B1414" />
+    <SolidColorBrush x:Key="DangerForegroundBrush" Color="#FCA5A5" />
+    <SolidColorBrush x:Key="DangerBorderBrush" Color="#7F1D1D" />
+
+    <!-- Éxito / Cobro Confirmado / Turno de Caja Abierto -->
+    <Color x:Key="SuccessColor">#34D399</Color>
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource SuccessColor}" />
+    <SolidColorBrush x:Key="SuccessBackgroundBrush" Color="#0B2E22" />
+    <SolidColorBrush x:Key="SuccessForegroundBrush" Color="#6EE7B7" />
+    <SolidColorBrush x:Key="SuccessBorderBrush" Color="#065F46" />
+
+    <!-- Botones de Teclado Rápido de Mostrador (Keycaps F1 a F12) -->
+    <SolidColorBrush x:Key="KeycapBackgroundBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="KeycapForegroundBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="KeycapBorderBrush" Color="#3F3F46" />
+    <SolidColorBrush x:Key="KeycapPrimaryBackgroundBrush" Color="#6B0720" />
+    <SolidColorBrush x:Key="KeycapPrimaryBorderBrush" Color="#9D0F33" />
+
+    <!-- Elevación de superficies flotantes: sobre fondo oscuro la sombra es negra -->
+    <Color x:Key="ElevationShadowColor">#000000</Color>
+
+    <!-- ================================================================= -->
+    <!-- TOKENS DEL SIDEBAR (SUPERFICIE OSCURA)                            -->
+    <!-- ================================================================= -->
+    <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#121214" />
+    <SolidColorBrush x:Key="SidebarBorderBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SidebarHoverBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SidebarPressedBrush" Color="#3F3F46" />
+    <SolidColorBrush x:Key="SidebarTextBrush" Color="#D4D4D8" />
+    <SolidColorBrush x:Key="SidebarTextStrongBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="SidebarTextMutedBrush" Color="#A1A1AA" />
+    <SolidColorBrush x:Key="SidebarAccentBrush" Color="#F36F8E" />
+    <SolidColorBrush x:Key="SidebarActiveBackgroundBrush" Color="#27272A" />
+    <SolidColorBrush x:Key="SidebarActiveForegroundBrush" Color="#FAFAFA" />
+
+</ResourceDictionary>

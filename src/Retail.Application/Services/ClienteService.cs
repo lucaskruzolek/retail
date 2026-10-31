@@ -5,6 +5,7 @@ using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Common;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 
 namespace Retail.Application.Services;
 
@@ -68,14 +69,18 @@ public class ClienteService : IClienteService
             query = query.Where(c => c.CondicionIva == consulta.CondicionIva.Value);
         }
 
-        if (consulta.SoloConDeuda)
+        bool conDeuda = consulta.EstadosDeuda.Contains(FiltroDeudaClienteEnum.ConDeuda);
+        bool sinDeuda = consulta.EstadosDeuda.Contains(FiltroDeudaClienteEnum.SinDeuda);
+        if (conDeuda != sinDeuda)
         {
-            query = query.Where(c => c.SaldoCuentaCorriente > 0m);
+            query = query.Where(c => (c.SaldoCuentaCorriente > 0m) == conDeuda);
         }
 
-        if (consulta.SoloConCuentaCorriente)
+        bool conCuentaCorriente = consulta.EstadosCuentaCorriente.Contains(FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente);
+        bool sinCuentaCorriente = consulta.EstadosCuentaCorriente.Contains(FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente);
+        if (conCuentaCorriente != sinCuentaCorriente)
         {
-            query = query.Where(c => c.TieneCuentaCorriente);
+            query = query.Where(c => c.TieneCuentaCorriente == conCuentaCorriente);
         }
 
         var filtrados = query.OrderBy(c => c.RazonSocialONombre).ToList();
