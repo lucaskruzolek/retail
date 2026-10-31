@@ -92,11 +92,12 @@ public class EnumsTests
     }
 
     [Fact]
-    public void FiltroStockArticuloEnum_DebeContenerLosTresCriteriosDeInventario()
+    public void FiltroStockArticuloEnum_DebeContenerLosTresEstadosDisjuntosDeInventario()
     {
-        ((int)FiltroStockArticuloEnum.Todos).Should().Be(0);
-        ((int)FiltroStockArticuloEnum.StockCritico).Should().Be(1);
-        ((int)FiltroStockArticuloEnum.SinStock).Should().Be(2);
+        // Sin valor "Todos": no marcar ningún estado es no filtrar
+        ((int)FiltroStockArticuloEnum.SinStock).Should().Be(1);
+        ((int)FiltroStockArticuloEnum.StockBajo).Should().Be(2);
+        ((int)FiltroStockArticuloEnum.ConStock).Should().Be(3);
         Enum.GetValues<FiltroStockArticuloEnum>().Should().HaveCount(3);
     }
 }
