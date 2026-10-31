@@ -4,102 +4,111 @@
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d">
+             mc:Ignorable="d"
+             x:Name="Raiz">
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
     </UserControl.Resources>
 
-    <DockPanel LastChildFill="False" Margin="16,8">
-        <!-- Resumen de registros a la izquierda (la página que ya muestra la cantidad en otro lado lo oculta) -->
-        <TextBlock DockPanel.Dock="Left"
-                   Text="{Binding InformacionPaginacion}"
-                   Visibility="{Binding MostrarResumen, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisConverter}}"
-                   Style="{StaticResource TextBlockBodySecondary}"
-                   FontSize="{StaticResource FontSizeSm}"
-                   Foreground="{DynamicResource TextSubtleBrush}"
-                   VerticalAlignment="Center" />
+    <DockPanel LastChildFill="False" Margin="16,12">
+        <!-- Izquierda: dónde estoy y cuántas filas veo -->
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="{Binding InformacionPaginacion}"
+                       Visibility="{Binding MostrarResumen, ElementName=Raiz, Converter={StaticResource BoolToVisConverter}}"
+                       Style="{StaticResource PaginacionTextoStyle}"
+                       Margin="0,0,16,0" />
 
-        <!-- Controles de navegación a la derecha -->
+            <TextBlock Text="Página" Style="{StaticResource PaginacionTextoStyle}" />
+            <!-- Editable: un número y Enter (o salir del cuadro) va a esa página -->
+            <TextBox x:Name="CuadroPagina"
+                     Style="{StaticResource PaginacionCuadroStyle}"
+                     Margin="8,0"
+                     AutomationProperties.Name="Página actual" />
+            <TextBlock Style="{StaticResource PaginacionTextoStyle}">
+                <Run Text="de" />
+                <Run Text="{Binding TotalPaginas, Mode=OneWay}" />
+            </TextBlock>
+
+            <Rectangle Width="1" Height="16" Margin="16,0" Fill="{DynamicResource SurfaceBorderBrush}" VerticalAlignment="Center" />
+
+            <TextBlock Text="Filas por página" Style="{StaticResource PaginacionTextoStyle}" Margin="0,0,8,0" />
+            <!-- El ComboBox de WPF-UI fija su borde visible con el texto más el relleno vertical (no Height) y reserva ~32 px
+                 para la flecha además del relleno derecho: por eso el relleno derecho es 0 y el ancho, 64 -->
+            <ComboBox ItemsSource="{Binding TamanosPaginaDisponibles}"
+                      SelectedItem="{Binding TamanoPagina, Mode=TwoWay}"
+                      Style="{StaticResource ComboBoxFiltroStyle}"
+                      Width="64"
+                      Height="{StaticResource ControlHeightSm}"
+                      MinHeight="{StaticResource ControlHeightSm}"
+                      FontSize="{StaticResource FontSizeSm}"
+                      Padding="10,4,0,4"
+                      VerticalAlignment="Center"
+                      AutomationProperties.Name="Filas por página" />
+        </StackPanel>
+
+        <!-- Derecha: navegación. Los chevrons van con contorno; los números, sin él (la actual, con fondo suave) -->
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-            <!-- Selector de Filas por Página -->
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                <TextBlock Text="Filas:" Style="{StaticResource TextBlockBodySecondary}" FontSize="{StaticResource FontSizeSm}" Foreground="{DynamicResource TextSubtleBrush}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                <!-- El ComboBox de WPF-UI tiene dos particularidades: su borde visible lo fija el texto más el relleno vertical
-                     (no Height; el relleno de 4 lo iguala a los botones de al lado, 28) y reserva ~32 px para la flecha además
-                     del relleno derecho (por eso este es 0: con más, el texto quedaba en 0 px de ancho y no se veía). Las opciones
-                     tienen dos cifras: 64 de ancho alcanzan. -->
-                <ComboBox ItemsSource="{Binding TamanosPaginaDisponibles}"
-                          SelectedItem="{Binding TamanoPagina, Mode=TwoWay}"
-                          Style="{StaticResource ComboBoxFiltroStyle}"
-                          Width="64"
-                          Height="{StaticResource ControlHeightSm}"
-                          MinHeight="{StaticResource ControlHeightSm}"
-                          FontSize="{StaticResource FontSizeSm}"
-                          Padding="10,4,0,4"
-                          VerticalAlignment="Center" />
-            </StackPanel>
-
-            <!-- Botón Primera Página -->
             <Button Command="{Binding PrimeraPaginaCommand}"
                     IsEnabled="{Binding PuedeRetrocederPagina}"
-                    Style="{StaticResource KeycapButtonStyle}"
-                    Padding="8,0" Height="{StaticResource ControlHeightSm}" MinHeight="{StaticResource ControlHeightSm}" MinWidth="{StaticResource ControlHeightSm}"
-                    Margin="0,0,4,0"
-                    ToolTip="Primera página">
-                <iconPacks:PackIconBoxIcons Kind="RegularChevronsLeft" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    Style="{StaticResource PaginacionFlechaStyle}"
+                    ToolTip="Primera página"
+                    AutomationProperties.Name="Primera página">
+                <iconPacks:PackIconBoxIcons Kind="RegularChevronsLeft" Width="16" Height="16" />
             </Button>
-
-            <!-- Botón Página Anterior -->
             <Button Command="{Binding PaginaAnteriorCommand}"
                     IsEnabled="{Binding PuedeRetrocederPagina}"
-                    Style="{StaticResource KeycapButtonStyle}"
-                    Padding="8,0" Height="{StaticResource ControlHeightSm}" MinHeight="{StaticResource ControlHeightSm}" MinWidth="{StaticResource ControlHeightSm}"
-                    Margin="0,0,6,0"
-                    ToolTip="Página anterior">
-                <iconPacks:PackIconBoxIcons Kind="RegularChevronLeft" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    Style="{StaticResource PaginacionFlechaStyle}"
+                    Margin="4,0,12,0"
+                    ToolTip="Página anterior"
+                    AutomationProperties.Name="Página anterior">
+                <iconPacks:PackIconBoxIcons Kind="RegularChevronLeft" Width="16" Height="16" />
             </Button>
 
-            <!-- Indicador de Página Actual -->
-            <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="{StaticResource RadiusMd}"
-                    Background="{DynamicResource SurfaceCardBrush}"
-                    MinWidth="64"
-                    Height="{StaticResource ControlHeightSm}"
-                    Margin="0,0,6,0"
-                    VerticalAlignment="Center">
-                <TextBlock Style="{StaticResource TextBlockBodySecondary}"
-                           Foreground="{DynamicResource TextPrimaryBrush}"
-                           FontSize="{StaticResource FontSizeSm}"
-                           Padding="10,0"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center">
-                    <TextBlock.Text>
-                        <MultiBinding StringFormat="{}{0} de {1}">
-                            <Binding Path="PaginaActual" />
-                            <Binding Path="TotalPaginas" />
-                        </MultiBinding>
-                    </TextBlock.Text>
-                </TextBlock>
-            </Border>
+            <ItemsControl ItemsSource="{Binding Elementos, ElementName=Raiz}" Focusable="False" VerticalAlignment="Center">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Button x:Name="Numero"
+                                    Content="{Binding Numero}"
+                                    Command="{Binding ComandoIrAPagina, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding Numero}"
+                                    Style="{StaticResource PaginacionNumeroStyle}" />
+                            <TextBlock x:Name="Salto"
+                                       Text="…"
+                                       Width="{StaticResource ControlHeightSm}"
+                                       TextAlignment="Center"
+                                       Style="{StaticResource PaginacionTextoStyle}"
+                                       Visibility="Collapsed" />
+                        </Grid>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding EsSalto}" Value="True">
+                                <Setter TargetName="Numero" Property="Visibility" Value="Collapsed" />
+                                <Setter TargetName="Salto" Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-            <!-- Botón Página Siguiente -->
             <Button Command="{Binding PaginaSiguienteCommand}"
                     IsEnabled="{Binding PuedeAvanzarPagina}"
-                    Style="{StaticResource KeycapButtonStyle}"
-                    Padding="8,0" Height="{StaticResource ControlHeightSm}" MinHeight="{StaticResource ControlHeightSm}" MinWidth="{StaticResource ControlHeightSm}"
-                    Margin="0,0,4,0"
-                    ToolTip="Página siguiente">
-                <iconPacks:PackIconBoxIcons Kind="RegularChevronRight" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    Style="{StaticResource PaginacionFlechaStyle}"
+                    Margin="12,0,4,0"
+                    ToolTip="Página siguiente"
+                    AutomationProperties.Name="Página siguiente">
+                <iconPacks:PackIconBoxIcons Kind="RegularChevronRight" Width="16" Height="16" />
             </Button>
-
-            <!-- Botón Última Página -->
             <Button Command="{Binding UltimaPaginaCommand}"
                     IsEnabled="{Binding PuedeAvanzarPagina}"
-                    Style="{StaticResource KeycapButtonStyle}"
-                    Padding="8,0" Height="{StaticResource ControlHeightSm}" MinHeight="{StaticResource ControlHeightSm}" MinWidth="{StaticResource ControlHeightSm}"
-                    ToolTip="Última página">
-                <iconPacks:PackIconBoxIcons Kind="RegularChevronsRight" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    Style="{StaticResource PaginacionFlechaStyle}"
+                    ToolTip="Última página"
+                    AutomationProperties.Name="Última página">
+                <iconPacks:PackIconBoxIcons Kind="RegularChevronsRight" Width="16" Height="16" />
             </Button>
         </StackPanel>
     </DockPanel>

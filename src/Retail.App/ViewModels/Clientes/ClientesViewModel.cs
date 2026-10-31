@@ -371,6 +371,17 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Va a una página puntual (los números de la barra de paginación); fuera de rango no hace nada.</summary>
+    [RelayCommand]
+    public async Task IrAPaginaAsync(int pagina)
+    {
+        if (pagina >= 1 && pagina <= TotalPaginas && pagina != PaginaActual)
+        {
+            PaginaActual = pagina;
+            await CargarClientesAsync();
+        }
+    }
+
     private static void EjecutarEnDispatcher(Action action)
     {
         if (System.Windows.Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())

@@ -205,7 +205,7 @@ public class ArticulosViewInteraccionTests
             total = grilla.ActualWidth;
         });
 
-        accion.Should().Be(40, "el botón de 32 más 8 de aire hasta el borde; los 8 del otro lado los pone el relleno de Stock");
+        accion.Should().Be(36, "el botón de 28 más 8 de aire hasta el borde; los 8 del otro lado los pone el relleno de Stock");
         (descripcion + fijas).Should().BeApproximately(total, 3, "la columna * ocupa todo lo que no usan las fijas (menos el borde de la grilla)");
         descripcion.Should().BeGreaterThan(200);
     }
@@ -233,7 +233,7 @@ public class ArticulosViewInteraccionTests
         });
 
         aireIzquierdo.Should().BeApproximately(8, 0.5, "el stock va a la derecha de su columna, con 8 de relleno");
-        aireDerecho.Should().BeApproximately(12, 0.5, "el botón de 28 va a la izquierda de su columna de 40");
+        aireDerecho.Should().BeApproximately(8, 0.5, "el botón de 28 va a la izquierda de su columna de 36: el mismo aire que hacia el stock");
     }
 
     [Fact]
@@ -267,7 +267,7 @@ public class ArticulosViewInteraccionTests
             recortada = Descendientes<ScrollViewer>(grilla).First().Clip is not null;
         });
 
-        radio.Should().Be(new CornerRadius(8));
+        radio.Should().Be(new CornerRadius(7, 7, 0, 0), "arriba sigue la superficie de la tabla (radio 8 menos su borde); abajo continúa la paginación");
         recortada.Should().BeTrue("sin recorte, el fondo del encabezado se saldría de las esquinas");
     }
 
@@ -422,6 +422,50 @@ public class ArticulosViewInteraccionTests
         opciones.Should().Contain(["Editar artículo", "Dar de baja", "Crear presentación"]);
         opciones.Should().NotContain("Fraccionar", "solo las presentaciones derivadas se fraccionan");
         llamadas.Should().Be(1);
+    }
+
+    [Fact]
+    public void Cabeceras_FiltrosDeColumna_SeEnlazanALosFiltrosDelViewModel()
+    {
+        // Las columnas no están en el árbol visual: si el binding del Header fallara, el filtro quedaría nulo en silencio
+        string?[] titulos = [];
+        bool enlazados = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var e = Crear();
+            var vm = (ArticulosViewModel)e.Vista.DataContext;
+            var filtros = Descendientes<FiltroColumna>(e.Vista).ToList();
+
+            titulos = filtros.Select(f => f.Filtro?.Titulo).ToArray();
+            enlazados = filtros.Select(f => f.Filtro).SequenceEqual(
+                [vm.FiltroCategoria, vm.FiltroMarca, vm.FiltroDistribuidor, vm.FiltroEstadoStock]);
+        });
+
+        titulos.Should().Equal("Categoría", "Marca", "Distribuidor", "Stock");
+        enlazados.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FiltroColumna_ClicSobreElFondoDelPanel_NoLlegaALaCabecera()
+    {
+        // Un clic que subiera hasta la DataGridColumnHeader ordenaría la columna o empezaría a arrastrarla
+        bool atendido = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var filtro = Descendientes<FiltroColumna>(Crear().Vista).First();
+            var tarjeta = (Border)filtro.FindName("Tarjeta");
+            var clic = new MouseButtonEventArgs(Mouse.PrimaryDevice, 0, MouseButton.Left)
+            {
+                RoutedEvent = UIElement.MouseLeftButtonDownEvent
+            };
+
+            tarjeta.RaiseEvent(clic);
+            atendido = clic.Handled;
+        });
+
+        atendido.Should().BeTrue();
     }
 
     private static IEnumerable<T> Descendientes<T>(DependencyObject raiz) where T : DependencyObject

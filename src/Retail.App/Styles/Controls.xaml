@@ -27,6 +27,49 @@
         <Setter Property="Padding" Value="{StaticResource InsetCard}" />
     </Style>
 
+    <!-- Diálogo como una sola superficie gris (DialogBackgroundBrush): la barra de título, el cuerpo y el pie comparten el
+         fondo, sin franjas ni líneas que los separen. Sobre ese fondo, el contenido se agrupa en secciones blancas SIN borde
+         (DialogSectionStyle), separadas solo por el aire entre ellas, a 12 px de los bordes del diálogo. El título y el
+         contenido de las secciones comparten la vertical de 28 (12 de margen + 16 de relleno). -->
+    <Style x:Key="DialogSectionStyle" TargetType="Border" BasedOn="{StaticResource CardBorderStyle}">
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <!-- Pie de un diálogo: sobre el mismo fondo gris, sin línea; los botones alineados con los bordes de las secciones.
+         Cancelar a la izquierda y la acción primaria (IsDefault: Enter la acepta) a la derecha. -->
+    <Style x:Key="DialogFooterStyle" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="12,4,12,12" />
+    </Style>
+
+    <!-- Minimizar / maximizar / cerrar de un diálogo: solo el ícono, gris; en hover se oscurece a TextPrimary sin fondo
+         ni rojo (no imita los botones de Windows). No toman el foco del teclado: Esc cierra el diálogo. -->
+    <Style x:Key="DialogWindowButtonStyle" TargetType="Button">
+        <Setter Property="Width" Value="{StaticResource ControlHeight}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeight}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Encabezado de tarjeta de formulario: ícono y título en el mismo gris suave, como grabados en la tarjeta. Para
          calibrar el tamaño, cambiar Width/Height del ícono y FontSize del título acá: todas las tarjetas lo toman. -->
     <Style x:Key="CardHeaderIconStyle" TargetType="iconPacks:PackIconBoxIcons">
@@ -457,6 +500,17 @@
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
+    <!-- Texto de una insignia neutra (11 Medium, gris secundario). Si no entra, se recorta con "…" y el valor completo va
+         en el tooltip de la insignia. -->
+    <Style x:Key="BadgeNeutralTextStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeXs}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
 
     <!-- ================================================================= -->
     <!-- ESTILO PARA TABLAS / GRILLAS (DataGridRetailStyle)                -->
@@ -730,6 +784,59 @@
                             <ContentPresenter />
                         </Grid>
                     </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Barra de título de los diálogos: una banda de 56 px sobre el mismo fondo gris del diálogo (sin franja propia), con
+         el título de 20 SemiBold (Inter Display) a 28 px del borde -la vertical del contenido de las secciones- y, a la
+         derecha, minimizar / maximizar / cerrar dibujados como íconos (DialogWindowButtonStyle). La banda es transparente
+         al clic: arrastrarla mueve la ventana (DragMove) y el doble clic maximiza si el diálogo lo permite. -->
+    <Style TargetType="components:EncabezadoDialogo">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="components:EncabezadoDialogo">
+                    <Grid x:Name="PART_Banda" Height="{StaticResource DialogTitleBarHeight}" Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{TemplateBinding Titulo}"
+                                   FontFamily="{StaticResource FontFamilyDisplay}"
+                                   FontSize="{StaticResource FontSizeXl}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="28,0,8,0"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
+                            <Button x:Name="PART_Minimizar"
+                                    Style="{StaticResource DialogWindowButtonStyle}"
+                                    ToolTip="Minimizar"
+                                    AutomationProperties.Name="Minimizar">
+                                <iconPacks:PackIconBoxIcons Kind="RegularMinus" Width="18" Height="18" />
+                            </Button>
+                            <Button x:Name="PART_Maximizar"
+                                    Style="{StaticResource DialogWindowButtonStyle}"
+                                    ToolTip="Maximizar"
+                                    AutomationProperties.Name="Maximizar">
+                                <iconPacks:PackIconBoxIcons Kind="RegularSquareRounded" Width="16" Height="16" />
+                            </Button>
+                            <Button x:Name="PART_Cerrar"
+                                    Style="{StaticResource DialogWindowButtonStyle}"
+                                    ToolTip="Cerrar (Esc)"
+                                    AutomationProperties.Name="Cerrar">
+                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="20" Height="20" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="PermitirMaximizar" Value="False">
+                            <Setter TargetName="PART_Maximizar" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
