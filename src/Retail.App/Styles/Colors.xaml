@@ -20,14 +20,25 @@
     <SolidColorBrush x:Key="SystemAccentBrushDark2" Color="{StaticResource SystemAccentColorDark2}" />
     <SolidColorBrush x:Key="SystemAccentBrushDark3" Color="{StaticResource SystemAccentColorDark3}" />
 
-    <!-- Los pinceles de acento de WPF-UI (AccentFillColor*) los escribe ApplicationAccentColorManager.Apply en
-         App.xaml.cs, con las variantes del carmín que calcula para el tema claro. El ToggleSwitch encendido se fija
-         acá en el carmín exacto de marca. Las ventanas no mergean diccionarios propios: heredan los de App.xaml, y una
-         copia local de ui:ThemesDictionary reponía en esa ventana el acento azul de Windows. -->
-    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="{StaticResource SystemAccentColor}" />
-    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="{StaticResource SystemAccentColorDark1}" />
-    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="{StaticResource SystemAccentColor}" />
-    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="{StaticResource SystemAccentColorDark1}" />
+    <!-- Casillas e interruptores encendidos en neutro (tinta del tema), no en carmín: el acento queda para la acción
+         principal, el foco y el ítem activo. La marca de la casilla y la perilla toman el color opuesto para contrastar. -->
+    <SolidColorBrush x:Key="ControlCheckedBrush" Color="#18181B" />
+    <SolidColorBrush x:Key="ControlCheckedHoverBrush" Color="#3F3F46" />
+    <SolidColorBrush x:Key="ControlCheckedForegroundBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#18181B" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#3F3F46" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#18181B" />
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#3F3F46" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="#18181B" />
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="#3F3F46" />
+
+    <!-- Campo de texto con foco: contorno neutro más marcado en lugar del carmín de acento, y sin el subrayado de 2 px -->
+    <SolidColorBrush x:Key="ControlFocusedBorderBrush" Color="#A1A1AA" />
+    <SolidColorBrush x:Key="TextControlFocusedBorderBrush" Color="#A1A1AA" />
+    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
 
     <!-- ================================================================= -->
     <!-- TOKENS SEMÁNTICOS DE MARCA Y ACCIÓN PRINCIPAL (RETAIL)            -->
@@ -36,6 +47,8 @@
     <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#850C2A" />
     <SolidColorBrush x:Key="PrimaryPressedBrush" Color="#6B0720" />
     <SolidColorBrush x:Key="PrimaryLightBrush" Color="#FDF2F4" />
+    <!-- Contorno suave del carmín: opción marcada de las píldoras (el PrimaryBrush pleno pesaba demasiado) -->
+    <SolidColorBrush x:Key="PrimarySoftBorderBrush" Color="#E8B9C4" />
     <SolidColorBrush x:Key="PrimaryForegroundBrush" Color="#FFFFFF" />
 
     <!-- ================================================================= -->
@@ -66,6 +79,8 @@
     <!-- Títulos de tarjeta "grabados": entre secundario y atenuado, 4,8:1 sobre blanco (cumple AA, que el atenuado no) -->
     <SolidColorBrush x:Key="TextSubtleBrush" Color="#71717A" />
     <SolidColorBrush x:Key="TextOnDarkBrush" Color="#FAFAFA" />
+    <!-- Título de sección de un modal y el ícono que lo precede: los dos toman este mismo token -->
+    <SolidColorBrush x:Key="SectionTitleBrush" Color="#18181B" />
 
     <!-- ================================================================= -->
     <!-- TOKENS DE ESTADO Y SEMÁFOROS DE NEGOCIO (LIBRERÍA POS)            -->

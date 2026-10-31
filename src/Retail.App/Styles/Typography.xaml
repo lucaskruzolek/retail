@@ -3,24 +3,24 @@
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
     <!-- ================================================================= -->
-    <!-- FAMILIAS TIPOGRÁFICAS (Inter + JetBrains Mono, embebidas)         -->
+    <!-- FAMILIAS TIPOGRÁFICAS (DM Sans + JetBrains Mono, embebidas)       -->
     <!-- ================================================================= -->
     <!-- Las fuentes viajan dentro del ensamblado (Fonts/**/*.ttf como Resource): la interfaz se ve igual en cualquier
          equipo, sin depender de lo que traiga instalado Windows. Tras la fuente embebida va la lista de respaldo. -->
-    <FontFamily x:Key="FontFamilyText">pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter, Segoe UI Variable Text, Segoe UI</FontFamily>
-    <!-- Inter Display está dibujada para tamaños de 20 px en adelante: solo títulos grandes -->
-    <FontFamily x:Key="FontFamilyDisplay">pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter Display, pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter, Segoe UI Variable Display</FontFamily>
-    <!-- Importes, cantidades y stock (D-23): Inter trae números tabulares (feature tnum), que se activan con
-         Typography.NumeralAlignment="Tabular". Todos los dígitos miden lo mismo, así que los decimales se alinean como
-         con una fuente monoespaciada, sin la estética de código. Todo uso debe declarar también NumeralAlignment="Tabular". -->
-    <FontFamily x:Key="FontFamilyNumeric">pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter, Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="FontFamilyText">pack://application:,,,/Retail.App;component/Fonts/DMSans/#DM Sans, Segoe UI Variable Text, Segoe UI</FontFamily>
+    <!-- DM Sans Display es la instancia óptica de 40 px: solo títulos grandes -->
+    <FontFamily x:Key="FontFamilyDisplay">pack://application:,,,/Retail.App;component/Fonts/DMSans/#DM Sans Display, pack://application:,,,/Retail.App;component/Fonts/DMSans/#DM Sans, Segoe UI Variable Display</FontFamily>
+    <!-- Importes, cantidades y stock (D-23): DM Sans usa cifras proporcionales (no trae la característica `tnum`), así
+         que los importes se alinean por el borde derecho (TextAlignment="Right") en lugar de por el ancho del dígito.
+         NumeralAlignment="Tabular" se conserva en los estilos como contrato, aunque la familia no dibuje la variante. -->
+    <FontFamily x:Key="FontFamilyNumeric">pack://application:,,,/Retail.App;component/Fonts/DMSans/#DM Sans, Segoe UI Variable Text, Segoe UI</FontFamily>
     <!-- Códigos (barras, CUIT, documento, proveedor), teclas F1-F12 y textos técnicos: ahí sí es un código -->
     <FontFamily x:Key="FontFamilyMonospace">pack://application:,,,/Retail.App;component/Fonts/JetBrainsMono/#JetBrains Mono, Cascadia Code, Consolas</FontFamily>
 
     <!-- WPF-UI define esta clave como "Segoe Ui" y casi todos sus controles (botones, cuadros de texto, menús) la toman
          con DynamicResource. Como este diccionario se mergea después de ui:ControlsDictionary, la clave de la aplicación
-         gana y los controles de WPF-UI también se dibujan en Inter. -->
-    <FontFamily x:Key="ContentControlThemeFontFamily">pack://application:,,,/Retail.App;component/Fonts/Inter/#Inter, Segoe UI Variable Text, Segoe UI</FontFamily>
+         gana y los controles de WPF-UI también se dibujan en DM Sans. -->
+    <FontFamily x:Key="ContentControlThemeFontFamily">pack://application:,,,/Retail.App;component/Fonts/DMSans/#DM Sans, Segoe UI Variable Text, Segoe UI</FontFamily>
 
     <!-- ================================================================= -->
     <!-- ESCALA DE TAMAÑOS                                                 -->
@@ -39,7 +39,7 @@
     <!-- ESCALA TIPOGRÁFICA DE TEXTBLOCK                                   -->
     <!-- ================================================================= -->
 
-    <!-- Título Principal de Pantalla (20px, SemiBold, Inter Display) -->
+    <!-- Título Principal de Pantalla (20px, SemiBold, DM Sans Display) -->
     <Style x:Key="TextBlockHeader1" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyDisplay}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeXl}" />
@@ -52,7 +52,7 @@
         <Setter Property="FontSize" Value="{StaticResource FontSize2Xl}" />
     </Style>
 
-    <!-- Subtítulo o Cabecera de Sección / Modal (16px, SemiBold; Inter Display es para 20 px o más, acá va Inter) -->
+    <!-- Subtítulo o Cabecera de Sección / Modal (16px, SemiBold; DM Sans Display es para 20 px o más, acá va DM Sans) -->
     <Style x:Key="TextBlockHeader2" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
         <Setter Property="FontSize" Value="{StaticResource FontSizeLg}" />
@@ -108,7 +108,7 @@
         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
     </Style>
 
-    <!-- Total Gigante para Mostrador POS (32px, SemiBold, números tabulares, alineado a la derecha) -->
+    <!-- Total Gigante para Mostrador POS (32px, SemiBold, alineado a la derecha) -->
     <Style x:Key="TextBlockDisplayCurrency" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
@@ -118,7 +118,7 @@
         <Setter Property="TextAlignment" Value="Right" />
     </Style>
 
-    <!-- Importe Destacado / Saldo Deudor para Diálogos y Modales (24px, SemiBold, números tabulares) -->
+    <!-- Importe Destacado / Saldo Deudor para Diálogos y Modales (24px, SemiBold) -->
     <Style x:Key="TextBlockCurrencyLarge" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
@@ -127,14 +127,14 @@
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
     </Style>
 
-    <!-- Celda de Precios y Subtotales en Grillas (13px, Medium, números tabulares, alineado verticalmente al centro).
+    <!-- Celda de Precios y Subtotales en Grillas (14px, Medium, alineado verticalmente al centro).
          Language es-AR: un StringFormat de un binding usa el idioma del elemento (por defecto en-US, que da "4,000.00").
          Se fija acá, y no en la grilla ni en la aplicación, para no alterar cómo se interpreta lo que el usuario tipea. -->
     <Style x:Key="TextBlockCurrencyCell" TargetType="TextBlock">
         <Setter Property="Language" Value="es-AR" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="TextAlignment" Value="Right" />
@@ -146,30 +146,30 @@
         <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
 
-    <!-- Celda Monoespaciada Estándar en Grillas (Códigos de barra, Documentos, IDs - 12px, Medium, JetBrains Mono) -->
+    <!-- Celda Monoespaciada Estándar en Grillas (Códigos de barra, Documentos, IDs - 13px, Medium, JetBrains Mono) -->
     <Style x:Key="TextBlockMonospaceCell" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyMonospace}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Celda Numérica en Grillas (números de fila, cantidades, stock - 13px, Medium, números tabulares) -->
+    <!-- Celda Numérica en Grillas (números de fila, cantidades, stock - 14px, Medium) -->
     <Style x:Key="TextBlockNumericCell" TargetType="TextBlock">
         <Setter Property="Language" Value="es-AR" />
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
-    <!-- Celda de Texto Estándar en Grillas (13px, Regular, Inter, centrado vertical) -->
+    <!-- Celda de Texto Estándar en Grillas (14px, Regular, DM Sans, centrado vertical) -->
     <Style x:Key="TextBlockTextCell" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="Normal" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         <Setter Property="VerticalAlignment" Value="Center" />

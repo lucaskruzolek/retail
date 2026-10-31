@@ -1,0 +1,79 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dev.DialogoMuestraDialog"
+                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                  xmlns:components="clr-namespace:Retail.App.Views.Components"
+                  Title="Nuevo cliente"
+                  Width="520"
+                  MinHeight="0"
+                  SizeToContent="Height"
+                  WindowStartupLocation="CenterOwner"
+                  ExtendsContentIntoTitleBar="True"
+                  Background="{DynamicResource DialogBackgroundBrush}"
+                  ResizeMode="NoResize">
+
+    <!-- Modal de referencia de la galería (patrón "una sola superficie"): encabezado, secciones blancas sin borde con su
+         ícono y título, y pie sin franja. No guarda nada: Esc o la ✕ cierran, Enter acepta (IsDefault). -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <components:EncabezadoDialogo Titulo="Nuevo cliente" />
+
+        <StackPanel Grid.Row="1" Margin="12,0,12,12">
+            <!-- Sección 1 -->
+            <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularUser" Style="{StaticResource CardHeaderIconStyle}" />
+                        <TextBlock Text="Datos del cliente" Style="{StaticResource CardHeaderTextStyle}" />
+                    </StackPanel>
+
+                    <TextBlock Text="Nombre o razón social *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                    <ui:TextBox x:Name="CampoNombre" PlaceholderText="ej. Librería del Centro" Margin="{StaticResource StackMd}" />
+
+                    <TextBlock Text="Condición frente al IVA" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                    <ComboBox SelectedIndex="0">
+                        <ComboBoxItem Content="Consumidor final" />
+                        <ComboBoxItem Content="Responsable inscripto" />
+                        <ComboBoxItem Content="Monotributista" />
+                    </ComboBox>
+                </StackPanel>
+            </Border>
+
+            <!-- Sección 2 -->
+            <Border Style="{StaticResource DialogSectionStyle}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularWallet" Style="{StaticResource CardHeaderIconStyle}" />
+                        <TextBlock Text="Cuenta corriente" Style="{StaticResource CardHeaderTextStyle}" />
+                    </StackPanel>
+
+                    <CheckBox Content="Habilitar cuenta corriente" IsChecked="True" Margin="{StaticResource StackMd}" />
+
+                    <TextBlock Text="Límite de crédito" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                    <ui:TextBox Text="150000"
+                                FontFamily="{StaticResource FontFamilyNumeric}"
+                                Typography.NumeralAlignment="Tabular" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
+            <DockPanel LastChildFill="False">
+                <Button Content="Cancelar"
+                        Click="BtnCancelar_Click"
+                        Style="{StaticResource KeycapButtonStyle}" />
+                <Button Content="Guardar cliente"
+                        Click="BtnGuardar_Click"
+                        IsDefault="True"
+                        DockPanel.Dock="Right"
+                        Style="{StaticResource PrimaryActionButtonStyle}" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

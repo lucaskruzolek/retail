@@ -29,7 +29,8 @@ public class PaletaTemasTests
     }
 
     [Theory]
-    [InlineData("FontFamilyText", "Inter")]
+    [InlineData("FontFamilyText", "DM Sans")]
+    [InlineData("FontFamilyDisplay", "DM Sans Display")]
     [InlineData("FontFamilyMonospace", "JetBrains Mono")]
     public void Typography_FuenteEmbebida_SeResuelveDesdeElEnsamblado(string clave, string familiaEsperada)
     {

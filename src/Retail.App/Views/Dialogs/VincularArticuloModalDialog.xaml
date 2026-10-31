@@ -11,7 +11,6 @@
                    MinHeight="504"
                    WindowStartupLocation="CenterOwner"
                    ExtendsContentIntoTitleBar="True"
-                   WindowBackdropType="Mica"
                    Background="{DynamicResource DialogBackgroundBrush}"
                    ResizeMode="NoResize">
 
