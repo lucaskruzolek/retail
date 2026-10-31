@@ -816,19 +816,19 @@
                                     Style="{StaticResource DialogWindowButtonStyle}"
                                     ToolTip="Minimizar"
                                     AutomationProperties.Name="Minimizar">
-                                <iconPacks:PackIconBoxIcons Kind="RegularMinus" Width="18" Height="18" />
+                                <iconPacks:PackIconBoxIcons Kind="RegularMinus" Width="10" Height="10" />
                             </Button>
                             <Button x:Name="PART_Maximizar"
                                     Style="{StaticResource DialogWindowButtonStyle}"
                                     ToolTip="Maximizar"
                                     AutomationProperties.Name="Maximizar">
-                                <iconPacks:PackIconBoxIcons Kind="RegularSquareRounded" Width="16" Height="16" />
+                                <iconPacks:PackIconBoxIcons Kind="RegularSquareRounded" Width="8" Height="8" />
                             </Button>
                             <Button x:Name="PART_Cerrar"
                                     Style="{StaticResource DialogWindowButtonStyle}"
                                     ToolTip="Cerrar (Esc)"
                                     AutomationProperties.Name="Cerrar">
-                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="20" Height="20" />
+                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="12" Height="12" />
                             </Button>
                         </StackPanel>
                     </Grid>
