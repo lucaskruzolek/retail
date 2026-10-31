@@ -346,7 +346,7 @@ Barra de título de los 25 diálogos. Código en [`Views/Components/EncabezadoDi
 <components:EncabezadoDialogo Titulo="Confirmar incorporación" PermitirMaximizar="True" />
 ```
 
-* **Anatomía:** banda de 56 px (`DialogTitleBarHeight`) **transparente**, sobre el mismo gris del diálogo. Título de 20 SemiBold (Inter Display) a 28 px del borde y, a la derecha, minimizar (`RegularMinus`), maximizar opcional (`RegularSquareRounded`) y cerrar (`RegularX`) con `DialogWindowButtonStyle`: solo el ícono, gris, que en hover pasa a `TextPrimaryBrush` sin fondo ni rojo.
+* **Anatomía:** banda de 56 px (`DialogTitleBarHeight`) **transparente**, sobre el mismo gris del diálogo. Título de 20 SemiBold (Inter Display) a 28 px del borde y, a la derecha, minimizar (`RegularMinus`, 14 px), maximizar opcional (`RegularSquareRounded`, 12 px) y cerrar (`RegularX`, 16 px) en áreas de clic de 32 px con `DialogWindowButtonStyle`: solo el ícono, gris, que en hover pasa a `TextPrimaryBrush` sin fondo ni rojo.
 * **Por qué no `ui:TitleBar`:** sus botones son los nativos de Windows (cerrar en rojo, fondo en hover) y no se pueden reestilizar así. La banda propia resuelve el arrastre con `Window.DragMove()` y el doble clic con maximizar si el diálogo lo permite.
 * **Esc cierra el diálogo:** el encabezado se suscribe al `KeyDown` (burbujeante) de su ventana; si la tecla llega sin atender, cierra igual que la ✕. Como está en todos los diálogos, la regla vale para todos sin repetirla.
 * **Los botones no toman el foco** (`Focusable=False`): no son paradas de Tab; Esc ya cierra.
