@@ -84,5 +84,21 @@ public class CompraConfiguration : IEntityTypeConfiguration<Compra>
             .HasFilter("[deleted_at] IS NULL")
             .IsUnique()
             .HasDatabaseName("UX_COMPRAS_Comprobante");
+
+        // P2 / §5.3: FK nullable hacia PEDIDOS. La columna se mapea explícitamente.
+        builder.Property(c => c.IdPedidoOrigen)
+            .HasColumnName("id_pedido_origen");
+
+        builder.HasOne(c => c.PedidoOrigen)
+            .WithMany()
+            .HasForeignKey(c => c.IdPedidoOrigen)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // A-11 / §5.3: defensa en profundidad — un pedido no puede cerrarse con dos compras distintas.
+        // El índice filtrado excluye NULLs (compras sin pedido) y registros borrados lógicamente.
+        builder.HasIndex(c => c.IdPedidoOrigen)
+            .HasFilter("[id_pedido_origen] IS NOT NULL AND [deleted_at] IS NULL")
+            .IsUnique()
+            .HasDatabaseName("UX_COMPRAS_PedidoOrigen");
     }
 }

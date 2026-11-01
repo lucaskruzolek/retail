@@ -19,6 +19,35 @@ public class CrearCompraValidatorTests
         result.IsValid.Should().BeTrue();
     }
 
+    [Fact]
+    public void Validate_ConIdPedidoOrigenValido_PasaLaValidacion()
+    {
+        // Arrange
+        var dto = CrearDtoValido() with { IdPedidoOrigen = 15 };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Validate_ConIdPedidoOrigenInvalido_FallaConMensaje(int idPedidoOrigenInvalido)
+    {
+        // Arrange
+        var dto = CrearDtoValido() with { IdPedidoOrigen = idPedidoOrigenInvalido };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("pedido de origen"));
+    }
+
     [Theory]
     [InlineData(0, 1)]
     [InlineData(1, 0)]

@@ -23,6 +23,7 @@ public class CompraServiceTests
     private readonly IRepository<Articulo> _articuloRepository;
     private readonly IRepository<Proveedor> _proveedorRepository;
     private readonly IRepository<Usuario> _usuarioRepository;
+    private readonly IRepository<Pedido> _pedidoRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly CompraService _sut;
 
@@ -36,6 +37,7 @@ public class CompraServiceTests
         _articuloRepository = Substitute.For<IRepository<Articulo>>();
         _proveedorRepository = Substitute.For<IRepository<Proveedor>>();
         _usuarioRepository = Substitute.For<IRepository<Usuario>>();
+        _pedidoRepository = Substitute.For<IRepository<Pedido>>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
 
         _proveedor = Proveedor.Crear("Editorial Norte S.A.", "20123456786");
@@ -56,6 +58,7 @@ public class CompraServiceTests
             _articuloRepository,
             _proveedorRepository,
             _usuarioRepository,
+            _pedidoRepository,
             _unitOfWork,
             new CrearCompraValidator());
     }
@@ -159,7 +162,7 @@ public class CompraServiceTests
         var servicio = CrearArticulo(IdArticulo, "Consultoría", costo: 0m, precio: 500m, stock: 0, esServicio: true);
         ConfigurarArticulos(servicio);
 
-        var dto = CrearDtoValido([Item(IdArticulo, cantidad: 1, costoUnitario: 500m)]);
+        var dto = CrearDtoValido([Item(servicio, cantidad: 1, costoUnitario: 500m)]);
 
         // Act
         var act = () => _sut.RegistrarCompraAsync(dto);
@@ -171,32 +174,35 @@ public class CompraServiceTests
     }
 
     [Fact]
-    public async Task RegistrarCompraAsync_DtoSinItems_LanzaValidationExceptionSinConsultarLaBase()
+    public async Task RegistrarCompraAsync_ArticuloInexistente_LanzaDomainException()
     {
         // Arrange
-        var dto = CrearDtoValido([]);
+        _articuloRepository
+            .FindAsync(Arg.Any<Expression<Func<Articulo, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<Articulo>());
+
+        var dto = CrearDtoValido([Item(idArticulo: 999, cantidad: 1, costoUnitario: 50m)]);
 
         // Act
         var act = () => _sut.RegistrarCompraAsync(dto);
 
         // Assert
-        await act.Should().ThrowAsync<ValidationException>();
-        await _proveedorRepository.DidNotReceiveWithAnyArgs().GetByIdAsync(default, default);
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*999*");
         await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
     }
 
     [Fact]
-    public async Task RegistrarCompraAsync_TotalesDelResultado_ReflexanSubtotalYTotalCorrectamente()
+    public async Task RegistrarCompraAsync_CalculoTotal_ReflejaLaSumaDeRenglones()
     {
         // Arrange
-        var art1 = CrearArticulo(10, "Artículo A", costo: 100m, precio: 150m, stock: 20);
-        var art2 = CrearArticulo(11, "Artículo B", costo: 200m, precio: 300m, stock: 10);
-        ConfigurarArticulos(art1, art2);
+        var a1 = CrearArticulo(1, "Articulo 1", costo: 100m, precio: 150m, stock: 0);
+        var a2 = CrearArticulo(2, "Articulo 2", costo: 200m, precio: 300m, stock: 0);
+        ConfigurarArticulos(a1, a2);
 
-        var dto = CrearDtoValido(
-        [
-            Item(art1, 2, costoUnitario: 100m),  // 200
-            Item(art2, 3, costoUnitario: 200m),  // 600
+        var dto = CrearDtoValido([
+            Item(a1, cantidad: 2, costoUnitario: 100m), // 200
+            Item(a2, cantidad: 3, costoUnitario: 200m), // 600
         ]);
 
         // Act
@@ -245,6 +251,161 @@ public class CompraServiceTests
 
         // Assert — DescartarCambios debe llamarse exactamente una vez después del guardado exitoso (D-15).
         _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    // ── P2: Compra desde un pedido ───────────────────────────────────────────
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConPedidoInexistente_LanzaDomainException()
+    {
+        // Arrange
+        const int idPedidoInexistente = 99;
+        _pedidoRepository.GetByIdAsync(idPedidoInexistente, Arg.Any<CancellationToken>())
+            .Returns((Pedido?)null);
+
+        var lapiz = CrearArticulo(IdArticulo, "Lapicera", costo: 100m, precio: 150m, stock: 5);
+        ConfigurarArticulos(lapiz);
+
+        var dto = CrearDtoValido([Item(lapiz, 3, costoUnitario: 100m)]) with
+        {
+            IdPedidoOrigen = idPedidoInexistente,
+        };
+
+        // Act
+        var act = () => _sut.RegistrarCompraAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage($"*pedido*{idPedidoInexistente}*");
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConPedidoDeOtroProveedor_LanzaDomainException()
+    {
+        // Arrange — pedido perteneciente a otro proveedor (id 888)
+        var pedidoOtroProveedor = Pedido.CrearBorrador(idProveedor: 888, idUsuario: IdUsuario);
+        pedidoOtroProveedor.Id = 15;
+        pedidoOtroProveedor.AgregarRenglon(idArticulo: IdArticulo, idCatalogoProveedor: 50, codigoProveedor: "COD-1", descripcion: "Desc", cantidad: 2, costoPactado: 100m);
+        pedidoOtroProveedor.Emitir();
+
+        _pedidoRepository.GetByIdAsync(pedidoOtroProveedor.Id, Arg.Any<CancellationToken>())
+            .Returns(pedidoOtroProveedor);
+
+        var lapiz = CrearArticulo(IdArticulo, "Lapicera", costo: 100m, precio: 150m, stock: 5);
+        ConfigurarArticulos(lapiz);
+
+        var dto = CrearDtoValido([Item(lapiz, 3, costoUnitario: 100m)]) with
+        {
+            IdPedidoOrigen = pedidoOtroProveedor.Id,
+        };
+
+        // Act
+        var act = () => _sut.RegistrarCompraAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*proveedor*");
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConPedidoNoEmitido_LanzaTransicionPedidoInvalidaException()
+    {
+        // Arrange — pedido en estado Borrador (no emitido)
+        var pedidoBorrador = Pedido.CrearBorrador(idProveedor: IdProveedor, idUsuario: IdUsuario);
+        pedidoBorrador.Id = 20;
+        pedidoBorrador.AgregarRenglon(idArticulo: IdArticulo, idCatalogoProveedor: 50, codigoProveedor: "COD-1", descripcion: "Desc", cantidad: 2, costoPactado: 100m);
+
+        _pedidoRepository.GetByIdAsync(pedidoBorrador.Id, Arg.Any<CancellationToken>())
+            .Returns(pedidoBorrador);
+
+        var lapiz = CrearArticulo(IdArticulo, "Lapicera", costo: 100m, precio: 150m, stock: 5);
+        ConfigurarArticulos(lapiz);
+
+        var dto = CrearDtoValido([Item(lapiz, 3, costoUnitario: 100m)]) with
+        {
+            IdPedidoOrigen = pedidoBorrador.Id,
+        };
+
+        // Act
+        var act = () => _sut.RegistrarCompraAsync(dto);
+
+        // Assert — debe lanzar TransicionPedidoInvalidaException antes de modificar cualquier artículo
+        await act.Should().ThrowAsync<TransicionPedidoInvalidaException>();
+        lapiz.StockActual.Should().Be(5);
+        await _unitOfWork.DidNotReceiveWithAnyArgs().SaveChangesAsync(default);
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConPedidoValido_CierraPedidoYRegistraCompra()
+    {
+        // Arrange
+        var pedido = Pedido.CrearBorrador(idProveedor: IdProveedor, idUsuario: IdUsuario);
+        pedido.Id = 30;
+        pedido.AgregarRenglon(idArticulo: IdArticulo, idCatalogoProveedor: 50, codigoProveedor: "COD-1", descripcion: "Desc", cantidad: 2, costoPactado: 100m);
+        pedido.Emitir();
+
+        _pedidoRepository.GetByIdAsync(pedido.Id, Arg.Any<CancellationToken>())
+            .Returns(pedido);
+
+        var lapiz = CrearArticulo(IdArticulo, "Lapicera", costo: 100m, precio: 150m, stock: 5);
+        ConfigurarArticulos(lapiz);
+
+        var dto = CrearDtoValido([Item(lapiz, 2, costoUnitario: 100m)]) with
+        {
+            IdPedidoOrigen = pedido.Id,
+        };
+
+        // Act
+        var resultado = await _sut.RegistrarCompraAsync(dto);
+
+        // Assert — el pedido queda Recibido, se llama UpdateAsync sobre el pedido, y la compra conserva IdPedidoOrigen
+        pedido.Estado.Should().Be(EstadoPedidoEnum.Recibido);
+        await _pedidoRepository.Received(1).UpdateAsync(pedido, Arg.Any<CancellationToken>());
+        await _compraRepository.Received(1).AddAsync(Arg.Is<Compra>(c => c.IdPedidoOrigen == pedido.Id), Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).DescartarCambios();
+        resultado.IdPedidoOrigen.Should().Be(pedido.Id);
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConRenglonesDiferentesAlPedido_AceptaCompraYActualizaStockSegunFactura()
+    {
+        // Arrange — el pedido tenía artículo 10 con cantidad 5 a costo 100m.
+        // La factura real viene con artículo 10 (cant 3, costo 120m) y un nuevo artículo 11 (cant 2, costo 50m).
+        // "La factura manda" (A-9): no se valida coincidencia estricta con el pedido.
+        var pedido = Pedido.CrearBorrador(idProveedor: IdProveedor, idUsuario: IdUsuario);
+        pedido.Id = 40;
+        pedido.AgregarRenglon(idArticulo: IdArticulo, idCatalogoProveedor: 50, codigoProveedor: "COD-1", descripcion: "Desc", cantidad: 5, costoPactado: 100m);
+        pedido.Emitir();
+
+        _pedidoRepository.GetByIdAsync(pedido.Id, Arg.Any<CancellationToken>())
+            .Returns(pedido);
+
+        var lapiz = CrearArticulo(IdArticulo, "Lapicera", costo: 100m, precio: 150m, stock: 5);
+        var goma = CrearArticulo(id: 11, "Goma", costo: 40m, precio: 60m, stock: 10);
+        ConfigurarArticulos(lapiz, goma);
+
+        var dto = CrearDtoValido([
+            Item(lapiz, cantidad: 3, costoUnitario: 120m),
+            Item(goma, cantidad: 2, costoUnitario: 50m),
+        ]) with
+        {
+            IdPedidoOrigen = pedido.Id,
+        };
+
+        // Act
+        var resultado = await _sut.RegistrarCompraAsync(dto);
+
+        // Assert
+        pedido.Estado.Should().Be(EstadoPedidoEnum.Recibido);
+        lapiz.StockActual.Should().Be(8); // 5 + 3
+        lapiz.CostoReposicion.Should().Be(120m);
+        goma.StockActual.Should().Be(12); // 10 + 2
+        goma.CostoReposicion.Should().Be(50m);
+        resultado.IdPedidoOrigen.Should().Be(pedido.Id);
+        resultado.Total.Should().Be((3 * 120m) + (2 * 50m)); // 360 + 100 = 460
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

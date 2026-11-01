@@ -393,11 +393,13 @@ public class ArticuloValidatorTests
     }
 
     [Theory]
-    [InlineData(true, new int[0], true)]
-    [InlineData(true, new[] { 25 }, false)]
-    [InlineData(false, new[] { 25 }, true)]
-    public void ActualizarArticuloValidator_ServicioYFuentes_SoloFallaUnServicioConFuentes(bool esServicio, int[] idsFuentes, bool esValido)
+    [InlineData(true, nameof(FuentesVacias), true)]
+    [InlineData(true, nameof(FuenteUna), false)]
+    [InlineData(false, nameof(FuenteUna), true)]
+    public void ActualizarArticuloValidator_ServicioYFuentes_SoloFallaUnServicioConFuentes(bool esServicio, string campoFuentes, bool esValido)
     {
+        var idsFuentes = ObtenerFuentes(campoFuentes);
+
         // Arrange: convertir en servicio exige haber quitado antes las fuentes
         var dto = new ActualizarArticuloDto
         {

@@ -18,6 +18,10 @@ public class CrearCompraValidator : AbstractValidator<CrearCompraDto>
         RuleFor(x => x.IdUsuario)
             .GreaterThan(0).WithMessage("Identificador de usuario inválido.");
 
+        RuleFor(x => x.IdPedidoOrigen)
+            .GreaterThan(0).WithMessage("El identificador del pedido de origen debe ser mayor a cero.")
+            .When(x => x.IdPedidoOrigen.HasValue);
+
         RuleFor(x => x.TipoComprobante)
             .NotEmpty().WithMessage("El tipo de comprobante es obligatorio.")
             .MaximumLength(20).WithMessage("El tipo de comprobante no puede superar los 20 caracteres.");

@@ -8,6 +8,7 @@ public record class CrearCompraDto
 {
     public required int IdProveedor { get; init; }
     public required int IdUsuario { get; init; }
+    public int? IdPedidoOrigen { get; init; }
     public required string TipoComprobante { get; init; }
     public required string NumeroComprobante { get; init; }
     public required DateTime FechaEmision { get; init; }

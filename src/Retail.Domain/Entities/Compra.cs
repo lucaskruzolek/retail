@@ -25,6 +25,10 @@ public class Compra : BaseEntity, IAggregateRoot
 
     public Usuario? Usuario { get; private set; }
 
+    public int? IdPedidoOrigen { get; private set; }
+
+    public Pedido? PedidoOrigen { get; private set; }
+
     public string TipoComprobante { get; private set; } = string.Empty;
 
     public string NumeroComprobante { get; private set; } = string.Empty;
@@ -56,7 +60,8 @@ public class Compra : BaseEntity, IAggregateRoot
         int idUsuario,
         string tipoComprobante,
         string numeroComprobante,
-        DateTime fechaEmision)
+        DateTime fechaEmision,
+        int? idPedidoOrigen = null)
     {
         if (idProveedor <= 0)
         {
@@ -76,6 +81,11 @@ public class Compra : BaseEntity, IAggregateRoot
             throw new DomainException("La fecha de emisión no puede ser una fecha futura.");
         }
 
+        if (idPedidoOrigen.HasValue && idPedidoOrigen.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idPedidoOrigen), "El identificador del pedido de origen debe ser mayor a cero.");
+        }
+
         return new Compra
         {
             IdProveedor = idProveedor,
@@ -83,6 +93,7 @@ public class Compra : BaseEntity, IAggregateRoot
             TipoComprobante = tipoComprobante.Trim(),
             NumeroComprobante = numeroComprobante.Trim(),
             FechaEmision = fechaEmision,
+            IdPedidoOrigen = idPedidoOrigen,
         };
     }
 

@@ -229,6 +229,169 @@ public class RegistrarCompraIntegrationTests : IAsyncLifetime, IDisposable
         articulo2EnDb.StockActual.Should().Be(10, "la segunda compra fue rechazada antes de modificar el stock");
     }
 
+    // ── P2 / Track 4.3: Compra desde Pedido ────────────────────────────────────
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConPedidoValido_VerificaEnBaseStockCostoIdPedidoOrigenYEstadoRecibido()
+    {
+        // Arrange
+        var articulo = await GuardarArticuloAsync("Libro A", costo: 100m, markup: 50m, precio: 150m, stock: 10);
+        var catalogo = new CatalogoProveedor
+        {
+            IdProveedor = _idProveedor,
+            CodigoProveedor = "COD-LIBRO-A",
+            DescripcionProveedor = "Libro A Proveedor",
+            CostoReposicion = 110m,
+        };
+        _context.CatalogosProveedores.Add(catalogo);
+        await _context.SaveChangesAsync();
+
+        var pedido = Pedido.CrearBorrador(_idProveedor, _idUsuario);
+        pedido.AgregarRenglon(articulo.Id, catalogo.Id, catalogo.CodigoProveedor, catalogo.DescripcionProveedor, 5, 110m);
+        pedido.Emitir();
+        _context.Pedidos.Add(pedido);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var dto = new CrearCompraDto
+        {
+            IdProveedor = _idProveedor,
+            IdUsuario = _idUsuario,
+            TipoComprobante = "FACTURA",
+            NumeroComprobante = "0001-00000099",
+            FechaEmision = DateTime.UtcNow.AddHours(-1),
+            IdPedidoOrigen = pedido.Id,
+            Items =
+            [
+                new DetalleCompraDto
+                {
+                    IdArticulo = articulo.Id,
+                    Cantidad = 5,
+                    CostoUnitario = 115m, // "La factura manda": costo y renglones según la factura real
+                }
+            ],
+        };
+
+        // Act
+        var resultado = await _sut.RegistrarCompraAsync(dto);
+        _context.ChangeTracker.Clear();
+
+        // Assert
+        resultado.IdCompra.Should().BePositive();
+        resultado.IdPedidoOrigen.Should().Be(pedido.Id);
+
+        var compraEnDb = await _context.Compras.AsNoTracking().SingleAsync(c => c.Id == resultado.IdCompra);
+        compraEnDb.IdPedidoOrigen.Should().Be(pedido.Id);
+
+        var pedidoEnDb = await _context.Pedidos.AsNoTracking().SingleAsync(p => p.Id == pedido.Id);
+        pedidoEnDb.Estado.Should().Be(EstadoPedidoEnum.Recibido);
+
+        var articuloEnDb = await _context.Articulos.AsNoTracking().SingleAsync(a => a.Id == articulo.Id);
+        articuloEnDb.StockActual.Should().Be(15);
+        articuloEnDb.CostoReposicion.Should().Be(115m);
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_DosComprasDelMismoPedidoEnContextosSeparados_SegundaFallaYStockNoSeDuplica()
+    {
+        // Arrange
+        var articulo = await GuardarArticuloAsync("Libro B", costo: 100m, markup: 50m, precio: 150m, stock: 10);
+        var catalogo = new CatalogoProveedor
+        {
+            IdProveedor = _idProveedor,
+            CodigoProveedor = "COD-LIBRO-B",
+            DescripcionProveedor = "Libro B Proveedor",
+            CostoReposicion = 100m,
+        };
+        _context.CatalogosProveedores.Add(catalogo);
+        await _context.SaveChangesAsync();
+
+        var pedido = Pedido.CrearBorrador(_idProveedor, _idUsuario);
+        pedido.AgregarRenglon(articulo.Id, catalogo.Id, catalogo.CodigoProveedor, catalogo.DescripcionProveedor, 5, 100m);
+        pedido.Emitir();
+        _context.Pedidos.Add(pedido);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var dto1 = new CrearCompraDto
+        {
+            IdProveedor = _idProveedor,
+            IdUsuario = _idUsuario,
+            TipoComprobante = "FACTURA",
+            NumeroComprobante = "0001-00000101",
+            FechaEmision = DateTime.UtcNow.AddHours(-1),
+            IdPedidoOrigen = pedido.Id,
+            Items = [new DetalleCompraDto { IdArticulo = articulo.Id, Cantidad = 5, CostoUnitario = 100m }],
+        };
+
+        var dto2 = new CrearCompraDto
+        {
+            IdProveedor = _idProveedor,
+            IdUsuario = _idUsuario,
+            TipoComprobante = "FACTURA",
+            NumeroComprobante = "0001-00000102",
+            FechaEmision = DateTime.UtcNow.AddHours(-1),
+            IdPedidoOrigen = pedido.Id,
+            Items = [new DetalleCompraDto { IdArticulo = articulo.Id, Cantidad = 5, CostoUnitario = 100m }],
+        };
+
+        // Primera compra cierra el pedido
+        var res1 = await _sut.RegistrarCompraAsync(dto1);
+        res1.IdCompra.Should().BePositive();
+
+        // Segunda compra intenta cerrar el mismo pedido usando un contexto y servicio separados
+        using var contexto2 = CrearContexto();
+        var sut2 = CrearServicio(contexto2);
+
+        // Act
+        var act = () => sut2.RegistrarCompraAsync(dto2);
+
+        // Assert: la segunda compra debe fallar (TransicionPedidoInvalidaException, ConflictoDeConcurrenciaException o violación del índice UX_COMPRAS_PedidoOrigen)
+        await act.Should().ThrowAsync<Exception>();
+
+        // Verificar que el stock no se duplicó (10 inicial + 5 = 15)
+        _context.ChangeTracker.Clear();
+        var articuloEnDb = await _context.Articulos.AsNoTracking().SingleAsync(a => a.Id == articulo.Id);
+        articuloEnDb.StockActual.Should().Be(15, "la segunda compra falló y el stock no se duplicó");
+    }
+
+    [Fact]
+    public async Task IndiceUnicoPedidoOrigen_DosComprasConMismoPedidoOrigen_LanzaViolacionDeUnicidad()
+    {
+        // Arrange
+        var articulo1 = await GuardarArticuloAsync("Libro C1", costo: 50m, markup: 40m, precio: 70m, stock: 10);
+        var articulo2 = await GuardarArticuloAsync("Libro C2", costo: 60m, markup: 40m, precio: 84m, stock: 10);
+
+        var pedido = Pedido.CrearBorrador(_idProveedor, _idUsuario);
+        _context.Pedidos.Add(pedido);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Inserción directa de dos compras con el mismo IdPedidoOrigen en la base de datos
+        var compra1 = Domain.Entities.Compra.Registrar(
+            _idProveedor, _idUsuario, "FACTURA", "0001-00000201", DateTime.UtcNow.AddHours(-2), pedido.Id);
+        compra1.AgregarDetalle(articulo1.Id, 1, 50m);
+        _context.Compras.Add(compra1);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        using var contexto2 = CrearContexto();
+        var compra2 = Domain.Entities.Compra.Registrar(
+            _idProveedor, _idUsuario, "FACTURA", "0001-00000202", DateTime.UtcNow.AddHours(-1), pedido.Id);
+        compra2.AgregarDetalle(articulo2.Id, 1, 60m);
+        contexto2.Compras.Add(compra2);
+
+        // Act
+        var act = () => contexto2.SaveChangesAsync();
+
+        // Assert — UX_COMPRAS_PedidoOrigen impide la segunda inserción a nivel motor relacional (A-11 / §5.3)
+        await act.Should().ThrowAsync<Exception>()
+            .Where(ex => ex.Message.Contains("UX_COMPRAS_PedidoOrigen") ||
+                         ex.Message.Contains("unique") ||
+                         ex.Message.Contains("UNIQUE") ||
+                         ex.GetType().Name.Contains("DbUpdateException"));
+    }
+
     private RetailDbContext CrearContexto()
     {
         var options = new DbContextOptionsBuilder<RetailDbContext>()
@@ -245,6 +408,7 @@ public class RegistrarCompraIntegrationTests : IAsyncLifetime, IDisposable
             new Repository<Articulo>(context),
             new Repository<Proveedor>(context),
             new Repository<Usuario>(context),
+            new Repository<Pedido>(context),
             new UnitOfWork(context),
             new CrearCompraValidator());
     }

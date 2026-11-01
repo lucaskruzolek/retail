@@ -19,6 +19,7 @@ public class CompraService : ICompraService
     private readonly IRepository<Articulo> _articuloRepository;
     private readonly IRepository<Proveedor> _proveedorRepository;
     private readonly IRepository<Usuario> _usuarioRepository;
+    private readonly IRepository<Pedido> _pedidoRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<CrearCompraDto> _validator;
 
@@ -27,6 +28,7 @@ public class CompraService : ICompraService
         IRepository<Articulo> articuloRepository,
         IRepository<Proveedor> proveedorRepository,
         IRepository<Usuario> usuarioRepository,
+        IRepository<Pedido> pedidoRepository,
         IUnitOfWork unitOfWork,
         IValidator<CrearCompraDto> validator)
     {
@@ -34,6 +36,7 @@ public class CompraService : ICompraService
         _articuloRepository = articuloRepository ?? throw new ArgumentNullException(nameof(articuloRepository));
         _proveedorRepository = proveedorRepository ?? throw new ArgumentNullException(nameof(proveedorRepository));
         _usuarioRepository = usuarioRepository ?? throw new ArgumentNullException(nameof(usuarioRepository));
+        _pedidoRepository = pedidoRepository ?? throw new ArgumentNullException(nameof(pedidoRepository));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
     }
@@ -65,6 +68,24 @@ public class CompraService : ICompraService
             throw new DomainException(
                 $"El comprobante {dto.TipoComprobante.Trim()} Nro. {dto.NumeroComprobante.Trim()} " +
                 $"ya fue registrado para este proveedor.");
+        }
+
+        // ── FASE 2b: Verificación y transición del Pedido de Origen (P2 / §5.3) ──
+        if (dto.IdPedidoOrigen.HasValue)
+        {
+            var pedido = await _pedidoRepository.GetByIdAsync(dto.IdPedidoOrigen.Value, cancellationToken)
+                ?? throw new DomainException($"El pedido con Id {dto.IdPedidoOrigen.Value} no existe o fue dado de baja.");
+
+            if (pedido.IdProveedor != dto.IdProveedor)
+            {
+                throw new DomainException("El pedido seleccionado no corresponde al proveedor de la compra.");
+            }
+
+            // Invocar MarcarRecibido() antes de modificar artículos (si no está Emitido, lanza TransicionPedidoInvalidaException).
+            pedido.MarcarRecibido();
+
+            // Decisión E2 de L1 / A-13: siempre llamar a UpdateAsync del pedido antes de guardar.
+            await _pedidoRepository.UpdateAsync(pedido, cancellationToken);
         }
 
         // ── FASE 3: Pre-carga optimizada de artículos y sus derivadas (RF-21) ─
@@ -109,7 +130,8 @@ public class CompraService : ICompraService
             dto.IdUsuario,
             dto.TipoComprobante,
             dto.NumeroComprobante,
-            dto.FechaEmision);
+            dto.FechaEmision,
+            dto.IdPedidoOrigen);
 
         // ── FASE 5: Bucle atómico de renglones — stock, costos y precios ──────
         var articulosActualizados = 0;
@@ -160,6 +182,7 @@ public class CompraService : ICompraService
             IdCompra = compra.Id,
             IdProveedor = compra.IdProveedor,
             ProveedorRazonSocial = proveedor.RazonSocial,
+            IdPedidoOrigen = compra.IdPedidoOrigen,
             TipoComprobante = compra.TipoComprobante,
             NumeroComprobante = compra.NumeroComprobante,
             FechaEmision = compra.FechaEmision,
@@ -183,6 +206,7 @@ public class CompraService : ICompraService
                 IdCompra = c.Id,
                 IdProveedor = c.IdProveedor,
                 ProveedorRazonSocial = c.Proveedor?.RazonSocial,
+                IdPedidoOrigen = c.IdPedidoOrigen,
                 TipoComprobante = c.TipoComprobante,
                 NumeroComprobante = c.NumeroComprobante,
                 FechaEmision = c.FechaEmision,
@@ -212,6 +236,7 @@ public class CompraService : ICompraService
             IdCompra = compra.Id,
             IdProveedor = compra.IdProveedor,
             ProveedorRazonSocial = compra.Proveedor?.RazonSocial,
+            IdPedidoOrigen = compra.IdPedidoOrigen,
             TipoComprobante = compra.TipoComprobante,
             NumeroComprobante = compra.NumeroComprobante,
             FechaEmision = compra.FechaEmision,
