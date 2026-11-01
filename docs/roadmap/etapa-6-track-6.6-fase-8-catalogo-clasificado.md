@@ -16,7 +16,7 @@
 | 8.1 | Dominio: sugerencia y estado en `CatalogoProveedor`, preferencia en `Proveedor` | ✅ 2026-10-31: volver a pendiente borra también los ids sugeridos; un texto vacío o igual no cuenta como cambio |
 | 8.2 | Persistencia: mapeo, migración, índices y consultas del explorador | ✅ 2026-10-31: migración `AgregarClasificacionSugeridaAlCatalogo` (sin aplicar a la base local) |
 | 8.3 | Aplicación: `MotorDeClasificacion`, `ClasificacionCatalogoService`, contratos del importador y del explorador | ✅ 2026-10-31: tests de Dominio (813), Aplicación (963) e integración del catálogo (39) en verde; `ConsultaCatalogoProveedorValidator` nuevo (ids positivos; "sin categoría" excluye una categoría), la paginación la sigue normalizando la consulta |
-| 8.4 | Interfaz: toggle al importar, diálogo de valores sin traducir, botón, filtros y columnas del explorador | Después del refactor de UI minimalista (M-77) |
+| 8.4 | Interfaz: toggle al importar, diálogo de valores sin traducir, botón, filtros y columnas del explorador | ✅ 2026-10-31 (M-78 a M-80): merge de `main` (`76f8fe1`); suites de Dominio (813), Aplicación (1.005), App (1.098) e integración (general 432, backups 159, rendimiento 1) en verde; `audit-xaml` y `dotnet format` en verde; migración aplicada a la base local (con copia previa). Desvíos: el diálogo de asociación mide 700 × 660 (documentado en `SISTEMA_DE_DISENO.md`) y el interruptor del importador va en la sección "Proveedor", para que se vea sin desplazar y el diálogo conserve su alto. Falta la prueba manual |
 | 8.5 | Cierre: ERS, DER, mapa, track, verificación Release | ⏳ |
 
 ---
@@ -99,9 +99,25 @@ Sin navegaciones a `Categoria` ni `Marca` desde `CatalogoProveedor`: los ids bas
 | `MapeoColumnasDto`, `ProveedorService` | El importador recibe la preferencia y la guarda en el proveedor. |
 | `ConsultaCatalogoProveedorDto`, `CatalogoProveedorDto` y su validador | Filtros y columnas sugeridas. |
 
-### 8.4 Interfaz (pendiente)
+### 8.4 Interfaz
 
-Toggle "Clasificar catálogo" en el diálogo de importación, que arranca con la preferencia del proveedor; diálogo "Traducir valores del catálogo" que reutiliza `TraducirValoresPasoViewModel` (con su test de humo STA); botón "Clasificar catálogo", filtros por categoría, marca y "Sin categoría" y columnas sugeridas en el explorador. El modal de incorporación no cambia.
+Se planificó después del refactor de UI minimalista. Rige `SISTEMA_DE_DISENO.md`, sobre todo las reglas de pantalla R1 (ícono Regular en todo botón salvo Cancelar), R6 (sin contadores), R7 (Enter acepta, Esc cancela) y R8 (filtros en la cabecera, `FiltroColumna`).
+
+**Decisiones del plan:**
+* **M-78:** por R8 los filtros son de selección múltiple. `ConsultaCatalogoProveedorDto` pasa a `IdsCategoria` / `IdsMarca`, con los centinelas `IdSinCategoria = -1` / `IdSinMarca = -1` (el patrón de `ConsultaArticulosDto.IdProveedorManual`), y reemplaza a `IdCategoria`, `IdMarca` y `SoloSinCategoria`. La regla "sin categoría excluye una categoría" se retira, porque con listas es una unión válida.
+* **M-79:** la clasificación la orquesta la página del explorador. El diálogo de importación solo agrega el toggle y devuelve `ResultadoImportacionDto.ClasificaCatalogo`. Un único `ClasificarCatalogoAsync(soloPendientes)` atiende la reimportación y el botón.
+* **M-80:** el diálogo "Asociar categorías y marcas del catálogo" guarda cada asignación al elegirla. **Cancelar aborta la clasificación** (los ítems siguen pendientes) y "Clasificar catálogo" continúa. El filtro de Categoría no ofrece "Pendiente": la celda lo muestra.
+
+| Paso | Contenido |
+| :--- | :--- |
+| 8.4.0 | Merge de `main` en la rama ✅ |
+| 8.4.1 | Contrato por R8: listas y centinelas en la consulta, el validador y `CatalogoProveedorQueryService`. `ClasificaCatalogo` en `ResultadoImportacionDto` y en `ProveedorDto` |
+| 8.4.2 | `AsociarValoresPanel` (UserControl) extraído del paso 1 del modal de incorporación. Lo usan el modal y el diálogo nuevo |
+| 8.4.3 | Diálogo `AsociarValoresCatalogoDialog` (580 × 660): sección con ícono y título, el panel y el pie `Cancelar · Clasificar catálogo` |
+| 8.4.4 | Diálogo de importación: sección "Clasificación" con `ui:ToggleSwitch` en el encabezado, que arranca con la preferencia del proveedor |
+| 8.4.5 | Explorador: botón "Clasificar catálogo" (`KeycapButtonStyle`, `RegularCategory`). Columnas Categoría (por rubro, más "Sin categoría") y Marca (más "Sin marca") con `FiltroColumna`. Celdas: nombre sugerido en texto secundario, "Sin categoría" o "Pendiente" atenuados |
+| 8.4.6 | Tests de ViewModel, humo STA, capturas en claro y oscuro, `audit-xaml.ps1` |
+| 8.4.7 | Migración aplicada a la base local y prueba manual |
 
 ---
 

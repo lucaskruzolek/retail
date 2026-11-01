@@ -66,7 +66,8 @@ public class ProveedorService : IProveedorService
                 RazonSocial = p.RazonSocial,
                 Cuit = p.Cuit,
                 Telefono = p.Telefono,
-                Email = p.Email
+                Email = p.Email,
+                ClasificaCatalogo = p.ClasificaCatalogo
             })
             .ToList();
     }
@@ -82,7 +83,8 @@ public class ProveedorService : IProveedorService
             RazonSocial = proveedor.RazonSocial,
             Cuit = proveedor.Cuit,
             Telefono = proveedor.Telefono,
-            Email = proveedor.Email
+            Email = proveedor.Email,
+            ClasificaCatalogo = proveedor.ClasificaCatalogo
         };
     }
 
@@ -313,7 +315,8 @@ public class ProveedorService : IProveedorService
             PreciosActualizados = actualizados,
             FilasConError = erroresDetalle.Count,
             ErroresDetalle = erroresDetalle,
-            TiempoTranscurrido = cronometro.Elapsed
+            TiempoTranscurrido = cronometro.Elapsed,
+            ClasificaCatalogo = mapeo.ClasificarCatalogo
         };
     }
 

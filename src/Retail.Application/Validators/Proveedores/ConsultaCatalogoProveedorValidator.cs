@@ -15,17 +15,13 @@ public class ConsultaCatalogoProveedorValidator : AbstractValidator<ConsultaCata
             .GreaterThan(0).When(x => x.IdProveedor.HasValue)
             .WithMessage("El identificador del proveedor debe ser válido.");
 
-        RuleFor(x => x.IdCategoria)
-            .GreaterThan(0).When(x => x.IdCategoria.HasValue)
+        // Un id positivo, o el centinela de "Sin categoría" / "Sin marca" (M-78). Combinarlos es una unión válida.
+        RuleForEach(x => x.IdsCategoria)
+            .Must(id => id > 0 || id == ConsultaCatalogoProveedorDto.IdSinCategoria)
             .WithMessage("El identificador de la categoría debe ser válido.");
 
-        RuleFor(x => x.IdMarca)
-            .GreaterThan(0).When(x => x.IdMarca.HasValue)
+        RuleForEach(x => x.IdsMarca)
+            .Must(id => id > 0 || id == ConsultaCatalogoProveedorDto.IdSinMarca)
             .WithMessage("El identificador de la marca debe ser válido.");
-
-        // "Sin categoría" y una categoría se excluyen: juntos siempre darían una página vacía (M-74).
-        RuleFor(x => x.SoloSinCategoria)
-            .Equal(false).When(x => x.IdCategoria.HasValue)
-            .WithMessage("No se puede filtrar por una categoría y por los ítems sin categoría a la vez.");
     }
 }

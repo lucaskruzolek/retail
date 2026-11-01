@@ -16,17 +16,22 @@ public class ConsultaCatalogoProveedorValidatorTests
     }
 
     [Fact]
-    public void Validate_CategoriaYMarcaValidas_DebePasarValidacion()
+    public void Validate_CategoriasYMarcasValidas_DebePasarValidacion()
     {
-        var consulta = new ConsultaCatalogoProveedorDto { IdProveedor = 1, IdCategoria = 2, IdMarca = 3 };
+        var consulta = new ConsultaCatalogoProveedorDto { IdProveedor = 1, IdsCategoria = [2, 5], IdsMarca = [3] };
 
         _validator.Validate(consulta).IsValid.Should().BeTrue();
     }
 
     [Fact]
-    public void Validate_SoloSinCategoriaConMarca_DebePasarValidacion()
+    public void Validate_CategoriaYCentinelaSinCategoriaJuntos_DebePasarValidacion()
     {
-        var consulta = new ConsultaCatalogoProveedorDto { SoloSinCategoria = true, IdMarca = 3 };
+        // M-78: con listas, "Útiles + Sin categoría" es una unión válida.
+        var consulta = new ConsultaCatalogoProveedorDto
+        {
+            IdsCategoria = [2, ConsultaCatalogoProveedorDto.IdSinCategoria],
+            IdsMarca = [ConsultaCatalogoProveedorDto.IdSinMarca]
+        };
 
         _validator.Validate(consulta).IsValid.Should().BeTrue();
     }
@@ -43,29 +48,21 @@ public class ConsultaCatalogoProveedorValidatorTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(-1)]
-    public void Validate_IdCategoriaNoPositivo_DebeFallar(int idCategoria)
+    [InlineData(-2)]
+    public void Validate_IdDeCategoriaInvalido_DebeFallar(int idCategoria)
     {
-        var result = _validator.Validate(new ConsultaCatalogoProveedorDto { IdCategoria = idCategoria });
+        var result = _validator.Validate(new ConsultaCatalogoProveedorDto { IdsCategoria = [2, idCategoria] });
 
-        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(ConsultaCatalogoProveedorDto.IdCategoria));
+        result.Errors.Should().ContainSingle().Which.PropertyName.Should().StartWith(nameof(ConsultaCatalogoProveedorDto.IdsCategoria));
     }
 
     [Theory]
     [InlineData(0)]
-    [InlineData(-1)]
-    public void Validate_IdMarcaNoPositivo_DebeFallar(int idMarca)
+    [InlineData(-2)]
+    public void Validate_IdDeMarcaInvalido_DebeFallar(int idMarca)
     {
-        var result = _validator.Validate(new ConsultaCatalogoProveedorDto { IdMarca = idMarca });
+        var result = _validator.Validate(new ConsultaCatalogoProveedorDto { IdsMarca = [idMarca] });
 
-        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(ConsultaCatalogoProveedorDto.IdMarca));
-    }
-
-    [Fact]
-    public void Validate_SoloSinCategoriaConCategoria_DebeFallar()
-    {
-        var result = _validator.Validate(new ConsultaCatalogoProveedorDto { SoloSinCategoria = true, IdCategoria = 2 });
-
-        result.Errors.Should().ContainSingle(e => e.PropertyName == nameof(ConsultaCatalogoProveedorDto.SoloSinCategoria));
+        result.Errors.Should().ContainSingle().Which.PropertyName.Should().StartWith(nameof(ConsultaCatalogoProveedorDto.IdsMarca));
     }
 }

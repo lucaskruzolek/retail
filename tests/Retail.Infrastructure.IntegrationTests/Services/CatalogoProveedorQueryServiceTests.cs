@@ -438,7 +438,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
         {
             IdProveedor = proveedor.Id,
-            IdCategoria = taxonomia.Cuadernos.Id
+            IdsCategoria = [taxonomia.Cuadernos.Id]
         });
 
         var item = resultado.Items.Should().ContainSingle().Subject;
@@ -464,14 +464,14 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
         {
             IdProveedor = proveedor.Id,
-            IdMarca = taxonomia.Rivadavia.Id
+            IdsMarca = [taxonomia.Rivadavia.Id]
         });
 
         resultado.Items.Should().ContainSingle().Which.CodigoProveedor.Should().Be("A-1");
     }
 
     [Fact]
-    public async Task ObtenerCatalogoPaginadoAsync_SoloSinCategoria_IncluyeCategoriaDadaDeBajaYExcluyePendientes()
+    public async Task ObtenerCatalogoPaginadoAsync_FiltroSinCategoria_IncluyeCategoriaDadaDeBajaYExcluyePendientes()
     {
         var proveedor = await CrearProveedorAsync();
         var taxonomia = await SembrarTaxonomiaAsync();
@@ -489,11 +489,61 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
         {
             IdProveedor = proveedor.Id,
-            SoloSinCategoria = true
+            IdsCategoria = [ConsultaCatalogoProveedorDto.IdSinCategoria]
         });
 
         resultado.Items.Select(i => i.CodigoProveedor).Should().BeEquivalentTo("A-2", "A-3");
         resultado.Items.Single(i => i.CodigoProveedor == "A-3").CategoriaSugerida.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_VariasCategorias_DevuelveLaUnion()
+    {
+        var proveedor = await CrearProveedorAsync();
+        var taxonomia = await SembrarTaxonomiaAsync();
+        var otra = Categoria.Crear("Lápices", _context.Rubros.First().Id);
+        _context.Categorias.Add(otra);
+        await _context.SaveChangesAsync();
+        var uno = CrearItem(proveedor.Id, "A-1", "Cuaderno rayado");
+        uno.RegistrarClasificacionSugerida(taxonomia.Cuadernos.Id, null);
+        var dos = CrearItem(proveedor.Id, "A-2", "Lápiz negro");
+        dos.RegistrarClasificacionSugerida(otra.Id, null);
+        var tres = CrearItem(proveedor.Id, "A-3", "Cosa rara");
+        tres.RegistrarClasificacionSugerida(null, null);
+        _context.CatalogosProveedores.AddRange(uno, dos, tres);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            IdsCategoria = [taxonomia.Cuadernos.Id, otra.Id]
+        });
+
+        resultado.Items.Select(i => i.CodigoProveedor).Should().BeEquivalentTo("A-1", "A-2");
+    }
+
+    [Fact]
+    public async Task ObtenerCatalogoPaginadoAsync_CategoriaMasSinCategoria_DevuelveLaUnionYExcluyePendientes()
+    {
+        var proveedor = await CrearProveedorAsync();
+        var taxonomia = await SembrarTaxonomiaAsync();
+        var conCategoria = CrearItem(proveedor.Id, "A-1", "Cuaderno rayado");
+        conCategoria.RegistrarClasificacionSugerida(taxonomia.Cuadernos.Id, null);
+        var sinRegla = CrearItem(proveedor.Id, "A-2", "Cosa rara");
+        sinRegla.RegistrarClasificacionSugerida(null, null);
+        var pendiente = CrearItem(proveedor.Id, "A-3", "Todavía sin procesar");
+        _context.CatalogosProveedores.AddRange(conCategoria, sinRegla, pendiente);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var resultado = await _sut.ObtenerCatalogoPaginadoAsync(new ConsultaCatalogoProveedorDto
+        {
+            IdProveedor = proveedor.Id,
+            IdsCategoria = [taxonomia.Cuadernos.Id, ConsultaCatalogoProveedorDto.IdSinCategoria]
+        });
+
+        resultado.Items.Select(i => i.CodigoProveedor).Should().BeEquivalentTo("A-1", "A-2");
     }
 
     [Fact]

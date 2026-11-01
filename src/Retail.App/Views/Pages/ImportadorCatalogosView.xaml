@@ -13,6 +13,47 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+
+        <!-- Celdas de la clasificación sugerida (Track 6.6, M-72, M-74): el nombre sugerido en texto secundario (no es una
+             categoría confirmada, así que no lleva la insignia neutra); "Sin categoría" si el motor ya lo procesó y
+             ninguna regla lo reconoce; "Pendiente" si todavía no se clasificó. Se resuelve con DataTriggers sobre el DTO. -->
+        <Style x:Key="CeldaCategoriaSugeridaStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockTextCell}">
+            <Setter Property="Text" Value="{Binding CategoriaSugerida}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="ToolTip" Value="Sugerida por las reglas de la tienda; se confirma al incorporar" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding CategoriaSugerida}" Value="{x:Null}">
+                    <Setter Property="Text" Value="Sin categoría" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                    <Setter Property="ToolTip" Value="{x:Null}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FechaClasificacion}" Value="{x:Null}">
+                    <Setter Property="Text" Value="Pendiente" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                    <Setter Property="ToolTip" Value="Use Clasificar catálogo" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CeldaMarcaSugeridaStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockTextCell}">
+            <Setter Property="Text" Value="{Binding MarcaSugerida}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="ToolTip" Value="Sugerida por las reglas de la tienda; se confirma al incorporar" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding MarcaSugerida}" Value="{x:Null}">
+                    <Setter Property="Text" Value="Sin marca" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                    <Setter Property="ToolTip" Value="{x:Null}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding FechaClasificacion}" Value="{x:Null}">
+                    <Setter Property="Text" Value="Pendiente" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                    <Setter Property="ToolTip" Value="Use Clasificar catálogo" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <UserControl.InputBindings>
@@ -79,6 +120,18 @@
                         </TextBlock>
                     </StackPanel>
                 </StackPanel>
+
+                <!-- Clasificar catálogo (M-75, M-79): sugiere categoría y marca a todos los ítems; no incorpora artículos -->
+                <Button Command="{Binding ClasificarCatalogoTodoCommand}"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        Margin="0,0,8,0"
+                        VerticalAlignment="Top"
+                        ToolTip="Sugiere categoría y marca a todos los ítems con las reglas actuales. No incorpora artículos.">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularCategories" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Clasificar catálogo" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
 
                 <!-- Importar Planilla (F9) -->
                 <Button Command="{Binding ImportarPlanillaCommand}"
@@ -203,6 +256,30 @@
                                             ElementStyle="{StaticResource TextBlockTextCell}"
                                             Width="*"
                                             MinWidth="240" />
+
+                        <!-- Clasificación sugerida por las reglas de la tienda (Track 6.6, Fase 8). Los filtros viven en la cabecera;
+                             "Sin categoría" y "Sin marca" son opciones más. El filtro de Categoría no ofrece "Pendiente": lo muestra la celda (M-80). -->
+                        <DataGridTemplateColumn Width="150" CanUserSort="False">
+                            <DataGridTemplateColumn.Header>
+                                <components:FiltroColumna Filtro="{Binding DataContext.FiltroCategoria, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Style="{StaticResource CeldaCategoriaSugeridaStyle}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTemplateColumn Width="130" CanUserSort="False">
+                            <DataGridTemplateColumn.Header>
+                                <components:FiltroColumna Filtro="{Binding DataContext.FiltroMarca, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTemplateColumn.Header>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Style="{StaticResource CeldaMarcaSugeridaStyle}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
                         <!-- Precio de costo -->
                         <DataGridTextColumn Header="Costo Reposición"

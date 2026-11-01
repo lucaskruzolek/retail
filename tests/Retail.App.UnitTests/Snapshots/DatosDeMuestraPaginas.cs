@@ -63,15 +63,15 @@ internal static class DatosDeMuestraPaginas
         var hoy = new DateTime(2026, 10, 28);
         return
         [
-            ItemCatalogo(1, "DS-CU-001", "7790001000011", "Cuaderno Rivadavia ABC 50 hojas rayado", 1110m, hoy, true, true, 1, "Cuaderno Rivadavia ABC 50 hojas rayado", 1850m, 42),
-            ItemCatalogo(2, "DS-LA-014", "7790002000028", "Lápiz negro Faber-Castell HB x12", 3300m, hoy, true, true, 2, "Lápiz negro Faber-Castell HB", 320m, 8),
-            ItemCatalogo(3, "DS-BI-203", "7790004000042", "Birome Bic Cristal azul caja x50", 9800m, hoy, true, false, 4, "Birome Bic Cristal azul", 280m, 150),
-            ItemCatalogo(4, "DS-CU-007", "7790001000059", "Cuaderno Rivadavia ABC 100 hojas cuadriculado", 1740m, hoy, false, false, null, null, null, null),
-            ItemCatalogo(5, "DS-MA-031", "7790007000080", "Marcador Sharpie punta fina negro", 1250m, hoy, false, false, null, null, null, null),
-            ItemCatalogo(6, "DS-CO-044", "7790006000073", "Corrector líquido Bic Wite-Out", 570m, hoy, true, true, 9, "Corrector líquido Bic Wite-Out", 950m, 18),
-            ItemCatalogo(7, "DS-CA-090", null, "Carpeta oficio 3 anillos lomo ancho", 2100m, hoy, false, false, null, null, null, null),
-            ItemCatalogo(8, "DS-RE-012", "7790003000035", "Resma A4 Autor 75g x 500 hojas", 4500m, hoy, true, true, 3, "Resma A4 Autor 75g x 500 hojas", 6900m, 0),
-            ItemCatalogo(9, "DS-TI-055", "7790008000097", "Tijera escolar punta redonda 13 cm", 890m, hoy, false, false, null, null, null, null)
+            ItemCatalogo(1, "DS-CU-001", "7790001000011", "Cuaderno Rivadavia ABC 50 hojas rayado", 1110m, hoy, true, true, 1, "Cuaderno Rivadavia ABC 50 hojas rayado", 1850m, 42, "Cuadernos", "Rivadavia"),
+            ItemCatalogo(2, "DS-LA-014", "7790002000028", "Lápiz negro Faber-Castell HB x12", 3300m, hoy, true, true, 2, "Lápiz negro Faber-Castell HB", 320m, 8, "Lápices", "Faber-Castell"),
+            ItemCatalogo(3, "DS-BI-203", "7790004000042", "Birome Bic Cristal azul caja x50", 9800m, hoy, true, false, 4, "Birome Bic Cristal azul", 280m, 150, "Lapiceras y bolígrafos", "Bic"),
+            ItemCatalogo(4, "DS-CU-007", "7790001000059", "Cuaderno Rivadavia ABC 100 hojas cuadriculado", 1740m, hoy, false, false, null, null, null, null, "Cuadernos", "Rivadavia"),
+            ItemCatalogo(5, "DS-MA-031", "7790007000080", "Marcador Sharpie punta fina negro", 1250m, hoy, false, false, null, null, null, null, null, "Sharpie"),
+            ItemCatalogo(6, "DS-CO-044", "7790006000073", "Corrector líquido Bic Wite-Out", 570m, hoy, true, true, 9, "Corrector líquido Bic Wite-Out", 950m, 18, "Correctores", "Bic"),
+            ItemCatalogo(7, "DS-CA-090", null, "Carpeta oficio 3 anillos lomo ancho", 2100m, hoy, false, false, null, null, null, null, null, null, pendiente: true),
+            ItemCatalogo(8, "DS-RE-012", "7790003000035", "Resma A4 Autor 75g x 500 hojas", 4500m, hoy, true, true, 3, "Resma A4 Autor 75g x 500 hojas", 6900m, 0, null, null),
+            ItemCatalogo(9, "DS-TI-055", "7790008000097", "Tijera escolar punta redonda 13 cm", 890m, hoy, false, false, null, null, null, null, null, null, pendiente: true)
         ];
     }
 
@@ -196,7 +196,10 @@ internal static class DatosDeMuestraPaginas
         int? idArticulo,
         string? nombreArticulo,
         decimal? precioVenta,
-        int? stock)
+        int? stock,
+        string? categoriaSugerida = null,
+        string? marcaSugerida = null,
+        bool pendiente = false)
     {
         return new CatalogoProveedorDto
         {
@@ -213,7 +216,10 @@ internal static class DatosDeMuestraPaginas
             IdArticuloVinculado = idArticulo,
             NombreArticuloTienda = nombreArticulo,
             PrecioVentaTienda = precioVenta,
-            StockActualTienda = stock
+            StockActualTienda = stock,
+            CategoriaSugerida = categoriaSugerida,
+            MarcaSugerida = marcaSugerida,
+            FechaClasificacion = pendiente ? null : actualizado
         };
     }
 

@@ -12,4 +12,7 @@ public record class ProveedorDto : BaseDto
     public required string Cuit { get; init; }
     public string? Telefono { get; init; }
     public string? Email { get; init; }
+
+    /// <summary>Preferencia del proveedor: sugerir categoría y marca a cada ítem del catálogo (M-75).</summary>
+    public bool ClasificaCatalogo { get; init; }
 }

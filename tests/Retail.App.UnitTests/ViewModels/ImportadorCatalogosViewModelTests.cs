@@ -6,6 +6,8 @@ using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Proveedores;
+using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
@@ -20,6 +22,8 @@ public class ImportadorCatalogosViewModelTests : IDisposable
     private readonly IProveedorService _proveedorService;
     private readonly IProveedorDialogService _dialogService;
     private readonly IInventarioService _inventarioService;
+    private readonly IRubroService _rubroService;
+    private readonly IClasificacionCatalogoService _clasificacionCatalogoService;
     private readonly INavigationService _navigationService;
     private readonly IPedidoService _pedidoService;
     private readonly IPedidoDialogService _pedidoDialogService;
@@ -36,6 +40,8 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         _proveedorService = Substitute.For<IProveedorService>();
         _dialogService = Substitute.For<IProveedorDialogService>();
         _inventarioService = Substitute.For<IInventarioService>();
+        _rubroService = Substitute.For<IRubroService>();
+        _clasificacionCatalogoService = Substitute.For<IClasificacionCatalogoService>();
         _navigationService = Substitute.For<INavigationService>();
         _pedidoService = Substitute.For<IPedidoService>();
         _pedidoDialogService = Substitute.For<IPedidoDialogService>();
@@ -50,10 +56,30 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         _proveedorService.ListarItemsCatalogoAsync(default!, default)
             .ReturnsForAnyArgs(new CatalogoPaginadoDto());
 
+        // Opciones de los filtros de Categoría y Marca: un rubro con dos categorías y una marca.
+        _rubroService.ListarAsync(null, Arg.Any<CancellationToken>())
+            .Returns(new List<RubroDto> { new() { IdRubro = 1, NombreRubro = "Librería" } });
+        _inventarioService.ListarCategoriasAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<CategoriaDto>
+            {
+                new() { IdCategoria = 10, NombreCategoria = "Cuadernos", IdRubro = 1 },
+                new() { IdCategoria = 11, NombreCategoria = "Lápices", IdRubro = 1 }
+            });
+        _inventarioService.ListarMarcasAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<MarcaDto> { new() { IdMarca = 20, NombreMarca = "Rivadavia" } });
+
+        // Por defecto no hay valores sin traducir y la clasificación sale bien.
+        _clasificacionCatalogoService.ObtenerValoresSinTraducirAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new List<ValorSinTraducirDto>());
+        _clasificacionCatalogoService.ClasificarAsync(Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(new ResultadoClasificacionCatalogoDto { ItemsClasificados = 3, ConCategoria = 2, ConMarca = 2, SinCategoria = 1 });
+
         _sut = new ImportadorCatalogosViewModel(
             _proveedorService,
             _dialogService,
             _inventarioService,
+            _rubroService,
+            _clasificacionCatalogoService,
             _navigationService,
             new IncorporarArticulosModalViewModel(
                 Substitute.For<IClasificacionService>(),
@@ -211,6 +237,10 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         ConfigurarRespuesta(string.Empty, respuesta.Task, consulto);
         _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" };
         await consulto.Task.WaitAsync(LimiteEspera);
+
+        // Las opciones de los filtros de columna también leen categorías y marcas, pero con la primera carga: acá se mide
+        // solo la incorporación.
+        _inventarioService.ClearReceivedCalls();
 
         // Act
         var incorporacion = _sut.IncorporarSeleccionadosCommand.ExecuteAsync(new List<CatalogoProveedorDto> { CrearItemSinIncorporar(40) });
@@ -410,6 +440,231 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         _sut.FiltroEstado.Should().Be(EstadoVinculacionCatalogoEnum.Todos);
         _sut.FiltroEstadoVinculacion.HayFiltroActivo.Should().BeFalse();
         _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LimpiarFiltrosCommand_ConFiltrosDeCategoriaYMarca_LosVaciaYRecarga()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" };
+        await _sut.InicializarAsync(proveedor);
+        AplicarFiltro(_sut.FiltroCategoria, 10);
+        AplicarFiltro(_sut.FiltroMarca, ConsultaCatalogoProveedorDto.IdSinMarca);
+        _proveedorService.ClearReceivedCalls();
+
+        // Act
+        _sut.LimpiarFiltrosCommand.Execute(null);
+        await Task.Delay(50);
+
+        // Assert
+        _sut.FiltroCategoria.HayFiltroActivo.Should().BeFalse();
+        _sut.FiltroMarca.HayFiltroActivo.Should().BeFalse();
+        _sut.HayFiltrosActivos.Should().BeFalse();
+        await _proveedorService.Received().ListarItemsCatalogoAsync(
+            Arg.Is<ConsultaCatalogoProveedorDto>(c => c.IdsCategoria.Count == 0 && c.IdsMarca.Count == 0),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task InicializarAsync_CargaLasOpcionesDeCategoriaYMarcaConLosCentinelas()
+    {
+        // Act
+        await _sut.InicializarAsync(new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" });
+
+        // Assert
+        var categorias = _sut.FiltroCategoria.Grupos.SelectMany(g => g.Opciones).ToList();
+        categorias.Select(o => o.Id).Should().Equal(ConsultaCatalogoProveedorDto.IdSinCategoria, 10, 11);
+        _sut.FiltroMarca.Grupos.SelectMany(g => g.Opciones).Select(o => o.Id)
+            .Should().Equal(ConsultaCatalogoProveedorDto.IdSinMarca, 20);
+    }
+
+    [Fact]
+    public async Task CargarCatalogoAsync_CambiandoDePagina_NoVuelveACargarLasOpcionesDeFiltro()
+    {
+        // Arrange
+        await _sut.InicializarAsync(new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" });
+
+        // Act
+        _sut.PaginaActual = 2;
+        await _sut.CargarCatalogoAsync();
+
+        // Assert
+        await _inventarioService.Received(1).ListarCategoriasAsync(Arg.Any<CancellationToken>());
+        await _inventarioService.Received(1).ListarMarcasAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltroCategoria_ConCategoriaYSinCategoria_ConsultaConAmbosIds()
+    {
+        // Arrange
+        await _sut.InicializarAsync(new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" });
+        _sut.PaginaActual = 3;
+
+        // Act
+        AplicarFiltro(_sut.FiltroCategoria, 10, ConsultaCatalogoProveedorDto.IdSinCategoria);
+        await Task.Delay(50);
+
+        // Assert
+        _sut.PaginaActual.Should().Be(1);
+        _sut.HayFiltrosActivos.Should().BeTrue();
+        await _proveedorService.Received().ListarItemsCatalogoAsync(
+            Arg.Is<ConsultaCatalogoProveedorDto>(c =>
+                c.IdsCategoria.Contains(10) && c.IdsCategoria.Contains(ConsultaCatalogoProveedorDto.IdSinCategoria) && c.IdsMarca.Count == 0),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltroMarca_ConSinMarca_ConsultaConElCentinela()
+    {
+        // Arrange
+        await _sut.InicializarAsync(new ProveedorDto { IdProveedor = 8, RazonSocial = "Distribuidora Test", Cuit = "30-88888888-8" });
+
+        // Act
+        AplicarFiltro(_sut.FiltroMarca, ConsultaCatalogoProveedorDto.IdSinMarca);
+        await Task.Delay(50);
+
+        // Assert
+        await _proveedorService.Received().ListarItemsCatalogoAsync(
+            Arg.Is<ConsultaCatalogoProveedorDto>(c => c.IdsMarca.SequenceEqual(new[] { ConsultaCatalogoProveedorDto.IdSinMarca })),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConClasificaCatalogo_ClasificaSoloLosPendientes()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        _sut.ProveedorActivo = proveedor;
+        _dialogService.AbrirImportarPlanillaAsync(proveedor).Returns(ResultadoImportacion(clasifica: true));
+
+        // Act
+        await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+        // Assert
+        await _clasificacionCatalogoService.Received(1).ClasificarAsync(7, true, Arg.Any<CancellationToken>());
+        _sut.MensajeEstado.Should().Contain("Importación completada");
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_SinClasificaCatalogo_NoClasifica()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        _sut.ProveedorActivo = proveedor;
+        _dialogService.AbrirImportarPlanillaAsync(proveedor).Returns(ResultadoImportacion(clasifica: false));
+
+        // Act
+        await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+        // Assert
+        await _clasificacionCatalogoService.DidNotReceiveWithAnyArgs().ObtenerValoresSinTraducirAsync(default, default);
+        await _clasificacionCatalogoService.DidNotReceiveWithAnyArgs().ClasificarAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConValoresSinTraducir_AbreElDialogoYClasificaSiContinua()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        _sut.ProveedorActivo = proveedor;
+        var valores = new List<ValorSinTraducirDto>
+        {
+            new() { Tipo = TipoEquivalenciaEnum.Marca, Texto = "FILGO", CantidadDeItems = 4 }
+        };
+        _clasificacionCatalogoService.ObtenerValoresSinTraducirAsync(7, Arg.Any<CancellationToken>()).Returns(valores);
+        _dialogService.AbrirAsociarValoresCatalogoAsync(proveedor, Arg.Any<IReadOnlyList<ValorSinTraducirDto>>()).Returns(true);
+        _dialogService.AbrirImportarPlanillaAsync(proveedor).Returns(ResultadoImportacion(clasifica: true));
+
+        // Act
+        await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+        // Assert
+        await _dialogService.Received(1).AbrirAsociarValoresCatalogoAsync(proveedor, valores);
+        await _clasificacionCatalogoService.Received(1).ClasificarAsync(7, true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ClasificarCatalogoTodoCommand_DialogoCancelado_NoClasifica()
+    {
+        // Arrange (M-80): cancelar el diálogo aborta la clasificación.
+        var proveedor = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        _sut.ProveedorActivo = proveedor;
+        _clasificacionCatalogoService.ObtenerValoresSinTraducirAsync(7, Arg.Any<CancellationToken>())
+            .Returns(new List<ValorSinTraducirDto> { new() { Tipo = TipoEquivalenciaEnum.Marca, Texto = "FILGO", CantidadDeItems = 4 } });
+        _dialogService.AbrirAsociarValoresCatalogoAsync(proveedor, Arg.Any<IReadOnlyList<ValorSinTraducirDto>>()).Returns(false);
+
+        // Act
+        await _sut.ClasificarCatalogoTodoCommand.ExecuteAsync(null);
+
+        // Assert
+        await _clasificacionCatalogoService.DidNotReceiveWithAnyArgs().ClasificarAsync(default, default, default);
+        _sut.TieneMensajeEstado.Should().BeFalse();
+        _sut.IsBusy.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ClasificarCatalogoTodoCommand_SinValoresSinTraducir_ClasificaTodoSinAbrirElDialogo()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        _sut.ProveedorActivo = proveedor;
+
+        // Act
+        await _sut.ClasificarCatalogoTodoCommand.ExecuteAsync(null);
+
+        // Assert
+        await _dialogService.DidNotReceiveWithAnyArgs().AbrirAsociarValoresCatalogoAsync(default!, default!);
+        await _clasificacionCatalogoService.Received(1).ClasificarAsync(7, false, Arg.Any<CancellationToken>());
+        _sut.MensajeEstado.Should().Be("Catálogo clasificado con las reglas actuales.");
+        _sut.MensajeError.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ClasificarCatalogoTodoCommand_ElServicioRechazaLaClasificacion_MuestraElMotivo()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        _sut.ProveedorActivo = proveedor;
+        _clasificacionCatalogoService.ClasificarAsync(7, false, Arg.Any<CancellationToken>())
+            .Returns<ResultadoClasificacionCatalogoDto>(_ => throw new DomainException("El proveedor no existe."));
+
+        // Act
+        await _sut.ClasificarCatalogoTodoCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeError.Should().Be("El proveedor no existe.");
+        _sut.TieneMensajeEstado.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ClasificarCatalogoTodoCommand_SinProveedorActivo_NoPuedeEjecutarse()
+    {
+        _sut.ClasificarCatalogoTodoCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    private static ResultadoImportacionDto ResultadoImportacion(bool clasifica)
+    {
+        return new ResultadoImportacionDto
+        {
+            TotalFilasProcesadas = 10,
+            NuevosRegistros = 8,
+            PreciosActualizados = 2,
+            FilasConError = 0,
+            TiempoTranscurrido = TimeSpan.FromSeconds(1),
+            ClasificaCatalogo = clasifica
+        };
+    }
+
+    /// <summary>Marca solo las opciones indicadas en un filtro de columna y pulsa "Aplicar".</summary>
+    private static void AplicarFiltro(FiltroColumnaViewModel filtro, params int[] ids)
+    {
+        filtro.EstaAbierto = true;
+        foreach (var opcion in filtro.Grupos.SelectMany(g => g.Opciones))
+        {
+            opcion.Seleccionada = ids.Contains(opcion.Id);
+        }
+
+        filtro.AplicarCommand.Execute(null);
     }
 
     /// <summary>Marca solo las opciones indicadas en el filtro de la columna Estado y pulsa "Aplicar".</summary>

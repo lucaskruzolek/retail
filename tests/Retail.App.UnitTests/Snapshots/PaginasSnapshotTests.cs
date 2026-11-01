@@ -11,6 +11,7 @@ using Retail.App.ViewModels.Proveedores;
 using Retail.App.ViewModels.Reportes;
 using Retail.App.ViewModels.Usuarios;
 using Retail.App.Views.Pages;
+using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.DTOs.Reportes;
@@ -138,6 +139,16 @@ public class PaginasSnapshotTests
                     FechaUltimaPlanilla = DateTime.UtcNow.AddDays(-3)
                 });
 
+            // Opciones de los filtros de Categoría y Marca (el rubro lo resuelve cada categoría).
+            var inventario = Substitute.For<IInventarioService>();
+            inventario.ListarCategoriasAsync(Arg.Any<CancellationToken>())
+                .Returns(_ => Task.FromResult<IReadOnlyList<CategoriaDto>>(DatosDeMuestraDialogosGrandes.Categorias()));
+            inventario.ListarMarcasAsync(Arg.Any<CancellationToken>())
+                .Returns(_ => Task.FromResult<IReadOnlyList<MarcaDto>>(DatosDeMuestraDialogosGrandes.Marcas()));
+            var rubros = Substitute.For<IRubroService>();
+            rubros.ListarAsync(Arg.Any<string?>(), Arg.Any<CancellationToken>())
+                .Returns(_ => Task.FromResult<IReadOnlyList<RubroDto>>(DatosDeMuestraDialogosGrandes.Rubros()));
+
             // Con un Gerente en sesión, para que también se dibujen las acciones de pedir.
             var gerente = Substitute.For<ICurrentUserSession>();
             gerente.EsGerente.Returns(true);
@@ -152,7 +163,9 @@ public class PaginasSnapshotTests
             var viewModel = new ImportadorCatalogosViewModel(
                 servicio,
                 Substitute.For<IProveedorDialogService>(),
-                Substitute.For<IInventarioService>(),
+                inventario,
+                rubros,
+                Substitute.For<IClasificacionCatalogoService>(),
                 Substitute.For<INavigationService>(),
                 modalViewModel,
                 new FlujoPedirArticulos(

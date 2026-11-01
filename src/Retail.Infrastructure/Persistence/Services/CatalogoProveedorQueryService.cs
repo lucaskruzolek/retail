@@ -52,28 +52,32 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
             query = query.Where(c => _context.Articulos.Any(a => a.Id == c.IdArticulo));
         }
 
-        // Clasificación sugerida (Track 6.6, M-72, M-74). Una categoría o marca dada de baja no existe para el filtro
-        // global de borrado lógico, así que no coincide con el filtro por categoría y cuenta como "sin categoría".
-        if (consulta.IdCategoria is > 0)
+        // Clasificación sugerida (Track 6.6, M-72, M-74, M-78). Una categoría o marca dada de baja no existe para el
+        // filtro global de borrado lógico, así que no coincide con los ids positivos y cuenta como "sin categoría".
+        // Sin categoría = el motor ya lo procesó (con fecha) y no hay categoría activa que lo reconozca; un pendiente
+        // no cuenta: todavía no se sabe. Los ids y el centinela se combinan con O.
+        if (consulta.IdsCategoria.Count > 0)
         {
-            var idCategoria = consulta.IdCategoria.Value;
-            query = query.Where(c => c.IdCategoriaSugerida == idCategoria
-                && _context.Categorias.Any(cat => cat.Id == c.IdCategoriaSugerida));
+            var idsCategoria = consulta.IdsCategoria.Where(id => id > 0).Select(id => (int?)id).ToList();
+            var incluyeSinCategoria = consulta.IdsCategoria.Contains(ConsultaCatalogoProveedorDto.IdSinCategoria);
+            query = query.Where(c =>
+                (idsCategoria.Contains(c.IdCategoriaSugerida)
+                    && _context.Categorias.Any(cat => cat.Id == c.IdCategoriaSugerida))
+                || (incluyeSinCategoria
+                    && c.FechaClasificacion != null
+                    && !_context.Categorias.Any(cat => cat.Id == c.IdCategoriaSugerida)));
         }
 
-        if (consulta.IdMarca is > 0)
+        if (consulta.IdsMarca.Count > 0)
         {
-            var idMarca = consulta.IdMarca.Value;
-            query = query.Where(c => c.IdMarcaSugerida == idMarca
-                && _context.Marcas.Any(m => m.Id == c.IdMarcaSugerida));
-        }
-
-        // Sin categoría = el motor ya lo procesó (con fecha) y no hay categoría activa que lo reconozca. Un pendiente
-        // no cuenta: todavía no se sabe.
-        if (consulta.SoloSinCategoria)
-        {
-            query = query.Where(c => c.FechaClasificacion != null
-                && !_context.Categorias.Any(cat => cat.Id == c.IdCategoriaSugerida));
+            var idsMarca = consulta.IdsMarca.Where(id => id > 0).Select(id => (int?)id).ToList();
+            var incluyeSinMarca = consulta.IdsMarca.Contains(ConsultaCatalogoProveedorDto.IdSinMarca);
+            query = query.Where(c =>
+                (idsMarca.Contains(c.IdMarcaSugerida)
+                    && _context.Marcas.Any(m => m.Id == c.IdMarcaSugerida))
+                || (incluyeSinMarca
+                    && c.FechaClasificacion != null
+                    && !_context.Marcas.Any(m => m.Id == c.IdMarcaSugerida)));
         }
 
         int totalRegistros = await query.CountAsync(cancellationToken);

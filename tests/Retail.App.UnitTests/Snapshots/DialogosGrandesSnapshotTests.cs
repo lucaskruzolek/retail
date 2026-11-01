@@ -299,6 +299,33 @@ public class DialogosGrandesSnapshotTests
         VerificarCaptura(ruta, error);
     }
 
+    // ------------------------------------------------------------------ AsociarValoresCatalogoDialog
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void AsociarValoresCatalogoDialog_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            using var viewModel = new AsociarValoresCatalogoViewModel(
+                Substitute.For<IEquivalenciaClasificacionService>(),
+                Substitute.For<ICategoriaService>(),
+                Substitute.For<IMarcaService>(),
+                CrearSesionDeGerente(),
+                Substitute.For<ILogger<AsociarValoresCatalogoViewModel>>());
+            viewModel.Inicializar(
+                DatosDeMuestraDialogosGrandes.Proveedor(),
+                DatosDeMuestraDialogosGrandes.ValoresSinTraducir().Take(4).ToList());
+
+            var dialogo = new AsociarValoresCatalogoDialog { DataContext = viewModel };
+
+            return SnapshotRenderer.Guardar(dialogo, 700, 660, carpeta + "/AsociarValoresCatalogoDialog");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
     // ------------------------------------------------------------------ SeleccionarCatalogoProveedorModalDialog
 
     [Theory]

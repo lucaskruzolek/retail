@@ -2,12 +2,14 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using FluentValidation;
 using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -24,6 +26,8 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     private readonly IProveedorService _proveedorService;
     private readonly IProveedorDialogService _dialogService;
     private readonly IInventarioService _inventarioService;
+    private readonly IRubroService _rubroService;
+    private readonly IClasificacionCatalogoService _clasificacionCatalogoService;
     private readonly INavigationService _navigationService;
     private readonly FlujoPedirArticulos _flujoPedir;
 
@@ -43,6 +47,10 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     // Serializa las cargas del catálogo sobre el DbContext de esta pantalla y las cancela al salir de ella (H-18, H-19).
     private readonly CargaSerializada _cargaCatalogo;
 
+    // Las opciones de los filtros de Categoría y Marca se cargan con la primera página de cada apertura de la pantalla,
+    // no con cada cambio de página.
+    private bool _opcionesDeFiltroCargadas;
+
     // ------------------------------------------------------------------ //
     // Proveedor activo y selección                                       //
     // ------------------------------------------------------------------ //
@@ -52,6 +60,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneProveedorActivo))]
     [NotifyPropertyChangedFor(nameof(PuedeImportar))]
+    [NotifyCanExecuteChangedFor(nameof(ClasificarCatalogoTodoCommand))]
     private ProveedorDto? _proveedorActivo;
 
     public bool TieneProveedorActivo => ProveedorActivo != null;
@@ -83,6 +92,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeImportar))]
+    [NotifyCanExecuteChangedFor(nameof(ClasificarCatalogoTodoCommand))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -127,6 +137,15 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     /// </summary>
     public FiltroColumnaViewModel FiltroEstadoVinculacion { get; } = new("Estado");
 
+    /// <summary>
+    /// Filtros de las columnas Categoría y Marca (R8, M-78): las categorías agrupadas por rubro y los centinelas
+    /// <see cref="ConsultaCatalogoProveedorDto.IdSinCategoria"/> / <see cref="ConsultaCatalogoProveedorDto.IdSinMarca"/>.
+    /// Filtran por la clasificación sugerida (M-72); los ítems pendientes no coinciden con ninguno.
+    /// </summary>
+    public FiltroColumnaViewModel FiltroCategoria { get; } = new("Categoría");
+
+    public FiltroColumnaViewModel FiltroMarca { get; } = new("Marca");
+
     [ObservableProperty]
     private string _textoBusquedaCatalogo = string.Empty;
 
@@ -156,12 +175,16 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
     public bool HayFiltrosActivos =>
         !string.IsNullOrWhiteSpace(TextoBusquedaCatalogo) ||
-        FiltroEstado != EstadoVinculacionCatalogoEnum.Todos;
+        FiltroEstado != EstadoVinculacionCatalogoEnum.Todos ||
+        FiltroCategoria.HayFiltroActivo ||
+        FiltroMarca.HayFiltroActivo;
 
     public ImportadorCatalogosViewModel(
         IProveedorService proveedorService,
         IProveedorDialogService dialogService,
         IInventarioService inventarioService,
+        IRubroService rubroService,
+        IClasificacionCatalogoService clasificacionCatalogoService,
         INavigationService navigationService,
         IncorporarArticulosModalViewModel incorporarModalViewModel,
         FlujoPedirArticulos flujoPedir,
@@ -173,6 +196,8 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
+        _rubroService = rubroService ?? throw new ArgumentNullException(nameof(rubroService));
+        _clasificacionCatalogoService = clasificacionCatalogoService ?? throw new ArgumentNullException(nameof(clasificacionCatalogoService));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _flujoPedir = flujoPedir ?? throw new ArgumentNullException(nameof(flujoPedir));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -184,6 +209,15 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
             new OpcionFiltroColumna((int)EstadoVinculacionCatalogoEnum.YaEnTienda, "Ya en tienda")
         ]);
         FiltroEstadoVinculacion.Aplicado += AlAplicarFiltroEstado;
+        FiltroCategoria.Aplicado += AlAplicarFiltroDeColumna;
+        FiltroMarca.Aplicado += AlAplicarFiltroDeColumna;
+    }
+
+    private void AlAplicarFiltroDeColumna(object? sender, EventArgs e)
+    {
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
+        PaginaActual = 1;
+        _ = CargarCatalogoAsync();
     }
 
     /// <summary>
@@ -201,9 +235,21 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     [RelayCommand(CanExecute = nameof(HayFiltrosActivos))]
     private void LimpiarFiltros()
     {
+        bool habiaFiltroDeClasificacion = FiltroCategoria.HayFiltroActivo || FiltroMarca.HayFiltroActivo;
+
         TextoBusquedaCatalogo = string.Empty;
         FiltroEstadoVinculacion.QuitarFiltro();
+        FiltroCategoria.QuitarFiltro();
+        FiltroMarca.QuitarFiltro();
         FiltroEstado = EstadoVinculacionCatalogoEnum.Todos;
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
+
+        // Quitar estos filtros no avisa (QuitarFiltro): si eran lo único activo, nadie más dispara la consulta.
+        if (habiaFiltroDeClasificacion)
+        {
+            PaginaActual = 1;
+            _ = CargarCatalogoAsync();
+        }
     }
 
     /// <summary>Quita la marca de todos los ítems de la página ("Cancelar selección" de la barra de acciones masivas).</summary>
@@ -257,6 +303,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         }
 
         PaginaActual = 1;
+        _opcionesDeFiltroCargadas = false;
         if (ProveedorActivo != null)
         {
             await CargarCatalogoAsync();
@@ -324,9 +371,153 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         {
             UltimoResultado = resultado;
             MensajeEstado = $"Importación completada: {resultado.NuevosRegistros} nuevos, {resultado.PreciosActualizados} precios actualizados, {resultado.FilasConError} errores.";
-            PaginaActual = 1;
+
+            // La importación guardó la preferencia del proveedor; los ítems nuevos quedan pendientes y se clasifican acá,
+            // antes de recargar (M-79). Si se cancela o falla, la importación igual quedó hecha.
+            if (resultado.ClasificaCatalogo)
+            {
+                await ClasificarCatalogoAsync(soloPendientes: true);
+            }
+
+            await RecargarTrasOperacionAsync(resultado.ClasificaCatalogo);
+        }
+    }
+
+    // ------------------------------------------------------------------ //
+    // Clasificación del catálogo (Track 6.6, Fase 8)                     //
+    // ------------------------------------------------------------------ //
+
+    /// <summary>Botón "Clasificar catálogo": reclasifica todos los ítems del proveedor con las reglas actuales (M-75).</summary>
+    [RelayCommand(CanExecute = nameof(PuedeImportar))]
+    private async Task ClasificarCatalogoTodoAsync()
+    {
+        if (await ClasificarCatalogoAsync(soloPendientes: false))
+        {
+            MensajeEstado = "Catálogo clasificado con las reglas actuales.";
+            await RecargarTrasOperacionAsync(clasificaCatalogo: true);
+        }
+    }
+
+    /// <summary>
+    /// Camino único de la clasificación (M-79): la reimportación (<paramref name="soloPendientes"/>) y el botón pasan por
+    /// acá. Si hay valores del proveedor sin equivalencia, primero ofrece asociarlos (M-80): <b>cancelar ese diálogo
+    /// aborta la clasificación</b> y los ítems siguen pendientes. Devuelve <c>true</c> si se clasificó; si falla, deja el
+    /// error en <see cref="MensajeError"/>. No recarga la grilla: lo hace quien la llama.
+    /// </summary>
+    /// <remarks>
+    /// Los dos accesos a datos esperan su turno en la fila de la pantalla y corren fuera del Dispatcher: el DbContext es
+    /// uno solo (Ley 4, H-19). Sin D-5 el diálogo se abre igual, en solo lectura, como el paso 1 de la incorporación: el
+    /// usuario puede clasificar con las reglas de descripción sin asociar nada.
+    /// </remarks>
+    private async Task<bool> ClasificarCatalogoAsync(bool soloPendientes)
+    {
+        if (ProveedorActivo is not { } proveedor)
+        {
+            return false;
+        }
+
+        int idProveedor = proveedor.IdProveedor;
+        MensajeError = null;
+        IsBusy = true;
+        try
+        {
+            IReadOnlyList<ValorSinTraducirDto>? valores = null;
+            Exception? error = null;
+            await _cargaCatalogo.EjecutarOperacionAsync(
+                token => Task.Run(() => _clasificacionCatalogoService.ObtenerValoresSinTraducirAsync(idProveedor, token), token),
+                v => valores = v,
+                ex => error = ex);
+
+            if (valores is null)
+            {
+                InformarErrorDeClasificacion(error);
+                return false;
+            }
+
+            if (valores.Count > 0)
+            {
+                // El diálogo es modal: mientras está abierto no hay nada en curso que mostrar.
+                IsBusy = false;
+                bool continuar = await _dialogService.AbrirAsociarValoresCatalogoAsync(proveedor, valores);
+                IsBusy = true;
+                if (!continuar)
+                {
+                    return false;
+                }
+            }
+
+            bool clasificado = false;
+            await _cargaCatalogo.EjecutarOperacionAsync(
+                token => Task.Run(() => _clasificacionCatalogoService.ClasificarAsync(idProveedor, soloPendientes, token), token),
+                _ => clasificado = true,
+                ex => error = ex);
+
+            if (!clasificado)
+            {
+                InformarErrorDeClasificacion(error);
+            }
+
+            return clasificado;
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    /// <summary>Sin error, el acceso se descartó al salir de la pantalla: no hay nada que informar.</summary>
+    private void InformarErrorDeClasificacion(Exception? error)
+    {
+        switch (error)
+        {
+            case null:
+                return;
+
+            case ValidationException validacion:
+                MensajeError = string.Join(" ", validacion.Errors.Select(e => e.ErrorMessage));
+                return;
+
+            case DomainException dominio:
+                MensajeError = dominio.Message;
+                return;
+
+            default:
+                _logger.LogError(error, "Error al clasificar el catálogo del proveedor");
+                MensajeError = "No se pudo clasificar el catálogo.";
+                return;
+        }
+    }
+
+    /// <summary>
+    /// Vuelve a la primera página tras importar o clasificar. Si la preferencia de clasificar del proveedor activo
+    /// cambió, relee la lista de proveedores (que vuelve a seleccionarlo y recarga la grilla) para que el interruptor de
+    /// la próxima importación arranque con el valor guardado. Esa relectura limpia los avisos de la pantalla, así que se
+    /// restauran.
+    /// </summary>
+    private async Task RecargarTrasOperacionAsync(bool clasificaCatalogo)
+    {
+        if (ProveedorActivo is not { } proveedor)
+        {
+            return;
+        }
+
+        var resultado = UltimoResultado;
+        var estado = MensajeEstado;
+        var error = MensajeError;
+
+        PaginaActual = 1;
+        if (proveedor.ClasificaCatalogo != clasificaCatalogo)
+        {
+            await CargarProveedoresDisponiblesAsync(proveedor.IdProveedor);
+        }
+        else
+        {
             await CargarCatalogoAsync();
         }
+
+        UltimoResultado = resultado;
+        MensajeEstado = estado;
+        MensajeError = error;
     }
 
     // ------------------------------------------------------------------ //
@@ -355,6 +546,8 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
             IdProveedor = ProveedorActivo.IdProveedor,
             TerminoBusqueda = TextoBusquedaCatalogo,
             EstadoVinculacion = FiltroEstado,
+            IdsCategoria = FiltroCategoria.IdsAplicados,
+            IdsMarca = FiltroMarca.IdsAplicados,
             Pagina = PaginaActual,
             TamañoPagina = TamanoPagina
         };
@@ -362,9 +555,36 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         IsBusy = true;
         MensajeError = null;
 
+        bool cargarOpciones = !_opcionesDeFiltroCargadas;
+
         await _cargaCatalogo.EjecutarAsync(
-            token => Task.Run(() => _proveedorService.ListarItemsCatalogoAsync(consulta, token), token),
-            MostrarCatalogo,
+            token => Task.Run(
+                async () =>
+                {
+                    // Secuenciales: comparten el DbContext de la pantalla.
+                    OpcionesDeFiltro? opciones = null;
+                    if (cargarOpciones)
+                    {
+                        var rubros = await _rubroService.ListarAsync(null, token);
+                        var categorias = await _inventarioService.ListarCategoriasAsync(token);
+                        var marcas = await _inventarioService.ListarMarcasAsync(token);
+                        opciones = new OpcionesDeFiltro(rubros, categorias, marcas);
+                    }
+
+                    var pagina = await _proveedorService.ListarItemsCatalogoAsync(consulta, token);
+                    return (Opciones: opciones, Pagina: pagina);
+                },
+                token),
+            resultado =>
+            {
+                if (resultado.Opciones is { } opciones)
+                {
+                    CargarOpcionesDeFiltro(opciones);
+                    _opcionesDeFiltroCargadas = true;
+                }
+
+                MostrarCatalogo(resultado.Pagina);
+            },
             ex =>
             {
                 _logger.LogError(ex, "Error al cargar catálogo del proveedor");
@@ -374,6 +594,38 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
             cancellationToken);
 
         IsBusy = _cargaCatalogo.EnCurso;
+    }
+
+    private sealed record OpcionesDeFiltro(
+        IReadOnlyList<RubroDto> Rubros,
+        IReadOnlyList<CategoriaDto> Categorias,
+        IReadOnlyList<MarcaDto> Marcas);
+
+    /// <summary>
+    /// Opciones de los filtros de columna: las categorías agrupadas por rubro (orden alfabético de rubro y de categoría),
+    /// más "Sin categoría", y las marcas, más "Sin marca" (M-78).
+    /// </summary>
+    private void CargarOpcionesDeFiltro(OpcionesDeFiltro opciones)
+    {
+        var nombresRubro = opciones.Rubros.ToDictionary(r => r.IdRubro, r => r.NombreRubro);
+        var categorias = opciones.Categorias
+            .Select(c => new OpcionFiltroColumna(
+                c.IdCategoria,
+                c.NombreCategoria,
+                nombresRubro.GetValueOrDefault(c.IdRubro, "Sin rubro")))
+            .OrderBy(o => o.Grupo, StringComparer.CurrentCulture)
+            .ThenBy(o => o.Nombre, StringComparer.CurrentCulture);
+        FiltroCategoria.CargarOpciones(
+        [
+            new OpcionFiltroColumna(ConsultaCatalogoProveedorDto.IdSinCategoria, "Sin categoría"),
+            .. categorias
+        ]);
+
+        FiltroMarca.CargarOpciones(
+        [
+            new OpcionFiltroColumna(ConsultaCatalogoProveedorDto.IdSinMarca, "Sin marca"),
+            .. opciones.Marcas.Select(m => new OpcionFiltroColumna(m.IdMarca, m.NombreMarca))
+        ]);
     }
 
     private void MostrarCatalogo(CatalogoPaginadoDto resultado)

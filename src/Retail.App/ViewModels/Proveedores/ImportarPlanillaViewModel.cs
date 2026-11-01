@@ -58,8 +58,16 @@ public partial class ImportarPlanillaViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(PuedeImportar))]
     private int _filaEncabezado = 1;
 
+    /// <summary>
+    /// Sugerir categoría y marca a cada ítem con las reglas de la tienda (Track 6.6, M-75). Arranca con la preferencia
+    /// del proveedor; la clasificación misma la orquesta la página del explorador con el resultado (M-79).
+    /// </summary>
+    [ObservableProperty]
+    private bool _clasificarCatalogo;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeImportar))]
+    [NotifyPropertyChangedFor(nameof(PuedeEditarClasificacion))]
     private bool _isBusy;
 
     /// <summary>
@@ -68,6 +76,7 @@ public partial class ImportarPlanillaViewModel : ObservableObject
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeImportar))]
+    [NotifyPropertyChangedFor(nameof(PuedeEditarClasificacion))]
     [NotifyPropertyChangedFor(nameof(ImportacionConObservaciones))]
     [NotifyPropertyChangedFor(nameof(TextoBotonCerrar))]
     private bool _importacionCompletada;
@@ -104,6 +113,9 @@ public partial class ImportarPlanillaViewModel : ObservableObject
 
     /// <summary>Importación terminada pero con filas omitidas por error (variante de advertencia del aviso).</summary>
     public bool ImportacionConObservaciones => ImportacionCompletada && UltimoResultado is { FilasConError: > 0 };
+
+    /// <summary>La preferencia de clasificar no cambia mientras se importa ni después de importar.</summary>
+    public bool PuedeEditarClasificacion => !IsBusy && !ImportacionCompletada;
 
     public string TextoBotonCerrar => ImportacionCompletada ? "Cerrar y ver catálogo" : "Cerrar";
 
@@ -152,6 +164,7 @@ public partial class ImportarPlanillaViewModel : ObservableObject
         ColumnaCategoria = "CATEGORIA";
         ColumnaMarca = "MARCA";
         FilaEncabezado = 1;
+        ClasificarCatalogo = proveedor.ClasificaCatalogo;
         IsBusy = false;
         FilasLeidas = 0;
         MensajeEstado = null;
@@ -207,6 +220,7 @@ public partial class ImportarPlanillaViewModel : ObservableObject
                 ColumnaCategoria = Opcional(ColumnaCategoria),
                 ColumnaMarca = Opcional(ColumnaMarca),
                 FilaEncabezado = FilaEncabezado,
+                ClasificarCatalogo = ClasificarCatalogo,
                 ExtensionArchivo = Path.GetExtension(RutaArchivo)
             };
 

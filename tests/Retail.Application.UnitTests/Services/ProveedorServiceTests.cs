@@ -393,6 +393,21 @@ public class ProveedorServiceTests
         await _unitOfWorkMock.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ImportarPlanillaProveedorAsync_SegunLaPreferencia_InformaClasificaCatalogoEnElResultado(bool clasifica)
+    {
+        // Arrange (M-79): la página del explorador decide clasificar a partir de este valor.
+        PrepararImportacion(new List<ItemCatalogoImportadoDto> { Fila("NUEVO") });
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo() with { ClasificarCatalogo = clasifica });
+
+        // Assert
+        resultado.ClasificaCatalogo.Should().Be(clasifica);
+    }
+
     [Fact]
     public async Task ImportarPlanillaProveedorAsync_ConClasificacionDelProveedor_LaGuardaEnElItemNuevoYEnElExistente()
     {
@@ -970,11 +985,11 @@ public class ProveedorServiceTests
     }
 
     [Fact]
-    public async Task ListarItemsCatalogoAsync_SinCategoriaYCategoriaALaVez_LanzaValidationExceptionSinConsultar()
+    public async Task ListarItemsCatalogoAsync_IdDeCategoriaInvalido_LanzaValidationExceptionSinConsultar()
     {
         // Act
         var act = async () => await _service.ListarItemsCatalogoAsync(
-            new ConsultaCatalogoProveedorDto { SoloSinCategoria = true, IdCategoria = 2 });
+            new ConsultaCatalogoProveedorDto { IdsCategoria = [0] });
 
         // Assert
         await act.Should().ThrowAsync<FluentValidation.ValidationException>();

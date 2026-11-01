@@ -67,6 +67,24 @@
                         <TextBlock Text="{Binding Proveedor.Cuit, StringFormat={}CUIT: {0}}"
                                    Style="{StaticResource TextBlockCaption}"
                                    Foreground="{DynamicResource TextSecondaryBrush}" />
+
+                        <!-- Preferencia del proveedor (Track 6.6, M-75, M-79): arriba, para que se vea sin desplazar.
+                             Solo se guarda; la clasificación la orquesta la página del explorador. -->
+                        <DockPanel Margin="0,12,0,0" LastChildFill="True">
+                            <ui:ToggleSwitch DockPanel.Dock="Right"
+                                             IsChecked="{Binding ClasificarCatalogo}"
+                                             IsEnabled="{Binding PuedeEditarClasificacion}"
+                                             AutomationProperties.Name="Clasificar el catálogo al importar"
+                                             VerticalAlignment="Center" />
+                            <StackPanel>
+                                <TextBlock Text="Clasificar catálogo"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <TextBlock Text="Sugiere categoría y marca a cada ítem con las reglas de la tienda. No incorpora artículos."
+                                           Style="{StaticResource TextBlockCaption}"
+                                           Foreground="{DynamicResource TextMutedBrush}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </DockPanel>
                     </StackPanel>
                 </Border>
 
@@ -253,6 +271,7 @@
                         </Border>
                     </StackPanel>
                 </Border>
+
 
                 <!-- Feedback de Progreso / Estado -->
                 <StackPanel Margin="0,0,0,8">

@@ -191,6 +191,60 @@ public class ImportarPlanillaViewModelTests
         }
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Inicializar_ConProveedor_ArrancaConSuPreferenciaDeClasificar(bool clasifica)
+    {
+        // Act
+        _sut.Inicializar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1", ClasificaCatalogo = clasifica });
+
+        // Assert
+        _sut.ClasificarCatalogo.Should().Be(clasifica);
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_ConClasificarCatalogo_LoTransmiteEnElMapeo()
+    {
+        // Arrange
+        var rutaTemporal = Path.GetTempFileName();
+        try
+        {
+            _sut.Inicializar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" });
+            _sut.RutaArchivo = rutaTemporal;
+            _sut.ClasificarCatalogo = true;
+            ConfigurarImportacionExitosa();
+
+            // Act
+            await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+            // Assert
+            await _proveedorService.Received(1).ImportarPlanillaProveedorAsync(
+                Arg.Any<Stream>(),
+                Arg.Is<MapeoColumnasDto>(m => m.ClasificarCatalogo),
+                Arg.Any<IProgress<int>?>(),
+                Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            File.Delete(rutaTemporal);
+        }
+    }
+
+    [Fact]
+    public void PuedeEditarClasificacion_TrasImportar_EsFalso()
+    {
+        // Arrange
+        _sut.Inicializar(new ProveedorDto { IdProveedor = 1, RazonSocial = "Prov 1", Cuit = "30-11111111-1" });
+        _sut.PuedeEditarClasificacion.Should().BeTrue();
+
+        // Act
+        _sut.ImportacionCompletada = true;
+
+        // Assert
+        _sut.PuedeEditarClasificacion.Should().BeFalse();
+    }
+
     private void ConfigurarImportacionExitosa()
     {
         _proveedorService.ImportarPlanillaProveedorAsync(
