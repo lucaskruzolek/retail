@@ -22,6 +22,8 @@ x86/
 [Aa]rm/
 [Aa]rm64/
 bld/
+# Proyecto temporal que genera la compilación de XAML de WPF y se borra al terminar
+*_wpftmp.csproj
 [Bb]in/
 [Oo]bj/
 [Ll]og/
