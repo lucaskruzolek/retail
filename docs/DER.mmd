@@ -17,6 +17,8 @@ erDiagram
     RUBROS ||--o{ CATEGORIAS : "agrupa"
     CATEGORIAS ||--o{ ARTICULOS : "clasifica"
     MARCAS ||--o{ ARTICULOS : "agrupa"
+    CATEGORIAS |o--o{ CATALOGOS_PROVEEDORES : "sugerida_para"
+    MARCAS |o--o{ CATALOGOS_PROVEEDORES : "sugerida_para"
     CATEGORIAS |o--o{ TERMINOS_CLASIFICACION : "sugerida_por"
     TERMINOS_CLASIFICACION ||--o{ PARES_CLASIFICACION : "se_precisa_con"
     CATEGORIAS |o--o{ PARES_CLASIFICACION : "sugerida_por_par"
@@ -198,6 +200,7 @@ erDiagram
         string cuit "UK (filtered)"
         string telefono
         string email
+        bool clasifica_catalogo "default 0: preferencia del toggle al importar (Track 6.6, M-75)"
         datetime deleted_at
     }
 
@@ -211,6 +214,9 @@ erDiagram
         string categoria_proveedor "nullable, texto del proveedor"
         string marca_proveedor "nullable, texto del proveedor"
         int id_articulo "FK nullable: articulo del que es fuente, principal o adicional (Track 4.3, A-1)"
+        int id_categoria_sugerida "FK nullable, Restrict: dato derivado del motor (Track 6.6, M-72)"
+        int id_marca_sugerida "FK nullable, Restrict: dato derivado del motor (M-72)"
+        datetime fecha_clasificacion "nullable: nula = pendiente de clasificar (M-74)"
         decimal precio_costo
         datetime fecha_actualizacion
         datetime deleted_at

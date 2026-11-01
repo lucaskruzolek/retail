@@ -14,10 +14,10 @@
 | :--- | :--- | :---: |
 | 8.0 | Decisiones M-72 a M-77 y este plan | ✅ 2026-10-31 |
 | 8.1 | Dominio: sugerencia y estado en `CatalogoProveedor`, preferencia en `Proveedor` | ✅ 2026-10-31: volver a pendiente borra también los ids sugeridos; un texto vacío o igual no cuenta como cambio |
-| 8.2 | Persistencia: mapeo, migración, índices y consultas del explorador | ✅ 2026-10-31: migración `AgregarClasificacionSugeridaAlCatalogo` (sin aplicar a la base local) |
+| 8.2 | Persistencia: mapeo, migración, índices y consultas del explorador | ✅ 2026-10-31: migración `AgregarClasificacionSugeridaAlCatalogo` (aplicada a la base local en 8.4) |
 | 8.3 | Aplicación: `MotorDeClasificacion`, `ClasificacionCatalogoService`, contratos del importador y del explorador | ✅ 2026-10-31: tests de Dominio (813), Aplicación (963) e integración del catálogo (39) en verde; `ConsultaCatalogoProveedorValidator` nuevo (ids positivos; "sin categoría" excluye una categoría), la paginación la sigue normalizando la consulta |
 | 8.4 | Interfaz: toggle al importar, diálogo de valores sin traducir, botón, filtros y columnas del explorador | ✅ 2026-10-31 (M-78 a M-80): merge de `main` (`76f8fe1`); suites de Dominio (813), Aplicación (1.005), App (1.098) e integración (general 432, backups 159, rendimiento 1) en verde; `audit-xaml` y `dotnet format` en verde; migración aplicada a la base local (con copia previa). Desvíos: el diálogo de asociación mide 700 × 660 (documentado en `SISTEMA_DE_DISENO.md`) y el interruptor del importador va en la sección "Proveedor", para que se vea sin desplazar y el diálogo conserve su alto. Falta la prueba manual |
-| 8.5 | Cierre: ERS, DER, mapa, track, verificación Release | ⏳ |
+| 8.5 | Cierre: ERS, DER, mapa, track, verificación Release | ✅ 2026-10-31: RF-27 e IU-05 en la ERS, FK sugeridas y `clasifica_catalogo` en el DER, verificación Release completa en verde (3.508 tests: Dominio 813, Aplicación 1.005, App 1.098, Integración 592; `audit-xaml` y `dotnet format`) |
 
 ---
 
@@ -113,9 +113,9 @@ Se planificó después del refactor de UI minimalista. Rige `SISTEMA_DE_DISENO.m
 | 8.4.0 | Merge de `main` en la rama ✅ |
 | 8.4.1 | Contrato por R8: listas y centinelas en la consulta, el validador y `CatalogoProveedorQueryService`. `ClasificaCatalogo` en `ResultadoImportacionDto` y en `ProveedorDto` |
 | 8.4.2 | `AsociarValoresPanel` (UserControl) extraído del paso 1 del modal de incorporación. Lo usan el modal y el diálogo nuevo |
-| 8.4.3 | Diálogo `AsociarValoresCatalogoDialog` (580 × 660): sección con ícono y título, el panel y el pie `Cancelar · Clasificar catálogo` |
-| 8.4.4 | Diálogo de importación: sección "Clasificación" con `ui:ToggleSwitch` en el encabezado, que arranca con la preferencia del proveedor |
-| 8.4.5 | Explorador: botón "Clasificar catálogo" (`KeycapButtonStyle`, `RegularCategory`). Columnas Categoría (por rubro, más "Sin categoría") y Marca (más "Sin marca") con `FiltroColumna`. Celdas: nombre sugerido en texto secundario, "Sin categoría" o "Pendiente" atenuados |
+| 8.4.3 | Diálogo `AsociarValoresCatalogoDialog` (700 × 660): sección con ícono y título, el panel y el pie `Cancelar · Clasificar catálogo` |
+| 8.4.4 | Diálogo de importación: fila "Clasificar catálogo" con `ui:ToggleSwitch` en la sección "Proveedor", que arranca con la preferencia del proveedor |
+| 8.4.5 | Explorador: botón "Clasificar catálogo" (`KeycapButtonStyle`, `RegularCategories`). Columnas Categoría (por rubro, más "Sin categoría") y Marca (más "Sin marca") con `FiltroColumna`. Celdas: nombre sugerido en texto secundario, "Sin categoría" o "Pendiente" atenuados |
 | 8.4.6 | Tests de ViewModel, humo STA, capturas en claro y oscuro, `audit-xaml.ps1` |
 | 8.4.7 | Migración aplicada a la base local y prueba manual |
 
