@@ -102,6 +102,31 @@ public partial class FiltroColumnaViewModel : ObservableObject
         NotificarAplicado();
     }
 
+    /// <summary>
+    /// Aplica estos ids desde fuera del panel, como si se hubieran marcado y aplicado (el enlace "Ver sin categoría" del
+    /// resultado de una clasificación). Descarta los que no son opciones y avisa con <see cref="Aplicado"/> si cambió.
+    /// </summary>
+    public void AplicarIds(IEnumerable<int> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+
+        var existentes = TodasLasOpciones().Select(o => o.Id).ToHashSet();
+        var marcadas = ids.Where(existentes.Contains).Distinct().ToList();
+
+        // Igual que "Aplicar" con todas las casillas marcadas: no se filtra.
+        IReadOnlyList<int> nuevos = marcadas.Count == existentes.Count ? [] : marcadas;
+
+        bool cambio = !nuevos.SequenceEqual(_idsAplicados);
+        _idsAplicados = nuevos;
+        RestaurarBorrador();
+        NotificarAplicado();
+
+        if (cambio)
+        {
+            Aplicado?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
     [RelayCommand]
     private void Aplicar()
     {

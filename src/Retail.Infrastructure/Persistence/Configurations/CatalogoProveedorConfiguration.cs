@@ -69,6 +69,39 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
             .HasColumnName("marca_proveedor")
             .HasMaxLength(ReglasClasificacion.LongitudMaximaTextoDeProveedor);
 
+        // Clasificación sugerida con las reglas del comercio (Track 6.6, M-72, M-74). Las FK son opcionales y sin
+        // navegación: el dominio solo guarda ids y la consulta del explorador hace el cruce. Restrict porque el borrado
+        // físico está prohibido (Ley 3); una categoría o marca dada de baja se lee como "sin categoría" (M-74).
+        builder.Property(cp => cp.IdCategoriaSugerida)
+            .HasColumnName("id_categoria_sugerida");
+
+        builder.Property(cp => cp.IdMarcaSugerida)
+            .HasColumnName("id_marca_sugerida");
+
+        // Nula = pendiente de clasificar (M-74).
+        builder.Property(cp => cp.FechaClasificacion)
+            .HasColumnName("fecha_clasificacion");
+
+        builder.HasOne<Categoria>()
+            .WithMany()
+            .HasForeignKey(cp => cp.IdCategoriaSugerida)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Marca>()
+            .WithMany()
+            .HasForeignKey(cp => cp.IdMarcaSugerida)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Índices de los filtros del explorador por categoría y por marca sugeridas: el proveedor primero, como el de
+        // paginación, y solo las filas vigentes (Ley 8, RNF-02).
+        builder.HasIndex(cp => new { cp.IdProveedor, cp.IdCategoriaSugerida })
+            .HasFilter("[deleted_at] IS NULL");
+
+        builder.HasIndex(cp => new { cp.IdProveedor, cp.IdMarcaSugerida })
+            .HasFilter("[deleted_at] IS NULL");
+
         builder.Property(cp => cp.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();

@@ -116,4 +116,17 @@ public class ProveedorDomainTests
         proveedor.RazonSocial.Should().Be("Distribuidora Valida");
         proveedor.Cuit.Should().Be("20111111112");
     }
+
+    [Fact]
+    public void ConfigurarClasificacionDelCatalogo_ActivaYDesactivaLaPreferencia()
+    {
+        var proveedor = Proveedor.Crear("Distribuidora Valida", "20-11111111-2");
+        proveedor.ClasificaCatalogo.Should().BeFalse();
+
+        proveedor.ConfigurarClasificacionDelCatalogo(true);
+        proveedor.ClasificaCatalogo.Should().BeTrue();
+
+        proveedor.ConfigurarClasificacionDelCatalogo(false);
+        proveedor.ClasificaCatalogo.Should().BeFalse();
+    }
 }

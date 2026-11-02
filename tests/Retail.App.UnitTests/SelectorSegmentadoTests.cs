@@ -11,7 +11,8 @@ namespace Retail.App.UnitTests;
 
 /// <summary>
 /// <see cref="SelectorSegmentado"/>: el indicador único que se desliza debe quedar exactamente detrás de la opción marcada.
-/// La animación en sí solo se puede apreciar a ojo (galería de estilos); acá se verifica la posición final y que se anime.
+/// La animación en sí solo se puede apreciar a ojo (galería de estilos); acá se verifica la posición final y que se anime cuando
+/// Windows tiene activados los efectos de animación.
 /// </summary>
 public class SelectorSegmentadoTests
 {
@@ -106,17 +107,28 @@ public class SelectorSegmentadoTests
     }
 
     [Fact]
-    public void SelectorSegmentado_ConAnimacion_TerminaEnLaPosicionDeLaOpcion()
+    public void SelectorSegmentado_ConAnimacion_RespetaLaPreferenciaDeAnimacionesDelSistema()
     {
-        ConSelector(animar: true, marcarPrimera: true, (_, _, segunda, indicador) =>
+        ConSelector(animar: true, marcarPrimera: true, (selector, _, segunda, indicador) =>
         {
             var traslado = (TranslateTransform)indicador.RenderTransform;
 
             segunda.IsChecked = true;
 
-            // Sin esperar a que termine: alcanza con que el desplazamiento y el ancho estén animados hacia la nueva opción
-            traslado.HasAnimatedProperties.Should().BeTrue("el cambio de opción desliza el indicador en lugar de saltar");
-            indicador.HasAnimatedProperties.Should().BeTrue("el ancho también se anima");
+            // "Efectos de animación" de Windows (accesibilidad): el control no anima si el usuario los apagó. El runner de
+            // CI corre sin escritorio interactivo y los tiene apagados, así que cada equipo verifica la rama que le toca.
+            if (SystemParameters.ClientAreaAnimation)
+            {
+                // Sin esperar a que termine: alcanza con que el desplazamiento y el ancho estén animados hacia la nueva opción
+                traslado.HasAnimatedProperties.Should().BeTrue("el cambio de opción desliza el indicador en lugar de saltar");
+                indicador.HasAnimatedProperties.Should().BeTrue("el ancho también se anima");
+            }
+            else
+            {
+                traslado.HasAnimatedProperties.Should().BeFalse("con las animaciones del sistema apagadas el indicador salta");
+                PosicionX(indicador).Should().BeApproximately(ComienzoDe(segunda, selector), Tolerancia);
+                indicador.Width.Should().BeApproximately(segunda.ActualWidth, Tolerancia);
+            }
         });
     }
 }

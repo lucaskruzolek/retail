@@ -161,6 +161,44 @@ public class FiltroColumnaViewModelTests
     }
 
     [Fact]
+    public void AplicarIds_ConIdsDeOpciones_LosAplicaMarcaElBorradorYAvisa()
+    {
+        var filtro = CrearFiltroAgrupado();
+        int avisos = 0;
+        filtro.Aplicado += (_, _) => avisos++;
+
+        filtro.AplicarIds([3, 99]);
+
+        filtro.IdsAplicados.Should().Equal(3);
+        Opcion(filtro, 3).Seleccionada.Should().BeTrue();
+        Opcion(filtro, 1).Seleccionada.Should().BeFalse();
+        avisos.Should().Be(1);
+    }
+
+    [Fact]
+    public void AplicarIds_IgualALoAplicado_NoAvisa()
+    {
+        var filtro = CrearFiltroAgrupado();
+        filtro.AplicarIds([2]);
+        int avisos = 0;
+        filtro.Aplicado += (_, _) => avisos++;
+
+        filtro.AplicarIds([2]);
+
+        avisos.Should().Be(0);
+    }
+
+    [Fact]
+    public void AplicarIds_ConTodasLasOpciones_EquivaleASinFiltro()
+    {
+        var filtro = CrearFiltroAgrupado();
+
+        filtro.AplicarIds([1, 2, 3, 4]);
+
+        filtro.HayFiltroActivo.Should().BeFalse();
+    }
+
+    [Fact]
     public void QuitarFiltro_ConFiltroAplicado_LoVaciaSinAvisar()
     {
         var filtro = CrearFiltroAgrupado();

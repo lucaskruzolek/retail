@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Retail.App.ViewModels.Proveedores;
 using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 
@@ -124,6 +125,32 @@ public class ProveedorDialogService : IProveedorDialogService
         }
 
         await Task.CompletedTask;
+    }
+
+    public async Task<bool> AbrirAsociarValoresCatalogoAsync(ProveedorDto proveedor, IReadOnlyList<ValorSinTraducirDto> valores)
+    {
+        ArgumentNullException.ThrowIfNull(proveedor);
+        ArgumentNullException.ThrowIfNull(valores);
+
+        var vm = _serviceProvider.GetRequiredService<AsociarValoresCatalogoViewModel>();
+        try
+        {
+            vm.Inicializar(proveedor, valores);
+            await vm.CargarDestinosAsync();
+
+            var dialog = new AsociarValoresCatalogoDialog
+            {
+                DataContext = vm,
+                Owner = System.Windows.Application.Current.MainWindow
+            };
+
+            var resultado = dialog.ShowDialog();
+            return resultado == true && vm.DialogResult;
+        }
+        finally
+        {
+            vm.Dispose();
+        }
     }
 
     public async Task<ResultadoImportacionDto?> AbrirImportarPlanillaAsync(ProveedorDto proveedor)

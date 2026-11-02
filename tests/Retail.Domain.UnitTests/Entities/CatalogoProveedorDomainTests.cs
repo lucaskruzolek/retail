@@ -263,6 +263,160 @@ public class CatalogoProveedorDomainTests
         item.IdArticulo.Should().Be(8);
     }
 
+    [Fact]
+    public void RegistrarClasificacionSugerida_ConIds_GuardaSugerenciaYFechaUtc()
+    {
+        var item = CrearItem();
+        var antes = DateTime.UtcNow.AddSeconds(-1);
+
+        item.RegistrarClasificacionSugerida(4, 9);
+
+        item.IdCategoriaSugerida.Should().Be(4);
+        item.IdMarcaSugerida.Should().Be(9);
+        item.FechaClasificacion.Should().BeOnOrAfter(antes);
+        item.ClasificacionPendiente.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RegistrarClasificacionSugerida_SinIds_QuedaFechadoSinCategoriaNiMarca()
+    {
+        var item = CrearItem();
+
+        item.RegistrarClasificacionSugerida(null, null);
+
+        item.IdCategoriaSugerida.Should().BeNull();
+        item.IdMarcaSugerida.Should().BeNull();
+        item.ClasificacionPendiente.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(-1, null)]
+    [InlineData(null, 0)]
+    [InlineData(null, -3)]
+    public void RegistrarClasificacionSugerida_ConIdNoPositivo_LanzaArgumentOutOfRangeException(int? idCategoria, int? idMarca)
+    {
+        var item = CrearItem();
+
+        var act = () => item.RegistrarClasificacionSugerida(idCategoria, idMarca);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+        item.ClasificacionPendiente.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ActualizarPrecio_CambiaLaDescripcion_DejaLaClasificacionPendienteYSinSugerencia()
+    {
+        var item = CrearItemClasificado();
+
+        item.ActualizarPrecio(120m, "Resma A4 Autor");
+
+        item.ClasificacionPendiente.Should().BeTrue();
+        item.IdCategoriaSugerida.Should().BeNull();
+        item.IdMarcaSugerida.Should().BeNull();
+    }
+
+    [Fact]
+    public void ActualizarPrecio_CambiaSoloElCosto_ConservaLaClasificacion()
+    {
+        var item = CrearItemClasificado();
+
+        item.ActualizarPrecio(120m);
+
+        item.ClasificacionPendiente.Should().BeFalse();
+        item.IdCategoriaSugerida.Should().Be(4);
+        item.IdMarcaSugerida.Should().Be(9);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ActualizarPrecio_ConDescripcionVacia_ConservaLaClasificacion(string? descripcion)
+    {
+        var item = CrearItemClasificado();
+
+        item.ActualizarPrecio(120m, descripcion);
+
+        item.ClasificacionPendiente.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ActualizarPrecio_MismaDescripcionConEspaciosDeMas_ConservaLaClasificacion()
+    {
+        var item = CrearItemClasificado();
+
+        item.ActualizarPrecio(120m, "  Resma A4  ");
+
+        item.ClasificacionPendiente.Should().BeFalse();
+        item.IdCategoriaSugerida.Should().Be(4);
+    }
+
+    [Fact]
+    public void ActualizarPrecio_CambiaElCodigoDeBarras_DejaLaClasificacionPendiente()
+    {
+        var item = CrearItemClasificado();
+
+        item.ActualizarPrecio(100m, codigoBarras: "7791234567890");
+
+        item.ClasificacionPendiente.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ActualizarPrecio_CambiaLaMarcaDelProveedor_DejaLaClasificacionPendiente()
+    {
+        var item = CrearItemClasificado();
+
+        item.ActualizarPrecio(100m, marcaProveedor: "Rivadavia");
+
+        item.ClasificacionPendiente.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ActualizarPrecio_ConTextoInvalido_NoTocaLaClasificacion()
+    {
+        var item = CrearItemClasificado();
+
+        var act = () => item.ActualizarPrecio(120m, "Otra descripción", rubroProveedor: new string('x', 500));
+
+        act.Should().Throw<DomainException>();
+        item.ClasificacionPendiente.Should().BeFalse();
+        item.DescripcionProveedor.Should().Be("Resma A4");
+    }
+
+    [Fact]
+    public void ActualizarClasificacionDelProveedor_CambiaElRubro_DejaLaClasificacionPendiente()
+    {
+        var item = CrearItemClasificado();
+        item.ActualizarClasificacionDelProveedor("Papelería", null, null);
+        item.RegistrarClasificacionSugerida(4, 9);
+
+        item.ActualizarClasificacionDelProveedor("Librería", null, null);
+
+        item.ClasificacionPendiente.Should().BeTrue();
+        item.IdCategoriaSugerida.Should().BeNull();
+    }
+
+    [Fact]
+    public void ActualizarClasificacionDelProveedor_MismoRubro_ConservaLaClasificacion()
+    {
+        var item = CrearItemClasificado();
+        item.ActualizarClasificacionDelProveedor("Papelería", null, null);
+        item.RegistrarClasificacionSugerida(4, 9);
+
+        item.ActualizarClasificacionDelProveedor(" Papelería ", null, null);
+
+        item.ClasificacionPendiente.Should().BeFalse();
+        item.IdCategoriaSugerida.Should().Be(4);
+    }
+
+    private static CatalogoProveedor CrearItemClasificado()
+    {
+        var item = CrearItem();
+        item.RegistrarClasificacionSugerida(4, 9);
+        return item;
+    }
+
     private static CatalogoProveedor CrearItem()
     {
         return new CatalogoProveedor

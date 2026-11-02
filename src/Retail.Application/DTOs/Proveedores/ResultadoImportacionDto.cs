@@ -11,4 +11,7 @@ public record class ResultadoImportacionDto
     public required int FilasConError { get; init; }
     public IReadOnlyList<string> ErroresDetalle { get; init; } = Array.Empty<string>();
     public required TimeSpan TiempoTranscurrido { get; init; }
+
+    /// <summary>La importación pidió clasificar el catálogo; la página del explorador lo orquesta (M-79).</summary>
+    public bool ClasificaCatalogo { get; init; }
 }
