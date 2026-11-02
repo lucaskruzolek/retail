@@ -369,6 +369,12 @@
                 <RadioButton GroupName="Reportes" Content="Stock crítico" Style="{StaticResource PillRadioButtonStyle}" />
             </StackPanel>
 
+            <!-- Navegación de sección -->
+            <TextBlock Text="Navegación de sección" Style="{StaticResource GaleriaSeccionStyle}" />
+            <TextBlock Text="Bajo el título de una página, permite pasar a las demás páginas de su sección (Compras: Pedidos, Ingresos, Proveedores). Se oculta solo si el rol ve una única página. Acá usa una navegación de muestra: cambia la marca pero no abre nada."
+                       Style="{StaticResource GaleriaNotaStyle}" />
+            <components:NavegadorSeccion SeccionId="compras" Navegacion="{Binding NavegacionMuestra}" />
+
             <!-- B.4 Insignias -->
             <TextBlock Text="Insignias" Style="{StaticResource GaleriaSeccionStyle}" />
             <TextBlock Text="Rectangulares (radio 4) y sin borde. La neutra clasifica (categoría, distribuidor); las de color comunican un estado de negocio. La de selección reemplaza a &quot;Limpiar filtros&quot; con filas marcadas."

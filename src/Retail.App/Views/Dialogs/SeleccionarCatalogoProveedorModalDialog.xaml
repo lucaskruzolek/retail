@@ -107,8 +107,7 @@
                                     PlaceholderText="Buscar por código de proveedor, barras o descripción..."
                                     VerticalAlignment="Center">
                             <ui:TextBox.Icon>
-                                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                              Width="16" Height="16" />
+                                <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
                             </ui:TextBox.Icon>
                             <ui:TextBox.InputBindings>
                                 <KeyBinding Key="Return" Command="{Binding BuscarCommand}" />

@@ -95,6 +95,15 @@ public partial class App : System.Windows.Application
             new Retail.App.Services.ConfirmacionesAvisoRestauracionEnArchivo(
                 Retail.App.Services.ConfirmacionesAvisoRestauracionEnArchivo.RutaPorDefecto()));
 
+        // Ajustes y tema visual claro/oscuro
+        services.AddSingleton<Retail.App.Services.IPreferenciasUsuario>(proveedor =>
+            new Retail.App.Services.PreferenciasUsuario(
+                Retail.App.Services.PreferenciasUsuario.RutaPorDefecto(),
+                proveedor.GetService<Microsoft.Extensions.Logging.ILogger<Retail.App.Services.PreferenciasUsuario>>()));
+        services.AddSingleton<Retail.App.Services.IServicioTema, Retail.App.Services.ServicioTema>();
+        services.AddTransient<Retail.App.ViewModels.Ajustes.AjustesViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.AjustesView>();
+
         // Vistas de Desarrollo
         services.AddTransient<Retail.App.Views.Dev.StyleGalleryView>();
 
@@ -181,6 +190,9 @@ public partial class App : System.Windows.Application
         Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(
             System.Windows.Media.Color.FromRgb(0x9D, 0x0F, 0x33),
             Wpf.Ui.Appearance.ApplicationTheme.Light);
+
+        // Tema guardado por el usuario (claro u oscuro), aplicado antes de mostrar el login
+        _host.Services.GetRequiredService<Retail.App.Services.IServicioTema>().AplicarGuardado();
 
         await _host.StartAsync();
 

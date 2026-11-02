@@ -45,6 +45,9 @@ public partial class StyleGalleryView : UserControl
 
     public PaginacionMuestra Paginacion { get; } = new();
 
+    /// <summary>Navegación de muestra del <c>NavegadorSeccion</c>: cambia la marca sin abrir páginas de verdad.</summary>
+    public NavegacionMuestra NavegacionMuestra { get; } = new("ingresos");
+
     public StyleGalleryView()
     {
         InitializeComponent();

@@ -266,6 +266,7 @@ Reglas que toda vista y todo diálogo cumple. Son revisables por captura y por `
 | R7 | **Enter acepta y Esc cancela** en todo diálogo: el botón principal lleva `IsDefault="True"`. |
 | R8 | **Filtros de una tabla en su cabecera** (`FiltroColumna`), no en combos ni botones sobre la grilla. La toolbar queda con el buscador y "Limpiar filtros". |
 | R9 | **Elegir entre pocas vistas o modos** (pestañas de un tablero, por ejemplo) usa `SelectorSegmentado`, no botones sueltos. |
+| R10 | **Todo color con `{DynamicResource}`.** Los pinceles de la paleta llegan congelados: un `{StaticResource}` de color no cambia al alternar el tema claro/oscuro. `audit-xaml.ps1` lo rechaza. Para un ícono de BoxIcons dentro de un `ui:TextBox`, usar `IconoBoxIcons` (no `ui:ImageIcon` con `BoxIconsImage`). |
 
 ## 📋 Páginas de Listado (Buscador + Filtros + Grilla)
 
@@ -355,6 +356,16 @@ Para dos o tres opciones excluyentes y fijas (Producto · Servicio). Código en 
 * **Movimiento:** 180 ms (`DuracionTransicion`), `CubicEase` EaseOut sobre la posición y el ancho del indicador; sin animación si `SystemParameters.ClientAreaAnimation` está apagada.
 * **Altura:** 5 + 5 de relleno + 2 de borde + ~18 de texto = 30, más 3 + 3 del riel = 36. El borde de 1 px, transparente en reposo, reserva sitio al anillo de foco para que nada se corra cuando aparece.
 * **Pruebas:** [`SelectorSegmentadoTests.cs`](file:///c:/Users/lucas/Proyectos/retail/tests/Retail.App.UnitTests/SelectorSegmentadoTests.cs).
+
+### 3 bis. Selector de sección (`NavegadorSeccion`)
+
+Navegación entre las páginas de una sección del menú lateral (Ventas: Clientes, Caja y Presupuestos; Inventario: Artículos y Catálogos; Compras: Pedidos, Ingresos y Proveedores; Administración: Usuarios, Copias, Restauraciones y Consola fiscal). Va **bajo el título de la página, alineado a la izquierda**, y es un `SelectorSegmentado` cuyas opciones navegan.
+
+* **Navega solo con un clic o con el teclado sobre una opción**, nunca al cargar la página ni al reaccionar a un cambio de página. Si el shell rechaza la navegación (sin acceso), la marca vuelve a la página abierta.
+* **Se oculta con menos de 2 páginas visibles** para el rol: un acceso con una sola página (Tablero, Punto de venta) abre directo, sin selector.
+* **El título de la página es el de la sección** y la pestaña activa dice cuál de sus páginas se está viendo.
+* Qué páginas ofrece lo decide `RegistroNavegacion` con la política de `PoliticaAcceso`; nada se repite en la vista. El tooltip de cada opción incluye su atajo (por ejemplo "Clientes (F4)").
+* Los modos internos de una página (Copias / Restauraciones, vistas del Tablero) no usan este componente: el Tablero es un acceso directo y conserva su propio `SelectorSegmentado`.
 
 ### 4. Encabezado de diálogo (`EncabezadoDialogo`)
 Barra de título de los 25 diálogos. Código en [`Views/Components/EncabezadoDialogo.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Components/EncabezadoDialogo.cs); plantilla implícita en `Controls.xaml`.
