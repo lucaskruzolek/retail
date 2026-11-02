@@ -22,7 +22,7 @@
             <RowDefinition Height="Auto" />
             <!-- Avisos (errores) -->
             <RowDefinition Height="Auto" />
-            <!-- Selector de vista y estado, directo sobre el fondo -->
+            <!-- Estado y carga, directo sobre el fondo -->
             <RowDefinition Height="Auto" />
             <!-- Tabla: la única superficie de la página -->
             <RowDefinition Height="*" />
@@ -31,31 +31,35 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO Y ACCIONES (Gerente y Administrador operan, D-30 y D-32), sin tarjeta -->
         <!-- ============================================================= -->
-        <components:PageHeader Grid.Row="0"
-                               Margin="{StaticResource SectionSpacing}"
-                               Titulo="Copias de Seguridad y Restauración"
-                               Subtitulo="Historial de copias completas de la base de datos y restauración desde una copia verificada (RF-22)">
-            <StackPanel Orientation="Horizontal"
-                        Visibility="{Binding PuedeOperar, Converter={StaticResource BoolToVisConverter}}">
-                <Button Command="{Binding RestaurarCopiaCommand}"
-                        Style="{StaticResource DangerActionButtonStyle}"
-                        Margin="{StaticResource InlineSm}"
-                        ToolTip="Restaurar la copia seleccionada (solo copias verificadas)">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Restaurar" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <Button Command="{Binding CrearBackupManualCommand}"
-                        Style="{StaticResource PrimaryActionButtonStyle}"
-                        ToolTip="Crear una copia de seguridad ahora">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Crear copia" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </components:PageHeader>
+        <StackPanel Grid.Row="0">
+            <components:PageHeader Margin="{StaticResource StackSm}"
+                                   Titulo="Administración"
+                                   Subtitulo="Historial de copias completas de la base de datos y restauración desde una copia verificada (RF-22)">
+                <StackPanel Orientation="Horizontal"
+                            Visibility="{Binding PuedeOperar, Converter={StaticResource BoolToVisConverter}}">
+                    <Button Command="{Binding RestaurarCopiaCommand}"
+                            Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}"
+                            Style="{StaticResource DangerActionButtonStyle}"
+                            Margin="{StaticResource InlineSm}"
+                            ToolTip="Restaurar la copia seleccionada (solo copias verificadas)">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Restaurar" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding CrearBackupManualCommand}"
+                            Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            ToolTip="Crear una copia de seguridad ahora">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Crear copia" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </components:PageHeader>
+            <components:NavegadorSeccion SeccionId="administracion" Margin="{StaticResource SectionSpacing}" />
+        </StackPanel>
 
         <!-- ============================================================= -->
         <!-- 2. AVISOS: modo solo lectura y errores -->
@@ -81,24 +85,9 @@
         </StackPanel>
 
         <!-- ============================================================= -->
-        <!-- 3. SELECTOR DE VISTA (D-34, R9), ESTADO Y CARGA, sin tarjeta   -->
+        <!-- 3. ESTADO Y CARGA, sin tarjeta (la vista se elige en el selector de sección)-->
         <!-- ============================================================= -->
         <DockPanel Grid.Row="2" LastChildFill="False" Margin="{StaticResource StackMd}">
-            <components:SelectorSegmentado DockPanel.Dock="Left"
-                                           VerticalAlignment="Center"
-                                           Margin="{StaticResource InlineMd}">
-                <UniformGrid Columns="2">
-                    <RadioButton GroupName="VistaRespaldos"
-                                 IsChecked="{Binding MostrandoCopias, Mode=TwoWay}"
-                                 Style="{StaticResource SegmentedRadioButtonStyle}"
-                                 Content="Copias" />
-                    <RadioButton GroupName="VistaRespaldos"
-                                 IsChecked="{Binding MostrandoRestauraciones, Mode=TwoWay}"
-                                 Style="{StaticResource SegmentedRadioButtonStyle}"
-                                 Content="Restauraciones" />
-                </UniformGrid>
-            </components:SelectorSegmentado>
-
             <TextBlock Text="{Binding MensajeEstado}"
                        Style="{StaticResource TextBlockBodySecondary}"
                        VerticalAlignment="Center" />

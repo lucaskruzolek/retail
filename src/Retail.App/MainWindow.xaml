@@ -136,632 +136,67 @@
                                   Style="{StaticResource SidebarScrollViewerStyle}"
                                   Padding="6,8">
                         <StackPanel>
-                            <!-- SECCIÓN: OPERACIONES DE MOSTRADOR -->
-                            <TextBlock Text="OPERACIONES DE MOSTRADOR"
-                                       Style="{StaticResource TextBlockCaption}"
-                                       Foreground="{DynamicResource SidebarTextMutedBrush}"
-                                       FontWeight="Bold"
-                                       Margin="12,14,12,6"
-                                       FontSize="10"
-                                       Visibility="{Binding MostrarCabecerasOperativas, Converter={StaticResource BoolToVisConverter}}" />
-
-                            <!-- 1. Punto de Venta (POS) [F1] -->
-                            <Button Command="{Binding NavegarPosCommand}"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Pos">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Punto de Venta (POS)" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                                <TextBlock Text="F1" Style="{StaticResource TextBlockKeycap}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularStoreAlt2"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Punto de Venta"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 2. Catálogo de Artículos [F2] -->
-                            <Button Command="{Binding NavegarArticulosCommand}"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Articulos">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Catálogo de Artículos" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                                <TextBlock Text="F2" Style="{StaticResource TextBlockKeycap}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularBook"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Artículos"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 3. Clientes y Cuentas Corrientes [F4] -->
-                            <Button Command="{Binding NavegarClientesCommand}"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Clientes">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Clientes" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                                <TextBlock Text="F4" Style="{StaticResource TextBlockKeycap}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularUser"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Clientes"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 4. Turnos de Caja [F5] -->
-                            <Button Command="{Binding NavegarCajaCommand}"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Caja">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Caja y Turnos" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                                <TextBlock Text="F5" Style="{StaticResource TextBlockKeycap}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularDollarCircle"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Caja y Turnos"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 5. Presupuestos [F6] -->
-                            <Button Command="{Binding NavegarPresupuestosCommand}"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Presupuestos">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Presupuestos" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                                <TextBlock Text="F6" Style="{StaticResource TextBlockKeycap}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularFile"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Presupuestos"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- Divisor de Grupo: Mostrador a Gestión & Stock (oculto para el Administrador) -->
-                            <Border Height="1"
-                                    Background="{DynamicResource SidebarBorderBrush}"
-                                    Margin="10,10,10,8"
-                                    SnapsToDevicePixels="True"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}" />
-
-                            <!-- SECCIÓN: GESTIÓN & STOCK -->
-                            <TextBlock Text="GESTIÓN &amp; STOCK"
-                                       Style="{StaticResource TextBlockCaption}"
-                                       Foreground="{DynamicResource SidebarTextMutedBrush}"
-                                       FontWeight="Bold"
-                                       Margin="12,14,12,6"
-                                       FontSize="10"
-                                       Visibility="{Binding MostrarCabecerasOperativas, Converter={StaticResource BoolToVisConverter}}" />
-
-                            <!-- 6. Compras a Distribuidores -->
-                            <Button Command="{Binding NavegarComprasCommand}"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Compras">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <TextBlock Text="Compras" FontWeight="SemiBold" />
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularPackage"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Compras"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 6.1 Pedidos a Proveedores (Track 4.3): solo Encargado y Gerente (A-14) -->
-                            <Button Command="{Binding NavegarPedidosCommand}"
-                                    Visibility="{Binding PuedeAbastecer, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Pedidos">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <TextBlock Text="Pedidos a Proveedores" FontWeight="SemiBold" />
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularCart"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Pedidos"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 7. Proveedores -->
-                            <Button Command="{Binding NavegarProveedoresCommand}"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Proveedores">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <TextBlock Text="Padrón de Proveedores" FontWeight="SemiBold" />
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularTruck"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Proveedores"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 8. Catálogos Mayoristas e Importador -->
-                            <Button Command="{Binding NavegarCatalogosCommand}"
-                                    Visibility="{Binding PuedeOperarNegocio, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Catalogos">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <TextBlock Text="Catálogos Mayoristas e Importador" FontWeight="SemiBold" />
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularFileDetail"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Catálogos"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- Divisor de Grupo: Gestión a Administración (solo el Gerente ve ambos grupos) -->
-                            <Border Height="1"
-                                    Background="{DynamicResource SidebarBorderBrush}"
-                                    Margin="10,10,10,8"
-                                    SnapsToDevicePixels="True"
-                                    Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}" />
-
-                            <!-- SECCIÓN: ADMINISTRACIÓN (Gerente o Administrador, con el sidebar expandido) -->
-                            <TextBlock Text="ADMINISTRACIÓN"
-                                       Style="{StaticResource TextBlockCaption}"
-                                       Foreground="{DynamicResource SidebarTextMutedBrush}"
-                                       FontWeight="Bold"
-                                       Margin="12,14,12,6"
-                                       FontSize="10"
-                                       Visibility="{Binding MostrarCabeceraAdmin, Converter={StaticResource BoolToVisConverter}}" />
-
-                            <!-- Tablero gerencial (Solo Gerente) -->
-                            <Button Command="{Binding NavegarTableroCommand}"
-                                    Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Tablero">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <TextBlock Text="Tablero gerencial" FontWeight="SemiBold" />
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularBarChart"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Tablero"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 8. Consola Fiscal ARCA [F9] (Solo Gerente) -->
-                            <Button Command="{Binding NavegarConsolaFiscalCommand}"
-                                    Visibility="{Binding EsGerente, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Fiscal">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Consola Fiscal" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                                <TextBlock Text="F9" Style="{StaticResource TextBlockKeycap}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularBadgeCheck"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Consola Fiscal"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 9. Operadores y Roles [F10] (Gerente o Administrador) -->
-                            <Button Command="{Binding NavegarUsuariosCommand}"
-                                    Visibility="{Binding PuedeGestionarUsuarios, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Usuarios">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Usuarios y Roles" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                                <TextBlock Text="F10" Style="{StaticResource TextBlockKeycap}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularUserIdCard"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Operadores"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
-
-                            <!-- 10. Respaldos [F11] (Gerente o Administrador; el Administrador solo consulta) -->
-                            <Button Command="{Binding NavegarRespaldosCommand}"
-                                    Visibility="{Binding PuedeGestionarUsuarios, Converter={StaticResource BoolToVisConverter}}">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Respaldos">
-                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <Button.ToolTip>
-                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                            <TextBlock Text="Respaldos" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                                <TextBlock Text="F11" Style="{StaticResource TextBlockKeycap}" />
-                                            </Border>
-                                        </StackPanel>
-                                    </ToolTip>
-                                </Button.ToolTip>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="36" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
-                                                                Kind="RegularSave"
-                                                                Width="20"
-                                                                Height="20"
-                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                                                HorizontalAlignment="Center"
-                                                                VerticalAlignment="Center" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="Respaldos"
-                                               VerticalAlignment="Center"
-                                               TextTrimming="CharacterEllipsis"
-                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
-                                </Grid>
-                            </Button>
+                            <!-- Accesos del menú: salen del registro de navegación (RegistroNavegacion) según el rol del operador.
+                                 Cada acceso abre su sección; con varias páginas, la página muestra bajo su título un selector
+                                 para pasar de una a otra. -->
+                            <ItemsControl ItemsSource="{Binding SeccionesMenu}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding DataContext.IrASeccionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding Id}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding EsActiva}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                            <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                            <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <Button.ToolTip>
+                                                <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding Detalle}"
+                                                                   Margin="8,0,0,0"
+                                                                   Foreground="{DynamicResource SidebarTextMutedBrush}"
+                                                                   VerticalAlignment="Center"
+                                                                   Visibility="{Binding TieneDetalle, Converter={StaticResource BoolToVisConverter}}" />
+                                                        <Border Style="{StaticResource KeycapBadgeStyle}"
+                                                                Margin="8,0,0,0"
+                                                                Visibility="{Binding TieneAtajo, Converter={StaticResource BoolToVisConverter}}">
+                                                            <TextBlock Text="{Binding Atajo}" Style="{StaticResource TextBlockKeycap}" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                </ToolTip>
+                                            </Button.ToolTip>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="36" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                            Kind="{Binding Icono}"
+                                                                            Width="20"
+                                                                            Height="20"
+                                                                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                            HorizontalAlignment="Center"
+                                                                            VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Titulo}"
+                                                           VerticalAlignment="Center"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                           Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
                             <!-- TEMPORAL (desarrollo): acceso a la galería de estilos para revisar componentes a mano. Se quita
                                  antes del release de producción (Etapa 6), junto con este divisor. -->
@@ -772,7 +207,7 @@
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
                                         <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ModuloActivo}" Value="Galeria">
+                                            <DataTrigger Binding="{Binding GaleriaActiva}" Value="True">
                                                 <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
                                                 <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
                                             </DataTrigger>
@@ -816,6 +251,49 @@
                             BorderThickness="0,1,0,0"
                             Padding="8,10">
                         <StackPanel>
+                            <!-- Ajustes: acceso fijo sobre el operador (tema claro/oscuro y futuras configuraciones) -->
+                            <Button Margin="0,0,0,8"
+                                    Command="{Binding IrASeccionCommand}"
+                                    CommandParameter="ajustes">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ItemAjustes.EsActiva}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource SidebarActiveBackgroundBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource SidebarActiveForegroundBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <TextBlock Text="Ajustes" FontWeight="SemiBold" />
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="RegularCog"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Ajustes"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
                             <!-- Ficha de Operador Expandida -->
                             <!-- Operador activo: avatar circular, nombre y rol en texto plano (sin tarjeta ni borde) -->
                             <Grid Margin="6,0,6,12"

@@ -63,16 +63,18 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO DEL MÓDULO (sin tarjeta)                        -->
         <!-- ============================================================= -->
-        <components:PageHeader Grid.Row="0"
-                               Margin="{StaticResource SectionSpacing}"
-                               Titulo="Pedidos a Proveedores">
-            <StackPanel Orientation="Horizontal">
-                <Border Style="{StaticResource BadgeDangerStyle}"
-                        Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="{Binding MensajeError}" FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap" MaxWidth="420" />
-                </Border>
-            </StackPanel>
-        </components:PageHeader>
+        <StackPanel Grid.Row="0">
+            <components:PageHeader Margin="{StaticResource StackSm}"
+                                   Titulo="Compras">
+                <StackPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource BadgeDangerStyle}"
+                            Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeError}" FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap" MaxWidth="420" />
+                    </Border>
+                </StackPanel>
+            </components:PageHeader>
+            <components:NavegadorSeccion SeccionId="compras" Margin="{StaticResource SectionSpacing}" />
+        </StackPanel>
 
         <!-- ============================================================= -->
         <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta). Estado y Proveedor se      -->

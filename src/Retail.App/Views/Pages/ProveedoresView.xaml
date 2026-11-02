@@ -37,21 +37,23 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta)                      -->
         <!-- ============================================================= -->
-        <components:PageHeader Grid.Row="0"
-                               Margin="{StaticResource SectionSpacing}"
-                               Titulo="Proveedores">
-            <StackPanel Orientation="Horizontal">
-                <!-- Botón Nuevo Proveedor (F2) -->
-                <Button x:Name="BtnNuevoProveedor"
-                        Command="{Binding NuevoProveedorCommand}"
-                        Style="{StaticResource PrimaryActionButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Nuevo Proveedor" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </components:PageHeader>
+        <StackPanel Grid.Row="0">
+            <components:PageHeader Margin="{StaticResource StackSm}"
+                                   Titulo="Compras">
+                <StackPanel Orientation="Horizontal">
+                    <!-- Botón Nuevo Proveedor (F2) -->
+                    <Button x:Name="BtnNuevoProveedor"
+                            Command="{Binding NuevoProveedorCommand}"
+                            Style="{StaticResource PrimaryActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Nuevo Proveedor" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </components:PageHeader>
+            <components:NavegadorSeccion SeccionId="compras" Margin="{StaticResource SectionSpacing}" />
+        </StackPanel>
 
         <!-- ============================================================= -->
         <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta, sin contador)               -->

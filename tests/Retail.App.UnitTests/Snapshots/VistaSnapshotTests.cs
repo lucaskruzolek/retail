@@ -273,6 +273,31 @@ public class VistaSnapshotTests
         VerificarCaptura(ruta, error);
     }
 
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void MainWindow_MenuExpandido_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var gerente = Substitute.For<ICurrentUserSession>();
+            gerente.EstaAutenticado.Returns(true);
+            gerente.NombreCompleto.Returns("Lucas Kruzolek");
+            gerente.Rol.Returns(RolUsuarioEnum.Gerente);
+            gerente.EsGerente.Returns(true);
+
+            var navegacion = Substitute.For<INavigationService>();
+            var viewModel = new MainViewModel(gerente, navegacion, Substitute.For<IServiceScopeFactory>());
+            viewModel.IrAPaginaCommand.Execute("clientes");
+            viewModel.ToggleSidebarCommand.Execute(null);
+
+            var ventana = new MainWindow(viewModel, navegacion, Substitute.For<IServiceProvider>());
+            return SnapshotRenderer.Guardar(ventana, 1366, 768, carpeta + "/MainWindow_MenuExpandido");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
     /// <summary>
     /// Aplica el tema pedido, ejecuta la captura en el hilo STA y SIEMPRE restaura el tema claro: la
     /// <c>Application</c> se comparte con el resto de la suite.

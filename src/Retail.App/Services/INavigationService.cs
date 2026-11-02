@@ -17,6 +17,9 @@ public interface INavigationService
 
     void NavigateTo(Type viewType);
 
+    /// <summary>Navega a una vista por su tipo y la prepara con <paramref name="configure"/> antes de mostrarla.</summary>
+    void NavigateTo(Type viewType, Action<object>? configure);
+
     bool CanGoBack { get; }
 
     void GoBack();

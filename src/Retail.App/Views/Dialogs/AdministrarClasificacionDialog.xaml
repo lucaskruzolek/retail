@@ -137,9 +137,7 @@
                                     PlaceholderText="Buscar rubro..."
                                     Margin="0,0,0,12">
                             <ui:TextBox.Icon>
-                                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                              Width="16"
-                                              Height="16" />
+                                <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
                             </ui:TextBox.Icon>
                         </ui:TextBox>
 
@@ -211,9 +209,7 @@
                                     PlaceholderText="Buscar categoría..."
                                     Margin="0,0,0,12">
                             <ui:TextBox.Icon>
-                                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                              Width="16"
-                                              Height="16" />
+                                <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
                             </ui:TextBox.Icon>
                         </ui:TextBox>
 
@@ -301,9 +297,7 @@
                                     PlaceholderText="Buscar marca..."
                                     Margin="0,0,0,12">
                             <ui:TextBox.Icon>
-                                <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                              Width="16"
-                                              Height="16" />
+                                <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
                             </ui:TextBox.Icon>
                         </ui:TextBox>
 
@@ -556,9 +550,7 @@
                                         PlaceholderText="Buscar término..."
                                         Margin="0,0,0,8">
                                 <ui:TextBox.Icon>
-                                    <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                                  Width="16"
-                                                  Height="16" />
+                                    <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
                                 </ui:TextBox.Icon>
                             </ui:TextBox>
                             <ComboBox Grid.Row="1"
