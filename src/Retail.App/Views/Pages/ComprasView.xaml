@@ -5,6 +5,7 @@
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:components="clr-namespace:Retail.App.Views.Components"
              xmlns:helpers="clr-namespace:Retail.App.Helpers"
+             xmlns:converters="clr-namespace:Retail.App.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -13,183 +14,480 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
+        <converters:IgualAParametroConverter x:Key="IgualAParametroConverter" />
+        <converters:AMayusculasConverter x:Key="AMayusculasConverter" />
+
+        <!-- Cantidades alineadas a la derecha, como todo número de una grilla -->
+        <Style x:Key="CeldaNumericaDerecha" TargetType="TextBlock" BasedOn="{StaticResource TextBlockNumericCell}">
+            <Setter Property="TextAlignment" Value="Right" />
+        </Style>
+
+        <!-- Importe de apoyo (precio vigente, nuevo precio sin cambios): en gris, para que el dato que se edita destaque -->
+        <Style x:Key="CeldaMonedaSecundaria" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        </Style>
+
+        <!-- Cuadro editable dentro de una celda: del alto de un botón de fila, con el número a la derecha -->
+        <Style x:Key="CeldaEditableStyle" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Height" Value="{StaticResource ControlHeightSm}" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalContentAlignment" Value="Right" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="TextAlignment" Value="Right" />
+            <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+            <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+            <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        </Style>
+
+        <!-- Nuevo precio de venta (RF-19): en texto gris si no cambia; con badge semáforo si sube (ámbar) o baja (verde) -->
+        <DataTemplate x:Key="PlantillaPrecioNuevo">
+            <Grid HorizontalAlignment="Right" VerticalAlignment="Center">
+                <TextBlock x:Name="SinCambio"
+                           Text="{Binding NuevoPrecioVenta, StringFormat=C2}"
+                           Style="{StaticResource CeldaMonedaSecundaria}" />
+
+                <Border x:Name="Sube" Style="{StaticResource BadgeWarningStyle}" Visibility="Collapsed"
+                        ToolTip="El precio de venta sube al registrar la compra">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularTrendingUp" Width="14" Height="14"
+                                                    Foreground="{DynamicResource WarningForegroundBrush}"
+                                                    Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding NuevoPrecioVenta, StringFormat=C2}" Language="es-AR"
+                                   FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular"
+                                   FontSize="{StaticResource FontSizeBase}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource WarningForegroundBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="Baja" Style="{StaticResource BadgeSuccessStyle}" Visibility="Collapsed"
+                        ToolTip="El precio de venta baja al registrar la compra">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularTrendingDown" Width="14" Height="14"
+                                                    Foreground="{DynamicResource SuccessForegroundBrush}"
+                                                    Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding NuevoPrecioVenta, StringFormat=C2}" Language="es-AR"
+                                   FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular"
+                                   FontSize="{StaticResource FontSizeBase}" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SuccessForegroundBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding SubePrecio}" Value="True">
+                    <Setter TargetName="SinCambio" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="Sube" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding BajaPrecio}" Value="True">
+                    <Setter TargetName="SinCambio" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="Baja" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </UserControl.Resources>
 
+    <!-- F12 es el único atajo de la pantalla. Los atajos globales (F1, F2, F4 a F6, F9 a F11) son navegación del shell:
+         agregar un artículo se hace con el buscador, sin tecla propia. -->
     <UserControl.InputBindings>
-        <KeyBinding Key="F2" Command="{Binding AgregarItemCommand}" />
         <KeyBinding Key="F12" Command="{Binding RegistrarCompraCommand}" />
     </UserControl.InputBindings>
 
     <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
+            <!-- Encabezado y selector de sección -->
             <RowDefinition Height="Auto" />
+            <!-- 1. Comprobante -->
             <RowDefinition Height="Auto" />
+            <!-- 2. Buscador de artículos -->
+            <RowDefinition Height="Auto" />
+            <!-- Grilla de renglones -->
             <RowDefinition Height="*" />
+            <!-- 3. Total y registro -->
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO DE MÓDULO                                       -->
+        <!-- ENCABEZADO (sin tarjeta) Y SELECTOR DE SECCIÓN                -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0" Style="{StaticResource CardBorderStyle}" Padding="20,14" Margin="{StaticResource SectionSpacing}">
-            <DockPanel LastChildFill="False">
-                <StackPanel VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidPackage" Width="20" Height="20"
-                                                    Foreground="{DynamicResource PrimaryBrush}"
-                                                    VerticalAlignment="Center" Margin="0,0,10,0" />
-                        <TextBlock Text="Compras" Style="{StaticResource TextBlockHeader1}" />
-                    </StackPanel>
-                    <TextBlock Text="Registro de facturas, actualización de stock físico y recálculo automático de precios por markup (RF-19)."
-                               Style="{StaticResource TextBlockBodySecondary}" Margin="0,4,0,0" />
-                    <components:NavegadorSeccion SeccionId="compras" Margin="0,12,0,0" />
+        <StackPanel Grid.Row="0">
+            <components:PageHeader Margin="{StaticResource StackSm}"
+                                   Titulo="Compras">
+                <StackPanel Orientation="Horizontal">
+                    <Border Style="{StaticResource BadgeDangerStyle}"
+                            Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeError}" FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap" MaxWidth="420" />
+                    </Border>
                 </StackPanel>
-            </DockPanel>
-        </Border>
+            </components:PageHeader>
+            <components:NavegadorSeccion SeccionId="compras" Margin="{StaticResource SectionSpacing}" />
+        </StackPanel>
 
         <!-- ============================================================= -->
-        <!-- 2. CABECERA DE LA FACTURA / REMITO                            -->
+        <!-- 1. COMPROBANTE: proveedor, tipo, número, fecha y origen       -->
         <!-- ============================================================= -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="20,16" Margin="{StaticResource SectionSpacing}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Margin="{StaticResource SectionSpacing}">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                    <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Style="{StaticResource CardHeaderIconStyle}" />
+                    <TextBlock Text="Comprobante" Style="{StaticResource CardHeaderTextStyle}" />
+                </StackPanel>
 
-                <Grid Grid.Row="0">
+                <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" MinWidth="220" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="200" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="160" />
                     </Grid.ColumnDefinitions>
 
                     <!-- Proveedor -->
-                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                        <TextBlock Text="Distribuidor / Proveedor" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                    <StackPanel Grid.Column="0" Margin="{StaticResource ColumnSpacing}">
+                        <TextBlock Text="Proveedor *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
                         <ComboBox ItemsSource="{Binding Proveedores}"
                                   SelectedItem="{Binding ProveedorSeleccionado}"
                                   DisplayMemberPath="RazonSocial"
-                                  Height="35" />
+                                  Height="{StaticResource ControlHeight}"
+                                  AutomationProperties.Name="Proveedor" />
                     </StackPanel>
 
-                    <!-- Nro Factura -->
-                    <StackPanel Grid.Column="1" Margin="0,0,16,0">
-                        <TextBlock Text="Nro. Factura / Remito" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
-                        <TextBox Text="{Binding NumeroComprobante, UpdateSourceTrigger=PropertyChanged}" Height="35" FontFamily="{StaticResource FontFamilyMonospace}" />
+                    <!-- Tipo de comprobante: dos opciones fijas, un solo binding con el valor en ConverterParameter -->
+                    <StackPanel Grid.Column="1" Margin="{StaticResource ColumnSpacing}">
+                        <TextBlock Text="Tipo *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <components:SelectorSegmentado>
+                            <UniformGrid Columns="2">
+                                <RadioButton GroupName="TipoComprobanteCompra"
+                                             IsChecked="{Binding TipoComprobante, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter=FACTURA}"
+                                             AutomationProperties.Name="Factura"
+                                             Style="{StaticResource SegmentedRadioButtonStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                                        <TextBlock Text="Factura" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                                <RadioButton GroupName="TipoComprobanteCompra"
+                                             IsChecked="{Binding TipoComprobante, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter=REMITO}"
+                                             AutomationProperties.Name="Remito"
+                                             Style="{StaticResource SegmentedRadioButtonStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                                        <TextBlock Text="Remito" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </UniformGrid>
+                        </components:SelectorSegmentado>
                     </StackPanel>
 
-                    <!-- Botón Importar Pedido (P2.4) -->
-                    <StackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,12,0">
-                        <Button Command="{Binding ImportarPedidoCommand}"
-                                Style="{StaticResource KeycapButtonStyle}"
-                                Height="35"
-                                Padding="12,0"
-                                ToolTip="Importar pedido emitido al distribuidor">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Importar Pedido" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
+                    <!-- Número: es un código, va en monoespaciada -->
+                    <StackPanel Grid.Column="2" Margin="{StaticResource ColumnSpacing}">
+                        <TextBlock Text="Número *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:TextBox Text="{Binding NumeroComprobante, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="0001-00000123"
+                                    Height="{StaticResource ControlHeight}"
+                                    FontFamily="{StaticResource FontFamilyMonospace}"
+                                    AutomationProperties.Name="Número de comprobante" />
                     </StackPanel>
 
-                    <!-- Botón Agregar Ítem -->
-                    <StackPanel Grid.Column="3" VerticalAlignment="Bottom">
-                        <Button Command="{Binding AgregarItemCommand}" Style="{StaticResource KeycapButtonStyle}" Height="35">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Agregar Artículo" VerticalAlignment="Center" />
-                                <Border Style="{StaticResource KeycapBadgeStyle}">
-                                    <TextBlock Text="F2" Style="{StaticResource TextBlockKeycap}" />
-                                </Border>
-                            </StackPanel>
-                        </Button>
+                    <!-- Fecha de emisión -->
+                    <StackPanel Grid.Column="3">
+                        <TextBlock Text="Fecha *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <components:SelectorFechaCorta Style="{StaticResource DatePickerRetailStyle}"
+                                                       SelectedDate="{Binding FechaEmision}"
+                                                       Language="es-AR"
+                                                       SelectedDateFormat="Short"
+                                                       Height="{StaticResource ControlHeight}"
+                                                       AutomationProperties.Name="Fecha de emisión" />
                     </StackPanel>
                 </Grid>
 
-                <!-- Indicador de Pedido Vinculado (P2.4) -->
-                <Border Grid.Row="1"
-                        Visibility="{Binding TienePedidoOrigen, Converter={StaticResource BoolToVisConverter}}"
-                        Background="{DynamicResource PrimaryLightBrush}"
-                        BorderBrush="{DynamicResource PrimaryBrush}"
+                <!-- Origen: recibir un pedido emitido, o el pedido ya vinculado -->
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                    <TextBlock Text="Origen" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" Margin="{StaticResource InlineMd}" />
+
+                    <Button Command="{Binding ImportarPedidoCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Visibility="{Binding TienePedidoOrigen, Converter={StaticResource InverseBoolToVisConverter}}"
+                            ToolTip="Cargar los renglones de un pedido emitido a este proveedor"
+                            ToolTipService.ShowOnDisabled="True">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Recibir pedido emitido…" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Border Style="{StaticResource BadgeNeutralStyle}"
+                            Visibility="{Binding TienePedidoOrigen, Converter={StaticResource BoolToVisConverter}}"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding InformacionPedidoOrigen}" Style="{StaticResource BadgeNeutralTextStyle}" />
+                            <Button Command="{Binding DesvincularPedidoCommand}"
+                                    Style="{StaticResource BadgeCancelButtonStyle}"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    ToolTip="Desvincular el pedido (los renglones se conservan)"
+                                    AutomationProperties.Name="Desvincular pedido">
+                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="9" Height="9" />
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- ============================================================= -->
+        <!-- 2. BUSCADOR DE ARTÍCULOS (sin atajo de teclado)               -->
+        <!-- ============================================================= -->
+        <Grid Grid.Row="2" Margin="{StaticResource StackMd}" HorizontalAlignment="Left">
+            <ui:TextBox x:Name="TxtBuscador"
+                        Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="Buscar artículo por nombre o código de barras…"
+                        IsEnabled="{Binding TieneProveedor}"
+                        Width="390"
+                        Height="{StaticResource ControlHeight}"
+                        FontSize="{StaticResource FontSizeMd}"
+                        PreviewKeyDown="OnTxtBuscadorPreviewKeyDown"
+                        AutomationProperties.Name="Buscar artículo">
+                <ui:TextBox.Icon>
+                    <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
+                </ui:TextBox.Icon>
+            </ui:TextBox>
+
+            <!-- Desplegable de resultados: mismo patrón que el buscador del POS -->
+            <Popup x:Name="PopupResultados"
+                   IsOpen="{Binding MostrarResultados, Mode=TwoWay}"
+                   PlacementTarget="{Binding ElementName=TxtBuscador}"
+                   Placement="Bottom"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   HorizontalOffset="-8"
+                   PopupAnimation="Slide">
+                <!-- El margen deja lugar a la sombra, que despega el desplegable de la página -->
+                <Border Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource SurfaceBorderBrush}"
                         BorderThickness="1"
-                        CornerRadius="4"
-                        Padding="10,6"
-                        Margin="0,12,0,0"
-                        HorizontalAlignment="Left">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidPackage" Width="14" Height="14"
-                                                    Foreground="{DynamicResource PrimaryBrush}"
-                                                    VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBlock Text="{Binding InformacionPedidoOrigen}"
-                                   FontWeight="SemiBold"
-                                   FontSize="{StaticResource FontSizeSm}"
-                                   Foreground="{DynamicResource PrimaryBrush}"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Text=" (Precios y cantidades cargados desde el pedido)"
-                                   FontSize="{StaticResource FontSizeXs}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   VerticalAlignment="Center" Margin="4,0,12,0" />
-                        <Button Command="{Binding DesvincularPedidoCommand}"
-                                Style="{StaticResource IconDangerButtonStyle}"
-                                Width="22" Height="22"
-                                ToolTip="Desvincular pedido (vuelve a compra manual)">
-                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="12" Height="12" />
-                        </Button>
-                    </StackPanel>
+                        CornerRadius="{StaticResource RadiusMd}"
+                        Padding="0,4"
+                        Margin="8,4,8,12"
+                        Width="{Binding ActualWidth, ElementName=TxtBuscador}"
+                        MaxHeight="300">
+                    <Border.Effect>
+                        <DropShadowEffect Color="{StaticResource ElevationShadowColor}"
+                                          Opacity="0.18"
+                                          BlurRadius="16"
+                                          ShadowDepth="4"
+                                          Direction="270" />
+                    </Border.Effect>
+                    <Grid>
+                        <TextBlock Text="Ningún artículo comprable coincide con la búsqueda."
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="12,8"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding SinResultados, Converter={StaticResource BoolToVisConverter}}" />
+
+                        <ListBox x:Name="ListaResultados"
+                                 ItemsSource="{Binding ResultadosBusqueda}"
+                                 SelectedItem="{Binding ResultadoSeleccionado, Mode=TwoWay}"
+                                 SelectionMode="Single"
+                                 ItemContainerStyle="{StaticResource SearchResultListBoxItemStyle}"
+                                 MouseMove="OnResultadosMouseMove"
+                                 PreviewMouseLeftButtonDown="OnResultadosPreviewMouseLeftButtonDown"
+                                 PreviewMouseLeftButtonUp="OnResultadosPreviewMouseLeftButtonUp"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Visibility="{Binding SinResultados, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel LastChildFill="True">
+                                        <StackPanel DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding CostoReposicion, StringFormat=C2}"
+                                                       Language="es-AR"
+                                                       Style="{StaticResource SearchResultAmountTextStyle}"
+                                                       HorizontalAlignment="Right" />
+                                            <TextBlock Text="Costo actual"
+                                                       Style="{StaticResource SearchResultMetaTextStyle}"
+                                                       HorizontalAlignment="Right" />
+                                        </StackPanel>
+
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Descripcion, Converter={StaticResource AMayusculasConverter}}"
+                                                       Style="{StaticResource SearchResultTitleTextStyle}" />
+                                            <TextBlock Text="{Binding CodigoBarras, FallbackValue='(Sin código)', TargetNullValue='(Sin código)'}"
+                                                       Style="{StaticResource SearchResultMetaTextStyle}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
                 </Border>
+            </Popup>
+        </Grid>
+
+        <!-- ============================================================= -->
+        <!-- GRILLA DE RENGLONES (la única superficie, con su estado vacío) -->
+        <!-- ============================================================= -->
+        <Border Grid.Row="3" Style="{StaticResource TablaListadoStyle}" Margin="{StaticResource SectionSpacing}">
+            <Grid>
+                <DataGrid ItemsSource="{Binding DetalleCompraItems}"
+                          SelectedItem="{Binding RenglonSeleccionado, Mode=TwoWay}"
+                          Style="{StaticResource DataGridRetailStyle}"
+                          AutoGenerateColumns="False"
+                          BorderThickness="0"
+                          helpers:EsquinasHelper.Esquinas="7">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Código"
+                                            Binding="{Binding CodigoArticulo}"
+                                            ElementStyle="{StaticResource TextBlockMonospaceCell}"
+                                            Width="132" />
+
+                        <DataGridTextColumn Header="Artículo"
+                                            Binding="{Binding DescripcionArticulo, Converter={StaticResource AMayusculasConverter}}"
+                                            ElementStyle="{StaticResource TextBlockTextCell}"
+                                            Width="*"
+                                            MinWidth="240" />
+
+                        <!-- Cantidad pedida: solo tiene valor si el renglón viene de un pedido -->
+                        <DataGridTextColumn Header="Pedido"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            Binding="{Binding CantidadPedida, TargetNullValue='—', FallbackValue='—'}"
+                                            ElementStyle="{StaticResource CeldaNumericaDerecha}"
+                                            Width="84" />
+
+                        <!-- Cantidad recibida (editable) -->
+                        <DataGridTemplateColumn Header="Recibido" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="104">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource CeldaEditableStyle}"
+                                             helpers:EntradaNumericaHelper.SoloDigitos="True"
+                                             Width="72"
+                                             AutomationProperties.Name="Cantidad recibida" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Costo unitario de la factura (editable) -->
+                        <DataGridTemplateColumn Header="Costo unit." HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="132">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBox Text="{Binding CostoUnitario, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                                             Style="{StaticResource CeldaEditableStyle}"
+                                             Language="es-AR"
+                                             helpers:EntradaNumericaHelper.SoloDecimal="True"
+                                             Width="100"
+                                             AutomationProperties.Name="Costo unitario" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTextColumn Header="Subtotal"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            Binding="{Binding Subtotal, StringFormat=C2}"
+                                            ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                            Width="128" />
+
+                        <DataGridTextColumn Header="Precio actual"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            Binding="{Binding PrecioVentaActual, StringFormat=C2}"
+                                            ElementStyle="{StaticResource CeldaMonedaSecundaria}"
+                                            Width="128" />
+
+                        <DataGridTemplateColumn Header="Precio nuevo"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                                CellTemplate="{StaticResource PlantillaPrecioNuevo}"
+                                                Width="148" />
+
+                        <!-- Quitar renglón -->
+                        <DataGridTemplateColumn Width="52">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Command="{Binding DataContext.QuitarRenglonCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource IconDangerButtonStyle}"
+                                            ToolTip="Quitar renglón"
+                                            AutomationProperties.Name="Quitar renglón"
+                                            HorizontalAlignment="Center">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- Estado vacío: dice qué hacer a continuación según haya o no proveedor -->
+                <StackPanel HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Margin="0,32,0,0"
+                            IsHitTestVisible="False"
+                            Visibility="{Binding GrillaVacia, Converter={StaticResource BoolToVisConverter}}">
+                    <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Width="24" Height="24"
+                                                Foreground="{DynamicResource TextMutedBrush}"
+                                                HorizontalAlignment="Center" Margin="{StaticResource StackSm}" />
+                    <TextBlock Text="{Binding TextoGrillaVacia}" Style="{StaticResource TextBlockBodySecondary}" TextAlignment="Center" />
+                </StackPanel>
             </Grid>
         </Border>
 
         <!-- ============================================================= -->
-        <!-- 3. GRILLA DE ÍTEMS DE COMPRA                                  -->
+        <!-- 3. TOTAL Y REGISTRO                                           -->
         <!-- ============================================================= -->
-        <DataGrid Grid.Row="2"
-                  ItemsSource="{Binding DetalleCompraItems}"
-                  Style="{StaticResource DataGridRetailStyle}"
-                  AutoGenerateColumns="False"
-                  BorderThickness="0,1,0,1"
-                  helpers:EsquinasHelper.Esquinas="0"
-                  Margin="{StaticResource SectionSpacing}">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Código" Binding="{Binding CodigoArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="140" />
-                <DataGridTextColumn Header="Descripción del Artículo" Binding="{Binding DescripcionArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="*" MinWidth="200" />
-                
-                <!-- Costo Reposición Unitario (Monospace Cascadia Code) -->
-                <DataGridTextColumn Header="Costo Unitario" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding CostoUnitario, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
-                
-                <!-- Cantidad Adquirida -->
-                <DataGridTextColumn Header="Cantidad" Binding="{Binding Cantidad}" ElementStyle="{StaticResource TextBlockTextCell}" Width="100" />
-                
-                <!-- Subtotal Ítem -->
-                <DataGridTextColumn Header="Subtotal" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding Subtotal, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />
+        <Border Grid.Row="4" Style="{StaticResource CardBorderStyle}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                <!-- Precio Venta Sugerido Recalculado por Markup -->
-                <DataGridTextColumn Header="Nuevo Precio Venta" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding NuevoPrecioVentaSugerido, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="150" />
-            </DataGrid.Columns>
-        </DataGrid>
-
-        <!-- ============================================================= -->
-        <!-- 4. PANEL INFERIOR DE TOTALES Y CONFIRMACIÓN                   -->
-        <!-- ============================================================= -->
-        <Border Grid.Row="3" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20,14">
-            <DockPanel LastChildFill="False">
-                <StackPanel DockPanel.Dock="Left" VerticalAlignment="Center">
-                    <TextBlock Text="Total de la Compra a Proveedor:" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding TotalCompra, StringFormat=C2}" FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,32,0">
+                    <TextBlock Text="Total" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding TotalCompra, StringFormat=C2}" Style="{StaticResource TextBlockCurrencyLarge}" Language="es-AR" />
                 </StackPanel>
 
-                <Button DockPanel.Dock="Right" Command="{Binding RegistrarCompraCommand}" Style="{StaticResource PrimaryActionButtonStyle}" Padding="20,10" VerticalAlignment="Center">
+                <!-- Lo que falta para registrar, o el aviso de la última operación -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="{StaticResource ColumnSpacing}">
+                    <TextBlock Text="{Binding Faltantes}"
+                               TextWrapping="Wrap"
+                               Margin="{StaticResource StackXs}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockBodySecondary}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TieneFaltantes}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <Border Style="{StaticResource BadgeSuccessStyle}"
+                            HorizontalAlignment="Left"
+                            Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeEstado}" FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+
+                <Button Grid.Column="2"
+                        Command="{Binding RegistrarCompraCommand}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidCheckCircle" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Registrar Compra y Actualizar Precios" FontWeight="Bold" VerticalAlignment="Center" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Registrar compra" VerticalAlignment="Center" />
                         <Border Style="{StaticResource KeycapPrimaryBadgeStyle}">
-                            <TextBlock Text="F12" Style="{StaticResource TextBlockKeycap}" Foreground="{DynamicResource PrimaryForegroundBrush}" />
+                            <TextBlock Text="F12" Style="{StaticResource TextBlockKeycap}" />
                         </Border>
                     </StackPanel>
                 </Button>
-            </DockPanel>
+            </Grid>
         </Border>
     </Grid>
 </UserControl>

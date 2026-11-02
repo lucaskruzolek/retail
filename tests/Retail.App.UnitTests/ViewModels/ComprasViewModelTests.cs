@@ -9,6 +9,7 @@ using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Entities;
 using Retail.Domain.Exceptions;
 using Xunit;
 
@@ -162,7 +163,7 @@ public sealed class ComprasViewModelTests : IDisposable
 
         // Assert
         _dialogService.Received(1).Confirmar(Arg.Any<string>(), Arg.Any<string>());
-        await _dialogService.DidNotReceive().MostrarSeleccionarPedidoModalAsync(Arg.Any<int>());
+        await _dialogService.DidNotReceive().MostrarSeleccionarPedidoModalAsync(Arg.Any<int>(), Arg.Any<string>());
         _sut.DetalleCompraItems.Should().HaveCount(1);
         _sut.TienePedidoOrigen.Should().BeFalse();
     }
@@ -182,7 +183,7 @@ public sealed class ComprasViewModelTests : IDisposable
             TotalEstimado = 1200m,
         };
 
-        _dialogService.MostrarSeleccionarPedidoModalAsync(IdProveedor).Returns(pedidoEmitido);
+        _dialogService.MostrarSeleccionarPedidoModalAsync(IdProveedor, Proveedor.RazonSocial).Returns(pedidoEmitido);
         _pedidoService.ObtenerParaCompraAsync(15, Arg.Any<CancellationToken>()).Returns((PedidoParaCompraDto?)null);
 
         // Act
@@ -222,6 +223,9 @@ public sealed class ComprasViewModelTests : IDisposable
                     DescripcionArticulo = "Cuaderno Rivadavia",
                     Cantidad = 5,
                     CostoPactado = 500m,
+                    CostoReposicionActual = 500m,
+                    PorcentajeGanancia = 40m,
+                    PrecioVentaActual = 500m * 1.4m,
                 },
                 new()
                 {
@@ -230,11 +234,14 @@ public sealed class ComprasViewModelTests : IDisposable
                     DescripcionArticulo = "Regla 30cm",
                     Cantidad = 10,
                     CostoPactado = 200m,
+                    CostoReposicionActual = 200m,
+                    PorcentajeGanancia = 40m,
+                    PrecioVentaActual = 200m * 1.4m,
                 },
             },
         };
 
-        _dialogService.MostrarSeleccionarPedidoModalAsync(IdProveedor).Returns(pedidoEmitido);
+        _dialogService.MostrarSeleccionarPedidoModalAsync(IdProveedor, Proveedor.RazonSocial).Returns(pedidoEmitido);
         _pedidoService.ObtenerParaCompraAsync(25, Arg.Any<CancellationToken>()).Returns(pedidoDetalle);
 
         // Act
@@ -309,12 +316,437 @@ public sealed class ComprasViewModelTests : IDisposable
         _sut.TienePedidoOrigen.Should().BeFalse();
     }
 
+    // ── Total y habilitación reactivos ────────────────────────────────────────
+
+    [Fact]
+    public void TotalCompra_EditarCostoDeUnRenglon_SeRecalculaYNotifica()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+        var notificadas = new List<string?>();
+        _sut.PropertyChanged += (_, e) => notificadas.Add(e.PropertyName);
+
+        // Act
+        _sut.DetalleCompraItems[0].CostoUnitario = 200m;
+
+        // Assert
+        _sut.TotalCompra.Should().Be(2 * 200m);
+        notificadas.Should().Contain(nameof(ComprasViewModel.TotalCompra));
+    }
+
+    [Fact]
+    public void TotalCompra_AlLimpiarLaGrilla_VuelveACero()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+
+        // Act
+        _sut.DetalleCompraItems.Clear();
+
+        // Assert
+        _sut.TotalCompra.Should().Be(0m);
+        _sut.GrillaVacia.Should().BeTrue();
+    }
+
+    [Fact]
+    public void RegistrarCompraCommand_ConFaltantes_NoSePuedeEjecutar()
+    {
+        // Arrange: solo hay proveedor, falta el número y los renglones.
+        _sut.ProveedorSeleccionado = Proveedor;
+
+        // Assert
+        _sut.RegistrarCompraCommand.CanExecute(null).Should().BeFalse();
+        _sut.TieneFaltantes.Should().BeTrue();
+        _sut.Faltantes.Should().Contain("número de comprobante").And.Contain("al menos un renglón");
+    }
+
+    [Fact]
+    public void RegistrarCompraCommand_FormularioCompleto_SeHabilita()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+
+        // Assert
+        _sut.RegistrarCompraCommand.CanExecute(null).Should().BeTrue();
+        _sut.PuedeRegistrar.Should().BeTrue();
+        _sut.Faltantes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void RegistrarCompraCommand_RenglonConCostoCero_SeDeshabilitaYSeHabilitaAlCorregirlo()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+        var renglon = _sut.DetalleCompraItems[0];
+
+        // Act + Assert: el cambio de un renglón actualiza la habilitación sin tocar el encabezado.
+        renglon.CostoUnitario = 0m;
+        _sut.RegistrarCompraCommand.CanExecute(null).Should().BeFalse();
+        _sut.Faltantes.Should().Contain("costo");
+
+        renglon.CostoUnitario = 90m;
+        _sut.RegistrarCompraCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void RegistrarCompraCommand_RenglonConCantidadCero_SeDeshabilita()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+
+        // Act
+        _sut.DetalleCompraItems[0].Cantidad = 0;
+
+        // Assert
+        _sut.RegistrarCompraCommand.CanExecute(null).Should().BeFalse();
+        _sut.Faltantes.Should().Contain("cantidad");
+    }
+
+    // ── Renglones ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void QuitarRenglon_RenglonExistente_LoQuitaYActualizaElTotal()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+        var renglon = _sut.DetalleCompraItems[0];
+
+        // Act
+        _sut.QuitarRenglonCommand.Execute(renglon);
+
+        // Assert
+        _sut.DetalleCompraItems.Should().BeEmpty();
+        _sut.TotalCompra.Should().Be(0m);
+        _sut.RegistrarCompraCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void AgregarArticulo_ArticuloNuevo_AgregaRenglonConSuCostoYMarkup()
+    {
+        // Arrange
+        _sut.ProveedorSeleccionado = Proveedor;
+
+        // Act
+        _sut.AgregarArticuloCommand.Execute(ArticuloDeBusqueda(7, "Lapicera Bic", costo: 100m, markup: 50m, precio: 150m));
+
+        // Assert
+        _sut.DetalleCompraItems.Should().ContainSingle();
+        var renglon = _sut.DetalleCompraItems[0];
+        renglon.IdArticulo.Should().Be(7);
+        renglon.Cantidad.Should().Be(1);
+        renglon.CostoUnitario.Should().Be(100m);
+        renglon.PorcentajeGanancia.Should().Be(50m);
+        renglon.CantidadPedida.Should().BeNull();
+        _sut.RenglonSeleccionado.Should().BeSameAs(renglon);
+    }
+
+    [Fact]
+    public void AgregarArticulo_ArticuloYaEnLaGrilla_NoDuplicaLoSeleccionaYAvisa()
+    {
+        // Arrange
+        _sut.ProveedorSeleccionado = Proveedor;
+        var articulo = ArticuloDeBusqueda(7, "Lapicera Bic", costo: 100m, markup: 50m, precio: 150m);
+        _sut.AgregarArticuloCommand.Execute(articulo);
+        _sut.RenglonSeleccionado = null;
+
+        // Act
+        _sut.AgregarArticuloCommand.Execute(articulo);
+
+        // Assert
+        _sut.DetalleCompraItems.Should().ContainSingle();
+        _sut.RenglonSeleccionado.Should().BeSameAs(_sut.DetalleCompraItems[0]);
+        _sut.MensajeEstado.Should().Contain("ya está en la compra");
+    }
+
+    // ── Cambio de proveedor ───────────────────────────────────────────────────
+
+    [Fact]
+    public void ProveedorSeleccionado_CambiarConRenglonesYConfirmar_LimpiaRenglonesYPedido()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+        _sut.IdPedidoOrigen = 5;
+        _sut.TienePedidoOrigen = true;
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        var otro = new ProveedorDto { IdProveedor = 2, RazonSocial = "Distribuidora Sur", Cuit = "30712345678" };
+
+        // Act
+        _sut.ProveedorSeleccionado = otro;
+
+        // Assert
+        _sut.ProveedorSeleccionado.Should().Be(otro);
+        _sut.DetalleCompraItems.Should().BeEmpty();
+        _sut.TienePedidoOrigen.Should().BeFalse();
+        _sut.IdPedidoOrigen.Should().BeNull();
+    }
+
+    [Fact]
+    public void ProveedorSeleccionado_CambiarConRenglonesYRechazar_RevierteAlProveedorAnterior()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        var otro = new ProveedorDto { IdProveedor = 2, RazonSocial = "Distribuidora Sur", Cuit = "30712345678" };
+
+        // Act
+        _sut.ProveedorSeleccionado = otro;
+
+        // Assert: vuelve al anterior, conserva los renglones y pregunta una sola vez (sin reentrada).
+        _sut.ProveedorSeleccionado.Should().Be(Proveedor);
+        _sut.DetalleCompraItems.Should().HaveCount(1);
+        _dialogService.Received(1).Confirmar(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public void ProveedorSeleccionado_PrimeraEleccionSinRenglones_NoPideConfirmacion()
+    {
+        // Act
+        _sut.ProveedorSeleccionado = Proveedor;
+
+        // Assert
+        _dialogService.DidNotReceive().Confirmar(Arg.Any<string>(), Arg.Any<string>());
+        _sut.ProveedorSeleccionado.Should().Be(Proveedor);
+    }
+
+    // ── Errores y datos del registro ──────────────────────────────────────────
+
+    [Fact]
+    public async Task RegistrarCompraAsync_RestriccionDeUnicidad_MuestraMensajeDeComprobanteDuplicado()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+        _compraService
+            .RegistrarCompraAsync(Arg.Any<CrearCompraDto>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new RestriccionDeUnicidadException());
+
+        // Act
+        await _sut.RegistrarCompraCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeError.Should().Be("Ese comprobante ya fue registrado para este proveedor (posiblemente desde otra terminal).");
+        _sut.TieneMensajeError.Should().BeTrue();
+        _sut.DetalleCompraItems.Should().HaveCount(1, "la grilla se conserva para reintentar");
+        _logger.DidNotReceive().Log(
+            LogLevel.Error,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception>(),
+            Arg.Any<Func<object, Exception?, string>>());
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_TipoYFechaElegidos_ViajanEnElDto()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+        _sut.TipoComprobante = Compra.TipoRemito;
+        var fecha = new DateTime(2026, 10, 15);
+        _sut.FechaEmision = fecha;
+
+        CrearCompraDto? dtoEnviado = null;
+        _compraService
+            .RegistrarCompraAsync(Arg.Do<CrearCompraDto>(d => dtoEnviado = d), Arg.Any<CancellationToken>())
+            .Returns(RespuestaDeCompra());
+
+        // Act
+        await _sut.RegistrarCompraCommand.ExecuteAsync(null);
+
+        // Assert
+        dtoEnviado.Should().NotBeNull();
+        dtoEnviado!.TipoComprobante.Should().Be("REMITO");
+        dtoEnviado.FechaEmision.Should().Be(fecha.ToUniversalTime());
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_Exito_LimpiaElFormularioIncluidoElProveedorYAvisa()
+    {
+        // Arrange
+        ConfigurarFormularioConUnItem();
+        _compraService
+            .RegistrarCompraAsync(Arg.Any<CrearCompraDto>(), Arg.Any<CancellationToken>())
+            .Returns(RespuestaDeCompra());
+
+        // Act
+        await _sut.RegistrarCompraCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.ProveedorSeleccionado.Should().BeNull();
+        _sut.NumeroComprobante.Should().BeEmpty();
+        _sut.DetalleCompraItems.Should().BeEmpty();
+        _sut.TipoComprobante.Should().Be(Compra.TipoFactura);
+        _sut.TieneMensajeEstado.Should().BeTrue();
+        _sut.MensajeEstado.Should().Contain("registrada");
+        _dialogService.DidNotReceive().Confirmar(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ImportarPedidoAsync_ErrorAlLeerElPedido_MuestraErrorSinAlertaDeNoDisponible()
+    {
+        // Arrange
+        _sut.ProveedorSeleccionado = Proveedor;
+        _dialogService.MostrarSeleccionarPedidoModalAsync(IdProveedor, Proveedor.RazonSocial).Returns(new PedidoEmitidoDto
+        {
+            IdPedido = 15,
+            FechaEmision = DateTime.UtcNow,
+            CantidadRenglones = 1,
+            TotalEstimado = 1200m,
+        });
+        _pedidoService
+            .ObtenerParaCompraAsync(15, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Conexión perdida."));
+
+        // Act
+        await _sut.ImportarPedidoCommand.ExecuteAsync(null);
+
+        // Assert
+        _dialogService.DidNotReceive().MostrarAlerta(Arg.Any<string>(), Arg.Any<string>());
+        _sut.MensajeError.Should().Contain("Error al obtener");
+        _sut.MensajeError.Should().NotContain("no está disponible");
+        _sut.IsBusy.Should().BeFalse();
+    }
+
+    // ── Buscador de artículos ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task BuscarArticulosAsync_ConProveedorYTermino_ConsultaElCatalogoYMuestraResultados()
+    {
+        // Arrange
+        _sut.ProveedorSeleccionado = Proveedor;
+        var resultados = new List<ArticuloParaCompraDto>
+        {
+            ArticuloDeBusqueda(7, "Lapicera Bic", costo: 100m, markup: 50m, precio: 150m),
+            ArticuloDeBusqueda(8, "Lapicera Faber", costo: 120m, markup: 40m, precio: 168m),
+        };
+        _compraService
+            .BuscarArticulosAsync("lap", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(resultados);
+        _sut.TextoBusqueda = "lap";
+
+        // Act
+        await _sut.BuscarArticulosCommand.ExecuteAsync(null);
+
+        // Assert
+        await _compraService.Received().BuscarArticulosAsync("lap", Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _sut.ResultadosBusqueda.Should().HaveCount(2);
+        _sut.ResultadoSeleccionado.Should().Be(resultados[0]);
+        _sut.MostrarResultados.Should().BeTrue();
+        _sut.SinResultados.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task BuscarArticulosAsync_SinProveedor_NoConsultaElCatalogo()
+    {
+        // Arrange
+        _sut.TextoBusqueda = "lap";
+
+        // Act
+        await _sut.BuscarArticulosCommand.ExecuteAsync(null);
+
+        // Assert
+        await _compraService.DidNotReceive().BuscarArticulosAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _sut.ResultadosBusqueda.Should().BeEmpty();
+        _sut.MostrarResultados.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task BuscarArticulosAsync_SinCoincidencias_MarcaSinResultados()
+    {
+        // Arrange
+        _sut.ProveedorSeleccionado = Proveedor;
+        _compraService
+            .BuscarArticulosAsync("zzz", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new List<ArticuloParaCompraDto>());
+        _sut.TextoBusqueda = "zzz";
+
+        // Act
+        await _sut.BuscarArticulosCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.SinResultados.Should().BeTrue();
+        _sut.MostrarResultados.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AgregarResultadoSeleccionado_TrasBuscar_AgregaElRenglonYLimpiaElBuscador()
+    {
+        // Arrange
+        _sut.ProveedorSeleccionado = Proveedor;
+        _compraService
+            .BuscarArticulosAsync("lap", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new List<ArticuloParaCompraDto> { ArticuloDeBusqueda(7, "Lapicera Bic", costo: 100m, markup: 50m, precio: 150m) });
+        _sut.TextoBusqueda = "lap";
+        await _sut.BuscarArticulosCommand.ExecuteAsync(null);
+
+        // Act
+        _sut.AgregarResultadoSeleccionadoCommand.Execute(null);
+
+        // Assert
+        _sut.DetalleCompraItems.Should().ContainSingle(r => r.IdArticulo == 7);
+        _sut.TextoBusqueda.Should().BeEmpty();
+        _sut.ResultadosBusqueda.Should().BeEmpty();
+        _sut.MostrarResultados.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task MoverSeleccionBusqueda_ConVariosResultados_AvanzaYRetrocedeSinSalirseDeLosLimites()
+    {
+        // Arrange
+        _sut.ProveedorSeleccionado = Proveedor;
+        var resultados = new List<ArticuloParaCompraDto>
+        {
+            ArticuloDeBusqueda(7, "Lapicera Bic", costo: 100m, markup: 50m, precio: 150m),
+            ArticuloDeBusqueda(8, "Lapicera Faber", costo: 120m, markup: 40m, precio: 168m),
+        };
+        _compraService
+            .BuscarArticulosAsync("lap", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(resultados);
+        _sut.TextoBusqueda = "lap";
+        await _sut.BuscarArticulosCommand.ExecuteAsync(null);
+
+        // Act + Assert
+        _sut.MoverSeleccionBusquedaArribaCommand.Execute(null);
+        _sut.ResultadoSeleccionado.Should().Be(resultados[0]);
+
+        _sut.MoverSeleccionBusquedaAbajoCommand.Execute(null);
+        _sut.MoverSeleccionBusquedaAbajoCommand.Execute(null);
+        _sut.ResultadoSeleccionado.Should().Be(resultados[1]);
+    }
+
     public void Dispose()
     {
         _sut.Dispose();
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static ArticuloParaCompraDto ArticuloDeBusqueda(int id, string descripcion, decimal costo, decimal markup, decimal precio)
+    {
+        return new ArticuloParaCompraDto
+        {
+            IdArticulo = id,
+            CodigoBarras = "779000" + id.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            Descripcion = descripcion,
+            CostoReposicion = costo,
+            PorcentajeGanancia = markup,
+            PrecioVenta = precio,
+        };
+    }
+
+    private static CompraResponseDto RespuestaDeCompra()
+    {
+        return new CompraResponseDto
+        {
+            IdCompra = 1,
+            IdProveedor = IdProveedor,
+            TipoComprobante = "FACTURA",
+            NumeroComprobante = "0001-00000099",
+            FechaEmision = DateTime.UtcNow,
+            Subtotal = 300m,
+            Total = 300m,
+            ArticulosActualizados = 1,
+            Items = [],
+        };
+    }
 
     private void ConfigurarFormularioConUnItem()
     {

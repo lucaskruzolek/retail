@@ -21,7 +21,7 @@ public sealed class SeleccionarPedidoModalViewModelTests : IDisposable
     {
         _pedidoService = Substitute.For<IPedidoService>();
         _logger = Substitute.For<ILogger<SeleccionarPedidoModalViewModel>>();
-        _sut = new SeleccionarPedidoModalViewModel(IdProveedor, _pedidoService, _logger);
+        _sut = new SeleccionarPedidoModalViewModel(IdProveedor, "Editorial Norte S.A.", _pedidoService, _logger);
     }
 
     [Fact]
@@ -102,6 +102,61 @@ public sealed class SeleccionarPedidoModalViewModelTests : IDisposable
         // Assert
         _sut.PedidoElegido.Should().Be(pedido);
         _sut.OperacionConfirmada.Should().BeTrue();
+    }
+
+    [Fact]
+    public void EstaVacio_AntesDeLaPrimeraCarga_EsFalso()
+    {
+        // Evita mostrar "no tiene pedidos" mientras la carga inicial todavía no empezó.
+        _sut.EstaVacio.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task EstaVacio_ProveedorSinPedidosEmitidos_EsVerdadero()
+    {
+        // Arrange
+        _pedidoService
+            .ListarEmitidosPorProveedorAsync(IdProveedor, Arg.Any<CancellationToken>())
+            .Returns(new List<PedidoEmitidoDto>());
+
+        // Act
+        await _sut.CargarPedidosCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.EstaVacio.Should().BeTrue();
+        _sut.TienePedidoSeleccionado.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task EstaVacio_ConPedidosOConError_EsFalso()
+    {
+        // Arrange: con pedidos.
+        _pedidoService
+            .ListarEmitidosPorProveedorAsync(IdProveedor, Arg.Any<CancellationToken>())
+            .Returns(new List<PedidoEmitidoDto>
+            {
+                new() { IdPedido = 1, FechaEmision = DateTime.UtcNow, CantidadRenglones = 1, TotalEstimado = 100m },
+            });
+        await _sut.CargarPedidosCommand.ExecuteAsync(null);
+        _sut.EstaVacio.Should().BeFalse();
+
+        // Arrange: con error de carga (la lista queda vacía pero no se afirma que el proveedor no tenga pedidos).
+        _pedidoService
+            .ListarEmitidosPorProveedorAsync(IdProveedor, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("Conexión perdida."));
+        _sut.Pedidos.Clear();
+        await _sut.CargarPedidosCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeError.Should().NotBeNullOrEmpty();
+        _sut.TieneMensajeError.Should().BeTrue();
+        _sut.EstaVacio.Should().BeFalse();
+    }
+
+    [Fact]
+    public void RazonSocialProveedor_AlConstruir_ExponeElNombreParaElEncabezado()
+    {
+        _sut.RazonSocialProveedor.Should().Be("Editorial Norte S.A.");
     }
 
     [Fact]

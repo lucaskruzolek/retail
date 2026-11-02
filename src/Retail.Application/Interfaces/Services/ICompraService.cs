@@ -12,4 +12,10 @@ public interface ICompraService
     Task<IReadOnlyList<CompraResponseDto>> ListarComprasAsync(CancellationToken cancellationToken = default);
 
     Task<CompraResponseDto?> ObtenerCompraPorIdAsync(int idCompra, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Hasta <paramref name="limite"/> artículos comprables cuya descripción o código de barras contienen el término.
+    /// Un término vacío devuelve una lista vacía.
+    /// </summary>
+    Task<IReadOnlyList<ArticuloParaCompraDto>> BuscarArticulosAsync(string termino, int limite = 15, CancellationToken cancellationToken = default);
 }

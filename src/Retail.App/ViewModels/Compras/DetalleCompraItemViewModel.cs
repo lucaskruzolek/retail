@@ -1,13 +1,19 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Retail.Application.DTOs.Compras;
+using Retail.Application.DTOs.Pedidos;
+using Retail.Domain.Entities;
 
 namespace Retail.App.ViewModels.Compras;
 
 /// <summary>
-/// ViewModel que representa una línea individual de ítem dentro de la factura de compra a distribuidor.
-/// Calcula de manera reactiva el subtotal y el nuevo precio de venta sugerido por markup (RF-19).
+/// ViewModel que representa un renglón de la compra a un distribuidor. Calcula de forma reactiva el subtotal y el
+/// precio de venta que quedaría al registrar la compra (RF-19): usa el markup real del artículo y la misma fórmula
+/// del Dominio, de modo que lo que el operador ve es lo que <c>CompraService</c> va a aplicar.
 /// </summary>
 public partial class DetalleCompraItemViewModel : ObservableObject
 {
+    private const string SinCodigo = "—";
+
     [ObservableProperty]
     private int _idArticulo;
 
@@ -17,33 +23,102 @@ public partial class DetalleCompraItemViewModel : ObservableObject
     [ObservableProperty]
     private string _descripcionArticulo = string.Empty;
 
+    /// <summary>Cantidad pedida al distribuidor; nula si el renglón se agregó a mano, sin pedido.</summary>
     [ObservableProperty]
-    private decimal _costoUnitario;
+    private int? _cantidadPedida;
 
+    /// <summary>Cantidad recibida según el comprobante.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Subtotal))]
     private int _cantidad = 1;
 
     [ObservableProperty]
-    private decimal _porcentajeGanancia = 40m; // Margen o markup comercial por defecto
+    [NotifyPropertyChangedFor(nameof(Subtotal))]
+    [NotifyPropertyChangedFor(nameof(NuevoPrecioVenta))]
+    [NotifyPropertyChangedFor(nameof(CambiaPrecio))]
+    [NotifyPropertyChangedFor(nameof(SubePrecio))]
+    [NotifyPropertyChangedFor(nameof(BajaPrecio))]
+    private decimal _costoUnitario;
 
-    /// <summary>
-    /// Subtotal del renglón (Costo Unitario * Cantidad).
-    /// </summary>
+    /// <summary>Costo de reposición vigente del artículo, antes de registrar la compra.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CambiaPrecio))]
+    private decimal _costoActual;
+
+    /// <summary>Markup vigente del artículo (RF-19).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NuevoPrecioVenta))]
+    [NotifyPropertyChangedFor(nameof(SubePrecio))]
+    [NotifyPropertyChangedFor(nameof(BajaPrecio))]
+    private decimal _porcentajeGanancia;
+
+    /// <summary>Precio de venta vigente del artículo, antes de registrar la compra.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NuevoPrecioVenta))]
+    [NotifyPropertyChangedFor(nameof(SubePrecio))]
+    [NotifyPropertyChangedFor(nameof(BajaPrecio))]
+    private decimal _precioVentaActual;
+
+    /// <summary>Subtotal del renglón (costo unitario por cantidad recibida).</summary>
     public decimal Subtotal => CostoUnitario * Cantidad;
 
     /// <summary>
-    /// Previsualización inmediata del nuevo precio de venta sugerido: CostoReposicion * (1 + (Markup / 100))[cite: 8].
+    /// Precio de venta resultante de aplicar el markup al costo de la factura. Delega en el Dominio, que es la fuente
+    /// única de la fórmula y del redondeo. Con un costo no válido (cero o negativo, mientras el operador tipea)
+    /// devuelve el precio vigente, porque la compra todavía no puede cambiarlo.
     /// </summary>
-    public decimal NuevoPrecioVentaSugerido => CostoUnitario * (1 + (PorcentajeGanancia / 100m));
+    public decimal NuevoPrecioVenta => CostoUnitario <= 0m
+        ? PrecioVentaActual
+        : Articulo.CalcularPrecioVenta(CostoUnitario, PorcentajeGanancia);
 
-    partial void OnCostoUnitarioChanged(decimal value)
+    /// <summary>Mismo criterio que <c>CompraService</c>: la compra recalcula el precio solo si el costo cambió.</summary>
+    public bool CambiaPrecio => CostoUnitario != CostoActual;
+
+    public bool SubePrecio => CambiaPrecio && NuevoPrecioVenta > PrecioVentaActual;
+
+    public bool BajaPrecio => CambiaPrecio && NuevoPrecioVenta < PrecioVentaActual;
+
+    /// <summary>Renglón de un pedido emitido: parte de lo pedido y al costo pactado.</summary>
+    public static DetalleCompraItemViewModel DesdeRenglonDePedido(RenglonPedidoParaCompraDto renglon)
     {
-        OnPropertyChanged(nameof(Subtotal));
-        OnPropertyChanged(nameof(NuevoPrecioVentaSugerido));
+        ArgumentNullException.ThrowIfNull(renglon);
+
+        return new DetalleCompraItemViewModel
+        {
+            IdArticulo = renglon.IdArticulo,
+            CodigoArticulo = ElegirCodigo(renglon.CodigoProveedor, renglon.CodigoBarras),
+            DescripcionArticulo = renglon.DescripcionArticulo,
+            CantidadPedida = renglon.Cantidad,
+            Cantidad = renglon.Cantidad,
+            CostoUnitario = renglon.CostoPactado,
+            CostoActual = renglon.CostoReposicionActual,
+            PorcentajeGanancia = renglon.PorcentajeGanancia,
+            PrecioVentaActual = renglon.PrecioVentaActual,
+        };
     }
 
-    partial void OnCantidadChanged(int value)
+    /// <summary>Artículo agregado a mano con el buscador: una unidad al costo de reposición vigente.</summary>
+    public static DetalleCompraItemViewModel DesdeArticulo(ArticuloParaCompraDto articulo)
     {
-        OnPropertyChanged(nameof(Subtotal));
+        ArgumentNullException.ThrowIfNull(articulo);
+
+        return new DetalleCompraItemViewModel
+        {
+            IdArticulo = articulo.IdArticulo,
+            CodigoArticulo = ElegirCodigo(articulo.CodigoBarras),
+            DescripcionArticulo = articulo.Descripcion,
+            CantidadPedida = null,
+            Cantidad = 1,
+            CostoUnitario = articulo.CostoReposicion,
+            CostoActual = articulo.CostoReposicion,
+            PorcentajeGanancia = articulo.PorcentajeGanancia,
+            PrecioVentaActual = articulo.PrecioVenta,
+        };
+    }
+
+    /// <summary>El primer código con contenido; nunca el identificador interno del artículo.</summary>
+    private static string ElegirCodigo(params string?[] candidatos)
+    {
+        return candidatos.FirstOrDefault(c => !string.IsNullOrWhiteSpace(c)) ?? SinCodigo;
     }
 }
