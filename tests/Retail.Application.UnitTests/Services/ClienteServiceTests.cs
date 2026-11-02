@@ -45,14 +45,22 @@ public class ClienteServiceTests
             _ticketPrinterService);
     }
 
+#pragma warning disable CA1861
+    public static TheoryData<FiltroDeudaClienteEnum[]?, FiltroCuentaCorrienteClienteEnum[]?, string[]> CasosFiltroDeudaYCuentaCorriente =>
+        new()
+        {
+            { new[] { FiltroDeudaClienteEnum.ConDeuda }, null, new[] { "Con deuda" } },
+            { new[] { FiltroDeudaClienteEnum.SinDeuda }, null, new[] { "Habilitado sin deuda", "Sin cuenta" } },
+            { new[] { FiltroDeudaClienteEnum.ConDeuda, FiltroDeudaClienteEnum.SinDeuda }, null, new[] { "Con deuda", "Habilitado sin deuda", "Sin cuenta" } },
+            { null, new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente }, new[] { "Con deuda", "Habilitado sin deuda" } },
+            { null, new[] { FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente }, new[] { "Sin cuenta" } },
+            { new[] { FiltroDeudaClienteEnum.SinDeuda }, new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente }, new[] { "Habilitado sin deuda" } },
+            { new[] { FiltroDeudaClienteEnum.ConDeuda }, new[] { FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente }, Array.Empty<string>() }
+        };
+
+#pragma warning restore CA1861
     [Theory]
-    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda }, null, new[] { "Con deuda" })]
-    [InlineData(new[] { FiltroDeudaClienteEnum.SinDeuda }, null, new[] { "Habilitado sin deuda", "Sin cuenta" })]
-    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda, FiltroDeudaClienteEnum.SinDeuda }, null, new[] { "Con deuda", "Habilitado sin deuda", "Sin cuenta" })]
-    [InlineData(null, new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente }, new[] { "Con deuda", "Habilitado sin deuda" })]
-    [InlineData(null, new[] { FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente }, new[] { "Sin cuenta" })]
-    [InlineData(new[] { FiltroDeudaClienteEnum.SinDeuda }, new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente }, new[] { "Habilitado sin deuda" })]
-    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda }, new[] { FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente }, new string[0])]
+    [MemberData(nameof(CasosFiltroDeudaYCuentaCorriente))]
     public async Task ListarClientesPaginadosAsync_ConEstadosDeDeudaYCuentaCorriente_FiltraPorCombinacion(
         FiltroDeudaClienteEnum[]? estadosDeuda,
         FiltroCuentaCorrienteClienteEnum[]? estadosCuentaCorriente,
