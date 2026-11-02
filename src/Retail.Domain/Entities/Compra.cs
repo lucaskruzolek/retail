@@ -9,6 +9,12 @@ namespace Retail.Domain.Entities;
 /// </summary>
 public class Compra : BaseEntity, IAggregateRoot
 {
+    /// <summary>Tipo de comprobante admitido: factura del proveedor.</summary>
+    public const string TipoFactura = "FACTURA";
+
+    /// <summary>Tipo de comprobante admitido: remito del proveedor.</summary>
+    public const string TipoRemito = "REMITO";
+
     // ── Backing field para la colección privada de renglones ──────────────────
     private readonly List<DetalleCompra> _detalles = new();
 
@@ -74,6 +80,14 @@ public class Compra : BaseEntity, IAggregateRoot
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(tipoComprobante);
+
+        var tipoRecortado = tipoComprobante.Trim();
+
+        if (tipoRecortado != TipoFactura && tipoRecortado != TipoRemito)
+        {
+            throw new DomainException("El tipo de comprobante debe ser FACTURA o REMITO.");
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(numeroComprobante);
 
         if (fechaEmision > DateTime.UtcNow.AddDays(1))
@@ -90,7 +104,7 @@ public class Compra : BaseEntity, IAggregateRoot
         {
             IdProveedor = idProveedor,
             IdUsuario = idUsuario,
-            TipoComprobante = tipoComprobante.Trim(),
+            TipoComprobante = tipoRecortado,
             NumeroComprobante = numeroComprobante.Trim(),
             FechaEmision = fechaEmision,
             IdPedidoOrigen = idPedidoOrigen,

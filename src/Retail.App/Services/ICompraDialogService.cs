@@ -19,9 +19,10 @@ public interface ICompraDialogService
     void MostrarAlerta(string titulo, string mensaje);
 
     /// <summary>
-    /// Abre el diálogo modal de selección de pedidos emitidos para el proveedor especificado.
+    /// Abre el diálogo modal de selección de pedidos emitidos para el proveedor especificado
+    /// (<paramref name="razonSocialProveedor"/> se muestra en el encabezado de la sección).
     /// Devuelve el pedido seleccionado o null si el usuario canceló la selección.
     /// </summary>
-    Task<PedidoEmitidoDto?> MostrarSeleccionarPedidoModalAsync(int idProveedor);
+    Task<PedidoEmitidoDto?> MostrarSeleccionarPedidoModalAsync(int idProveedor, string razonSocialProveedor);
 }
 

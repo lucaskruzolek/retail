@@ -18,87 +18,6 @@
         <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
         <converters:IgualAParametroConverter x:Key="IgualAParametroConverter" />
 
-        <!-- Selector de fecha con el aspecto del sistema de diseño. WPF-UI 4.0.0 no trae estilo para el DatePicker de WPF
-             (solo para su CalendarDatePicker, que no permite fijar el formato dd/MM/yyyy): se redefine la plantilla con
-             los tokens semánticos. El calendario desplegable conserva el estilo predeterminado de WPF. -->
-        <Style TargetType="{x:Type components:SelectorFechaCorta}">
-            <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="8,0" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="DatePicker">
-                        <Border x:Name="Marco"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6">
-                            <Grid x:Name="PART_Root">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <DatePickerTextBox x:Name="PART_TextBox"
-                                                   Grid.Column="0"
-                                                   Background="Transparent"
-                                                   BorderThickness="0"
-                                                   Foreground="{TemplateBinding Foreground}"
-                                                   Padding="0,7,0,0"
-                                                   HorizontalContentAlignment="Center"
-                                                   VerticalContentAlignment="Center"
-                                                   TextAlignment="Center"
-                                                   Focusable="{TemplateBinding Focusable}" />
-                                <Button x:Name="PART_Button"
-                                        Grid.Column="1"
-                                        Width="32"
-                                        Cursor="Hand"
-                                        Focusable="False"
-                                        Background="Transparent"
-                                        BorderThickness="0">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="Fondo" Background="Transparent" CornerRadius="0,5,5,0">
-                                                <iconPacks:PackIconBoxIcons x:Name="Icono"
-                                                                            Kind="RegularCalendar"
-                                                                            Width="16"
-                                                                            Height="16"
-                                                                            Foreground="{DynamicResource TextSecondaryBrush}"
-                                                                            HorizontalAlignment="Center"
-                                                                            VerticalAlignment="Center" />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="Fondo" Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                                    <Setter TargetName="Icono" Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                </Button>
-                                <Popup x:Name="PART_Popup"
-                                       AllowsTransparency="True"
-                                       Placement="Bottom"
-                                       PlacementTarget="{Binding ElementName=Marco}"
-                                       StaysOpen="False" />
-                            </Grid>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                <Setter TargetName="Marco" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Marco" Property="Opacity" Value="0.5" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <!-- Botones de período junto a las fechas -->
         <Style x:Key="PeriodoButtonStyle" TargetType="Button" BasedOn="{StaticResource KeycapButtonStyle}">
             <Setter Property="Margin" Value="0,0,6,0" />
@@ -247,7 +166,8 @@
                             Margin="0,4,12,4"
                             Visibility="{Binding MostrarFechas, Converter={StaticResource BoolToVisConverter}}">
                     <TextBlock Text="Desde" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <components:SelectorFechaCorta SelectedDate="{Binding Desde}"
+                    <components:SelectorFechaCorta Style="{StaticResource DatePickerRetailStyle}"
+                                SelectedDate="{Binding Desde}"
                                 Language="es-AR"
                                 SelectedDateFormat="Short"
                                 DisplayDateStart="{Binding FechaMinima, Mode=OneWay}"
@@ -257,7 +177,8 @@
                                 VerticalAlignment="Center"
                                 Margin="0,0,10,0" />
                     <TextBlock Text="Hasta" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <components:SelectorFechaCorta SelectedDate="{Binding Hasta}"
+                    <components:SelectorFechaCorta Style="{StaticResource DatePickerRetailStyle}"
+                                SelectedDate="{Binding Hasta}"
                                 Language="es-AR"
                                 SelectedDateFormat="Short"
                                 DisplayDateStart="{Binding FechaMinima, Mode=OneWay}"

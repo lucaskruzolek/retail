@@ -193,6 +193,33 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
     }
 
     [Fact]
+    public async Task BuscarParaCompraAsync_ConServiciosYDerivadas_SoloDevuelveArticulosComprables()
+    {
+        // Arrange
+        var origen = CrearArticulo("Resma A4", codigoBarras: "601");
+        var servicio = CrearArticulo("Resma servicio de corte", esServicio: true);
+        _context.Articulos.AddRange(origen, servicio);
+        await _context.SaveChangesAsync();
+
+        var derivada = CrearArticulo("Resma A4 por hoja");
+        derivada.DefinirComoPresentacionDe(origen, 500);
+        _context.Articulos.Add(derivada);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var resultado = await _sut.BuscarParaCompraAsync("Resma", limite: 10);
+
+        // Assert: costo, markup y precio vienen en la misma proyección; el contexto no sigue entidades
+        var unico = resultado.Should().ContainSingle().Which;
+        unico.IdArticulo.Should().Be(origen.Id);
+        unico.CostoReposicion.Should().Be(100m);
+        unico.PorcentajeGanancia.Should().Be(50m);
+        unico.PrecioVenta.Should().Be(150m);
+        _context.ChangeTracker.Entries().Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ObtenerParaVentaPorCodigoBarrasAsync_CodigoExacto_DevuelveSoloEseArticulo()
     {
         // Arrange

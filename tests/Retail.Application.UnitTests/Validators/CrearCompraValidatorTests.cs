@@ -80,6 +80,33 @@ public class CrearCompraValidatorTests
     }
 
     [Fact]
+    public void Validate_TipoComprobanteNoAdmitido_Falla()
+    {
+        // Arrange
+        var dto = CrearDtoValido() with { TipoComprobante = "TICKET" };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Factura o Remito"));
+    }
+
+    [Fact]
+    public void Validate_TipoRemito_EsValido()
+    {
+        // Arrange
+        var dto = CrearDtoValido() with { TipoComprobante = "REMITO" };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public void Validate_SinItems_FallaConMensajeCorrespondiente()
     {
         // Arrange

@@ -24,6 +24,7 @@ public class CompraServiceTests
     private readonly IRepository<Proveedor> _proveedorRepository;
     private readonly IRepository<Usuario> _usuarioRepository;
     private readonly IRepository<Pedido> _pedidoRepository;
+    private readonly IArticuloQueryService _articuloQueryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly CompraService _sut;
 
@@ -38,6 +39,7 @@ public class CompraServiceTests
         _proveedorRepository = Substitute.For<IRepository<Proveedor>>();
         _usuarioRepository = Substitute.For<IRepository<Usuario>>();
         _pedidoRepository = Substitute.For<IRepository<Pedido>>();
+        _articuloQueryService = Substitute.For<IArticuloQueryService>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
 
         _proveedor = Proveedor.Crear("Editorial Norte S.A.", "20123456786");
@@ -59,8 +61,68 @@ public class CompraServiceTests
             _proveedorRepository,
             _usuarioRepository,
             _pedidoRepository,
+            _articuloQueryService,
             _unitOfWork,
             new CrearCompraValidator());
+    }
+
+    // ── Artículos derivados y búsqueda para compra ────────────────────────────
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ArticuloDerivado_LanzaDomainExceptionYNoGuarda()
+    {
+        // Arrange
+        var derivado = CrearArticuloDerivado(IdArticulo, "Resma suelta", idOrigen: 99, unidadesPorOrigen: 10, markup: 50m);
+        ConfigurarArticulos(derivado);
+
+        var dto = CrearDtoValido([Item(derivado, cantidad: 1, costoUnitario: 10m)]);
+
+        // Act
+        var act = async () => await _sut.RegistrarCompraAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*presentación derivada*");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task BuscarArticulosAsync_TerminoVacio_DevuelveVacioSinConsultar(string termino)
+    {
+        // Act
+        var resultado = await _sut.BuscarArticulosAsync(termino);
+
+        // Assert
+        resultado.Should().BeEmpty();
+        await _articuloQueryService.DidNotReceive()
+            .BuscarParaCompraAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BuscarArticulosAsync_TerminoConEspacios_DelegaElTerminoRecortado()
+    {
+        // Arrange
+        var esperado = new[]
+        {
+            new ArticuloParaCompraDto
+            {
+                IdArticulo = 1,
+                Descripcion = "Lápiz HB",
+                CostoReposicion = 100m,
+                PorcentajeGanancia = 50m,
+                PrecioVenta = 150m,
+            },
+        };
+        _articuloQueryService
+            .BuscarParaCompraAsync("lápiz", 5, Arg.Any<CancellationToken>())
+            .Returns(esperado);
+
+        // Act
+        var resultado = await _sut.BuscarArticulosAsync("  lápiz  ", 5);
+
+        // Assert
+        resultado.Should().BeEquivalentTo(esperado);
     }
 
     // ── Compra exitosa y persistencia ─────────────────────────────────────────

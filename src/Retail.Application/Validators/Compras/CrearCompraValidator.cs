@@ -1,5 +1,6 @@
 using FluentValidation;
 using Retail.Application.DTOs.Compras;
+using Retail.Domain.Entities;
 
 namespace Retail.Application.Validators.Compras;
 
@@ -24,7 +25,9 @@ public class CrearCompraValidator : AbstractValidator<CrearCompraDto>
 
         RuleFor(x => x.TipoComprobante)
             .NotEmpty().WithMessage("El tipo de comprobante es obligatorio.")
-            .MaximumLength(20).WithMessage("El tipo de comprobante no puede superar los 20 caracteres.");
+            .MaximumLength(20).WithMessage("El tipo de comprobante no puede superar los 20 caracteres.")
+            .Must(tipo => tipo?.Trim() is Compra.TipoFactura or Compra.TipoRemito)
+            .WithMessage("El tipo de comprobante debe ser Factura o Remito.");
 
         RuleFor(x => x.NumeroComprobante)
             .NotEmpty().WithMessage("El número de comprobante es obligatorio.")

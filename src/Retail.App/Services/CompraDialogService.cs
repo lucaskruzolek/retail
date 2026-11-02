@@ -43,12 +43,12 @@ public class CompraDialogService : ICompraDialogService
         }
     }
 
-    public Task<PedidoEmitidoDto?> MostrarSeleccionarPedidoModalAsync(int idProveedor)
+    public Task<PedidoEmitidoDto?> MostrarSeleccionarPedidoModalAsync(int idProveedor, string razonSocialProveedor)
     {
         var pedidoService = _serviceProvider.GetRequiredService<IPedidoService>();
         var logger = _serviceProvider.GetService<ILogger<SeleccionarPedidoModalViewModel>>();
 
-        using var viewModel = new SeleccionarPedidoModalViewModel(idProveedor, pedidoService, logger);
+        using var viewModel = new SeleccionarPedidoModalViewModel(idProveedor, razonSocialProveedor, pedidoService, logger);
         var dialog = new SeleccionarPedidoModalDialog(viewModel)
         {
             Owner = System.Windows.Application.Current?.MainWindow

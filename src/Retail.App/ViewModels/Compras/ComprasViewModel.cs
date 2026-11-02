@@ -1,4 +1,7 @@
+using System.Collections;
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -9,41 +12,55 @@ using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Entities;
 using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Compras;
 
 /// <summary>
-/// ViewModel principal para la gestión de compras a distribuidores e ingreso de facturas/remitos (Módulo 4.2).
+/// ViewModel de la pantalla de ingreso de compras a distribuidores (Módulo 4.2): carga una factura o remito, ya sea
+/// recibiendo un pedido emitido (Track 4.3, P2.4) o agregando artículos a mano con el buscador.
 /// Todo acceso a datos pasa por <see cref="CargaSerializada"/> (H-19, Ley 4).
-/// Las excepciones de dominio y de concurrencia se muestran como alertas; solo los errores inesperados van al log.
-/// Soporta la importación de pedidos emitidos (Track 4.3, P2.4).
+/// Las excepciones de dominio, de concurrencia y de unicidad se muestran como mensajes; solo los errores
+/// inesperados van al log.
 /// </summary>
 public partial class ComprasViewModel : ObservableObject, IDisposable
 {
+    // Espera previa a consultar el catálogo mientras el operador tipea (mismo criterio que el listado de artículos).
+    private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
+
     // C-5 (H-19): Serializa todos los accesos a datos de esta pantalla sobre el mismo DbContext y
     // cancela las cargas en curso al salir de ella.
     private readonly CargaSerializada _carga;
 
     private readonly IProveedorService _proveedorService;
     private readonly ICompraService _compraService;
-    private readonly IPedidoService? _pedidoService;
-    private readonly ICompraDialogService? _dialogService;
+    private readonly IPedidoService _pedidoService;
+    private readonly ICompraDialogService _dialogService;
     private readonly ICurrentUserSession _currentUserSession;
     private readonly ILogger<ComprasViewModel> _logger;
 
+    // Renglones cuyo PropertyChanged escuchamos para recalcular el total y la habilitación del registro.
+    private readonly HashSet<DetalleCompraItemViewModel> _renglonesObservados = new();
+
+    // Verdadero mientras se revierte un cambio de proveedor rechazado: evita volver a pedir confirmación.
+    private bool _revirtiendoProveedor;
+
     public ObservableCollection<ProveedorDto> Proveedores { get; } = new();
     public ObservableCollection<DetalleCompraItemViewModel> DetalleCompraItems { get; } = new();
+    public ObservableCollection<ArticuloParaCompraDto> ResultadosBusqueda { get; } = new();
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ImportarPedidoCommand))]
+    [NotifyPropertyChangedFor(nameof(PuedeImportarPedido))]
+    [NotifyPropertyChangedFor(nameof(TieneProveedor))]
     private ProveedorDto? _proveedorSeleccionado;
 
     [ObservableProperty]
     private string _numeroComprobante = string.Empty;
 
     [ObservableProperty]
-    private string _tipoComprobante = "FACTURA";
+    private string _tipoComprobante = Compra.TipoFactura;
 
     [ObservableProperty]
     private DateTime _fechaEmision = DateTime.Today;
@@ -61,20 +78,66 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     private bool _isBusy;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneMensajeEstado))]
     private string? _mensajeEstado;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneMensajeError))]
     private string? _mensajeError;
 
+    [ObservableProperty]
+    private DetalleCompraItemViewModel? _renglonSeleccionado;
+
+    // Buscador de artículos para agregar renglones a mano.
+    [ObservableProperty]
+    private string _textoBusqueda = string.Empty;
+
+    [ObservableProperty]
+    private ArticuloParaCompraDto? _resultadoSeleccionado;
+
+    [ObservableProperty]
+    private bool _mostrarResultados;
+
+    [ObservableProperty]
+    private bool _sinResultados;
+
     /// <summary>
-    /// Indica si se puede invocar la acción de importar pedido (requiere proveedor seleccionado).
+    /// Indica si se puede invocar la acción de recibir un pedido (requiere proveedor seleccionado).
     /// </summary>
     public bool PuedeImportarPedido => ProveedorSeleccionado != null && ProveedorSeleccionado.IdProveedor > 0;
+
+    public bool TieneProveedor => ProveedorSeleccionado is not null;
+
+    public bool TieneMensajeError => !string.IsNullOrEmpty(MensajeError);
+
+    public bool TieneMensajeEstado => !string.IsNullOrEmpty(MensajeEstado);
 
     /// <summary>
     /// Total general de la factura de compra acumulando los subtotales de cada renglón.
     /// </summary>
     public decimal TotalCompra => DetalleCompraItems.Sum(i => i.Subtotal);
+
+    /// <summary>Texto "Falta: …" con lo que impide registrar la compra; vacío si está completa.</summary>
+    public string Faltantes
+    {
+        get
+        {
+            var faltantes = ObtenerFaltantes();
+            return faltantes.Count == 0 ? string.Empty : "Falta: " + string.Join(", ", faltantes);
+        }
+    }
+
+    public bool TieneFaltantes => ObtenerFaltantes().Count > 0;
+
+    /// <summary>La compra está completa y no hay otra operación en curso: es el CanExecute del registro (F12).</summary>
+    public bool PuedeRegistrar => !IsBusy && !TieneFaltantes;
+
+    /// <summary>La grilla no tiene renglones: la vista muestra <see cref="TextoGrillaVacia"/> en su lugar.</summary>
+    public bool GrillaVacia => DetalleCompraItems.Count == 0;
+
+    public string TextoGrillaVacia => ProveedorSeleccionado is null
+        ? "Elegí el proveedor para empezar."
+        : "Recibí un pedido emitido o buscá un artículo para agregarlo.";
 
     public ComprasViewModel(
         IProveedorService proveedorService,
@@ -91,29 +154,56 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         _currentUserSession = currentUserSession ?? throw new ArgumentNullException(nameof(currentUserSession));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _carga = new CargaSerializada(_logger);
+
+        DetalleCompraItems.CollectionChanged += OnRenglonesChanged;
     }
 
-    /// <summary>
-    /// Constructor de compatibilidad para pruebas unitarias focales de compras independientes de pedidos.
-    /// </summary>
-    public ComprasViewModel(
-        IProveedorService proveedorService,
-        ICompraService compraService,
-        ICurrentUserSession currentUserSession,
-        ILogger<ComprasViewModel> logger)
+    partial void OnProveedorSeleccionadoChanged(ProveedorDto? oldValue, ProveedorDto? newValue)
     {
-        _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
-        _compraService = compraService ?? throw new ArgumentNullException(nameof(compraService));
-        _pedidoService = null;
-        _dialogService = null;
-        _currentUserSession = currentUserSession ?? throw new ArgumentNullException(nameof(currentUserSession));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _carga = new CargaSerializada(_logger);
+        if (!_revirtiendoProveedor && oldValue is not null && (DetalleCompraItems.Count > 0 || TienePedidoOrigen))
+        {
+            var cambiar = _dialogService.Confirmar(
+                "Cambiar de proveedor",
+                "La compra ya tiene renglones o un pedido vinculado del proveedor anterior.\n" +
+                "Si cambia de proveedor se quitarán. ¿Desea continuar?");
+
+            if (!cambiar)
+            {
+                // Se devuelve la selección al proveedor anterior; la marca evita volver a preguntar en la reentrada.
+                _revirtiendoProveedor = true;
+                try
+                {
+                    ProveedorSeleccionado = oldValue;
+                }
+                finally
+                {
+                    _revirtiendoProveedor = false;
+                }
+
+                return;
+            }
+
+            QuitarRenglonesYPedido();
+        }
+
+        MensajeError = null;
+        OnPropertyChanged(nameof(TextoGrillaVacia));
+        ActualizarEstadoDerivado();
     }
 
-    partial void OnProveedorSeleccionadoChanged(ProveedorDto? value)
+    partial void OnNumeroComprobanteChanged(string value)
     {
-        OnPropertyChanged(nameof(PuedeImportarPedido));
+        ActualizarEstadoDerivado();
+    }
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        ActualizarEstadoDerivado();
+    }
+
+    partial void OnTextoBusquedaChanged(string value)
+    {
+        _ = BuscarConEsperaAsync(EsperaBusqueda);
     }
 
     [RelayCommand]
@@ -144,17 +234,264 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         IsBusy = _carga.EnCurso;
     }
 
+    // ── Buscador de artículos ────────────────────────────────────────────────
+
+    /// <summary>Consulta el catálogo sin espera previa (la usan las pruebas y el reintento manual).</summary>
     [RelayCommand]
-    private void AgregarItem()
+    private Task BuscarArticulosAsync(CancellationToken cancellationToken = default)
     {
-        // Aquí se integrará la apertura del diálogo de selección de artículos del catálogo
-        MensajeEstado = "Acción de agregar artículo (F2) invocada.";
+        return BuscarConEsperaAsync(TimeSpan.Zero, cancellationToken);
     }
+
+    private async Task BuscarConEsperaAsync(TimeSpan espera, CancellationToken cancellationToken = default)
+    {
+        var termino = TextoBusqueda.Trim();
+        var hayQueBuscar = termino.Length > 0 && TieneProveedor;
+
+        if (!hayQueBuscar)
+        {
+            ResultadosBusqueda.Clear();
+            ResultadoSeleccionado = null;
+            MostrarResultados = false;
+            SinResultados = false;
+        }
+
+        // Aun sin término se pasa por la carga reemplazable: así se descarta una búsqueda anterior todavía pendiente
+        // y no reabre el desplegable cuando el operador ya borró el texto.
+        await _carga.EjecutarAsync(
+            token => hayQueBuscar
+                ? Task.Run(() => _compraService.BuscarArticulosAsync(termino, cancellationToken: token), token)
+                : Task.FromResult<IReadOnlyList<ArticuloParaCompraDto>>([]),
+            resultados =>
+            {
+                if (!hayQueBuscar)
+                {
+                    return;
+                }
+
+                ResultadosBusqueda.Clear();
+                foreach (var articulo in resultados)
+                {
+                    ResultadosBusqueda.Add(articulo);
+                }
+
+                ResultadoSeleccionado = ResultadosBusqueda.FirstOrDefault();
+                SinResultados = ResultadosBusqueda.Count == 0;
+                MostrarResultados = true;
+            },
+            ex =>
+            {
+                _logger.LogError(ex, "Error al buscar artículos para la compra");
+                MensajeError = "No se pudo buscar en el catálogo de artículos.";
+            },
+            hayQueBuscar ? espera : TimeSpan.Zero,
+            cancellationToken);
+    }
+
+    [RelayCommand]
+    private void AgregarArticulo(ArticuloParaCompraDto? articulo)
+    {
+        if (articulo is null)
+        {
+            return;
+        }
+
+        MensajeError = null;
+
+        var existente = DetalleCompraItems.FirstOrDefault(i => i.IdArticulo == articulo.IdArticulo);
+        if (existente is not null)
+        {
+            // No se duplica el renglón: se lo marca para que el operador ajuste su cantidad.
+            RenglonSeleccionado = existente;
+            MensajeEstado = $"\"{articulo.Descripcion}\" ya está en la compra: ajustá su cantidad en el renglón.";
+        }
+        else
+        {
+            var renglon = DetalleCompraItemViewModel.DesdeArticulo(articulo);
+            DetalleCompraItems.Add(renglon);
+            RenglonSeleccionado = renglon;
+            MensajeEstado = null;
+        }
+
+        TextoBusqueda = string.Empty;
+    }
+
+    [RelayCommand]
+    private void AgregarResultadoSeleccionado()
+    {
+        AgregarArticulo(ResultadoSeleccionado);
+    }
+
+    [RelayCommand]
+    private void MoverSeleccionBusquedaAbajo()
+    {
+        MoverSeleccionBusqueda(1);
+    }
+
+    [RelayCommand]
+    private void MoverSeleccionBusquedaArriba()
+    {
+        MoverSeleccionBusqueda(-1);
+    }
+
+    /// <summary>Esc: cierra el desplegable; si ya estaba cerrado, borra el texto.</summary>
+    [RelayCommand]
+    private void CerrarBusqueda()
+    {
+        if (MostrarResultados)
+        {
+            MostrarResultados = false;
+        }
+        else
+        {
+            TextoBusqueda = string.Empty;
+        }
+    }
+
+    private void MoverSeleccionBusqueda(int paso)
+    {
+        if (ResultadosBusqueda.Count == 0)
+        {
+            return;
+        }
+
+        var indice = ResultadoSeleccionado is null ? -1 : ResultadosBusqueda.IndexOf(ResultadoSeleccionado);
+        var nuevo = Math.Clamp(indice + paso, 0, ResultadosBusqueda.Count - 1);
+        ResultadoSeleccionado = ResultadosBusqueda[nuevo];
+    }
+
+    // ── Renglones ────────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void QuitarRenglon(DetalleCompraItemViewModel? renglon)
+    {
+        if (renglon is null)
+        {
+            return;
+        }
+
+        if (ReferenceEquals(RenglonSeleccionado, renglon))
+        {
+            RenglonSeleccionado = null;
+        }
+
+        DetalleCompraItems.Remove(renglon);
+    }
+
+    private void OnRenglonesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        switch (e.Action)
+        {
+            case NotifyCollectionChangedAction.Add:
+            case NotifyCollectionChangedAction.Remove:
+            case NotifyCollectionChangedAction.Replace:
+                Desobservar(e.OldItems);
+                Observar(e.NewItems);
+                break;
+
+            default:
+                // Reset (Clear) no informa qué renglones salieron: se vuelve a sincronizar todo.
+                foreach (var renglon in _renglonesObservados)
+                {
+                    renglon.PropertyChanged -= OnRenglonPropertyChanged;
+                }
+
+                _renglonesObservados.Clear();
+                Observar(DetalleCompraItems);
+                break;
+        }
+
+        OnPropertyChanged(nameof(GrillaVacia));
+        ActualizarEstadoDerivado();
+    }
+
+    private void Observar(IList? renglones)
+    {
+        if (renglones is null)
+        {
+            return;
+        }
+
+        foreach (DetalleCompraItemViewModel renglon in renglones)
+        {
+            if (_renglonesObservados.Add(renglon))
+            {
+                renglon.PropertyChanged += OnRenglonPropertyChanged;
+            }
+        }
+    }
+
+    private void Desobservar(IList? renglones)
+    {
+        if (renglones is null)
+        {
+            return;
+        }
+
+        foreach (DetalleCompraItemViewModel renglon in renglones)
+        {
+            if (_renglonesObservados.Remove(renglon))
+            {
+                renglon.PropertyChanged -= OnRenglonPropertyChanged;
+            }
+        }
+    }
+
+    private void OnRenglonPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        ActualizarEstadoDerivado();
+    }
+
+    /// <summary>Notifica lo que depende de los renglones y del encabezado: total, faltantes y habilitación del registro.</summary>
+    private void ActualizarEstadoDerivado()
+    {
+        OnPropertyChanged(nameof(TotalCompra));
+        OnPropertyChanged(nameof(Faltantes));
+        OnPropertyChanged(nameof(TieneFaltantes));
+        OnPropertyChanged(nameof(PuedeRegistrar));
+        RegistrarCompraCommand.NotifyCanExecuteChanged();
+    }
+
+    private List<string> ObtenerFaltantes()
+    {
+        var faltantes = new List<string>();
+
+        if (ProveedorSeleccionado is null)
+        {
+            faltantes.Add("proveedor");
+        }
+
+        if (string.IsNullOrWhiteSpace(NumeroComprobante))
+        {
+            faltantes.Add("número de comprobante");
+        }
+
+        if (DetalleCompraItems.Count == 0)
+        {
+            faltantes.Add("al menos un renglón");
+        }
+        else
+        {
+            if (DetalleCompraItems.Any(i => i.Cantidad < 1))
+            {
+                faltantes.Add("cantidad recibida mayor a 0 en todos los renglones");
+            }
+
+            if (DetalleCompraItems.Any(i => i.CostoUnitario <= 0m))
+            {
+                faltantes.Add("costo mayor a 0 en todos los renglones");
+            }
+        }
+
+        return faltantes;
+    }
+
+    // ── Pedido emitido ───────────────────────────────────────────────────────
 
     [RelayCommand(CanExecute = nameof(PuedeImportarPedido))]
     private async Task ImportarPedidoAsync()
     {
-        if (ProveedorSeleccionado is null || _dialogService is null || _pedidoService is null)
+        if (ProveedorSeleccionado is null)
         {
             return;
         }
@@ -162,8 +499,8 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         if (DetalleCompraItems.Count > 0)
         {
             var confirmar = _dialogService.Confirmar(
-                "Importar pedido",
-                "La factura de compra ya contiene artículos cargados.\n¿Desea reemplazarlos con los del pedido seleccionado?");
+                "Recibir pedido",
+                "La compra ya contiene artículos cargados.\n¿Desea reemplazarlos con los del pedido seleccionado?");
 
             if (!confirmar)
             {
@@ -171,7 +508,9 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
             }
         }
 
-        var pedidoElegido = await _dialogService.MostrarSeleccionarPedidoModalAsync(ProveedorSeleccionado.IdProveedor);
+        var pedidoElegido = await _dialogService.MostrarSeleccionarPedidoModalAsync(
+            ProveedorSeleccionado.IdProveedor,
+            ProveedorSeleccionado.RazonSocial);
         if (pedidoElegido is null)
         {
             return;
@@ -181,17 +520,31 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         MensajeError = null;
         MensajeEstado = null;
         PedidoParaCompraDto? pedidoParaCompra = null;
+        var huboError = false;
 
-        await _carga.EjecutarAsync(
-            token => Task.Run(() => _pedidoService.ObtenerParaCompraAsync(pedidoElegido.IdPedido, token), token),
-            resultado => pedidoParaCompra = resultado,
-            ex =>
-            {
-                _logger.LogError(ex, "Error al obtener el pedido {IdPedido} para compra", pedidoElegido.IdPedido);
-                MensajeError = "Error al obtener los detalles del pedido seleccionado.";
-            });
+        try
+        {
+            // Operación no reemplazable: escribir en el buscador mientras se lee el pedido no debe cancelarla.
+            await _carga.EjecutarOperacionAsync(
+                token => Task.Run(() => _pedidoService.ObtenerParaCompraAsync(pedidoElegido.IdPedido, token), token),
+                resultado => pedidoParaCompra = resultado,
+                ex =>
+                {
+                    huboError = true;
+                    _logger.LogError(ex, "Error al obtener el pedido {IdPedido} para compra", pedidoElegido.IdPedido);
+                    MensajeError = "Error al obtener los detalles del pedido seleccionado.";
+                });
+        }
+        finally
+        {
+            IsBusy = false;
+        }
 
-        IsBusy = _carga.EnCurso;
+        if (huboError)
+        {
+            // Falló la lectura: no es lo mismo que un pedido que dejó de estar disponible, así que no hay alerta.
+            return;
+        }
 
         if (pedidoParaCompra is null)
         {
@@ -202,50 +555,42 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
             return;
         }
 
-        DetalleCompraItems.Clear();
+        VaciarRenglones();
         foreach (var renglon in pedidoParaCompra.Renglones)
         {
-            DetalleCompraItems.Add(new DetalleCompraItemViewModel
-            {
-                IdArticulo = renglon.IdArticulo,
-                CodigoArticulo = !string.IsNullOrWhiteSpace(renglon.CodigoProveedor)
-                    ? renglon.CodigoProveedor
-                    : (!string.IsNullOrWhiteSpace(renglon.CodigoBarras) ? renglon.CodigoBarras : renglon.IdArticulo.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                DescripcionArticulo = renglon.DescripcionArticulo,
-                Cantidad = renglon.Cantidad,
-                CostoUnitario = renglon.CostoPactado,
-            });
+            DetalleCompraItems.Add(DetalleCompraItemViewModel.DesdeRenglonDePedido(renglon));
         }
 
         IdPedidoOrigen = pedidoParaCompra.IdPedido;
         InformacionPedidoOrigen = $"Pedido #{pedidoParaCompra.IdPedido}";
         TienePedidoOrigen = true;
-        OnPropertyChanged(nameof(TotalCompra));
 
-        MensajeEstado = $"Pedido #{pedidoParaCompra.IdPedido} importado con {DetalleCompraItems.Count} renglón(es). Puede ajustar cantidades y costos a la factura.";
+        MensajeEstado = $"Pedido #{pedidoParaCompra.IdPedido} cargado con {DetalleCompraItems.Count} renglón(es). Ajustá cantidades y costos a lo que dice el comprobante.";
     }
 
     [RelayCommand]
     private void DesvincularPedido()
     {
-        IdPedidoOrigen = null;
-        InformacionPedidoOrigen = null;
-        TienePedidoOrigen = false;
+        DesvincularPedidoOrigen();
         MensajeEstado = "Pedido desvinculado. La compra ahora es manual (los artículos se conservan).";
     }
 
-    [RelayCommand]
+    private void DesvincularPedidoOrigen()
+    {
+        IdPedidoOrigen = null;
+        InformacionPedidoOrigen = null;
+        TienePedidoOrigen = false;
+    }
+
+    // ── Registro ─────────────────────────────────────────────────────────────
+
+    [RelayCommand(CanExecute = nameof(PuedeRegistrar))]
     private async Task RegistrarCompraAsync()
     {
-        if (ProveedorSeleccionado is null)
+        // El comando ya queda deshabilitado con faltantes; esta guarda cubre las invocaciones directas.
+        if (ProveedorSeleccionado is null || DetalleCompraItems.Count == 0)
         {
-            MensajeError = "Debe seleccionar un proveedor o distribuidor para la compra.";
-            return;
-        }
-
-        if (DetalleCompraItems.Count == 0)
-        {
-            MensajeError = "La factura de compra debe contener al menos un renglón de artículo.";
+            MensajeError = Faltantes;
             return;
         }
 
@@ -311,6 +656,12 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
                             MensajeError = ce.Message;
                             break;
 
+                        case RestriccionDeUnicidadException:
+                            // El índice único (proveedor, tipo, número) rechazó un comprobante que otra terminal
+                            // registró entre la validación y el guardado.
+                            MensajeError = "Ese comprobante ya fue registrado para este proveedor (posiblemente desde otra terminal).";
+                            break;
+
                         default:
                             // C-5: Error inesperado: se registra en el log y se muestra un mensaje genérico.
                             _logger.LogError(ex, "Error al registrar la compra a proveedor");
@@ -343,16 +694,27 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         }
     }
 
+    private void VaciarRenglones()
+    {
+        RenglonSeleccionado = null;
+        DetalleCompraItems.Clear();
+    }
+
+    private void QuitarRenglonesYPedido()
+    {
+        VaciarRenglones();
+        DesvincularPedidoOrigen();
+    }
+
     private void LimpiarFormulario()
     {
-        DetalleCompraItems.Clear();
+        // Primero los renglones y el pedido: así cambiar el proveedor a nulo no pide confirmación.
+        QuitarRenglonesYPedido();
         NumeroComprobante = string.Empty;
-        ProveedorSeleccionado = null;
+        TipoComprobante = Compra.TipoFactura;
         FechaEmision = DateTime.Today;
-        IdPedidoOrigen = null;
-        InformacionPedidoOrigen = null;
-        TienePedidoOrigen = false;
-        OnPropertyChanged(nameof(TotalCompra));
+        TextoBusqueda = string.Empty;
+        ProveedorSeleccionado = null;
     }
 
     /// <summary>

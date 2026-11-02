@@ -16,4 +16,16 @@ public record class RenglonPedidoParaCompraDto
     public required int Cantidad { get; init; }
 
     public required decimal CostoPactado { get; init; }
+
+    /// <summary>
+    /// Costo de reposición vigente del artículo: permite anticipar si la compra cambiará el precio (RF-19).
+    /// </summary>
+    public required decimal CostoReposicionActual { get; init; }
+
+    /// <summary>
+    /// Markup vigente del artículo, el mismo que aplicará el Dominio al recalcular el precio de venta (RF-19).
+    /// </summary>
+    public required decimal PorcentajeGanancia { get; init; }
+
+    public required decimal PrecioVentaActual { get; init; }
 }

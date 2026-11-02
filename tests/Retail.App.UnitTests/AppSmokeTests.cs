@@ -1660,11 +1660,7 @@ public class AppSmokeTests
 
         WpfTestHelper.Run(() =>
         {
-            var proveedorServiceMock = Substitute.For<IProveedorService>();
-            var compraServiceMock = Substitute.For<ICompraService>();
-            var sessionMock = Substitute.For<ICurrentUserSession>();
-            var loggerMock = Substitute.For<ILogger<ComprasViewModel>>();
-            var viewModel = new ComprasViewModel(proveedorServiceMock, compraServiceMock, sessionMock, loggerMock);
+            var viewModel = CrearComprasViewModel();
 
             try
             {
@@ -1674,9 +1670,12 @@ public class AppSmokeTests
                     IdArticulo = 1,
                     CodigoArticulo = "7791234567011",
                     DescripcionArticulo = "Cuaderno Rivadavia Tapa Dura",
+                    CantidadPedida = 12,
                     CostoUnitario = 3200m,
+                    CostoActual = 3000m,
                     Cantidad = 10,
-                    PorcentajeGanancia = 50m
+                    PorcentajeGanancia = 50m,
+                    PrecioVentaActual = 4500m,
                 });
                 view.Measure(new System.Windows.Size(1024, 768));
                 view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
@@ -1695,33 +1694,97 @@ public class AppSmokeTests
     }
 
     [Fact]
-    public void ComprasView_InputBindings_DebenEstarAsociadosAComandosCorrespondientes()
+    public void ComprasView_InputBindings_SoloDeclaraF12ParaRegistrarYNingunF2()
     {
         // Arrange & Act
         WpfTestHelper.Run(() =>
         {
-            var proveedorServiceMock = Substitute.For<IProveedorService>();
-            var compraServiceMock = Substitute.For<ICompraService>();
-            var sessionMock = Substitute.For<ICurrentUserSession>();
-            var loggerMock = Substitute.For<ILogger<ComprasViewModel>>();
-            var viewModel = new ComprasViewModel(proveedorServiceMock, compraServiceMock, sessionMock, loggerMock);
-
+            var viewModel = CrearComprasViewModel();
             var view = new ComprasView(viewModel);
 
-            // Assert
-            view.InputBindings.Count.Should().Be(2);
-
+            // Assert: F12 es el único atajo; F2 (y el resto de F1 a F11) los usa el shell para navegar.
             var keyBindings = view.InputBindings.OfType<System.Windows.Input.KeyBinding>().ToList();
-            keyBindings.Should().HaveCount(2);
-
-            var bindingF2 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F2);
-            bindingF2.Should().NotBeNull();
-            bindingF2!.Command.Should().Be(viewModel.AgregarItemCommand);
+            keyBindings.Should().ContainSingle();
 
             var bindingF12 = keyBindings.FirstOrDefault(b => b.Key == System.Windows.Input.Key.F12);
             bindingF12.Should().NotBeNull();
             bindingF12!.Command.Should().Be(viewModel.RegistrarCompraCommand);
+
+            keyBindings.Should().NotContain(b => b.Key == System.Windows.Input.Key.F2);
         });
+    }
+
+    [Fact]
+    public void ComprasView_ElegirProveedorEnElCombo_LlegaAlViewModelYRechazarElCambioLoRevierte()
+    {
+        // Arrange
+        System.Windows.Controls.ComboBox? combo = null;
+        object? tras = null;
+        object? trasRechazar = null;
+        var norte = new ProveedorDto { IdProveedor = 1, RazonSocial = "Editorial Norte S.A.", Cuit = "20123456786" };
+        var sur = new ProveedorDto { IdProveedor = 2, RazonSocial = "Distribuidora Sur", Cuit = "30712345678" };
+
+        WpfTestHelper.Run(() =>
+        {
+            var dialogos = Substitute.For<ICompraDialogService>();
+            dialogos.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+            var viewModel = CrearComprasViewModel(dialogos);
+            viewModel.Proveedores.Add(norte);
+            viewModel.Proveedores.Add(sur);
+
+            var view = new ComprasView(viewModel);
+            var ventana = new System.Windows.Window { Content = view, Width = 1024, Height = 768, Left = -10000, Top = -10000, ShowInTaskbar = false };
+            ventana.Show();
+            view.UpdateLayout();
+            combo = FindVisualChild<System.Windows.Controls.ComboBox>(view);
+
+            // Act: el usuario elige un proveedor y, sin renglones, el cambio llega al ViewModel.
+            combo!.SelectedItem = norte;
+            tras = viewModel.ProveedorSeleccionado;
+
+            // Con un renglón cargado, elegir otro pregunta y, al rechazar, la pantalla vuelve al proveedor anterior.
+            viewModel.DetalleCompraItems.Add(new DetalleCompraItemViewModel { IdArticulo = 1, Cantidad = 1, CostoUnitario = 10m });
+            combo.SelectedItem = sur;
+            trasRechazar = combo.SelectedItem;
+
+            ventana.Close();
+        });
+
+        // Assert
+        tras.Should().Be(norte);
+        trasRechazar.Should().Be(norte, "al rechazar el cambio el combo debe volver a mostrar el proveedor anterior");
+    }
+
+    private static ComprasViewModel CrearComprasViewModel(ICompraDialogService? dialogos = null)
+    {
+        return new ComprasViewModel(
+            Substitute.For<IProveedorService>(),
+            Substitute.For<ICompraService>(),
+            Substitute.For<IPedidoService>(),
+            dialogos ?? Substitute.For<ICompraDialogService>(),
+            Substitute.For<ICurrentUserSession>(),
+            Substitute.For<ILogger<ComprasViewModel>>());
+    }
+
+    private static T? FindVisualChild<T>(System.Windows.DependencyObject padre)
+        where T : System.Windows.DependencyObject
+    {
+        for (var i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(padre); i++)
+        {
+            var hijo = System.Windows.Media.VisualTreeHelper.GetChild(padre, i);
+            if (hijo is T encontrado)
+            {
+                return encontrado;
+            }
+
+            var descendiente = FindVisualChild<T>(hijo);
+            if (descendiente is not null)
+            {
+                return descendiente;
+            }
+        }
+
+        return null;
     }
 
     [Fact]
@@ -1734,13 +1797,13 @@ public class AppSmokeTests
         WpfTestHelper.Run(() =>
         {
             var pedidoServiceMock = Substitute.For<IPedidoService>();
-            var viewModel = new SeleccionarPedidoModalViewModel(1, pedidoServiceMock);
+            var viewModel = new SeleccionarPedidoModalViewModel(1, "Editorial Norte S.A.", pedidoServiceMock);
 
             try
             {
                 dialog = new SeleccionarPedidoModalDialog(viewModel);
-                dialog.Measure(new System.Windows.Size(640, 520));
-                dialog.Arrange(new System.Windows.Rect(0, 0, 640, 520));
+                dialog.Measure(new System.Windows.Size(540, 620));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 540, 620));
                 dialog.UpdateLayout();
             }
             catch (Exception ex)
