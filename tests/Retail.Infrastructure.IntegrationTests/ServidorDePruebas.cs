@@ -12,7 +12,59 @@ namespace Retail.Infrastructure.IntegrationTests;
 internal static class ServidorDePruebas
 {
     private const string VariableDeEntorno = "RETAIL_TEST_SQLSERVER";
-    private const string ServidorPorDefecto = @".\SQLEXPRESS";
+    private const string InstanciaExpress = @".\SQLEXPRESS";
+    private const string InstanciaPredeterminada = ".";
+
+    private static readonly Lazy<string> ServidorResuelto = new(ResolverServidor);
+
+    /// <summary>
+    /// Determina la instancia de SQL Server a utilizar. Si no se especifica mediante la variable de
+    /// entorno <c>RETAIL_TEST_SQLSERVER</c>, intenta conectarse a <c>.\SQLEXPRESS</c> y, de no responder,
+    /// realiza fallback automático a la instancia local predeterminada (<c>.</c>).
+    /// </summary>
+    private static string ResolverServidor()
+    {
+        var servidor = Environment.GetEnvironmentVariable(VariableDeEntorno);
+        if (!string.IsNullOrWhiteSpace(servidor))
+        {
+            return servidor;
+        }
+
+        if (ProbarConexion(InstanciaExpress))
+        {
+            return InstanciaExpress;
+        }
+
+        if (ProbarConexion(InstanciaPredeterminada))
+        {
+            return InstanciaPredeterminada;
+        }
+
+        return InstanciaExpress;
+    }
+
+    private static bool ProbarConexion(string servidor)
+    {
+        try
+        {
+            var builder = new SqlConnectionStringBuilder
+            {
+                DataSource = servidor,
+                InitialCatalog = "master",
+                IntegratedSecurity = true,
+                TrustServerCertificate = true,
+                ConnectTimeout = 1
+            };
+
+            using var conexion = new SqlConnection(builder.ConnectionString);
+            conexion.Open();
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// Arma la cadena de conexión (autenticación de Windows) hacia la base de pruebas indicada.
@@ -22,11 +74,9 @@ internal static class ServidorDePruebas
     /// <param name="nombreBase">Nombre único de la base; el test que la crea debe borrarla al terminar.</param>
     public static string CadenaDeConexion(string nombreBase)
     {
-        var servidor = Environment.GetEnvironmentVariable(VariableDeEntorno);
-
         var builder = new SqlConnectionStringBuilder
         {
-            DataSource = string.IsNullOrWhiteSpace(servidor) ? ServidorPorDefecto : servidor,
+            DataSource = ServidorResuelto.Value,
             InitialCatalog = nombreBase,
             IntegratedSecurity = true,
             TrustServerCertificate = true,

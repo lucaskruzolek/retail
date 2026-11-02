@@ -8,6 +8,7 @@ public record class CompraResponseDto
     public required int IdCompra { get; init; }
     public required int IdProveedor { get; init; }
     public string? ProveedorRazonSocial { get; init; }
+    public int? IdPedidoOrigen { get; init; }
     public required string TipoComprobante { get; init; }
     public required string NumeroComprobante { get; init; }
     public required DateTime FechaEmision { get; init; }

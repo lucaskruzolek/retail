@@ -507,6 +507,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha_emision");
 
+                    b.Property<int?>("IdPedidoOrigen")
+                        .HasColumnType("int")
+                        .HasColumnName("id_pedido_origen");
+
                     b.Property<int>("IdProveedor")
                         .HasColumnType("int")
                         .HasColumnName("id_proveedor");
@@ -539,9 +543,17 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("IdProveedor");
+                    b.HasIndex("IdPedidoOrigen")
+                        .IsUnique()
+                        .HasDatabaseName("UX_COMPRAS_PedidoOrigen")
+                        .HasFilter("[id_pedido_origen] IS NOT NULL AND [deleted_at] IS NULL");
 
                     b.HasIndex("IdUsuario");
+
+                    b.HasIndex("IdProveedor", "TipoComprobante", "NumeroComprobante")
+                        .IsUnique()
+                        .HasDatabaseName("UX_COMPRAS_Comprobante")
+                        .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("COMPRAS", null, t =>
                         {
@@ -1969,6 +1981,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Retail.Domain.Entities.Compra", b =>
                 {
+                    b.HasOne("Retail.Domain.Entities.Pedido", "PedidoOrigen")
+                        .WithMany()
+                        .HasForeignKey("IdPedidoOrigen")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Retail.Domain.Entities.Proveedor", "Proveedor")
                         .WithMany("Compras")
                         .HasForeignKey("IdProveedor")
@@ -1980,6 +1997,8 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasForeignKey("IdUsuario")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("PedidoOrigen");
 
                     b.Navigation("Proveedor");
 
