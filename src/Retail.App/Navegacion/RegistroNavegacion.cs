@@ -52,6 +52,13 @@ public static class RegistroNavegacion
         ])
     ];
 
+    /// <summary>Ajustes: acceso fijo de la zona inferior del menú, fuera de la lista de secciones; lo ve todo operador.</summary>
+    public static SeccionNavegacion Ajustes { get; } =
+        new("ajustes", "Ajustes", PackIconBoxIconsKind.RegularCog,
+        [
+            new("ajustes", "Ajustes", typeof(AjustesView), AccesoPagina.Todos)
+        ]);
+
     /// <summary>Secciones con al menos una página que el rol puede abrir, en el orden del menú.</summary>
     public static IReadOnlyList<SeccionNavegacion> SeccionesVisibles(RolUsuarioEnum? rol)
     {
@@ -77,7 +84,7 @@ public static class RegistroNavegacion
 
     public static (SeccionNavegacion Seccion, PaginaNavegacion Pagina)? Buscar(string paginaId)
     {
-        foreach (var seccion in Secciones)
+        foreach (var seccion in TodasLasSecciones)
         {
             var pagina = seccion.Paginas.FirstOrDefault(p => p.Id == paginaId);
             if (pagina is not null)
@@ -91,7 +98,7 @@ public static class RegistroNavegacion
 
     public static SeccionNavegacion? BuscarSeccion(string seccionId)
     {
-        return Secciones.FirstOrDefault(s => s.Id == seccionId);
+        return TodasLasSecciones.FirstOrDefault(s => s.Id == seccionId);
     }
 
     /// <summary>Página que abre un atajo ("F4"), o <c>null</c> si ninguna lo usa.</summary>
@@ -100,8 +107,17 @@ public static class RegistroNavegacion
         return Secciones.SelectMany(s => s.Paginas).FirstOrDefault(p => p.Atajo == atajo);
     }
 
+    /// <summary>Primera página que muestra una vista (la de Copias para Respaldos), o <c>null</c> si no está registrada.</summary>
+    public static PaginaNavegacion? BuscarPorVista(Type tipoVista)
+    {
+        return TodasLasSecciones.SelectMany(s => s.Paginas).FirstOrDefault(p => p.TipoVista == tipoVista);
+    }
+
+    private static IEnumerable<SeccionNavegacion> TodasLasSecciones => Secciones.Append(Ajustes);
+
     private static void ConfigurarPresupuestos(object vista)
     {
+        ((ModuloEnConstruccionView)vista).SeccionId = "ventas";
         ((ModuloEnConstruccionView)vista).Configurar(
             titulo: "Presupuestador Independiente y Conversión",
             etapa: "Etapa 5: Épica 5 - Módulo 5.1",
@@ -112,6 +128,7 @@ public static class RegistroNavegacion
 
     private static void ConfigurarConsolaFiscal(object vista)
     {
+        ((ModuloEnConstruccionView)vista).SeccionId = "administracion";
         ((ModuloEnConstruccionView)vista).Configurar(
             titulo: "Consola Fiscal ARCA y Contingencia Resiliente",
             etapa: "Etapa 5: Épica 5 - Módulo 5.2",

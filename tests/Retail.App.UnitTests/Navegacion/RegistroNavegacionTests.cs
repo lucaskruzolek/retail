@@ -189,4 +189,44 @@ public class RegistroNavegacionTests
         estado.PaginaDeEntrada(RegistroNavegacion.BuscarSeccion("ventas")!, RolUsuarioEnum.Cajero)!.Id.Should().Be("clientes");
         avisos.Should().Be(2);
     }
+
+    [Theory]
+    [InlineData(RolUsuarioEnum.Gerente)]
+    [InlineData(RolUsuarioEnum.Encargado)]
+    [InlineData(RolUsuarioEnum.Cajero)]
+    [InlineData(RolUsuarioEnum.Administrador)]
+    public void Ajustes_LoVeTodoOperador_PeroNoFormaParteDeLasSeccionesDelMenu(RolUsuarioEnum rol)
+    {
+        PoliticaAcceso.Permite(AccesoPagina.Todos, rol).Should().BeTrue();
+        RegistroNavegacion.PaginasVisibles(RegistroNavegacion.Ajustes, rol).Should().ContainSingle();
+        RegistroNavegacion.SeccionesVisibles(rol).Should().NotContain(s => s.Id == "ajustes");
+        RegistroNavegacion.Buscar("ajustes")!.Value.Seccion.Should().BeSameAs(RegistroNavegacion.Ajustes);
+    }
+
+    [Fact]
+    public void PoliticaAcceso_SinRol_NoPermiteNada()
+    {
+        PoliticaAcceso.Permite(AccesoPagina.Todos, null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void BuscarPorVista_VistaCompartida_DevuelveLaPrimeraPagina()
+    {
+        RegistroNavegacion.BuscarPorVista(typeof(Retail.App.Views.Pages.BackupView))!.Id.Should().Be("copias");
+        RegistroNavegacion.BuscarPorVista(typeof(Retail.App.Views.Pages.AjustesView))!.Id.Should().Be("ajustes");
+        RegistroNavegacion.BuscarPorVista(typeof(Retail.App.Views.Dev.StyleGalleryView)).Should().BeNull();
+    }
+
+    [Fact]
+    public void EstadoNavegacion_MarcarFueraDelRegistro_QuitaLaUbicacionPeroConservaLaUltimaPagina()
+    {
+        var estado = new EstadoNavegacion();
+        estado.Registrar("caja");
+
+        estado.MarcarFueraDelRegistro();
+
+        estado.PaginaActualId.Should().BeNull();
+        estado.SeccionActualId.Should().BeNull();
+        estado.PaginaDeEntrada(RegistroNavegacion.BuscarSeccion("ventas")!, RolUsuarioEnum.Cajero)!.Id.Should().Be("caja");
+    }
 }

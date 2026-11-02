@@ -42,7 +42,7 @@ public partial class MainWindow : FluentWindow
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        // Página inicial según el rol: catálogo de artículos o, para el Administrador, gestión de usuarios.
+        // Página inicial según el rol: tablero para el Gerente, punto de venta para quien opera y usuarios para el Administrador.
         ViewModel.NavegarModuloInicial();
 
         // El operador ya inició sesión antes de crear el Shell: el aviso de restauración reciente se consulta acá (R-20).
@@ -59,48 +59,11 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        // Atajos de conmutación global de módulos con teclas de función (F1 a F10)
-        switch (e.Key)
+        // Atajos de conmutación global con teclas de función: cada página declara el suyo en el registro de navegación
+        // y la política de acceso decide si el rol puede abrirla; sin página asignada o sin permiso, la tecla sigue de largo
+        if (e.Key is >= Key.F1 and <= Key.F12 && ViewModel.AbrirPorAtajo(e.Key.ToString()))
         {
-            case Key.F1:
-                ViewModel.NavegarPos();
-                e.Handled = true;
-                break;
-
-            case Key.F2:
-                ViewModel.NavegarArticulos();
-                e.Handled = true;
-                break;
-
-            case Key.F4:
-                ViewModel.NavegarClientes();
-                e.Handled = true;
-                break;
-
-            case Key.F5:
-                ViewModel.NavegarCaja();
-                e.Handled = true;
-                break;
-
-            case Key.F6:
-                ViewModel.NavegarPresupuestos();
-                e.Handled = true;
-                break;
-
-            case Key.F9 when ViewModel.EsGerente:
-                ViewModel.NavegarConsolaFiscal();
-                e.Handled = true;
-                break;
-
-            case Key.F10 when ViewModel.PuedeGestionarUsuarios:
-                ViewModel.NavegarUsuarios();
-                e.Handled = true;
-                break;
-
-            case Key.F11 when ViewModel.PuedeGestionarUsuarios:
-                ViewModel.NavegarRespaldos();
-                e.Handled = true;
-                break;
+            e.Handled = true;
         }
     }
 

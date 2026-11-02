@@ -10,6 +10,13 @@ namespace Retail.App.Views.Pages;
 /// </summary>
 public partial class ModuloEnConstruccionView : UserControl
 {
+    public static readonly DependencyProperty SeccionIdProperty =
+        DependencyProperty.Register(
+            nameof(SeccionId),
+            typeof(string),
+            typeof(ModuloEnConstruccionView),
+            new PropertyMetadata(string.Empty));
+
     private readonly INavigationService? _navigationService;
 
     public ModuloEnConstruccionView()
@@ -20,6 +27,13 @@ public partial class ModuloEnConstruccionView : UserControl
     public ModuloEnConstruccionView(INavigationService navigationService) : this()
     {
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
+    }
+
+    /// <summary>Sección cuyo selector se muestra arriba a la izquierda; vacío lo colapsa.</summary>
+    public string SeccionId
+    {
+        get => (string)GetValue(SeccionIdProperty);
+        set => SetValue(SeccionIdProperty, value);
     }
 
     public void Configurar(

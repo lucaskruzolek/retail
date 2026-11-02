@@ -50,6 +50,13 @@ public class NavigationService : INavigationService
         Navegar(viewType, configure: null);
     }
 
+    public void NavigateTo(Type viewType, Action<object>? configure)
+    {
+        ArgumentNullException.ThrowIfNull(viewType);
+
+        Navegar(viewType, configure);
+    }
+
     public bool CanGoBack => _frame?.CanGoBack ?? false;
 
     public void GoBack()

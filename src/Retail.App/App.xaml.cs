@@ -104,6 +104,12 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.ViewModels.Ajustes.AjustesViewModel>();
         services.AddTransient<Retail.App.Views.Pages.AjustesView>();
 
+        // Navegación por secciones: el menú lateral, los selectores de sección y los atajos comparten estado y política
+        services.AddSingleton<Retail.App.Navegacion.EstadoNavegacion>();
+        services.AddSingleton<Retail.App.Navegacion.NavegacionSecciones>();
+        services.AddSingleton<Retail.App.Navegacion.INavegacionSecciones>(
+            proveedor => proveedor.GetRequiredService<Retail.App.Navegacion.NavegacionSecciones>());
+
         // Vistas de Desarrollo
         services.AddTransient<Retail.App.Views.Dev.StyleGalleryView>();
 

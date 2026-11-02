@@ -3,10 +3,24 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:components="clr-namespace:Retail.App.Views.Components"
              Background="{DynamicResource SurfaceBackgroundBrush}">
 
     <Grid Margin="{StaticResource PageMargin}">
-        <Border Style="{StaticResource CardBorderStyle}"
+        <Grid.RowDefinitions>
+            <!-- Selector de sección (colapsado si SeccionId está vacío) -->
+            <RowDefinition Height="Auto" />
+            <!-- Tarjeta centrada en el resto del espacio -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <components:NavegadorSeccion Grid.Row="0"
+                                     HorizontalAlignment="Left"
+                                     VerticalAlignment="Top"
+                                     SeccionId="{Binding SeccionId, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+
+        <Border Grid.Row="1"
+                Style="{StaticResource CardBorderStyle}"
                 MaxWidth="680"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"

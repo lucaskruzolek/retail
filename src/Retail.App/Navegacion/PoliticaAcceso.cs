@@ -17,6 +17,7 @@ public static class PoliticaAcceso
 
         return acceso switch
         {
+            AccesoPagina.Todos => true,
             AccesoPagina.Operadores => rol != RolUsuarioEnum.Administrador,
             AccesoPagina.Abastecimiento => rol is RolUsuarioEnum.Gerente or RolUsuarioEnum.Encargado,
             AccesoPagina.Gerente => rol == RolUsuarioEnum.Gerente,

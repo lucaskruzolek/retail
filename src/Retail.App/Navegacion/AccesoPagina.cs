@@ -6,6 +6,9 @@ namespace Retail.App.Navegacion;
 /// </summary>
 public enum AccesoPagina
 {
+    /// <summary>Cualquier operador con sesión: ajustes.</summary>
+    Todos,
+
     /// <summary>Quien opera el negocio: todos los roles menos el Administrador, que es soporte técnico (RF-03, D-3).</summary>
     Operadores,
 

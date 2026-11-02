@@ -34,33 +34,36 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta)                      -->
         <!-- ============================================================= -->
-        <components:PageHeader Grid.Row="0"
-                               Margin="{StaticResource SectionSpacing}"
-                               Titulo="Padrón de Clientes y Cuentas Corrientes">
-            <StackPanel Orientation="Horizontal">
-                <!-- Cobrar Cta Cte (F4): secundaria con contorno; el único acento carmín de la vista es "Nuevo Cliente" -->
-                <Button Command="{Binding CobrarCuentaCorrienteCommand}"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        IsEnabled="{Binding PuedeCobrar}"
-                        Margin="0,0,8,0"
-                        ToolTip="Registrar cobranza de cuenta corriente para el cliente seleccionado (F4)">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularCreditCard" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Cobrar Deuda" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+        <StackPanel Grid.Row="0">
+            <components:PageHeader
+                                   Margin="{StaticResource StackSm}"
+                                   Titulo="Ventas">
+                <StackPanel Orientation="Horizontal">
+                    <!-- Cobrar Cta Cte (F4): secundaria con contorno; el único acento carmín de la vista es "Nuevo Cliente" -->
+                    <Button Command="{Binding CobrarCuentaCorrienteCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            IsEnabled="{Binding PuedeCobrar}"
+                            Margin="0,0,8,0"
+                            ToolTip="Registrar cobranza de cuenta corriente para el cliente seleccionado (F4)">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularCreditCard" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Cobrar Deuda" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
 
-                <!-- Nuevo Cliente (F2) -->
-                <Button Command="{Binding NuevoClienteCommand}"
-                        Style="{StaticResource PrimaryActionButtonStyle}"
-                        ToolTip="Registrar un cliente nuevo (F2)">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularUserPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Nuevo Cliente" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </components:PageHeader>
+                    <!-- Nuevo Cliente (F2) -->
+                    <Button Command="{Binding NuevoClienteCommand}"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            ToolTip="Registrar un cliente nuevo (F2)">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularUserPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Nuevo Cliente" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </components:PageHeader>
+            <components:NavegadorSeccion SeccionId="ventas" Margin="{StaticResource SectionSpacing}" />
+        </StackPanel>
 
         <!-- ============================================================= -->
         <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta)                             -->

@@ -48,6 +48,17 @@ public sealed class EstadoNavegacion
         return visibles.Count > 0 ? visibles[0] : null;
     }
 
+    /// <summary>
+    /// Anota que se abrió una vista que no está en el registro (la galería de desarrollo, por ejemplo): ninguna sección
+    /// queda activa, pero se conserva la última página visitada de cada una.
+    /// </summary>
+    public void MarcarFueraDelRegistro()
+    {
+        PaginaActualId = null;
+        SeccionActualId = null;
+        Cambio?.Invoke();
+    }
+
     /// <summary>Olvida todo: se usa al cambiar de operador, que arranca desde su página inicial.</summary>
     public void Reiniciar()
     {
