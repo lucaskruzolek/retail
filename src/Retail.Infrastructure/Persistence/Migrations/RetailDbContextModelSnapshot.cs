@@ -236,9 +236,21 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha_actualizacion");
 
+                    b.Property<DateTime?>("FechaClasificacion")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("fecha_clasificacion");
+
                     b.Property<int?>("IdArticulo")
                         .HasColumnType("int")
                         .HasColumnName("id_articulo");
+
+                    b.Property<int?>("IdCategoriaSugerida")
+                        .HasColumnType("int")
+                        .HasColumnName("id_categoria_sugerida");
+
+                    b.Property<int?>("IdMarcaSugerida")
+                        .HasColumnType("int")
+                        .HasColumnName("id_marca_sugerida");
 
                     b.Property<int>("IdProveedor")
                         .HasColumnType("int")
@@ -258,11 +270,21 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdArticulo");
 
+                    b.HasIndex("IdCategoriaSugerida");
+
+                    b.HasIndex("IdMarcaSugerida");
+
                     b.HasIndex("IdProveedor", "CodigoProveedor")
                         .IsUnique()
                         .HasFilter("[deleted_at] IS NULL");
 
                     b.HasIndex("IdProveedor", "DescripcionProveedor")
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.HasIndex("IdProveedor", "IdCategoriaSugerida")
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.HasIndex("IdProveedor", "IdMarcaSugerida")
                         .HasFilter("[deleted_at] IS NULL");
 
                     b.ToTable("CATALOGOS_PROVEEDORES", null, t =>
@@ -1241,6 +1263,12 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("ClasificaCatalogo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false)
+                        .HasColumnName("clasifica_catalogo");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at");
@@ -1880,6 +1908,16 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.HasOne("Retail.Domain.Entities.Articulo", "Articulo")
                         .WithMany()
                         .HasForeignKey("IdArticulo")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Retail.Domain.Entities.Categoria", null)
+                        .WithMany()
+                        .HasForeignKey("IdCategoriaSugerida")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Retail.Domain.Entities.Marca", null)
+                        .WithMany()
+                        .HasForeignKey("IdMarcaSugerida")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Retail.Domain.Entities.Proveedor", "Proveedor")

@@ -136,6 +136,7 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.ViewModels.Proveedores.ProveedoresViewModel>();
         services.AddTransient<Retail.App.ViewModels.Proveedores.ImportadorCatalogosViewModel>();
         services.AddTransient<Retail.App.ViewModels.Proveedores.EquivalenciasProveedorViewModel>();
+        services.AddTransient<Retail.App.ViewModels.Proveedores.AsociarValoresCatalogoViewModel>();
         services.AddTransient<Retail.App.Views.Pages.ProveedoresView>();
         services.AddTransient<Retail.App.Views.Pages.ImportadorCatalogosView>();
         services.AddTransient<Retail.App.Views.Dialogs.IncorporarArticulosModalDialog>();

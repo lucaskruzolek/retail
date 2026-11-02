@@ -39,6 +39,27 @@ public class CatalogoProveedor : BaseEntity
     public string? MarcaProveedor { get; private set; }
 
     /// <summary>
+    /// Categoría del comercio que las reglas vigentes sugieren para este ítem (Track 6.6, M-72). Es un dato derivado y
+    /// descartable: nunca llega sola al artículo (M-73). Con <see cref="FechaClasificacion"/> y sin categoría, ninguna
+    /// regla reconoce el ítem (M-74). Sin navegación: los ids bastan para el dominio.
+    /// </summary>
+    public int? IdCategoriaSugerida { get; private set; }
+
+    /// <summary>
+    /// Marca del comercio que las reglas vigentes sugieren para este ítem (M-72); derivada y descartable como
+    /// <see cref="IdCategoriaSugerida"/>.
+    /// </summary>
+    public int? IdMarcaSugerida { get; private set; }
+
+    /// <summary>
+    /// Momento (UTC) en que el motor procesó el ítem. Nula = pendiente: el motor no lo vio o cambiaron sus datos de
+    /// origen. Con fecha y sin categoría = ninguna regla lo reconoce (M-74).
+    /// </summary>
+    public DateTime? FechaClasificacion { get; private set; }
+
+    public bool ClasificacionPendiente => FechaClasificacion is null;
+
+    /// <summary>
     /// Artículos que tienen este ítem como fuente principal (A-16). El índice único filtrado de ARTICULOS admite a lo
     /// sumo uno activo.
     /// </summary>
@@ -111,9 +132,32 @@ public class CatalogoProveedor : BaseEntity
     }
 
     /// <summary>
+    /// Guarda lo que el motor sugirió y fecha la clasificación (M-72, M-74). Un id nulo significa que ninguna regla
+    /// reconoció la categoría o la marca; que el destino exista y esté activo lo verifica la capa de Aplicación.
+    /// </summary>
+    public void RegistrarClasificacionSugerida(int? idCategoria, int? idMarca)
+    {
+        if (idCategoria is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idCategoria), "La categoría sugerida debe ser un identificador válido.");
+        }
+
+        if (idMarca is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idMarca), "La marca sugerida debe ser un identificador válido.");
+        }
+
+        IdCategoriaSugerida = idCategoria;
+        IdMarcaSugerida = idMarca;
+        FechaClasificacion = DateTime.UtcNow;
+    }
+
+    /// <summary>
     /// Actualiza el ítem con una fila de la planilla. Un texto vacío conserva el valor anterior: una planilla que no
     /// trae esa columna no borra lo que trajo otra. Todo se valida antes de asignar, para que una fila con error no
-    /// quede a medio actualizar (atomicidad por fila del importador, Ley 9 de persistencia).
+    /// quede a medio actualizar (atomicidad por fila del importador, Ley 9 de persistencia). Si cambia la descripción, el
+    /// código de barras o un texto del proveedor, la clasificación queda pendiente (M-74); si cambia solo el costo, se
+    /// conserva.
     /// </summary>
     public void ActualizarPrecio(
         decimal nuevoCosto,
@@ -129,19 +173,30 @@ public class CatalogoProveedor : BaseEntity
         }
 
         var textos = NormalizarTextosDeClasificacion(rubroProveedor, categoriaProveedor, marcaProveedor);
+        var cambiaOrigen = CambianLosTextosDeClasificacion(textos);
 
-        AsignarTextosDeClasificacion(textos);
         CostoReposicion = nuevoCosto;
         FechaActualizacion = DateTime.UtcNow;
 
         if (!string.IsNullOrWhiteSpace(descripcion))
         {
-            DescripcionProveedor = descripcion.Trim();
+            var descripcionNormalizada = descripcion.Trim();
+            cambiaOrigen |= descripcionNormalizada != DescripcionProveedor;
+            DescripcionProveedor = descripcionNormalizada;
         }
 
         if (!string.IsNullOrWhiteSpace(codigoBarras))
         {
-            CodigoBarras = codigoBarras.Trim();
+            var codigoNormalizado = codigoBarras.Trim();
+            cambiaOrigen |= codigoNormalizado != CodigoBarras;
+            CodigoBarras = codigoNormalizado;
+        }
+
+        AsignarTextosDeClasificacion(textos);
+
+        if (cambiaOrigen)
+        {
+            DejarClasificacionPendiente();
         }
     }
 
@@ -152,7 +207,31 @@ public class CatalogoProveedor : BaseEntity
     /// </summary>
     public void ActualizarClasificacionDelProveedor(string? rubroProveedor, string? categoriaProveedor, string? marcaProveedor)
     {
-        AsignarTextosDeClasificacion(NormalizarTextosDeClasificacion(rubroProveedor, categoriaProveedor, marcaProveedor));
+        var textos = NormalizarTextosDeClasificacion(rubroProveedor, categoriaProveedor, marcaProveedor);
+        var cambiaOrigen = CambianLosTextosDeClasificacion(textos);
+
+        AsignarTextosDeClasificacion(textos);
+
+        if (cambiaOrigen)
+        {
+            DejarClasificacionPendiente();
+        }
+    }
+
+    // Un texto nulo conserva el anterior, así que solo cuenta como cambio el que trae un valor distinto.
+    private bool CambianLosTextosDeClasificacion((string? Rubro, string? Categoria, string? Marca) textos)
+    {
+        return (textos.Rubro is not null && textos.Rubro != RubroProveedor)
+            || (textos.Categoria is not null && textos.Categoria != CategoriaProveedor)
+            || (textos.Marca is not null && textos.Marca != MarcaProveedor);
+    }
+
+    // Una sugerencia calculada con datos viejos no se muestra como vigente (M-74): se descarta junto con la fecha.
+    private void DejarClasificacionPendiente()
+    {
+        IdCategoriaSugerida = null;
+        IdMarcaSugerida = null;
+        FechaClasificacion = null;
     }
 
     private static (string? Rubro, string? Categoria, string? Marca) NormalizarTextosDeClasificacion(

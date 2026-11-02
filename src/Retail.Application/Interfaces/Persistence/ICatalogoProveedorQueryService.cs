@@ -1,3 +1,4 @@
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Domain.Entities;
 
@@ -10,6 +11,18 @@ namespace Retail.Application.Interfaces.Persistence;
 public interface ICatalogoProveedorQueryService
 {
     Task<CatalogoPaginadoDto> ObtenerCatalogoPaginadoAsync(ConsultaCatalogoProveedorDto consulta, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Ítems vigentes del proveedor para clasificar (Track 6.6, M-75): todos o solo los pendientes (sin fecha de
+    /// clasificación). Vuelven con tracking porque se cargan para modificarlos.
+    /// </summary>
+    Task<IReadOnlyList<CatalogoProveedor>> ObtenerParaClasificarAsync(int idProveedor, bool soloPendientes, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Pares distintos de rubro y categoría, y marcas distintas, de los ítems vigentes del proveedor, con la cantidad
+    /// de ítems de cada uno (M-76). Se agrupa en SQL Server.
+    /// </summary>
+    Task<IReadOnlyList<ValorDelProveedorDto>> ObtenerValoresDeClasificacionAsync(int idProveedor, CancellationToken cancellationToken = default);
 
     Task<CatalogoProveedor?> ObtenerPorIdAsync(int id, CancellationToken cancellationToken = default);
 

@@ -1303,6 +1303,8 @@ public class AppSmokeTests
                 proveedorServiceMock,
                 dialogServiceMock,
                 inventarioServiceMock,
+                Substitute.For<IRubroService>(),
+                Substitute.For<IClasificacionCatalogoService>(),
                 navigationServiceMock,
                 modalViewModel,
                 new Retail.App.ViewModels.Pedidos.FlujoPedirArticulos(
@@ -1716,6 +1718,89 @@ public class AppSmokeTests
             bindingF12.Should().NotBeNull();
             bindingF12!.Command.Should().Be(viewModel.RegistrarCompraCommand);
         });
+    }
+
+    [Fact]
+    public void AsociarValoresPanel_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        AsociarValoresPanel? panel = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var session = Substitute.For<ICurrentUserSession>();
+                session.EsGerente.Returns(true);
+                var paso = new TraducirValoresPasoViewModel(
+                    Substitute.For<IEquivalenciaClasificacionService>(),
+                    session,
+                    Substitute.For<ILogger>(),
+                    new System.Collections.ObjectModel.ObservableCollection<CategoriaDto>(),
+                    new System.Collections.ObjectModel.ObservableCollection<MarcaDto>());
+                paso.Cargar(
+                    1,
+                    [
+                        new ValorSinTraducirDto { Tipo = TipoEquivalenciaEnum.Categoria, TextoRubro = "ESCOLAR", Texto = "CUADERNOS", CantidadDeItems = 14 },
+                        new ValorSinTraducirDto { Tipo = TipoEquivalenciaEnum.Marca, Texto = "FABER CASTELL ARG.", CantidadDeItems = 11 }
+                    ],
+                    puedeAdministrar: false);
+                paso.MensajeError = "Mensaje de prueba";
+
+                panel = new AsociarValoresPanel { DataContext = paso };
+                panel.Measure(new System.Windows.Size(520, 400));
+                panel.Arrange(new System.Windows.Rect(0, 0, 520, 400));
+                panel.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de AsociarValoresPanel debe resolverse sin errores");
+        panel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void AsociarValoresCatalogoDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        AsociarValoresCatalogoDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var session = Substitute.For<ICurrentUserSession>();
+                session.EsGerente.Returns(true);
+                using var vm = new AsociarValoresCatalogoViewModel(
+                    Substitute.For<IEquivalenciaClasificacionService>(),
+                    Substitute.For<ICategoriaService>(),
+                    Substitute.For<IMarcaService>(),
+                    session,
+                    Substitute.For<ILogger<AsociarValoresCatalogoViewModel>>());
+                vm.Inicializar(
+                    new ProveedorDto { IdProveedor = 1, RazonSocial = "Distribuidora Norte", Cuit = "30-11111111-1" },
+                    [new ValorSinTraducirDto { Tipo = TipoEquivalenciaEnum.Marca, Texto = "BIC ARGENTINA", CantidadDeItems = 8 }]);
+
+                dialog = new AsociarValoresCatalogoDialog { DataContext = vm };
+                dialog.Measure(new System.Windows.Size(700, 660));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 700, 660));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de AsociarValoresCatalogoDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
     }
 
     [Fact]
