@@ -66,6 +66,8 @@
             <RowDefinition Height="Auto" />
             <!-- Búsqueda (o acciones masivas si hay filas marcadas), directo sobre el fondo -->
             <RowDefinition Height="Auto" />
+            <!-- Avisos de estado y error: sin avisos no ocupa lugar -->
+            <RowDefinition Height="Auto" />
             <!-- Tabla + paginación: la única superficie de la página -->
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
@@ -190,9 +192,44 @@
         </components:ListToolbar>
 
         <!-- ============================================================= -->
+        <!-- AVISOS DE ESTADO Y ERROR (como en ProveedoresView)            -->
+        <!-- ============================================================= -->
+        <!-- El margen va en cada aviso: si no hay ninguno, la fila no ocupa lugar -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal">
+            <Border Style="{StaticResource BadgeSuccessStyle}"
+                    Margin="0,0,8,12"
+                    VerticalAlignment="Center"
+                    Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="{Binding MensajeEstado}"
+                           FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource SuccessForegroundBrush}" />
+            </Border>
+            <!-- M-81: tras una clasificación con ítems sin categoría, filtra la grilla por ellos -->
+            <Button Style="{StaticResource GhostPrimaryButtonStyle}"
+                    Command="{Binding VerSinCategoriaCommand}"
+                    Margin="0,0,8,12"
+                    VerticalAlignment="Center"
+                    ToolTip="Filtra la columna Categoría por los ítems que ninguna regla reconoce"
+                    Visibility="{Binding MostrarVerSinCategoria, Converter={StaticResource BoolToVisConverter}}">
+                <StackPanel Orientation="Horizontal">
+                    <iconPacks:PackIconBoxIcons Kind="RegularFilter" Width="12" Height="12" Margin="0,0,4,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Ver sin categoría" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <Border Style="{StaticResource BadgeDangerStyle}"
+                    Margin="0,0,0,12"
+                    VerticalAlignment="Center"
+                    Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="{Binding MensajeError}"
+                           FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold"
+                           Foreground="{DynamicResource DangerForegroundBrush}" />
+            </Border>
+        </StackPanel>
+
+        <!-- ============================================================= -->
         <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->
         <!-- ============================================================= -->
-        <Border Grid.Row="2" Style="{StaticResource TablaListadoStyle}">
+        <Border Grid.Row="3" Style="{StaticResource TablaListadoStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />
@@ -375,30 +412,9 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- Paginación pegada a la grilla, separada por una línea; los avisos de estado van centrados sobre ella -->
+                <!-- Paginación pegada a la grilla, separada por una línea -->
                 <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0">
-                    <Grid>
-                        <components:PaginationBar />
-
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    IsHitTestVisible="False">
-                            <Border Style="{StaticResource BadgeSuccessStyle}"
-                                    Margin="0,0,8,0"
-                                    Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="{Binding MensajeEstado}"
-                                           FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource SuccessForegroundBrush}" />
-                            </Border>
-                            <Border Style="{StaticResource BadgeDangerStyle}"
-                                    Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="{Binding MensajeError}"
-                                           FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource DangerForegroundBrush}" />
-                            </Border>
-                        </StackPanel>
-                    </Grid>
+                    <components:PaginationBar />
                 </Border>
             </Grid>
         </Border>

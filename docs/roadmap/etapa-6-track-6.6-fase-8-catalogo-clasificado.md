@@ -18,6 +18,7 @@
 | 8.3 | Aplicación: `MotorDeClasificacion`, `ClasificacionCatalogoService`, contratos del importador y del explorador | ✅ 2026-10-31: tests de Dominio (813), Aplicación (963) e integración del catálogo (39) en verde; `ConsultaCatalogoProveedorValidator` nuevo (ids positivos; "sin categoría" excluye una categoría), la paginación la sigue normalizando la consulta |
 | 8.4 | Interfaz: toggle al importar, diálogo de valores sin traducir, botón, filtros y columnas del explorador | ✅ 2026-10-31 (M-78 a M-80): merge de `main` (`76f8fe1`); suites de Dominio (813), Aplicación (1.005), App (1.098) e integración (general 432, backups 159, rendimiento 1) en verde; `audit-xaml` y `dotnet format` en verde; migración aplicada a la base local (con copia previa). Desvíos: el diálogo de asociación mide 700 × 660 (documentado en `SISTEMA_DE_DISENO.md`) y el interruptor del importador va en la sección "Proveedor", para que se vea sin desplazar y el diálogo conserve su alto. Falta la prueba manual |
 | 8.5 | Cierre: ERS, DER, mapa, track, verificación Release | ✅ 2026-10-31: RF-27 e IU-05 en la ERS, FK sugeridas y `clasifica_catalogo` en el DER, verificación Release completa en verde (3.508 tests: Dominio 813, Aplicación 1.005, App 1.098, Integración 592; `audit-xaml` y `dotnet format`) |
+| 8.6 | Resumen de cada clasificación y enlace "Ver sin categoría" (M-81); avisos del explorador en una fila propia | ✅ 2026-11-02 |
 
 ---
 

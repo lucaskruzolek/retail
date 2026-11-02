@@ -542,7 +542,9 @@ public class ImportadorCatalogosViewModelTests : IDisposable
 
         // Assert
         await _clasificacionCatalogoService.Received(1).ClasificarAsync(7, true, Arg.Any<CancellationToken>());
-        _sut.MensajeEstado.Should().Contain("Importación completada");
+        _sut.MensajeEstado.Should().StartWith("Importación completada")
+            .And.EndWith("Se clasificaron 3 ítems nuevos o modificados: 2 con categoría y 2 con marca. 1 quedó sin categoría.");
+        _sut.MostrarVerSinCategoria.Should().BeTrue();
     }
 
     [Fact]
@@ -598,7 +600,8 @@ public class ImportadorCatalogosViewModelTests : IDisposable
 
         // Assert
         await _clasificacionCatalogoService.DidNotReceiveWithAnyArgs().ClasificarAsync(default, default, default);
-        _sut.TieneMensajeEstado.Should().BeFalse();
+        _sut.MensajeEstado.Should().Be("La clasificación se canceló: los ítems siguen pendientes.");
+        _sut.MostrarVerSinCategoria.Should().BeFalse();
         _sut.IsBusy.Should().BeFalse();
     }
 
@@ -615,7 +618,8 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         // Assert
         await _dialogService.DidNotReceiveWithAnyArgs().AbrirAsociarValoresCatalogoAsync(default!, default!);
         await _clasificacionCatalogoService.Received(1).ClasificarAsync(7, false, Arg.Any<CancellationToken>());
-        _sut.MensajeEstado.Should().Be("Catálogo clasificado con las reglas actuales.");
+        _sut.MensajeEstado.Should().Be("Catálogo clasificado: 3 ítems, 2 con categoría y 2 con marca. 1 quedó sin categoría.");
+        _sut.MostrarVerSinCategoria.Should().BeTrue();
         _sut.MensajeError.Should().BeNull();
     }
 
@@ -634,6 +638,75 @@ public class ImportadorCatalogosViewModelTests : IDisposable
         // Assert
         _sut.MensajeError.Should().Be("El proveedor no existe.");
         _sut.TieneMensajeEstado.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ClasificarCatalogoTodoCommand_TodosConCategoria_NoMuestraElEnlace()
+    {
+        // Arrange
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        _clasificacionCatalogoService.ClasificarAsync(7, false, Arg.Any<CancellationToken>())
+            .Returns(new ResultadoClasificacionCatalogoDto { ItemsClasificados = 1, ConCategoria = 1, ConMarca = 0, SinCategoria = 0 });
+
+        // Act
+        await _sut.ClasificarCatalogoTodoCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeEstado.Should().Be("Catálogo clasificado: 1 ítem, 1 con categoría y 0 con marca.");
+        _sut.MostrarVerSinCategoria.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ImportarPlanillaCommand_SinItemsPendientes_InformaQueNoHabiaNadaQueClasificar()
+    {
+        // Arrange
+        var proveedor = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        _sut.ProveedorActivo = proveedor;
+        _dialogService.AbrirImportarPlanillaAsync(proveedor).Returns(ResultadoImportacion(clasifica: true));
+        _clasificacionCatalogoService.ClasificarAsync(7, true, Arg.Any<CancellationToken>())
+            .Returns(new ResultadoClasificacionCatalogoDto { ItemsClasificados = 0, ConCategoria = 0, ConMarca = 0, SinCategoria = 0 });
+
+        // Act
+        await _sut.ImportarPlanillaCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeEstado.Should().EndWith("No había ítems nuevos o modificados para clasificar.");
+        _sut.MostrarVerSinCategoria.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task VerSinCategoriaCommand_TrasClasificar_FiltraPorElCentinelaYOcultaElEnlace()
+    {
+        // Arrange (M-81): con la preferencia ya activa, clasificar no relee la lista de proveedores.
+        await _sut.InicializarAsync(new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7", ClasificaCatalogo = true });
+        await _sut.ClasificarCatalogoTodoCommand.ExecuteAsync(null);
+        _proveedorService.ClearReceivedCalls();
+
+        // Act
+        _sut.VerSinCategoriaCommand.Execute(null);
+        await Task.Delay(50);
+
+        // Assert
+        _sut.FiltroCategoria.IdsAplicados.Should().Equal(ConsultaCatalogoProveedorDto.IdSinCategoria);
+        _sut.MostrarVerSinCategoria.Should().BeFalse();
+        _sut.HayFiltrosActivos.Should().BeTrue();
+        await _proveedorService.Received().ListarItemsCatalogoAsync(
+            Arg.Is<ConsultaCatalogoProveedorDto>(c => c.IdsCategoria.SequenceEqual(new[] { ConsultaCatalogoProveedorDto.IdSinCategoria })),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MensajeEstado_AlCambiarTrasClasificar_OcultaElEnlace()
+    {
+        // Arrange: el enlace no acompaña al aviso de otra operación.
+        _sut.ProveedorActivo = new ProveedorDto { IdProveedor = 7, RazonSocial = "Distribuidora Mayorista", Cuit = "30-77777777-7" };
+        await _sut.ClasificarCatalogoTodoCommand.ExecuteAsync(null);
+
+        // Act
+        _sut.MensajeEstado = "Artículo vinculado con éxito al código A-1.";
+
+        // Assert
+        _sut.MostrarVerSinCategoria.Should().BeFalse();
     }
 
     [Fact]

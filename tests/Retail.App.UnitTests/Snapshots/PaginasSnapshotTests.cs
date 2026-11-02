@@ -177,8 +177,26 @@ public class PaginasSnapshotTests
                 Substitute.For<ILogger<ImportadorCatalogosViewModel>>());
 
             // La vista carga los proveedores al mostrarse y activa el primero, que dispara la carga de su catálogo.
+            // Ya cargado el catálogo (cambiar de proveedor borra los avisos), se muestra el resumen de una clasificación con
+            // ítems sin categoría, para que la captura incluya el enlace "Ver sin categoría" (M-81).
             var vista = new ImportadorCatalogosView(viewModel);
-            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/ImportadorCatalogosView", () => viewModel.ItemsCatalogo.Count > 0);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/ImportadorCatalogosView", () =>
+            {
+                if (viewModel.ItemsCatalogo.Count == 0)
+                {
+                    return false;
+                }
+
+                // La primera vez fija el aviso y espera otra pasada, para que el diseño ya lo incluya al capturar.
+                if (!viewModel.MostrarVerSinCategoria)
+                {
+                    viewModel.MensajeEstado = "Catálogo clasificado: 312 ítems, 280 con categoría y 251 con marca. 32 quedaron sin categoría.";
+                    viewModel.MostrarVerSinCategoria = true;
+                    return false;
+                }
+
+                return true;
+            });
         });
 
         VerificarCaptura(ruta, error);

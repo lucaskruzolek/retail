@@ -374,9 +374,9 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
 
             // La importación guardó la preferencia del proveedor; los ítems nuevos quedan pendientes y se clasifican acá,
             // antes de recargar (M-79). Si se cancela o falla, la importación igual quedó hecha.
-            if (resultado.ClasificaCatalogo)
+            if (resultado.ClasificaCatalogo && await ClasificarCatalogoAsync(soloPendientes: true) is { } clasificacion)
             {
-                await ClasificarCatalogoAsync(soloPendientes: true);
+                InformarClasificacion(clasificacion, soloPendientes: true);
             }
 
             await RecargarTrasOperacionAsync(resultado.ClasificaCatalogo);
@@ -387,33 +387,105 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     // Clasificación del catálogo (Track 6.6, Fase 8)                     //
     // ------------------------------------------------------------------ //
 
+    /// <summary>
+    /// Enlace "Ver sin categoría" junto al resumen de una clasificación que dejó ítems sin categoría (M-81). Se oculta
+    /// cuando el aviso cambia o se borra, para que nunca acompañe a un mensaje de otra operación.
+    /// </summary>
+    [ObservableProperty]
+    private bool _mostrarVerSinCategoria;
+
+    partial void OnMensajeEstadoChanged(string? value)
+    {
+        MostrarVerSinCategoria = false;
+    }
+
     /// <summary>Botón "Clasificar catálogo": reclasifica todos los ítems del proveedor con las reglas actuales (M-75).</summary>
     [RelayCommand(CanExecute = nameof(PuedeImportar))]
     private async Task ClasificarCatalogoTodoAsync()
     {
-        if (await ClasificarCatalogoAsync(soloPendientes: false))
+        MensajeEstado = null;
+        if (await ClasificarCatalogoAsync(soloPendientes: false) is { } resultado)
         {
-            MensajeEstado = "Catálogo clasificado con las reglas actuales.";
+            InformarClasificacion(resultado, soloPendientes: false);
             await RecargarTrasOperacionAsync(clasificaCatalogo: true);
         }
     }
 
     /// <summary>
+    /// Filtra la grilla por "Sin categoría": los ítems que ninguna regla reconoce, para completar los diccionarios (M-74).
+    /// Reemplaza solo el filtro de Categoría; la búsqueda y los demás filtros siguen como estaban.
+    /// </summary>
+    [RelayCommand]
+    private void VerSinCategoria()
+    {
+        FiltroCategoria.AplicarIds([ConsultaCatalogoProveedorDto.IdSinCategoria]);
+        MostrarVerSinCategoria = false;
+    }
+
+    /// <summary>
+    /// Suma al aviso el resumen de la clasificación (M-81). Tras una reimportación el total son solo los ítems nuevos o
+    /// modificados, y el texto lo dice para que no parezca que el resto del catálogo quedó sin clasificar.
+    /// </summary>
+    private void InformarClasificacion(ResultadoClasificacionCatalogoDto resultado, bool soloPendientes)
+    {
+        AgregarMensajeEstado(DescribirClasificacion(resultado, soloPendientes));
+        MostrarVerSinCategoria = resultado.SinCategoria > 0;
+    }
+
+    private static string DescribirClasificacion(ResultadoClasificacionCatalogoDto resultado, bool soloPendientes)
+    {
+        int total = resultado.ItemsClasificados;
+        if (total == 0)
+        {
+            return soloPendientes
+                ? "No había ítems nuevos o modificados para clasificar."
+                : "El catálogo no tiene ítems para clasificar.";
+        }
+
+        string encabezado;
+        if (soloPendientes)
+        {
+            encabezado = total == 1
+                ? "Se clasificó 1 ítem nuevo o modificado:"
+                : $"Se clasificaron {total} ítems nuevos o modificados:";
+        }
+        else
+        {
+            encabezado = total == 1 ? "Catálogo clasificado: 1 ítem," : $"Catálogo clasificado: {total} ítems,";
+        }
+
+        string texto = $"{encabezado} {resultado.ConCategoria} con categoría y {resultado.ConMarca} con marca.";
+        if (resultado.SinCategoria > 0)
+        {
+            texto += resultado.SinCategoria == 1
+                ? " 1 quedó sin categoría."
+                : $" {resultado.SinCategoria} quedaron sin categoría.";
+        }
+
+        return texto;
+    }
+
+    private void AgregarMensajeEstado(string texto)
+    {
+        MensajeEstado = TieneMensajeEstado ? $"{MensajeEstado} {texto}" : texto;
+    }
+
+    /// <summary>
     /// Camino único de la clasificación (M-79): la reimportación (<paramref name="soloPendientes"/>) y el botón pasan por
     /// acá. Si hay valores del proveedor sin equivalencia, primero ofrece asociarlos (M-80): <b>cancelar ese diálogo
-    /// aborta la clasificación</b> y los ítems siguen pendientes. Devuelve <c>true</c> si se clasificó; si falla, deja el
-    /// error en <see cref="MensajeError"/>. No recarga la grilla: lo hace quien la llama.
+    /// aborta la clasificación</b>, los ítems siguen pendientes y el aviso lo dice. Devuelve el resumen si se clasificó;
+    /// si falla, <c>null</c> con el error en <see cref="MensajeError"/>. No recarga la grilla: lo hace quien la llama.
     /// </summary>
     /// <remarks>
     /// Los dos accesos a datos esperan su turno en la fila de la pantalla y corren fuera del Dispatcher: el DbContext es
     /// uno solo (Ley 4, H-19). Sin D-5 el diálogo se abre igual, en solo lectura, como el paso 1 de la incorporación: el
     /// usuario puede clasificar con las reglas de descripción sin asociar nada.
     /// </remarks>
-    private async Task<bool> ClasificarCatalogoAsync(bool soloPendientes)
+    private async Task<ResultadoClasificacionCatalogoDto?> ClasificarCatalogoAsync(bool soloPendientes)
     {
         if (ProveedorActivo is not { } proveedor)
         {
-            return false;
+            return null;
         }
 
         int idProveedor = proveedor.IdProveedor;
@@ -431,7 +503,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
             if (valores is null)
             {
                 InformarErrorDeClasificacion(error);
-                return false;
+                return null;
             }
 
             if (valores.Count > 0)
@@ -442,22 +514,23 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
                 IsBusy = true;
                 if (!continuar)
                 {
-                    return false;
+                    AgregarMensajeEstado("La clasificación se canceló: los ítems siguen pendientes.");
+                    return null;
                 }
             }
 
-            bool clasificado = false;
+            ResultadoClasificacionCatalogoDto? resultado = null;
             await _cargaCatalogo.EjecutarOperacionAsync(
                 token => Task.Run(() => _clasificacionCatalogoService.ClasificarAsync(idProveedor, soloPendientes, token), token),
-                _ => clasificado = true,
+                r => resultado = r,
                 ex => error = ex);
 
-            if (!clasificado)
+            if (resultado is null)
             {
                 InformarErrorDeClasificacion(error);
             }
 
-            return clasificado;
+            return resultado;
         }
         finally
         {
@@ -504,6 +577,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         var resultado = UltimoResultado;
         var estado = MensajeEstado;
         var error = MensajeError;
+        bool verSinCategoria = MostrarVerSinCategoria;
 
         PaginaActual = 1;
         if (proveedor.ClasificaCatalogo != clasificaCatalogo)
@@ -518,6 +592,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         UltimoResultado = resultado;
         MensajeEstado = estado;
         MensajeError = error;
+        MostrarVerSinCategoria = verSinCategoria;
     }
 
     // ------------------------------------------------------------------ //
