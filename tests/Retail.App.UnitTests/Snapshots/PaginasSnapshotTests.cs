@@ -239,6 +239,25 @@ public class PaginasSnapshotTests
     [Theory]
     [InlineData(TemaPrueba.Claro)]
     [InlineData(TemaPrueba.Oscuro)]
+    public void AjustesView_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var preferencias = Substitute.For<IPreferenciasUsuario>();
+            preferencias.Tema.Returns(tema == TemaPrueba.Oscuro ? TemaVisual.Oscuro : TemaVisual.Claro);
+
+            var viewModel = new Retail.App.ViewModels.Ajustes.AjustesViewModel(Substitute.For<IServicioTema>(), preferencias);
+            var vista = new AjustesView(viewModel);
+
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/AjustesView");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
     public void CajaView_PorTema_GeneraCaptura(TemaPrueba tema)
     {
         var (ruta, error) = Capturar(tema, carpeta =>

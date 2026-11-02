@@ -29,30 +29,32 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO Y TÍTULO DEL MÓDULO                             -->
         <!-- ============================================================= -->
-        <components:PageHeader Grid.Row="0"
-                               Margin="{StaticResource SectionSpacing}"
-                               Titulo="Administración de Usuarios y Roles (RBAC)">
-            <StackPanel Orientation="Horizontal">
-                <!-- Desbloquear la cuenta de Administrador seleccionada (solo Gerente, D-31) -->
-                <Button Command="{Binding DesbloquearCommand}"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        Margin="0,0,8,0"
-                        ToolTip="Desbloquear la cuenta seleccionada (bloqueada por autorizaciones fallidas)"
-                        Visibility="{Binding PuedeDesbloquear, Converter={StaticResource BoolToVisConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularLockOpenAlt" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Desbloquear" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-                <Button Command="{Binding NuevoUsuarioCommand}"
-                        Style="{StaticResource PrimaryActionButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularUserPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Nuevo Operador" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </components:PageHeader>
+        <StackPanel Grid.Row="0">
+            <components:PageHeader Margin="{StaticResource StackSm}"
+                                   Titulo="Administración">
+                <StackPanel Orientation="Horizontal">
+                    <!-- Desbloquear la cuenta de Administrador seleccionada (solo Gerente, D-31) -->
+                    <Button Command="{Binding DesbloquearCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="0,0,8,0"
+                            ToolTip="Desbloquear la cuenta seleccionada (bloqueada por autorizaciones fallidas)"
+                            Visibility="{Binding PuedeDesbloquear, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularLockOpenAlt" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Desbloquear" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding NuevoUsuarioCommand}"
+                            Style="{StaticResource PrimaryActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularUserPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Nuevo Operador" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </components:PageHeader>
+            <components:NavegadorSeccion SeccionId="administracion" Margin="{StaticResource SectionSpacing}" />
+        </StackPanel>
 
         <!-- ============================================================= -->
         <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta, sin contador)               -->

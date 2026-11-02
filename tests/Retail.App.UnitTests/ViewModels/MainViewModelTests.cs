@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Retail.App.Navegacion;
 using Retail.App.Services;
 using Retail.App.ViewModels;
 using Retail.App.Views.Dev;
@@ -27,6 +28,23 @@ public class MainViewModelTests
         _scopeFactoryMock = Substitute.For<IServiceScopeFactory>();
     }
 
+    private MainViewModel CrearConRol(RolUsuarioEnum rol)
+    {
+        _sessionMock.Rol.Returns(rol);
+        _sessionMock.EstaAutenticado.Returns(true);
+        _sessionMock.EsGerente.Returns(rol == RolUsuarioEnum.Gerente);
+        _sessionMock.EsEncargado.Returns(rol == RolUsuarioEnum.Encargado);
+        _sessionMock.EsCajero.Returns(rol == RolUsuarioEnum.Cajero);
+        _sessionMock.EsAdministrador.Returns(rol == RolUsuarioEnum.Administrador);
+
+        return new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+    }
+
+    private void DebeHaberNavegadoA(Type vista, int veces = 1)
+    {
+        _navigationMock.Received(veces).NavigateTo(vista, Arg.Any<Action<object>?>());
+    }
+
     [Fact]
     public void Constructor_Inicializacion_DebeCargarDatosDeSesion()
     {
@@ -47,8 +65,7 @@ public class MainViewModelTests
         vm.EsEncargado.Should().BeFalse();
         vm.EsCajero.Should().BeFalse();
         vm.IsSidebarExpanded.Should().BeFalse();
-        vm.MostrarCabeceraAdmin.Should().BeFalse();
-        vm.ModuloActivo.Should().Be("Articulos");
+        vm.GaleriaActiva.Should().BeFalse();
     }
 
     [Fact]
@@ -67,279 +84,188 @@ public class MainViewModelTests
         vm.IsSidebarExpanded.Should().BeFalse();
     }
 
-    [Fact]
-    public void MostrarCabeceraAdmin_CondicionadaAEstatusGerenteYExpansion()
+    [Theory]
+    [InlineData(RolUsuarioEnum.Gerente, "tablero,pos,ventas,inventario,compras,administracion")]
+    [InlineData(RolUsuarioEnum.Encargado, "pos,ventas,inventario,compras")]
+    [InlineData(RolUsuarioEnum.Cajero, "pos,ventas,inventario,compras")]
+    [InlineData(RolUsuarioEnum.Administrador, "administracion")]
+    public void SeccionesMenu_SegunElRol_SonLasQueDefineElRegistro(RolUsuarioEnum rol, string esperadas)
     {
-        // Arrange: Gerente
-        _sessionMock.EsGerente.Returns(true);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+        var vm = CrearConRol(rol);
 
-        // Colapsado: false
-        vm.MostrarCabeceraAdmin.Should().BeFalse();
+        vm.SeccionesMenu.Select(s => s.Id).Should().Equal(esperadas.Split(','));
+    }
 
-        // Expandido con Gerente: true
-        vm.ToggleSidebarCommand.Execute(null);
-        vm.MostrarCabeceraAdmin.Should().BeTrue();
+    [Fact]
+    public void SeccionesMenu_UnAccesoDeUnaSolaPagina_MuestraSuAtajoYUnoDeVarias_SuDetalle()
+    {
+        var vm = CrearConRol(RolUsuarioEnum.Cajero);
 
-        // Cajero expandido: false
+        var pos = vm.SeccionesMenu.Single(s => s.Id == "pos");
+        var ventas = vm.SeccionesMenu.Single(s => s.Id == "ventas");
+
+        pos.Atajo.Should().Be("F1");
+        pos.TieneDetalle.Should().BeFalse();
+        ventas.Detalle.Should().Be("Clientes · Caja y turnos · Presupuestos");
+        ventas.TieneAtajo.Should().BeFalse();
+    }
+
+    [Fact]
+    public void IrASeccionCommand_Ejecucion_AbreLaPrimeraPaginaDeLaSeccion()
+    {
+        var vm = CrearConRol(RolUsuarioEnum.Gerente);
+
+        vm.IrASeccionCommand.Execute("ventas");
+
+        DebeHaberNavegadoA(typeof(ClientesView));
+        vm.SeccionesMenu.Single(s => s.EsActiva).Id.Should().Be("ventas");
+    }
+
+    [Fact]
+    public void IrASeccionCommand_VolverASeccion_AbreLaUltimaPaginaVisitada()
+    {
+        var vm = CrearConRol(RolUsuarioEnum.Gerente);
+        vm.IrAPaginaCommand.Execute("caja");
+        vm.IrAPaginaCommand.Execute("articulos");
+
+        vm.IrASeccionCommand.Execute("ventas");
+
+        DebeHaberNavegadoA(typeof(CajaView), 2);
+    }
+
+    [Fact]
+    public void IrAPaginaCommand_PaginaConConfiguracion_LaPreparaAlNavegar()
+    {
+        var vm = CrearConRol(RolUsuarioEnum.Gerente);
+
+        vm.IrAPaginaCommand.Execute("presupuestos");
+
+        Type vista = typeof(ModuloEnConstruccionView);
+        _navigationMock.Received(1).NavigateTo(vista, Arg.Is<Action<object>?>(configurar => configurar != null));
+    }
+
+    [Theory]
+    [InlineData(RolUsuarioEnum.Gerente, "pos", true)]
+    [InlineData(RolUsuarioEnum.Cajero, "pos", true)]
+    [InlineData(RolUsuarioEnum.Administrador, "pos", false)]
+    [InlineData(RolUsuarioEnum.Administrador, "caja", false)]
+    [InlineData(RolUsuarioEnum.Administrador, "usuarios", true)]
+    [InlineData(RolUsuarioEnum.Cajero, "usuarios", false)]
+    [InlineData(RolUsuarioEnum.Cajero, "pedidos", false)]
+    [InlineData(RolUsuarioEnum.Encargado, "pedidos", true)]
+    [InlineData(RolUsuarioEnum.Cajero, "tablero", false)]
+    [InlineData(RolUsuarioEnum.Cajero, "fiscal", false)]
+    [InlineData(RolUsuarioEnum.Gerente, "fiscal", true)]
+    [InlineData(RolUsuarioEnum.Encargado, "copias", false)]
+    [InlineData(RolUsuarioEnum.Administrador, "copias", true)]
+    public void IrAPaginaCommand_SegunElRol_SoloNavegaSiLaPoliticaLoPermite(RolUsuarioEnum rol, string paginaId, bool debeNavegar)
+    {
+        var vm = CrearConRol(rol);
+
+        vm.IrAPaginaCommand.Execute(paginaId);
+
+        var vista = RegistroNavegacion.Buscar(paginaId)!.Value.Pagina.TipoVista;
+        DebeHaberNavegadoA(vista, debeNavegar ? 1 : 0);
+    }
+
+    [Theory]
+    [InlineData(RolUsuarioEnum.Cajero, "F4", true, typeof(ClientesView))]
+    [InlineData(RolUsuarioEnum.Cajero, "F9", false, typeof(ModuloEnConstruccionView))]
+    [InlineData(RolUsuarioEnum.Gerente, "F9", true, typeof(ModuloEnConstruccionView))]
+    [InlineData(RolUsuarioEnum.Administrador, "F1", false, typeof(PosView))]
+    [InlineData(RolUsuarioEnum.Gerente, "F12", false, typeof(PosView))]
+    public void AbrirPorAtajo_SegunElRol_AtiendeSoloLoQueLaPoliticaPermite(RolUsuarioEnum rol, string atajo, bool atendido, Type vista)
+    {
+        var vm = CrearConRol(rol);
+
+        vm.AbrirPorAtajo(atajo).Should().Be(atendido);
+
+        DebeHaberNavegadoA(vista, atendido ? 1 : 0);
+    }
+
+    [Theory]
+    [InlineData(RolUsuarioEnum.Gerente, typeof(DashboardView))]
+    [InlineData(RolUsuarioEnum.Encargado, typeof(PosView))]
+    [InlineData(RolUsuarioEnum.Cajero, typeof(PosView))]
+    [InlineData(RolUsuarioEnum.Administrador, typeof(UsuariosView))]
+    public void NavegarModuloInicial_SegunRol_AbreLaPaginaDeAterrizaje(RolUsuarioEnum rol, Type paginaEsperada)
+    {
+        var vm = CrearConRol(rol);
+
+        vm.NavegarModuloInicial();
+
+        DebeHaberNavegadoA(paginaEsperada);
+    }
+
+    [Fact]
+    public void SessionChanged_CambioAUnAdministrador_ReconstruyeElMenuYSaleDelModuloOperativo()
+    {
+        // Arrange: el Gerente estaba en el POS y cambia de operador (RF-02).
+        var vm = CrearConRol(RolUsuarioEnum.Gerente);
+        vm.IrAPaginaCommand.Execute("pos");
+
+        _sessionMock.Rol.Returns(RolUsuarioEnum.Administrador);
         _sessionMock.EsGerente.Returns(false);
+        _sessionMock.EsAdministrador.Returns(true);
+
+        // Act
         _sessionMock.SessionChanged += Raise.Event<Action>();
-        vm.MostrarCabeceraAdmin.Should().BeFalse();
+
+        // Assert
+        DebeHaberNavegadoA(typeof(UsuariosView));
+        vm.SeccionesMenu.Select(s => s.Id).Should().Equal("administracion");
+        vm.SeccionesMenu.Single().EsActiva.Should().BeTrue();
     }
 
     [Fact]
-    public void NavegarArticulosCommand_Ejecucion_DebeNavegarHaciaArticulosView()
+    public void Navigated_PorOtraVia_MarcaLaSeccionDeEsaPagina()
     {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+        // Arrange: una pantalla navega directo con INavigationService (un enlace entre pantallas)
+        var vm = CrearConRol(RolUsuarioEnum.Gerente);
 
         // Act
-        vm.NavegarArticulosCommand.Execute(null);
+        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(ProveedoresView));
 
         // Assert
-        _navigationMock.Received(1).NavigateTo<ArticulosView>();
-        vm.ModuloActivo.Should().Be("Articulos");
+        vm.SeccionesMenu.Single(s => s.EsActiva).Id.Should().Be("compras");
     }
 
     [Fact]
-    public void NavegarClientesCommand_Ejecucion_DebeNavegarHaciaClientesView()
+    public void IrASeccionCommand_Ajustes_MarcaElAccesoFijoYNoLasSeccionesDelMenu()
     {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+        var vm = CrearConRol(RolUsuarioEnum.Cajero);
 
-        // Act
-        vm.NavegarClientesCommand.Execute(null);
+        vm.IrASeccionCommand.Execute("ajustes");
 
-        // Assert
-        _navigationMock.Received(1).NavigateTo<ClientesView>();
-        vm.ModuloActivo.Should().Be("Clientes");
-    }
-
-    [Fact]
-    public void NavegarUsuariosCommand_UsuarioGerente_DebeNavegarHaciaUsuariosView()
-    {
-        // Arrange
-        _sessionMock.EsGerente.Returns(true);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarUsuariosCommand.Execute(null);
-
-        // Assert
-        _navigationMock.Received(1).NavigateTo<UsuariosView>();
-        vm.ModuloActivo.Should().Be("Usuarios");
-    }
-
-    [Fact]
-    public void NavegarUsuariosCommand_UsuarioNoGerente_NoDebeNavegar()
-    {
-        // Arrange
-        _sessionMock.EsGerente.Returns(false);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarUsuariosCommand.Execute(null);
-
-        // Assert
-        _navigationMock.DidNotReceive().NavigateTo<UsuariosView>();
+        DebeHaberNavegadoA(typeof(AjustesView));
+        vm.ItemAjustes.EsActiva.Should().BeTrue();
+        vm.SeccionesMenu.Should().OnlyContain(s => !s.EsActiva);
     }
 
     [Fact]
     public void NavegarGaleriaDevCommand_Ejecucion_DebeNavegarHaciaStyleGalleryView()
     {
         // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+        var vm = CrearConRol(RolUsuarioEnum.Gerente);
+        vm.IrAPaginaCommand.Execute("articulos");
 
         // Act
         vm.NavegarGaleriaDevCommand.Execute(null);
 
-        // Assert
+        // Assert: la galería no es parte del registro, así que ninguna sección queda activa
         _navigationMock.Received(1).NavigateTo<StyleGalleryView>();
-        vm.ModuloActivo.Should().Be("Galeria");
+        vm.GaleriaActiva.Should().BeTrue();
     }
 
     [Fact]
-    public void NavegarPosCommand_Ejecucion_DebeNavegarHaciaPosView()
+    public void GaleriaActiva_AlVolverAUnaSeccion_SeApaga()
     {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
+        var vm = CrearConRol(RolUsuarioEnum.Gerente);
+        vm.NavegarGaleriaDevCommand.Execute(null);
 
-        // Act
-        vm.NavegarPosCommand.Execute(null);
+        vm.IrASeccionCommand.Execute("inventario");
 
-        // Assert
-        _navigationMock.Received(1).NavigateTo<PosView>();
-        vm.ModuloActivo.Should().Be("Pos");
-    }
-
-    [Fact]
-    public void NavegarPresupuestosCommand_ModuloEnConstruccion_DebeInvocarModuloEnConstruccion()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarPresupuestosCommand.Execute(null);
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Presupuestos");
-        _navigationMock.Received(1).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
-    }
-
-    [Fact]
-    public void NavegarCajaCommand_DebeNavegarHaciaCajaView()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarCajaCommand.Execute(null);
-
-        // Assert: el módulo 3.1 ya está implementado y no usa la vista "en construcción"
-        vm.ModuloActivo.Should().Be("Caja");
-        _navigationMock.Received(1).NavigateTo<CajaView>();
-        _navigationMock.DidNotReceive().NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
-    }
-
-    [Fact]
-    public void NavegarComprasCommand_DebeNavegarHaciaComprasView()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarComprasCommand.Execute(null);
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Compras");
-        vm.TituloModuloActual.Should().Be("Compras a Proveedores y Recálculo de Precios");
-        _navigationMock.Received(1).NavigateTo<ComprasView>();
-    }
-
-    [Fact]
-    public void OnNavigated_ConComprasView_DebeActualizarModuloActivoYTitulo()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(ComprasView));
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Compras");
-        vm.TituloModuloActual.Should().Be("Compras a Proveedores y Recálculo de Precios");
-    }
-
-    [Fact]
-    public void NavegarProveedoresCommand_DebeNavegarHaciaProveedoresView()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarProveedoresCommand.Execute(null);
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Proveedores");
-        _navigationMock.Received(1).NavigateTo<ProveedoresView>();
-    }
-
-    [Fact]
-    public void NavegarCatalogosCommand_DebeNavegarHaciaImportadorCatalogosView()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarCatalogosCommand.Execute(null);
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Catalogos");
-        vm.TituloModuloActual.Should().Be("Catálogos de Proveedores e Importación Masiva");
-        _navigationMock.Received(1).NavigateTo<ImportadorCatalogosView>();
-    }
-
-    [Fact]
-    public void OnNavigated_ConImportadorCatalogosView_DebeActualizarModuloActivoYTitulo()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(ImportadorCatalogosView));
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Catalogos");
-        vm.TituloModuloActual.Should().Be("Catálogos de Proveedores e Importación Masiva");
-    }
-
-    [Fact]
-    public void NavegarConsolaFiscalCommand_Gerente_DebeNavegarHaciaModuloEnConstruccion()
-    {
-        // Arrange
-        _sessionMock.EsGerente.Returns(true);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarConsolaFiscalCommand.Execute(null);
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Fiscal");
-        _navigationMock.Received(1).NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
-    }
-
-    [Fact]
-    public void NavegarConsolaFiscalCommand_NoGerente_NoDebeNavegar()
-    {
-        // Arrange
-        _sessionMock.EsGerente.Returns(false);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarConsolaFiscalCommand.Execute(null);
-
-        // Assert
-        _navigationMock.DidNotReceive().NavigateTo(Arg.Any<Action<ModuloEnConstruccionView>>());
-    }
-
-    // ───────────────────── Tablero gerencial (Track 6.4) ─────────────────────
-
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void NavegarTableroCommand_SegunElRol_SoloNavegaElGerente(bool esGerente)
-    {
-        // Arrange
-        _sessionMock.EsGerente.Returns(esGerente);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarTableroCommand.Execute(null);
-
-        // Assert
-        if (esGerente)
-        {
-            _navigationMock.Received(1).NavigateTo<DashboardView>();
-            vm.ModuloActivo.Should().Be("Tablero");
-        }
-        else
-        {
-            _navigationMock.DidNotReceive().NavigateTo<DashboardView>();
-        }
-    }
-
-    [Fact]
-    public void Navigated_HaciaElTablero_ActualizaElModuloYElTitulo()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(DashboardView));
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Tablero");
-        vm.TituloModuloActual.Should().Be("Tablero gerencial");
+        vm.GaleriaActiva.Should().BeFalse();
     }
 
     [Fact]
@@ -361,26 +287,6 @@ public class MainViewModelTests
         eventoDisparado.Should().BeTrue();
     }
 
-    [Fact]
-    public void Administrador_GestionaUsuariosPeroNoOperaElNegocio()
-    {
-        // Arrange
-        _sessionMock.EsAdministrador.Returns(true);
-
-        // Act
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-        vm.NavegarPosCommand.Execute(null);
-        vm.NavegarCajaCommand.Execute(null);
-        vm.NavegarUsuariosCommand.Execute(null);
-
-        // Assert: los módulos operativos se ignoran aunque se invoquen por atajo de teclado.
-        vm.PuedeOperarNegocio.Should().BeFalse();
-        vm.PuedeGestionarUsuarios.Should().BeTrue();
-        _navigationMock.DidNotReceive().NavigateTo<PosView>();
-        _navigationMock.DidNotReceive().NavigateTo<CajaView>();
-        _navigationMock.Received(1).NavigateTo<UsuariosView>();
-    }
-
     [Theory]
     [InlineData(RolUsuarioEnum.Gerente, true)]
     [InlineData(RolUsuarioEnum.Administrador, true)]
@@ -394,90 +300,6 @@ public class MainViewModelTests
         var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
 
         vm.PuedeGestionarUsuarios.Should().Be(esperado);
-    }
-
-    [Theory]
-    [InlineData(false, typeof(ArticulosView))]
-    [InlineData(true, typeof(UsuariosView))]
-    public void NavegarModuloInicial_SegunRol_AbreLaPaginaPermitida(bool esAdministrador, Type paginaEsperada)
-    {
-        // Arrange
-        _sessionMock.EsAdministrador.Returns(esAdministrador);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarModuloInicial();
-
-        // Assert
-        if (paginaEsperada == typeof(UsuariosView))
-        {
-            _navigationMock.Received(1).NavigateTo<UsuariosView>();
-            _navigationMock.DidNotReceive().NavigateTo<ArticulosView>();
-        }
-        else
-        {
-            _navigationMock.Received(1).NavigateTo<ArticulosView>();
-        }
-    }
-
-    [Fact]
-    public void SessionChanged_CambioAUnAdministrador_SaleDelModuloOperativoHaciaUsuarios()
-    {
-        // Arrange: el Gerente estaba en el POS y cambia de operador (RF-02).
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-        vm.NavegarPosCommand.Execute(null);
-
-        _sessionMock.EstaAutenticado.Returns(true);
-        _sessionMock.EsAdministrador.Returns(true);
-
-        // Act
-        _sessionMock.SessionChanged += Raise.Event<Action>();
-
-        // Assert
-        _navigationMock.Received(1).NavigateTo<UsuariosView>();
-        vm.ModuloActivo.Should().Be("Usuarios");
-    }
-
-    // ───────────────────── Respaldos (Track 6.3) ─────────────────────
-
-    [Theory]
-    [InlineData(true, false, true)]
-    [InlineData(false, true, true)]
-    [InlineData(false, false, false)]
-    public void NavegarRespaldosCommand_SegunElRol_SoloNavegaElGerenteOElAdministrador(bool esGerente, bool esAdministrador, bool debeNavegar)
-    {
-        // Arrange
-        _sessionMock.EsGerente.Returns(esGerente);
-        _sessionMock.EsAdministrador.Returns(esAdministrador);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarRespaldosCommand.Execute(null);
-
-        // Assert
-        if (debeNavegar)
-        {
-            _navigationMock.Received(1).NavigateTo<BackupView>();
-            vm.ModuloActivo.Should().Be("Respaldos");
-        }
-        else
-        {
-            _navigationMock.DidNotReceive().NavigateTo<BackupView>();
-        }
-    }
-
-    [Fact]
-    public void Navigated_HaciaRespaldos_ActualizaElModuloYElTitulo()
-    {
-        // Arrange
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        _navigationMock.Navigated += Raise.Event<Action<Type>>(typeof(BackupView));
-
-        // Assert
-        vm.ModuloActivo.Should().Be("Respaldos");
-        vm.TituloModuloActual.Should().Contain("Copias de Seguridad");
     }
 
     private static RegistroRestauracionDto Restauracion(DateTime fechaUtc) => new()
@@ -616,35 +438,6 @@ public class MainViewModelTests
 
         // Assert: A-14 del Track 4.3
         vm.PuedeAbastecer.Should().Be(esperado);
-    }
-
-    [Fact]
-    public void NavegarPedidosCommand_UsuarioEncargado_DebeNavegarHaciaPedidosView()
-    {
-        // Arrange
-        _sessionMock.EsEncargado.Returns(true);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarPedidosCommand.Execute(null);
-
-        // Assert
-        _navigationMock.Received(1).NavigateTo<PedidosView>();
-        vm.ModuloActivo.Should().Be("Pedidos");
-    }
-
-    [Fact]
-    public void NavegarPedidosCommand_UsuarioCajero_NoDebeNavegar()
-    {
-        // Arrange
-        _sessionMock.EsCajero.Returns(true);
-        var vm = new MainViewModel(_sessionMock, _navigationMock, _scopeFactoryMock);
-
-        // Act
-        vm.NavegarPedidosCommand.Execute(null);
-
-        // Assert
-        _navigationMock.DidNotReceive().NavigateTo<PedidosView>();
     }
 
     [Fact]

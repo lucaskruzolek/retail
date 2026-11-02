@@ -1,12 +1,13 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Converters;
+using Retail.App.Navegacion;
 using Retail.App.Services;
 using Retail.App.Views.Dev;
-using Retail.App.Views.Pages;
 using Retail.Application.Interfaces.Services;
 
 namespace Retail.App.ViewModels;
@@ -20,6 +21,7 @@ public partial class MainViewModel : ObservableObject
 {
     private readonly ICurrentUserSession _session;
     private readonly INavigationService _navigationService;
+    private readonly NavegacionSecciones _navegacion;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConfirmacionesAvisoRestauracion? _confirmaciones;
     private readonly ILogger<MainViewModel> _logger;
@@ -55,13 +57,11 @@ public partial class MainViewModel : ObservableObject
     private bool _esAdministrador;
 
     [ObservableProperty]
-    private string _tituloModuloActual = "Catálogo de Artículos y Control de Stock";
-
-    [ObservableProperty]
     private bool _isSidebarExpanded;
 
+    /// <summary>La galería de estilos (desarrollo) está abierta: no pertenece a ninguna sección del menú.</summary>
     [ObservableProperty]
-    private string _moduloActivo = "Articulos";
+    private bool _galeriaActiva;
 
     /// <summary>
     /// Gerente y Administrador gestionan cuentas (RF-03). Qué cuentas puede tocar cada uno lo decide
@@ -79,9 +79,11 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public bool PuedeAbastecer => EsGerente || EsEncargado;
 
-    public bool MostrarCabeceraAdmin => IsSidebarExpanded && PuedeGestionarUsuarios;
+    /// <summary>Accesos del menú lateral que el rol del operador puede abrir (la política sale de <see cref="RegistroNavegacion"/>).</summary>
+    public ObservableCollection<ItemMenuViewModel> SeccionesMenu { get; } = [];
 
-    public bool MostrarCabecerasOperativas => IsSidebarExpanded && PuedeOperarNegocio;
+    /// <summary>Acceso fijo a Ajustes, en la zona inferior del menú.</summary>
+    public ItemMenuViewModel ItemAjustes { get; } = new(RegistroNavegacion.Ajustes, RegistroNavegacion.Ajustes.Paginas);
 
     /// <summary>
     /// Aviso no bloqueante de una restauración reciente, para Gerente y Administrador (R-20): un restore
@@ -109,7 +111,8 @@ public partial class MainViewModel : ObservableObject
         INavigationService navigationService,
         IServiceScopeFactory scopeFactory,
         IConfirmacionesAvisoRestauracion? confirmaciones = null,
-        ILogger<MainViewModel>? logger = null)
+        ILogger<MainViewModel>? logger = null,
+        NavegacionSecciones? navegacion = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
@@ -117,8 +120,10 @@ public partial class MainViewModel : ObservableObject
         _confirmaciones = confirmaciones;
         _logger = logger ?? NullLogger<MainViewModel>.Instance;
 
+        _navegacion = navegacion ?? new NavegacionSecciones(_session, _navigationService);
+
         _session.SessionChanged += OnSessionChanged;
-        _navigationService.Navigated += OnNavigated;
+        _navegacion.PaginaActualCambio += ActualizarSeccionActiva;
 
         ActualizarDatosOperador();
     }
@@ -134,8 +139,44 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(PuedeGestionarUsuarios));
         OnPropertyChanged(nameof(PuedeOperarNegocio));
         OnPropertyChanged(nameof(PuedeAbastecer));
-        OnPropertyChanged(nameof(MostrarCabeceraAdmin));
-        OnPropertyChanged(nameof(MostrarCabecerasOperativas));
+        ReconstruirMenu();
+    }
+
+    partial void OnIsSidebarExpandedChanged(bool value)
+    {
+        foreach (var item in SeccionesMenu)
+        {
+            item.IsSidebarExpanded = value;
+        }
+    }
+
+    private void ReconstruirMenu()
+    {
+        SeccionesMenu.Clear();
+
+        foreach (var seccion in _navegacion.SeccionesVisibles())
+        {
+            SeccionesMenu.Add(new ItemMenuViewModel(seccion, _navegacion.PaginasVisibles(seccion.Id)) { IsSidebarExpanded = IsSidebarExpanded });
+        }
+
+        ActualizarSeccionActiva();
+    }
+
+    private void ActualizarSeccionActiva()
+    {
+        var activa = _navegacion.SeccionActualId;
+
+        foreach (var item in SeccionesMenu)
+        {
+            item.EsActiva = item.Id == activa;
+        }
+
+        ItemAjustes.EsActiva = activa == RegistroNavegacion.Ajustes.Id;
+
+        if (activa is not null)
+        {
+            GaleriaActiva = false;
+        }
     }
 
     /// <summary>
@@ -148,6 +189,7 @@ public partial class MainViewModel : ObservableObject
 
         if (_session.EstaAutenticado)
         {
+            _navegacion.Reiniciar();
             NavegarModuloInicial();
         }
 
@@ -259,277 +301,45 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Primera página del Shell según el rol: el catálogo para quien opera el negocio y la gestión de usuarios
-    /// para el Administrador.
+    /// Primera página del Shell según el rol: el tablero para el Gerente, el punto de venta para quien opera el negocio
+    /// y la gestión de usuarios para el Administrador (la primera de la primera sección que el rol puede abrir).
     /// </summary>
     public void NavegarModuloInicial()
     {
-        if (PuedeOperarNegocio)
-        {
-            NavegarArticulos();
-        }
-        else
-        {
-            NavegarUsuarios();
-        }
+        _navegacion.IrAInicio();
     }
 
-    private void OnNavigated(Type viewType)
+    /// <summary>Abre la sección de un acceso del menú lateral (la última página que se visitó en ella, o la primera).</summary>
+    [RelayCommand]
+    public void IrASeccion(string seccionId)
     {
-        if (viewType == typeof(PosView))
-        {
-            ModuloActivo = "Pos";
-            TituloModuloActual = "Punto de Venta (POS) y Cobro Multimedio";
-        }
-        else if (viewType == typeof(ArticulosView))
-        {
-            ModuloActivo = "Articulos";
-            TituloModuloActual = "Catálogo de Artículos y Control de Stock";
-        }
-        else if (viewType == typeof(ClientesView))
-        {
-            ModuloActivo = "Clientes";
-            TituloModuloActual = "Padrón de Clientes y Cuentas Corrientes";
-        }
-        else if (viewType == typeof(UsuariosView))
-        {
-            ModuloActivo = "Usuarios";
-            TituloModuloActual = "Administración de Operadores y Roles RBAC";
-        }
-        else if (viewType == typeof(BackupView))
-        {
-            ModuloActivo = "Respaldos";
-            TituloModuloActual = "Copias de Seguridad y Restauración";
-        }
-        else if (viewType == typeof(DashboardView))
-        {
-            ModuloActivo = "Tablero";
-            TituloModuloActual = "Tablero gerencial";
-        }
-        else if (viewType == typeof(StyleGalleryView))
-        {
-            ModuloActivo = "Galeria";
-            TituloModuloActual = "Galería de Estilos y Controles (Dev)";
-        }
-        else if (viewType == typeof(ProveedoresView))
-        {
-            ModuloActivo = "Proveedores";
-            TituloModuloActual = "Padrón de Proveedores";
-        }
-        else if (viewType == typeof(ImportadorCatalogosView))
-        {
-            ModuloActivo = "Catalogos";
-            TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
-        }
-        else if (viewType == typeof(ComprasView))
-        {
-            ModuloActivo = "Compras";
-            TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
-        }
-        else if (viewType == typeof(PedidosView))
-        {
-            ModuloActivo = "Pedidos";
-            TituloModuloActual = "Pedidos a Proveedores";
-        }
-        else if (viewType == typeof(ModuloEnConstruccionView))
-        {
-            // El título es establecido por el comando de navegación que invoca la vista
-        }
-        else
-        {
-            TituloModuloActual = "Retail POS";
-        }
+        _navegacion.IrASeccion(seccionId);
+    }
+
+    /// <summary>Abre una página por su identificador, si el rol puede.</summary>
+    [RelayCommand]
+    public void IrAPagina(string paginaId)
+    {
+        _navegacion.IrA(paginaId);
+    }
+
+    /// <summary>Atajo de teclado global (F1 a F11): abre la página asignada si el rol puede. Devuelve si la atendió.</summary>
+    public bool AbrirPorAtajo(string atajo)
+    {
+        return _navegacion.IrAAtajo(atajo);
     }
 
     [RelayCommand]
     public void ToggleSidebar()
     {
         IsSidebarExpanded = !IsSidebarExpanded;
-        OnPropertyChanged(nameof(MostrarCabeceraAdmin));
-        OnPropertyChanged(nameof(MostrarCabecerasOperativas));
-    }
-
-    [RelayCommand]
-    public void NavegarPos()
-    {
-        if (!PuedeOperarNegocio)
-        {
-            return;
-        }
-
-        ModuloActivo = "Pos";
-        TituloModuloActual = "Punto de Venta (POS) y Cobro Multimedio";
-        _navigationService.NavigateTo<PosView>();
-    }
-
-    [RelayCommand]
-    public void NavegarArticulos()
-    {
-        if (!PuedeOperarNegocio)
-        {
-            return;
-        }
-
-        ModuloActivo = "Articulos";
-        _navigationService.NavigateTo<ArticulosView>();
-    }
-
-    [RelayCommand]
-    public void NavegarClientes()
-    {
-        if (!PuedeOperarNegocio)
-        {
-            return;
-        }
-
-        ModuloActivo = "Clientes";
-        _navigationService.NavigateTo<ClientesView>();
-    }
-
-    [RelayCommand]
-    public void NavegarCaja()
-    {
-        if (!PuedeOperarNegocio)
-        {
-            return;
-        }
-
-        ModuloActivo = "Caja";
-        TituloModuloActual = "Turnos de Caja y Arqueo Ciego";
-        _navigationService.NavigateTo<CajaView>();
-    }
-
-    [RelayCommand]
-    public void NavegarPresupuestos()
-    {
-        if (!PuedeOperarNegocio)
-        {
-            return;
-        }
-
-        ModuloActivo = "Presupuestos";
-        TituloModuloActual = "Presupuestador Comercial Independiente";
-        _navigationService.NavigateTo<ModuloEnConstruccionView>(view =>
-        {
-            view.Configurar(
-                titulo: "Presupuestador Independiente y Conversión",
-                etapa: "Etapa 5: Épica 5 - Módulo 5.1",
-                responsable: "Pablo Fernandez",
-                requisitos: "RF-11, RF-12",
-                descripcion: "Emisión de cotizaciones independientes con congelamiento de precios por 15 días y conversión adaptativa a venta con control de stock.");
-        });
-    }
-
-    [RelayCommand]
-    public void NavegarCompras()
-    {
-        if (!PuedeOperarNegocio)
-        {
-            return;
-        }
-
-        ModuloActivo = "Compras";
-        TituloModuloActual = "Compras a Proveedores y Recálculo de Precios";
-        _navigationService.NavigateTo<ComprasView>();
-    }
-
-    [RelayCommand]
-    public void NavegarPedidos()
-    {
-        if (!PuedeAbastecer)
-        {
-            return;
-        }
-
-        ModuloActivo = "Pedidos";
-        TituloModuloActual = "Pedidos a Proveedores";
-        _navigationService.NavigateTo<PedidosView>();
-    }
-
-    [RelayCommand]
-    public void NavegarProveedores()
-    {
-        if (!PuedeOperarNegocio)
-        {
-            return;
-        }
-
-        ModuloActivo = "Proveedores";
-        TituloModuloActual = "Padrón de Proveedores";
-        _navigationService.NavigateTo<ProveedoresView>();
-    }
-
-    [RelayCommand]
-    public void NavegarCatalogos()
-    {
-        if (!PuedeOperarNegocio)
-        {
-            return;
-        }
-
-        ModuloActivo = "Catalogos";
-        TituloModuloActual = "Catálogos de Proveedores e Importación Masiva";
-        _navigationService.NavigateTo<ImportadorCatalogosView>();
-    }
-
-    [RelayCommand]
-    public void NavegarTablero()
-    {
-        if (!EsGerente)
-        {
-            return;
-        }
-
-        ModuloActivo = "Tablero";
-        _navigationService.NavigateTo<DashboardView>();
-    }
-
-    [RelayCommand]
-    public void NavegarConsolaFiscal()
-    {
-        if (!EsGerente)
-        {
-            return;
-        }
-
-        ModuloActivo = "Fiscal";
-        TituloModuloActual = "Consola Fiscal ARCA y Contingencia";
-        _navigationService.NavigateTo<ModuloEnConstruccionView>(view =>
-        {
-            view.Configurar(
-                titulo: "Consola Fiscal ARCA y Contingencia Resiliente",
-                etapa: "Etapa 5: Épica 5 - Módulo 5.2",
-                responsable: "Lucas Kruzolek",
-                requisitos: "RF-16, RF-17, RF-18",
-                descripcion: "Panel exclusivo gerencial para monitoreo de comprobantes en contingencia y reintento secuencial en lote ante ARCA.");
-        });
-    }
-
-    [RelayCommand]
-    public void NavegarUsuarios()
-    {
-        if (PuedeGestionarUsuarios)
-        {
-            ModuloActivo = "Usuarios";
-            _navigationService.NavigateTo<UsuariosView>();
-        }
-    }
-
-    [RelayCommand]
-    public void NavegarRespaldos()
-    {
-        if (PuedeGestionarUsuarios)
-        {
-            ModuloActivo = "Respaldos";
-            _navigationService.NavigateTo<BackupView>();
-        }
     }
 
     [RelayCommand]
     public void NavegarGaleriaDev()
     {
-        ModuloActivo = "Galeria";
         _navigationService.NavigateTo<StyleGalleryView>();
+        GaleriaActiva = true;
     }
 
     [RelayCommand]

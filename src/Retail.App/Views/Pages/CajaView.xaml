@@ -22,40 +22,43 @@
         </Grid.RowDefinitions>
 
         <!-- 1. Encabezado y acciones principales (sin tarjeta) -->
-        <components:PageHeader Grid.Row="0"
-                               Margin="{StaticResource SectionSpacing}"
-                               Titulo="Gestión de Caja y Tesorería"
-                               Subtitulo="Control de turno actual, arqueos y movimientos de efectivo.">
-            <StackPanel Orientation="Horizontal">
-                <Button Command="{Binding AbrirTurnoCommand}"
-                        Style="{StaticResource PrimaryActionButtonStyle}"
-                        Visibility="{Binding IsTurnoAbierto, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularWallet" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Abrir Turno (F2)" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+        <StackPanel Grid.Row="0">
+            <components:PageHeader
+                                   Margin="{StaticResource StackSm}"
+                                   Titulo="Ventas"
+                                   Subtitulo="Control de turno actual, arqueos y movimientos de efectivo.">
+                <StackPanel Orientation="Horizontal">
+                    <Button Command="{Binding AbrirTurnoCommand}"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            Visibility="{Binding IsTurnoAbierto, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularWallet" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Abrir Turno (F2)" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
 
-                <Button Command="{Binding RegistrarMovimientoCommand}"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        Margin="{StaticResource InlineSm}"
-                        Visibility="{Binding IsTurnoAbierto, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularSwapHorizontal" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Registrar Movimiento (F3)" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
+                    <Button Command="{Binding RegistrarMovimientoCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="{StaticResource InlineSm}"
+                            Visibility="{Binding IsTurnoAbierto, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularSwapHorizontal" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Registrar Movimiento (F3)" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
 
-                <Button Command="{Binding CerrarTurnoCommand}"
-                        Style="{StaticResource DangerActionButtonStyle}"
-                        Visibility="{Binding IsTurnoAbierto, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularLock" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Arqueo y Cierre (F12)" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </components:PageHeader>
+                    <Button Command="{Binding CerrarTurnoCommand}"
+                            Style="{StaticResource DangerActionButtonStyle}"
+                            Visibility="{Binding IsTurnoAbierto, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularLock" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Arqueo y Cierre (F12)" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </components:PageHeader>
+            <components:NavegadorSeccion SeccionId="ventas" Margin="{StaticResource SectionSpacing}" />
+        </StackPanel>
 
         <!-- 2. Estado del turno / resumen de saldos: una sola superficie -->
         <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Margin="{StaticResource SectionSpacing}">

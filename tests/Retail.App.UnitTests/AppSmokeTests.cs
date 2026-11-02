@@ -2302,4 +2302,62 @@ public class AppSmokeTests
         xamlException.Should().BeNull("el XAML del modal de pedido debe resolver sus recursos y plantillas");
         dialog.Should().NotBeNull();
     }
+
+    [Fact]
+    public void NavegadorSeccion_AlInstanciarse_ResuelveRecursosYLayout()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        NavegadorSeccion? navegador = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var navegacion = new Retail.App.Views.Dev.NavegacionMuestra("ingresos");
+                navegador = new NavegadorSeccion { SeccionId = "compras", Navegacion = navegacion };
+                navegador.Measure(new System.Windows.Size(600, 200));
+                navegador.Arrange(new System.Windows.Rect(0, 0, 600, 200));
+                navegador.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML del navegador de sección debe resolver sus recursos y plantillas");
+        navegador.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void AjustesView_AlInstanciarse_ResuelveRecursosYLayout()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        AjustesView? vista = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var viewModel = new Retail.App.ViewModels.Ajustes.AjustesViewModel(
+                    Substitute.For<IServicioTema>(),
+                    Substitute.For<IPreferenciasUsuario>());
+                vista = new AjustesView(viewModel);
+                vista.Measure(new System.Windows.Size(1100, 700));
+                vista.Arrange(new System.Windows.Rect(0, 0, 1100, 700));
+                vista.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de Ajustes debe resolver sus recursos y plantillas");
+        vista.Should().NotBeNull();
+    }
 }

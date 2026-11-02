@@ -75,78 +75,81 @@
         <!-- ============================================================= -->
         <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta)                      -->
         <!-- ============================================================= -->
-        <components:PageHeader Grid.Row="0"
-                               Margin="{StaticResource SectionSpacing}"
-                               Titulo="Catálogos Mayoristas"
-                               Subtitulo="Consulta de listas de distribuidores e importación asistida de artículos a tienda.">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                <!-- Selector de Distribuidor: elige QUÉ catálogo se carga (no filtra la tabla) y muestra la antigüedad de su lista -->
-                <StackPanel VerticalAlignment="Top" Margin="0,0,16,0">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                        <TextBlock Text="Distribuidor:"
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,8,0" />
-                        <ComboBox ItemsSource="{Binding ProveedoresDisponibles}"
-                                  SelectedItem="{Binding ProveedorActivo, Mode=TwoWay}"
-                                  DisplayMemberPath="RazonSocial"
-                                  Width="220"
-                                  MinHeight="{StaticResource ControlHeight}"
-                                  VerticalAlignment="Center" />
+        <StackPanel Grid.Row="0">
+            <components:PageHeader
+                                   Margin="{StaticResource StackSm}"
+                                   Titulo="Inventario"
+                                   Subtitulo="Consulta de listas de distribuidores e importación asistida de artículos a tienda.">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                    <!-- Selector de Distribuidor: elige QUÉ catálogo se carga (no filtra la tabla) y muestra la antigüedad de su lista -->
+                    <StackPanel VerticalAlignment="Top" Margin="0,0,16,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock Text="Distribuidor:"
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0" />
+                            <ComboBox ItemsSource="{Binding ProveedoresDisponibles}"
+                                      SelectedItem="{Binding ProveedorActivo, Mode=TwoWay}"
+                                      DisplayMemberPath="RazonSocial"
+                                      Width="220"
+                                      MinHeight="{StaticResource ControlHeight}"
+                                      VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Fecha de la última planilla del proveedor; en ámbar si supera el umbral (A-2) -->
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Right"
+                                    Margin="0,4,0,0"
+                                    Visibility="{Binding TieneProveedorActivo, Converter={StaticResource BoolToVisConverter}}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularAlertTriangle"
+                                                        Width="12" Height="12"
+                                                        Margin="0,0,4,0"
+                                                        VerticalAlignment="Center"
+                                                        Foreground="{DynamicResource WarningForegroundBrush}"
+                                                        ToolTip="{Binding AvisoListaDesactualizada}"
+                                                        Visibility="{Binding ListaDesactualizada, Converter={StaticResource BoolToVisConverter}}" />
+                            <TextBlock Text="{Binding TextoUltimaPlanilla}" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockCaptionSecondary}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ListaDesactualizada}" Value="True">
+                                                <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                <Setter Property="ToolTip" Value="{Binding AvisoListaDesactualizada}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
                     </StackPanel>
 
-                    <!-- Fecha de la última planilla del proveedor; en ámbar si supera el umbral (A-2) -->
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Right"
-                                Margin="0,4,0,0"
-                                Visibility="{Binding TieneProveedorActivo, Converter={StaticResource BoolToVisConverter}}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularAlertTriangle"
-                                                    Width="12" Height="12"
-                                                    Margin="0,0,4,0"
-                                                    VerticalAlignment="Center"
-                                                    Foreground="{DynamicResource WarningForegroundBrush}"
-                                                    ToolTip="{Binding AvisoListaDesactualizada}"
-                                                    Visibility="{Binding ListaDesactualizada, Converter={StaticResource BoolToVisConverter}}" />
-                        <TextBlock Text="{Binding TextoUltimaPlanilla}" VerticalAlignment="Center">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockCaptionSecondary}">
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ListaDesactualizada}" Value="True">
-                                            <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                            <Setter Property="ToolTip" Value="{Binding AvisoListaDesactualizada}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </StackPanel>
+                    <!-- Clasificar catálogo (M-75, M-79): sugiere categoría y marca a todos los ítems; no incorpora artículos -->
+                    <Button Command="{Binding ClasificarCatalogoTodoCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Top"
+                            ToolTip="Sugiere categoría y marca a todos los ítems con las reglas actuales. No incorpora artículos.">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularCategories" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Clasificar catálogo" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Importar Planilla (F9) -->
+                    <Button Command="{Binding ImportarPlanillaCommand}"
+                            IsEnabled="{Binding TieneProveedorActivo}"
+                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            VerticalAlignment="Top">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularFilePlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Importar Planilla" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
-
-                <!-- Clasificar catálogo (M-75, M-79): sugiere categoría y marca a todos los ítems; no incorpora artículos -->
-                <Button Command="{Binding ClasificarCatalogoTodoCommand}"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        Margin="0,0,8,0"
-                        VerticalAlignment="Top"
-                        ToolTip="Sugiere categoría y marca a todos los ítems con las reglas actuales. No incorpora artículos.">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularCategories" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Clasificar catálogo" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-
-                <!-- Importar Planilla (F9) -->
-                <Button Command="{Binding ImportarPlanillaCommand}"
-                        IsEnabled="{Binding TieneProveedorActivo}"
-                        Style="{StaticResource PrimaryActionButtonStyle}"
-                        VerticalAlignment="Top">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularFilePlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Importar Planilla" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-        </components:PageHeader>
+            </components:PageHeader>
+            <components:NavegadorSeccion SeccionId="inventario" Margin="{StaticResource SectionSpacing}" />
+        </StackPanel>
 
         <!-- ============================================================= -->
         <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta). Con filas marcadas, las    -->

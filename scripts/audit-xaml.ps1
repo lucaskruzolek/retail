@@ -165,6 +165,34 @@ else {
     }
 }
 
+Write-Host "`n--- REVISION DE COLORES ESTATICOS (TEMA CLARO/OSCURO) ---" -ForegroundColor Yellow
+# Los pinceles de la paleta llegan congelados: un {StaticResource} de color conserva el pincel viejo y no cambia al
+# alternar el tema. Todo color se toma con {DynamicResource}. Los pinceles son los de Colors.xaml (terminan en "Brush").
+$pinceles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+$contenidoPaleta = Get-Content (Join-Path $stylesDir "Colors.xaml") -Raw
+foreach ($m in [regex]::Matches($contenidoPaleta, '<SolidColorBrush\s+x:Key="([^"]+)"')) {
+    [void]$pinceles.Add($m.Groups[1].Value)
+}
+$coloresEstaticos = [System.Collections.Generic.List[string]]::new()
+foreach ($archivo in $xamlFiles) {
+    $texto = Get-Content $archivo.FullName -Raw
+    foreach ($m in [regex]::Matches($texto, '\{StaticResource\s+(\w+)\}')) {
+        if ($pinceles.Contains($m.Groups[1].Value)) {
+            [void]$coloresEstaticos.Add("$($archivo.Name): $($m.Groups[1].Value)")
+        }
+    }
+}
+if ($coloresEstaticos.Count -eq 0) {
+    Write-Host "[OK] Ningun color de la paleta se toma con StaticResource." -ForegroundColor Green
+}
+else {
+    $hasErrors = $true
+    Write-Host "[ERROR] Colores con StaticResource (use DynamicResource para que cambien con el tema):" -ForegroundColor Red
+    foreach ($item in ($coloresEstaticos | Sort-Object -Unique)) {
+        Write-Host "  * $item" -ForegroundColor Red
+    }
+}
+
 # Aviso (no falla la auditoria): valores literales de Margin, Padding y CornerRadius fuera de la grilla de 4 px.
 # Se ignoran 0, 1 y 2 (lineas finas y riel) y los negativos. Styles/ y Views/Dev/ quedan afuera: ahi se definen los tokens.
 $fueraDeGrilla = [System.Collections.Generic.List[object]]::new()

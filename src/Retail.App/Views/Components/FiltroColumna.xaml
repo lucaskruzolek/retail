@@ -1,4 +1,5 @@
-<UserControl x:Class="Retail.App.Views.Components.FiltroColumna"
+<UserControl xmlns:components="clr-namespace:Retail.App.Views.Components"
+             x:Class="Retail.App.Views.Components.FiltroColumna"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
@@ -60,9 +61,7 @@
                                 PlaceholderText="Buscar…"
                                 ClearButtonEnabled="False">
                         <ui:TextBox.Icon>
-                            <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                          Width="16"
-                                          Height="16" />
+                            <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
                         </ui:TextBox.Icon>
                     </ui:TextBox>
 
