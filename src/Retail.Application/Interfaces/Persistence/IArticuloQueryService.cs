@@ -1,4 +1,5 @@
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Ventas;
 
 namespace Retail.Application.Interfaces.Persistence;
@@ -20,6 +21,12 @@ public interface IArticuloQueryService
     /// ordenados por descripción. El filtro, el orden y el límite se resuelven en SQL Server.
     /// </summary>
     Task<IReadOnlyList<ArticuloVentaDto>> BuscarParaVentaAsync(string termino, int limite, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Igual que <see cref="BuscarParaVentaAsync"/>, pero solo artículos comprables: excluye servicios y
+    /// presentaciones derivadas, que reciben stock por fraccionamiento (RF-21).
+    /// </summary>
+    Task<IReadOnlyList<ArticuloParaCompraDto>> BuscarParaCompraAsync(string termino, int limite, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Precio, stock y datos del origen de los artículos activos indicados. Los dados de baja no se devuelven.

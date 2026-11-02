@@ -89,6 +89,29 @@ public class CompraTests
         act.Should().Throw<ArgumentException>();
     }
 
+    [Theory]
+    [InlineData("A")]
+    [InlineData("factura")]
+    [InlineData("NOTA DE CREDITO")]
+    public void Registrar_TipoComprobanteNoAdmitido_LanzaDomainException(string tipoComprobante)
+    {
+        // Act
+        var act = () => Compra.Registrar(IdProveedor, IdUsuario, tipoComprobante, "0001-00000001", DateTime.UtcNow);
+
+        // Assert
+        act.Should().Throw<DomainException>().WithMessage("*FACTURA o REMITO*");
+    }
+
+    [Fact]
+    public void Registrar_TipoRemito_CreaLaCompra()
+    {
+        // Act
+        var compra = Compra.Registrar(IdProveedor, IdUsuario, " REMITO ", "0001-00000001", DateTime.UtcNow.AddDays(-1));
+
+        // Assert
+        compra.TipoComprobante.Should().Be(Compra.TipoRemito);
+    }
+
     [Fact]
     public void Registrar_FechaEmisionFutura_LanzaDomainException()
     {

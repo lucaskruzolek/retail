@@ -310,7 +310,7 @@ public class VistaSnapshotTests
         var (ruta, error) = Capturar(tema, carpeta =>
         {
             var pedidoService = Substitute.For<IPedidoService>();
-            var viewModel = new SeleccionarPedidoModalViewModel(1, pedidoService);
+            var viewModel = new SeleccionarPedidoModalViewModel(1, "Distribuidora Sur S.R.L.", pedidoService);
             viewModel.Pedidos.Add(new PedidoEmitidoDto
             {
                 IdPedido = 101,
@@ -327,7 +327,7 @@ public class VistaSnapshotTests
             });
 
             var dialogo = new SeleccionarPedidoModalDialog(viewModel);
-            return SnapshotRenderer.Guardar(dialogo, 640, 520, carpeta + "/SeleccionarPedidoModalDialog");
+            return SnapshotRenderer.Guardar(dialogo, 540, 620, carpeta + "/SeleccionarPedidoModalDialog");
         });
 
         VerificarCaptura(ruta, error);

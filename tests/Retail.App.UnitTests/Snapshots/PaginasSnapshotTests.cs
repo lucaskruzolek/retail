@@ -6,12 +6,14 @@ using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Backups;
 using Retail.App.ViewModels.Caja;
+using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Proveedores;
 using Retail.App.ViewModels.Reportes;
 using Retail.App.ViewModels.Usuarios;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.DTOs.Reportes;
@@ -114,6 +116,43 @@ public class PaginasSnapshotTests
 
             var vista = new PedidosView(viewModel);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PedidosView", () => viewModel.Pedidos.Count > 0);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void ComprasView_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var viewModel = new ComprasViewModel(
+                Substitute.For<IProveedorService>(),
+                Substitute.For<ICompraService>(),
+                Substitute.For<IPedidoService>(),
+                Substitute.For<ICompraDialogService>(),
+                Substitute.For<ICurrentUserSession>(),
+                Substitute.For<ILogger<ComprasViewModel>>());
+
+            // Comprobante con proveedor, pedido vinculado y tres renglones (uno cuyo precio sube, uno sin cambio y uno manual)
+            var proveedor = DatosDeMuestraPaginas.Proveedores()[0];
+            viewModel.Proveedores.Add(proveedor);
+            viewModel.ProveedorSeleccionado = proveedor;
+            viewModel.NumeroComprobante = "0003-00004521";
+            viewModel.FechaEmision = new DateTime(2026, 11, 2);
+            foreach (var renglon in DatosDeMuestraPaginas.RenglonesDeCompra())
+            {
+                viewModel.DetalleCompraItems.Add(renglon);
+            }
+
+            viewModel.IdPedidoOrigen = 101;
+            viewModel.InformacionPedidoOrigen = "Pedido #101";
+            viewModel.TienePedidoOrigen = true;
+
+            var vista = new ComprasView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/ComprasView");
         });
 
         VerificarCaptura(ruta, error);

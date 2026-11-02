@@ -409,6 +409,7 @@ public class RegistrarCompraIntegrationTests : IAsyncLifetime, IDisposable
             new Repository<Proveedor>(context),
             new Repository<Usuario>(context),
             new Repository<Pedido>(context),
+            new ArticuloQueryService(context),
             new UnitOfWork(context),
             new CrearCompraValidator());
     }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Domain.Entities;
@@ -160,6 +161,32 @@ public class ArticuloQueryService : IArticuloQueryService
             .Take(Math.Max(1, limite));
 
         return await ProyectarParaVenta(query).ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ArticuloParaCompraDto>> BuscarParaCompraAsync(
+        string termino,
+        int limite,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(termino);
+
+        // Solo artículos comprables: ni servicios ni presentaciones derivadas (reciben stock por fraccionamiento, RF-21).
+        return await _context.Articulos
+            .AsNoTracking()
+            .Where(a => !a.EsServicio && a.IdArticuloOrigen == null)
+            .Where(a => a.Descripcion.Contains(termino) || (a.CodigoBarras != null && a.CodigoBarras.Contains(termino)))
+            .OrderBy(a => a.Descripcion)
+            .Take(Math.Max(1, limite))
+            .Select(a => new ArticuloParaCompraDto
+            {
+                IdArticulo = a.Id,
+                CodigoBarras = a.CodigoBarras,
+                Descripcion = a.Descripcion,
+                CostoReposicion = a.CostoReposicion,
+                PorcentajeGanancia = a.PorcentajeGanancia,
+                PrecioVenta = a.PrecioVenta
+            })
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<IReadOnlyList<DisponibilidadArticuloDto>> ObtenerDisponibilidadAsync(

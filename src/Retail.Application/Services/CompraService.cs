@@ -20,6 +20,7 @@ public class CompraService : ICompraService
     private readonly IRepository<Proveedor> _proveedorRepository;
     private readonly IRepository<Usuario> _usuarioRepository;
     private readonly IRepository<Pedido> _pedidoRepository;
+    private readonly IArticuloQueryService _articuloQueryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<CrearCompraDto> _validator;
 
@@ -29,6 +30,7 @@ public class CompraService : ICompraService
         IRepository<Proveedor> proveedorRepository,
         IRepository<Usuario> usuarioRepository,
         IRepository<Pedido> pedidoRepository,
+        IArticuloQueryService articuloQueryService,
         IUnitOfWork unitOfWork,
         IValidator<CrearCompraDto> validator)
     {
@@ -37,6 +39,7 @@ public class CompraService : ICompraService
         _proveedorRepository = proveedorRepository ?? throw new ArgumentNullException(nameof(proveedorRepository));
         _usuarioRepository = usuarioRepository ?? throw new ArgumentNullException(nameof(usuarioRepository));
         _pedidoRepository = pedidoRepository ?? throw new ArgumentNullException(nameof(pedidoRepository));
+        _articuloQueryService = articuloQueryService ?? throw new ArgumentNullException(nameof(articuloQueryService));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
     }
@@ -110,6 +113,11 @@ public class CompraService : ICompraService
             if (articuloValidacion.EsServicio)
             {
                 throw new DomainException($"El artículo '{articuloValidacion.Descripcion}' es un servicio y no puede formar parte de una compra física.");
+            }
+
+            if (articuloValidacion.EsDerivado)
+            {
+                throw new DomainException($"El artículo '{articuloValidacion.Descripcion}' es una presentación derivada: su stock se obtiene fraccionando el artículo de origen, no comprándolo (RF-21).");
             }
         }
 
@@ -191,6 +199,20 @@ public class CompraService : ICompraService
             ArticulosActualizados = articulosActualizados,
             Items = dto.Items,
         };
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<ArticuloParaCompraDto>> BuscarArticulosAsync(
+        string termino,
+        int limite = 15,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(termino))
+        {
+            return Task.FromResult<IReadOnlyList<ArticuloParaCompraDto>>(Array.Empty<ArticuloParaCompraDto>());
+        }
+
+        return _articuloQueryService.BuscarParaCompraAsync(termino.Trim(), limite, cancellationToken);
     }
 
     /// <inheritdoc/>

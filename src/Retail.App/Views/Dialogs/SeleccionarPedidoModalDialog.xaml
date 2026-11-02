@@ -1,23 +1,27 @@
 <ui:FluentWindow x:Class="Retail.App.Views.Dialogs.SeleccionarPedidoModalDialog"
-                   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                   xmlns:components="clr-namespace:Retail.App.Views.Components"
-                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
-                   Title="Importar Pedido a Proveedor"
-                   Width="640"
-                   Height="520"
-                   MinWidth="520"
-                   MinHeight="420"
-                   WindowStartupLocation="CenterOwner"
-                   ExtendsContentIntoTitleBar="True"
-                   WindowBackdropType="Mica"
-                   Background="{DynamicResource DialogBackgroundBrush}"
-                   ResizeMode="NoResize">
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:components="clr-namespace:Retail.App.Views.Components"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 xmlns:helpers="clr-namespace:Retail.App.Helpers"
+                 Title="Recibir pedido emitido"
+                 Width="540"
+                 Height="620"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 Background="{DynamicResource DialogBackgroundBrush}"
+                 ResizeMode="NoResize">
 
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+
+            <!-- Números alineados a la derecha, con su título sobre los dígitos -->
+            <Style x:Key="CeldaNumericaDerecha" TargetType="TextBlock" BasedOn="{StaticResource TextBlockNumericCell}">
+                <Setter Property="TextAlignment" Value="Right" />
+            </Style>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
@@ -29,80 +33,111 @@
         </Grid.RowDefinitions>
 
         <!-- Barra de título estandarizada del sistema de diseño -->
-        <components:EncabezadoDialogo Grid.Row="0" Titulo="Importar Pedido a Proveedor" />
+        <components:EncabezadoDialogo Grid.Row="0" Titulo="Recibir pedido emitido" />
 
-        <!-- Contenido central: grilla de pedidos emitidos -->
-        <Grid Grid.Row="1" Margin="20,12">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+        <!-- Sección: pedidos emitidos del proveedor -->
+        <Border Grid.Row="1" Style="{StaticResource DialogSectionStyle}" Margin="12,0,12,12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0"
-                       Text="Seleccione un pedido emitido para precargar los renglones en la factura de compra:"
-                       Style="{StaticResource TextBlockBodySecondary}"
-                       Margin="0,0,0,12" />
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="{StaticResource StackMd}">
+                    <iconPacks:PackIconBoxIcons Kind="RegularPackage" Style="{StaticResource CardHeaderIconStyle}" />
+                    <TextBlock Text="{Binding RazonSocialProveedor}" Style="{StaticResource CardHeaderTextStyle}" />
+                </StackPanel>
 
-            <Border Grid.Row="1"
-                    Background="{DynamicResource SurfaceCardBrush}"
-                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6">
-                <DataGrid ItemsSource="{Binding Pedidos}"
-                          SelectedItem="{Binding PedidoSeleccionado, Mode=TwoWay}"
-                          Style="{StaticResource DataGridRetailStyle}"
-                          RowStyle="{StaticResource DataGridRowRetailStyle}"
-                          CellStyle="{StaticResource DataGridCellRetailStyle}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          SelectionMode="Single"
-                          MouseDoubleClick="OnDataGridMouseDoubleClick">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Nro. Pedido"
-                                            Binding="{Binding IdPedido, StringFormat='#{0}'}"
-                                            ElementStyle="{StaticResource TextBlockMonospaceCell}"
-                                            Width="110" />
-                        <DataGridTextColumn Header="Fecha Emisión"
-                                            Binding="{Binding FechaEmision, StringFormat='dd/MM/yyyy HH:mm'}"
-                                            ElementStyle="{StaticResource TextBlockTextCell}"
-                                            Width="160" />
-                        <DataGridTextColumn Header="Renglones"
-                                            Binding="{Binding CantidadRenglones}"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                            ElementStyle="{StaticResource TextBlockNumericCell}"
-                                            Width="100" />
-                        <DataGridTextColumn Header="Total Estimado"
-                                            Binding="{Binding TotalEstimado, StringFormat=C2}"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                            ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="*"
-                                            MinWidth="130" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Border>
-        </Grid>
+                <TextBlock Grid.Row="1"
+                           Text="Elegí el pedido que llegó: sus renglones se cargan en la compra para que ajustes cantidades y costos a lo que dice el comprobante."
+                           Style="{StaticResource TextBlockBodySecondary}"
+                           TextWrapping="Wrap"
+                           Margin="{StaticResource StackMd}" />
 
-        <!-- Barra inferior de acciones (DialogFooterStyle) -->
+                <!-- La sección ya es la superficie: la grilla va sin borde propio ni esquinas -->
+                <Grid Grid.Row="2">
+                    <DataGrid ItemsSource="{Binding Pedidos}"
+                              SelectedItem="{Binding PedidoSeleccionado, Mode=TwoWay}"
+                              Style="{StaticResource DataGridRetailStyle}"
+                              AutoGenerateColumns="False"
+                              SelectionMode="Single"
+                              BorderThickness="0"
+                              helpers:EsquinasHelper.Esquinas="0"
+                              MouseDoubleClick="OnDataGridMouseDoubleClick">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="N.º"
+                                                Binding="{Binding IdPedido, StringFormat='#{0}'}"
+                                                ElementStyle="{StaticResource TextBlockMonospaceCell}"
+                                                Width="84" />
+                            <DataGridTextColumn Header="Fecha"
+                                                Binding="{Binding FechaEmision, StringFormat='dd/MM/yyyy'}"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}"
+                                                Width="116" />
+                            <DataGridTextColumn Header="Renglones"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                                Binding="{Binding CantidadRenglones}"
+                                                ElementStyle="{StaticResource CeldaNumericaDerecha}"
+                                                Width="104" />
+                            <DataGridTextColumn Header="Total est."
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                                Binding="{Binding TotalEstimado, StringFormat=C2}"
+                                                ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                Width="*"
+                                                MinWidth="120" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Estados de la carga: en curso, sin pedidos o con error -->
+                    <TextBlock Text="Cargando pedidos…"
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Margin="0,32,0,0"
+                               Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}" />
+
+                    <TextBlock Text="Este proveedor no tiene pedidos emitidos."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Margin="0,32,0,0"
+                               Visibility="{Binding EstaVacio, Converter={StaticResource BoolToVisConverter}}" />
+
+                    <Border Style="{StaticResource BadgeDangerStyle}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Margin="0,32,0,0"
+                            Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeError}"
+                                   FontSize="{StaticResource FontSizeSm}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource DangerForegroundBrush}"
+                                   TextWrapping="Wrap" />
+                    </Border>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Pie: Cancelar a la izquierda y la acción primaria (Enter) a la derecha -->
         <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
             <DockPanel LastChildFill="False">
                 <Button DockPanel.Dock="Left"
                         Click="OnCancelarClick"
-                        Content="Cancelar (Esc)"
-                        Style="{StaticResource KeycapButtonStyle}"
-                        Padding="16,8" />
+                        Style="{StaticResource KeycapButtonStyle}">
+                    <TextBlock Text="Cancelar" VerticalAlignment="Center" />
+                </Button>
 
                 <Button DockPanel.Dock="Right"
                         IsDefault="True"
+                        IsEnabled="{Binding TienePedidoSeleccionado}"
                         Click="OnSeleccionarClick"
-                        Style="{StaticResource PrimaryActionButtonStyle}"
-                        Padding="20,8">
+                        Style="{StaticResource PrimaryActionButtonStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Importar Pedido" FontWeight="Bold" VerticalAlignment="Center" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Recibir pedido" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </DockPanel>
         </Border>
     </Grid>
 </ui:FluentWindow>
-

@@ -90,6 +90,27 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
     }
 
     [Fact]
+    public async Task ObtenerParaCompra_PedidoEmitido_TraeCostoMarkupYPrecioActualesDelArticulo()
+    {
+        // Arrange
+        var proveedor = await SembrarProveedorAsync();
+        var item = await SembrarItemAsync(proveedor, costo: 100m);
+        var emitido = await SembrarBorradorAsync(proveedor, (item.Articulo!, item.Catalogo));
+        emitido.Emitir();
+        await Contexto.SaveChangesAsync();
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ObtenerParaCompraAsync(emitido.Id);
+
+        // Assert: valores vigentes del artículo, no los pactados en el pedido
+        var renglon = resultado!.Renglones.Should().ContainSingle().Which;
+        renglon.CostoReposicionActual.Should().Be(item.Articulo!.CostoReposicion);
+        renglon.PorcentajeGanancia.Should().Be(40m);
+        renglon.PrecioVentaActual.Should().Be(item.Articulo.PrecioVenta);
+    }
+
+    [Fact]
     public async Task ObtenerParaCompra_ArticuloDadoDeBaja_OmiteRenglon()
     {
         // Arrange

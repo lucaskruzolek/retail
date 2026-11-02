@@ -1,5 +1,7 @@
+using Retail.App.ViewModels.Compras;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.DTOs.Caja;
+using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.DTOs.Usuarios;
@@ -25,6 +27,50 @@ internal static class DatosDeMuestraPaginas
             Proveedor(6, "Cartonería Rosario", "30-65432109-7", null, "ventas@cartoneriarosario.com.ar"),
             Proveedor(7, "Insumos de Oficina Cuyo", "30-70987654-3", "0261 425-3344", "cuyo@insumosoficina.com.ar"),
             Proveedor(8, "Marcela Benítez (Artesanías)", "27-23456789-4", "11 5544-3322", null)
+        ];
+    }
+
+    /// <summary>
+    /// Tres renglones de una compra con pedido vinculado: uno cuyo costo sube respecto del vigente (el precio sube), uno
+    /// sin cambio y uno agregado a mano con el buscador (sin cantidad pedida).
+    /// </summary>
+    public static IReadOnlyList<DetalleCompraItemViewModel> RenglonesDeCompra()
+    {
+        return
+        [
+            DetalleCompraItemViewModel.DesdeRenglonDePedido(new RenglonPedidoParaCompraDto
+            {
+                IdArticulo = 101,
+                CodigoBarras = "7791234567011",
+                DescripcionArticulo = "Cuaderno Rivadavia tapa dura 48 hojas",
+                CodigoProveedor = "CUA-4801",
+                Cantidad = 12,
+                CostoPactado = 3200m,
+                CostoReposicionActual = 3000m,
+                PorcentajeGanancia = 50m,
+                PrecioVentaActual = 4500m
+            }),
+            DetalleCompraItemViewModel.DesdeRenglonDePedido(new RenglonPedidoParaCompraDto
+            {
+                IdArticulo = 102,
+                CodigoBarras = "7799876543210",
+                DescripcionArticulo = "Resma A4 75 g 500 hojas",
+                CodigoProveedor = "RES-A475",
+                Cantidad = 20,
+                CostoPactado = 8500m,
+                CostoReposicionActual = 8500m,
+                PorcentajeGanancia = 35m,
+                PrecioVentaActual = 11475m
+            }),
+            DetalleCompraItemViewModel.DesdeArticulo(new ArticuloParaCompraDto
+            {
+                IdArticulo = 103,
+                CodigoBarras = "7795554443332",
+                Descripcion = "Lapicera Bic cristal azul",
+                CostoReposicion = 450m,
+                PorcentajeGanancia = 60m,
+                PrecioVenta = 720m
+            })
         ];
     }
 

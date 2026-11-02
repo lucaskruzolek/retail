@@ -385,7 +385,10 @@ public class PedidoQueryService : IPedidoQueryService
                 DescripcionArticulo = d.Articulo.Descripcion,
                 CodigoProveedor = d.CodigoProveedor,
                 Cantidad = d.Cantidad,
-                CostoPactado = d.CostoPactado
+                CostoPactado = d.CostoPactado,
+                CostoReposicionActual = d.Articulo.CostoReposicion,
+                PorcentajeGanancia = d.Articulo.PorcentajeGanancia,
+                PrecioVentaActual = d.Articulo.PrecioVenta
             })
             .ToListAsync(cancellationToken);
 
