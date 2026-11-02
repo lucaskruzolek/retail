@@ -155,6 +155,7 @@ public partial class App : System.Windows.Application
         // Registro de la Vista de Compras y su ViewModel(Módulo 4.2)
         services.AddTransient<Retail.App.Views.Pages.ComprasView>();
         services.AddTransient<Retail.App.ViewModels.Compras.ComprasViewModel>();
+        services.AddScoped<Retail.App.Services.ICompraDialogService, Retail.App.Services.CompraDialogService>();
         services.AddTransient<ICajaDialogService, CajaDialogService>();
 
         // Pedidos a Proveedores (Track 4.3, L2a-1 y L2a-2)

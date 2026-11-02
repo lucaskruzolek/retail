@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.Application.DTOs.Compras;
+using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
@@ -16,6 +17,7 @@ namespace Retail.App.ViewModels.Compras;
 /// ViewModel principal para la gestión de compras a distribuidores e ingreso de facturas/remitos (Módulo 4.2).
 /// Todo acceso a datos pasa por <see cref="CargaSerializada"/> (H-19, Ley 4).
 /// Las excepciones de dominio y de concurrencia se muestran como alertas; solo los errores inesperados van al log.
+/// Soporta la importación de pedidos emitidos (Track 4.3, P2.4).
 /// </summary>
 public partial class ComprasViewModel : ObservableObject, IDisposable
 {
@@ -25,6 +27,8 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
 
     private readonly IProveedorService _proveedorService;
     private readonly ICompraService _compraService;
+    private readonly IPedidoService? _pedidoService;
+    private readonly ICompraDialogService? _dialogService;
     private readonly ICurrentUserSession _currentUserSession;
     private readonly ILogger<ComprasViewModel> _logger;
 
@@ -32,6 +36,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     public ObservableCollection<DetalleCompraItemViewModel> DetalleCompraItems { get; } = new();
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ImportarPedidoCommand))]
     private ProveedorDto? _proveedorSeleccionado;
 
     [ObservableProperty]
@@ -44,6 +49,15 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     private DateTime _fechaEmision = DateTime.Today;
 
     [ObservableProperty]
+    private int? _idPedidoOrigen;
+
+    [ObservableProperty]
+    private string? _informacionPedidoOrigen;
+
+    [ObservableProperty]
+    private bool _tienePedidoOrigen;
+
+    [ObservableProperty]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -53,10 +67,35 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     private string? _mensajeError;
 
     /// <summary>
+    /// Indica si se puede invocar la acción de importar pedido (requiere proveedor seleccionado).
+    /// </summary>
+    public bool PuedeImportarPedido => ProveedorSeleccionado != null && ProveedorSeleccionado.IdProveedor > 0;
+
+    /// <summary>
     /// Total general de la factura de compra acumulando los subtotales de cada renglón.
     /// </summary>
     public decimal TotalCompra => DetalleCompraItems.Sum(i => i.Subtotal);
 
+    public ComprasViewModel(
+        IProveedorService proveedorService,
+        ICompraService compraService,
+        IPedidoService pedidoService,
+        ICompraDialogService dialogService,
+        ICurrentUserSession currentUserSession,
+        ILogger<ComprasViewModel> logger)
+    {
+        _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
+        _compraService = compraService ?? throw new ArgumentNullException(nameof(compraService));
+        _pedidoService = pedidoService ?? throw new ArgumentNullException(nameof(pedidoService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _currentUserSession = currentUserSession ?? throw new ArgumentNullException(nameof(currentUserSession));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _carga = new CargaSerializada(_logger);
+    }
+
+    /// <summary>
+    /// Constructor de compatibilidad para pruebas unitarias focales de compras independientes de pedidos.
+    /// </summary>
     public ComprasViewModel(
         IProveedorService proveedorService,
         ICompraService compraService,
@@ -65,9 +104,16 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     {
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
         _compraService = compraService ?? throw new ArgumentNullException(nameof(compraService));
+        _pedidoService = null;
+        _dialogService = null;
         _currentUserSession = currentUserSession ?? throw new ArgumentNullException(nameof(currentUserSession));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _carga = new CargaSerializada(_logger);
+    }
+
+    partial void OnProveedorSeleccionadoChanged(ProveedorDto? value)
+    {
+        OnPropertyChanged(nameof(PuedeImportarPedido));
     }
 
     [RelayCommand]
@@ -101,8 +147,91 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void AgregarItem()
     {
-        // Aquí se integrará próximamente la apertura del diálogo de selección de artículos del catálogo
+        // Aquí se integrará la apertura del diálogo de selección de artículos del catálogo
         MensajeEstado = "Acción de agregar artículo (F2) invocada.";
+    }
+
+    [RelayCommand(CanExecute = nameof(PuedeImportarPedido))]
+    private async Task ImportarPedidoAsync()
+    {
+        if (ProveedorSeleccionado is null || _dialogService is null || _pedidoService is null)
+        {
+            return;
+        }
+
+        if (DetalleCompraItems.Count > 0)
+        {
+            var confirmar = _dialogService.Confirmar(
+                "Importar pedido",
+                "La factura de compra ya contiene artículos cargados.\n¿Desea reemplazarlos con los del pedido seleccionado?");
+
+            if (!confirmar)
+            {
+                return;
+            }
+        }
+
+        var pedidoElegido = await _dialogService.MostrarSeleccionarPedidoModalAsync(ProveedorSeleccionado.IdProveedor);
+        if (pedidoElegido is null)
+        {
+            return;
+        }
+
+        IsBusy = true;
+        MensajeError = null;
+        MensajeEstado = null;
+        PedidoParaCompraDto? pedidoParaCompra = null;
+
+        await _carga.EjecutarAsync(
+            token => Task.Run(() => _pedidoService.ObtenerParaCompraAsync(pedidoElegido.IdPedido, token), token),
+            resultado => pedidoParaCompra = resultado,
+            ex =>
+            {
+                _logger.LogError(ex, "Error al obtener el pedido {IdPedido} para compra", pedidoElegido.IdPedido);
+                MensajeError = "Error al obtener los detalles del pedido seleccionado.";
+            });
+
+        IsBusy = _carga.EnCurso;
+
+        if (pedidoParaCompra is null)
+        {
+            _dialogService.MostrarAlerta(
+                "Pedido no disponible",
+                "El pedido seleccionado ya no está disponible (fue cancelado o recibido en otra terminal).");
+            MensajeError = "El pedido seleccionado ya no está disponible.";
+            return;
+        }
+
+        DetalleCompraItems.Clear();
+        foreach (var renglon in pedidoParaCompra.Renglones)
+        {
+            DetalleCompraItems.Add(new DetalleCompraItemViewModel
+            {
+                IdArticulo = renglon.IdArticulo,
+                CodigoArticulo = !string.IsNullOrWhiteSpace(renglon.CodigoProveedor)
+                    ? renglon.CodigoProveedor
+                    : (!string.IsNullOrWhiteSpace(renglon.CodigoBarras) ? renglon.CodigoBarras : renglon.IdArticulo.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                DescripcionArticulo = renglon.DescripcionArticulo,
+                Cantidad = renglon.Cantidad,
+                CostoUnitario = renglon.CostoPactado,
+            });
+        }
+
+        IdPedidoOrigen = pedidoParaCompra.IdPedido;
+        InformacionPedidoOrigen = $"Pedido #{pedidoParaCompra.IdPedido}";
+        TienePedidoOrigen = true;
+        OnPropertyChanged(nameof(TotalCompra));
+
+        MensajeEstado = $"Pedido #{pedidoParaCompra.IdPedido} importado con {DetalleCompraItems.Count} renglón(es). Puede ajustar cantidades y costos a la factura.";
+    }
+
+    [RelayCommand]
+    private void DesvincularPedido()
+    {
+        IdPedidoOrigen = null;
+        InformacionPedidoOrigen = null;
+        TienePedidoOrigen = false;
+        MensajeEstado = "Pedido desvinculado. La compra ahora es manual (los artículos se conservan).";
     }
 
     [RelayCommand]
@@ -138,6 +267,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
             {
                 IdProveedor = ProveedorSeleccionado.IdProveedor,
                 IdUsuario = idUsuario.Value,
+                IdPedidoOrigen = IdPedidoOrigen,
                 TipoComprobante = TipoComprobante.Trim(),
                 NumeroComprobante = NumeroComprobante.Trim(),
                 FechaEmision = FechaEmision.ToUniversalTime(),
@@ -219,6 +349,9 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         NumeroComprobante = string.Empty;
         ProveedorSeleccionado = null;
         FechaEmision = DateTime.Today;
+        IdPedidoOrigen = null;
+        InformacionPedidoOrigen = null;
+        TienePedidoOrigen = false;
         OnPropertyChanged(nameof(TotalCompra));
     }
 

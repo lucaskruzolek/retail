@@ -10,6 +10,10 @@
              Focusable="True"
              Background="{DynamicResource SurfaceBackgroundBrush}">
 
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+    </UserControl.Resources>
+
     <UserControl.InputBindings>
         <KeyBinding Key="F2" Command="{Binding AgregarItemCommand}" />
         <KeyBinding Key="F12" Command="{Binding RegistrarCompraCommand}" />
@@ -46,39 +50,93 @@
         <!-- ============================================================= -->
         <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Padding="20,16" Margin="{StaticResource SectionSpacing}">
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="200" />
-                    <ColumnDefinition Width="220" />
-                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <!-- Proveedor -->
-                <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                    <TextBlock Text="Distribuidor / Proveedor" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
-                    <ComboBox ItemsSource="{Binding Proveedores}"
-                              SelectedItem="{Binding ProveedorSeleccionado}"
-                              DisplayMemberPath="RazonSocial"
-                              Height="35" />
-                </StackPanel>
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="200" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <!-- Nro Factura -->
-                <StackPanel Grid.Column="1" Margin="0,0,16,0">
-                    <TextBlock Text="Nro. Factura / Remito" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
-                    <TextBox Text="{Binding NumeroComprobante, UpdateSourceTrigger=PropertyChanged}" Height="35" FontFamily="{StaticResource FontFamilyMonospace}" />
-                </StackPanel>
+                    <!-- Proveedor -->
+                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                        <TextBlock Text="Distribuidor / Proveedor" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                        <ComboBox ItemsSource="{Binding Proveedores}"
+                                  SelectedItem="{Binding ProveedorSeleccionado}"
+                                  DisplayMemberPath="RazonSocial"
+                                  Height="35" />
+                    </StackPanel>
 
-                <!-- Botón Agregar Ítem -->
-                <StackPanel Grid.Column="2" VerticalAlignment="Bottom">
-                    <Button Command="{Binding AgregarItemCommand}" Style="{StaticResource KeycapButtonStyle}" Height="35">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Agregar Artículo" VerticalAlignment="Center" />
-                            <Border Style="{StaticResource KeycapBadgeStyle}">
-                                <TextBlock Text="F2" Style="{StaticResource TextBlockKeycap}" />
-                            </Border>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+                    <!-- Nro Factura -->
+                    <StackPanel Grid.Column="1" Margin="0,0,16,0">
+                        <TextBlock Text="Nro. Factura / Remito" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding NumeroComprobante, UpdateSourceTrigger=PropertyChanged}" Height="35" FontFamily="{StaticResource FontFamilyMonospace}" />
+                    </StackPanel>
+
+                    <!-- Botón Importar Pedido (P2.4) -->
+                    <StackPanel Grid.Column="2" VerticalAlignment="Bottom" Margin="0,0,12,0">
+                        <Button Command="{Binding ImportarPedidoCommand}"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                Height="35"
+                                Padding="12,0"
+                                ToolTip="Importar pedido emitido al distribuidor">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Importar Pedido" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- Botón Agregar Ítem -->
+                    <StackPanel Grid.Column="3" VerticalAlignment="Bottom">
+                        <Button Command="{Binding AgregarItemCommand}" Style="{StaticResource KeycapButtonStyle}" Height="35">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Agregar Artículo" VerticalAlignment="Center" />
+                                <Border Style="{StaticResource KeycapBadgeStyle}">
+                                    <TextBlock Text="F2" Style="{StaticResource TextBlockKeycap}" />
+                                </Border>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Indicador de Pedido Vinculado (P2.4) -->
+                <Border Grid.Row="1"
+                        Visibility="{Binding TienePedidoOrigen, Converter={StaticResource BoolToVisConverter}}"
+                        Background="{DynamicResource PrimaryLightBrush}"
+                        BorderBrush="{DynamicResource PrimaryBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="10,6"
+                        Margin="0,12,0,0"
+                        HorizontalAlignment="Left">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="SolidPackage" Width="14" Height="14"
+                                                    Foreground="{DynamicResource PrimaryBrush}"
+                                                    VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBlock Text="{Binding InformacionPedidoOrigen}"
+                                   FontWeight="SemiBold"
+                                   FontSize="{StaticResource FontSizeSm}"
+                                   Foreground="{DynamicResource PrimaryBrush}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text=" (Precios y cantidades cargados desde el pedido)"
+                                   FontSize="{StaticResource FontSizeXs}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   VerticalAlignment="Center" Margin="4,0,12,0" />
+                        <Button Command="{Binding DesvincularPedidoCommand}"
+                                Style="{StaticResource IconDangerButtonStyle}"
+                                Width="22" Height="22"
+                                ToolTip="Desvincular pedido (vuelve a compra manual)">
+                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="12" Height="12" />
+                        </Button>
+                    </StackPanel>
+                </Border>
             </Grid>
         </Border>
 
@@ -94,7 +152,7 @@
                   Margin="{StaticResource SectionSpacing}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Código" Binding="{Binding CodigoArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="140" />
-                <DataGridTextColumn Header="Descripción del Artículo" Binding="{Binding DescripcionArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="*" />
+                <DataGridTextColumn Header="Descripción del Artículo" Binding="{Binding DescripcionArticulo}" ElementStyle="{StaticResource TextBlockTextCell}" Width="*" MinWidth="200" />
                 
                 <!-- Costo Reposición Unitario (Monospace Cascadia Code) -->
                 <DataGridTextColumn Header="Costo Unitario" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Binding="{Binding CostoUnitario, StringFormat=C2}" ElementStyle="{StaticResource TextBlockCurrencyCell}" Width="130" />

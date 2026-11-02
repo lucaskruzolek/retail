@@ -1723,6 +1723,35 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void SeleccionarPedidoModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        SeleccionarPedidoModalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var pedidoServiceMock = Substitute.For<IPedidoService>();
+            var viewModel = new SeleccionarPedidoModalViewModel(1, pedidoServiceMock);
+
+            try
+            {
+                dialog = new SeleccionarPedidoModalDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(640, 520));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 640, 520));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de SeleccionarPedidoModalDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+    [Fact]
     public void EquivalenciasProveedorDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange

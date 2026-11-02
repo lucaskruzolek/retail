@@ -11,6 +11,7 @@ using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels;
 using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Clientes;
+using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Ventas;
@@ -20,6 +21,7 @@ using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Pedidos;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
 using Xunit;
@@ -275,6 +277,37 @@ public class VistaSnapshotTests
     /// Aplica el tema pedido, ejecuta la captura en el hilo STA y SIEMPRE restaura el tema claro: la
     /// <c>Application</c> se comparte con el resto de la suite.
     /// </summary>
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void SeleccionarPedidoModalDialog_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var pedidoService = Substitute.For<IPedidoService>();
+            var viewModel = new SeleccionarPedidoModalViewModel(1, pedidoService);
+            viewModel.Pedidos.Add(new PedidoEmitidoDto
+            {
+                IdPedido = 101,
+                FechaEmision = new DateTime(2026, 11, 1, 10, 30, 0, DateTimeKind.Utc),
+                CantidadRenglones = 4,
+                TotalEstimado = 12500.50m,
+            });
+            viewModel.Pedidos.Add(new PedidoEmitidoDto
+            {
+                IdPedido = 102,
+                FechaEmision = new DateTime(2026, 10, 28, 15, 0, 0, DateTimeKind.Utc),
+                CantidadRenglones = 2,
+                TotalEstimado = 4800m,
+            });
+
+            var dialogo = new SeleccionarPedidoModalDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 640, 520, carpeta + "/SeleccionarPedidoModalDialog");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
     private static (string? Ruta, Exception? Error) Capturar(TemaPrueba tema, Func<string, string> accion)
     {
         string? ruta = null;
