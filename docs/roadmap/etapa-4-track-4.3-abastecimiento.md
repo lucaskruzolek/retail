@@ -37,11 +37,11 @@ graph LR
 | PR | Contenido | Dueño | Depende de | Migración | Estado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
 | **PR-0** | Este documento, paquetes, ERS (RF-05, RF-07, RF-19, RF-28, RF-29, IU-12), DER de Pedidos, Etapa 4, mapa | Ambos (revisión cruzada) | — | No | ✅ Publicado en `main` (`6a29a4b`) |
-| **P1** | Integrar `main` en la rama del Módulo 4.2 y aplicar las correcciones de revisión | Pablo | PR-0 | Sí (UK de comprobante) | ✅ Implementado; pendiente PR |
+| **P1** | Integrar `main` en la rama del Módulo 4.2 y aplicar las correcciones de revisión | Pablo | PR-0 | Sí (UK de comprobante) | ✅ Implementado en `feat/modulo-4.2-compras` (migración `20261031035918_AgregarIndiceUnicoComprobante`); pendiente PR |
 | **L1** | Agregado `Pedido`: dominio, persistencia, servicio y contratos de frontera | Lucas | PR-0 | Sí (`PEDIDOS`) | ✅ Mergeado en `main` (PR #34, migración `20261028211913_AgregarPedidos`) |
 | **L2a-1** | Agregado en lote (`AgregarVariosAlPedidoAsync`), `PedidosView`, modal de pedido y entrada del Sidebar | Lucas | L1 | No | ✅ Mergeado en `main` (PR #35) |
 | **L2a-2** | Entradas "Pedir" y "Pedir seleccionados" en Artículos y en el importador, con la incorporación previa (A-17) | Lucas | L2a-1 | No | ✅ Mergeado en `main` (PR #36) |
-| **P2** | Compras: importar desde un pedido, ajustar a la factura y cerrar el pedido | Pablo | P1 y L1 | Sí (`COMPRAS.id_pedido_origen`) | ⏳ |
+| **P2** | Compras: importar desde un pedido, ajustar a la factura y cerrar el pedido | Pablo | P1 y L1 | Sí (`COMPRAS.id_pedido_origen`) | ✅ Implementado en `feat/modulo-4.2-compras` (migración `20261101015419_AgregarPedidoOrigenACompras`); pendiente PR |
 | **L2b** | "Volver a pedir faltantes" (compara el pedido con la compra que lo cerró) | Lucas | L2a-1 y P2 | No | ⏳ |
 | **L3a** | Fuentes múltiples y fuente principal: dominio, migración con datos, servicios e importador (A-16, opción A) | Lucas | L1 y Track 6.6 (✅ en `main`) | Sí | ✅ Mergeado en `main` (PR #38, migración `20261029080028_AgregarFuentesMultiples`) |
 | **L3b** | Fuentes múltiples en la UI: vincular como fuente adicional o principal y combo de fuente en el modal de pedido (A-18) | Lucas | L3a | No | ✅ Mergeado en `main` (PR #40) |

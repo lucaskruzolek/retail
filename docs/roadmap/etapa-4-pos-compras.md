@@ -51,13 +51,15 @@
 * **Dominio:** Agregado `Compra` (`IAggregateRoot`), `DetalleCompra`. Regla de negocio central `RF-19`: `Articulo.ActualizarCostoYRecalcularPrecio(nuevoCosto)` con fórmula de markup.
 * **Persistencia:** `CompraConfiguration.cs` y `DetalleCompraConfiguration.cs` en EF Core.
 * **Testing:** Pruebas unitarias de recálculo de markup; pruebas de integración de compras validando nuevo stock y nuevo precio en una sola transacción; tests de `ComprasView`.
-* **Replanteo (Track 4.3):** a partir de una sugerencia docente, la compra puede importarse desde un pedido emitido y ajustarse a la factura, y se agregan las correcciones de revisión del backend (`a1d7be9`). Plan de trabajo en [`etapa-4-track-4.3-paquete-pablo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-4-track-4.3-paquete-pablo.md) (fases P1 y P2).
+* **Replanteo (Track 4.3, P1 y P2 ✅ implementados, pendiente PR):** a partir de una sugerencia docente, la compra puede importarse desde un pedido emitido y ajustarse a la factura, y se agregan las correcciones de revisión del backend (`a1d7be9`).
+  - **P1 (C-1 a C-5):** índice único filtrado de comprobante `(id_proveedor, tipo_comprobante, numero_comprobante)` con verificación previa en el servicio (migración `AgregarIndiceUnicoComprobante`); rechazo de artículos repetidos en validador y dominio; diccionario en lugar de búsquedas lineales en el bucle de renglones; `DescartarCambios()` tras guardar (D-15); y `ComprasViewModel` que distingue reglas de negocio, conflictos de concurrencia y errores inesperados, con acceso a datos por `CargaSerializada`.
+  - **P2 (compra desde pedido):** `Compra.IdPedidoOrigen` (FK nullable con `Restrict` e índice único filtrado `UX_COMPRAS_PedidoOrigen`, migración `AgregarPedidoOrigenACompras`). `RegistrarCompraAsync` carga el pedido, valida el proveedor, llama a `MarcarRecibido()` y a `UpdateAsync(pedido)` (E2, A-13) y guarda compra, artículos y pedido en un único `SaveChanges` (A-10); la factura manda y no se compara con el pedido (A-9). En la UI, el botón "Importar pedido" abre `SeleccionarPedidoModalDialog`, que consume solo los dos métodos de frontera de `IPedidoService`. Plan de trabajo en [`etapa-4-track-4.3-paquete-pablo.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-4-track-4.3-paquete-pablo.md) (fases P1 y P2).
 
 ---
 
 ### Track 4.3: Abastecimiento — Fuentes Múltiples, Pedidos y Compras desde Pedido
 **Responsables:** Lucas Kruzolek (fuentes múltiples, comparador y pedidos) y Pablo Fernandez (compras desde pedido)  
-**Estado:** 🟡 En curso (PR-0 plan ✅ / L1 y P1 ⏳)
+**Estado:** 🟡 En curso (PR-0 plan ✅ / L1 ✅ en `main` / P1 y P2 ✅ en `feat/modulo-4.2-compras`, pendiente PR / L2b ⏳, desbloqueada al mergear P2)
 
 Sugerencia docente: comparar costos del mismo artículo entre distribuidores, armar pedidos desde el catálogo y registrar la compra a partir del pedido ajustándola a la factura (`RF-05`, `RF-07`, `RF-19`, `RF-28`, `RF-29`, `IU-12`).
 
