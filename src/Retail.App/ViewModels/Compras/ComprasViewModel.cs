@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -61,10 +61,22 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     private bool _isBusy;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneMensajeEstado))]
     private string? _mensajeEstado;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneMensajeError))]
     private string? _mensajeError;
+
+    /// <summary>
+    /// Indica si hay un mensaje de estado activo para mostrar en el panel inferior.
+    /// </summary>
+    public bool TieneMensajeEstado => !string.IsNullOrEmpty(MensajeEstado);
+
+    /// <summary>
+    /// Indica si hay un mensaje de error activo para mostrar en el panel inferior.
+    /// </summary>
+    public bool TieneMensajeError => !string.IsNullOrEmpty(MensajeError);
 
     /// <summary>
     /// Indica si se puede invocar la acción de importar pedido (requiere proveedor seleccionado).

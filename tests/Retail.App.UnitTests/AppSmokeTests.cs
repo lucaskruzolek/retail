@@ -1,4 +1,4 @@
-using System.Windows.Controls;
+﻿using System.Windows.Controls;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -1721,6 +1721,49 @@ public class AppSmokeTests
             bindingF12!.Command.Should().Be(viewModel.RegistrarCompraCommand);
         });
     }
+
+    [Fact]
+     public void ComprasView_ConMensajeErrorYEstado_PanelInferiorRenderizaSinExcepciones()
+    {
+        // Regresion: Bug fix track 4.3 -- el panel inferior debe mostrar MensajeError y MensajeEstado
+        // sin errores de binding (TieneMensajeError / TieneMensajeEstado).
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var proveedorServiceMock = Substitute.For<IProveedorService>();
+            var compraServiceMock = Substitute.For<ICompraService>();
+            var sessionMock = Substitute.For<ICurrentUserSession>();
+            var loggerMock = Substitute.For<ILogger<ComprasViewModel>>();
+            var viewModel = new ComprasViewModel(proveedorServiceMock, compraServiceMock, sessionMock, loggerMock);
+
+            try
+            {
+                var view = new ComprasView(viewModel);
+
+                // Simular estado de error (guard de articulos) y estado de éxito
+                viewModel.MensajeError = "La factura de compra debe contener al menos un renglon de articulo.";
+                viewModel.MensajeEstado = null;
+                view.Measure(new System.Windows.Size(1280, 800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1280, 800));
+                view.UpdateLayout();
+
+                // Transición: limpiar error y mostrar estado de éxito
+                viewModel.MensajeError = null;
+                viewModel.MensajeEstado = "Compra FACTURA Nro. 0001-00000123 registrada. Total: $15.000,00. Articulos actualizados: 3.";
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        xamlException.Should().BeNull(
+            "el panel inferior de ComprasView debe resolver TieneMensajeError y TieneMensajeEstado sin errores de binding");
+}
+
+
 
     [Fact]
     public void SeleccionarPedidoModalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()

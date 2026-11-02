@@ -178,6 +178,24 @@
                     <TextBlock Text="{Binding TotalCompra, StringFormat=C2}" FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
                 </StackPanel>
 
+                <!-- Mensajes de estado y error inline (Bug fix: track 4.3 P2) -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Vertical" VerticalAlignment="Center" Margin="0,0,16,0" MaxWidth="500">
+                    <!-- MensajeError: visible cuando hay error -->
+                    <Border Style="{StaticResource BadgeDangerStyle}"
+                            Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeError}"
+                                   FontSize="{StaticResource FontSizeSm}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource DangerForegroundBrush}"
+                                   TextWrapping="Wrap" />
+                    </Border>
+                    <!-- MensajeEstado: visible cuando hay confirmación -->
+                    <TextBlock Text="{Binding MensajeEstado}"
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}" />
+                </StackPanel>
+
                 <Button DockPanel.Dock="Right" Command="{Binding RegistrarCompraCommand}" Style="{StaticResource PrimaryActionButtonStyle}" Padding="20,10" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
                         <iconPacks:PackIconBoxIcons Kind="SolidCheckCircle" Width="16" Height="16" Margin="0,0,6,0" VerticalAlignment="Center" />

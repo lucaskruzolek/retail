@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Retail.App.Services;
@@ -9,9 +9,9 @@ using Wpf.Ui.Controls;
 namespace Retail.App;
 
 /// <summary>
-/// Shell principal de mostrador y contenedor de navegación de Retail POS (RF-01, RF-02).
+/// Shell principal de mostrador y contenedor de navegaciÃ³n de Retail POS (RF-01, RF-02).
 /// Inyectado estrictamente como Singleton conforme a la Ley 10 de Arquitectura.
-/// Incorpora Sidebar colapsable para operadores y acceso con teclas rápidas a módulos.
+/// Incorpora Sidebar colapsable para operadores y acceso con teclas rÃ¡pidas a mÃ³dulos.
 /// </summary>
 public partial class MainWindow : FluentWindow
 {
@@ -42,10 +42,10 @@ public partial class MainWindow : FluentWindow
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        // Página inicial según el rol: catálogo de artículos o, para el Administrador, gestión de usuarios.
+        // PÃ¡gina inicial segÃºn el rol: catÃ¡logo de artÃ­culos o, para el Administrador, gestiÃ³n de usuarios.
         ViewModel.NavegarModuloInicial();
 
-        // El operador ya inició sesión antes de crear el Shell: el aviso de restauración reciente se consulta acá (R-20).
+        // El operador ya iniciÃ³ sesiÃ³n antes de crear el Shell: el aviso de restauraciÃ³n reciente se consulta acÃ¡ (R-20).
         await ViewModel.CargarAvisoRestauracionAsync();
     }
 
@@ -59,7 +59,7 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
-        // Atajos de conmutación global de módulos con teclas de función (F1 a F10)
+        // Atajos de conmutaciÃ³n global de mÃ³dulos con teclas de funciÃ³n (F1 a F10)
         switch (e.Key)
         {
             case Key.F1:
@@ -68,8 +68,13 @@ public partial class MainWindow : FluentWindow
                 break;
 
             case Key.F2:
-                ViewModel.NavegarArticulos();
-                e.Handled = true;
+                // F2 en Compras está reservado para `Agregar Artículo` en la pantalla local (Bug fix: track 4.3).
+                // Si el módulo activo es Compras, no interceptamos aquí: el KeyBinding de ComprasView lo maneja.
+                if (ViewModel.ModuloActivo != "Compras")
+                {
+                    ViewModel.NavegarArticulos();
+                    e.Handled = true;
+                }
                 break;
 
             case Key.F4:
