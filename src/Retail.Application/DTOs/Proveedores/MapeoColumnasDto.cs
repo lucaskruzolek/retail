@@ -21,6 +21,12 @@ public record class MapeoColumnasDto
 
     public string? ColumnaMarca { get; init; }
 
+    /// <summary>
+    /// Preferencia "Clasificar catálogo" del proveedor (Track 6.6, M-75): la importación la guarda; la clasificación
+    /// la dispara la interfaz después, para poder traducir valores antes (M-76).
+    /// </summary>
+    public bool ClasificarCatalogo { get; init; }
+
     /// <summary>Fila de la hoja donde están los encabezados (el mismo número que muestra Excel); los datos empiezan en la siguiente.</summary>
     public int FilaEncabezado { get; init; } = 1;
 

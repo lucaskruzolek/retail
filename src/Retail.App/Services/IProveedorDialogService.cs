@@ -1,4 +1,5 @@
 using Retail.App.ViewModels.Proveedores;
+using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Proveedores;
 
 namespace Retail.App.Services;
@@ -26,6 +27,12 @@ public interface IProveedorDialogService
 
     /// <summary>Abre el diálogo modal de equivalencias de clasificación del proveedor (Track 6.6, P6-7).</summary>
     Task AbrirEquivalenciasProveedorAsync(ProveedorDto proveedor);
+
+    /// <summary>
+    /// Abre el diálogo que ofrece asociar los valores del proveedor sin equivalencia antes de clasificar su catálogo
+    /// (Track 6.6, M-80). Devuelve <c>true</c> si el usuario eligió "Clasificar catálogo" y <c>false</c> si canceló.
+    /// </summary>
+    Task<bool> AbrirAsociarValoresCatalogoAsync(ProveedorDto proveedor, IReadOnlyList<ValorSinTraducirDto> valores);
 
     /// <summary>Abre el diálogo modal de importación de planillas de un distribuidor. Retorna el resultado si se importó.</summary>
     Task<ResultadoImportacionDto?> AbrirImportarPlanillaAsync(ProveedorDto proveedor);

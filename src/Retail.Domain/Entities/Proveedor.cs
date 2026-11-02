@@ -30,6 +30,12 @@ public class Proveedor : BaseEntity, IAggregateRoot
 
     public string? Email { get; private set; }
 
+    /// <summary>
+    /// Preferencia de clasificar el catálogo en cada importación (Track 6.6, M-75). La fija el toggle del importador o
+    /// el botón "Clasificar catálogo" del explorador.
+    /// </summary>
+    public bool ClasificaCatalogo { get; private set; }
+
     public ICollection<CatalogoProveedor> Catalogos { get; set; } = new List<CatalogoProveedor>();
 
     public ICollection<Compra> Compras { get; set; } = new List<Compra>();
@@ -62,6 +68,14 @@ public class Proveedor : BaseEntity, IAggregateRoot
         Cuit = cuitNormalizado;
         Telefono = telefonoNormalizado;
         Email = emailNormalizado;
+    }
+
+    /// <summary>
+    /// Recuerda si este proveedor clasifica su catálogo al importar (M-75).
+    /// </summary>
+    public void ConfigurarClasificacionDelCatalogo(bool clasifica)
+    {
+        ClasificaCatalogo = clasifica;
     }
 
     /// <summary>

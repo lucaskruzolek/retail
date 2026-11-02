@@ -51,7 +51,8 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
             new CrearProveedorValidator(),
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
-            new IncorporarCatalogoArticulosValidator());
+            new IncorporarCatalogoArticulosValidator(),
+            new ConsultaCatalogoProveedorValidator());
     }
 
     public async Task DisposeAsync()
