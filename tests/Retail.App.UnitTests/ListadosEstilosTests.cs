@@ -42,13 +42,14 @@ public class ListadosEstilosTests
     }
 
     [Fact]
-    public void TextBlockPriceCell_ImporteConFormatoMoneda_SeMuestraEnEsArYEnNegrita()
+    public void TextBlockPriceCell_ImporteConFormatoMoneda_SeMuestraEnEsArYMasPesadoQueElResto()
     {
         var texto = TextoDeCelda("TextBlockPriceCell", "{0:C2}", new FilaPrueba(7932.4m, 40m));
 
         texto.Should().Contain("7.932,40");
+        // Con DM Sans, el resto de los importes va en Medium: el precio de venta destaca con SemiBold, sin llegar a Bold
         WpfTestHelper.Run(() => ((Style)System.Windows.Application.Current.FindResource("TextBlockPriceCell")).Setters
-            .OfType<Setter>().Any(s => s.Property == TextBlock.FontWeightProperty && Equals(s.Value, FontWeights.Bold)))
+            .OfType<Setter>().Any(s => s.Property == TextBlock.FontWeightProperty && Equals(s.Value, FontWeights.SemiBold)))
             .Should().BeTrue();
     }
 

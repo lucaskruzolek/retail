@@ -4,6 +4,15 @@ using System.Windows.Threading;
 namespace Retail.App.UnitTests.Helpers;
 
 /// <summary>
+/// Tema visual con el que se renderizan las vistas en las pruebas.
+/// </summary>
+public enum TemaPrueba
+{
+    Claro,
+    Oscuro
+}
+
+/// <summary>
 /// Provee un despachador (Dispatcher) único en hilo STA persistente para la suite de pruebas unitarias de WPF,
 /// evitando colisiones de afinidad de hilo (Thread Affinity) y excepciones entre pruebas xUnit.
 /// </summary>
@@ -56,6 +65,31 @@ public static class WpfTestHelper
 
         return tcs.Task.GetAwaiter().GetResult();
     });
+
+    /// <summary>
+    /// Cambia el tema de la <c>Application</c> compartida. Debe invocarse dentro de <see cref="Run(Action)"/> (hilo STA).
+    /// Localiza los diccionarios por su posición en <c>MergedDictionaries</c>, tal como los arma este helper y
+    /// <c>App.xaml</c>: [0] ThemesDictionary de WPF-UI y [2] paleta de Retail (Colors.xaml o Colors.Dark.xaml).
+    /// Quien lo use debe restaurar el tema claro al terminar, porque la Application se comparte en toda la suite.
+    /// </summary>
+    public static void AplicarTema(TemaPrueba tema)
+    {
+        var app = System.Windows.Application.Current;
+        var esOscuro = tema == TemaPrueba.Oscuro;
+        var temaWpfUi = esOscuro ? Wpf.Ui.Appearance.ApplicationTheme.Dark : Wpf.Ui.Appearance.ApplicationTheme.Light;
+        var paleta = esOscuro ? "Colors.Dark.xaml" : "Colors.xaml";
+        var acento = esOscuro
+            ? System.Windows.Media.Color.FromRgb(0xD6, 0x3A, 0x62)
+            : System.Windows.Media.Color.FromRgb(0x9D, 0x0F, 0x33);
+
+        app.Resources.MergedDictionaries[0] = new Wpf.Ui.Markup.ThemesDictionary { Theme = temaWpfUi };
+        app.Resources.MergedDictionaries[2] = new ResourceDictionary
+        {
+            Source = new Uri("pack://application:,,,/Retail.App;component/Styles/" + paleta, UriKind.Absolute)
+        };
+
+        Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(acento, temaWpfUi);
+    }
 
     public static void Run(Action action)
     {

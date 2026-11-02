@@ -11,9 +11,11 @@ public record class ConsultaClientesDto
 
     public CondicionIvaEnum? CondicionIva { get; init; }
 
-    public bool SoloConDeuda { get; init; }
+    /// <summary>Estados de cuenta corriente elegidos; vacío (o ambos) = sin filtro.</summary>
+    public IReadOnlyList<FiltroCuentaCorrienteClienteEnum> EstadosCuentaCorriente { get; init; } = [];
 
-    public bool SoloConCuentaCorriente { get; init; }
+    /// <summary>Estados de deuda elegidos; vacío (o ambos) = sin filtro.</summary>
+    public IReadOnlyList<FiltroDeudaClienteEnum> EstadosDeuda { get; init; } = [];
 
     public int Pagina { get; init; } = 1;
 

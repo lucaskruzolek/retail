@@ -135,7 +135,7 @@ public partial class BackupViewModel : ObservableObject, IDisposable
 
                 OnPropertyChanged(nameof(NoHayRestauraciones));
                 UltimaRestauracionTexto = resultado.Ultima is null ? null : DescribirRestauracion(resultado.Ultima);
-                MensajeEstado = $"Se cargaron {Copias.Count} copias.";
+                MensajeEstado = string.Empty;
             },
             ex =>
             {

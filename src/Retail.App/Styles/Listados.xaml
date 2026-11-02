@@ -9,9 +9,12 @@
     <!-- Estilos compartidos por las páginas de listado. Se cargan después de Controls.xaml porque derivan de sus estilos.
          DataGridRetailStyle sigue siendo la grilla compacta (POS, modales); DataGridListadoStyle es la de las páginas. -->
 
-    <!-- Encabezado liviano: peso normal y gris medio, para que la jerarquía la lleve el dato y no el título de columna -->
+    <!-- Encabezado liviano: texto chico en gris suave sobre la tarjeta, con una línea inferior; mide lo mismo que una fila
+         (36) para que la grilla no tenga un salto de ritmo entre el título y los datos. -->
     <Style x:Key="DataGridColumnHeaderListadoStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRetailStyle}">
-        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="MinHeight" Value="{StaticResource RowHeightListado}" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
     <Style x:Key="DataGridColumnHeaderRightListadoStyle" TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderListadoStyle}">
@@ -22,16 +25,16 @@
         <Setter Property="HorizontalContentAlignment" Value="Center" />
     </Style>
 
-    <!-- Fila de una línea (44 px). La selección es un tinte carmín suave sin borde carmín (el carmín se reserva para la
-         marca y las acciones); el hover es un gris suave que no se confunde con la selección. Es una copia de la plantilla
+    <!-- Fila de una línea (36 px). La selección es un gris neutro (el carmín se reserva para la acción principal, el foco
+         y la casilla marcada); el hover es un gris más suave que no se confunde con la selección. Es una copia de la plantilla
          de DataGridRowRetailStyle sin los triggers de la plantilla: la selección y el hover viven en Style.Triggers para que
          un estilo derivado los pueda redefinir (un trigger de ControlTemplate no se puede sobrescribir desde afuera). Una
          página con casillas de selección deriva este estilo y hace que el tinte siga a la casilla y no a la fila actual. -->
     <Style x:Key="DataGridRowListadoStyle" TargetType="DataGridRow">
-        <Setter Property="Height" Value="44" />
+        <Setter Property="Height" Value="{StaticResource RowHeightListado}" />
         <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
         <Setter Property="BorderThickness" Value="0,0,0,1" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderSubtleBrush}" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Template">
             <Setter.Value>
@@ -67,14 +70,14 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsSelected" Value="True">
-                <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
             </Trigger>
             <MultiTrigger>
                 <MultiTrigger.Conditions>
                     <Condition Property="IsSelected" Value="False" />
                     <Condition Property="IsMouseOver" Value="True" />
                 </MultiTrigger.Conditions>
-                <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
             </MultiTrigger>
         </Style.Triggers>
     </Style>
@@ -86,6 +89,150 @@
         <Setter Property="RowStyle" Value="{StaticResource DataGridRowListadoStyle}" />
         <!-- La línea entre filas la dibuja la propia fila (borde inferior): sin esto se duplicaría -->
         <Setter Property="GridLinesVisibility" Value="None" />
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- SUPERFICIE DE TABLA Y PAGINACIÓN                                  -->
+    <!-- ================================================================= -->
+    <!-- La tabla es la única superficie de la página: buscador y acciones van sobre el fondo, sin tarjeta que los agrupe.
+         Contiene la grilla (sin borde propio, esquinas de arriba de 7: radio 8 menos el borde de 1) y, como continuación,
+         la paginación separada por una línea. -->
+    <Style x:Key="TablaListadoStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <Style x:Key="PaginacionTextoStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- "Página [n]": cuadro de 28 con contorno, número centrado. Plantilla propia: el TextBox de WPF-UI mide 32
+         y trae botón de borrar. -->
+    <Style x:Key="PaginacionCuadroStyle" TargetType="TextBox">
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Marco"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost" Focusable="False" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Marco" Property="BorderBrush" Value="{DynamicResource TextSubtleBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Chevron de las flechas: 16 x 16 trazado con Stroke sobre el lienzo de GeometryChevron* (Icons.xaml).
+         Toma el Foreground del botón, así hereda el gris de reposo y la tinta plena del hover. -->
+    <Style x:Key="PaginacionChevronStyle" TargetType="Path">
+        <Setter Property="Width" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Stretch" Value="None" />
+        <Setter Property="StrokeThickness" Value="1.2" />
+        <Setter Property="StrokeStartLineCap" Value="Round" />
+        <Setter Property="StrokeEndLineCap" Value="Round" />
+        <Setter Property="StrokeLineJoin" Value="Round" />
+        <Setter Property="Stroke" Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+    </Style>
+
+    <!-- Primera / anterior / siguiente / última: cuadrado de 28 con contorno y chevron de 16; deshabilitado se apaga -->
+    <Style x:Key="PaginacionFlechaStyle" TargetType="Button">
+        <Setter Property="Width" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Número de página: sin contorno, 28 x 28. La actual, con el fondo gris de la selección y tinta plena
+         (el carmín queda para las acciones) -->
+    <Style x:Key="PaginacionNumeroStyle" TargetType="Button">
+        <Setter Property="MinWidth" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
+        <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Trigger>
+            <DataTrigger Binding="{Binding EsActual}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </DataTrigger>
+        </Style.Triggers>
     </Style>
 
     <!-- ================================================================= -->
@@ -102,9 +249,9 @@
                 <ControlTemplate TargetType="HeaderedContentControl">
                     <StackPanel>
                         <ContentPresenter ContentSource="Header"
-                                          Margin="0,0,0,4"
-                                          TextElement.FontSize="12"
-                                          TextElement.FontWeight="SemiBold"
+                                          Margin="{StaticResource StackXs}"
+                                          TextElement.FontSize="{StaticResource FontSizeSm}"
+                                          TextElement.FontWeight="Medium"
                                           TextElement.Foreground="{DynamicResource TextSecondaryBrush}" />
                         <ContentPresenter />
                     </StackPanel>
@@ -113,10 +260,12 @@
         </Setter>
     </Style>
 
-    <!-- Selector de filtro: 36 px de alto y a todo el ancho de su columna (los textos largos no se cortan) -->
+    <!-- Selector de filtro: 32 px de alto y a todo el ancho de su columna (los textos largos no se cortan) -->
     <Style x:Key="ComboBoxFiltroStyle" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
-        <Setter Property="Height" Value="36" />
-        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Height" Value="{StaticResource ControlHeight}" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="Padding" Value="10,0" />
         <Setter Property="HorizontalAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
@@ -127,12 +276,10 @@
     <!-- Acción de texto sin borde ni fondo ("Limpiar filtros"): gris en reposo, fondo suave en hover. Es la versión
          neutra de GhostPrimaryButtonStyle, que queda para acciones de marca. -->
     <Style x:Key="GhostNeutralButtonStyle" TargetType="Button" BasedOn="{StaticResource GhostPrimaryButtonStyle}">
-        <Setter Property="MinHeight" Value="36" />
-        <Setter Property="Padding" Value="12,6" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
@@ -141,35 +288,24 @@
         </Style.Triggers>
     </Style>
 
-    <!-- ================================================================= -->
-    <!-- BANDA DE FILTROS Y MENÚ DE FILA                                   -->
-    <!-- ================================================================= -->
-    <!-- Superficie hundida que agrupa los filtros de un listado (fondo de página con borde, un escalón por debajo de la
-         tarjeta). Adentro, la página arma un Grid de una fila con columnas "*" y un FilterField por columna. -->
-    <Style x:Key="FilterBandStyle" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource SurfaceBackgroundBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="CornerRadius" Value="6" />
-        <Setter Property="Padding" Value="12,10" />
-    </Style>
-
-    <!-- Botón "⋮" de una fila: 32 x 32 (va en una columna de 40), sin contorno ni fondo en reposo (en hover se marca con un
-         fondo suave). Abre el ContextMenu del botón (MenuDesplegableHelper). -->
-    <Style x:Key="RowMenuButtonStyle" TargetType="Button">
-        <Setter Property="Width" Value="32" />
-        <Setter Property="Height" Value="32" />
-        <Setter Property="Padding" Value="0" />
+    <!-- Versión desplegable de GhostNeutralButtonStyle ("Más" en las acciones masivas): un ToggleButton que abre un menú
+         (MenuDesplegableHelper) y queda hundido mientras el menú está abierto. BasedOn no cruza de Button a ToggleButton,
+         así que repite la apariencia con los mismos tokens. -->
+    <Style x:Key="GhostNeutralToggleButtonStyle" TargetType="ToggleButton">
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="Medium" />
         <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Template">
             <Setter.Value>
-                <ControlTemplate TargetType="Button">
+                <ControlTemplate TargetType="ToggleButton">
                     <Border Background="{TemplateBinding Background}"
-                            CornerRadius="6"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            Padding="{TemplateBinding Padding}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
@@ -181,10 +317,64 @@
                 <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- Casilla compacta de grilla (16 x 16): la de WPF-UI mide 20 y se ve enorme en una fila de 44. Marcada y en estado
+    <!-- ================================================================= -->
+    <!-- BANDA DE FILTROS Y MENÚ DE FILA                                   -->
+    <!-- ================================================================= -->
+    <!-- Superficie hundida que agrupa los filtros de un listado (gris suave sin borde, un escalón por debajo de la
+         tarjeta). Adentro, la página arma un Grid de una fila con columnas "*" y un FilterField por columna. -->
+    <Style x:Key="FilterBandStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
+        <Setter Property="Padding" Value="12" />
+    </Style>
+
+    <!-- Botón "⋮" de una fila: 28 x 28, sin contorno ni fondo en reposo (en hover se marca con un
+         fondo suave). Es un ToggleButton que abre el ContextMenu del botón (MenuDesplegableHelper): mientras
+         el menú está abierto el botón queda marcado (IsChecked) y se ve igual que presionado. -->
+    <Style x:Key="RowMenuButtonStyle" TargetType="ToggleButton">
+        <Setter Property="Width" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Height" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Casilla compacta de grilla (16 x 16): la de WPF-UI mide 20 y se ve enorme en una fila de 36. Marcada y en estado
          intermedio (algunas filas marcadas) se rellena de carmín; el estado intermedio dibuja un guion. -->
     <Style x:Key="CheckBoxCompactStyle" TargetType="CheckBox">
         <Setter Property="Width" Value="16" />
@@ -207,7 +397,7 @@
                                 CornerRadius="4" />
                         <Path x:Name="Marca"
                               Data="M 3.5,8.5 L 6.8,11.5 L 12.5,5"
-                              Stroke="White"
+                              Stroke="{DynamicResource ControlCheckedForegroundBrush}"
                               StrokeThickness="1.8"
                               StrokeStartLineCap="Round"
                               StrokeEndLineCap="Round"
@@ -218,25 +408,136 @@
                                    Height="2"
                                    RadiusX="1"
                                    RadiusY="1"
-                                   Fill="White"
+                                   Fill="{DynamicResource ControlCheckedForegroundBrush}"
                                    Visibility="Collapsed" />
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource TextSubtleBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource ControlCheckedBrush}" />
                             <Setter TargetName="Marca" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="{x:Null}">
-                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource ControlCheckedBrush}" />
                             <Setter TargetName="Guion" Property="Visibility" Value="Visible" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- FILTRO DE COLUMNA (FiltroColumna)                                  -->
+    <!-- ================================================================= -->
+    <!-- Embudo de la cabecera (20 x 20). Mismo comportamiento que "⋮": queda hundido con el panel abierto. Con un filtro
+         aplicado se resalta (fondo SurfaceSelected e ícono carmín) para que se vea desde la grilla qué columnas filtran. -->
+    <Style x:Key="FiltroColumnaBotonStyle" TargetType="ToggleButton" BasedOn="{StaticResource RowMenuButtonStyle}">
+        <Setter Property="Width" Value="20" />
+        <Setter Property="Height" Value="20" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding HayFiltroActivo}" Value="True">
+                <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Panel flotante del filtro: tarjeta con borde, radio 8 y la sombra de las superficies flotantes. El margen deja lugar
+         a la sombra dentro del Popup transparente. -->
+    <Style x:Key="FiltroColumnaPanelStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource RadiusLg}" />
+        <Setter Property="Margin" Value="8,4,8,12" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="{StaticResource ElevationShadowColor}"
+                                  Opacity="0.18"
+                                  BlurRadius="16"
+                                  ShadowDepth="4"
+                                  Direction="270" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Opción del filtro: toda la fila es clicable (casilla de 16 + texto), con hover suave. La casilla es la misma de
+         CheckBoxCompactStyle; el estado intermedio (grupo con algunas marcadas) dibuja un guion. -->
+    <Style x:Key="CheckBoxOpcionFiltroStyle" TargetType="CheckBox">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Padding" Value="8,0" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeightSm}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <Border x:Name="Fila"
+                            Background="Transparent"
+                            CornerRadius="{StaticResource RadiusSm}"
+                            Padding="{TemplateBinding Padding}"
+                            MinHeight="{TemplateBinding MinHeight}"
+                            SnapsToDevicePixels="True">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="16" Height="16" VerticalAlignment="Center">
+                                <Border x:Name="Caja"
+                                        Background="{DynamicResource SurfaceCardBrush}"
+                                        BorderBrush="{DynamicResource TextMutedBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="{StaticResource RadiusSm}" />
+                                <Path x:Name="Marca"
+                                      Data="M 3.5,8.5 L 6.8,11.5 L 12.5,5"
+                                      Stroke="{DynamicResource ControlCheckedForegroundBrush}"
+                                      StrokeThickness="1.8"
+                                      StrokeStartLineCap="Round"
+                                      StrokeEndLineCap="Round"
+                                      StrokeLineJoin="Round"
+                                      Visibility="Collapsed" />
+                                <Rectangle x:Name="Guion"
+                                           Width="8"
+                                           Height="2"
+                                           RadiusX="1"
+                                           RadiusY="1"
+                                           Fill="{DynamicResource ControlCheckedForegroundBrush}"
+                                           Visibility="Collapsed" />
+                            </Grid>
+                            <ContentPresenter Grid.Column="1"
+                                              Margin="8,0,0,0"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="False" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fila" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource TextSubtleBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Marca" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="Caja" Property="Background" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Caja" Property="BorderBrush" Value="{DynamicResource ControlCheckedBrush}" />
+                            <Setter TargetName="Guion" Property="Visibility" Value="Visible" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -289,21 +590,21 @@
         </Setter>
     </Style>
 
-    <!-- "✕" del badge de selección: círculo de 16 con la cruz en carmín; en hover se rellena de carmín y la cruz pasa a
-         blanco, para que se lea como botón sobre el fondo rosa del badge -->
+    <!-- "✕" del badge de selección: cuadrado de 16 (radio 4, como la insignia) con la cruz en gris; en hover se rellena
+         de un gris más claro que el badge y la cruz pasa a tinta plena, para que se lea como botón -->
     <Style x:Key="BadgeCancelButtonStyle" TargetType="Button">
         <Setter Property="Width" Value="16" />
         <Setter Property="Height" Value="16" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border Background="{TemplateBinding Background}"
-                            CornerRadius="8"
+                            CornerRadius="{StaticResource RadiusSm}"
                             SnapsToDevicePixels="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
@@ -312,34 +613,35 @@
         </Setter>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-                <Setter Property="Background" Value="{DynamicResource PrimaryBrush}" />
-                <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}" />
+                <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             </Trigger>
         </Style.Triggers>
     </Style>
 
-    <!-- Acciones masivas, sin recuadro que las contenga: a la izquierda el badge "N seleccionados ✕" (fondo rosa como el de
-         las filas marcadas, texto carmín; la "✕" cancela la selección); a la derecha, las acciones de la página (su
+    <!-- Acciones masivas, sin recuadro que las contenga: a la izquierda la insignia rectangular (radio 4, como las de la
+         grilla) "N seleccionados ✕" (fondo gris como el de
+         las filas marcadas, texto de tinta; la "✕" cancela la selección); a la derecha, las acciones de la página (su
          Content), que aparecen solo con selección. Va en la barra del buscador (ListToolbar.AccionesDeSeleccion), en lugar
-         de "Limpiar filtros", la carga y el contador. Mide lo mismo que el buscador (40) para que la página no se desplace. -->
+         de "Limpiar filtros", la carga y el contador. Mide lo mismo que el buscador (32) para que la página no se desplace. -->
     <Style TargetType="{x:Type components:BulkActionBar}">
         <Setter Property="IsTabStop" Value="False" />
         <Setter Property="Focusable" Value="False" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type components:BulkActionBar}">
-                    <DockPanel LastChildFill="False" Height="40">
+                    <DockPanel LastChildFill="False" Height="{StaticResource ControlHeight}">
                         <Border DockPanel.Dock="Left"
-                                Background="{DynamicResource PrimaryLightBrush}"
-                                CornerRadius="14"
-                                Height="28"
-                                Padding="12,0,6,0"
+                                Background="{DynamicResource SurfaceSelectedBrush}"
+                                CornerRadius="{StaticResource RadiusSm}"
+                                Height="{StaticResource ControlHeightSm}"
+                                Padding="8,0,6,0"
                                 VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{TemplateBinding TextoSeleccion}"
-                                           FontSize="13"
-                                           FontWeight="SemiBold"
-                                           Foreground="{DynamicResource PrimaryBrush}"
+                                           FontSize="{StaticResource FontSizeBase}"
+                                           FontWeight="Medium"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
                                            VerticalAlignment="Center" />
                                 <Button Command="{TemplateBinding ComandoCancelar}"
                                         Style="{StaticResource BadgeCancelButtonStyle}"

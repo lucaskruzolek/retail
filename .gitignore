@@ -71,3 +71,4 @@ ml/datos/
 __pycache__/
 # Entorno virtual de los experimentos (scikit-learn solo para exploración; versiones en ml/requirements.txt).
 ml/.venv/
+artifacts/

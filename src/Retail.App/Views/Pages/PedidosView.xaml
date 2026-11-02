@@ -6,6 +6,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
              xmlns:converters="clr-namespace:Retail.App.Converters"
              mc:Ignorable="d"
              Focusable="True"
@@ -20,16 +21,16 @@
         <DataTemplate x:Key="PlantillaEstadoPedido">
             <Grid VerticalAlignment="Center" HorizontalAlignment="Left">
                 <Border x:Name="BadgeBorrador" Style="{StaticResource BadgeNeutralStyle}">
-                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Border>
                 <Border x:Name="BadgeEmitido" Style="{StaticResource BadgeWarningStyle}" Visibility="Collapsed">
-                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
+                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
                 </Border>
                 <Border x:Name="BadgeRecibido" Style="{StaticResource BadgeSuccessStyle}" Visibility="Collapsed">
-                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" />
                 </Border>
                 <Border x:Name="BadgeCancelado" Style="{StaticResource BadgeDangerStyle}" Visibility="Collapsed">
-                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" />
+                    <TextBlock Text="{Binding Converter={StaticResource EnumATextoConverter}}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" />
                 </Border>
             </Grid>
             <DataTemplate.Triggers>
@@ -51,12 +52,16 @@
 
     <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
+            <!-- Encabezado -->
             <RowDefinition Height="Auto" />
+            <!-- Búsqueda, directo sobre el fondo -->
+            <RowDefinition Height="Auto" />
+            <!-- Tabla + paginación y detalle -->
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO DEL MÓDULO                                      -->
+        <!-- 1. ENCABEZADO DEL MÓDULO (sin tarjeta)                        -->
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
@@ -64,91 +69,80 @@
             <StackPanel Orientation="Horizontal">
                 <Border Style="{StaticResource BadgeDangerStyle}"
                         Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="{Binding MensajeError}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap" MaxWidth="420" />
+                    <TextBlock Text="{Binding MensajeError}" FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap" MaxWidth="420" />
                 </Border>
             </StackPanel>
         </components:PageHeader>
 
-        <Grid Grid.Row="1">
+        <!-- ============================================================= -->
+        <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta). Estado y Proveedor se      -->
+        <!--    filtran desde la cabecera de su columna.                   -->
+        <!-- ============================================================= -->
+        <components:ListToolbar Grid.Row="1"
+                                Margin="0,0,0,12"
+                                Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="Buscar por proveedor o número de pedido..."
+                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
+                                EstaCargando="{Binding IsBusy}" />
+
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <!-- Grilla y detalle en partes iguales (50/50) -->
-                <ColumnDefinition Width="*" MinWidth="520" />
+                <ColumnDefinition Width="3*" MinWidth="520" />
                 <ColumnDefinition Width="{StaticResource ColumnGap}" />
-                <ColumnDefinition Width="*" MinWidth="440" />
+                <ColumnDefinition Width="2*" MinWidth="440" />
             </Grid.ColumnDefinitions>
 
             <!-- ========================================================= -->
-            <!-- 2. FILTROS + GRILLA + PAGINACIÓN                          -->
+            <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN      -->
             <!-- ========================================================= -->
-            <Border Grid.Column="0"
-                    Background="{DynamicResource SurfaceCardBrush}"
-                    BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8">
+            <Border Grid.Column="0" Style="{StaticResource TablaListadoStyle}">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <DockPanel Grid.Row="0" LastChildFill="True" Margin="16,14,16,12">
-                        <TextBlock DockPanel.Dock="Left" Text="Estado" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <ComboBox DockPanel.Dock="Left"
-                                  Width="150"
-                                  Margin="0,0,16,0"
-                                  ItemsSource="{Binding OpcionesEstado}"
-                                  SelectedItem="{Binding EstadoFiltro, Mode=TwoWay}"
-                                  DisplayMemberPath="Texto" />
-
-                        <TextBlock DockPanel.Dock="Left" Text="Proveedor" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <ComboBox DockPanel.Dock="Left"
-                                  Width="220"
-                                  ItemsSource="{Binding Proveedores}"
-                                  SelectedItem="{Binding ProveedorFiltro, Mode=TwoWay}"
-                                  DisplayMemberPath="Nombre" />
-
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Right"
-                                    VerticalAlignment="Center"
-                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
-                            <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
-                            <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
-
-                    <DataGrid Grid.Row="1"
+                    <DataGrid Grid.Row="0"
                               ItemsSource="{Binding Pedidos}"
                               SelectedItem="{Binding PedidoSeleccionado, Mode=TwoWay}"
                               Style="{StaticResource DataGridListadoStyle}"
                               AutoGenerateColumns="False"
                               SelectionMode="Single"
-                              BorderThickness="1"
-                              Margin="16,0,16,8">
+                              BorderThickness="0"
+                              helpers:EsquinasHelper.Esquinas="7,7,0,0">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="N.º"
                                                 Binding="{Binding IdPedido, StringFormat=#{0}}"
                                                 ElementStyle="{StaticResource TextBlockNumericCell}"
                                                 Width="64" />
-                            <DataGridTextColumn Header="Proveedor"
-                                                Binding="{Binding RazonSocialProveedor}"
+                            <!-- Proveedor: su cabecera lleva el filtro de selección múltiple (FiltroColumna). Una columna no está
+                                 en el árbol visual: el filtro toma el DataContext de la página buscando el UserControl ancestro. -->
+                            <DataGridTextColumn Binding="{Binding RazonSocialProveedor}"
                                                 ElementStyle="{StaticResource TextBlockTextCell}"
                                                 Width="*"
-                                                MinWidth="160" />
+                                                MinWidth="160">
+                                <DataGridTextColumn.Header>
+                                    <components:FiltroColumna Filtro="{Binding DataContext.FiltroProveedor, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Fecha"
                                                 Binding="{Binding Fecha, StringFormat={}{0:dd/MM/yyyy}}"
                                                 ElementStyle="{StaticResource TextBlockNumericCell}"
-                                                Width="96" />
+                                                Width="112" />
                             <DataGridTextColumn Header="Productos"
                                                 Binding="{Binding CantidadRenglones}"
                                                 ElementStyle="{StaticResource TextBlockNumericCell}"
-                                                Width="86" />
+                                                Width="108" />
                             <DataGridTextColumn Header="Total est."
                                                 HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                                 Binding="{Binding TotalEstimado, StringFormat=C2}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="116" />
-                            <DataGridTemplateColumn Header="Estado" Width="110" CanUserSort="False">
+                            <DataGridTemplateColumn Width="120" CanUserSort="False">
+                                <DataGridTemplateColumn.Header>
+                                    <components:FiltroColumna Filtro="{Binding DataContext.FiltroEstado, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTemplateColumn.Header>
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ContentControl Content="{Binding Estado}"
@@ -161,12 +155,15 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <components:PaginationBar Grid.Row="2" />
+                    <!-- Paginación pegada a la grilla, separada por una línea -->
+                    <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0">
+                        <components:PaginationBar />
+                    </Border>
                 </Grid>
             </Border>
 
             <!-- ========================================================= -->
-            <!-- 3. DETALLE DEL PEDIDO SELECCIONADO                        -->
+            <!-- 4. DETALLE DEL PEDIDO SELECCIONADO                        -->
             <!-- ========================================================= -->
             <Border Grid.Column="2"
                     Background="{DynamicResource SurfaceCardBrush}"
@@ -219,7 +216,7 @@
                                     HorizontalAlignment="Left"
                                     Margin="0,8,0,0"
                                     Visibility="{Binding TieneMotivoCancelacion, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock FontSize="12" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap">
+                                <TextBlock FontSize="{StaticResource FontSizeSm}" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap">
                                     <Run Text="Motivo de cancelación:" FontWeight="SemiBold" />
                                     <Run Text="{Binding Detalle.MotivoCancelacion, Mode=OneWay}" />
                                 </TextBlock>
@@ -247,7 +244,7 @@
                                                         HorizontalAlignment="Left"
                                                         Margin="0,4,0,0"
                                                         Visibility="{Binding ArticuloDadoDeBaja, Converter={StaticResource BoolToVisConverter}}">
-                                                    <TextBlock Text="Artículo dado de baja" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
+                                                    <TextBlock Text="Artículo dado de baja" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
                                                 </Border>
                                             </StackPanel>
                                         </DataTemplate>
@@ -284,13 +281,13 @@
                                                                         CommandParameter="{Binding}" />
                                                         </TextBox.InputBindings>
                                                     </TextBox>
-                                                    <Button Style="{StaticResource GhostPrimaryButtonStyle}"
+                                                    <Button Style="{StaticResource RowActionButtonStyle}"
                                                             Margin="4,0,0,0"
                                                             Command="{Binding DataContext.AplicarCantidadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}"
                                                             ToolTip="Guardar la nueva cantidad"
                                                             Visibility="{Binding TieneCambios, Converter={StaticResource BoolToVisConverter}}">
-                                                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" />
+                                                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="16" Height="16" />
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
@@ -302,7 +299,7 @@
                                                     Binding="{Binding Subtotal, StringFormat=C2}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                     Width="104" />
-                                <DataGridTemplateColumn Width="44">
+                                <DataGridTemplateColumn Header="" Width="44" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Button Style="{StaticResource IconDangerButtonStyle}"
@@ -339,8 +336,8 @@
                                         Visibility="{Binding EsBorrador, Converter={StaticResource BoolToVisConverter}}"
                                         ToolTip="Pasar el pedido a Emitido: ya no se podrán modificar sus renglones">
                                     <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconBoxIcons Kind="RegularSend" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Emitir pedido" FontWeight="Bold" VerticalAlignment="Center" />
+                                        <iconPacks:PackIconBoxIcons Kind="RegularSend" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Emitir pedido" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
 

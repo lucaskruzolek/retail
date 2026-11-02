@@ -16,6 +16,7 @@ public partial class VincularArticuloModalViewModel : ObservableObject
     private readonly IInventarioService _inventarioService;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CodigoBarrasItem))]
     private CatalogoProveedorDto? _itemCatalogo;
 
     [ObservableProperty]
@@ -46,23 +47,29 @@ public partial class VincularArticuloModalViewModel : ObservableObject
 
     public int? IdArticuloSeleccionado => ArticuloSeleccionado?.IdArticulo;
 
+    /// <summary>Código de barras del ítem del catálogo, para mostrarlo como dato informativo (no como texto de búsqueda).</summary>
+    public string? CodigoBarrasItem => ItemCatalogo?.CodigoBarras;
+
     public VincularArticuloModalViewModel(IInventarioService inventarioService)
     {
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
     }
 
-    public async Task InicializarAsync(CatalogoProveedorDto item)
+    /// <summary>
+    /// Prepara el diálogo para un ítem. El buscador arranca vacío (con el foco puesto en la vista) y no se consulta
+    /// hasta que el usuario escribe: el código de barras del ítem se muestra como dato, no se vuelca al cuadro.
+    /// </summary>
+    public Task InicializarAsync(CatalogoProveedorDto item)
     {
         ItemCatalogo = item ?? throw new ArgumentNullException(nameof(item));
-        TextoBusqueda = !string.IsNullOrWhiteSpace(item.CodigoBarras)
-            ? item.CodigoBarras
-            : item.DescripcionProveedor;
+        TextoBusqueda = string.Empty;
 
+        ArticulosEncontrados.Clear();
         ArticuloSeleccionado = null;
         MensajeError = null;
         ComoPrincipal = false;
 
-        await BuscarArticulosAsync();
+        return Task.CompletedTask;
     }
 
     [RelayCommand]

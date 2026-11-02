@@ -11,8 +11,7 @@
                   MinHeight="480"
                   WindowStartupLocation="CenterScreen"
                   ExtendsContentIntoTitleBar="True"
-                  WindowBackdropType="Mica"
-                  Background="{DynamicResource SurfaceBackgroundBrush}"
+                  Background="{DynamicResource DialogBackgroundBrush}"
                   ResizeMode="CanMinimize">
 
     <ui:FluentWindow.Resources>
@@ -32,12 +31,12 @@
             <ui:TitleBar Height="32"
                          MinHeight="32"
                          Padding="8,0"
-                         Background="{DynamicResource SurfaceBackgroundBrush}"
+                         Background="{DynamicResource DialogBackgroundBrush}"
                          ShowMaximize="False"
                          CanMaximize="False" />
             <TextBlock Text="Retail POS"
                        FontFamily="{StaticResource FontFamilyText}"
-                       FontSize="12"
+                       FontSize="{StaticResource FontSizeSm}"
                        FontWeight="SemiBold"
                        Foreground="{DynamicResource TextPrimaryBrush}"
                        HorizontalAlignment="Center"
@@ -51,16 +50,14 @@
         <Grid Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="360" Margin="0,0,0,24">
             <StackPanel>
                 <!-- Logotipo e Identidad Visual -->
-                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,20">
+                <StackPanel HorizontalAlignment="Center" Margin="{StaticResource StackXl}">
                     <Border Background="{DynamicResource PrimaryLightBrush}"
-                            BorderBrush="{DynamicResource PrimaryBrush}"
-                            BorderThickness="1"
                             CornerRadius="24"
                             Width="48"
                             Height="48"
                             HorizontalAlignment="Center"
-                            Margin="0,0,0,12">
-                        <iconPacks:PackIconBoxIcons Kind="SolidLock"
+                            Margin="{StaticResource StackMd}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularLock"
                                                     Width="24"
                                                     Height="24"
                                                     Foreground="{DynamicResource PrimaryBrush}"
@@ -71,38 +68,35 @@
                     <TextBlock Text="Retail POS"
                                Style="{StaticResource TextBlockHeader1}"
                                Foreground="{DynamicResource PrimaryBrush}"
-                               HorizontalAlignment="Center"
-                               FontWeight="Bold" />
+                               HorizontalAlignment="Center" />
 
                     <TextBlock Text="Acceso a Mostrador y Gestión"
-                               Style="{StaticResource TextBlockCaption}"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               Style="{StaticResource TextBlockBodySecondary}"
                                HorizontalAlignment="Center"
-                               Margin="0,2,0,0" />
+                               Margin="0,4,0,0" />
                 </StackPanel>
 
-                <!-- Tarjeta de Credenciales -->
-                <Border Style="{StaticResource CardBorderStyle}" Padding="20">
+                <!-- Credenciales: sección sin borde sobre el fondo del diálogo -->
+                <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
                         <!-- Mensaje de Error / Feedback de Validación -->
                         <Border Background="{DynamicResource DangerBackgroundBrush}"
                                 BorderBrush="{DynamicResource DangerBorderBrush}"
                                 BorderThickness="1"
                                 CornerRadius="6"
-                                Padding="10,8"
-                                Margin="0,0,0,14"
+                                Padding="12,8"
+                                Margin="{StaticResource StackLg}"
                                 Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                             <StackPanel Orientation="Horizontal">
-                                <Path Data="{StaticResource GeometryWarning}"
-                                      Fill="{DynamicResource DangerForegroundBrush}"
-                                      Width="14"
-                                      Height="14"
-                                      Stretch="Uniform"
-                                      Margin="0,0,8,0"
-                                      VerticalAlignment="Top" />
+                                <iconPacks:PackIconBoxIcons Kind="RegularAlertTriangle"
+                                                            Width="14"
+                                                            Height="14"
+                                                            Foreground="{DynamicResource DangerForegroundBrush}"
+                                                            Margin="{StaticResource InlineSm}"
+                                                            VerticalAlignment="Top" />
                                 <TextBlock Text="{Binding MensajeError}"
                                            Foreground="{DynamicResource DangerForegroundBrush}"
-                                           FontSize="12"
+                                           FontSize="{StaticResource FontSizeSm}"
                                            TextWrapping="Wrap"
                                            Width="260" />
                             </StackPanel>
@@ -110,24 +104,20 @@
 
                         <!-- Usuario -->
                         <TextBlock Text="Usuario"
-                                   Style="{StaticResource TextBlockCaption}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,4" />
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="{StaticResource StackXs}" />
                         <ui:TextBox x:Name="TxtUsuario"
                                     Text="{Binding NombreUsuario, UpdateSourceTrigger=PropertyChanged}"
                                     PlaceholderText="Ingrese su usuario"
-                                    Margin="0,0,0,12" />
+                                    Margin="{StaticResource StackMd}" />
 
                         <!-- Contraseña -->
                         <TextBlock Text="Contraseña"
-                                   Style="{StaticResource TextBlockCaption}"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   FontWeight="SemiBold"
-                                   Margin="0,0,0,4" />
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="{StaticResource StackXs}" />
                         <ui:PasswordBox x:Name="TxtPassword"
                                         PlaceholderText="Ingrese su contraseña"
-                                        Margin="0,0,0,20" />
+                                        Margin="{StaticResource StackXl}" />
 
                         <!-- Botón de Ingreso Principal -->
                         <Button x:Name="BtnIngresar"
@@ -136,20 +126,14 @@
                                 helpers:ButtonHelper.IsLoading="{Binding EstaCargando}"
                                 helpers:ButtonHelper.LoadingText="Iniciando sesión..."
                                 IsDefault="True"
-                                HorizontalAlignment="Stretch"
-                                Margin="0,0,0,8">
+                                HorizontalAlignment="Stretch">
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <Path Data="{StaticResource GeometryUser}"
-                                      Fill="White"
-                                      Width="16"
-                                      Height="16"
-                                      Stretch="Uniform"
-                                      Margin="0,0,8,0"
-                                      VerticalAlignment="Center" />
-                                <TextBlock Text="Iniciar Sesión"
-                                           Foreground="White"
-                                           FontWeight="Bold"
-                                           VerticalAlignment="Center" />
+                                <iconPacks:PackIconBoxIcons Kind="RegularUserCheck"
+                                                            Width="14"
+                                                            Height="14"
+                                                            Margin="{StaticResource InlineSm}"
+                                                            VerticalAlignment="Center" />
+                                <TextBlock Text="Iniciar Sesión" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>

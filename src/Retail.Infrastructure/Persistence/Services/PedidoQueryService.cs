@@ -211,14 +211,26 @@ public class PedidoQueryService : IPedidoQueryService
 
         IQueryable<Pedido> query = _context.Pedidos.AsNoTracking();
 
-        if (consulta.Estado.HasValue)
+        if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
         {
-            query = query.Where(p => p.Estado == consulta.Estado.Value);
+            string termino = consulta.TerminoBusqueda.Trim();
+            bool esNumero = int.TryParse(termino, out int numero);
+            query = query.Where(p =>
+                EF.Functions.Like(p.Proveedor!.RazonSocial, $"%{termino}%") ||
+                (esNumero && p.Id == numero));
         }
 
-        if (consulta.IdProveedor.HasValue)
+        // Filtros de selección múltiple: cada lista se traduce a IN en SQL. Lista vacía = sin filtro.
+        if (consulta.Estados.Count > 0)
         {
-            query = query.Where(p => p.IdProveedor == consulta.IdProveedor.Value);
+            List<EstadoPedidoEnum> estados = consulta.Estados.Distinct().ToList();
+            query = query.Where(p => estados.Contains(p.Estado));
+        }
+
+        if (consulta.IdsProveedor.Count > 0)
+        {
+            List<int> idsProveedor = consulta.IdsProveedor.Distinct().ToList();
+            query = query.Where(p => idsProveedor.Contains(p.IdProveedor));
         }
 
         int totalRegistros = await query.CountAsync(cancellationToken);

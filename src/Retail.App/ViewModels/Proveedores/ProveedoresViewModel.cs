@@ -59,13 +59,11 @@ public partial class ProveedoresViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(TotalPaginas))]
     [NotifyPropertyChangedFor(nameof(PuedeRetrocederPagina))]
     [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _paginaActual = 1;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPaginas))]
     [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _tamanoPagina = 20;
 
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = new[] { 10, 20, 50 };
@@ -73,7 +71,6 @@ public partial class ProveedoresViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPaginas))]
     [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
-    [NotifyPropertyChangedFor(nameof(InformacionPaginacion))]
     private int _totalRegistrosFiltrados;
 
     public int TotalPaginas => Math.Max(1, (int)Math.Ceiling((double)TotalRegistrosFiltrados / Math.Max(1, TamanoPagina)));
@@ -81,10 +78,6 @@ public partial class ProveedoresViewModel : ObservableObject, IDisposable
     public bool PuedeRetrocederPagina => PaginaActual > 1;
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
-
-    public string InformacionPaginacion => TotalRegistrosFiltrados == 0
-        ? "Sin proveedores"
-        : $"Mostrando {(PaginaActual - 1) * TamanoPagina + 1} a {Math.Min(PaginaActual * TamanoPagina, TotalRegistrosFiltrados)} de {TotalRegistrosFiltrados} proveedores";
 
     public bool HayProveedorSeleccionado => ProveedorSeleccionado != null;
 
@@ -277,6 +270,17 @@ public partial class ProveedoresViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Va a una página puntual (los números de la barra de paginación); fuera de rango no hace nada.</summary>
+    [RelayCommand]
+    public void IrAPagina(int pagina)
+    {
+        if (pagina >= 1 && pagina <= TotalPaginas && pagina != PaginaActual)
+        {
+            PaginaActual = pagina;
+            ActualizarPaginaActual();
+        }
+    }
+
     // ------------------------------------------------------------------ //
     // Métodos auxiliares de filtrado y paginación                        //
     // ------------------------------------------------------------------ //
@@ -317,7 +321,6 @@ public partial class ProveedoresViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(TotalPaginas));
         OnPropertyChanged(nameof(PuedeRetrocederPagina));
         OnPropertyChanged(nameof(PuedeAvanzarPagina));
-        OnPropertyChanged(nameof(InformacionPaginacion));
     }
 
     /// <summary>

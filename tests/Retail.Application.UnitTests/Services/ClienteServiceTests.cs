@@ -45,6 +45,43 @@ public class ClienteServiceTests
             _ticketPrinterService);
     }
 
+    [Theory]
+    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda }, null, new[] { "Con deuda" })]
+    [InlineData(new[] { FiltroDeudaClienteEnum.SinDeuda }, null, new[] { "Habilitado sin deuda", "Sin cuenta" })]
+    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda, FiltroDeudaClienteEnum.SinDeuda }, null, new[] { "Con deuda", "Habilitado sin deuda", "Sin cuenta" })]
+    [InlineData(null, new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente }, new[] { "Con deuda", "Habilitado sin deuda" })]
+    [InlineData(null, new[] { FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente }, new[] { "Sin cuenta" })]
+    [InlineData(new[] { FiltroDeudaClienteEnum.SinDeuda }, new[] { FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente }, new[] { "Habilitado sin deuda" })]
+    [InlineData(new[] { FiltroDeudaClienteEnum.ConDeuda }, new[] { FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente }, new string[0])]
+    public async Task ListarClientesPaginadosAsync_ConEstadosDeDeudaYCuentaCorriente_FiltraPorCombinacion(
+        FiltroDeudaClienteEnum[]? estadosDeuda,
+        FiltroCuentaCorrienteClienteEnum[]? estadosCuentaCorriente,
+        string[] esperados)
+    {
+        // Arrange
+        var clientes = new List<Cliente>
+        {
+            ClientesDePrueba.Crear(id: 1, razonSocialONombre: "Con deuda", numeroDocumento: "30111111118", tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 15000m),
+            ClientesDePrueba.Crear(id: 2, razonSocialONombre: "Habilitado sin deuda", numeroDocumento: "30222222229", tieneCuentaCorriente: true, limiteCredito: 20000m),
+            ClientesDePrueba.Crear(id: 3, razonSocialONombre: "Sin cuenta", numeroDocumento: "30333333305")
+        };
+        _clienteRepository.ListAllAsync(false, Arg.Any<CancellationToken>()).Returns(clientes);
+
+        var consulta = new ConsultaClientesDto
+        {
+            EstadosDeuda = estadosDeuda ?? [],
+            EstadosCuentaCorriente = estadosCuentaCorriente ?? [],
+            TamanoPagina = 50
+        };
+
+        // Act
+        var resultado = await _sut.ListarClientesPaginadosAsync(consulta);
+
+        // Assert
+        resultado.Items.Select(c => c.RazonSocialONombre).Should().BeEquivalentTo(esperados);
+        resultado.TotalRegistros.Should().Be(esperados.Length);
+    }
+
     [Fact]
     public async Task BuscarClientesAsync_TerminoVacio_RetornaTodosOrdenadosPorNombre()
     {

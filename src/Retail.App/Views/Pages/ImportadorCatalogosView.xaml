@@ -5,8 +5,8 @@
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:enums="clr-namespace:Retail.Domain.Enums;assembly=Retail.Domain"
              xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
              mc:Ignorable="d"
              Focusable="True"
              Background="{DynamicResource SurfaceBackgroundBrush}">
@@ -21,215 +21,140 @@
 
     <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
+            <!-- Encabezado -->
             <RowDefinition Height="Auto" />
+            <!-- Búsqueda (o acciones masivas si hay filas marcadas), directo sobre el fondo -->
+            <RowDefinition Height="Auto" />
+            <!-- Tabla + paginación: la única superficie de la página -->
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO Y CONTEXTO DEL PROVEEDOR                        -->
+        <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta)                      -->
         <!-- ============================================================= -->
-        <Border Grid.Row="0"
-                Style="{StaticResource CardBorderStyle}"
-                Padding="20,14"
-                Margin="{StaticResource SectionSpacing}">
-            <DockPanel LastChildFill="False">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <iconPacks:PackIconBoxIcons Kind="RegularFileDetail"
-                                                Width="22" Height="22"
-                                                Foreground="{DynamicResource PrimaryBrush}"
-                                                VerticalAlignment="Center"
-                                                Margin="0,0,12,0" />
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="Catálogos Mayoristas"
-                                   Style="{StaticResource TextBlockHeader1}" />
-                        <TextBlock Text="Consulta de listas de distribuidores e importación asistida de artículos a tienda."
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   Margin="0,4,0,0" />
-                    </StackPanel>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <!-- Selector de Distribuidor y antigüedad de su lista -->
-                    <StackPanel VerticalAlignment="Center" Margin="0,0,14,0">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <TextBlock Text="Distribuidor:"
-                                       Style="{StaticResource TextBlockBodySecondary}"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,8,0" />
-                            <ComboBox ItemsSource="{Binding ProveedoresDisponibles}"
-                                      SelectedItem="{Binding ProveedorActivo, Mode=TwoWay}"
-                                      DisplayMemberPath="RazonSocial"
-                                      Width="220"
-                                      Height="36"
-                                      VerticalAlignment="Center" />
-                        </StackPanel>
-
-                        <!-- Fecha de la última planilla del proveedor; en ámbar si supera el umbral (A-2) -->
-                        <StackPanel Orientation="Horizontal"
-                                    HorizontalAlignment="Right"
-                                    Margin="0,6,0,0"
-                                    Visibility="{Binding TieneProveedorActivo, Converter={StaticResource BoolToVisConverter}}">
-                            <iconPacks:PackIconBoxIcons Kind="SolidAlertTriangle"
-                                                        Width="12" Height="12"
-                                                        Margin="0,0,6,0"
-                                                        VerticalAlignment="Center"
-                                                        Foreground="{DynamicResource WarningForegroundBrush}"
-                                                        ToolTip="{Binding AvisoListaDesactualizada}"
-                                                        Visibility="{Binding ListaDesactualizada, Converter={StaticResource BoolToVisConverter}}" />
-                            <TextBlock Text="{Binding TextoUltimaPlanilla}" VerticalAlignment="Center">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockCaptionSecondary}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding ListaDesactualizada}" Value="True">
-                                                <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
-                                                <Setter Property="FontWeight" Value="SemiBold" />
-                                                <Setter Property="ToolTip" Value="{Binding AvisoListaDesactualizada}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-                    </StackPanel>
-
-                    <!-- Importar Planilla (F9) -->
-                    <Button Command="{Binding ImportarPlanillaCommand}"
-                            IsEnabled="{Binding TieneProveedorActivo}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
-                            Padding="14,8">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularFilePlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Importar Planilla" FontWeight="Bold" VerticalAlignment="Center" />
-                            
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </DockPanel>
-        </Border>
-
-        <!-- ============================================================= -->
-        <!-- 2. CATÁLOGO DEL DISTRIBUIDOR: FILTROS + GRILLA + PAGINACIÓN   -->
-        <!-- ============================================================= -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <!-- 2.1 Barra superior de herramientas y filtros -->
-                <DockPanel Grid.Row="0" LastChildFill="True" Margin="16,14,16,12">
-                    <TextBlock DockPanel.Dock="Left"
-                               Text="Catálogo del Proveedor"
-                               Style="{StaticResource TextBlockHeader2}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,20,0" />
-
-                    <ui:TextBox DockPanel.Dock="Left"
-                                Text="{Binding TextoBusquedaCatalogo, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="Buscar código o descripción..."
-                                Width="260"
-                                Margin="0,0,16,0"
-                                VerticalAlignment="Center">
-                        <ui:TextBox.Icon>
-                            <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                          Width="16" Height="16" />
-                        </ui:TextBox.Icon>
-                    </ui:TextBox>
-
-                    <!-- Filtro estado de vinculación -->
-                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                        <TextBlock Text="Estado:"
+        <components:PageHeader Grid.Row="0"
+                               Margin="{StaticResource SectionSpacing}"
+                               Titulo="Catálogos Mayoristas"
+                               Subtitulo="Consulta de listas de distribuidores e importación asistida de artículos a tienda.">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                <!-- Selector de Distribuidor: elige QUÉ catálogo se carga (no filtra la tabla) y muestra la antigüedad de su lista -->
+                <StackPanel VerticalAlignment="Top" Margin="0,0,16,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock Text="Distribuidor:"
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    VerticalAlignment="Center"
                                    Margin="0,0,8,0" />
-                        <ComboBox ItemsSource="{Binding OpcionesEstado}"
-                                  SelectedItem="{Binding FiltroEstado}"
-                                  Width="150"
-                                  Height="35"
-                                  VerticalAlignment="Center">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock>
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="{Binding}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding}" Value="{x:Static enums:EstadoVinculacionCatalogoEnum.Todos}">
-                                                        <Setter Property="Text" Value="Todos" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding}" Value="{x:Static enums:EstadoVinculacionCatalogoEnum.SinIncorporar}">
-                                                        <Setter Property="Text" Value="Sin incorporar" />
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding}" Value="{x:Static enums:EstadoVinculacionCatalogoEnum.YaEnTienda}">
-                                                        <Setter Property="Text" Value="Ya en tienda" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
+                        <ComboBox ItemsSource="{Binding ProveedoresDisponibles}"
+                                  SelectedItem="{Binding ProveedorActivo, Mode=TwoWay}"
+                                  DisplayMemberPath="RazonSocial"
+                                  Width="220"
+                                  MinHeight="{StaticResource ControlHeight}"
+                                  VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <!-- Acciones a la derecha: Contador + Botón Incorporar Seleccionados -->
-                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <!-- Total de ítems -->
-                        <TextBlock VerticalAlignment="Center"
-                                   Margin="0,0,16,0"
-                                   Foreground="{DynamicResource TextMutedBrush}"
-                                   Style="{StaticResource TextBlockCaption}">
-                            <Run Text="{Binding TotalItemsCatalogo, Mode=OneWay}" />
-                            <Run Text=" ítem(s)" />
+                    <!-- Fecha de la última planilla del proveedor; en ámbar si supera el umbral (A-2) -->
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Right"
+                                Margin="0,4,0,0"
+                                Visibility="{Binding TieneProveedorActivo, Converter={StaticResource BoolToVisConverter}}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularAlertTriangle"
+                                                    Width="12" Height="12"
+                                                    Margin="0,0,4,0"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{DynamicResource WarningForegroundBrush}"
+                                                    ToolTip="{Binding AvisoListaDesactualizada}"
+                                                    Visibility="{Binding ListaDesactualizada, Converter={StaticResource BoolToVisConverter}}" />
+                        <TextBlock Text="{Binding TextoUltimaPlanilla}" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockCaptionSecondary}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ListaDesactualizada}" Value="True">
+                                            <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="ToolTip" Value="{Binding AvisoListaDesactualizada}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
                         </TextBlock>
+                    </StackPanel>
+                </StackPanel>
 
+                <!-- Importar Planilla (F9) -->
+                <Button Command="{Binding ImportarPlanillaCommand}"
+                        IsEnabled="{Binding TieneProveedorActivo}"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        VerticalAlignment="Top">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularFilePlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Importar Planilla" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </components:PageHeader>
+
+        <!-- ============================================================= -->
+        <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta). Con filas marcadas, las    -->
+        <!--    acciones masivas ocupan el lugar de "Limpiar filtros".     -->
+        <!-- ============================================================= -->
+        <components:ListToolbar Grid.Row="1"
+                                Margin="0,0,0,12"
+                                Texto="{Binding TextoBusquedaCatalogo, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="Buscar código o descripción..."
+                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
+                                EstaCargando="{Binding IsBusy}"
+                                HaySeleccion="{Binding TieneItemsSeleccionados}">
+            <components:ListToolbar.AccionesDeSeleccion>
+                <components:BulkActionBar CantidadSeleccionados="{Binding CantidadSeleccionados}"
+                                          ComandoCancelar="{Binding LimpiarSeleccionCommand}">
+                    <StackPanel Orientation="Horizontal">
                         <!-- Pedir los seleccionados al proveedor (Track 4.3, A-17): solo Encargado y Gerente (A-14) -->
                         <Button Style="{StaticResource KeycapButtonStyle}"
-                                Padding="14,8"
                                 Margin="0,0,8,0"
                                 VerticalAlignment="Center"
                                 Command="{Binding PedirSeleccionadosCommand}"
-                                IsEnabled="{Binding TieneItemsSeleccionados}"
                                 Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
                                 ToolTip="Agregar los ítems seleccionados al borrador de pedido del proveedor">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Pedir Seleccionados" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                <TextBlock Text="Pedir seleccionados" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
-                        <!-- Botón incorporar seleccionados a tienda -->
-                        <Button x:Name="BtnIncorporar"
+                        <!-- Incorporar los seleccionados a la tienda (RF-05) -->
+                        <Button
                                 Style="{StaticResource PrimaryActionButtonStyle}"
-                                Padding="14,8"
                                 VerticalAlignment="Center"
-                                IsEnabled="{Binding TieneItemsSeleccionados}"
                                 Click="BtnIncorporar_Click">
                             <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Incorporar Seleccionados a Tienda" FontWeight="Bold" VerticalAlignment="Center" />
+                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Incorporar seleccionados a tienda" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
-                </DockPanel>
+                </components:BulkActionBar>
+            </components:ListToolbar.AccionesDeSeleccion>
+        </components:ListToolbar>
 
-                <!-- 2.2 Grilla de datos del catálogo -->
+        <!-- ============================================================= -->
+        <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->
+        <!-- ============================================================= -->
+        <Border Grid.Row="2" Style="{StaticResource TablaListadoStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
                 <DataGrid x:Name="GrillaCatalogo"
-                          Grid.Row="1"
+                          Grid.Row="0"
                           ItemsSource="{Binding ItemsCatalogo}"
                           Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           SelectionMode="Single"
                           SelectionChanged="GrillaCatalogo_SelectionChanged"
-                          BorderThickness="1"
-                          Margin="16,0,16,8">
+                          BorderThickness="0"
+                          helpers:EsquinasHelper.Esquinas="7,7,0,0">
                     <DataGrid.RowStyle>
                         <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowListadoStyle}">
                             <EventSetter Event="PreviewMouseLeftButtonDown" Handler="DataGridRow_PreviewMouseLeftButtonDown" />
@@ -238,7 +163,7 @@
                     <DataGrid.Columns>
 
                         <!-- Selección múltiple por CheckBox -->
-                        <DataGridTemplateColumn Width="60" CanUserResize="False" CanUserSort="False">
+                        <DataGridTemplateColumn Width="44" CanUserResize="False" CanUserSort="False">
                             <DataGridTemplateColumn.HeaderStyle>
                                 <Style TargetType="DataGridColumnHeader" BasedOn="{StaticResource DataGridColumnHeaderRetailStyle}">
                                     <Setter Property="HorizontalContentAlignment" Value="Center" />
@@ -253,49 +178,27 @@
                             </DataGridTemplateColumn.CellStyle>
                             <DataGridTemplateColumn.Header>
                                 <CheckBox IsChecked="{Binding DataContext.SeleccionarTodos, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                          ToolTip="Seleccionar / Deseleccionar todos"
-                                          HorizontalAlignment="Center"
-                                          VerticalAlignment="Center"
-                                          MinWidth="0"
-                                          MinHeight="0"
-                                          Padding="0"
-                                          Margin="0" />
+                                          Style="{StaticResource CheckBoxCompactStyle}"
+                                          ToolTip="Seleccionar / deseleccionar todos los de esta página" />
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <CheckBox IsChecked="{Binding EstaSeleccionado, UpdateSourceTrigger=PropertyChanged}"
-                                              HorizontalAlignment="Center"
-                                              VerticalAlignment="Center"
-                                              MinWidth="0"
-                                              MinHeight="0"
-                                              Padding="0"
-                                              Margin="0" />
+                                              Style="{StaticResource CheckBoxCompactStyle}" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
                         <!-- Código de proveedor -->
-                        <DataGridTemplateColumn Header="Código" Width="90">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding CodigoProveedor}"
-                                               FontFamily="{StaticResource FontFamilyMonospace}"
-                                               FontSize="12"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
-                                               VerticalAlignment="Center"
-                                               Margin="12,0" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-
-                        <!-- Código de barras -->
-                        <DataGridTextColumn Header="Cód. Barras"
-                                            Binding="{Binding CodigoBarras}"
+                        <DataGridTextColumn Header="Código"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
+                                            Binding="{Binding CodigoProveedor}"
                                             ElementStyle="{StaticResource TextBlockMonospaceCell}"
-                                            Width="120" />
+                                            Width="110" />
 
                         <!-- Descripción proveedor -->
                         <DataGridTextColumn Header="Descripción (Proveedor)"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
                                             Binding="{Binding DescripcionProveedor}"
                                             ElementStyle="{StaticResource TextBlockTextCell}"
                                             Width="*"
@@ -306,24 +209,28 @@
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding CostoReposicion, StringFormat=C2}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="130" />
+                                            Width="160" />
 
-                        <!-- Estado vinculación -->
-                        <DataGridTemplateColumn Header="Estado" Width="150" CanUserSort="False">
+                        <!-- Estado de vinculación. Su filtro (Sin incorporar / Ya en tienda) vive en la cabecera. Una columna no
+                             está en el árbol visual: el filtro toma el DataContext de la página buscando el UserControl ancestro. -->
+                        <DataGridTemplateColumn Width="180" CanUserSort="False">
+                            <DataGridTemplateColumn.Header>
+                                <components:FiltroColumna Filtro="{Binding DataContext.FiltroEstadoVinculacion, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Margin="8,0" Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Border Style="{StaticResource BadgeSuccessStyle}"
                                                 Visibility="{Binding EstaVinculado, Converter={StaticResource BoolToVisConverter}}">
                                             <TextBlock Text="En Tienda"
-                                                       FontSize="11" FontWeight="Bold"
+                                                       FontSize="{StaticResource FontSizeXs}" FontWeight="Bold"
                                                        Foreground="{DynamicResource SuccessForegroundBrush}" />
                                         </Border>
                                         <Border Style="{StaticResource BadgeSuccessStyle}"
                                                 Margin="4,0,0,0"
                                                 Visibility="{Binding CoincideConArticuloTienda, Converter={StaticResource BoolToVisConverter}}">
                                             <TextBlock Text="Coincide EAN"
-                                                       FontSize="11" FontWeight="Bold"
+                                                       FontSize="{StaticResource FontSizeXs}" FontWeight="Bold"
                                                        Foreground="{DynamicResource SuccessForegroundBrush}" />
                                         </Border>
                                         <Border>
@@ -332,13 +239,13 @@
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding EstaVinculado}" Value="False">
-                                                             <Setter Property="Visibility" Value="Visible" />
+                                                            <Setter Property="Visibility" Value="Visible" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
                                             <TextBlock Text="Sin Incorporar"
-                                                       FontSize="11" FontWeight="Bold"
+                                                       FontSize="{StaticResource FontSizeXs}" FontWeight="Bold"
                                                        Foreground="{DynamicResource WarningForegroundBrush}" />
                                         </Border>
                                     </StackPanel>
@@ -348,43 +255,40 @@
 
                         <!-- Artículo vinculado en tienda -->
                         <DataGridTextColumn Header="Artículo en Tienda"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
                                             Binding="{Binding NombreArticuloTienda}"
                                             ElementStyle="{StaticResource TextBlockTextCell}"
-                                            Width="180" />
+                                            Width="240" />
 
-                        <!-- Precio de venta tienda -->
-                        <DataGridTextColumn Header="Precio Venta"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                            Binding="{Binding PrecioVentaTienda, StringFormat=C2}"
-                                            ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="110" />
-
-                        <!-- Acciones: vinculación manual (RF-05) y pedir la fila (A-17, G4) -->
-                        <DataGridTemplateColumn Header="Acción" Width="180">
+                        <!-- Acciones de la fila: vincular (RF-05) y pedir (A-17, G4). Solo íconos y sin título; 2 acciones =
+                             36 x 2 + 8 de ancho -->
+                        <DataGridTemplateColumn Width="80"
+                                                CanUserResize="False"
+                                                CanUserSort="False"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}">
+                            <DataGridTemplateColumn.CellStyle>
+                                <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                    <Setter Property="Padding" Value="4,0" />
+                                </Style>
+                            </DataGridTemplateColumn.CellStyle>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <Button Command="{Binding DataContext.VincularArticuloCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="8,4"
-                                                ToolTip="Vincular a artículo en tienda (RF-05)">
-                                            <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                                <TextBlock Text="Vincular" FontSize="11" VerticalAlignment="Center" />
-                                            </StackPanel>
+                                                Style="{StaticResource RowActionButtonStyle}"
+                                                ToolTip="Vincular a artículo en tienda (RF-05)"
+                                                AutomationProperties.Name="Vincular a artículo en tienda">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularLink" Width="16" Height="16" />
                                         </Button>
                                         <Button Command="{Binding DataContext.PedirItemCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="8,4"
-                                                Margin="6,0,0,0"
+                                                Style="{StaticResource RowActionButtonStyle}"
+                                                Margin="8,0,0,0"
                                                 Visibility="{Binding DataContext.PuedePedir, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolToVisConverter}}"
-                                                ToolTip="Agregar este ítem al borrador de pedido del proveedor; si no está en la tienda, se ofrece incorporarlo primero">
-                                            <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                                <TextBlock Text="Pedir" FontSize="11" VerticalAlignment="Center" />
-                                            </StackPanel>
+                                                ToolTip="Agregar este ítem al borrador de pedido del proveedor; si no está en la tienda, se ofrece incorporarlo primero"
+                                                AutomationProperties.Name="Pedir al proveedor">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="16" Height="16" />
                                         </Button>
                                     </StackPanel>
                                 </DataTemplate>
@@ -394,32 +298,32 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- 2.3 Barra de paginación en servidor y mensajes de estado -->
-                <Grid Grid.Row="2">
-                    <components:PaginationBar />
+                <!-- Paginación pegada a la grilla, separada por una línea; los avisos de estado van centrados sobre ella -->
+                <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0">
+                    <Grid>
+                        <components:PaginationBar />
 
-                    <StackPanel Orientation="Horizontal"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                IsHitTestVisible="False">
-                        <Border Style="{StaticResource BadgeSuccessStyle}"
-                                Margin="0,0,8,0"
-                                Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
-                            <TextBlock Text="{Binding MensajeEstado}"
-                                       FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SuccessForegroundBrush}" />
-                        </Border>
-                        <Border Style="{StaticResource BadgeDangerStyle}"
-                                Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
-                            <TextBlock Text="{Binding MensajeError}"
-                                       FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource DangerForegroundBrush}" />
-                        </Border>
-                    </StackPanel>
-                </Grid>
-
+                        <StackPanel Orientation="Horizontal"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    IsHitTestVisible="False">
+                            <Border Style="{StaticResource BadgeSuccessStyle}"
+                                    Margin="0,0,8,0"
+                                    Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="{Binding MensajeEstado}"
+                                           FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource SuccessForegroundBrush}" />
+                            </Border>
+                            <Border Style="{StaticResource BadgeDangerStyle}"
+                                    Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                                <TextBlock Text="{Binding MensajeError}"
+                                           FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource DangerForegroundBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
-
     </Grid>
 </UserControl>

@@ -4,38 +4,32 @@ namespace Retail.Application.DTOs.Articulos;
 
 /// <summary>
 /// Criterios de búsqueda y filtrado para el catálogo de artículos con paginación en servidor (Ley 8).
+/// Cada filtro es una lista de valores admitidos (selección múltiple de los filtros de columna): una lista vacía no
+/// filtra, y dentro de una lista los valores se combinan con O (<c>IN</c> en SQL). Filtros distintos se combinan con Y.
 /// </summary>
 public record class ConsultaArticulosDto
 {
+    /// <summary>Valor de <see cref="IdsProveedor"/> que representa "Ninguno (o manual)": artículos sin fuentes.</summary>
+    public const int IdProveedorManual = -1;
+
     public string? TerminoBusqueda { get; init; }
 
-    public int? IdCategoria { get; init; }
+    /// <summary>
+    /// Categorías admitidas. Filtrar por rubro (RF-04, Rubro → Categoría) es elegir todas sus categorías: el filtro de
+    /// la columna Categoría las agrupa por rubro.
+    /// </summary>
+    public IReadOnlyList<int> IdsCategoria { get; init; } = [];
+
+    public IReadOnlyList<int> IdsMarca { get; init; } = [];
 
     /// <summary>
-    /// Rubro para filtrar: incluye los artículos de todas las categorías del rubro (RF-04, Rubro → Categoría). Nulo o
-    /// cero = todos los rubros. Si además se indica <see cref="IdCategoria"/>, esa categoría acota el resultado.
+    /// Distribuidores admitidos; puede incluir <see cref="IdProveedorManual"/>. Cuenta cualquier fuente del artículo (no
+    /// solo la principal) y, para una presentación derivada, las fuentes de su artículo origen.
     /// </summary>
-    public int? IdRubro { get; init; }
+    public IReadOnlyList<int> IdsProveedor { get; init; } = [];
 
-    public int? IdMarca { get; init; }
-
-    /// <summary>
-    /// Identificador del distribuidor para filtrar.
-    /// null = Todos, -1 = Ninguno (Manual), > 0 = Id del Proveedor específico.
-    /// Para presentaciones derivadas, se evalúa contra el distribuidor del artículo origen.
-    /// </summary>
-    public int? IdProveedor { get; init; }
-
-    public FiltroStockArticuloEnum FiltroStock { get; init; } = FiltroStockArticuloEnum.Todos;
-
-    /// <summary>
-    /// Compatibilidad hacia atrás: si se establece true, equivale a FiltroStockArticuloEnum.StockCritico.
-    /// </summary>
-    public bool SoloStockCritico
-    {
-        get => FiltroStock == FiltroStockArticuloEnum.StockCritico;
-        init => FiltroStock = value ? FiltroStockArticuloEnum.StockCritico : FiltroStockArticuloEnum.Todos;
-    }
+    /// <summary>Estados de inventario admitidos. Con al menos uno, los servicios (que no llevan stock) quedan afuera.</summary>
+    public IReadOnlyList<FiltroStockArticuloEnum> EstadosStock { get; init; } = [];
 
     public int Pagina { get; init; } = 1;
 

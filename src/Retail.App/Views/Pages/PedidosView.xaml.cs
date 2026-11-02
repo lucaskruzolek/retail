@@ -18,7 +18,7 @@ public partial class PedidosView : UserControl
 
         Loaded += async (_, _) =>
         {
-            if (ViewModel.Proveedores.Count == 0)
+            if (!ViewModel.FiltroProveedor.TieneOpciones)
             {
                 await ViewModel.InicializarAsync();
             }

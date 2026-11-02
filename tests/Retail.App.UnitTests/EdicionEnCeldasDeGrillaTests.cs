@@ -227,6 +227,8 @@ public class EdicionEnCeldasDeGrillaTests
                 DescripcionProveedor = "Cuaderno A4 (Norte)",
                 CostoReposicion = 900m
             }).GetAwaiter().GetResult();
+            viewModel.TextoBusqueda = "Cuaderno";
+            viewModel.BuscarArticulosAsync().GetAwaiter().GetResult();
             var raiz = Montar(new VincularArticuloModalDialog { DataContext = viewModel }, 580, 600);
 
             // Act
@@ -238,7 +240,7 @@ public class EdicionEnCeldasDeGrillaTests
 
         // Assert
         filasEnLaGrilla.Should().Be(2, "el usuario tiene que ver entre qué artículos elige");
-        textoDelBuscador.Should().Be("Cuaderno A4 (Norte)");
+        textoDelBuscador.Should().Be("Cuaderno");
         comoPrincipal.Should().BeTrue();
     }
 

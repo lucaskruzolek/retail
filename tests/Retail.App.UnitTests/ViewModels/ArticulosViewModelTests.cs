@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Retail.App.Services;
 using Retail.App.ViewModels.Articulos;
+using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Pedidos;
@@ -111,13 +112,13 @@ public class ArticulosViewModelTests : IDisposable
                     items = items.Where(a => a.Descripcion.Contains(consulta.TerminoBusqueda, StringComparison.OrdinalIgnoreCase) ||
                                              (a.CodigoBarras != null && a.CodigoBarras.Contains(consulta.TerminoBusqueda, StringComparison.OrdinalIgnoreCase)));
                 }
-                if (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0)
+                if (consulta.IdsCategoria.Count > 0)
                 {
-                    items = items.Where(a => a.IdCategoria == consulta.IdCategoria.Value);
+                    items = items.Where(a => a.IdCategoria.HasValue && consulta.IdsCategoria.Contains(a.IdCategoria.Value));
                 }
-                if (consulta.SoloStockCritico)
+                if (consulta.EstadosStock.Count > 0)
                 {
-                    items = items.Where(a => a.StockBajo);
+                    items = items.Where(a => consulta.EstadosStock.Contains(EstadoDeStock(a)));
                 }
                 var list = items.ToList();
                 int tamano = Math.Max(1, consulta.TamanoPagina);
@@ -143,6 +144,44 @@ public class ArticulosViewModelTests : IDisposable
         _sut = new ArticulosViewModel(_inventarioService, _dialogService, _proveedorService);
     }
 
+    private static FiltroStockArticuloEnum EstadoDeStock(ArticuloDto articulo)
+    {
+        if (articulo.StockActual <= 0)
+        {
+            return FiltroStockArticuloEnum.SinStock;
+        }
+
+        return articulo.StockBajo ? FiltroStockArticuloEnum.StockBajo : FiltroStockArticuloEnum.ConStock;
+    }
+
+    private static List<OpcionFiltroColumna> OpcionesDe(FiltroColumnaViewModel filtro)
+    {
+        return filtro.Grupos.SelectMany(g => g.Opciones).ToList();
+    }
+
+    /// <summary>Simula la interacción del usuario: abre el filtro, marca las casillas indicadas y pulsa "Aplicar".</summary>
+    // Aplicar un filtro, buscar o paginar dispara la carga sin esperarla (la pantalla no se bloquea): se espera a que
+    // termine mirando IsBusy, en lugar de un tiempo fijo que fallaría en una máquina lenta.
+    private static async Task EsperarCargaAsync(ArticulosViewModel vm)
+    {
+        var limite = DateTime.UtcNow.AddSeconds(5);
+        while (vm.IsBusy && DateTime.UtcNow < limite)
+        {
+            await Task.Delay(10);
+        }
+    }
+
+    private static void AplicarFiltro(FiltroColumnaViewModel filtro, params int[] ids)
+    {
+        filtro.EstaAbierto = true;
+        foreach (var opcion in OpcionesDe(filtro))
+        {
+            opcion.Seleccionada = ids.Contains(opcion.Id);
+        }
+
+        filtro.AplicarCommand.Execute(null);
+    }
+
     [Fact]
     public async Task CargarArticulosAsync_DebePoblarListaYCalcularMetricas()
     {
@@ -153,36 +192,48 @@ public class ArticulosViewModelTests : IDisposable
         _sut.Articulos.Should().HaveCount(3);
         _sut.TotalArticulos.Should().Be(3);
         _sut.TotalAlertasStock.Should().Be(1);
-        _sut.CategoriasFiltro.Should().HaveCount(3); // "Todas" + 2 categorías
-        _sut.MarcasFiltro.Should().HaveCount(4); // "Todas" + 3 marcas
-        _sut.DistribuidoresFiltro.Should().HaveCount(4); // "Todos", "Ninguno" + 2 proveedores
-        _sut.OpcionesStockFiltro.Should().HaveCount(3); // "Todos", "Stock crítico", "Sin stock"
+        OpcionesDe(_sut.FiltroCategoria).Should().HaveCount(2);
+        OpcionesDe(_sut.FiltroMarca).Should().HaveCount(3);
+        OpcionesDe(_sut.FiltroDistribuidor).Should().HaveCount(3); // "Ninguno (o manual)" + 2 proveedores
+        OpcionesDe(_sut.FiltroDistribuidor)[0].Id.Should().Be(ConsultaArticulosDto.IdProveedorManual);
+        OpcionesDe(_sut.FiltroEstadoStock).Should().HaveCount(3); // sin stock, stock bajo, con stock
     }
 
     [Fact]
-    public void LimpiarFiltros_DebeRestablecerFiltrosYDispararRecarga()
+    public async Task LimpiarFiltros_DebeRestablecerFiltrosYDispararRecarga()
     {
         // Arrange
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
         _sut.TextoBusqueda = "Cuaderno";
-        _sut.IdCategoriaFiltro = 1;
-        _sut.IdMarcaFiltro = 2;
-        _sut.IdDistribuidorFiltro = 1;
-        _sut.FiltroStock = FiltroStockArticuloEnum.StockCritico;
+        AplicarFiltro(_sut.FiltroCategoria, 1);
+        AplicarFiltro(_sut.FiltroMarca, 2);
+        AplicarFiltro(_sut.FiltroDistribuidor, 1);
+        AplicarFiltro(_sut.FiltroEstadoStock, (int)FiltroStockArticuloEnum.StockBajo);
+        await EsperarCargaAsync(_sut);
 
         _sut.HayFiltrosActivos.Should().BeTrue();
         _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeTrue();
+        _inventarioService.ClearReceivedCalls();
 
         // Act
         _sut.LimpiarFiltrosCommand.Execute(null);
+        await EsperarCargaAsync(_sut);
 
         // Assert
         _sut.TextoBusqueda.Should().BeEmpty();
-        _sut.IdCategoriaFiltro.Should().Be(0);
-        _sut.IdMarcaFiltro.Should().Be(0);
-        _sut.IdDistribuidorFiltro.Should().Be(0);
-        _sut.FiltroStock.Should().Be(FiltroStockArticuloEnum.Todos);
+        _sut.FiltroCategoria.HayFiltroActivo.Should().BeFalse();
+        _sut.FiltroMarca.HayFiltroActivo.Should().BeFalse();
+        _sut.FiltroDistribuidor.HayFiltroActivo.Should().BeFalse();
+        _sut.FiltroEstadoStock.HayFiltroActivo.Should().BeFalse();
         _sut.HayFiltrosActivos.Should().BeFalse();
         _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
+        await _inventarioService.Received().ListarArticulosPaginadosAsync(
+            Arg.Is<ConsultaArticulosDto>(c => string.IsNullOrEmpty(c.TerminoBusqueda) &&
+                                              c.IdsCategoria.Count == 0 &&
+                                              c.IdsMarca.Count == 0 &&
+                                              c.IdsProveedor.Count == 0 &&
+                                              c.EstadosStock.Count == 0),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -193,7 +244,7 @@ public class ArticulosViewModelTests : IDisposable
 
         // Act
         _sut.TextoBusqueda = "Bic";
-        await Task.Delay(350);
+        await EsperarCargaAsync(_sut);
 
         // Assert
         _sut.Articulos.Should().HaveCount(1);
@@ -207,25 +258,36 @@ public class ArticulosViewModelTests : IDisposable
         await _sut.CargarArticulosCommand.ExecuteAsync(null);
 
         // Act
-        _sut.IdCategoriaFiltro = 2; // Regalería
-        await Task.Delay(100);
+        AplicarFiltro(_sut.FiltroCategoria, 2); // Regalería
+        await EsperarCargaAsync(_sut);
 
         // Assert
+        await _inventarioService.Received().ListarArticulosPaginadosAsync(
+            Arg.Is<ConsultaArticulosDto>(c => c.IdsCategoria.Count == 1 && c.IdsCategoria[0] == 2),
+            Arg.Any<CancellationToken>());
         _sut.Articulos.Should().HaveCount(1);
         _sut.Articulos[0].Articulo.Descripcion.Should().Be("Señalador Artesanal de Madera");
     }
 
     [Fact]
-    public async Task FiltrarArticulos_PorSoloStockCritico_MuestraSoloAlertasDeStock()
+    public async Task FiltrarArticulos_PorSinStockYStockBajo_MuestraSoloAlertasDeStock()
     {
         // Arrange
         await _sut.CargarArticulosCommand.ExecuteAsync(null);
 
-        // Act
-        _sut.SoloStockCritico = true;
-        await Task.Delay(100);
+        // Act: el "stock crítico" es SinStock + StockBajo
+        AplicarFiltro(
+            _sut.FiltroEstadoStock,
+            (int)FiltroStockArticuloEnum.SinStock,
+            (int)FiltroStockArticuloEnum.StockBajo);
+        await EsperarCargaAsync(_sut);
 
         // Assert
+        await _inventarioService.Received().ListarArticulosPaginadosAsync(
+            Arg.Is<ConsultaArticulosDto>(c => c.EstadosStock.Count == 2 &&
+                                              c.EstadosStock.Contains(FiltroStockArticuloEnum.SinStock) &&
+                                              c.EstadosStock.Contains(FiltroStockArticuloEnum.StockBajo)),
+            Arg.Any<CancellationToken>());
         _sut.Articulos.Should().HaveCount(1);
         _sut.Articulos[0].Articulo.Descripcion.Should().Be("Cuaderno Rivadavia A4");
         _sut.Articulos[0].Articulo.StockBajo.Should().BeTrue();
@@ -239,7 +301,7 @@ public class ArticulosViewModelTests : IDisposable
 
         // Act - Cambiar tamaño a 2 (con 3 items => 2 páginas)
         _sut.TamanoPagina = 2;
-        await Task.Delay(100);
+        await EsperarCargaAsync(_sut);
 
         // Assert página 1
         _sut.TotalPaginas.Should().Be(2);
@@ -438,11 +500,11 @@ public class ArticulosViewModelTests : IDisposable
     [Fact]
     public async Task CambiarFiltro_ConBusquedaEnCurso_EsperaQueTermineYNoMuestraErrorDeLaBusquedaObsoleta()
     {
-        // Arrange: la búsqueda "Bic" está consultando cuando el usuario activa "solo stock crítico"
+        // Arrange: la búsqueda "Bic" está consultando cuando el usuario filtra por stock bajo
         var consultoBic = new TaskCompletionSource();
         var respuestaBic = new TaskCompletionSource<ArticulosPaginadosDto>();
         _inventarioService.ListarArticulosPaginadosAsync(
-                Arg.Is<ConsultaArticulosDto>(c => c.TerminoBusqueda == "Bic" && !c.SoloStockCritico),
+                Arg.Is<ConsultaArticulosDto>(c => c.TerminoBusqueda == "Bic" && c.EstadosStock.Count == 0),
                 Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
@@ -454,7 +516,7 @@ public class ArticulosViewModelTests : IDisposable
         await consultoBic.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Act: antes los dos usaban el DbContext a la vez y el segundo abría un diálogo de error (H-19)
-        _sut.SoloStockCritico = true;
+        AplicarFiltro(_sut.FiltroEstadoStock, (int)FiltroStockArticuloEnum.StockBajo);
         respuestaBic.SetException(new InvalidOperationException("Operation cancelled by user"));
         await _sut.CargarArticulosAsync().WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -621,14 +683,15 @@ public class ArticulosViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task AdministrarClasificacion_ConCambios_RecargaCombosYConservaLaSeleccion()
+    public async Task AdministrarClasificacion_ConCambios_RecargaFiltrosYConservaLoAplicado()
     {
         var dialogoClasificacion = Substitute.For<IClasificacionDialogService>();
         dialogoClasificacion.AbrirAdministracion().Returns(true);
         using var sut = CrearConClasificacion(dialogoClasificacion, esGerente: true);
         await sut.CargarArticulosCommand.ExecuteAsync(null);
-        sut.IdCategoriaFiltro = 2;
-        sut.IdMarcaFiltro = 3;
+        AplicarFiltro(sut.FiltroCategoria, 2);
+        AplicarFiltro(sut.FiltroMarca, 3);
+        await EsperarCargaAsync(sut);
 
         // El diálogo agregó una categoría y dio de baja otra marca (la 1).
         _inventarioService.ListarCategoriasAsync(Arg.Any<CancellationToken>())
@@ -638,31 +701,33 @@ public class ArticulosViewModelTests : IDisposable
 
         await sut.AdministrarClasificacionCommand.ExecuteAsync(null);
 
-        sut.CategoriasFiltro.Should().Contain(c => c.IdCategoria == 9);
-        sut.MarcasFiltro.Should().NotContain(m => m.IdMarca == 1);
-        sut.IdCategoriaFiltro.Should().Be(2);
-        sut.IdMarcaFiltro.Should().Be(3);
+        OpcionesDe(sut.FiltroCategoria).Should().Contain(c => c.Id == 9);
+        OpcionesDe(sut.FiltroMarca).Should().NotContain(m => m.Id == 1);
+        sut.FiltroCategoria.IdsAplicados.Should().Equal(2);
+        sut.FiltroMarca.IdsAplicados.Should().Equal(3);
     }
 
     [Fact]
-    public async Task AdministrarClasificacion_SeleccionEliminada_VuelveATodas()
+    public async Task AdministrarClasificacion_OpcionAplicadaEliminada_QuitaElFiltro()
     {
         var dialogoClasificacion = Substitute.For<IClasificacionDialogService>();
         dialogoClasificacion.AbrirAdministracion().Returns(true);
         using var sut = CrearConClasificacion(dialogoClasificacion, esEncargado: true);
         await sut.CargarArticulosCommand.ExecuteAsync(null);
-        sut.IdMarcaFiltro = 2;
+        AplicarFiltro(sut.FiltroMarca, 2);
+        await EsperarCargaAsync(sut);
 
         _inventarioService.ListarMarcasAsync(Arg.Any<CancellationToken>())
             .Returns(_marcasEjemplo.Where(m => m.IdMarca != 2).ToList());
 
         await sut.AdministrarClasificacionCommand.ExecuteAsync(null);
 
-        sut.IdMarcaFiltro.Should().Be(0);
+        sut.FiltroMarca.IdsAplicados.Should().BeEmpty();
+        sut.FiltroMarca.HayFiltroActivo.Should().BeFalse();
     }
 
     [Fact]
-    public async Task AdministrarClasificacion_SinCambios_NoRecargaLosCombos()
+    public async Task AdministrarClasificacion_SinCambios_NoRecargaLosFiltros()
     {
         var dialogoClasificacion = Substitute.For<IClasificacionDialogService>();
         dialogoClasificacion.AbrirAdministracion().Returns(false);
@@ -833,7 +898,9 @@ public class ArticulosViewModelTests : IDisposable
         using var escenario = await CrearEscenarioPedidoAsync();
         ConfigurarPedidoConfirmado(escenario);
         var fila = escenario.Sut.Articulos[0];
-        escenario.Sut.IdDistribuidorFiltro = 5;
+        OfrecerDistribuidores(escenario.Sut);
+        AplicarFiltro(escenario.Sut.FiltroDistribuidor, 5);
+        await EsperarCargaAsync(_sut);
 
         await escenario.Sut.PedirArticuloCommand.ExecuteAsync(fila);
 
@@ -841,6 +908,54 @@ public class ArticulosViewModelTests : IDisposable
             Arg.Any<IReadOnlyCollection<int>>(),
             5,
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_FiltradoPorVariosDistribuidores_NoPasaProveedorPreferido()
+    {
+        // Con varios distribuidores elegidos no hay uno preferido.
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+        var fila = escenario.Sut.Articulos[0];
+        OfrecerDistribuidores(escenario.Sut);
+        AplicarFiltro(escenario.Sut.FiltroDistribuidor, 5, 6);
+        await EsperarCargaAsync(_sut);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(fila);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Any<IReadOnlyCollection<int>>(),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PedirArticuloCommand_FiltradoSoloPorNingunoOManual_NoPasaProveedorPreferido()
+    {
+        using var escenario = await CrearEscenarioPedidoAsync();
+        ConfigurarPedidoConfirmado(escenario);
+        var fila = escenario.Sut.Articulos[0];
+        OfrecerDistribuidores(escenario.Sut);
+        AplicarFiltro(escenario.Sut.FiltroDistribuidor, ConsultaArticulosDto.IdProveedorManual);
+        await EsperarCargaAsync(_sut);
+
+        await escenario.Sut.PedirArticuloCommand.ExecuteAsync(fila);
+
+        await escenario.PedidoService.Received(1).ObtenerVistaPreviaAsync(
+            Arg.Any<IReadOnlyCollection<int>>(),
+            null,
+            Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>El escenario no tiene servicio de proveedores: se cargan a mano las opciones del filtro de distribuidor.</summary>
+    private static void OfrecerDistribuidores(ArticulosViewModel sut)
+    {
+        sut.FiltroDistribuidor.CargarOpciones(
+        [
+            new OpcionFiltroColumna(ConsultaArticulosDto.IdProveedorManual, "Ninguno (o manual)"),
+            new OpcionFiltroColumna(5, "Distribuidora Papelera"),
+            new OpcionFiltroColumna(6, "Librería Mayorista")
+        ]);
     }
 
     [Fact]
@@ -987,46 +1102,80 @@ public class ArticulosViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task CargarArticulosAsync_ConRubros_OfreceTodosLosRubrosYTodasLasCategorias()
+    public async Task CargarArticulosAsync_ConRubros_AgrupaLasCategoriasPorRubro()
     {
         using var sut = await CrearSutConRubrosAsync();
 
-        sut.RubrosFiltro.Select(r => r.NombreRubro).Should().Equal("Todos los Rubros", "Escolar", "Oficina");
-        sut.CategoriasFiltro.Select(c => c.NombreCategoria).Should().Equal("Todas las Categorías", "Cuadernos", "Lápices", "Resmas");
+        sut.FiltroCategoria.Grupos.Select(g => g.Nombre).Should().Equal("Escolar", "Oficina");
+        sut.FiltroCategoria.Grupos[0].Opciones.Select(o => o.Nombre).Should().Equal("Cuadernos", "Lápices");
+        sut.FiltroCategoria.Grupos[1].Opciones.Select(o => o.Nombre).Should().Equal("Resmas");
     }
 
     [Fact]
-    public async Task IdRubroFiltro_ElegirRubro_AcotaLasCategoriasReiniciaLaCategoriaYConsultaPorRubro()
+    public async Task CargarArticulosAsync_SinServicioDeRubros_LasCategoriasQuedanSinGrupo()
+    {
+        await _sut.CargarArticulosCommand.ExecuteAsync(null);
+
+        _sut.FiltroCategoria.Grupos.Should().ContainSingle();
+        _sut.FiltroCategoria.Grupos[0].Nombre.Should().BeNull();
+        _sut.FiltroCategoria.Grupos[0].TieneEncabezado.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CargarArticulosAsync_CategoriaConRubroDesconocido_VaAlGrupoSinRubro()
+    {
+        var rubroService = Substitute.For<IRubroService>();
+        rubroService.ListarAsync(null, Arg.Any<CancellationToken>()).Returns(
+        [
+            new RubroDto { IdRubro = 1, NombreRubro = "Escolar" }
+        ]);
+        _inventarioService.ListarCategoriasAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new CategoriaDto { IdCategoria = 10, NombreCategoria = "Cuadernos", IdRubro = 1 },
+            new CategoriaDto { IdCategoria = 30, NombreCategoria = "Huérfana", IdRubro = 99 }
+        ]);
+        using var sut = new ArticulosViewModel(_inventarioService, _dialogService, _proveedorService, rubroService: rubroService);
+
+        await sut.CargarArticulosAsync();
+
+        sut.FiltroCategoria.Grupos.Select(g => g.Nombre).Should().Equal("Escolar", "Sin rubro");
+        sut.FiltroCategoria.Grupos[1].Opciones.Single().Id.Should().Be(30);
+    }
+
+    [Fact]
+    public async Task FiltroCategoria_MarcarElGrupoDeUnRubro_ConsultaPorTodasSusCategorias()
     {
         using var sut = await CrearSutConRubrosAsync();
-        sut.IdCategoriaFiltro = 20;
-        await sut.CargarArticulosAsync();
         _inventarioService.ClearReceivedCalls();
 
-        sut.IdRubroFiltro = 1;
-        await sut.CargarArticulosAsync();
+        sut.FiltroCategoria.EstaAbierto = true;
+        sut.FiltroCategoria.Grupos.Single(g => g.Nombre == "Escolar").TodasSeleccionadas = true;
+        sut.FiltroCategoria.AplicarCommand.Execute(null);
+        await EsperarCargaAsync(sut);
 
-        sut.CategoriasFiltro.Select(c => c.NombreCategoria).Should().Equal("Todas las Categorías", "Cuadernos", "Lápices");
-        sut.IdCategoriaFiltro.Should().Be(0, "\"Todas las Categorías\" pasa a significar todas las del rubro");
+        sut.FiltroCategoria.IdsAplicados.Should().BeEquivalentTo([10, 11]);
         sut.HayFiltrosActivos.Should().BeTrue();
         await _inventarioService.Received().ListarArticulosPaginadosAsync(
-            Arg.Is<ConsultaArticulosDto>(c => c.IdRubro == 1 && c.IdCategoria == null),
-            Arg.Any<CancellationToken>());
-        await _inventarioService.DidNotReceive().ListarArticulosPaginadosAsync(
-            Arg.Is<ConsultaArticulosDto>(c => c.IdRubro == 1 && c.IdCategoria == 20),
+            Arg.Is<ConsultaArticulosDto>(c => c.IdsCategoria.Count == 2 &&
+                                              c.IdsCategoria.Contains(10) &&
+                                              c.IdsCategoria.Contains(11)),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task LimpiarFiltros_ConRubroElegido_VuelveATodosLosRubrosYTodasLasCategorias()
+    public async Task LimpiarFiltros_ConRubroElegido_QuitaElFiltroDeCategoria()
     {
         using var sut = await CrearSutConRubrosAsync();
-        sut.IdRubroFiltro = 2;
+        sut.FiltroCategoria.EstaAbierto = true;
+        sut.FiltroCategoria.Grupos.Single(g => g.Nombre == "Oficina").TodasSeleccionadas = true;
+        sut.FiltroCategoria.AplicarCommand.Execute(null);
+        await EsperarCargaAsync(sut);
+        sut.FiltroCategoria.IdsAplicados.Should().Equal(20);
 
         sut.LimpiarFiltros();
 
-        sut.IdRubroFiltro.Should().Be(0);
-        sut.CategoriasFiltro.Should().HaveCount(4);
+        sut.FiltroCategoria.IdsAplicados.Should().BeEmpty();
+        sut.FiltroCategoria.Grupos.Single(g => g.Nombre == "Oficina").TodasSeleccionadas.Should().BeFalse();
         sut.HayFiltrosActivos.Should().BeFalse();
     }
 }

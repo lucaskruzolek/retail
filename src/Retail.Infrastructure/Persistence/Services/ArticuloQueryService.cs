@@ -42,54 +42,36 @@ public class ArticuloQueryService : IArticuloQueryService
                 (a.Marca != null && EF.Functions.Like(a.Marca.NombreMarca, $"%{term}%")));
         }
 
-        if (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0)
+        // Filtros de selección múltiple: cada lista se traduce a IN (SELECT value FROM OPENJSON(@lista)), un único
+        // parámetro sin el tope de 2.100 de SQL Server. Lista vacía = sin filtro.
+        if (consulta.IdsCategoria.Count > 0)
         {
-            query = query.Where(a => a.IdCategoria == consulta.IdCategoria.Value);
+            // El filtro por rubro llega como el conjunto de sus categorías (RF-04).
+            List<int> idsCategoria = consulta.IdsCategoria.Distinct().ToList();
+            query = query.Where(a => a.IdCategoria != null && idsCategoria.Contains(a.IdCategoria.Value));
         }
 
-        if (consulta.IdRubro.HasValue && consulta.IdRubro.Value > 0)
+        if (consulta.IdsMarca.Count > 0)
         {
-            // El rubro se deriva de la categoría (RF-04): se resuelve con un JOIN a CATEGORIAS en SQL Server.
-            int idRubro = consulta.IdRubro.Value;
-            query = query.Where(a => a.Categoria != null && a.Categoria.IdRubro == idRubro);
+            List<int> idsMarca = consulta.IdsMarca.Distinct().ToList();
+            query = query.Where(a => a.IdMarca != null && idsMarca.Contains(a.IdMarca.Value));
         }
 
-        if (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0)
+        if (consulta.IdsProveedor.Count > 0)
         {
-            query = query.Where(a => a.IdMarca == consulta.IdMarca.Value);
+            query = FiltrarPorDistribuidores(query, consulta.IdsProveedor);
         }
 
-        if (consulta.IdProveedor == -1)
+        if (consulta.EstadosStock.Count > 0)
         {
-            // Ninguno (o manual): ni el artículo ni su artículo origen tienen fuentes, ni principal ni adicionales
-            // (Track 4.3, K5). La presentación derivada se compra a través de su origen (RF-21).
-            query = query.Where(a =>
-                !_context.CatalogosProveedores.Any(c => c.IdArticulo == (a.IdArticuloOrigen ?? a.Id)));
-        }
-        else if (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value > 0)
-        {
-            int idProv = consulta.IdProveedor.Value;
-            // El distribuidor puede ser cualquier fuente del artículo, o de su origen si es una presentación derivada, no
-            // solo la principal (Track 4.3, K5).
-            query = query.Where(a =>
-                _context.CatalogosProveedores.Any(c => c.IdProveedor == idProv && c.IdArticulo == (a.IdArticuloOrigen ?? a.Id)));
-        }
-
-        if (consulta.FiltroStock == FiltroStockArticuloEnum.StockCritico)
-        {
-            query = query.Where(a => !a.EsServicio && a.StockActual <= a.StockMinimo);
-        }
-        else if (consulta.FiltroStock == FiltroStockArticuloEnum.SinStock)
-        {
-            query = query.Where(a => !a.EsServicio && a.StockActual <= 0);
+            query = FiltrarPorEstadosDeStock(query, consulta.EstadosStock);
         }
 
         bool esConsultaFiltrada = !string.IsNullOrWhiteSpace(consulta.TerminoBusqueda) ||
-            (consulta.IdCategoria.HasValue && consulta.IdCategoria.Value > 0) ||
-            (consulta.IdRubro.HasValue && consulta.IdRubro.Value > 0) ||
-            (consulta.IdMarca.HasValue && consulta.IdMarca.Value > 0) ||
-            (consulta.IdProveedor.HasValue && consulta.IdProveedor.Value != 0) ||
-            consulta.FiltroStock != FiltroStockArticuloEnum.Todos;
+            consulta.IdsCategoria.Count > 0 ||
+            consulta.IdsMarca.Count > 0 ||
+            consulta.IdsProveedor.Count > 0 ||
+            consulta.EstadosStock.Count > 0;
 
         // 3. Conteo de registros coincidentes (evita consulta COUNT duplicada si no hay filtros)
         int totalRegistros = esConsultaFiltrada
@@ -251,5 +233,37 @@ public class ArticuloQueryService : IArticuloQueryService
                 StockActual = a.StockActual,
                 EsServicio = a.EsServicio
             });
+    }
+
+    /// <summary>
+    /// Distribuidores elegidos combinados con O. Cuenta cualquier fuente del artículo (no solo la principal) o, en una
+    /// presentación derivada, las de su artículo origen, que es por donde se compra (Track 4.3, K5; RF-21).
+    /// <see cref="ConsultaArticulosDto.IdProveedorManual"/> admite además los artículos sin ninguna fuente.
+    /// </summary>
+    private IQueryable<Articulo> FiltrarPorDistribuidores(IQueryable<Articulo> query, IReadOnlyList<int> idsProveedor)
+    {
+        bool incluirManuales = idsProveedor.Contains(ConsultaArticulosDto.IdProveedorManual);
+        List<int> idsReales = idsProveedor.Where(id => id > 0).Distinct().ToList();
+
+        return query.Where(a =>
+            (incluirManuales && !_context.CatalogosProveedores.Any(c => c.IdArticulo == (a.IdArticuloOrigen ?? a.Id))) ||
+            _context.CatalogosProveedores.Any(c => idsReales.Contains(c.IdProveedor) && c.IdArticulo == (a.IdArticuloOrigen ?? a.Id)));
+    }
+
+    /// <summary>
+    /// Estados de stock elegidos combinados con O. Los estados son disjuntos (ver <see cref="FiltroStockArticuloEnum"/>)
+    /// y los servicios, que no llevan stock, quedan afuera. Cada estado elegido llega a SQL como un parámetro booleano:
+    /// la condición es una sola y el plan de ejecución se reutiliza para cualquier combinación.
+    /// </summary>
+    private static IQueryable<Articulo> FiltrarPorEstadosDeStock(IQueryable<Articulo> query, IReadOnlyList<FiltroStockArticuloEnum> estados)
+    {
+        bool sinStock = estados.Contains(FiltroStockArticuloEnum.SinStock);
+        bool stockBajo = estados.Contains(FiltroStockArticuloEnum.StockBajo);
+        bool conStock = estados.Contains(FiltroStockArticuloEnum.ConStock);
+
+        return query.Where(a => !a.EsServicio && (
+            (sinStock && a.StockActual <= 0) ||
+            (stockBajo && a.StockActual > 0 && a.StockActual <= a.StockMinimo) ||
+            (conStock && a.StockActual > 0 && a.StockActual > a.StockMinimo)));
     }
 }

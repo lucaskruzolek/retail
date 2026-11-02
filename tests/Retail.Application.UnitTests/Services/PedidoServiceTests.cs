@@ -37,7 +37,8 @@ public class PedidoServiceTests
             _catalogo,
             new AgregarVariosAlPedidoValidator(),
             new CambiarCantidadRenglonValidator(),
-            new CancelarPedidoValidator());
+            new CancelarPedidoValidator(),
+            new ConsultaPedidosValidator());
     }
 
     private static CatalogoProveedor CrearItem(int id = IdCatalogo, int idProveedor = IdProveedor)
@@ -415,5 +416,44 @@ public class PedidoServiceTests
         var resultado = await _service.ObtenerParaCompraAsync(1);
 
         resultado.Should().BeSameAs(esperado);
+    }
+
+    [Fact]
+    public async Task ListarPedidosAsync_ConFiltrosMultiples_DelegaLaConsultaEnQueryService()
+    {
+        var consulta = new ConsultaPedidosDto
+        {
+            Estados = [EstadoPedidoEnum.Borrador, EstadoPedidoEnum.Emitido],
+            IdsProveedor = [1, 2]
+        };
+        var esperado = new PedidosPaginadosDto();
+        _consultas.ListarAsync(consulta, Arg.Any<CancellationToken>()).Returns(esperado);
+
+        var resultado = await _service.ListarPedidosAsync(consulta);
+
+        resultado.Should().BeSameAs(esperado);
+    }
+
+    [Fact]
+    public async Task ListarPedidosAsync_ListasVacias_ConsultaSinFiltrar()
+    {
+        var esperado = new PedidosPaginadosDto();
+        _consultas.ListarAsync(Arg.Any<ConsultaPedidosDto>(), Arg.Any<CancellationToken>()).Returns(esperado);
+
+        var resultado = await _service.ListarPedidosAsync(new ConsultaPedidosDto());
+
+        resultado.Should().BeSameAs(esperado);
+        await _consultas.Received(1).ListarAsync(
+            Arg.Is<ConsultaPedidosDto>(c => c.Estados.Count == 0 && c.IdsProveedor.Count == 0),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ListarPedidosAsync_ProveedorNoPositivo_LanzaValidacionYNoConsulta()
+    {
+        var act = () => _service.ListarPedidosAsync(new ConsultaPedidosDto { IdsProveedor = [3, 0] });
+
+        await act.Should().ThrowAsync<ValidationException>();
+        await _consultas.DidNotReceive().ListarAsync(Arg.Any<ConsultaPedidosDto>(), Arg.Any<CancellationToken>());
     }
 }

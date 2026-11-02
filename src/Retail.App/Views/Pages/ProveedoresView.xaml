@@ -4,6 +4,7 @@
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
@@ -23,12 +24,18 @@
 
     <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
+            <!-- Encabezado -->
             <RowDefinition Height="Auto" />
+            <!-- Búsqueda y carga, directo sobre el fondo -->
+            <RowDefinition Height="Auto" />
+            <!-- Mensajes de estado y de error -->
+            <RowDefinition Height="Auto" />
+            <!-- Tabla + paginación: la única superficie de la página -->
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO Y TÍTULO DEL MÓDULO                             -->
+        <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta)                      -->
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
@@ -37,81 +44,60 @@
                 <!-- Botón Nuevo Proveedor (F2) -->
                 <Button x:Name="BtnNuevoProveedor"
                         Command="{Binding NuevoProveedorCommand}"
-                        Style="{StaticResource PrimaryActionButtonStyle}"
-                        Padding="16,8">
+                        Style="{StaticResource PrimaryActionButtonStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Nuevo Proveedor" FontWeight="Bold" VerticalAlignment="Center" />
-                        
+                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Nuevo Proveedor" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>
             </StackPanel>
         </components:PageHeader>
 
         <!-- ============================================================= -->
-        <!-- 2. PANEL UNIFICADO: FILTROS + TABLA + ACCIONES                -->
+        <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta, sin contador)               -->
         <!-- ============================================================= -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
+        <components:ListToolbar Grid.Row="1"
+                                Margin="{StaticResource StackMd}"
+                                Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="Buscar por razón social, CUIT o email..."
+                                EstaCargando="{Binding IsBusy}" />
+
+        <!-- ============================================================= -->
+        <!-- 3. MENSAJES DE ESTADO Y ERROR                                 -->
+        <!-- ============================================================= -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="{StaticResource StackMd}">
+            <Border Style="{StaticResource BadgeSuccessStyle}"
+                    Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="{Binding MensajeEstado}"
+                           Style="{StaticResource BadgeNeutralTextStyle}"
+                           Foreground="{DynamicResource SuccessForegroundBrush}" />
+            </Border>
+            <Border Style="{StaticResource BadgeDangerStyle}"
+                    Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="{Binding MensajeError}"
+                           Style="{StaticResource BadgeNeutralTextStyle}"
+                           Foreground="{DynamicResource DangerForegroundBrush}" />
+            </Border>
+        </StackPanel>
+
+        <!-- ============================================================= -->
+        <!-- 4. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->
+        <!-- ============================================================= -->
+        <Border Grid.Row="3" Style="{StaticResource TablaListadoStyle}">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- ===================================================== -->
-                <!-- 2.1 BARRA DE BÚSQUEDA                                  -->
-                <!-- ===================================================== -->
-                <DockPanel Grid.Row="0" LastChildFill="True" Margin="16,14,16,12">
-                    <ui:TextBox DockPanel.Dock="Left"
-                                Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="Buscar por razón social, CUIT o email..."
-                                Width="380"
-                                Margin="0,0,16,0"
-                                VerticalAlignment="Center">
-                        <ui:TextBox.Icon>
-                            <ui:ImageIcon Source="{iconPacks:BoxIconsImage Kind=RegularSearch, Brush={StaticResource TextMutedBrush}}"
-                                          Width="16" Height="16" />
-                        </ui:TextBox.Icon>
-                    </ui:TextBox>
-
-                    <!-- Indicador de carga -->
-                    <StackPanel DockPanel.Dock="Right"
-                                Orientation="Horizontal"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}"
-                                Margin="0,0,16,0">
-                        <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
-                        <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
-                    </StackPanel>
-
-                    <!-- Resumen -->
-                    <StackPanel DockPanel.Dock="Right"
-                                Orientation="Horizontal"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center">
-                        <TextBlock Text="{Binding TotalProveedores, StringFormat={}{0} proveedor(es) registrado(s)}"
-                                   Style="{StaticResource TextBlockBodySecondary}" />
-                    </StackPanel>
-                </DockPanel>
-
-                <!-- ===================================================== -->
-                <!-- 2.2 GRILLA PRINCIPAL DE PROVEEDORES                    -->
-                <!-- ===================================================== -->
                 <DataGrid x:Name="GrillaProveedores"
-                          Grid.Row="1"
+                          Grid.Row="0"
                           ItemsSource="{Binding Proveedores}"
                           SelectedItem="{Binding ProveedorSeleccionado, Mode=TwoWay}"
                           Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
-                          BorderThickness="1"
-                          Margin="16,0,16,8">
+                          BorderThickness="0"
+                          helpers:EsquinasHelper.Esquinas="7,7,0,0">
                     <DataGrid.Columns>
 
                         <!-- Razón Social -->
@@ -126,7 +112,7 @@
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Cuit}"
                                                FontFamily="{StaticResource FontFamilyMonospace}"
-                                               FontSize="13"
+                                               FontSize="{StaticResource FontSizeBase}"
                                                Foreground="{DynamicResource TextPrimaryBrush}"
                                                VerticalAlignment="Center"
                                                Margin="12,0" />
@@ -144,48 +130,48 @@
                         <DataGridTextColumn Header="Email"
                                             Binding="{Binding Email}"
                                             ElementStyle="{StaticResource TextBlockTextCell}"
-                                            Width="220" />
+                                            Width="272" />
 
-                        <!-- Acciones -->
-                        <DataGridTemplateColumn Header="Acciones" Width="220" CanUserSort="False">
+                        <!-- Acciones de la fila: solo íconos (4 x 36 + 8); la columna no lleva título -->
+                        <DataGridTemplateColumn Width="152" CanUserResize="False" CanUserSort="False">
+                            <DataGridTemplateColumn.CellStyle>
+                                <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </DataGridTemplateColumn.CellStyle>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="4,0">
                                         <!-- Editar -->
                                         <Button Command="{Binding DataContext.EditarProveedorCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="8,5"
-                                                Margin="0,0,6,0"
+                                                Style="{StaticResource RowActionButtonStyle}"
+                                                Margin="0,0,8,0"
                                                 ToolTip="Editar proveedor [F4]">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="13" Height="13" />
+                                            <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                         </Button>
                                         <!-- Catálogo / Importar -->
                                         <Button Command="{Binding DataContext.AbrirImportadorCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="8,5"
-                                                Margin="0,0,6,0"
+                                                Style="{StaticResource RowActionButtonStyle}"
+                                                Margin="0,0,8,0"
                                                 ToolTip="Ver y gestionar catálogo [F6]">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularFileDetail" Width="13" Height="13" />
+                                            <iconPacks:PackIconBoxIcons Kind="RegularFileDetail" Width="14" Height="14" />
                                         </Button>
                                         <!-- Equivalencias de clasificación (Track 6.6) -->
                                         <Button Command="{Binding DataContext.AbrirEquivalenciasCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="8,5"
-                                                Margin="0,0,6,0"
+                                                Style="{StaticResource RowActionButtonStyle}"
+                                                Margin="0,0,8,0"
                                                 ToolTip="Equivalencias de clasificación del proveedor">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularTranslate" Width="13" Height="13" />
+                                            <iconPacks:PackIconBoxIcons Kind="RegularTranslate" Width="14" Height="14" />
                                         </Button>
                                         <!-- Eliminar (soft delete) -->
                                         <Button Command="{Binding DataContext.EliminarProveedorCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                 CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Padding="8,5"
+                                                Style="{StaticResource IconDangerButtonStyle}"
                                                 ToolTip="Dar de baja proveedor">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="13" Height="13"
-                                                                         Foreground="{DynamicResource DangerForegroundBrush}" />
+                                            <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
                                         </Button>
                                     </StackPanel>
                                 </DataTemplate>
@@ -195,46 +181,10 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- ===================================================== -->
-                <!-- 2.3 BARRA DE PAGINACIÓN AL FINAL DE LA TABLA          -->
-                <!-- ===================================================== -->
-                <components:PaginationBar Grid.Row="2" />
-
-                <!-- ===================================================== -->
-                <!-- 2.4 PIE: MENSAJES DE ESTADO Y ERROR                   -->
-                <!-- ===================================================== -->
-                <Border Grid.Row="3"
-                        BorderThickness="0,1,0,0"
-                        BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                        Padding="16,10">
-                    <DockPanel LastChildFill="False">
-                        <!-- Mensaje de estado (éxito) -->
-                        <Border DockPanel.Dock="Left"
-                                Style="{StaticResource BadgeSuccessStyle}"
-                                Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
-                            <TextBlock Text="{Binding MensajeEstado}"
-                                       FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource SuccessForegroundBrush}" />
-                        </Border>
-
-                        <!-- Mensaje de error -->
-                        <Border DockPanel.Dock="Left"
-                                Style="{StaticResource BadgeDangerStyle}"
-                                Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
-                            <TextBlock Text="{Binding MensajeError}"
-                                       FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource DangerForegroundBrush}" />
-                        </Border>
-
-                        <!-- Total a la derecha -->
-                        <TextBlock DockPanel.Dock="Right"
-                                   Text="{Binding TotalProveedores, StringFormat={}{0} proveedor(es) en el padrón}"
-                                   Style="{StaticResource TextBlockCaption}"
-                                   VerticalAlignment="Center"
-                                   Foreground="{DynamicResource TextMutedBrush}" />
-                    </DockPanel>
+                <!-- Paginación pegada a la grilla, separada por una línea -->
+                <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0">
+                    <components:PaginationBar />
                 </Border>
-
             </Grid>
         </Border>
 

@@ -2,18 +2,18 @@
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:components="clr-namespace:Retail.App.Views.Components"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:converters="clr-namespace:Retail.App.Converters"
                  xmlns:sys="clr-namespace:System;assembly=mscorlib"
                  Title="Administrar clasificación"
                  Width="960"
-                 Height="640"
+                 Height="664"
                  MinWidth="800"
-                 MinHeight="520"
+                 MinHeight="544"
                  WindowStartupLocation="CenterOwner"
                  ExtendsContentIntoTitleBar="True"
-                 WindowBackdropType="Mica"
-                 Background="{DynamicResource SurfaceBackgroundBrush}"
+                 Background="{DynamicResource DialogBackgroundBrush}"
                  ResizeMode="CanResize">
 
     <ui:FluentWindow.Resources>
@@ -34,68 +34,53 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de Título Fluent -->
-        <Grid Grid.Row="0">
-            <ui:TitleBar Height="32"
-                         Padding="8,0"
-                         Background="{DynamicResource SurfaceBackgroundBrush}"
-                         ShowMaximize="False"
-                         CanMaximize="False" />
-            <TextBlock Text="Administrar clasificación"
-                       FontFamily="{StaticResource FontFamilyText}"
-                       FontSize="12"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource TextPrimaryBrush}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Margin="48,0"
-                       TextTrimming="CharacterEllipsis"
-                       IsHitTestVisible="False" />
-        </Grid>
+        <!-- Barra de título: título y botones de ventana en la misma banda -->
+        <components:EncabezadoDialogo Titulo="Administrar clasificación" />
 
         <!-- Selector de sección (D-26): sin atajos de teclado (D-27) -->
-        <WrapPanel Grid.Row="1" Orientation="Horizontal" Margin="24,8,24,4">
-            <RadioButton GroupName="SeccionClasificacion"
-                         IsChecked="{Binding MostrandoRubros, Mode=TwoWay}"
-                         Style="{StaticResource KeycapToggleButtonStyle}"
-                         Padding="12,6"
-                         Margin="0,0,8,8">
-                <StackPanel Orientation="Horizontal">
-                    <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                    <TextBlock Text="Rubros y categorías" FontWeight="SemiBold" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton GroupName="SeccionClasificacion"
-                         IsChecked="{Binding MostrandoMarcas, Mode=TwoWay}"
-                         Style="{StaticResource KeycapToggleButtonStyle}"
-                         Padding="12,6"
-                         Margin="0,0,8,8">
-                <StackPanel Orientation="Horizontal">
-                    <iconPacks:PackIconBoxIcons Kind="RegularTag" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                    <TextBlock Text="Marcas" FontWeight="SemiBold" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
-            <RadioButton GroupName="SeccionClasificacion"
-                         IsChecked="{Binding MostrandoTerminos, Mode=TwoWay}"
-                         Style="{StaticResource KeycapToggleButtonStyle}"
-                         Padding="12,6"
-                         Margin="0,0,8,8">
-                <StackPanel Orientation="Horizontal">
-                    <iconPacks:PackIconBoxIcons Kind="RegularBookContent" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                    <TextBlock Text="Términos" FontWeight="SemiBold" VerticalAlignment="Center" />
-                </StackPanel>
-            </RadioButton>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="12,0,12,12">
+            <components:SelectorSegmentado>
+                <UniformGrid Columns="3">
+                    <RadioButton GroupName="SeccionClasificacion"
+                                 IsChecked="{Binding MostrandoRubros, Mode=TwoWay}"
+                                 AutomationProperties.Name="Rubros y categorías"
+                                 Style="{StaticResource SegmentedRadioButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Rubros y categorías" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton GroupName="SeccionClasificacion"
+                                 IsChecked="{Binding MostrandoMarcas, Mode=TwoWay}"
+                                 AutomationProperties.Name="Marcas"
+                                 Style="{StaticResource SegmentedRadioButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularTag" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Marcas" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton GroupName="SeccionClasificacion"
+                                 IsChecked="{Binding MostrandoTerminos, Mode=TwoWay}"
+                                 AutomationProperties.Name="Términos"
+                                 Style="{StaticResource SegmentedRadioButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularBookContent" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Términos" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </RadioButton>
+                </UniformGrid>
+            </components:SelectorSegmentado>
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
-                        Margin="8,0,0,8"
+                        Margin="16,0,0,0"
                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
                 <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
                 <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
             </StackPanel>
-        </WrapPanel>
+        </StackPanel>
 
         <!-- Contenido Central -->
-        <Grid Grid.Row="2" Margin="24,0,24,12">
+        <Grid Grid.Row="2" Margin="12,0,12,12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -112,7 +97,7 @@
                     Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                 <TextBlock Text="{Binding MensajeError}"
                            Foreground="{DynamicResource DangerForegroundBrush}"
-                           FontSize="12"
+                           FontSize="{StaticResource FontSizeSm}"
                            TextWrapping="Wrap" />
             </Border>
 
@@ -124,7 +109,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Rubros -->
-                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,12,0">
+                <Border Grid.Column="0" Style="{StaticResource DialogSectionStyle}" Margin="0,0,12,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -133,14 +118,16 @@
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                            <TextBlock Text="Rubros" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Rubros" Style="{StaticResource CardHeaderTextStyle}" />
+                            </StackPanel>
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding NuevoRubroCommand}"
-                                    Style="{StaticResource PrimaryActionButtonStyle}"
-                                    Padding="12,6">
+                                    Style="{StaticResource PrimaryActionButtonStyle}">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Nuevo rubro" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Nuevo rubro" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </DockPanel>
@@ -170,17 +157,15 @@
                                                     Binding="{Binding CantidadEnUso}"
                                                     Width="85"
                                                     ElementStyle="{StaticResource TextBlockNumericCell}" />
-                                <DataGridTemplateColumn Header="Acciones" Width="90">
+                                <DataGridTemplateColumn Header="" Width="80" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                                 <Button Command="{Binding DataContext.EditarRubroCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}"
-                                                        Style="{StaticResource KeycapButtonStyle}"
-                                                        Padding="6,4"
-                                                        Margin="0,0,4,0"
+                                                        Style="{StaticResource RowActionButtonStyle}"
                                                         ToolTip="Editar rubro">
-                                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                                 </Button>
                                                 <Button Command="{Binding DataContext.BajaRubroCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}"
@@ -198,7 +183,7 @@
                 </Border>
 
                 <!-- Categorías del rubro seleccionado -->
-                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Padding="16">
+                <Border Grid.Column="1" Style="{StaticResource DialogSectionStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -207,14 +192,16 @@
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                            <TextBlock Text="Categorías" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <iconPacks:PackIconBoxIcons Kind="RegularLayers" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Categorías" Style="{StaticResource CardHeaderTextStyle}" />
+                            </StackPanel>
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding NuevaCategoriaCommand}"
-                                    Style="{StaticResource PrimaryActionButtonStyle}"
-                                    Padding="12,6">
+                                    Style="{StaticResource PrimaryActionButtonStyle}">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Nueva categoría" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Nueva categoría" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </DockPanel>
@@ -244,17 +231,15 @@
                                                     Binding="{Binding CantidadEnUso}"
                                                     Width="85"
                                                     ElementStyle="{StaticResource TextBlockNumericCell}" />
-                                <DataGridTemplateColumn Header="Acciones" Width="90">
+                                <DataGridTemplateColumn Header="" Width="80" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                                 <Button Command="{Binding DataContext.EditarCategoriaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}"
-                                                        Style="{StaticResource KeycapButtonStyle}"
-                                                        Padding="6,4"
-                                                        Margin="0,0,4,0"
+                                                        Style="{StaticResource RowActionButtonStyle}"
                                                         ToolTip="Editar categoría">
-                                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                                 </Button>
                                                 <Button Command="{Binding DataContext.BajaCategoriaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}"
@@ -288,7 +273,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Marcas -->
-                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,12,0">
+                <Border Grid.Column="0" Style="{StaticResource DialogSectionStyle}" Margin="0,0,12,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -297,14 +282,16 @@
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                            <TextBlock Text="Marcas" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Marcas" Style="{StaticResource CardHeaderTextStyle}" />
+                            </StackPanel>
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding NuevaMarcaCommand}"
-                                    Style="{StaticResource PrimaryActionButtonStyle}"
-                                    Padding="12,6">
+                                    Style="{StaticResource PrimaryActionButtonStyle}">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Nueva marca" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Nueva marca" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </DockPanel>
@@ -334,17 +321,15 @@
                                                     Binding="{Binding CantidadEnUso}"
                                                     Width="100"
                                                     ElementStyle="{StaticResource TextBlockNumericCell}" />
-                                <DataGridTemplateColumn Header="Acciones" Width="90">
+                                <DataGridTemplateColumn Header="" Width="80" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                                 <Button Command="{Binding DataContext.EditarMarcaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}"
-                                                        Style="{StaticResource KeycapButtonStyle}"
-                                                        Padding="6,4"
-                                                        Margin="0,0,4,0"
+                                                        Style="{StaticResource RowActionButtonStyle}"
                                                         ToolTip="Editar marca">
-                                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                                 </Button>
                                                 <Button Command="{Binding DataContext.BajaMarcaCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                         CommandParameter="{Binding}"
@@ -363,7 +348,7 @@
 
                 <!-- Detalle de la marca seleccionada: alias (otros nombres en las descripciones) y prefijos EAN (códigos en
                      Cascadia Code, Ley 9). Una sola carga trae los dos (DetalleMarcaViewModel). -->
-                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Padding="16">
+                <Border Grid.Column="1" Style="{StaticResource DialogSectionStyle}">
                     <Grid DataContext="{Binding DetalleMarca}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -373,10 +358,14 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                            <TextBlock Text="{Binding Marca.NombreMarca, FallbackValue='Detalle de la marca', TargetNullValue='Detalle de la marca'}"
-                                       Style="{StaticResource TextBlockHeader2}" />
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularListUl" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="{Binding Marca.NombreMarca, FallbackValue='Detalle de la marca', TargetNullValue='Detalle de la marca'}"
+                                           Style="{StaticResource CardHeaderTextStyle}" />
+                            </StackPanel>
                             <TextBlock Text="Seleccione una marca de la lista para ver y editar sus alias y prefijos."
                                        Style="{StaticResource TextBlockCaption}"
+                                       Margin="0,4,0,0"
                                        TextWrapping="Wrap"
                                        Visibility="{Binding HayMarca, Converter={StaticResource BooleanToInverseVisibilityConverter}}" />
                         </StackPanel>
@@ -391,7 +380,7 @@
                                 Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                             <TextBlock Text="{Binding MensajeError}"
                                        Foreground="{DynamicResource DangerForegroundBrush}"
-                                       FontSize="12"
+                                       FontSize="{StaticResource FontSizeSm}"
                                        TextWrapping="Wrap" />
                         </Border>
 
@@ -408,11 +397,10 @@
                                 <TextBlock Text="Alias" Style="{StaticResource TextBlockBodySecondary}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 <Button DockPanel.Dock="Right"
                                         Command="{Binding NuevoAliasCommand}"
-                                        Style="{StaticResource KeycapButtonStyle}"
-                                        Padding="10,4">
+                                        Style="{StaticResource KeycapButtonStyle}">
                                     <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Agregar alias" FontSize="12" VerticalAlignment="Center" />
+                                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Agregar alias" FontSize="{StaticResource FontSizeSm}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </DockPanel>
@@ -426,7 +414,7 @@
                                                         Binding="{Binding Alias}"
                                                         Width="*"
                                                         ElementStyle="{StaticResource TextBlockTextCell}" />
-                                    <DataGridTemplateColumn Header="Acciones" Width="90">
+                                    <DataGridTemplateColumn Header="" Width="44" CanUserSort="False">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -462,11 +450,10 @@
                                 <TextBlock Text="Prefijos EAN" Style="{StaticResource TextBlockBodySecondary}" FontWeight="SemiBold" VerticalAlignment="Center" />
                                 <Button DockPanel.Dock="Right"
                                         Command="{Binding NuevoPrefijoCommand}"
-                                        Style="{StaticResource KeycapButtonStyle}"
-                                        Padding="10,4">
+                                        Style="{StaticResource KeycapButtonStyle}">
                                     <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Agregar prefijo" FontSize="12" VerticalAlignment="Center" />
+                                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Agregar prefijo" FontSize="{StaticResource FontSizeSm}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </DockPanel>
@@ -480,7 +467,7 @@
                                                         Binding="{Binding Prefijo}"
                                                         Width="*"
                                                         ElementStyle="{StaticResource TextBlockMonospaceCell}" />
-                                    <DataGridTemplateColumn Header="Acciones" Width="90">
+                                    <DataGridTemplateColumn Header="" Width="44" CanUserSort="False">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
@@ -515,7 +502,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Términos -->
-                <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="16" Margin="0,0,12,0" DataContext="{Binding Terminos}">
+                <Border Grid.Column="0" Style="{StaticResource DialogSectionStyle}" Margin="0,0,12,0" DataContext="{Binding Terminos}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -525,14 +512,16 @@
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                            <TextBlock Text="Términos" Style="{StaticResource TextBlockHeader2}" VerticalAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <iconPacks:PackIconBoxIcons Kind="RegularBookContent" Style="{StaticResource CardHeaderIconStyle}" />
+                                <TextBlock Text="Términos" Style="{StaticResource CardHeaderTextStyle}" />
+                            </StackPanel>
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding NuevoTerminoCommand}"
-                                    Style="{StaticResource PrimaryActionButtonStyle}"
-                                    Padding="12,6">
+                                    Style="{StaticResource PrimaryActionButtonStyle}">
                                 <StackPanel Orientation="Horizontal">
-                                    <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                    <TextBlock Text="Nuevo término" FontWeight="Bold" VerticalAlignment="Center" />
+                                    <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Nuevo término" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </DockPanel>
@@ -547,7 +536,7 @@
                                 Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                             <TextBlock Text="{Binding MensajeError}"
                                        Foreground="{DynamicResource DangerForegroundBrush}"
-                                       FontSize="12"
+                                       FontSize="{StaticResource FontSizeSm}"
                                        TextWrapping="Wrap" />
                         </Border>
 
@@ -607,7 +596,7 @@
                                                         HorizontalAlignment="Left"
                                                         Visibility="{Binding EsAmbiguo, Converter={StaticResource BoolToVisConverter}}">
                                                     <TextBlock Text="Ambiguo"
-                                                               FontSize="11"
+                                                               FontSize="{StaticResource FontSizeXs}"
                                                                FontWeight="Bold"
                                                                Foreground="{DynamicResource WarningForegroundBrush}" />
                                                 </Border>
@@ -615,17 +604,15 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="Acciones" Width="90">
+                                <DataGridTemplateColumn Header="" Width="80" CanUserSort="False">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                                 <Button Command="{Binding DataContext.CambiarCategoriaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                         CommandParameter="{Binding}"
-                                                        Style="{StaticResource KeycapButtonStyle}"
-                                                        Padding="6,4"
-                                                        Margin="0,0,4,0"
+                                                        Style="{StaticResource RowActionButtonStyle}"
                                                         ToolTip="Cambiar la categoría">
-                                                    <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                                 </Button>
                                                 <Button Command="{Binding DataContext.BajaTerminoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                         CommandParameter="{Binding}"
@@ -644,42 +631,48 @@
 
                 <!-- Pares del término ambiguo seleccionado, en dos pestañas (M-71): los del diccionario y los que
                      proponen los artículos confirmados (M-49). Solo se carga la pestaña visible. -->
-                <Border Grid.Column="1" Style="{StaticResource CardBorderStyle}" Padding="16" DataContext="{Binding Terminos}">
+                <Border Grid.Column="1" Style="{StaticResource DialogSectionStyle}" DataContext="{Binding Terminos}">
                     <Grid>
                         <Grid Visibility="{Binding HayTerminoAmbiguoSeleccionado, Converter={StaticResource BoolToVisConverter}}">
                             <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
 
                             <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                                <RadioButton GroupName="PestanaPares"
-                                             IsChecked="{Binding MostrandoPropuestos, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={StaticResource Falso}}"
-                                             Style="{StaticResource KeycapToggleButtonStyle}"
-                                             Padding="12,6"
-                                             Margin="0,0,8,0">
-                                    <TextBlock Text="Pares" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                </RadioButton>
-                                <RadioButton GroupName="PestanaPares"
-                                             IsChecked="{Binding MostrandoPropuestos, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={StaticResource Verdadero}}"
-                                             Style="{StaticResource KeycapToggleButtonStyle}"
-                                             Padding="12,6">
-                                    <TextBlock Text="Pares propuestos" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                </RadioButton>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <iconPacks:PackIconBoxIcons Kind="RegularLink" Style="{StaticResource CardHeaderIconStyle}" />
+                                    <TextBlock Text="Pares del término" Style="{StaticResource CardHeaderTextStyle}" />
+                                </StackPanel>
                                 <Button DockPanel.Dock="Right"
                                         Command="{Binding NuevoParCommand}"
                                         Style="{StaticResource PrimaryActionButtonStyle}"
-                                        Padding="12,6"
                                         Visibility="{Binding MostrandoPropuestos, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
                                     <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconBoxIcons Kind="SolidPlusCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Nuevo par" FontWeight="Bold" VerticalAlignment="Center" />
+                                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Nuevo par" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Button>
                             </DockPanel>
 
+                            <components:SelectorSegmentado Grid.Row="1" HorizontalAlignment="Left" Margin="0,0,0,12">
+                                <UniformGrid Columns="2">
+                                    <RadioButton GroupName="PestanaPares"
+                                                 IsChecked="{Binding MostrandoPropuestos, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={StaticResource Falso}}"
+                                                 AutomationProperties.Name="Pares"
+                                                 Style="{StaticResource SegmentedRadioButtonStyle}"
+                                                 Content="Pares" />
+                                    <RadioButton GroupName="PestanaPares"
+                                                 IsChecked="{Binding MostrandoPropuestos, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={StaticResource Verdadero}}"
+                                                 AutomationProperties.Name="Pares propuestos"
+                                                 Style="{StaticResource SegmentedRadioButtonStyle}"
+                                                 Content="Pares propuestos" />
+                                </UniformGrid>
+                            </components:SelectorSegmentado>
+
                             <!-- Pestaña Pares -->
-                            <DataGrid Grid.Row="1"
+                            <DataGrid Grid.Row="2"
                                       ItemsSource="{Binding Pares}"
                                       Style="{StaticResource DataGridRetailStyle}"
                                       AutoGenerateColumns="False"
@@ -700,7 +693,7 @@
                                                             HorizontalAlignment="Left"
                                                             Visibility="{Binding EsIgnorado, Converter={StaticResource BoolToVisConverter}}">
                                                         <TextBlock Text="Ignorado"
-                                                                   FontSize="11"
+                                                                   FontSize="{StaticResource FontSizeXs}"
                                                                    FontWeight="Bold"
                                                                    Foreground="{DynamicResource TextSecondaryBrush}" />
                                                     </Border>
@@ -708,17 +701,15 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
-                                    <DataGridTemplateColumn Header="Acciones" Width="90">
+                                    <DataGridTemplateColumn Header="" Width="80" CanUserSort="False">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                                     <Button Command="{Binding DataContext.EditarParCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                             CommandParameter="{Binding}"
-                                                            Style="{StaticResource KeycapButtonStyle}"
-                                                            Padding="6,4"
-                                                            Margin="0,0,4,0"
+                                                            Style="{StaticResource RowActionButtonStyle}"
                                                             ToolTip="Cambiar el destino del par">
-                                                        <iconPacks:PackIconBoxIcons Kind="RegularEdit" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                        <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                                     </Button>
                                                     <Button Command="{Binding DataContext.QuitarParCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                             CommandParameter="{Binding}"
@@ -734,7 +725,7 @@
                             </DataGrid>
 
                             <!-- Pestaña Pares propuestos -->
-                            <Grid Grid.Row="1"
+                            <Grid Grid.Row="2"
                                   DataContext="{Binding Propuestos}"
                                   Visibility="{Binding DataContext.MostrandoPropuestos, RelativeSource={RelativeSource AncestorType=Border}, Converter={StaticResource BoolToVisConverter}}">
                                 <Grid.RowDefinitions>
@@ -760,7 +751,7 @@
                                         Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
                                     <TextBlock Text="{Binding MensajeError}"
                                                Foreground="{DynamicResource DangerForegroundBrush}"
-                                               FontSize="12"
+                                               FontSize="{StaticResource FontSizeSm}"
                                                TextWrapping="Wrap" />
                                 </Border>
 
@@ -808,23 +799,21 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
-                                        <DataGridTemplateColumn Header="Acciones" Width="80">
+                                        <DataGridTemplateColumn Header="" Width="80" CanUserSort="False">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                                         <Button Command="{Binding DataContext.AceptarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                                 CommandParameter="{Binding}"
-                                                                Style="{StaticResource KeycapButtonStyle}"
-                                                                Padding="6,4"
-                                                                Margin="0,0,4,0"
+                                                                Style="{StaticResource RowActionButtonStyle}"
                                                                 ToolTip="Aceptar el par con esta categoría">
-                                                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="16" Height="16" />
                                                         </Button>
                                                         <Button Command="{Binding DataContext.DescartarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                                 CommandParameter="{Binding}"
                                                                 Style="{StaticResource IconDangerButtonStyle}"
                                                                 ToolTip="Descartar (el par queda ignorado)">
-                                                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" />
+                                                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="16" Height="16" />
                                                         </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -850,16 +839,17 @@
                                             Visibility="{Binding HayPropuestas, Converter={StaticResource BoolToVisConverter}}">
                                     <Button Command="{Binding DescartarSeleccionadasCommand}"
                                             Style="{StaticResource KeycapButtonStyle}"
-                                            Padding="12,6"
                                             Margin="0,0,8,0">
-                                        <TextBlock Text="Descartar seleccionados" VerticalAlignment="Center" />
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Descartar seleccionados" VerticalAlignment="Center" />
+                                        </StackPanel>
                                     </Button>
                                     <Button Command="{Binding AceptarSeleccionadasCommand}"
-                                            Style="{StaticResource PrimaryActionButtonStyle}"
-                                            Padding="12,6">
+                                            Style="{StaticResource PrimaryActionButtonStyle}">
                                         <StackPanel Orientation="Horizontal">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                            <TextBlock Text="Aceptar seleccionados" FontWeight="Bold" VerticalAlignment="Center" />
+                                            <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Aceptar seleccionados" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -879,13 +869,10 @@
         </Grid>
 
         <!-- Barra Inferior de Acciones -->
-        <Border Grid.Row="3"
-                Background="{DynamicResource SurfaceCardBrush}"
-                BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                BorderThickness="0,1,0,0"
-                Padding="16,12">
+        <Border Grid.Row="3" Style="{StaticResource DialogFooterStyle}">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Style="{StaticResource KeycapButtonStyle}"
+                        IsDefault="True"
                         IsCancel="True">
                     <TextBlock Text="Cerrar" VerticalAlignment="Center" />
                 </Button>

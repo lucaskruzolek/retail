@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 
 namespace Retail.Infrastructure.Persistence.Services;
@@ -47,20 +48,28 @@ public class ClienteQueryService : IClienteQueryService
             query = query.Where(c => c.CondicionIva == consulta.CondicionIva.Value);
         }
 
-        if (consulta.SoloConDeuda)
+        // Los dos estados de cada filtro son disjuntos: elegir uno filtra y elegir ambos (o ninguno) no filtra.
+        // La comparación llega a SQL como un parámetro booleano, así que la consulta sigue siendo componible (Ley 8).
+        bool conDeuda = consulta.EstadosDeuda.Contains(FiltroDeudaClienteEnum.ConDeuda);
+        bool sinDeuda = consulta.EstadosDeuda.Contains(FiltroDeudaClienteEnum.SinDeuda);
+        bool filtraDeuda = conDeuda != sinDeuda;
+        if (filtraDeuda)
         {
-            query = query.Where(c => c.SaldoCuentaCorriente > 0m);
+            query = query.Where(c => (conDeuda && c.SaldoCuentaCorriente > 0m) || (sinDeuda && c.SaldoCuentaCorriente <= 0m));
         }
 
-        if (consulta.SoloConCuentaCorriente)
+        bool conCuentaCorriente = consulta.EstadosCuentaCorriente.Contains(FiltroCuentaCorrienteClienteEnum.ConCuentaCorriente);
+        bool sinCuentaCorriente = consulta.EstadosCuentaCorriente.Contains(FiltroCuentaCorrienteClienteEnum.SinCuentaCorriente);
+        bool filtraCuentaCorriente = conCuentaCorriente != sinCuentaCorriente;
+        if (filtraCuentaCorriente)
         {
-            query = query.Where(c => c.TieneCuentaCorriente);
+            query = query.Where(c => (conCuentaCorriente && c.TieneCuentaCorriente) || (sinCuentaCorriente && !c.TieneCuentaCorriente));
         }
 
         bool esConsultaFiltrada = !string.IsNullOrWhiteSpace(consulta.TerminoBusqueda) ||
             consulta.CondicionIva.HasValue ||
-            consulta.SoloConDeuda ||
-            consulta.SoloConCuentaCorriente;
+            filtraDeuda ||
+            filtraCuentaCorriente;
 
         // Conteo de registros coincidentes (evita consulta COUNT duplicada si no hay filtros)
         int totalRegistros = esConsultaFiltrada

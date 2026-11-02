@@ -375,15 +375,15 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
         // Act
         var paginaUno = await servicio.ListarAsync(new ConsultaPedidosDto
         {
-            Estado = EstadoPedidoEnum.Emitido,
-            IdProveedor = proveedorA.Id,
+            Estados = [EstadoPedidoEnum.Emitido],
+            IdsProveedor = [proveedorA.Id],
             Pagina = 1,
             TamanoPagina = 1
         });
         var paginaDos = await servicio.ListarAsync(new ConsultaPedidosDto
         {
-            Estado = EstadoPedidoEnum.Emitido,
-            IdProveedor = proveedorA.Id,
+            Estados = [EstadoPedidoEnum.Emitido],
+            IdsProveedor = [proveedorA.Id],
             Pagina = 2,
             TamanoPagina = 1
         });
@@ -400,6 +400,70 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
         var filaDos = paginaDos.Items.Should().ContainSingle().Which;
         filaDos.IdPedido.Should().Be(primero.Id);
         filaDos.TotalEstimado.Should().Be(20.20m);
+    }
+
+    [Fact]
+    public async Task Listar_ConVariosEstadosYProveedores_DevuelveLaUnion()
+    {
+        // Arrange
+        var proveedorA = await SembrarProveedorAsync("Proveedor A", "30-11111111-8");
+        var proveedorB = await SembrarProveedorAsync("Proveedor B", "30-11223344-6");
+        var proveedorC = await SembrarProveedorAsync("Proveedor C", "30-22334455-7");
+        var emitidoA = await SembrarEmitidoAsync(proveedorA);
+        var emitidoB = await SembrarEmitidoAsync(proveedorB);
+        var recibidoA = await SembrarEmitidoAsync(proveedorA);
+        recibidoA.MarcarRecibido();
+        await SembrarEmitidoAsync(proveedorC);
+        await Contexto.SaveChangesAsync();
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var porProveedores = await servicio.ListarAsync(new ConsultaPedidosDto { IdsProveedor = [proveedorA.Id, proveedorB.Id] });
+        var porEstados = await servicio.ListarAsync(new ConsultaPedidosDto
+        {
+            Estados = [EstadoPedidoEnum.Recibido, EstadoPedidoEnum.Emitido],
+            IdsProveedor = [proveedorA.Id, proveedorB.Id]
+        });
+
+        // Assert
+        porProveedores.Items.Select(p => p.IdPedido).Should().BeEquivalentTo([emitidoA.Id, emitidoB.Id, recibidoA.Id]);
+        porEstados.TotalRegistros.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task Listar_ListasVacias_NoFiltra()
+    {
+        // Arrange
+        var proveedorA = await SembrarProveedorAsync("Proveedor A", "30-11111111-8");
+        var proveedorB = await SembrarProveedorAsync("Proveedor B", "30-11223344-6");
+        await SembrarEmitidoAsync(proveedorA);
+        await SembrarEmitidoAsync(proveedorB);
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ListarAsync(new ConsultaPedidosDto());
+
+        // Assert
+        resultado.TotalRegistros.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Listar_ConTerminoDeBusqueda_FiltraPorRazonSocialONumero()
+    {
+        // Arrange
+        var proveedorA = await SembrarProveedorAsync("Papelera Norte", "30-11111111-8");
+        var proveedorB = await SembrarProveedorAsync("Libros del Sur", "30-11223344-6");
+        var deA = await SembrarEmitidoAsync(proveedorA);
+        var deB = await SembrarEmitidoAsync(proveedorB);
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var porNombre = await servicio.ListarAsync(new ConsultaPedidosDto { TerminoBusqueda = "papelera" });
+        var porNumero = await servicio.ListarAsync(new ConsultaPedidosDto { TerminoBusqueda = deB.Id.ToString(System.Globalization.CultureInfo.InvariantCulture) });
+
+        // Assert
+        porNombre.Items.Should().ContainSingle().Which.IdPedido.Should().Be(deA.Id);
+        porNumero.Items.Select(p => p.IdPedido).Should().Contain(deB.Id);
     }
 
     [Fact]

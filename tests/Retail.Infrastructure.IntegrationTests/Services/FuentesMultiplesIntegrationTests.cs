@@ -62,6 +62,7 @@ public class FuentesMultiplesIntegrationTests : IAsyncLifetime, IDisposable
             new ActualizarArticuloValidator(),
             new CrearPresentacionValidator(),
             new FraccionarValidator(),
+            new ConsultaArticulosValidator(),
             catalogos);
     }
 
