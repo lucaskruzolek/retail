@@ -398,11 +398,25 @@ public class PedidoServiceTests
     {
         IReadOnlyList<PedidoEmitidoDto> esperado = new[]
         {
-            new PedidoEmitidoDto { IdPedido = 1, FechaEmision = DateTime.UtcNow, CantidadRenglones = 2, TotalEstimado = 3000m }
+            new PedidoEmitidoDto { IdPedido = 1, IdProveedor = IdProveedor, RazonSocialProveedor = "Proveedor", FechaEmision = DateTime.UtcNow, CantidadRenglones = 2, TotalEstimado = 3000m }
         };
         _consultas.ListarEmitidosPorProveedorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns(esperado);
 
         var resultado = await _service.ListarEmitidosPorProveedorAsync(IdProveedor);
+
+        resultado.Should().BeSameAs(esperado);
+    }
+
+    [Fact]
+    public async Task ListarEmitidosAsync_DelegaEnQueryService()
+    {
+        IReadOnlyList<PedidoEmitidoDto> esperado = new[]
+        {
+            new PedidoEmitidoDto { IdPedido = 1, IdProveedor = IdProveedor, RazonSocialProveedor = "Proveedor", FechaEmision = DateTime.UtcNow, CantidadRenglones = 2, TotalEstimado = 3000m }
+        };
+        _consultas.ListarEmitidosAsync(Arg.Any<CancellationToken>()).Returns(esperado);
+
+        var resultado = await _service.ListarEmitidosAsync();
 
         resultado.Should().BeSameAs(esperado);
     }

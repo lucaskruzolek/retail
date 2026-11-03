@@ -40,6 +40,11 @@ public interface IPedidoQueryService
     Task<PedidoDetalleDto?> ObtenerDetalleAsync(int idPedido, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Los pedidos <c>Emitido</c> de todos los proveedores, ordenados por fecha de emisión descendente (§5.2).
+    /// </summary>
+    Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Solo los pedidos <c>Emitido</c> del proveedor, ordenados por fecha de emisión descendente (§5.2).
     /// </summary>
     Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosPorProveedorAsync(int idProveedor, CancellationToken cancellationToken = default);

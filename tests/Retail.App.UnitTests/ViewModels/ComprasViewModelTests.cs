@@ -136,11 +136,11 @@ public sealed class ComprasViewModelTests : IDisposable
     // ── P2.4: Importar Pedidos ────────────────────────────────────────────────
 
     [Fact]
-    public void PuedeImportarPedido_SinProveedor_EsFalso()
+    public void PuedeImportarPedido_SinProveedor_EsVerdadero()
     {
         _sut.ProveedorSeleccionado = null;
-        _sut.PuedeImportarPedido.Should().BeFalse();
-        _sut.ImportarPedidoCommand.CanExecute(null).Should().BeFalse();
+        _sut.PuedeImportarPedido.Should().BeTrue();
+        _sut.ImportarPedidoCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public sealed class ComprasViewModelTests : IDisposable
 
         // Assert
         _dialogService.Received(1).Confirmar(Arg.Any<string>(), Arg.Any<string>());
-        await _dialogService.DidNotReceive().MostrarSeleccionarPedidoModalAsync(Arg.Any<int>(), Arg.Any<string>());
+        await _dialogService.DidNotReceive().MostrarSeleccionarPedidoModalAsync(Arg.Any<int?>(), Arg.Any<string?>());
         _sut.DetalleCompraItems.Should().HaveCount(1);
         _sut.TienePedidoOrigen.Should().BeFalse();
     }
@@ -178,6 +178,8 @@ public sealed class ComprasViewModelTests : IDisposable
         var pedidoEmitido = new PedidoEmitidoDto
         {
             IdPedido = 15,
+            IdProveedor = IdProveedor,
+            RazonSocialProveedor = Proveedor.RazonSocial,
             FechaEmision = DateTime.UtcNow,
             CantidadRenglones = 1,
             TotalEstimado = 1200m,
@@ -205,6 +207,8 @@ public sealed class ComprasViewModelTests : IDisposable
         var pedidoEmitido = new PedidoEmitidoDto
         {
             IdPedido = 25,
+            IdProveedor = IdProveedor,
+            RazonSocialProveedor = Proveedor.RazonSocial,
             FechaEmision = DateTime.UtcNow,
             CantidadRenglones = 2,
             TotalEstimado = 4500m,
@@ -263,7 +267,7 @@ public sealed class ComprasViewModelTests : IDisposable
     }
 
     [Fact]
-    public void DesvincularPedido_LimpiaIdPedidoOrigenYConservaRenglones()
+    public void DesvincularPedido_LimpiaIdPedidoOrigenYVaciaLaGrilla()
     {
         // Arrange
         ConfigurarFormularioConUnItem();
@@ -278,7 +282,8 @@ public sealed class ComprasViewModelTests : IDisposable
         _sut.IdPedidoOrigen.Should().BeNull();
         _sut.InformacionPedidoOrigen.Should().BeNull();
         _sut.TienePedidoOrigen.Should().BeFalse();
-        _sut.DetalleCompraItems.Should().HaveCount(1, "los renglones deben conservarse al desvincular");
+        _sut.DetalleCompraItems.Should().BeEmpty("los artículos del pedido salen junto con él");
+        _sut.GrillaVacia.Should().BeTrue();
     }
 
     [Fact]
@@ -357,7 +362,7 @@ public sealed class ComprasViewModelTests : IDisposable
         // Assert
         _sut.RegistrarCompraCommand.CanExecute(null).Should().BeFalse();
         _sut.TieneFaltantes.Should().BeTrue();
-        _sut.Faltantes.Should().Contain("número de comprobante").And.Contain("al menos un renglón");
+        _sut.Faltantes.Should().Contain("número de comprobante").And.Contain("al menos un artículo");
     }
 
     [Fact]
@@ -580,6 +585,212 @@ public sealed class ComprasViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportarPedidoAsync_SinProveedor_TomaElProveedorDelPedidoYCargaLosRenglones()
+    {
+        // Arrange: no hay proveedor elegido; el diálogo lista los pedidos de todos.
+        _sut.Proveedores.Add(Proveedor);
+        _dialogService.MostrarSeleccionarPedidoModalAsync(null, null).Returns(new PedidoEmitidoDto
+        {
+            IdPedido = 30,
+            IdProveedor = IdProveedor,
+            RazonSocialProveedor = Proveedor.RazonSocial,
+            FechaEmision = DateTime.UtcNow,
+            CantidadRenglones = 1,
+            TotalEstimado = 1000m,
+        });
+        _pedidoService.ObtenerParaCompraAsync(30, Arg.Any<CancellationToken>()).Returns(new PedidoParaCompraDto
+        {
+            IdPedido = 30,
+            IdProveedor = IdProveedor,
+            Renglones = new List<RenglonPedidoParaCompraDto>
+            {
+                new()
+                {
+                    IdArticulo = 101,
+                    CodigoProveedor = "ART-101",
+                    DescripcionArticulo = "Cuaderno Rivadavia",
+                    Cantidad = 5,
+                    CostoPactado = 200m,
+                    CostoReposicionActual = 200m,
+                    PorcentajeGanancia = 40m,
+                    PrecioVentaActual = 280m,
+                },
+            },
+        });
+
+        // Act
+        await _sut.ImportarPedidoCommand.ExecuteAsync(null);
+
+        // Assert
+        await _dialogService.Received(1).MostrarSeleccionarPedidoModalAsync(null, null);
+        _sut.ProveedorSeleccionado.Should().BeSameAs(Proveedor);
+        _sut.DetalleCompraItems.Should().HaveCount(1);
+        _sut.IdPedidoOrigen.Should().Be(30);
+        _dialogService.DidNotReceive().Confirmar(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ImportarPedidoAsync_SinProveedorYPedidoDeProveedorDesconocido_MuestraErrorYNoCargaNada()
+    {
+        // Arrange: la lista de proveedores no incluye el del pedido.
+        _dialogService.MostrarSeleccionarPedidoModalAsync(null, null).Returns(new PedidoEmitidoDto
+        {
+            IdPedido = 31,
+            IdProveedor = 99,
+            RazonSocialProveedor = "Proveedor Desconocido",
+            FechaEmision = DateTime.UtcNow,
+            CantidadRenglones = 1,
+            TotalEstimado = 1000m,
+        });
+        _pedidoService.ObtenerParaCompraAsync(31, Arg.Any<CancellationToken>()).Returns(new PedidoParaCompraDto
+        {
+            IdPedido = 31,
+            IdProveedor = 99,
+            Renglones = new List<RenglonPedidoParaCompraDto>
+            {
+                new()
+                {
+                    IdArticulo = 101,
+                    CodigoProveedor = "ART-101",
+                    DescripcionArticulo = "Cuaderno Rivadavia",
+                    Cantidad = 5,
+                    CostoPactado = 200m,
+                    CostoReposicionActual = 200m,
+                    PorcentajeGanancia = 40m,
+                    PrecioVentaActual = 280m,
+                },
+            },
+        });
+
+        // Act
+        await _sut.ImportarPedidoCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeError.Should().Contain("No se encontró el proveedor");
+        _sut.ProveedorSeleccionado.Should().BeNull();
+        _sut.DetalleCompraItems.Should().BeEmpty();
+        _sut.TienePedidoOrigen.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Requisitos_CompraVacia_NingunoCumplido()
+    {
+        _sut.Requisitos.Select(r => r.Texto).Should().Equal("Proveedor", "Número de comprobante", "Artículos");
+        _sut.Requisitos.Should().OnlyContain(r => !r.Cumplido);
+    }
+
+    [Fact]
+    public void Requisitos_CompraCompleta_TodosCumplidos()
+    {
+        ConfigurarFormularioConUnItem();
+
+        _sut.Requisitos.Should().HaveCount(3);
+        _sut.Requisitos.Should().OnlyContain(r => r.Cumplido);
+    }
+
+    [Fact]
+    public void Requisitos_RenglonConCostoCero_AgregaRequisitoDeCostoNoCumplido()
+    {
+        ConfigurarFormularioConUnItem();
+
+        _sut.DetalleCompraItems[0].CostoUnitario = 0m;
+
+        _sut.Requisitos.Should().Contain(new RequisitoCompra("Costos mayores a 0", false));
+        _sut.Requisitos.Should().NotContain(r => r.Texto == "Cantidades mayores a 0");
+    }
+
+    [Fact]
+    public void Requisitos_RenglonConCantidadCero_AgregaRequisitoDeCantidadNoCumplido()
+    {
+        ConfigurarFormularioConUnItem();
+
+        _sut.DetalleCompraItems[0].Cantidad = 0;
+
+        _sut.Requisitos.Should().Contain(new RequisitoCompra("Cantidades mayores a 0", false));
+    }
+
+    [Fact]
+    public void TextoGrillaVacia_SegunHayaProveedor_UsaTonoDeUsted()
+    {
+        _sut.TextoGrillaVacia.Should().Be("Reciba un pedido emitido o elija un proveedor para buscar sus artículos.");
+
+        _sut.ProveedorSeleccionado = Proveedor;
+
+        _sut.TextoGrillaVacia.Should().Be("Reciba un pedido emitido o busque un artículo de este proveedor para agregarlo.");
+    }
+
+    [Fact]
+    public async Task CargarProveedores_Siempre_OfreceTodosLosProveedoresComoPrimeraOpcion()
+    {
+        // Arrange
+        _proveedorService.ListarProveedoresAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<ProveedorDto> { Proveedor });
+
+        // Act
+        await _sut.CargarProveedoresCommand.ExecuteAsync(null);
+
+        // Assert: la opción inicial no es un proveedor real y no altera la lista de proveedores
+        _sut.OpcionesProveedor.Should().HaveCount(2);
+        _sut.OpcionesProveedor[0].IdProveedor.Should().Be(0);
+        _sut.OpcionesProveedor[0].RazonSocial.Should().Be("Todos los proveedores");
+        _sut.OpcionesProveedor[1].Should().Be(Proveedor);
+        _sut.Proveedores.Should().ContainSingle().Which.Should().Be(Proveedor);
+    }
+
+    [Fact]
+    public async Task OpcionProveedor_ConTodosOUnProveedor_SeleccionaNingunoOElProveedor()
+    {
+        // Arrange
+        _proveedorService.ListarProveedoresAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<ProveedorDto> { Proveedor });
+        await _sut.CargarProveedoresCommand.ExecuteAsync(null);
+
+        // Act + Assert
+        _sut.OpcionProveedor.Should().Be(_sut.OpcionesProveedor[0], "sin proveedor el combo muestra \"Todos los proveedores\"");
+
+        _sut.OpcionProveedor = Proveedor;
+        _sut.ProveedorSeleccionado.Should().Be(Proveedor);
+        _sut.TieneProveedor.Should().BeTrue();
+
+        _sut.OpcionProveedor = _sut.OpcionesProveedor[0];
+        _sut.ProveedorSeleccionado.Should().BeNull();
+        _sut.TieneProveedor.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TextoFaltantes_SegunLosRequisitos_ListaLoPendienteConConjuncion()
+    {
+        // Sin nada cargado faltan tres cosas
+        _sut.TextoFaltantes.Should().Be("Faltan: Proveedor, Número de comprobante y Artículos");
+        _sut.RequisitosCumplidos.Should().BeEmpty();
+
+        _sut.ProveedorSeleccionado = Proveedor;
+
+        _sut.TextoFaltantes.Should().Be("Faltan: Número de comprobante y Artículos");
+        _sut.RequisitosCumplidos.Should().Equal("Proveedor");
+
+        _sut.NumeroComprobante = "0001-00000001";
+
+        _sut.TextoFaltantes.Should().Be("Falta: Artículos");
+    }
+
+    [Fact]
+    public async Task CambiarDeProveedor_ConTextoDeBusqueda_LoBorraParaNoOfrecerArticulosDelAnterior()
+    {
+        // Arrange
+        _sut.ProveedorSeleccionado = Proveedor;
+        _sut.TextoBusqueda = "lap";
+
+        // Act
+        _sut.ProveedorSeleccionado = null;
+        await Task.Yield();
+
+        // Assert
+        _sut.TextoBusqueda.Should().BeEmpty();
+        _sut.ResultadosBusqueda.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ImportarPedidoAsync_ErrorAlLeerElPedido_MuestraErrorSinAlertaDeNoDisponible()
     {
         // Arrange
@@ -587,6 +798,8 @@ public sealed class ComprasViewModelTests : IDisposable
         _dialogService.MostrarSeleccionarPedidoModalAsync(IdProveedor, Proveedor.RazonSocial).Returns(new PedidoEmitidoDto
         {
             IdPedido = 15,
+            IdProveedor = IdProveedor,
+            RazonSocialProveedor = Proveedor.RazonSocial,
             FechaEmision = DateTime.UtcNow,
             CantidadRenglones = 1,
             TotalEstimado = 1200m,
@@ -618,7 +831,7 @@ public sealed class ComprasViewModelTests : IDisposable
             ArticuloDeBusqueda(8, "Lapicera Faber", costo: 120m, markup: 40m, precio: 168m),
         };
         _compraService
-            .BuscarArticulosAsync("lap", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .BuscarArticulosAsync("lap", IdProveedor, Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(resultados);
         _sut.TextoBusqueda = "lap";
 
@@ -626,7 +839,7 @@ public sealed class ComprasViewModelTests : IDisposable
         await _sut.BuscarArticulosCommand.ExecuteAsync(null);
 
         // Assert
-        await _compraService.Received().BuscarArticulosAsync("lap", Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _compraService.Received().BuscarArticulosAsync("lap", IdProveedor, Arg.Any<int>(), Arg.Any<CancellationToken>());
         _sut.ResultadosBusqueda.Should().HaveCount(2);
         _sut.ResultadoSeleccionado.Should().Be(resultados[0]);
         _sut.MostrarResultados.Should().BeTrue();
@@ -643,7 +856,7 @@ public sealed class ComprasViewModelTests : IDisposable
         await _sut.BuscarArticulosCommand.ExecuteAsync(null);
 
         // Assert
-        await _compraService.DidNotReceive().BuscarArticulosAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _compraService.DidNotReceive().BuscarArticulosAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         _sut.ResultadosBusqueda.Should().BeEmpty();
         _sut.MostrarResultados.Should().BeFalse();
     }
@@ -654,7 +867,7 @@ public sealed class ComprasViewModelTests : IDisposable
         // Arrange
         _sut.ProveedorSeleccionado = Proveedor;
         _compraService
-            .BuscarArticulosAsync("zzz", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .BuscarArticulosAsync("zzz", IdProveedor, Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new List<ArticuloParaCompraDto>());
         _sut.TextoBusqueda = "zzz";
 
@@ -672,7 +885,7 @@ public sealed class ComprasViewModelTests : IDisposable
         // Arrange
         _sut.ProveedorSeleccionado = Proveedor;
         _compraService
-            .BuscarArticulosAsync("lap", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .BuscarArticulosAsync("lap", IdProveedor, Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new List<ArticuloParaCompraDto> { ArticuloDeBusqueda(7, "Lapicera Bic", costo: 100m, markup: 50m, precio: 150m) });
         _sut.TextoBusqueda = "lap";
         await _sut.BuscarArticulosCommand.ExecuteAsync(null);
@@ -698,7 +911,7 @@ public sealed class ComprasViewModelTests : IDisposable
             ArticuloDeBusqueda(8, "Lapicera Faber", costo: 120m, markup: 40m, precio: 168m),
         };
         _compraService
-            .BuscarArticulosAsync("lap", Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .BuscarArticulosAsync("lap", IdProveedor, Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(resultados);
         _sut.TextoBusqueda = "lap";
         await _sut.BuscarArticulosCommand.ExecuteAsync(null);

@@ -91,16 +91,16 @@ public class CompraServiceTests
     public async Task BuscarArticulosAsync_TerminoVacio_DevuelveVacioSinConsultar(string termino)
     {
         // Act
-        var resultado = await _sut.BuscarArticulosAsync(termino);
+        var resultado = await _sut.BuscarArticulosAsync(termino, idProveedor: 7);
 
         // Assert
         resultado.Should().BeEmpty();
         await _articuloQueryService.DidNotReceive()
-            .BuscarParaCompraAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+            .BuscarParaCompraAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task BuscarArticulosAsync_TerminoConEspacios_DelegaElTerminoRecortado()
+    public async Task BuscarArticulosAsync_TerminoConEspaciosYProveedor_DelegaElTerminoRecortadoYElProveedor()
     {
         // Arrange
         var esperado = new[]
@@ -115,11 +115,11 @@ public class CompraServiceTests
             },
         };
         _articuloQueryService
-            .BuscarParaCompraAsync("lápiz", 5, Arg.Any<CancellationToken>())
+            .BuscarParaCompraAsync("lápiz", 7, 5, Arg.Any<CancellationToken>())
             .Returns(esperado);
 
         // Act
-        var resultado = await _sut.BuscarArticulosAsync("  lápiz  ", 5);
+        var resultado = await _sut.BuscarArticulosAsync("  lápiz  ", 7, 5);
 
         // Assert
         resultado.Should().BeEquivalentTo(esperado);

@@ -8,6 +8,11 @@ namespace Retail.Application.Interfaces.Services;
 public interface IPedidoService
 {
     /// <summary>
+    /// Contrato de frontera con Compras, §5.2: pedidos emitidos de todos los proveedores, del más reciente al más antiguo.
+    /// </summary>
+    Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Contrato de frontera con Compras, §5.2: pedidos emitidos del proveedor, del más reciente al más antiguo.
     /// </summary>
     Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosPorProveedorAsync(int idProveedor, CancellationToken cancellationToken = default);

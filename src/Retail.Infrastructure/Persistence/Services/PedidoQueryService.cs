@@ -233,6 +233,17 @@ public class PedidoQueryService : IPedidoQueryService
             query = query.Where(p => idsProveedor.Contains(p.IdProveedor));
         }
 
+        // Rango de fechas: la misma fecha que muestra la grilla (emisión, o creación si aún no se emitió)
+        if (consulta.FechaDesdeUtc is { } desdeUtc)
+        {
+            query = query.Where(p => (p.FechaEmision ?? p.CreatedAt) >= desdeUtc);
+        }
+
+        if (consulta.FechaHastaUtc is { } hastaUtc)
+        {
+            query = query.Where(p => (p.FechaEmision ?? p.CreatedAt) < hastaUtc);
+        }
+
         int totalRegistros = await query.CountAsync(cancellationToken);
 
         int tamanoPagina = Math.Max(1, consulta.TamanoPagina);
@@ -331,16 +342,30 @@ public class PedidoQueryService : IPedidoQueryService
         };
     }
 
-    public async Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosPorProveedorAsync(int idProveedor, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosAsync(CancellationToken cancellationToken = default)
     {
-        var filas = await _context.Pedidos
-            .AsNoTracking()
-            .Where(p => p.IdProveedor == idProveedor && p.Estado == EstadoPedidoEnum.Emitido)
+        return ListarEmitidosAsync(_context.Pedidos.AsNoTracking(), cancellationToken);
+    }
+
+    public Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosPorProveedorAsync(int idProveedor, CancellationToken cancellationToken = default)
+    {
+        return ListarEmitidosAsync(_context.Pedidos.AsNoTracking().Where(p => p.IdProveedor == idProveedor), cancellationToken);
+    }
+
+    // Proyección común: filtra los emitidos, ordena y proyecta en SQL; el redondeo queda para la memoria (F5).
+    private static async Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosAsync(
+        IQueryable<Pedido> pedidos,
+        CancellationToken cancellationToken)
+    {
+        var filas = await pedidos
+            .Where(p => p.Estado == EstadoPedidoEnum.Emitido)
             .OrderByDescending(p => p.FechaEmision)
             .ThenByDescending(p => p.Id)
             .Select(p => new
             {
                 p.Id,
+                p.IdProveedor,
+                RazonSocialProveedor = p.Proveedor!.RazonSocial,
                 FechaEmision = p.FechaEmision!.Value,
                 CantidadRenglones = p.Detalles.Count,
                 Total = p.Detalles.Sum(d => (decimal?)(d.Cantidad * d.CostoPactado)) ?? 0m
@@ -352,6 +377,8 @@ public class PedidoQueryService : IPedidoQueryService
             .Select(f => new PedidoEmitidoDto
             {
                 IdPedido = f.Id,
+                IdProveedor = f.IdProveedor,
+                RazonSocialProveedor = f.RazonSocialProveedor,
                 FechaEmision = f.FechaEmision,
                 CantidadRenglones = f.CantidadRenglones,
                 TotalEstimado = ReglasMonetarias.Redondear(f.Total)

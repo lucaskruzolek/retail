@@ -122,37 +122,64 @@ public class PaginasSnapshotTests
     }
 
     [Theory]
-    [InlineData(TemaPrueba.Claro)]
-    [InlineData(TemaPrueba.Oscuro)]
-    public void ComprasView_PorTema_GeneraCaptura(TemaPrueba tema)
+    [InlineData("", TemaPrueba.Claro)]
+    [InlineData("", TemaPrueba.Oscuro)]
+    [InlineData("_ConPedido", TemaPrueba.Claro)]
+    [InlineData("_ConPedido", TemaPrueba.Oscuro)]
+    [InlineData("_Incompleta", TemaPrueba.Claro)]
+    [InlineData("_Incompleta", TemaPrueba.Oscuro)]
+    public void ComprasView_PorTema_GeneraCaptura(string estado, TemaPrueba tema)
     {
         var (ruta, error) = Capturar(tema, carpeta =>
         {
+            var servicioProveedores = Substitute.For<IProveedorService>();
+            servicioProveedores.ListarProveedoresAsync(Arg.Any<CancellationToken>()).Returns(DatosDeMuestraPaginas.Proveedores());
             var viewModel = new ComprasViewModel(
-                Substitute.For<IProveedorService>(),
+                servicioProveedores,
                 Substitute.For<ICompraService>(),
                 Substitute.For<IPedidoService>(),
                 Substitute.For<ICompraDialogService>(),
                 Substitute.For<ICurrentUserSession>(),
                 Substitute.For<ILogger<ComprasViewModel>>());
 
-            // Comprobante con proveedor, pedido vinculado y tres renglones (uno cuyo precio sube, uno sin cambio y uno manual)
-            var proveedor = DatosDeMuestraPaginas.Proveedores()[0];
-            viewModel.Proveedores.Add(proveedor);
-            viewModel.ProveedorSeleccionado = proveedor;
-            viewModel.NumeroComprobante = "0003-00004521";
-            viewModel.FechaEmision = new DateTime(2026, 11, 2);
-            foreach (var renglon in DatosDeMuestraPaginas.RenglonesDeCompra())
+            // El combo parte de "Todos los proveedores" y los proveedores reales: se cargan antes de armar la vista
+            Task.Run(() => viewModel.CargarProveedoresCommand.ExecuteAsync(null)).GetAwaiter().GetResult();
+
+            // Estado "" = pantalla recién abierta: "Todos los proveedores" y sin renglones (estado vacío)
+            if (estado == "_ConPedido")
             {
-                viewModel.DetalleCompraItems.Add(renglon);
+                // Comprobante completo con pedido vinculado y tres renglones (uno cuyo precio sube, uno sin cambio y uno manual)
+                var proveedor = viewModel.Proveedores[0];
+                viewModel.ProveedorSeleccionado = proveedor;
+                viewModel.NumeroComprobante = "0003-00004521";
+                viewModel.FechaEmision = new DateTime(2026, 11, 2);
+                foreach (var renglon in DatosDeMuestraPaginas.RenglonesDeCompra())
+                {
+                    viewModel.DetalleCompraItems.Add(renglon);
+                }
+
+                viewModel.IdPedidoOrigen = 101;
+                viewModel.InformacionPedidoOrigen = "Pedido #101";
+                viewModel.TienePedidoOrigen = true;
+            }
+            else if (estado == "_Incompleta")
+            {
+                // Con proveedor, sin número y con un renglón de costo 0: la lista de comprobación mezcla cumplidos y pendientes
+                viewModel.ProveedorSeleccionado = viewModel.Proveedores[0];
+                viewModel.FechaEmision = new DateTime(2026, 11, 2);
+                viewModel.DetalleCompraItems.Add(DetalleCompraItemViewModel.DesdeArticulo(new ArticuloParaCompraDto
+                {
+                    IdArticulo = 104,
+                    CodigoBarras = "7791112223334",
+                    Descripcion = "Marcador permanente negro",
+                    CostoReposicion = 0m,
+                    PorcentajeGanancia = 50m,
+                    PrecioVenta = 900m
+                }));
             }
 
-            viewModel.IdPedidoOrigen = 101;
-            viewModel.InformacionPedidoOrigen = "Pedido #101";
-            viewModel.TienePedidoOrigen = true;
-
             var vista = new ComprasView(viewModel);
-            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/ComprasView");
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/ComprasView" + estado);
         });
 
         VerificarCaptura(ruta, error);
@@ -322,7 +349,7 @@ public class PaginasSnapshotTests
         {
             // El ViewModel consulta el tablero ANTES de crear la vista, en un hilo sin contexto de sincronización
             // (como en AppSmokeTests): así las tarjetas y los gráficos ya tienen datos al dibujarse.
-            var viewModel = Task.Run(CrearDashboardConTableroAsync).GetAwaiter().GetResult();
+            var viewModel = Task.Run(() => CrearDashboardConTableroAsync()).GetAwaiter().GetResult();
 
             var vista = new DashboardView(viewModel);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/DashboardView");
@@ -331,7 +358,26 @@ public class PaginasSnapshotTests
         VerificarCaptura(ruta, error);
     }
 
-    private static async Task<DashboardViewModel> CrearDashboardConTableroAsync()
+    [Theory]
+    [InlineData(TipoReporteEnum.VentasPorPeriodo, TemaPrueba.Claro)]
+    [InlineData(TipoReporteEnum.Ranking, TemaPrueba.Claro)]
+    [InlineData(TipoReporteEnum.Rentabilidad, TemaPrueba.Claro)]
+    [InlineData(TipoReporteEnum.Rentabilidad, TemaPrueba.Oscuro)]
+    public void DashboardView_PorReporte_GeneraCaptura(TipoReporteEnum reporte, TemaPrueba tema)
+    {
+        // Las grillas de los reportes: se revisan los márgenes de la primera y la última columna contra el borde
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var viewModel = Task.Run(() => CrearDashboardConTableroAsync(reporte)).GetAwaiter().GetResult();
+
+            var vista = new DashboardView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/DashboardView_" + reporte);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    private static async Task<DashboardViewModel> CrearDashboardConTableroAsync(TipoReporteEnum reporte = TipoReporteEnum.Tablero)
     {
         var sesion = Substitute.For<ICurrentUserSession>();
         sesion.IdUsuario.Returns(1);
@@ -375,11 +421,50 @@ public class PaginasSnapshotTests
             MargenBruto = new IndicadorDto { Valor = 805400m, ValorAnterior = 640000m, VariacionPorcentual = 25.9m },
             MargenPorcentual = 44.3m,
             MargenPorcentualAnterior = 41.8m,
+            DesdeAnterior = new DateOnly(2026, 10, 1),
+            HastaAnterior = new DateOnly(2026, 10, 3),
             VariacionMargenPuntos = 2.5m,
             ArticulosBajoStockMinimo = 7,
             ValorizacionInventarioCosto = 3250000m,
             EvolucionVentas = evolucion,
             MargenPorCategoria = margenes
+        });
+
+        reportes.ObtenerVentasPorPeriodoAsync(1, Arg.Any<FiltroVentasPorPeriodoDto>(), Arg.Any<CancellationToken>()).Returns(new VentasPorPeriodoDto
+        {
+            Filtro = new FiltroVentasPorPeriodoDto { Desde = desde, Hasta = hasta },
+            Puntos = evolucion,
+            TotalVendido = evolucion.Sum(p => p.TotalVendido),
+            CantidadVentas = evolucion.Sum(p => p.CantidadVentas),
+            Efectivo = evolucion.Sum(p => p.Efectivo),
+            TarjetaDebito = evolucion.Sum(p => p.TarjetaDebito),
+            TarjetaCredito = evolucion.Sum(p => p.TarjetaCredito),
+            TransferenciaQr = evolucion.Sum(p => p.TransferenciaQr),
+            CuentaCorriente = evolucion.Sum(p => p.CuentaCorriente)
+        });
+        reportes.ObtenerRankingAsync(1, Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>()).Returns(new RankingArticulosDto
+        {
+            Filtro = new FiltroRankingDto { Desde = desde, Hasta = hasta },
+            MasVendidos = Enumerable.Range(1, 8)
+                .Select(i => new RankingArticuloDto { IdArticulo = i, Descripcion = $"Cuaderno Rivadavia ABC {i * 10} hojas", Unidades = 90 - (i * 8), IngresoNeto = (90 - (i * 8)) * 1850m })
+                .ToList(),
+            MenosVendidos = Enumerable.Range(1, 8)
+                .Select(i => new RankingArticuloDto { IdArticulo = 100 + i, Descripcion = $"Lápiz negro Faber-Castell HB x{i}", Unidades = i, IngresoNeto = i * 320m })
+                .ToList()
+        });
+        reportes.ObtenerRentabilidadAsync(1, Arg.Any<FiltroRentabilidadDto>(), Arg.Any<CancellationToken>()).Returns(new RentabilidadDto
+        {
+            Filtro = new FiltroRentabilidadDto { Desde = desde, Hasta = hasta },
+            Filas = margenes,
+            Total = new RentabilidadFilaDto
+            {
+                Grupo = "Total",
+                Unidades = margenes.Sum(m => m.Unidades),
+                IngresoNeto = margenes.Sum(m => m.IngresoNeto),
+                Costo = margenes.Sum(m => m.Costo),
+                MargenBruto = margenes.Sum(m => m.MargenBruto),
+                MargenPorcentual = 44.3m
+            }
         });
 
         var inventario = Substitute.For<IInventarioService>();
@@ -398,6 +483,13 @@ public class PaginasSnapshotTests
             TimeProvider.System);
 
         await viewModel.CargarAsync();
+
+        if (reporte != TipoReporteEnum.Tablero)
+        {
+            viewModel.ReporteSeleccionado = reporte;
+            await viewModel.EsperarConsultaAutomaticaAsync();
+        }
+
         return viewModel;
     }
 

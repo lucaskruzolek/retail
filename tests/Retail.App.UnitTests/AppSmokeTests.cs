@@ -924,7 +924,7 @@ public class AppSmokeTests
             var inventarioServiceMock = Substitute.For<IInventarioService>();
 
             sessionMock.NombreCompleto.Returns("Administrador General");
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock);
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>());
 
             // Con un ítem, la grilla genera la fila: cantidad editable y botón de eliminar con sus estilos
             viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
@@ -971,7 +971,7 @@ public class AppSmokeTests
             var sessionMock = Substitute.For<ICurrentUserSession>();
             var dialogServiceMock = Substitute.For<IVentaDialogService>();
             var inventarioServiceMock = Substitute.For<IInventarioService>();
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock);
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>());
             viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto
             {
                 IdArticulo = 1,
@@ -1184,6 +1184,132 @@ public class AppSmokeTests
 
         // Assert
         xamlException.Should().BeNull("el XAML de FiltroColumna debe resolverse sin errores");
+    }
+
+    [Fact]
+    public void FiltroFechaColumna_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                // Los StaticResource del panel (que es un Popup cerrado) se resuelven al cargar el XAML
+                var control = new FiltroFechaColumna { Filtro = new Retail.App.ViewModels.Comun.FiltroFechaColumnaViewModel("Fecha") };
+                control.Measure(new System.Windows.Size(200, 40));
+                control.Arrange(new System.Windows.Rect(0, 0, 200, 40));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de FiltroFechaColumna debe resolverse sin errores");
+    }
+
+    [Fact]
+    public void FiltroRangoFecha_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var control = new FiltroRangoFecha { Filtro = new Retail.App.ViewModels.Comun.FiltroFechaColumnaViewModel("Período") };
+                control.Measure(new System.Windows.Size(300, 40));
+                control.Arrange(new System.Windows.Rect(0, 0, 300, 40));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de FiltroRangoFecha debe resolverse sin errores");
+    }
+
+    [Fact]
+    public void SelectorFechaUnica_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var control = new SelectorFechaUnica { Fecha = new DateTime(2026, 11, 3) };
+                control.Measure(new System.Windows.Size(300, 40));
+                control.Arrange(new System.Windows.Rect(0, 0, 300, 40));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de SelectorFechaUnica debe resolverse sin errores");
+    }
+
+    [Fact]
+    public void IconoInformacion_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var control = new IconoInformacion { Texto = "Descripción" };
+                control.Measure(new System.Windows.Size(100, 40));
+                control.Arrange(new System.Windows.Rect(0, 0, 100, 40));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de IconoInformacion debe resolverse sin errores");
+    }
+
+    [Fact]
+    public void SelectorRangoFecha_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var control = new SelectorRangoFecha { DataContext = new Retail.App.ViewModels.Comun.FiltroFechaColumnaViewModel("Fecha") };
+                control.Measure(new System.Windows.Size(700, 400));
+                control.Arrange(new System.Windows.Rect(0, 0, 700, 400));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de SelectorRangoFecha debe resolverse sin errores");
     }
 
     [Fact]
@@ -1728,9 +1854,12 @@ public class AppSmokeTests
         {
             var dialogos = Substitute.For<ICompraDialogService>();
             dialogos.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
-            var viewModel = CrearComprasViewModel(dialogos);
-            viewModel.Proveedores.Add(norte);
-            viewModel.Proveedores.Add(sur);
+            var servicioProveedores = Substitute.For<IProveedorService>();
+            servicioProveedores.ListarProveedoresAsync(Arg.Any<CancellationToken>()).Returns(new List<ProveedorDto> { norte, sur });
+            var viewModel = CrearComprasViewModel(dialogos, servicioProveedores);
+
+            // El combo muestra "Todos los proveedores" y los proveedores cargados (se cargan antes de armar la vista)
+            Task.Run(() => viewModel.CargarProveedoresCommand.ExecuteAsync(null)).GetAwaiter().GetResult();
 
             var view = new ComprasView(viewModel);
             var ventana = new System.Windows.Window { Content = view, Width = 1024, Height = 768, Left = -10000, Top = -10000, ShowInTaskbar = false };
@@ -1755,10 +1884,10 @@ public class AppSmokeTests
         trasRechazar.Should().Be(norte, "al rechazar el cambio el combo debe volver a mostrar el proveedor anterior");
     }
 
-    private static ComprasViewModel CrearComprasViewModel(ICompraDialogService? dialogos = null)
+    private static ComprasViewModel CrearComprasViewModel(ICompraDialogService? dialogos = null, IProveedorService? proveedores = null)
     {
         return new ComprasViewModel(
-            Substitute.For<IProveedorService>(),
+            proveedores ?? Substitute.For<IProveedorService>(),
             Substitute.For<ICompraService>(),
             Substitute.For<IPedidoService>(),
             dialogos ?? Substitute.For<ICompraDialogService>(),

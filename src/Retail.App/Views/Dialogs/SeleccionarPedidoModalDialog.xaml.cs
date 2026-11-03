@@ -10,6 +10,9 @@ namespace Retail.App.Views.Dialogs;
 /// </summary>
 public partial class SeleccionarPedidoModalDialog : FluentWindow
 {
+    /// <summary>Ancho de la ventana cuando se lista también el proveedor de cada pedido.</summary>
+    public const double AnchoConProveedor = 760;
+
     public SeleccionarPedidoModalViewModel ViewModel { get; }
 
     public SeleccionarPedidoModalDialog(SeleccionarPedidoModalViewModel viewModel)
@@ -21,6 +24,18 @@ public partial class SeleccionarPedidoModalDialog : FluentWindow
         MaxWidth = SystemParameters.WorkArea.Width;
 
         InitializeComponent();
+
+        // Las columnas de un DataGrid no heredan el DataContext, así que no pueden enlazar su Visibility. El alcance (un
+        // proveedor o todos) se fija al abrir el diálogo: con varios proveedores se agrega la columna y se ensancha la ventana.
+        if (ViewModel.MostrarProveedor)
+        {
+            ColumnaProveedor.Visibility = Visibility.Visible;
+            Width = AnchoConProveedor;
+        }
+        else
+        {
+            ColumnaProveedor.Visibility = Visibility.Collapsed;
+        }
 
         Loaded += OnLoaded;
     }

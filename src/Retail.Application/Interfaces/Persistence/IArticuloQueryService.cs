@@ -24,9 +24,10 @@ public interface IArticuloQueryService
 
     /// <summary>
     /// Igual que <see cref="BuscarParaVentaAsync"/>, pero solo artículos comprables: excluye servicios y
-    /// presentaciones derivadas, que reciben stock por fraccionamiento (RF-21).
+    /// presentaciones derivadas, que reciben stock por fraccionamiento (RF-21). Solo devuelve los artículos vinculados
+    /// al catálogo del proveedor indicado: a un proveedor no se le compra lo que no vende.
     /// </summary>
-    Task<IReadOnlyList<ArticuloParaCompraDto>> BuscarParaCompraAsync(string termino, int limite, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ArticuloParaCompraDto>> BuscarParaCompraAsync(string termino, int idProveedor, int limite, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Precio, stock y datos del origen de los artículos activos indicados. Los dados de baja no se devuelven.

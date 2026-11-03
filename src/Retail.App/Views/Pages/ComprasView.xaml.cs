@@ -19,6 +19,20 @@ public partial class ComprasView : UserControl
         DataContext = ViewModel;
         InitializeComponent();
 
+        // Las columnas de un DataGrid no heredan el DataContext, así que no pueden enlazar su Visibility: la columna
+        // "Pedido" (cantidad pedida) solo se muestra mientras la compra tiene un pedido vinculado.
+        ActualizarColumnaPedido();
+        ViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ComprasViewModel.TienePedidoOrigen))
+            {
+                ActualizarColumnaPedido();
+            }
+        };
+
+        // El buscador es el del ListToolbar: sus teclas (flechas, Enter y Esc) se atienden desde acá
+        BarraBusqueda.Buscador.PreviewKeyDown += OnTxtBuscadorPreviewKeyDown;
+
         Loaded += async (_, _) =>
         {
             if (ViewModel.Proveedores.Count == 0)
@@ -26,6 +40,11 @@ public partial class ComprasView : UserControl
                 await ViewModel.CargarProveedoresCommand.ExecuteAsync(null);
             }
         };
+    }
+
+    private void ActualizarColumnaPedido()
+    {
+        ColumnaPedido.Visibility = ViewModel.TienePedidoOrigen ? Visibility.Visible : Visibility.Collapsed;
     }
 
     /// <summary>
@@ -100,7 +119,7 @@ public partial class ComprasView : UserControl
 
         fila.IsSelected = true;
         ViewModel.AgregarResultadoSeleccionadoCommand.Execute(null);
-        TxtBuscador.Focus();
+        BarraBusqueda.Buscador.Focus();
         e.Handled = true;
     }
 

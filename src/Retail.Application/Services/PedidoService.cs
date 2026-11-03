@@ -127,6 +127,11 @@ public class PedidoService : IPedidoService
         return _consultas.ObtenerDetalleAsync(idPedido, cancellationToken);
     }
 
+    public Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosAsync(CancellationToken cancellationToken = default)
+    {
+        return _consultas.ListarEmitidosAsync(cancellationToken);
+    }
+
     public Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosPorProveedorAsync(int idProveedor, CancellationToken cancellationToken = default)
     {
         return _consultas.ListarEmitidosPorProveedorAsync(idProveedor, cancellationToken);

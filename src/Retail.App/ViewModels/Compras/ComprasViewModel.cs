@@ -46,7 +46,19 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     // Verdadero mientras se revierte un cambio de proveedor rechazado: evita volver a pedir confirmación.
     private bool _revirtiendoProveedor;
 
+    /// <summary>Opción del combo que significa "ningún proveedor elegido": no filtra pedidos ni habilita el buscador.</summary>
+    private static readonly ProveedorDto TodosLosProveedores = new()
+    {
+        IdProveedor = 0,
+        RazonSocial = "Todos los proveedores",
+        Cuit = string.Empty
+    };
+
     public ObservableCollection<ProveedorDto> Proveedores { get; } = new();
+
+    /// <summary>Lo que lista el combo: "Todos los proveedores" y, a continuación, los proveedores reales.</summary>
+    public ObservableCollection<ProveedorDto> OpcionesProveedor { get; } = new();
+
     public ObservableCollection<DetalleCompraItemViewModel> DetalleCompraItems { get; } = new();
     public ObservableCollection<ArticuloParaCompraDto> ResultadosBusqueda { get; } = new();
 
@@ -54,7 +66,19 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(ImportarPedidoCommand))]
     [NotifyPropertyChangedFor(nameof(PuedeImportarPedido))]
     [NotifyPropertyChangedFor(nameof(TieneProveedor))]
+    [NotifyPropertyChangedFor(nameof(OpcionProveedor))]
     private ProveedorDto? _proveedorSeleccionado;
+
+    /// <summary>
+    /// Selección del combo: nunca es <c>null</c>, porque "Todos los proveedores" es una opción más (equivale a ningún
+    /// proveedor, <c>null</c> en <see cref="ProveedorSeleccionado"/>). El combo se enlaza a esta propiedad para no
+    /// necesitar un conversor de null.
+    /// </summary>
+    public ProveedorDto OpcionProveedor
+    {
+        get => ProveedorSeleccionado ?? TodosLosProveedores;
+        set => ProveedorSeleccionado = value.IdProveedor == TodosLosProveedores.IdProveedor ? null : value;
+    }
 
     [ObservableProperty]
     private string _numeroComprobante = string.Empty;
@@ -102,9 +126,10 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     private bool _sinResultados;
 
     /// <summary>
-    /// Indica si se puede invocar la acción de recibir un pedido (requiere proveedor seleccionado).
+    /// Indica si se puede invocar la acción de recibir un pedido. Con proveedor elegido lista solo sus pedidos; sin
+    /// proveedor lista los de todos y la compra toma el del pedido que se elija.
     /// </summary>
-    public bool PuedeImportarPedido => ProveedorSeleccionado != null && ProveedorSeleccionado.IdProveedor > 0;
+    public bool PuedeImportarPedido => ProveedorSeleccionado is null || ProveedorSeleccionado.IdProveedor > 0;
 
     public bool TieneProveedor => ProveedorSeleccionado is not null;
 
@@ -136,8 +161,55 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     public bool GrillaVacia => DetalleCompraItems.Count == 0;
 
     public string TextoGrillaVacia => ProveedorSeleccionado is null
-        ? "Elegí el proveedor para empezar."
-        : "Recibí un pedido emitido o buscá un artículo para agregarlo.";
+        ? "Reciba un pedido emitido o elija un proveedor para buscar sus artículos."
+        : "Reciba un pedido emitido o busque un artículo de este proveedor para agregarlo.";
+
+    /// <summary>
+    /// Lista de comprobación de lo necesario para registrar la compra. Las cantidades y los costos inválidos solo
+    /// aparecen mientras no se cumplen.
+    /// </summary>
+    public IReadOnlyList<RequisitoCompra> Requisitos
+    {
+        get
+        {
+            var requisitos = new List<RequisitoCompra>
+            {
+                new("Proveedor", ProveedorSeleccionado is not null),
+                new("Número de comprobante", !string.IsNullOrWhiteSpace(NumeroComprobante)),
+                new("Artículos", DetalleCompraItems.Count > 0)
+            };
+
+            if (DetalleCompraItems.Any(i => i.Cantidad < 1))
+            {
+                requisitos.Add(new RequisitoCompra("Cantidades mayores a 0", false));
+            }
+
+            if (DetalleCompraItems.Any(i => i.CostoUnitario <= 0m))
+            {
+                requisitos.Add(new RequisitoCompra("Costos mayores a 0", false));
+            }
+
+            return requisitos;
+        }
+    }
+
+    /// <summary>Requisitos ya cumplidos, para mostrarlos tildados en el pie.</summary>
+    public IReadOnlyList<string> RequisitosCumplidos => Requisitos.Where(r => r.Cumplido).Select(r => r.Texto).ToList();
+
+    /// <summary>"Faltan: A y B" con lo que todavía impide registrar la compra; vacío si está completa.</summary>
+    public string TextoFaltantes
+    {
+        get
+        {
+            var pendientes = Requisitos.Where(r => !r.Cumplido).Select(r => r.Texto).ToList();
+            return pendientes.Count switch
+            {
+                0 => string.Empty,
+                1 => $"Falta: {pendientes[0]}",
+                _ => $"Faltan: {string.Join(", ", pendientes.Take(pendientes.Count - 1))} y {pendientes[^1]}"
+            };
+        }
+    }
 
     public ComprasViewModel(
         IProveedorService proveedorService,
@@ -164,7 +236,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         {
             var cambiar = _dialogService.Confirmar(
                 "Cambiar de proveedor",
-                "La compra ya tiene renglones o un pedido vinculado del proveedor anterior.\n" +
+                "La compra ya tiene artículos o un pedido vinculado del proveedor anterior.\n" +
                 "Si cambia de proveedor se quitarán. ¿Desea continuar?");
 
             if (!cambiar)
@@ -186,6 +258,8 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
             QuitarRenglonesYPedido();
         }
 
+        // Lo que se había buscado era del proveedor anterior: el desplegable no debe seguir ofreciéndolo.
+        TextoBusqueda = string.Empty;
         MensajeError = null;
         OnPropertyChanged(nameof(TextoGrillaVacia));
         ActualizarEstadoDerivado();
@@ -216,11 +290,14 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
             lista =>
             {
                 Proveedores.Clear();
+                OpcionesProveedor.Clear();
+                OpcionesProveedor.Add(TodosLosProveedores);
                 if (lista != null)
                 {
                     foreach (var p in lista)
                     {
                         Proveedores.Add(p);
+                        OpcionesProveedor.Add(p);
                     }
                 }
             },
@@ -248,6 +325,9 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         var termino = TextoBusqueda.Trim();
         var hayQueBuscar = termino.Length > 0 && TieneProveedor;
 
+        // Solo se ofrecen los artículos del proveedor elegido (la restricción se resuelve en la consulta).
+        var idProveedor = ProveedorSeleccionado?.IdProveedor ?? 0;
+
         if (!hayQueBuscar)
         {
             ResultadosBusqueda.Clear();
@@ -260,7 +340,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         // y no reabre el desplegable cuando el operador ya borró el texto.
         await _carga.EjecutarAsync(
             token => hayQueBuscar
-                ? Task.Run(() => _compraService.BuscarArticulosAsync(termino, cancellationToken: token), token)
+                ? Task.Run(() => _compraService.BuscarArticulosAsync(termino, idProveedor, cancellationToken: token), token)
                 : Task.FromResult<IReadOnlyList<ArticuloParaCompraDto>>([]),
             resultados =>
             {
@@ -303,7 +383,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         {
             // No se duplica el renglón: se lo marca para que el operador ajuste su cantidad.
             RenglonSeleccionado = existente;
-            MensajeEstado = $"\"{articulo.Descripcion}\" ya está en la compra: ajustá su cantidad en el renglón.";
+            MensajeEstado = $"\"{articulo.Descripcion}\" ya está en la compra: ajuste su cantidad en la grilla.";
         }
         else
         {
@@ -446,6 +526,9 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     private void ActualizarEstadoDerivado()
     {
         OnPropertyChanged(nameof(TotalCompra));
+        OnPropertyChanged(nameof(Requisitos));
+        OnPropertyChanged(nameof(RequisitosCumplidos));
+        OnPropertyChanged(nameof(TextoFaltantes));
         OnPropertyChanged(nameof(Faltantes));
         OnPropertyChanged(nameof(TieneFaltantes));
         OnPropertyChanged(nameof(PuedeRegistrar));
@@ -468,18 +551,18 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
 
         if (DetalleCompraItems.Count == 0)
         {
-            faltantes.Add("al menos un renglón");
+            faltantes.Add("al menos un artículo");
         }
         else
         {
             if (DetalleCompraItems.Any(i => i.Cantidad < 1))
             {
-                faltantes.Add("cantidad recibida mayor a 0 en todos los renglones");
+                faltantes.Add("cantidad recibida mayor a 0 en todos los artículos");
             }
 
             if (DetalleCompraItems.Any(i => i.CostoUnitario <= 0m))
             {
-                faltantes.Add("costo mayor a 0 en todos los renglones");
+                faltantes.Add("costo mayor a 0 en todos los artículos");
             }
         }
 
@@ -491,11 +574,6 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
     [RelayCommand(CanExecute = nameof(PuedeImportarPedido))]
     private async Task ImportarPedidoAsync()
     {
-        if (ProveedorSeleccionado is null)
-        {
-            return;
-        }
-
         if (DetalleCompraItems.Count > 0)
         {
             var confirmar = _dialogService.Confirmar(
@@ -509,8 +587,8 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         }
 
         var pedidoElegido = await _dialogService.MostrarSeleccionarPedidoModalAsync(
-            ProveedorSeleccionado.IdProveedor,
-            ProveedorSeleccionado.RazonSocial);
+            ProveedorSeleccionado?.IdProveedor,
+            ProveedorSeleccionado?.RazonSocial);
         if (pedidoElegido is null)
         {
             return;
@@ -555,6 +633,20 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // Sin proveedor previo la compra toma el del pedido; con proveedor previo el diálogo ya filtró por él.
+        // Con el proveedor anterior nulo, el cambio de selección no pide confirmación.
+        if (ProveedorSeleccionado is null)
+        {
+            var proveedorDelPedido = Proveedores.FirstOrDefault(p => p.IdProveedor == pedidoParaCompra.IdProveedor);
+            if (proveedorDelPedido is null)
+            {
+                MensajeError = "No se encontró el proveedor del pedido seleccionado. Recargue la pantalla e intente de nuevo.";
+                return;
+            }
+
+            ProveedorSeleccionado = proveedorDelPedido;
+        }
+
         VaciarRenglones();
         foreach (var renglon in pedidoParaCompra.Renglones)
         {
@@ -564,15 +656,16 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         IdPedidoOrigen = pedidoParaCompra.IdPedido;
         InformacionPedidoOrigen = $"Pedido #{pedidoParaCompra.IdPedido}";
         TienePedidoOrigen = true;
-
-        MensajeEstado = $"Pedido #{pedidoParaCompra.IdPedido} cargado con {DetalleCompraItems.Count} renglón(es). Ajustá cantidades y costos a lo que dice el comprobante.";
     }
 
+    /// <summary>
+    /// Quita el pedido de la compra y, con él, los artículos que traía: una grilla no puede conservar renglones de un
+    /// origen que ya no está vinculado.
+    /// </summary>
     [RelayCommand]
     private void DesvincularPedido()
     {
-        DesvincularPedidoOrigen();
-        MensajeEstado = "Pedido desvinculado. La compra ahora es manual (los artículos se conservan).";
+        QuitarRenglonesYPedido();
     }
 
     private void DesvincularPedidoOrigen()
