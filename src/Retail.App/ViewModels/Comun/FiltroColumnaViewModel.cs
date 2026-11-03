@@ -18,7 +18,7 @@ namespace Retail.App.ViewModels.Comun;
 /// <c>ConsultaArticulosDto</c>. La búsqueda dentro del filtro solo oculta casillas de una lista que ya está en memoria y
 /// es chica; los artículos se siguen filtrando en SQL Server (Ley 8).
 /// </summary>
-public partial class FiltroColumnaViewModel : ObservableObject
+public partial class FiltroColumnaViewModel : ObservableObject, IFiltroEmergente
 {
     /// <summary>
     /// Hasta esta cantidad de opciones (sumando todos los grupos) el panel no muestra el buscador ni "Limpiar" ni

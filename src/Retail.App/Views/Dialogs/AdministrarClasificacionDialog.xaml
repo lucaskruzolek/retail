@@ -70,13 +70,7 @@
                     </RadioButton>
                 </UniformGrid>
             </components:SelectorSegmentado>
-            <StackPanel Orientation="Horizontal"
-                        VerticalAlignment="Center"
-                        Margin="16,0,0,0"
-                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
-                <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
-                <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
-            </StackPanel>
+            <components:IndicadorCarga EstaCargando="{Binding IsBusy}" Margin="16,0,0,0" VerticalAlignment="Center" />
         </StackPanel>
 
         <!-- Contenido Central -->

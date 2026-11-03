@@ -1,0 +1,92 @@
+<UserControl xmlns:components="clr-namespace:Retail.App.Views.Components"
+             x:Class="Retail.App.Views.Components.SelectorRangoFecha"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d">
+
+    <!-- Contenido del panel de FiltroFechaColumna: atajos a la izquierda, dos calendarios ("desde" y "hasta") y un pie con el
+         rango elegido, Limpiar, Cancelar y Aplicar. Trabaja sobre un FiltroFechaColumnaViewModel (su DataContext); va suelto
+         para poder mostrarlo también en la galería de estilos. -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="148" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Atajos: rangos predefinidos -->
+        <ItemsControl Grid.Row="0"
+                      Grid.Column="0"
+                      Margin="8,12,4,8"
+                      ItemsSource="{Binding Atajos}"
+                      Focusable="False">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Button Content="{Binding Nombre}"
+                            Command="{Binding DataContext.ElegirAtajoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                            CommandParameter="{Binding Atajo}"
+                            HorizontalContentAlignment="Left"
+                            Style="{StaticResource GhostNeutralButtonStyle}" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <!-- Desde -->
+        <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,12,4,8">
+            <TextBlock Text="Desde" Style="{StaticResource TextBlockCaptionSecondary}" Margin="8,0,0,4" />
+            <Calendar x:Name="CalendarioDesde"
+                      Style="{StaticResource CalendarioStyle}"
+                      SelectedDate="{Binding BorradorDesde, Mode=TwoWay}"
+                      DisplayDate="{Binding MesDesde, Mode=TwoWay}"
+                      DisplayDateStart="{Binding FechaMinima}"
+                      DisplayDateEnd="{Binding FechaMaxima}"
+                      FirstDayOfWeek="Monday" />
+        </StackPanel>
+
+        <!-- Hasta -->
+        <StackPanel Grid.Row="0" Grid.Column="2" Margin="4,12,8,8">
+            <TextBlock Text="Hasta" Style="{StaticResource TextBlockCaptionSecondary}" Margin="8,0,0,4" />
+            <Calendar x:Name="CalendarioHasta"
+                      Style="{StaticResource CalendarioStyle}"
+                      SelectedDate="{Binding BorradorHasta, Mode=TwoWay}"
+                      DisplayDate="{Binding MesHasta, Mode=TwoWay}"
+                      DisplayDateStart="{Binding FechaMinima}"
+                      DisplayDateEnd="{Binding FechaMaxima}"
+                      FirstDayOfWeek="Monday" />
+        </StackPanel>
+
+        <!-- Pie: el rango elegido y las acciones. Cancelar descarta el borrador; Aplicar consulta -->
+        <Border Grid.Row="1"
+                Grid.Column="0"
+                Grid.ColumnSpan="3"
+                Padding="12,8"
+                BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                BorderThickness="0,1,0,0">
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left"
+                           Text="{Binding TextoBorrador}"
+                           Style="{StaticResource TextBlockBodySecondary}"
+                           VerticalAlignment="Center" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Content="Limpiar"
+                            Command="{Binding LimpiarCommand}"
+                            Style="{StaticResource GhostNeutralButtonStyle}" />
+                    <Button Content="Cancelar"
+                            Margin="8,0,0,0"
+                            Command="{Binding CancelarCommand}"
+                            Style="{StaticResource KeycapButtonStyle}" />
+                    <Button Content="Aplicar"
+                            Margin="8,0,0,0"
+                            Command="{Binding AplicarCommand}"
+                            Style="{StaticResource PrimaryActionButtonStyle}" />
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

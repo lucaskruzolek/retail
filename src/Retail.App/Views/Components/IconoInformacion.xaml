@@ -1,0 +1,54 @@
+<UserControl x:Class="Retail.App.Views.Components.IconoInformacion"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Focusable="False">
+    <UserControl.Style>
+        <Style TargetType="{x:Type UserControl}">
+            <Style.Triggers>
+                <!-- Sin texto no hay ícono: no queda un signo de información que no dice nada -->
+                <DataTrigger Binding="{Binding Texto, RelativeSource={RelativeSource Self}}" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Texto, RelativeSource={RelativeSource Self}}" Value="{x:Null}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Style>
+
+    <!-- El ícono de 12 es chico a propósito, pero la zona que reacciona al mouse es el cuadrado de 20 que lo rodea:
+         un glifo SVG solo responde sobre sus trazos, así que el tooltip aparecería únicamente al apuntar a las líneas.
+         El fondo Transparent es lo que hace que todo el cuadrado cuente para el mouse. El tooltip aparece rápido
+         (150 ms; el predeterminado de Windows, 500, hace que parezca que el ícono no responde). -->
+    <Border x:Name="Area"
+            Width="20"
+            Height="20"
+            Background="Transparent"
+            ToolTip="{Binding Texto, RelativeSource={RelativeSource AncestorType=UserControl}}"
+            ToolTipService.InitialShowDelay="150"
+            ToolTipService.BetweenShowDelay="0"
+            ToolTipService.ShowDuration="30000"
+            ToolTipService.Placement="Bottom"
+            AutomationProperties.Name="{Binding Texto, RelativeSource={RelativeSource AncestorType=UserControl}}">
+        <iconPacks:PackIconBoxIcons Kind="RegularInfoCircle"
+                                    Width="12"
+                                    Height="12"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+            <iconPacks:PackIconBoxIcons.Style>
+                <Style TargetType="iconPacks:PackIconBoxIcons">
+                    <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsMouseOver, ElementName=Area}" Value="True">
+                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </iconPacks:PackIconBoxIcons.Style>
+        </iconPacks:PackIconBoxIcons>
+    </Border>
+</UserControl>

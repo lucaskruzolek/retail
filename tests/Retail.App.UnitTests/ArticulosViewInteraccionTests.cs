@@ -289,12 +289,13 @@ public class ArticulosViewInteraccionTests
     }
 
     [Fact]
-    public void AccionesMasivas_AlMarcarFilas_ReemplazanALaCargaEnLaBarraDelBuscador()
+    public void AccionesMasivas_SiempreVisibles_SeHabilitanAlMarcarFilas()
     {
-        bool masivasSinMarcas = true;
-        bool panelNormalSinMarcas = false;
+        bool masivasSinMarcas = false;
+        bool botonesSinMarcas = true;
+        bool insigniaSinMarcas = true;
         bool masivasConMarcas = false;
-        bool panelNormalConMarcas = true;
+        bool botonesConMarcas = false;
         bool busquedaConMarcas = false;
         bool limpiarConMarcas = false;
         bool heredaElViewModel = false;
@@ -306,16 +307,19 @@ public class ArticulosViewInteraccionTests
             var e = Crear();
             var barra = Descendientes<ListToolbar>(e.Vista).Single();
             var masivas = (BulkActionBar)barra.AccionesDeSeleccion!;
-            var panelNormal = (FrameworkElement)barra.FindName("PanelNormal");
             var panelSeleccion = (FrameworkElement)barra.FindName("PanelSeleccion");
             // Fuera de una ventana IsVisible es siempre falso: se mira la Visibility de cada panel
             masivasSinMarcas = panelSeleccion.Visibility == Visibility.Visible;
-            panelNormalSinMarcas = panelNormal.Visibility == Visibility.Visible;
+            var insignia = Descendientes<Border>(masivas).Single(b => b.Name == "InsigniaSeleccion");
+            insigniaSinMarcas = insignia.Visibility == Visibility.Visible;
+            var accionesCommand = Descendientes<Button>(masivas).Where(b => b.Command is not null && !ReferenceEquals(b.Command, e.Vista.ViewModel.LimpiarSeleccionCommand)).ToList();
+            botonesSinMarcas = accionesCommand.Any(b => b.IsEnabled);
 
             e.Vista.ViewModel.SeleccionarTodos = true;
             e.Vista.UpdateLayout();
-            masivasConMarcas = panelSeleccion.Visibility == Visibility.Visible && Descendientes<BulkActionBar>(barra).Contains(masivas);
-            panelNormalConMarcas = panelNormal.Visibility == Visibility.Visible;
+            masivasConMarcas = panelSeleccion.Visibility == Visibility.Visible && Descendientes<BulkActionBar>(barra).Contains(masivas)
+                && insignia.Visibility == Visibility.Visible;
+            botonesConMarcas = Descendientes<Button>(masivas).Where(b => ReferenceEquals(b.Command, e.Vista.ViewModel.PedirSeleccionadosCommand)).All(b => b.IsEnabled);
             busquedaConMarcas = Descendientes<Wpf.Ui.Controls.TextBox>(barra).Single().Visibility == Visibility.Visible;
             var limpiar = Descendientes<Button>(barra).Single(b => ReferenceEquals(b.Command, e.Vista.ViewModel.LimpiarFiltrosCommand));
             limpiarConMarcas = limpiar.Visibility == Visibility.Visible && ((FrameworkElement)limpiar.Parent).Visibility == Visibility.Visible;
@@ -324,12 +328,13 @@ public class ArticulosViewInteraccionTests
             texto = masivas.TextoSeleccion;
         });
 
-        masivasSinMarcas.Should().BeFalse();
-        panelNormalSinMarcas.Should().BeTrue();
-        masivasConMarcas.Should().BeTrue("aparecen junto a las casillas que las activan");
-        panelNormalConMarcas.Should().BeFalse("las acciones masivas ocupan el lugar de la carga");
+        masivasSinMarcas.Should().BeTrue("las acciones masivas están siempre a la vista");
+        insigniaSinMarcas.Should().BeFalse("sin filas marcadas no hay badge de cantidad");
+        botonesSinMarcas.Should().BeFalse("sin selección los botones con comando quedan deshabilitados");
+        masivasConMarcas.Should().BeTrue("con filas marcadas aparece el badge de cantidad");
+        botonesConMarcas.Should().BeTrue("con selección se habilita Pedir");
         busquedaConMarcas.Should().BeTrue("la búsqueda no se tapa al marcar filas");
-        limpiarConMarcas.Should().BeFalse("el badge \"N seleccionados ✕\" ocupa el lugar de \"Limpiar filtros\"");
+        limpiarConMarcas.Should().BeTrue("\"Limpiar filtros\" no cede su lugar al badge");
         heredaElViewModel.Should().BeTrue("la barra no tiene padre lógico y hereda el DataContext por el árbol visual");
         pedirEnlazado.Should().BeTrue();
         texto.Should().Be("2 seleccionados", "la selección es de la página visible: no se informa \"de M\"");

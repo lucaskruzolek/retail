@@ -59,8 +59,11 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
             new OpcionFiltroColumna((int)EstadoPedidoEnum.Cancelado, "Cancelados")
         ]);
 
+        FiltroFecha = new FiltroFechaColumnaViewModel("Fecha", _reloj);
+
         FiltroEstado.Aplicado += AlAplicarFiltroDeColumna;
         FiltroProveedor.Aplicado += AlAplicarFiltroDeColumna;
+        FiltroFecha.Aplicado += AlAplicarFiltroDeColumna;
     }
 
     // ------------------------------------------------------------------ //
@@ -72,6 +75,9 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
 
     /// <summary>Filtro de la columna Proveedor; sus opciones llegan al inicializar la pantalla.</summary>
     public FiltroColumnaViewModel FiltroProveedor { get; } = new("Proveedor");
+
+    /// <summary>Filtro de la columna Fecha: un rango de días; la consulta lo convierte a UTC y lo resuelve en SQL.</summary>
+    public FiltroFechaColumnaViewModel FiltroFecha { get; }
 
     public ObservableCollection<PedidoFila> Pedidos { get; } = new();
 
@@ -102,7 +108,8 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     public bool HayFiltrosActivos =>
         !string.IsNullOrWhiteSpace(TextoBusqueda) ||
         FiltroEstado.HayFiltroActivo ||
-        FiltroProveedor.HayFiltroActivo;
+        FiltroProveedor.HayFiltroActivo ||
+        FiltroFecha.HayFiltroActivo;
 
     // ------------------------------------------------------------------ //
     // Selección y detalle                                                 //
@@ -190,11 +197,14 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
 
     public async Task CargarPedidosAsync(CancellationToken cancellationToken = default)
     {
+        var (fechaDesdeUtc, fechaHastaUtc) = FiltroFecha.RangoUtc();
         var consulta = new ConsultaPedidosDto
         {
             TerminoBusqueda = TextoBusqueda,
             Estados = FiltroEstado.IdsAplicados.Select(id => (EstadoPedidoEnum)id).ToList(),
             IdsProveedor = FiltroProveedor.IdsAplicados,
+            FechaDesdeUtc = fechaDesdeUtc,
+            FechaHastaUtc = fechaHastaUtc,
             Pagina = PaginaActual,
             TamanoPagina = TamanoPagina
         };
@@ -243,6 +253,7 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
 
         FiltroEstado.QuitarFiltro();
         FiltroProveedor.QuitarFiltro();
+        FiltroFecha.QuitarFiltro();
         ActualizarEstadoFiltros();
         RecargarDesdePrimeraPagina();
     }

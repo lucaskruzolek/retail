@@ -79,7 +79,8 @@
             <components:PageHeader
                                    Margin="{StaticResource StackSm}"
                                    Titulo="Inventario"
-                                   Subtitulo="Consulta de listas de distribuidores e importación asistida de artículos a tienda.">
+                                   EstaCargando="{Binding IsBusy}"
+                                   Descripcion="Catálogos mayoristas: consulta de listas de distribuidores e importación asistida de artículos a tienda.">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
                     <!-- Selector de Distribuidor: elige QUÉ catálogo se carga (no filtra la tabla) y muestra la antigüedad de su lista -->
                     <StackPanel VerticalAlignment="Top" Margin="0,0,16,0">
@@ -152,16 +153,14 @@
         </StackPanel>
 
         <!-- ============================================================= -->
-        <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta). Con filas marcadas, las    -->
-        <!--    acciones masivas ocupan el lugar de "Limpiar filtros".     -->
+        <!-- 2. BÚSQUEDA, CARGA Y ACCIONES MASIVAS (siempre a la vista)    -->
+        <!--    Las acciones se habilitan con filas marcadas.              -->
         <!-- ============================================================= -->
         <components:ListToolbar Grid.Row="1"
                                 Margin="0,0,0,12"
                                 Texto="{Binding TextoBusquedaCatalogo, UpdateSourceTrigger=PropertyChanged}"
                                 PlaceholderText="Buscar código o descripción..."
-                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
-                                EstaCargando="{Binding IsBusy}"
-                                HaySeleccion="{Binding TieneItemsSeleccionados}">
+                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}">
             <components:ListToolbar.AccionesDeSeleccion>
                 <components:BulkActionBar CantidadSeleccionados="{Binding CantidadSeleccionados}"
                                           ComandoCancelar="{Binding LimpiarSeleccionCommand}">
@@ -171,22 +170,26 @@
                                 Margin="0,0,8,0"
                                 VerticalAlignment="Center"
                                 Command="{Binding PedirSeleccionadosCommand}"
+                                IsEnabled="{Binding TieneItemsSeleccionados}"
                                 Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
+                                ToolTipService.ShowOnDisabled="True"
                                 ToolTip="Agregar los ítems seleccionados al borrador de pedido del proveedor">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Pedir seleccionados" VerticalAlignment="Center" />
+                                <TextBlock Text="Pedir" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
-                        <!-- Incorporar los seleccionados a la tienda (RF-05) -->
-                        <Button
-                                Style="{StaticResource PrimaryActionButtonStyle}"
+                        <!-- Incorporar los seleccionados a la tienda (RF-05): neutro, el carmín de la página es "Importar Planilla" -->
+                        <Button Style="{StaticResource KeycapButtonStyle}"
                                 VerticalAlignment="Center"
+                                IsEnabled="{Binding TieneItemsSeleccionados}"
+                                ToolTipService.ShowOnDisabled="True"
+                                ToolTip="Incorporar a la tienda los ítems seleccionados"
                                 Click="BtnIncorporar_Click">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Incorporar seleccionados a tienda" VerticalAlignment="Center" />
+                                <TextBlock Text="Incorporar a tienda" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>

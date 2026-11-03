@@ -162,6 +162,27 @@ public class PedidosViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task FiltroFecha_AplicaUnRango_ConsultaConLosExtremosEnUtcDesdeLaPrimeraPagina()
+    {
+        await _sut.InicializarAsync();
+        _sut.PaginaActual = 3;
+
+        _sut.FiltroFecha.BorradorDesde = new DateTime(2026, 10, 26);
+        _sut.FiltroFecha.BorradorHasta = new DateTime(2026, 10, 28);
+        _sut.FiltroFecha.AplicarCommand.Execute(null);
+
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        _sut.PaginaActual.Should().Be(1);
+        await _pedidoService.Received(1).ListarPedidosAsync(
+            Arg.Is<ConsultaPedidosDto>(c =>
+                c.FechaDesdeUtc == new DateTime(2026, 10, 26, 3, 0, 0) &&
+                c.FechaHastaUtc == new DateTime(2026, 10, 29, 3, 0, 0) &&
+                c.Pagina == 1),
+            Arg.Any<CancellationToken>());
+        _sut.HayFiltrosActivos.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task FiltroProveedor_AplicaUnProveedor_ConsultaPorEseProveedor()
     {
         await _sut.InicializarAsync();

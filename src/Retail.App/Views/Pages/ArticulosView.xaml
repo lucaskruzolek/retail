@@ -38,7 +38,9 @@
         <StackPanel Grid.Row="0">
             <components:PageHeader
                                    Margin="{StaticResource StackSm}"
-                                   Titulo="Inventario">
+                                   Titulo="Inventario"
+                                   Descripcion="Artículos · Catálogo de la tienda: precios, stock y distribuidores de cada artículo."
+                                   EstaCargando="{Binding IsBusy}">
                 <StackPanel Orientation="Horizontal">
                     <!-- Administrar rubros, categorías y marcas (solo Gerente y Encargado; sin atajo, D-27) -->
                     <Button Command="{Binding AdministrarClasificacionCommand}"
@@ -74,29 +76,30 @@
                                 Margin="0,0,0,12"
                                 Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
                                 PlaceholderText="Buscar por código, descripción o marca..."
-                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
-                                EstaCargando="{Binding IsBusy}"
-                                HaySeleccion="{Binding TieneArticulosSeleccionados}">
+                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}">
             <components:ListToolbar.AccionesDeSeleccion>
                 <components:BulkActionBar CantidadSeleccionados="{Binding CantidadSeleccionados}"
                                           ComandoCancelar="{Binding LimpiarSeleccionCommand}">
                     <!-- Acciones sobre los seleccionados: botones sueltos a la derecha, sin recuadro que los agrupe -->
                     <StackPanel Orientation="Horizontal">
                         <!-- Pedir los seleccionados (Track 4.3, A-17): solo Encargado y Gerente (A-14). Con borde, por ser
-                             la acción con lógica; el único acento carmín de la vista sigue siendo "Nuevo Artículo" -->
+                             la acción con lógica; el único acento carmín de la vista sigue siendo "Nuevo Artículo".
+                             Siempre a la vista; se habilita con filas marcadas -->
                         <Button Command="{Binding PedirSeleccionadosCommand}"
+                                IsEnabled="{Binding TieneArticulosSeleccionados}"
                                 Style="{StaticResource KeycapButtonStyle}"
                                 Padding="12,4"
                                 Margin="0,0,4,0"
                                 Visibility="{Binding PuedePedir, Converter={StaticResource BoolToVisConverter}}"
+                                ToolTipService.ShowOnDisabled="True"
                                 ToolTip="Agregar los artículos seleccionados al borrador de pedido de su proveedor">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconBoxIcons Kind="RegularCart" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                <TextBlock Text="Pedir seleccionados" VerticalAlignment="Center" />
+                                <TextBlock Text="Pedir" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
-                        <!-- Eliminar seleccionados: todavía sin lógica; queda a la vista, deshabilitado y con su tooltip -->
+                        <!-- Eliminar: todavía sin lógica; queda a la vista, deshabilitado y con su tooltip -->
                         <Button Style="{StaticResource GhostNeutralButtonStyle}"
                                 IsEnabled="False"
                                 Padding="12,4"
@@ -110,13 +113,14 @@
                                                             Margin="0,0,8,0"
                                                             VerticalAlignment="Center"
                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                <TextBlock Text="Eliminar seleccionados" VerticalAlignment="Center" />
+                                <TextBlock Text="Eliminar" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 
                         <!-- Más acciones (último: el menú abre alineado a su borde derecho). Todavía sin lógica: quedan
                              deshabilitadas en el menú, con su tooltip, hasta implementar cada una -->
                         <ToggleButton Style="{StaticResource GhostNeutralToggleButtonStyle}"
+                                IsEnabled="{Binding TieneArticulosSeleccionados}"
                                 helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
                                 ToolTip="Más acciones sobre los artículos seleccionados"
                                 AutomationProperties.Name="Más acciones">

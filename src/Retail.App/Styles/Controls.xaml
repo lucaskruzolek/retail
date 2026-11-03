@@ -334,14 +334,23 @@
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryPressedBrush}" />
                             <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryPressedBrush}" />
                         </Trigger>
+                        <!-- Deshabilitado: neutro, sin carmín. Con el carmín a media opacidad se veía rosado y parecía
+                             habilitado (el "Cobrar venta" del POS con la caja cerrada). -->
                         <Trigger Property="IsEnabled" Value="False">
-                            <Setter TargetName="border" Property="Opacity" Value="0.5" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceSubtleBrush}" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                             <Setter Property="Cursor" Value="No" />
                         </Trigger>
+                        <!-- Cargando: el comando en curso deshabilita el botón, pero conserva el carmín (va después del trigger
+                             de deshabilitado, así que gana) -->
                         <Trigger Property="helpers:ButtonHelper.IsLoading" Value="True">
                             <Setter TargetName="contentPresenter" Property="Visibility" Value="Collapsed" />
                             <Setter TargetName="loadingPanel" Property="Visibility" Value="Visible" />
                             <Setter TargetName="border" Property="Opacity" Value="1.0" />
+                            <Setter TargetName="border" Property="Background" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}" />
                             <Setter Property="IsHitTestVisible" Value="False" />
                             <Setter Property="Cursor" Value="AppStarting" />
                         </Trigger>
@@ -1092,18 +1101,21 @@
         <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
         <!-- Plantilla estándar de DataGrid con el borde redondeado (helpers:EsquinasHelper.Esquinas, 8 por defecto) y su
              contenido recortado a esas esquinas: sin el recorte el fondo del encabezado se saldría de ellas. No lleva el
-             botón de "seleccionar todo" de la esquina porque la grilla no muestra encabezados de fila. -->
+             botón de "seleccionar todo" de la esquina porque la grilla no muestra encabezados de fila. Las dos se enlazan
+             con TemplateBinding y no con un Binding de ruta "(helpers:EsquinasHelper.Esquinas)": ese binding fallaba con
+             "property not found" (la ruta con prefijo no se resolvía al instanciar la plantilla) y la grilla quedaba con
+             las esquinas cuadradas, sin recorte. TemplateBinding resuelve la propiedad adjunta al cargar el XAML. -->
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="DataGrid">
                     <Border Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="{Binding (helpers:EsquinasHelper.Esquinas), RelativeSource={RelativeSource TemplatedParent}}"
+                            CornerRadius="{TemplateBinding helpers:EsquinasHelper.Esquinas}"
                             SnapsToDevicePixels="True">
                         <ScrollViewer x:Name="DG_ScrollViewer"
                                       Focusable="False"
-                                      helpers:EsquinasHelper.RadioDelRecorte="{Binding (helpers:EsquinasHelper.Esquinas).TopLeft, RelativeSource={RelativeSource TemplatedParent}}">
+                                      helpers:EsquinasHelper.RecorteEsquinas="{TemplateBinding helpers:EsquinasHelper.Esquinas}">
                             <ScrollViewer.Template>
                                 <ControlTemplate TargetType="ScrollViewer">
                                     <Grid>

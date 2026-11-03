@@ -6,6 +6,7 @@ using LiveChartsCore.SkiaSharpView;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
+using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Reportes;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Reportes;
@@ -72,6 +73,14 @@ public class DashboardViewModelTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    // Lo que hace el Gerente en el selector de fechas: elegir los dos extremos y Aplicar (esto consulta solo)
+    private void AplicarPeriodo(DateTime desde, DateTime hasta)
+    {
+        _sut.FiltroPeriodo.BorradorDesde = desde;
+        _sut.FiltroPeriodo.BorradorHasta = hasta;
+        _sut.FiltroPeriodo.AplicarCommand.Execute(null);
+    }
+
     // ------------------------------------------------------------------ Entrada y consulta
 
     [Fact]
@@ -109,25 +118,51 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_Tablero_UsaElPeriodoElegido()
+    public async Task FiltroPeriodo_AlAplicarUnRango_ConsultaElTableroConEsePeriodoSinBotonConsultar()
     {
         // Arrange
         await _sut.CargarAsync();
-        _sut.Desde = new DateTime(2026, 9, 1);
-        _sut.Hasta = new DateTime(2026, 9, 30);
 
         // Act
-        await _sut.ConsultarAsync();
+        AplicarPeriodo(new DateTime(2026, 9, 1), new DateTime(2026, 9, 30));
+        await _sut.EsperarConsultaAutomaticaAsync();
 
         // Assert
         await _reporteService.Received(1).ObtenerTableroAsync(
             IdActor,
             Arg.Is<FiltroPeriodoDto>(f => f.Desde == new DateOnly(2026, 9, 1) && f.Hasta == new DateOnly(2026, 9, 30)),
             Arg.Any<CancellationToken>());
+        _sut.Desde.Should().Be(new DateTime(2026, 9, 1));
+        _sut.Hasta.Should().Be(new DateTime(2026, 9, 30));
     }
 
     [Fact]
-    public async Task ConsultarAsync_VentasPorPeriodo_LlamaAlServicioConAgrupacionYCajero()
+    public async Task FiltroPeriodo_AlAplicarUnRango_DescartaLosResultadosDeLosOtrosReportes()
+    {
+        // Arrange: Ranking ya consultado con el mes en curso
+        _reporteService.ObtenerRankingAsync(IdActor, Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>())
+            .Returns(Ranking(cantidad: 2));
+        await _sut.CargarAsync();
+        _sut.ReporteSeleccionado = TipoReporteEnum.Ranking;
+        await _sut.EsperarConsultaAutomaticaAsync();
+        _sut.ReporteSeleccionado = TipoReporteEnum.Tablero;
+        await _sut.EsperarConsultaAutomaticaAsync();
+
+        // Act: el período cambia con el tablero a la vista y después se vuelve al ranking
+        AplicarPeriodo(new DateTime(2026, 9, 1), new DateTime(2026, 9, 30));
+        await _sut.EsperarConsultaAutomaticaAsync();
+        _sut.ReporteSeleccionado = TipoReporteEnum.Ranking;
+        await _sut.EsperarConsultaAutomaticaAsync();
+
+        // Assert: el ranking guardado ya no correspondía al período y se consultó de nuevo, con el período nuevo
+        await _reporteService.Received(1).ObtenerRankingAsync(
+            IdActor,
+            Arg.Is<FiltroRankingDto>(f => f.Desde == new DateOnly(2026, 9, 1) && f.Hasta == new DateOnly(2026, 9, 30)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltrosDeVentasPorPeriodo_AlCambiar_ConsultanConAgrupacionYCajero()
     {
         // Arrange
         _reporteService.ObtenerVentasPorPeriodoAsync(IdActor, Arg.Any<FiltroVentasPorPeriodoDto>(), Arg.Any<CancellationToken>())
@@ -138,8 +173,8 @@ public class DashboardViewModelTests : IDisposable
         _sut.Agrupacion = AgrupacionTemporalEnum.Mes;
         _sut.CajeroSeleccionado = _sut.Cajeros[1];
 
-        // Act
-        await _sut.ConsultarAsync();
+        // Act: cada combo consultó al cambiar; la última consulta lleva los dos filtros
+        await _sut.EsperarConsultaAutomaticaAsync();
 
         // Assert
         await _reporteService.Received(1).ObtenerVentasPorPeriodoAsync(
@@ -150,7 +185,7 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_Ranking_LlamaAlServicioConLosFiltros()
+    public async Task FiltrosDeRanking_AlCambiar_ConsultanConLosFiltros()
     {
         // Arrange
         _reporteService.ObtenerRankingAsync(IdActor, Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>())
@@ -164,7 +199,7 @@ public class DashboardViewModelTests : IDisposable
         _sut.Cantidad = 5;
 
         // Act
-        await _sut.ConsultarAsync();
+        await _sut.EsperarConsultaAutomaticaAsync();
 
         // Assert
         await _reporteService.Received(1).ObtenerRankingAsync(
@@ -174,7 +209,7 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_Rentabilidad_LlamaAlServicioConLaAgrupacion()
+    public async Task FiltroDeRentabilidad_AlCambiarLaAgrupacion_ConsultaConEsaAgrupacion()
     {
         // Arrange
         _reporteService.ObtenerRentabilidadAsync(IdActor, Arg.Any<FiltroRentabilidadDto>(), Arg.Any<CancellationToken>())
@@ -185,7 +220,7 @@ public class DashboardViewModelTests : IDisposable
         _sut.AgrupacionRentabilidad = AgrupacionRentabilidadEnum.Marca;
 
         // Act
-        await _sut.ConsultarAsync();
+        await _sut.EsperarConsultaAutomaticaAsync();
 
         // Assert
         await _reporteService.Received(1).ObtenerRentabilidadAsync(
@@ -196,7 +231,7 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_StockCriticoYSinMovimiento_NoUsanFechasYUsanSusFiltros()
+    public async Task FiltrosDeStockCriticoYSinMovimiento_NoUsanFechasYUsanSusFiltros()
     {
         // Arrange
         _reporteService.ObtenerStockCriticoAsync(IdActor, Arg.Any<FiltroInventarioDto>(), Arg.Any<CancellationToken>())
@@ -209,8 +244,9 @@ public class DashboardViewModelTests : IDisposable
         _sut.CategoriaSeleccionada = _sut.Categorias[1];
         _sut.ReporteSeleccionado = TipoReporteEnum.StockCritico;
         await _sut.EsperarConsultaAutomaticaAsync();
-        _sut.Dias = 30;
         _sut.ReporteSeleccionado = TipoReporteEnum.SinMovimiento;
+        await _sut.EsperarConsultaAutomaticaAsync();
+        _sut.Dias = 30;
         await _sut.EsperarConsultaAutomaticaAsync();
 
         // Assert
@@ -245,23 +281,23 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_SinFechas_MuestraElErrorYNoLlamaAlServicio()
+    public async Task FiltroPeriodo_ConUnSoloExtremo_NoSePuedeAplicarYNoConsulta()
     {
         // Arrange
         await _sut.CargarAsync();
         _reporteService.ClearReceivedCalls();
-        _sut.Desde = null;
 
         // Act
-        await _sut.ConsultarAsync();
+        _sut.FiltroPeriodo.BorradorHasta = null;
 
-        // Assert
-        _sut.TieneError.Should().BeTrue();
+        // Assert: Aplicar espera a que estén las dos fechas; no hay consulta ni error
+        _sut.FiltroPeriodo.AplicarCommand.CanExecute(null).Should().BeFalse();
+        _sut.TieneError.Should().BeFalse();
         _reporteService.ReceivedCalls().Should().BeEmpty();
     }
 
     [Fact]
-    public async Task ConsultarAsync_ValidationException_MuestraLosErroresSinLanzar()
+    public async Task Consulta_ConValidationException_MuestraLosErroresSinLanzar()
     {
         // Arrange
         await _sut.CargarAsync();
@@ -273,17 +309,18 @@ public class DashboardViewModelTests : IDisposable
             ]));
 
         // Act
-        var consultar = () => _sut.ConsultarAsync();
+        AplicarPeriodo(new DateTime(2026, 9, 1), new DateTime(2026, 9, 30));
+        var esperar = () => _sut.EsperarConsultaAutomaticaAsync();
 
         // Assert
-        await consultar.Should().NotThrowAsync();
+        await esperar.Should().NotThrowAsync();
         _sut.TieneError.Should().BeTrue();
         _sut.MensajeError.Should().Contain("La fecha desde no puede ser posterior").And.Contain("La fecha hasta no puede ser posterior a hoy.");
         _sut.EstaCargando.Should().BeFalse();
     }
 
     [Fact]
-    public async Task ConsultarAsync_OperacionNoAutorizada_MuestraElMensajeDelServicio()
+    public async Task Consulta_ConOperacionNoAutorizada_MuestraElMensajeDelServicio()
     {
         // Arrange
         _reporteService.ObtenerTableroAsync(IdActor, Arg.Any<FiltroPeriodoDto>(), Arg.Any<CancellationToken>())
@@ -297,7 +334,7 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_ErrorInesperado_MuestraUnMensajeGenericoSinFiltrarElDetalleTecnico()
+    public async Task Consulta_ConErrorInesperado_MuestraUnMensajeGenericoSinFiltrarElDetalleTecnico()
     {
         // Arrange
         _reporteService.ObtenerTableroAsync(IdActor, Arg.Any<FiltroPeriodoDto>(), Arg.Any<CancellationToken>())
@@ -311,59 +348,52 @@ public class DashboardViewModelTests : IDisposable
         _sut.MensajeError.Should().NotContain("RetailDb").And.Contain("error inesperado");
     }
 
-    // ------------------------------------------------------------------ Atajos de período
+    // ------------------------------------------------------------------ Período y atajos del selector de fechas
 
     [Fact]
-    public void AtajosDePeriodo_EstablecenLasFechas()
+    public void FiltroPeriodo_PorDefecto_EsElMesEnCursoHastaHoy()
     {
-        // Assert: por defecto, el mes en curso hasta hoy
         _sut.Desde.Should().Be(new DateTime(2026, 10, 1));
         _sut.Hasta.Should().Be(new DateTime(2026, 10, 15));
-
-        _sut.MesAnteriorCommand.Execute(null);
-        _sut.Desde.Should().Be(new DateTime(2026, 9, 1));
-        _sut.Hasta.Should().Be(new DateTime(2026, 9, 30));
-
-        _sut.EsteAnioCommand.Execute(null);
-        _sut.Desde.Should().Be(new DateTime(2026, 1, 1));
-        _sut.Hasta.Should().Be(new DateTime(2026, 10, 15));
-
-        _sut.EsteMesCommand.Execute(null);
-        _sut.Desde.Should().Be(new DateTime(2026, 10, 1));
+        _sut.FiltroPeriodo.FechaMaxima.Should().Be(new DateTime(2026, 10, 15), "los reportes no admiten fechas futuras");
     }
 
     [Fact]
-    public async Task AtajosDePeriodo_ConPrimeraVentaPosterior_RecortanElDesdeALaFechaMinima()
+    public async Task AtajosDelSelector_ConPrimeraVentaPosterior_RecortanElDesdeALaFechaMinima()
     {
         // Arrange: la primera venta fue el 10/03/2026
         _reporteService.ObtenerFechaMinimaAsync(IdActor, Arg.Any<CancellationToken>()).Returns(new DateOnly(2026, 3, 10));
         await _sut.CargarAsync();
 
-        // Act + Assert: Este año arranca el 01/01 y se recorta; Mes anterior (setiembre) no necesita recorte
-        _sut.EsteAnioCommand.Execute(null);
-        _sut.Desde.Should().Be(new DateTime(2026, 3, 10));
+        // Act: Este año arranca el 01/01 y se recorta; Mes pasado (setiembre) no necesita recorte
+        _sut.FiltroPeriodo.ElegirAtajoCommand.Execute(AtajoFecha.EsteAnio);
+        var desdeEsteAnio = _sut.FiltroPeriodo.BorradorDesde;
+        var hastaEsteAnio = _sut.FiltroPeriodo.BorradorHasta;
+        _sut.FiltroPeriodo.ElegirAtajoCommand.Execute(AtajoFecha.MesPasado);
 
-        _sut.MesAnteriorCommand.Execute(null);
-        _sut.Desde.Should().Be(new DateTime(2026, 9, 1));
+        // Assert
+        desdeEsteAnio.Should().Be(new DateTime(2026, 3, 10));
+        hastaEsteAnio.Should().Be(new DateTime(2026, 10, 15), "Este año termina hoy, no el 31/12");
+        _sut.FiltroPeriodo.BorradorDesde.Should().Be(new DateTime(2026, 9, 1));
     }
 
     [Fact]
-    public async Task AtajosDePeriodo_ConPrimeraVentaEnElMesAnterior_RecortanMesAnterior()
+    public async Task AtajosDelSelector_ConPrimeraVentaEnElMesPasado_RecortanElMesPasado()
     {
         // Arrange: la primera venta fue el 20/09/2026
         _reporteService.ObtenerFechaMinimaAsync(IdActor, Arg.Any<CancellationToken>()).Returns(new DateOnly(2026, 9, 20));
         await _sut.CargarAsync();
 
         // Act
-        _sut.MesAnteriorCommand.Execute(null);
+        _sut.FiltroPeriodo.ElegirAtajoCommand.Execute(AtajoFecha.MesPasado);
 
         // Assert
-        _sut.Desde.Should().Be(new DateTime(2026, 9, 20));
-        _sut.Hasta.Should().Be(new DateTime(2026, 9, 30));
+        _sut.FiltroPeriodo.BorradorDesde.Should().Be(new DateTime(2026, 9, 20));
+        _sut.FiltroPeriodo.BorradorHasta.Should().Be(new DateTime(2026, 9, 30));
     }
 
     [Fact]
-    public async Task MesAnterior_ConPrimeraVentaEnElMesEnCurso_EstaDeshabilitadoConSuTooltip()
+    public async Task AtajoMesPasado_ConPrimeraVentaEnElMesEnCurso_EstaDeshabilitado()
     {
         // Arrange: la primera venta fue el 05/10/2026; setiembre no tiene ventas
         _reporteService.ObtenerFechaMinimaAsync(IdActor, Arg.Any<CancellationToken>()).Returns(new DateOnly(2026, 10, 5));
@@ -372,22 +402,144 @@ public class DashboardViewModelTests : IDisposable
         await _sut.CargarAsync();
 
         // Assert
-        _sut.MesAnteriorCommand.CanExecute(null).Should().BeFalse();
-        _sut.TooltipMesAnterior.Should().Be("No hay ventas registradas en el mes anterior");
+        _sut.FiltroPeriodo.ElegirAtajoCommand.CanExecute(AtajoFecha.MesPasado).Should().BeFalse();
+        _sut.FiltroPeriodo.ElegirAtajoCommand.CanExecute(AtajoFecha.EsteMes).Should().BeTrue();
     }
 
     [Fact]
-    public async Task MesAnterior_ConPrimeraVentaAnterior_EstaHabilitadoSinTooltip()
+    public async Task AtajoMesPasado_ConPrimeraVentaAnterior_EstaHabilitado()
     {
-        // Arrange
+        // Arrange: el último día de setiembre alcanza
         _reporteService.ObtenerFechaMinimaAsync(IdActor, Arg.Any<CancellationToken>()).Returns(new DateOnly(2026, 9, 30));
 
         // Act
         await _sut.CargarAsync();
 
-        // Assert: el último día de setiembre alcanza
-        _sut.MesAnteriorCommand.CanExecute(null).Should().BeTrue();
-        _sut.TooltipMesAnterior.Should().BeNull();
+        // Assert
+        _sut.FiltroPeriodo.ElegirAtajoCommand.CanExecute(AtajoFecha.MesPasado).Should().BeTrue();
+    }
+
+    // ------------------------------------------------------------------ Filtros: consulta automática y "Limpiar filtros"
+
+    [Fact]
+    public async Task Combos_AntesDeLaCargaInicial_NoConsultan()
+    {
+        // Act: la carga de las listas cambia las selecciones, pero CargarAsync consulta el tablero una sola vez
+        await _sut.CargarAsync();
+
+        // Assert
+        await _reporteService.Received(1).ObtenerTableroAsync(IdActor, Arg.Any<FiltroPeriodoDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task HayFiltrosActivos_ConTodoPredeterminado_EsFalsoYDeshabilitaLimpiarFiltros()
+    {
+        await _sut.CargarAsync();
+
+        _sut.HayFiltrosActivos.Should().BeFalse();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task HayFiltrosActivos_ConUnPeriodoDistinto_HabilitaLimpiarFiltros()
+    {
+        await _sut.CargarAsync();
+
+        AplicarPeriodo(new DateTime(2026, 9, 1), new DateTime(2026, 9, 30));
+
+        _sut.HayFiltrosActivos.Should().BeTrue();
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task HayFiltrosActivos_SoloCuentaLosFiltrosDelReporteVisible()
+    {
+        // Arrange: una categoría elegida en Ranking
+        _reporteService.ObtenerRankingAsync(IdActor, Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>()).Returns(Ranking(cantidad: 2));
+        await _sut.CargarAsync();
+        _sut.ReporteSeleccionado = TipoReporteEnum.Ranking;
+        await _sut.EsperarConsultaAutomaticaAsync();
+        _sut.CategoriaSeleccionada = _sut.Categorias[1];
+        _sut.HayFiltrosActivos.Should().BeTrue();
+
+        // Act: el tablero no muestra categoría
+        _sut.ReporteSeleccionado = TipoReporteEnum.Tablero;
+
+        // Assert
+        _sut.HayFiltrosActivos.Should().BeFalse("la categoría no es un filtro del tablero");
+        _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task LimpiarFiltros_ConVariosFiltrosCambiados_LosRestauraYConsultaUnaSolaVez()
+    {
+        // Arrange
+        _reporteService.ObtenerRankingAsync(IdActor, Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>()).Returns(Ranking(cantidad: 2));
+        await _sut.CargarAsync();
+        _sut.ReporteSeleccionado = TipoReporteEnum.Ranking;
+        await _sut.EsperarConsultaAutomaticaAsync();
+        AplicarPeriodo(new DateTime(2026, 9, 1), new DateTime(2026, 9, 30));
+        _sut.CategoriaSeleccionada = _sut.Categorias[1];
+        _sut.MarcaSeleccionada = _sut.Marcas[1];
+        _sut.Criterio = CriterioRankingEnum.Importe;
+        _sut.Cantidad = 5;
+        await _sut.EsperarConsultaAutomaticaAsync();
+        _reporteService.ClearReceivedCalls();
+
+        // Act
+        _sut.LimpiarFiltrosCommand.Execute(null);
+        await _sut.EsperarConsultaAutomaticaAsync();
+
+        // Assert: todo vuelve a lo predeterminado y se consulta una sola vez
+        _sut.Desde.Should().Be(new DateTime(2026, 10, 1));
+        _sut.Hasta.Should().Be(new DateTime(2026, 10, 15));
+        _sut.CategoriaSeleccionada!.Id.Should().BeNull();
+        _sut.MarcaSeleccionada!.Id.Should().BeNull();
+        _sut.Criterio.Should().Be(CriterioRankingEnum.Unidades);
+        _sut.Cantidad.Should().Be(10);
+        _sut.HayFiltrosActivos.Should().BeFalse();
+        await _reporteService.Received(1).ObtenerRankingAsync(
+            IdActor,
+            Arg.Is<FiltroRankingDto>(f => f.IdCategoria == null && f.IdMarca == null && f.Criterio == CriterioRankingEnum.Unidades
+                && f.Cantidad == 10 && f.Desde == new DateOnly(2026, 10, 1) && f.Hasta == Hoy),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task LimpiarFiltros_ConPrimeraVentaPosterior_VuelveAlDesdeRecortadoALaPrimeraVenta()
+    {
+        // Arrange: el mes en curso empieza el 01/10 pero la primera venta fue el 05/10
+        _reporteService.ObtenerFechaMinimaAsync(IdActor, Arg.Any<CancellationToken>()).Returns(new DateOnly(2026, 10, 5));
+        await _sut.CargarAsync();
+        AplicarPeriodo(new DateTime(2026, 10, 6), new DateTime(2026, 10, 10));
+
+        // Act
+        _sut.LimpiarFiltrosCommand.Execute(null);
+
+        // Assert
+        _sut.Desde.Should().Be(new DateTime(2026, 10, 5));
+        _sut.HayFiltrosActivos.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DiasSinVentas_EsUnComboDeValoresFijosQueConsultaAlCambiar()
+    {
+        // Arrange
+        _reporteService.ObtenerSinMovimientoAsync(IdActor, Arg.Any<FiltroSinMovimientoDto>(), Arg.Any<CancellationToken>())
+            .Returns(new SinMovimientoDto { Filtro = new FiltroSinMovimientoDto(), Filas = [new ArticuloSinMovimientoDto { Descripcion = "Atlas" }] });
+        await _sut.CargarAsync();
+        _sut.ReporteSeleccionado = TipoReporteEnum.SinMovimiento;
+        await _sut.EsperarConsultaAutomaticaAsync();
+
+        // Act
+        _sut.Dias = 180;
+        await _sut.EsperarConsultaAutomaticaAsync();
+
+        // Assert
+        _sut.DiasDisponibles.Should().Equal(30, 60, 90, 180, 365);
+        _sut.CantidadesDisponibles.Should().Equal(5, 10, 20, 50);
+        await _reporteService.Received(1).ObtenerSinMovimientoAsync(
+            IdActor, Arg.Is<FiltroSinMovimientoDto>(f => f.Dias == 180), Arg.Any<CancellationToken>());
     }
 
     // ------------------------------------------------------------------ Límites del período (D-32) y comparación (D-31)
@@ -395,7 +547,7 @@ public class DashboardViewModelTests : IDisposable
     [Fact]
     public void FechaMinima_AntesDeCargar_NoLimitaElCalendario()
     {
-        _sut.FechaMinima.Should().Be(DateTime.MinValue);
+        _sut.FiltroPeriodo.FechaMinima.Should().BeNull();
     }
 
     [Fact]
@@ -413,7 +565,7 @@ public class DashboardViewModelTests : IDisposable
             _reporteService.ObtenerFechaMinimaAsync(IdActor, Arg.Any<CancellationToken>());
             _reporteService.ObtenerTableroAsync(IdActor, Arg.Any<FiltroPeriodoDto>(), Arg.Any<CancellationToken>());
         });
-        _sut.FechaMinima.Should().Be(new DateTime(2026, 3, 9));
+        _sut.FiltroPeriodo.FechaMinima.Should().Be(new DateTime(2026, 3, 9));
     }
 
     [Fact]
@@ -426,7 +578,7 @@ public class DashboardViewModelTests : IDisposable
         await _sut.CargarAsync();
 
         // Assert
-        _sut.FechaMinima.Should().Be(new DateTime(2026, 10, 1));
+        _sut.FiltroPeriodo.FechaMinima.Should().Be(new DateTime(2026, 10, 1));
         _sut.Desde.Should().Be(new DateTime(2026, 10, 1));
     }
 
@@ -468,7 +620,7 @@ public class DashboardViewModelTests : IDisposable
         await _sut.CargarAsync();
 
         // Assert
-        _sut.FechaMinima.Should().Be(DateTime.MinValue);
+        _sut.FiltroPeriodo.FechaMinima.Should().BeNull();
         _sut.ResultadoActual.Should().BeOfType<TableroDto>();
     }
 
@@ -733,7 +885,7 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_Ranking_MuestraLasDosTablasSinGraficoEnPantalla()
+    public async Task Ranking_MuestraLasDosTablasSinGraficoEnPantalla()
     {
         // Arrange
         _reporteService.ObtenerRankingAsync(IdActor, Arg.Any<FiltroRankingDto>(), Arg.Any<CancellationToken>())
@@ -755,7 +907,7 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_Rentabilidad_MuestraLaFilaTotalAparte()
+    public async Task Rentabilidad_MuestraLaFilaTotalAparte()
     {
         // Arrange
         _reporteService.ObtenerRentabilidadAsync(IdActor, Arg.Any<FiltroRentabilidadDto>(), Arg.Any<CancellationToken>())
@@ -801,7 +953,7 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConsultarAsync_VentasPorPeriodo_MuestraElDesglosePorMedioEnLosTotalesYNoHayGrafico()
+    public async Task VentasPorPeriodo_MuestraElDesglosePorMedioEnLosTotalesYNoHayGrafico()
     {
         // Arrange
         _reporteService.ObtenerVentasPorPeriodoAsync(IdActor, Arg.Any<FiltroVentasPorPeriodoDto>(), Arg.Any<CancellationToken>())

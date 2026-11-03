@@ -63,7 +63,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="{StaticResource PageMargin}" MaxWidth="1080">
 
-            <components:PageHeader Titulo="Galería de estilos" Subtitulo="Referencia viva del sistema de diseño: fundamentos, componentes y patrones de pantalla con los estilos reales.">
+            <components:PageHeader Titulo="Galería de estilos" Descripcion="Referencia viva del sistema de diseño: fundamentos, componentes y patrones de pantalla con los estilos reales.">
                 <Button Click="BtnAbrirModalMuestra_Click" Style="{StaticResource PrimaryActionButtonStyle}">
                     <StackPanel Orientation="Horizontal">
                         <iconPacks:PackIconBoxIcons Kind="RegularWindow" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
@@ -450,6 +450,37 @@
                     <TextBlock Text="Filtro activo (con 6 opciones o menos no lleva buscador)" Style="{StaticResource GaleriaRotuloStyle}" />
                     <components:FiltroColumna Filtro="{Binding FiltroStock}" />
                 </StackPanel>
+                <StackPanel Margin="48,0,0,0">
+                    <TextBlock Text="Filtro de fechas (rango aplicado)" Style="{StaticResource GaleriaRotuloStyle}" />
+                    <components:FiltroFechaColumna Filtro="{Binding FiltroFecha}" />
+                </StackPanel>
+            </StackPanel>
+
+            <!-- B.5 bis Selector de rango de fechas: el panel que abre FiltroFechaColumna, suelto -->
+            <TextBlock Text="Selector de rango de fechas (panel de FiltroFechaColumna)" Style="{StaticResource GaleriaRotuloStyle}" />
+            <TextBlock Text="Atajos a la izquierda, dos calendarios (desde y hasta) y un pie con el rango elegido. Aplicar filtra; Cancelar o un clic afuera descartan el borrador."
+                       Style="{StaticResource GaleriaNotaStyle}" />
+            <Border Style="{StaticResource FiltroColumnaPanelStyle}"
+                    HorizontalAlignment="Left"
+                    Margin="0,0,0,16">
+                <components:SelectorRangoFecha DataContext="{Binding FiltroFechaPanel}" />
+            </Border>
+
+            <!-- B.5 quater Selector de fecha única -->
+            <TextBlock Text="Selector de fecha única (SelectorFechaUnica)" Style="{StaticResource GaleriaRotuloStyle}" />
+            <TextBlock Text="Un botón con la fecha en dd/MM/yyyy que abre un calendario; elegir un día lo cierra. Es el campo de fecha de un formulario (la fecha del comprobante de un ingreso); para un período se usa el rango."
+                       Style="{StaticResource GaleriaNotaStyle}" />
+            <components:SelectorFechaUnica Fecha="2026-11-03" HorizontalAlignment="Left" Margin="0,0,0,16" />
+
+            <!-- B.5 ter Ícono de información -->
+            <TextBlock Text="Ícono de información (descripción en un tooltip)" Style="{StaticResource GaleriaRotuloStyle}" />
+            <TextBlock Text="Reemplaza a subtítulos y leyendas (R11). El glifo es de 12, pero reacciona en todo el cuadrado de 20 que lo rodea; el tooltip aparece a los 150 ms."
+                       Style="{StaticResource GaleriaNotaStyle}" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                <TextBlock Text="Administración" Style="{StaticResource TextBlockPageTitle}" />
+                <components:IconoInformacion Texto="Copias · Historial de copias completas de la base de datos; permite crear una y restaurar desde una verificada."
+                                             Margin="4,2,0,0"
+                                             VerticalAlignment="Center" />
             </StackPanel>
 
             <!-- B.6 Superficie flotante -->

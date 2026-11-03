@@ -49,22 +49,29 @@ public class ComponentesListadoTests
     }
 
     [Fact]
-    public void PageHeader_ConTituloSubtituloYAcciones_MuestraTodo()
+    public void PageHeader_ConTituloDescripcionYAcciones_MuestraTodo()
     {
         string[] textos = [];
         bool accionEnElArbol = false;
+        Visibility icono = Visibility.Collapsed;
+        object? tooltip = null;
 
         WpfTestHelper.Run(() =>
         {
             var boton = new Button { Content = "Nuevo" };
-            var encabezado = new PageHeader { Titulo = "Catálogo", Subtitulo = "Padrón central", Content = boton };
+            var encabezado = new PageHeader { Titulo = "Catálogo", Descripcion = "Padrón central", Content = boton };
             Distribuir(encabezado);
             textos = Descendientes<TextBlock>(encabezado).Select(t => t.Text).ToArray();
             accionEnElArbol = Descendientes<Button>(encabezado).Contains(boton);
+            var ayuda = Descendientes<IconoInformacion>(encabezado).Single();
+            icono = ayuda.Visibility;
+            tooltip = ayuda.Texto;
         });
 
-        textos.Should().BeEquivalentTo(["Nuevo", "Catálogo", "Padrón central"], "solo el botón, el título y el subtítulo: sin insignias");
+        textos.Should().BeEquivalentTo(["Nuevo", "Catálogo"], "solo el botón y el título: la descripción no ocupa una línea");
         accionEnElArbol.Should().BeTrue("las acciones son el contenido del encabezado");
+        icono.Should().Be(Visibility.Visible);
+        tooltip.Should().Be("Padrón central", "la descripción de la página vive en el tooltip del ícono");
     }
 
     [Fact]
@@ -129,24 +136,23 @@ public class ComponentesListadoTests
     }
 
     [Fact]
-    public void PageHeader_SinSubtitulo_ColapsaSuLinea()
+    public void PageHeader_SinDescripcion_OcultaElIcono()
     {
-        Visibility subtitulo = Visibility.Visible;
+        Visibility icono = Visibility.Visible;
 
         WpfTestHelper.Run(() =>
         {
             var encabezado = new PageHeader { Titulo = "Catálogo" };
             Distribuir(encabezado);
-            subtitulo = Descendientes<TextBlock>(encabezado).Single(t => t.Name == "TextoSubtitulo").Visibility;
+            icono = Descendientes<IconoInformacion>(encabezado).Single().Visibility;
         });
 
-        subtitulo.Should().Be(Visibility.Collapsed, "sin subtítulo no queda una línea vacía y el título se centra con las acciones");
+        icono.Should().Be(Visibility.Collapsed, "sin descripción no hay ícono que no diga nada");
     }
 
     [Fact]
-    public void ListToolbar_ConSeleccion_LasAccionesReemplazanALimpiarFiltrosYALaCarga()
+    public void ListToolbar_ConAccionesMasivas_LasMuestraSiempreJuntoAlBuscadorYALimpiarFiltros()
     {
-        bool panelNormalVisible = true;
         bool accionesVisibles = false;
         bool limpiarVisible = false;
         object? contextoDeLasAcciones = null;
@@ -155,13 +161,12 @@ public class ComponentesListadoTests
         WpfTestHelper.Run(() =>
         {
             var limpiar = new RelayCommand(() => { });
-            var acciones = new BulkActionBar { CantidadSeleccionados = 2 };
-            var barra = new ListToolbar { ComandoLimpiar = limpiar, AccionesDeSeleccion = acciones, HaySeleccion = true };
+            var acciones = new BulkActionBar { CantidadSeleccionados = 0 };
+            var barra = new ListToolbar { ComandoLimpiar = limpiar, AccionesDeSeleccion = acciones };
             var pagina = new Grid { DataContext = viewModel };
             pagina.Children.Add(barra);
             Distribuir(pagina);
             // Fuera de una ventana IsVisible es siempre falso: se mira la Visibility de cada elemento
-            panelNormalVisible = ((FrameworkElement)barra.FindName("PanelNormal")).Visibility == Visibility.Visible;
             accionesVisibles = ((FrameworkElement)barra.FindName("PanelSeleccion")).Visibility == Visibility.Visible
                 && Descendientes<BulkActionBar>(barra).Contains(acciones);
             var botonLimpiar = Descendientes<Button>(barra).Single(b => ReferenceEquals(b.Command, limpiar));
@@ -170,10 +175,26 @@ public class ComponentesListadoTests
             contextoDeLasAcciones = acciones.DataContext;
         });
 
-        panelNormalVisible.Should().BeFalse();
-        accionesVisibles.Should().BeTrue();
-        limpiarVisible.Should().BeFalse("el badge \"N seleccionados ✕\" ocupa el lugar de \"Limpiar filtros\"");
+        accionesVisibles.Should().BeTrue("las acciones masivas están a la vista aunque no haya filas marcadas");
+        limpiarVisible.Should().BeTrue("\"Limpiar filtros\" ya no cede su lugar a las acciones masivas");
         contextoDeLasAcciones.Should().BeSameAs(viewModel, "así los botones de las acciones se enlazan a los comandos de la página");
+    }
+
+    [Theory]
+    [InlineData(0, Visibility.Collapsed)]
+    [InlineData(2, Visibility.Visible)]
+    public void BulkActionBar_InsigniaDeCantidad_SoloApareceConFilasMarcadas(int cantidad, Visibility esperada)
+    {
+        Visibility insignia = Visibility.Visible;
+
+        WpfTestHelper.Run(() =>
+        {
+            var barra = new BulkActionBar { CantidadSeleccionados = cantidad };
+            Distribuir(barra);
+            insignia = Descendientes<Border>(barra).Single(b => b.Name == "InsigniaSeleccion").Visibility;
+        });
+
+        insignia.Should().Be(esperada);
     }
 
     [Fact]
@@ -212,6 +233,65 @@ public class ComponentesListadoTests
         conversor.Convert("pequeñas", typeof(string), null, cultura).Should().Be("PEQUEÑAS");
         conversor.Convert(null, typeof(string), null, cultura).Should().Be(string.Empty);
         FluentActions.Invoking(() => conversor.ConvertBack("X", typeof(string), null, cultura)).Should().Throw<NotSupportedException>();
+    }
+
+    [Theory]
+    [InlineData("DataGridRetailStyle")]
+    [InlineData("DataGridListadoStyle")]
+    public void Grilla_SinEsquinasExplicitas_TieneElBordeRedondeadoDeOchoYSuContenidoRecortado(string estilo)
+    {
+        // El Tablero usa DataGridRetailStyle sin declarar Esquinas: el radio por defecto (8) debe llegar a la plantilla. Un
+        // Binding de ruta a la propiedad adjunta fallaba ("property not found") y dejaba las esquinas cuadradas.
+        CornerRadius radio = default;
+        double radioDelRecorte = 0;
+        bool recortada = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var grilla = new DataGrid
+            {
+                Style = (Style)System.Windows.Application.Current.FindResource(estilo),
+                AutoGenerateColumns = false
+            };
+            var contenedor = new Grid { Width = 400, Height = 200 };
+            contenedor.Children.Add(grilla);
+            Distribuir(contenedor);
+
+            radio = Descendientes<Border>(grilla).First().CornerRadius;
+            var desplazable = Descendientes<ScrollViewer>(grilla).First();
+            radioDelRecorte = EsquinasHelper.GetRadioDelRecorte(desplazable);
+            recortada = desplazable.Clip is not null;
+        });
+
+        radio.Should().Be(new CornerRadius(8));
+        radioDelRecorte.Should().Be(8);
+        recortada.Should().BeTrue("sin el recorte el fondo del encabezado se saldría de las esquinas");
+    }
+
+    [Fact]
+    public void Grilla_ConEsquinasExplicitas_LasLlevaAlBordeYAlRecorte()
+    {
+        CornerRadius radio = default;
+        double radioDelRecorte = 0;
+
+        WpfTestHelper.Run(() =>
+        {
+            var grilla = new DataGrid
+            {
+                Style = (Style)System.Windows.Application.Current.FindResource("DataGridListadoStyle"),
+                AutoGenerateColumns = false
+            };
+            EsquinasHelper.SetEsquinas(grilla, new CornerRadius(7, 7, 0, 0));
+            var contenedor = new Grid { Width = 400, Height = 200 };
+            contenedor.Children.Add(grilla);
+            Distribuir(contenedor);
+
+            radio = Descendientes<Border>(grilla).First().CornerRadius;
+            radioDelRecorte = EsquinasHelper.GetRadioDelRecorte(Descendientes<ScrollViewer>(grilla).First());
+        });
+
+        radio.Should().Be(new CornerRadius(7, 7, 0, 0));
+        radioDelRecorte.Should().Be(7, "el recorte sigue la esquina superior izquierda");
     }
 
     [Fact]
