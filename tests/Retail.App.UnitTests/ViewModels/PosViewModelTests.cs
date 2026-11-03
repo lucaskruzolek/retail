@@ -22,6 +22,7 @@ public class PosViewModelTests
     private readonly IInventarioService _inventarioServiceMock;
     private readonly ICurrentUserSession _sessionMock;
     private readonly IVentaDialogService _dialogServiceMock;
+    private readonly ICajaDialogService _cajaDialogServiceMock;
 
     public PosViewModelTests()
     {
@@ -30,6 +31,7 @@ public class PosViewModelTests
         _inventarioServiceMock = Substitute.For<IInventarioService>();
         _sessionMock = Substitute.For<ICurrentUserSession>();
         _dialogServiceMock = Substitute.For<IVentaDialogService>();
+        _cajaDialogServiceMock = Substitute.For<ICajaDialogService>();
 
         _sessionMock.NombreCompleto.Returns("Juan Cajero");
         _sessionMock.IdUsuario.Returns(2);
@@ -58,7 +60,7 @@ public class PosViewModelTests
     /// </summary>
     private async Task<PosViewModel> CrearViewModelAsync()
     {
-        var viewModel = new PosViewModel(_ventaServiceMock, _cajaServiceMock, _inventarioServiceMock, _sessionMock, _dialogServiceMock);
+        var viewModel = new PosViewModel(_ventaServiceMock, _cajaServiceMock, _inventarioServiceMock, _sessionMock, _dialogServiceMock, _cajaDialogServiceMock);
         await viewModel.CargarEstadoCajaAsync().WaitAsync(TimeSpan.FromSeconds(5));
         return viewModel;
     }
@@ -227,6 +229,19 @@ public class PosViewModelTests
     }
 
     [Fact]
+    public async Task ProcesarEnterAsync_BuscadorVacioConItems_NoAbreElCobro()
+    {
+        // Decisión: Enter es la tecla del lector de códigos y no cobra; el cobro es solo F12
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Hoja A4", 50m, stock: 500));
+        ConfigurarVerificacion(VerificacionSinNovedades());
+
+        await viewModel.ProcesarEnterAsync();
+
+        await _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarCobroModalAsync(default, default);
+        _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarAlerta(default!, default!);
+    }
+
+    [Fact]
     public async Task ProcesarEnterAsync_ConLectorDeCodigosYBusquedaPredictivaEnCurso_EsperaSuTurnoYAgregaElArticulo()
     {
         // Arrange: el lector tipea el código (dispara la búsqueda predictiva) y manda Enter mientras ella consulta
@@ -377,6 +392,124 @@ public class PosViewModelTests
 
         // Assert
         await _dialogServiceMock.DidNotReceive().MostrarCobroModalAsync(Arg.Any<decimal>(), Arg.Any<ClienteDto?>());
+    }
+
+    private static TurnoCajaDto TurnoAbierto(int idTurno, int idUsuario, decimal saldoInicial)
+    {
+        return new TurnoCajaDto
+        {
+            IdTurno = idTurno,
+            IdUsuario = idUsuario,
+            NombreUsuario = "cajero",
+            FechaApertura = DateTime.UtcNow,
+            SaldoInicial = saldoInicial,
+            SaldoTeoricoEfectivo = saldoInicial,
+            Estado = EstadoTurnoEnum.Abierto
+        };
+    }
+
+    private void ConfigurarApertura(bool? resultado, decimal saldoInicial)
+    {
+        _cajaDialogServiceMock.MostrarDialogoApertura(out _).ReturnsForAnyArgs(x =>
+        {
+            x[0] = saldoInicial;
+            return resultado;
+        });
+    }
+
+    [Fact]
+    public async Task MostrarAvisoCajaCerrada_SinTurnoAbierto_EsVerdadero()
+    {
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns((TurnoCajaDto?)null);
+
+        var viewModel = await CrearViewModelAsync();
+
+        viewModel.CajaAbierta.Should().BeFalse();
+        viewModel.MostrarAvisoCajaCerrada.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task MostrarAvisoCajaCerrada_ConTurnoAbierto_EsFalso()
+    {
+        var viewModel = await CrearViewModelAsync();
+
+        viewModel.CajaAbierta.Should().BeTrue();
+        viewModel.MostrarAvisoCajaCerrada.Should().BeFalse();
+    }
+
+    [Fact]
+    public void MostrarAvisoCajaCerrada_MientrasSeConsultaLaCaja_EsFalso()
+    {
+        // Hasta que responde la consulta no se sabe si la caja está cerrada: el aviso no debe aparecer y desaparecer.
+        var consulta = new TaskCompletionSource<TurnoCajaDto?>();
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(consulta.Task);
+
+        var viewModel = new PosViewModel(_ventaServiceMock, _cajaServiceMock, _inventarioServiceMock, _sessionMock, _dialogServiceMock, _cajaDialogServiceMock);
+
+        viewModel.EstadoCajaVerificado.Should().BeFalse();
+        viewModel.MostrarAvisoCajaCerrada.Should().BeFalse();
+        viewModel.Dispose();
+    }
+
+    [Fact]
+    public async Task AbrirCajaAsync_ConAperturaAceptada_AbreElTurnoDelUsuarioDeLaSesionYHabilitaElCobro()
+    {
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns((TurnoCajaDto?)null);
+        _cajaServiceMock.AbrirTurnoAsync(Arg.Any<AperturaTurnoDto>(), Arg.Any<CancellationToken>()).Returns(TurnoAbierto(7, 2, 3000m));
+        ConfigurarApertura(true, 3000m);
+        var viewModel = await CrearViewModelAsync();
+
+        await viewModel.AbrirCajaAsync();
+
+        await _cajaServiceMock.Received(1).AbrirTurnoAsync(
+            Arg.Is<AperturaTurnoDto>(d => d.IdUsuario == 2 && d.SaldoInicial == 3000m),
+            Arg.Any<CancellationToken>());
+        viewModel.CajaAbierta.Should().BeTrue();
+        viewModel.TurnoActivo!.IdTurno.Should().Be(7);
+        viewModel.MostrarAvisoCajaCerrada.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AbrirCajaAsync_ConAperturaCancelada_NoAbreNingunTurno()
+    {
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns((TurnoCajaDto?)null);
+        ConfigurarApertura(false, 0m);
+        var viewModel = await CrearViewModelAsync();
+
+        await viewModel.AbrirCajaAsync();
+
+        await _cajaServiceMock.DidNotReceive().AbrirTurnoAsync(Arg.Any<AperturaTurnoDto>(), Arg.Any<CancellationToken>());
+        viewModel.MostrarAvisoCajaCerrada.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task AbrirCajaAsync_TurnoYaAbiertoEnOtraTerminal_MuestraAlertaYLaCajaSigueCerrada()
+    {
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns((TurnoCajaDto?)null);
+        _cajaServiceMock.AbrirTurnoAsync(Arg.Any<AperturaTurnoDto>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new TurnoYaAbiertoException("Ya existe un turno de caja abierto en el sistema."));
+        ConfigurarApertura(true, 1000m);
+        var viewModel = await CrearViewModelAsync();
+
+        await viewModel.AbrirCajaAsync();
+
+        _dialogServiceMock.Received(1).MostrarAlerta("Caja no abierta", Arg.Any<string>());
+        _dialogServiceMock.DidNotReceive().MostrarError(Arg.Any<string>(), Arg.Any<string>());
+        viewModel.CajaAbierta.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AbrirCajaAsync_SinUsuarioEnSesion_NoMuestraElDialogoNiAbreElTurno()
+    {
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns((TurnoCajaDto?)null);
+        _sessionMock.IdUsuario.Returns((int?)null);
+        var viewModel = await CrearViewModelAsync();
+
+        await viewModel.AbrirCajaAsync();
+
+        _cajaDialogServiceMock.DidNotReceiveWithAnyArgs().MostrarDialogoApertura(out _);
+        await _cajaServiceMock.DidNotReceive().AbrirTurnoAsync(Arg.Any<AperturaTurnoDto>(), Arg.Any<CancellationToken>());
+        _dialogServiceMock.Received(1).MostrarAlerta("Sesión incompleta", Arg.Any<string>());
     }
 
     [Fact]

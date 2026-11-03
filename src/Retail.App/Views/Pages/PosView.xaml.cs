@@ -56,6 +56,18 @@ public partial class PosView : UserControl
     }
 
     /// <summary>
+    /// Con la caja cerrada el buscador está bloqueado. Al abrirla (desde el aviso), recupera el foco: el cajero escanea
+    /// sin tener que hacer clic primero en el campo.
+    /// </summary>
+    private void OnTxtBuscadorIsEnabledChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true)
+        {
+            TxtBuscador.Focus();
+        }
+    }
+
+    /// <summary>
     /// Desplaza el desplegable hasta la fila seleccionada con el teclado. Solo se llama desde las flechas: si se
     /// llamara también al seleccionar con el hover, la lista se movería debajo del mouse y seleccionaría otra fila.
     /// </summary>

@@ -35,6 +35,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
     private readonly IInventarioService _inventarioService;
     private readonly ICurrentUserSession _session;
     private readonly IVentaDialogService _dialogService;
+    private readonly ICajaDialogService _cajaDialogService;
     private readonly ILogger<PosViewModel> _logger;
 
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(180);
@@ -61,7 +62,16 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeCobrar))]
+    [NotifyPropertyChangedFor(nameof(MostrarAvisoCajaCerrada))]
     private bool _cajaAbierta;
+
+    /// <summary>
+    /// Ya se consultó el estado de la caja. Hasta entonces CajaAbierta vale false sin que se sepa si está cerrada: el
+    /// aviso esperaría a la respuesta en lugar de aparecer y desaparecer al abrir la pantalla.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrarAvisoCajaCerrada))]
+    private bool _estadoCajaVerificado;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Total))]
@@ -108,7 +118,11 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
     public bool TieneItems => Items.Count > 0;
 
-    public string OperadorNombre => _session.NombreCompleto;
+    /// <summary>
+    /// La caja está cerrada (RF-13): la vista muestra el aviso con "Abrir caja" y bloquea el buscador, así no se arma un
+    /// ticket que después no se puede cobrar.
+    /// </summary>
+    public bool MostrarAvisoCajaCerrada => EstadoCajaVerificado && !CajaAbierta;
 
     public PosViewModel(
         IVentaService ventaService,
@@ -116,6 +130,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
         IInventarioService inventarioService,
         ICurrentUserSession session,
         IVentaDialogService dialogService,
+        ICajaDialogService cajaDialogService,
         ILogger<PosViewModel>? logger = null)
     {
         _ventaService = ventaService ?? throw new ArgumentNullException(nameof(ventaService));
@@ -123,6 +138,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        _cajaDialogService = cajaDialogService ?? throw new ArgumentNullException(nameof(cajaDialogService));
         _logger = logger ?? NullLogger<PosViewModel>.Instance;
 
         // Se crea antes de CargarEstadoCajaAsync, que ya la usa. Con el logger, una búsqueda lenta que se descarta
@@ -256,7 +272,10 @@ public partial class PosViewModel : ObservableObject, IDisposable
             return;
         }
 
-        // 2. Si se ingresó un valor directo en el campo sin navegar el popup (típico del lector de códigos)
+        // 2. Si se ingresó un valor directo en el campo sin navegar el popup (típico del lector de códigos).
+        //    Con el buscador vacío, Enter no hace nada y en particular NO abre el cobro: Enter es la tecla con la que el
+        //    lector termina cada código, y un Enter de más seguido de escaneos a ciegas podría cobrar con un monto
+        //    absurdo. El cobro queda solo en F12, que el lector nunca envía.
         string entrada = TextoBusqueda.Trim();
         if (string.IsNullOrWhiteSpace(entrada))
         {
@@ -658,11 +677,70 @@ public partial class PosViewModel : ObservableObject, IDisposable
             {
                 TurnoActivo = turno;
                 CajaAbierta = TurnoActivo?.Estado == EstadoTurnoEnum.Abierto;
+                EstadoCajaVerificado = true;
             },
             ex =>
             {
                 _logger.LogWarning(ex, "No se pudo recuperar el turno de caja activo: {Mensaje}", ex.Message);
                 CajaAbierta = false;
+                EstadoCajaVerificado = true;
+            });
+    }
+
+    /// <summary>
+    /// Abre el turno desde el mostrador con el diálogo de apertura de la pantalla de Caja (RF-13). El turno queda a nombre
+    /// del usuario de la sesión, y la apertura espera su turno sobre el DbContext de la pantalla como cualquier acceso (H-19).
+    /// </summary>
+    [RelayCommand]
+    public async Task AbrirCajaAsync()
+    {
+        if (CajaAbierta)
+        {
+            return;
+        }
+
+        if (_session.IdUsuario is not int idUsuario)
+        {
+            _dialogService.MostrarAlerta(
+                "Sesión incompleta",
+                "No se pudo identificar el usuario de la sesión. Vuelva a iniciar sesión para abrir la caja.");
+            return;
+        }
+
+        if (_cajaDialogService.MostrarDialogoApertura(out decimal saldoInicial) != true)
+        {
+            return;
+        }
+
+        var dto = new AperturaTurnoDto
+        {
+            IdUsuario = idUsuario,
+            SaldoInicial = saldoInicial
+        };
+
+        await _accesoDatos.EjecutarOperacionAsync(
+            token => Task.Run(() => _cajaService.AbrirTurnoAsync(dto, token), token),
+            turno =>
+            {
+                TurnoActivo = turno;
+                CajaAbierta = turno.Estado == EstadoTurnoEnum.Abierto;
+            },
+            ex =>
+            {
+                if (ex is ValidationException validacion)
+                {
+                    _dialogService.MostrarAlerta("Caja no abierta", string.Join("\n", validacion.Errors.Select(e => e.ErrorMessage)));
+                }
+                else if (ex is DomainException)
+                {
+                    // Regla de negocio (por ejemplo, ya hay un turno abierto en otra terminal): información, no falla.
+                    _dialogService.MostrarAlerta("Caja no abierta", ex.Message);
+                }
+                else
+                {
+                    _logger.LogError(ex, "Error al abrir la caja desde el mostrador: {Mensaje}", ex.Message);
+                    _dialogService.MostrarError("Error de apertura", ex.Message);
+                }
             });
     }
 

@@ -3,20 +3,35 @@
                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                    xmlns:components="clr-namespace:Retail.App.Views.Components"
+                   xmlns:converters="clr-namespace:Retail.App.Converters"
+                   xmlns:enums="clr-namespace:Retail.Domain.Enums;assembly=Retail.Domain"
                    xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
-                   Title="Checkout y Cobro Multimedio"
-                   Width="560"
-                   Height="704"
-                   MinWidth="520"
-                   MinHeight="664"
+                   Title="Cobrar venta"
+                   Width="600"
+                   Height="640"
                    WindowStartupLocation="CenterOwner"
                    ExtendsContentIntoTitleBar="True"
                    Background="{DynamicResource DialogBackgroundBrush}"
-                   ResizeMode="NoResize">
+                   ResizeMode="NoResize"
+                   PreviewKeyDown="OnVentanaPreviewKeyDown">
 
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+            <converters:IgualAParametroConverter x:Key="IgualAParametroConverter" />
+
+            <!-- Opción de medio de pago: más alta que la del selector estándar (mostrador, Ley de Fitts) y con menos relleno
+                 lateral para que los cinco medios entren en una fila. -->
+            <Style x:Key="MedioPagoOpcionStyle" TargetType="RadioButton" BasedOn="{StaticResource SegmentedRadioButtonStyle}">
+                <Setter Property="Padding" Value="4,10" />
+            </Style>
+
+            <Style x:Key="ResumenImporteStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockBody}">
+                <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+                <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeLg}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
@@ -27,311 +42,260 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de título: título y botones de ventana en la misma banda -->
-        <components:EncabezadoDialogo Titulo="Checkout y Cobro Multimedio" />
+        <components:EncabezadoDialogo Titulo="Cobrar venta" />
 
-        <!-- Contenido Central Scrollable -->
-        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="12,0,12,12">
-            <StackPanel>
-                <!-- Alerta de Error si la hubiera -->
-                <Border Background="{DynamicResource DangerBackgroundBrush}"
-                        BorderBrush="{DynamicResource DangerBorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Padding="12,8"
-                        Margin="{StaticResource StackMd}"
-                        Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="{Binding MensajeError}"
-                               Foreground="{DynamicResource DangerForegroundBrush}"
-                               FontSize="{StaticResource FontSizeSm}"
-                               TextWrapping="Wrap" />
-                </Border>
+        <!-- Una sola superficie: resumen arriba (total y desglose de pagos) y el pago en curso (medio y monto). Altura
+             fija: el resumen nunca sale de la vista; solo el desglose tiene desplazamiento propio. -->
+        <Border Grid.Row="1" Style="{StaticResource DialogSectionStyle}" Margin="12,0,12,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <!-- Tarjeta 1: Cliente, total y estado del cobro (D-17). El total tiene su propia fila a todo el
-                     ancho: en una columna compartida, un importe largo desbordaba sobre la pastilla del saldo. -->
-                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Resumen del cobro" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                <!-- Resumen: el total a la izquierda y, con pagos cargados, el desglose a la derecha, leído como un ticket:
+                     cada pago, una línea y lo que falta cobrar (ámbar). Las filas son "lo pagado": no se repite su suma.
+                     Los importes forman una sola columna, alineada con el de "Falta cobrar"; el tacho queda fuera de ella. -->
+                <Grid Grid.Row="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="CLIENTE"
-                                   Style="{StaticResource TextBlockCaptionSecondary}"
-                                   FontWeight="Bold" />
-                        <TextBlock Text="{Binding Cliente.RazonSocialONombre, FallbackValue='Consumidor Final', TargetNullValue='Consumidor Final'}"
-                                   Style="{StaticResource TextBlockBody}"
-                                   FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis"
-                                   Margin="0,2,0,0" />
+                    <TextBlock Grid.ColumnSpan="2"
+                               Text="{Binding Cliente.RazonSocialONombre, FallbackValue='Consumidor final', TargetNullValue='Consumidor final'}"
+                               Style="{StaticResource TextBlockBody}"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="{StaticResource StackSm}" />
 
-                        <Border Height="1"
-                                Background="{DynamicResource SurfaceBorderBrush}"
-                                Margin="0,12" />
-
-                        <TextBlock Text="TOTAL A COBRAR"
-                                   Style="{StaticResource TextBlockCaptionSecondary}"
-                                   FontWeight="Bold" />
-                        <!-- TextBlockDisplayCurrency alinea a la derecha (visor del POS); en el modal se lee como encabezado -->
+                    <StackPanel Grid.Row="1" VerticalAlignment="Bottom">
+                        <TextBlock Text="Total" Style="{StaticResource TextBlockCaptionSecondary}" />
                         <TextBlock Text="{Binding TotalVentaFormateado}"
                                    Style="{StaticResource TextBlockDisplayCurrency}"
-                                   TextAlignment="Left"
-                                   Margin="0,2,0,0" />
-
-                        <Grid Margin="0,12,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Lo ya imputado con los pagos cargados -->
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                <TextBlock Text="IMPUTADO"
-                                           FontSize="{StaticResource FontSize2Xs}"
-                                           FontWeight="Bold"
-                                           Foreground="{DynamicResource TextSecondaryBrush}" />
-                                <TextBlock Text="{Binding TotalImputadoFormateado}"
-                                           FontFamily="{StaticResource FontFamilyNumeric}"
-                                           Typography.NumeralAlignment="Tabular"
-                                           FontSize="{StaticResource FontSizeLg}"
-                                           FontWeight="Bold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" />
-                            </StackPanel>
-
-                            <!-- Saldo pendiente: carmín mientras falte cobrar, verde cuando llega a cero -->
-                            <Border Grid.Column="2"
-                                    CornerRadius="6"
-                                    Padding="12,8"
-                                    BorderThickness="1">
-                                <Border.Style>
-                                    <Style TargetType="Border">
-                                        <Setter Property="Background" Value="{DynamicResource PrimaryLightBrush}" />
-                                        <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                                        <Setter Property="TextElement.Foreground" Value="{DynamicResource PrimaryBrush}" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding TieneSaldoPendiente}" Value="False">
-                                                <Setter Property="Background" Value="{DynamicResource SuccessBackgroundBrush}" />
-                                                <Setter Property="BorderBrush" Value="{DynamicResource SuccessBorderBrush}" />
-                                                <Setter Property="TextElement.Foreground" Value="{DynamicResource SuccessForegroundBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <StackPanel>
-                                    <TextBlock Text="SALDO PENDIENTE"
-                                               FontSize="{StaticResource FontSize2Xs}"
-                                               FontWeight="Bold" />
-                                    <TextBlock Text="{Binding SaldoPendienteFormateado}"
-                                               FontFamily="{StaticResource FontFamilyNumeric}"
-                                               Typography.NumeralAlignment="Tabular"
-                                               FontSize="{StaticResource FontSizeLg}"
-                                               FontWeight="Bold" />
-                                </StackPanel>
-                            </Border>
-                        </Grid>
+                                   TextAlignment="Left" />
                     </StackPanel>
-                </Border>
 
-                <!-- Tarjeta 2: Selección del Medio de Pago e Imputación -->
-                <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularCreditCard" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Medio de pago" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
-
-                        <!-- Selector de Medios de Pago -->
-                        <ComboBox ItemsSource="{Binding MediosPagoDisponibles}"
-                                  ItemTemplate="{StaticResource EnumTextoItemTemplate}"
-                                  SelectedItem="{Binding MedioPagoSeleccionado, Mode=TwoWay}"
-                                  Margin="0,0,0,12" />
-
-                        <!-- Monto a Imputar -->
-                        <TextBlock Text="Monto a Cancelar" Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,0,0,4" />
-                        <ui:TextBox Text="{Binding MontoImputar, UpdateSourceTrigger=PropertyChanged}"
-                                    FontFamily="{StaticResource FontFamilyNumeric}"
-                                    Typography.NumeralAlignment="Tabular"
-                                    FontSize="{StaticResource FontSizeMd}"
-                                    FontWeight="SemiBold"
-                                    Margin="0,0,0,12" />
-
-                        <!-- VISTA DINÁMICA: Efectivo -->
-                        <StackPanel Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisConverter}}">
-                            <TextBlock Text="Billetes Rápidos (Efectivo Recibido)" Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,0,0,8" />
-                            <WrapPanel Margin="0,0,0,12">
-                                <Button Command="{Binding EstablecerPagoExactoCommand}"
-                                        Style="{StaticResource KeycapButtonStyle}"
-                                        Content="Exacto"
-                                        Margin="0,0,8,8" />
-                                <Button Command="{Binding SumarMilCommand}"
-                                        Style="{StaticResource KeycapButtonStyle}"
-                                        Content="$1.000"
-                                        Margin="0,0,8,8" />
-                                <Button Command="{Binding SumarDosMilCommand}"
-                                        Style="{StaticResource KeycapButtonStyle}"
-                                        Content="$2.000"
-                                        Margin="0,0,8,8" />
-                                <Button Command="{Binding SumarCincoMilCommand}"
-                                        Style="{StaticResource KeycapButtonStyle}"
-                                        Content="$5.000"
-                                        Margin="0,0,8,8" />
-                                <Button Command="{Binding SumarDiezMilCommand}"
-                                        Style="{StaticResource KeycapButtonStyle}"
-                                        Content="$10.000"
-                                        Margin="0,0,8,8" />
-                                <Button Command="{Binding SumarVeinteMilCommand}"
-                                        Style="{StaticResource KeycapButtonStyle}"
-                                        Content="$20.000"
-                                        Margin="0,0,8,8" />
-                            </WrapPanel>
-
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                    <TextBlock Text="Efectivo Recibido" Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,0,0,4" />
-                                    <ui:TextBox Text="{Binding EfectivoRecibido, UpdateSourceTrigger=PropertyChanged}"
-                                                FontFamily="{StaticResource FontFamilyNumeric}"
-                                                Typography.NumeralAlignment="Tabular"
-                                                FontSize="{StaticResource FontSizeMd}"
-                                                FontWeight="SemiBold" />
-                                </StackPanel>
-
-                                <Border Grid.Column="1"
-                                        Background="{DynamicResource SuccessBackgroundBrush}"
-                                        BorderBrush="{DynamicResource SuccessBorderBrush}"
-                                        BorderThickness="1"
-                                        CornerRadius="6"
-                                        Padding="12,8"
-                                        VerticalAlignment="Bottom">
-                                    <StackPanel>
-                                        <TextBlock Text="VUELTO A ENTREGAR"
-                                                   FontSize="{StaticResource FontSize2Xs}"
-                                                   FontWeight="Bold"
-                                                   Foreground="{DynamicResource SuccessForegroundBrush}" />
-                                        <TextBlock Text="{Binding VueltoFormateado}"
-                                                   FontFamily="{StaticResource FontFamilyNumeric}"
-                                                   Typography.NumeralAlignment="Tabular"
-                                                   FontSize="{StaticResource FontSizeLg}"
-                                                   FontWeight="Bold"
-                                                   Foreground="{DynamicResource SuccessForegroundBrush}" />
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
-                        </StackPanel>
-
-                        <!-- VISTA DINÁMICA: Cuenta Corriente -->
-                        <StackPanel Visibility="{Binding EsCuentaCorriente, Converter={StaticResource BoolToVisConverter}}">
-                            <Border Background="{DynamicResource WarningBackgroundBrush}"
-                                    BorderBrush="{DynamicResource WarningBorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="6"
-                                    Padding="12,8"
-                                    Margin="0,0,0,12">
-                                <StackPanel>
-                                    <TextBlock Text="Crédito Disponible de Cuenta Corriente"
-                                               FontWeight="SemiBold"
-                                               Foreground="{DynamicResource WarningForegroundBrush}" />
-                                    <TextBlock Text="{Binding CreditoDisponibleFormateado}"
-                                               FontFamily="{StaticResource FontFamilyNumeric}"
-                                               Typography.NumeralAlignment="Tabular"
-                                               FontSize="{StaticResource FontSizeLg}"
-                                               FontWeight="Bold"
-                                               Foreground="{DynamicResource WarningForegroundBrush}"
-                                               Margin="0,2,0,0" />
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-
-                        <!-- Botón Imputar Pago Parcial / Total -->
-                        <!-- D-22: sin campo de referencia/cupón (ningún requisito lo pide). La columna
-                             PAGOS_VENTA.referencia_pago y el Dominio lo siguen admitiendo si un RF futuro lo requiere. -->
-                        <Button Command="{Binding ImputarPagoCommand}"
-                                Style="{StaticResource KeycapButtonStyle}"
-                                HorizontalAlignment="Stretch">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                                <TextBlock Text="Imputar Pago al Ticket" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
-                </Border>
-
-                <!-- Tarjeta 3: Lista de Pagos Imputados -->
-                <Border Style="{StaticResource DialogSectionStyle}">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularWallet" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Pagos registrados en esta operación" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
-
-                        <ItemsControl ItemsSource="{Binding PagosImputados}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="{DynamicResource SurfaceBorderBrush}"
-                                            BorderThickness="0,0,0,1"
-                                            Padding="0,8">
-                                        <DockPanel LastChildFill="True">
-                                            <Button DockPanel.Dock="Right"
+                    <StackPanel Grid.Row="1"
+                                Grid.Column="1"
+                                MinWidth="288"
+                                Margin="16,0,0,0"
+                                VerticalAlignment="Bottom"
+                                Visibility="{Binding TienePagos, Converter={StaticResource BoolToVisConverter}}">
+                        <ScrollViewer MaxHeight="104" VerticalScrollBarVisibility="Auto" Focusable="False">
+                            <ItemsControl ItemsSource="{Binding PagosImputados}" Focusable="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <!-- 12 de sangría a cada lado: el texto queda alineado con el de la franja ámbar
+                                             (1 de borde + 11 de relleno) -->
+                                        <Grid Margin="{StaticResource StackXs}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="32" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding MedioPago, Converter={StaticResource EnumATextoConverter}}"
+                                                       Style="{StaticResource TextBlockBody}"
+                                                       FontSize="{StaticResource FontSizeMd}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"
+                                                       Margin="12,0,16,0" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Monto, StringFormat=C2, ConverterCulture=es-AR}"
+                                                       Style="{StaticResource ResumenImporteStyle}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,12,0" />
+                                            <Button Grid.Column="2"
+                                                    HorizontalAlignment="Right"
                                                     Command="{Binding DataContext.RemoverPagoCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}"
                                                     Style="{StaticResource IconDangerButtonStyle}"
-                                                    ToolTip="Quitar pago">
+                                                    Focusable="False"
+                                                    ToolTip="Quitar pago"
+                                                    AutomationProperties.Name="Quitar pago">
                                                 <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
                                             </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
 
-                                            <StackPanel DockPanel.Dock="Right" Margin="0,0,16,0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Monto, StringFormat={}${0:N2}}"
-                                                           FontFamily="{StaticResource FontFamilyNumeric}"
-                                                           Typography.NumeralAlignment="Tabular"
-                                                           FontWeight="Bold"
-                                                           FontSize="{StaticResource FontSizeMd}"
-                                                           HorizontalAlignment="Right" />
-                                            </StackPanel>
-
-                                            <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding MedioPago, Converter={StaticResource EnumATextoConverter}}" FontWeight="SemiBold" />
-                                            </StackPanel>
-                                        </DockPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <CheckBox IsChecked="{Binding ImprimirTicket, Mode=TwoWay}"
-                                  Content="Imprimir ticket de venta oficial al confirmar (FileDebugTicketPrinterService)"
-                                  Margin="0,12,0,0" />
+                        <!-- La línea del ticket y, debajo, lo que falta: misma columna de importes que los pagos -->
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="32" />
+                            </Grid.ColumnDefinitions>
+                            <Border Height="1" Background="{DynamicResource SurfaceBorderBrush}" VerticalAlignment="Top" />
+                            <Border Margin="0,9,0,0"
+                                    Background="{DynamicResource WarningBackgroundBrush}"
+                                    BorderBrush="{DynamicResource WarningBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource RadiusMd}"
+                                    Padding="11,4">
+                                <DockPanel>
+                                    <TextBlock Text="Falta cobrar"
+                                               Style="{StaticResource TextBlockBody}"
+                                               FontSize="{StaticResource FontSizeMd}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{DynamicResource WarningForegroundBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,16,0" />
+                                    <TextBlock Text="{Binding SaldoPendienteFormateado}"
+                                               Style="{StaticResource ResumenImporteStyle}"
+                                               Foreground="{DynamicResource WarningForegroundBrush}"
+                                               HorizontalAlignment="Right" />
+                                </DockPanel>
+                            </Border>
+                        </Grid>
                     </StackPanel>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
+                </Grid>
 
-        <!-- Barra Inferior de Confirmación -->
-        <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
+                <Separator Grid.Row="1" Margin="0,16" />
+
+                <!-- Medio de pago: las flechas lo cambian (las maneja la vista y se lo pide al ViewModel) y Tab entra una
+                     sola vez al grupo, así el siguiente Tab llega al monto. -->
+                <StackPanel Grid.Row="2" Margin="{StaticResource StackLg}">
+                    <TextBlock Text="Medio de pago" Style="{StaticResource TextBlockCaptionSecondary}" Margin="{StaticResource StackXs}" />
+                    <components:SelectorSegmentado x:Name="SelectorMedios"
+                                                   HorizontalAlignment="Stretch"
+                                                   PreviewKeyDown="OnSelectorMediosPreviewKeyDown">
+                        <UniformGrid x:Name="OpcionesMedioPago"
+                                     Columns="5"
+                                     KeyboardNavigation.TabNavigation="Once"
+                                     KeyboardNavigation.DirectionalNavigation="None">
+                            <RadioButton Content="Efectivo"
+                                         IsChecked="{Binding MedioPagoSeleccionado, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static enums:MedioPagoEnum.Efectivo}}"
+                                         Style="{StaticResource MedioPagoOpcionStyle}" />
+                            <RadioButton Content="Débito"
+                                         IsChecked="{Binding MedioPagoSeleccionado, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static enums:MedioPagoEnum.TarjetaDebito}}"
+                                         Style="{StaticResource MedioPagoOpcionStyle}" />
+                            <RadioButton Content="Crédito"
+                                         IsChecked="{Binding MedioPagoSeleccionado, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static enums:MedioPagoEnum.TarjetaCredito}}"
+                                         Style="{StaticResource MedioPagoOpcionStyle}" />
+                            <RadioButton Content="Transf. / QR"
+                                         IsChecked="{Binding MedioPagoSeleccionado, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static enums:MedioPagoEnum.TransferenciaQr}}"
+                                         Style="{StaticResource MedioPagoOpcionStyle}" />
+                            <RadioButton Content="Cta. cte."
+                                         IsChecked="{Binding MedioPagoSeleccionado, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static enums:MedioPagoEnum.CuentaCorriente}}"
+                                         IsEnabled="{Binding CuentaCorrienteHabilitada}"
+                                         ToolTipService.ShowOnDisabled="True">
+                                <!-- Solo con la opción deshabilitada se explica el motivo (prevención de errores) -->
+                                <RadioButton.Style>
+                                    <Style TargetType="RadioButton" BasedOn="{StaticResource MedioPagoOpcionStyle}">
+                                        <Style.Triggers>
+                                            <Trigger Property="IsEnabled" Value="False">
+                                                <Setter Property="ToolTip" Value="El cliente no tiene cuenta corriente habilitada" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </RadioButton.Style>
+                            </RadioButton>
+                        </UniformGrid>
+                    </components:SelectorSegmentado>
+                </StackPanel>
+
+                <!-- Pago en curso: el monto (en efectivo, lo recibido) y, si corresponde, el vuelto o el crédito disponible -->
+                <StackPanel Grid.Row="3">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="{StaticResource ColumnGap}" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel>
+                            <TextBlock Text="{Binding EtiquetaMonto}" Style="{StaticResource TextBlockCaptionSecondary}" Margin="{StaticResource StackXs}" />
+                            <ui:TextBox x:Name="TxtMonto"
+                                        Text="{Binding Monto, UpdateSourceTrigger=PropertyChanged, ConverterCulture=es-AR}"
+                                        FontFamily="{StaticResource FontFamilyNumeric}"
+                                        Typography.NumeralAlignment="Tabular"
+                                        FontSize="{StaticResource FontSizeXl}"
+                                        FontWeight="SemiBold"
+                                        MinHeight="{StaticResource ControlHeightLg}"
+                                        ToolTip="[Enter] confirma el pago"
+                                        GotKeyboardFocus="OnTxtMontoGotKeyboardFocus"
+                                        PreviewKeyDown="OnTxtMontoPreviewKeyDown" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2"
+                                    VerticalAlignment="Bottom"
+                                    Visibility="{Binding TieneVuelto, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="Vuelto" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                            <TextBlock Text="{Binding VueltoFormateado}"
+                                       Style="{StaticResource TextBlockDisplayCurrency}"
+                                       TextAlignment="Left"
+                                       Foreground="{DynamicResource SuccessForegroundBrush}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2"
+                                    VerticalAlignment="Bottom"
+                                    Visibility="{Binding EsCuentaCorriente, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="Crédito disponible" Style="{StaticResource TextBlockCaptionSecondary}" />
+                            <TextBlock Text="{Binding CreditoDisponibleFormateado}" Style="{StaticResource ResumenImporteStyle}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- El error se muestra junto al campo que lo causa -->
+                    <DockPanel Margin="0,8,0,0" Visibility="{Binding TieneError, Converter={StaticResource BoolToVisConverter}}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularXCircle"
+                                                    Width="14"
+                                                    Height="14"
+                                                    Foreground="{DynamicResource DangerForegroundBrush}"
+                                                    VerticalAlignment="Top"
+                                                    Margin="0,2,8,0" />
+                        <TextBlock Text="{Binding MensajeError}"
+                                   Style="{StaticResource TextBlockCaption}"
+                                   Foreground="{DynamicResource DangerForegroundBrush}"
+                                   TextWrapping="Wrap" />
+                    </DockPanel>
+
+                    <!-- Billetes rápidos (D-16): ayuda con el mouse, fuera del orden de Tab y sin tomar el foco -->
+                    <WrapPanel Margin="0,12,0,0" Visibility="{Binding EsEfectivo, Converter={StaticResource BoolToVisConverter}}">
+                        <Button Command="{Binding EstablecerPagoExactoCommand}" Content="Exacto" Style="{StaticResource KeycapButtonStyle}" Focusable="False" Margin="0,0,8,8" />
+                        <Button Command="{Binding SumarMilCommand}" Content="$ 1.000" Style="{StaticResource KeycapButtonStyle}" Focusable="False" Margin="0,0,8,8" />
+                        <Button Command="{Binding SumarDosMilCommand}" Content="$ 2.000" Style="{StaticResource KeycapButtonStyle}" Focusable="False" Margin="0,0,8,8" />
+                        <Button Command="{Binding SumarCincoMilCommand}" Content="$ 5.000" Style="{StaticResource KeycapButtonStyle}" Focusable="False" Margin="0,0,8,8" />
+                        <Button Command="{Binding SumarDiezMilCommand}" Content="$ 10.000" Style="{StaticResource KeycapButtonStyle}" Focusable="False" Margin="0,0,8,8" />
+                        <Button Command="{Binding SumarVeinteMilCommand}" Content="$ 20.000" Style="{StaticResource KeycapButtonStyle}" Focusable="False" Margin="0,0,0,8" />
+                    </WrapPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Pie: Volver a la izquierda; a la derecha la acción principal, cuyo texto dice lo que hará Enter, y junto a ella
+             la impresión del ticket, que es una decisión sobre esa misma acción. -->
+        <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}" Padding="12,12,12,12">
             <DockPanel LastChildFill="False">
                 <Button DockPanel.Dock="Left"
                         Click="OnCancelarClick"
-                        Content="Volver (Esc)"
+                        Content="Volver"
+                        ToolTip="[Esc]"
                         IsCancel="True"
+                        Focusable="False"
                         Style="{StaticResource KeycapButtonStyle}" />
 
                 <Button DockPanel.Dock="Right"
-                        IsDefault="True"
                         Click="OnConfirmarClick"
-                        IsEnabled="{Binding PuedeConfirmar}"
-                        Style="{StaticResource PrimaryActionButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                        <TextBlock Text="Confirmar Cobro" VerticalAlignment="Center" />
-                        <Border Style="{StaticResource KeycapPrimaryBadgeStyle}" Margin="8,0,0,0">
-                            <TextBlock Text="F12" Style="{StaticResource TextBlockKeycap}" Foreground="White" />
-                        </Border>
-                    </StackPanel>
-                </Button>
+                        Content="{Binding TextoAccionPrincipal}"
+                        ToolTip="[Enter] · [F12]"
+                        Focusable="False"
+                        MinWidth="160"
+                        MinHeight="{StaticResource RowHeightPos}"
+                        Style="{StaticResource PrimaryActionButtonStyle}" />
+
+                <CheckBox DockPanel.Dock="Right"
+                          IsChecked="{Binding ImprimirTicket, Mode=TwoWay}"
+                          Content="Imprimir ticket"
+                          VerticalAlignment="Center"
+                          Margin="{StaticResource InlineMd}" />
             </DockPanel>
         </Border>
     </Grid>
