@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Domain.Common;
 using Retail.Domain.Entities;
@@ -99,8 +100,40 @@ public class RetailDbContext : DbContext, IRetailDbContext
             {
                 entry.Entity.CreatedAt = DateTime.UtcNow;
             }
+            else if (entry.State == EntityState.Modified && entry.Entity is CatalogoProveedor)
+            {
+                UniformarColumnasDeClasificacion(entry);
+            }
         }
 
         return base.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Si cambió alguna columna de la clasificación sugerida de un ítem del catálogo, envía las tres (Track 6.6, M-82).
+    /// EF Core manda en cada UPDATE solo las columnas modificadas, y un ítem sin marca o sin categoría deja la suya en
+    /// nulo; así los UPDATE tienen formas distintas y cada lote de 42 queda con un texto distinto. SQL Server busca el
+    /// plan por el texto exacto, de modo que compilaba un plan por lote (731 compilaciones y 146 s para clasificar
+    /// 30.000 ítems). Con las tres columnas siempre presentes, los lotes repiten el texto y reutilizan el plan. Los
+    /// valores guardados no cambian: a lo sumo se reescribe un nulo con un nulo.
+    /// </summary>
+    private static void UniformarColumnasDeClasificacion(EntityEntry entry)
+    {
+        string[] columnas =
+        [
+            nameof(CatalogoProveedor.IdCategoriaSugerida),
+            nameof(CatalogoProveedor.IdMarcaSugerida),
+            nameof(CatalogoProveedor.FechaClasificacion)
+        ];
+
+        if (!columnas.Any(c => entry.Property(c).IsModified))
+        {
+            return;
+        }
+
+        foreach (var columna in columnas)
+        {
+            entry.Property(columna).IsModified = true;
+        }
     }
 }
