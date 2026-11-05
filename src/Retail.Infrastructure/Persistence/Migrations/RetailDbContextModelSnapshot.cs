@@ -1933,7 +1933,7 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Retail.Domain.Entities.Proveedor", "Proveedor")
-                        .WithMany("Catalogos")
+                        .WithMany()
                         .HasForeignKey("IdProveedor")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -2329,8 +2329,6 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Retail.Domain.Entities.Proveedor", b =>
                 {
-                    b.Navigation("Catalogos");
-
                     b.Navigation("Compras");
 
                     b.Navigation("Equivalencias");

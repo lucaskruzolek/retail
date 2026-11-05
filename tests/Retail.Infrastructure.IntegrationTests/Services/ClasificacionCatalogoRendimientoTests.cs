@@ -94,6 +94,18 @@ public class ClasificacionCatalogoRendimientoTests : IAsyncLifetime, IDisposable
             Informar("2. Lectura aislada de los ítems con tracking", cronometro.Elapsed, $"{catalogos.Count} entidades");
         }
 
+        // Fase 2b: la misma lectura con el proveedor ya en el Change Tracker, como dentro de ClasificarAsync. Con la
+        // colección Proveedor.Catalogos, EF Core enlazaba cada ítem en una List (O(n²), 5 s); sin ella (M-83), cuesta
+        // lo mismo que la fase 2.
+        await using (var lectura = new RetailDbContext(_options))
+        {
+            await new Repository<Proveedor>(lectura).GetByIdAsync(idProveedor);
+            cronometro.Restart();
+            var catalogos = await new CatalogoProveedorQueryService(lectura)
+                .ObtenerParaClasificarAsync(idProveedor, soloPendientes: false);
+            Informar("   2b. La misma lectura con el proveedor ya cargado", cronometro.Elapsed, $"{catalogos.Count} entidades");
+        }
+
         // Fase 3: la clasificación completa (botón "Clasificar catálogo")
         _comandos.Reiniciar();
         _guardado.Reiniciar();
