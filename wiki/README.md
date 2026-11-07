@@ -52,6 +52,7 @@ graph TD
     SISTEMAS["04. Sistemas Transversales"]
     CASOS["05. Casos de Uso y Flujos"]
     DEFENSA["06. Vademécum & Defensa"]
+    RECORRIDOS["07. Funcionalidades de lo general al detalle"]
 
     HOME --> FUND
     HOME --> CAPAS
@@ -59,12 +60,14 @@ graph TD
     HOME --> SISTEMAS
     HOME --> CASOS
     HOME --> DEFENSA
+    HOME --> RECORRIDOS
 
     FUND -.->|Define el estilo de| CAPAS
     CAPAS -.->|Materializa los| PATRONES
     CAPAS -.->|Se apoya en los| SISTEMAS
     CASOS -.->|Ejecuta a través de| CAPAS
     DEFENSA -.->|Evalúa y cuestiona| HOME
+    RECORRIDOS -.->|Integra de punta a punta| CASOS
 ```
 
 ### [01. 🚀 Fundamentos y Onboarding](01-fundamentos-y-onboarding/clean-desktop-monolith.md)
@@ -101,6 +104,9 @@ graph TD
 ### [06. 🎓 Vademécum de Examen y Defensa Técnica](06-vademecum-defensa-tecnica/preguntas-trampa-de-profesores.md)
 * [**Preguntas Trampa de Profesores:**](06-vademecum-defensa-tecnica/preguntas-trampa-de-profesores.md) Justificación rigurosa de decisiones complejas para la mesa de evaluación oral.
 * [**Matriz de Trade-offs y Decisiones de Diseño:**](06-vademecum-defensa-tecnica/matriz-tradeoffs-arquitectura.md) Cuadros comparativos de alternativas consideradas y descartadas (WPF vs Web, EF Core vs Dapper, LocalDB vs SQLite).
+
+### [07. 🔭 Funcionalidades de lo General al Detalle](07-funcionalidades-de-lo-general-al-detalle/README.md)
+* [**Importador de Catálogos:**](07-funcionalidades-de-lo-general-al-detalle/importador-de-catalogos.html) Recorrido progresivo en cinco niveles, de los casos de uso a los algoritmos, más preparación para la defensa: importación, clasificación del catálogo, incorporación y fuentes múltiples. Documento HTML para leer en el navegador e imprimir.
 
 ---
 

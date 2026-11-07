@@ -76,3 +76,5 @@ ml/.venv/
 artifacts/
 # HTML intermedio del manual de usuario: lo genera scripts/generar-manual-pdf.ps1 a partir del .md.
 docs/MANUAL_DE_USUARIO.html
+# Worktrees que Claude Code crea para los subagentes aislados.
+.claude/worktrees/

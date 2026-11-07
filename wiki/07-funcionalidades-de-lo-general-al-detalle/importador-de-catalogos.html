@@ -1,0 +1,1202 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Importador de catálogos</title>
+<style>
+:root {
+    --texto: #1f2328;
+    --texto-suave: #57606a;
+    --fondo: #ffffff;
+    --fondo-suave: #f6f8fa;
+    --borde: #d0d7de;
+    --acento: #9d0f33;
+    --acento-suave: #fbeef1;
+    --nota: #fff8e5;
+    --nota-borde: #d4a72c;
+    --ok: #1a7f37;
+    --ancho: 980px;
+}
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+}
+main { max-width: var(--ancho); margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+h2 {
+    font-size: 1.55rem; margin: 56px 0 8px; padding-top: 16px;
+    border-top: 3px solid var(--acento);
+}
+h3 { font-size: 1.15rem; margin: 32px 0 8px; }
+h4 { font-size: 1rem; margin: 20px 0 6px; }
+p, li { max-width: 78ch; }
+a { color: var(--acento); }
+code {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 0.88em;
+    background: var(--fondo-suave); border: 1px solid var(--borde); border-radius: 4px; padding: 0 4px;
+}
+pre.codigo {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 0.85rem; line-height: 1.5;
+    background: var(--fondo-suave); border: 1px solid var(--borde); border-radius: 6px;
+    padding: 12px 16px; overflow-x: auto; white-space: pre;
+}
+.subtitulo { color: var(--texto-suave); margin: 0 0 24px; }
+.etiqueta {
+    display: inline-block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--acento); margin-bottom: 4px;
+}
+.niveles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 16px 0 24px; }
+.niveles div { border: 1px solid var(--borde); border-radius: 6px; padding: 8px 12px; background: var(--fondo-suave); }
+.niveles b { display: block; color: var(--acento); }
+nav.indice { border: 1px solid var(--borde); border-radius: 6px; padding: 12px 20px; background: var(--fondo-suave); }
+nav.indice ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+nav.indice li { break-inside: avoid; }
+figure { margin: 20px 0; break-inside: avoid; }
+figcaption { font-size: 0.8rem; font-weight: 600; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+pre.mermaid {
+    background: var(--fondo); border: 1px solid var(--borde); border-radius: 6px; padding: 12px;
+    margin: 0; text-align: center; overflow-x: auto; white-space: pre; font-size: 0.8rem;
+}
+pre.mermaid[data-processed="true"] { white-space: normal; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.9rem; break-inside: auto; }
+th, td { border: 1px solid var(--borde); padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: var(--fondo-suave); }
+tr { break-inside: avoid; }
+.llevarte { border-left: 4px solid var(--acento); background: var(--acento-suave); padding: 8px 16px; margin: 16px 0; break-inside: avoid; }
+.llevarte > b { display: block; margin-bottom: 4px; }
+.llevarte ul { margin: 4px 0; padding-left: 20px; }
+.nota { border-left: 4px solid var(--nota-borde); background: var(--nota); padding: 8px 16px; margin: 16px 0; break-inside: avoid; }
+details { border: 1px solid var(--borde); border-radius: 6px; padding: 8px 16px; margin: 12px 0; break-inside: avoid; }
+details > summary { cursor: pointer; font-weight: 600; }
+details > summary::marker { color: var(--acento); }
+details[open] > summary { margin-bottom: 8px; }
+.pie { margin-top: 48px; font-size: 0.85rem; color: var(--texto-suave); border-top: 1px solid var(--borde); padding-top: 12px; }
+@media (max-width: 640px) {
+    nav.indice ol { columns: 1; }
+    h1 { font-size: 1.6rem; }
+}
+@media print {
+    @page { size: A4; margin: 16mm 14mm; }
+    html { font-size: 11pt; }
+    main { max-width: none; padding: 0; }
+    h2 { break-before: page; margin-top: 0; }
+    h2.sin-salto { break-before: auto; }
+    h3, h4 { break-after: avoid; }
+    figure, pre.mermaid, .llevarte, .nota, details { break-inside: avoid; }
+    pre.mermaid { border: none; overflow: visible; }
+    pre.mermaid svg { max-width: 100% !important; max-height: 235mm; height: auto; width: auto; }
+    pre.codigo { white-space: pre-wrap; }
+    @page apaisada { size: A4 landscape; margin: 12mm; }
+    figure.ancho { page: apaisada; }
+    figure.ancho pre.mermaid svg { max-height: 175mm; }
+    a { color: inherit; text-decoration: none; }
+    details > summary::marker { content: ""; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<span class="etiqueta">Retail POS · Funcionalidades de lo general al detalle</span>
+<h1>Importador de catálogos</h1>
+<p class="subtitulo">Cómo entra la lista de precios de un distribuidor al sistema, cómo se clasifica y cómo sus renglones se convierten en fuentes de los artículos de la tienda. Contrastado con el código el 7 de noviembre de 2026.</p>
+
+<p>El documento recorre la funcionalidad en cinco niveles. Cada uno muestra el anterior con más detalle: primero qué casos de uso hay y cómo cambia el estado de los datos, después qué ve el usuario, después qué capa hace cada cosa, luego los mecanismos internos de la importación y por último los algoritmos. Al final hay tres secciones para preparar la defensa.</p>
+
+<div class="niveles">
+    <div><b>Nivel 0</b>El mapa: casos de uso, modelo de datos y ciclos de vida.</div>
+    <div><b>Nivel 1</b>Caja negra: qué ve el usuario en cada caso de uso.</div>
+    <div><b>Nivel 2</b>Por capas: App, Aplicación, Dominio, Infraestructura y SQL Server.</div>
+    <div><b>Nivel 3</b>Por dentro de la importación: diálogo, hilos, filas, atomicidad y errores.</div>
+    <div><b>Nivel 4</b>Los algoritmos: lectura, propagación del costo y clasificación.</div>
+    <div><b>Defensa</b>A. Consultas. B. Rendimiento. C. Validaciones.</div>
+</div>
+
+<nav class="indice" aria-label="Índice">
+<ol>
+    <li><a href="#nivel-0">Nivel 0 · El mapa</a></li>
+    <li><a href="#nivel-1">Nivel 1 · Lo que ve el usuario</a></li>
+    <li><a href="#nivel-2">Nivel 2 · Qué capa hace cada cosa</a></li>
+    <li><a href="#nivel-3">Nivel 3 · Por dentro de la importación</a></li>
+    <li><a href="#nivel-4">Nivel 4 · Los algoritmos</a></li>
+    <li><a href="#defensa-a">Defensa A · Las consultas Q1, Q2 y Q3</a></li>
+    <li><a href="#defensa-b">Defensa B · Rendimiento con muchas filas</a></li>
+    <li><a href="#defensa-c">Defensa C · Validaciones por capa</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ NIVEL 0 -->
+<h2 id="nivel-0" class="sin-salto">Nivel 0 · El mapa</h2>
+<span class="etiqueta">Abstracción máxima</span>
+
+<p>Hay dos tablas que esta guía llama <b>libretas</b>: el <b>catálogo del proveedor</b> (<code>CATALOGOS_PROVEEDORES</code>), con un renglón por producto de cada lista de precios, y la <b>tienda</b> (<code>ARTICULOS</code>), con lo que el comercio vende. Un renglón del catálogo puede ser <b>fuente</b> de un artículo: el lugar donde se compra y del que sale su costo. Los seis casos de uso se entienden según qué hacen con las libretas y con esa relación.</p>
+
+<h3>Las dos libretas y cómo se relacionan</h3>
+<figure>
+<figcaption>Diagrama 0.1 · entidad-relación</figcaption>
+<pre class="mermaid">
+erDiagram
+    PROVEEDORES ||--o{ CATALOGOS_PROVEEDORES : "id_proveedor"
+    ARTICULOS |o--o{ CATALOGOS_PROVEEDORES : "id_articulo: sus fuentes"
+    CATALOGOS_PROVEEDORES |o--o| ARTICULOS : "id_catalogo_proveedor: la principal"
+    ARTICULOS |o--o{ ARTICULOS : "id_articulo_origen: presentaciones"
+    CATALOGOS_PROVEEDORES }o--o| CATEGORIAS : "id_categoria_sugerida"
+    CATALOGOS_PROVEEDORES }o--o| MARCAS : "id_marca_sugerida"
+    ARTICULOS }o--o| CATEGORIAS : "id_categoria"
+    ARTICULOS }o--o| MARCAS : "id_marca"
+    CATALOGOS_PROVEEDORES {
+        int id_catalogo PK
+        int id_proveedor FK
+        nvarchar codigo_proveedor UK "único por proveedor"
+        nvarchar codigo_barras
+        nvarchar descripcion_proveedor
+        decimal precio_costo "mayor o igual a 0"
+        datetime2 fecha_actualizacion "vino en la última planilla"
+        nvarchar rubro_proveedor "texto del proveedor"
+        nvarchar categoria_proveedor "texto del proveedor"
+        nvarchar marca_proveedor "texto del proveedor"
+        int id_categoria_sugerida FK
+        int id_marca_sugerida FK
+        datetime2 fecha_clasificacion "nula si está pendiente"
+        int id_articulo FK "de qué artículo es fuente"
+        datetime2 created_at
+        datetime2 deleted_at "baja lógica"
+    }
+    ARTICULOS {
+        int id_articulo PK
+        nvarchar codigo_barras UK "si no es nulo"
+        nvarchar descripcion
+        int id_categoria FK
+        int id_marca FK
+        nvarchar origen_categoria "sugerida o elegida"
+        nvarchar origen_marca "sugerida o elegida"
+        int id_catalogo_proveedor FK,UK "la fuente principal"
+        int id_articulo_origen FK "si es presentación"
+        int unidades_por_origen
+        decimal costo_reposicion
+        decimal porcentaje_ganancia "markup"
+        decimal precio_venta
+        int stock_actual
+        int stock_minimo
+        bit es_servicio
+        datetime2 created_at
+        datetime2 deleted_at "baja lógica"
+        rowversion row_version "concurrencia optimista"
+    }
+</pre>
+</figure>
+
+<p>El DER muestra las columnas reales de las dos libretas. Además de las relaciones con proveedores, categorías y marcas, las une <b>un par de claves foráneas con roles distintos</b>:</p>
+
+<table>
+<tr><th>Columna</th><th>Qué significa</th><th>Qué garantiza que sea a lo sumo uno</th><th>Decisión</th></tr>
+<tr><td><code>CATALOGOS_PROVEEDORES.id_articulo</code></td><td>De qué artículo es fuente el renglón, principal o adicional. Un artículo puede tener renglones de varios proveedores</td><td>La propia columna, que guarda un solo valor, y <code>CatalogoProveedor.AsignarArticulo</code>, que rechaza un renglón que ya es de otro artículo</td><td>A-1, A-16</td></tr>
+<tr><td><code>ARTICULOS.id_catalogo_proveedor</code></td><td>La <b>fuente principal</b>: la única cuya planilla fija el costo y el precio del artículo</td><td>Que sea una de sus fuentes lo exige <code>Articulo.MarcarFuentePrincipal</code>. Que un renglón sea principal de un solo artículo lo garantiza el índice único filtrado <code>IX_ARTICULOS_id_catalogo_proveedor</code></td><td>A-2, A-16</td></tr>
+<tr><td><code>ARTICULOS.id_articulo_origen</code></td><td>Presentación derivada: el sobre suelto deriva del pack de 100 sobres y recibe su costo dividido</td><td>Una presentación no tiene fuentes propias (<code>CK_ARTICULOS_Presentacion</code> y el dominio)</td><td>RF-21</td></tr>
+</table>
+
+<p><b>¿Por qué dos caminos al mismo dato?</b> Se evaluaron alternativas (A-16). Guardar la principal en <code>ARTICULOS</code> deja que cambiarla toque solo al artículo, que es el dueño de esa decisión, y mantuvo intactos el importador y la propagación del costo. A cambio, la regla "la principal es una de las fuentes del artículo" cruza dos tablas y la base no puede expresarla: la protege el dominio.</p>
+
+<p><b>Por qué solo la principal fija el costo (A-2).</b> Con varias fuentes, "la última planilla importada gana" haría oscilar el precio de venta según el orden en que se importen las listas. Las demás fuentes son de consulta y de pedido: el formulario las compara por costo y el pedido a proveedor puede elegir cualquiera.</p>
+
+<h3>Quién hace qué y sobre qué tabla escribe</h3>
+<figure>
+<figcaption>Diagrama 0.2 · casos de uso</figcaption>
+<pre class="mermaid">
+flowchart LR
+    U(["Encargado del comercio"])
+    subgraph IMP["Pantalla Catálogos mayoristas"]
+        CU1["CU-01 Explorar el catálogo&lt;br/&gt;búsqueda, vinculación, categoría y marca"]
+        CU2["CU-02 Importar planilla"]
+        CU6["CU-06 Clasificar el catálogo"]
+        CU3["CU-03 Incorporar a la tienda"]
+        CU4["CU-04 Vincular un artículo existente"]
+    end
+    subgraph ART["Pantalla Artículos"]
+        CU5["CU-05 Gestionar las fuentes&lt;br/&gt;agregar, quitar, elegir la principal"]
+    end
+    CAT[("Libreta 1&lt;br/&gt;CATALOGOS_PROVEEDORES")]
+    TIE[("Libreta 2&lt;br/&gt;ARTICULOS")]
+    U --&gt; CU1
+    U --&gt; CU2
+    U --&gt; CU6
+    U --&gt; CU3
+    U --&gt; CU4
+    U --&gt; CU5
+    CU1 --&gt;|"lee"| CAT
+    CU2 --&gt;|"escribe costos y textos"| CAT
+    CU2 -.-&gt;|"el costo viaja solo&lt;br/&gt;por la fuente principal"| TIE
+    CU2 -.-&gt;|"opcional: encadena"| CU6
+    CU6 --&gt;|"escribe categoría&lt;br/&gt;y marca sugeridas"| CAT
+    CU3 --&gt;|"escribe id_articulo"| CAT
+    CU3 --&gt;|"crea el artículo con su principal"| TIE
+    CU4 --&gt;|"escribe id_articulo"| CAT
+    CU4 --&gt;|"si es principal:&lt;br/&gt;costo y precio"| TIE
+    CU5 --&gt;|"escribe o libera id_articulo"| CAT
+    CU5 --&gt;|"principal, costo y precio"| TIE
+</pre>
+</figure>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>La planilla <b>solo escribe en el catálogo</b>. La importación nunca crea artículos de la tienda: a la tienda llega únicamente el costo nuevo, y solo a los artículos cuya <b>fuente principal</b> es un renglón de esa planilla.</li>
+    <li>Clasificar (CU-06) tampoco toca la tienda: guarda en cada renglón la categoría y la marca <b>del comercio</b> que sugieren las reglas, para poder explorar el catálogo con la taxonomía propia.</li>
+    <li>CU-03 a CU-05 son de <b>curaduría</b> y escriben en <b>las dos libretas</b>: en el renglón, de qué artículo es fuente (<code>id_articulo</code>); en el artículo, cuál es su principal y, con ella, su costo y su precio. Por eso cada una guarda todo en una sola transacción.</li>
+</ul>
+</div>
+
+<h3>Ciclo de vida de un renglón: su relación con la tienda</h3>
+<figure>
+<figcaption>Diagrama 0.3 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    state "No existe en el catálogo" as NoExiste
+    state "Sin incorporar" as Sin
+    state "Fuente principal de un artículo" as Principal
+    state "Fuente adicional de un artículo" as Adicional
+    [*] --&gt; NoExiste
+    NoExiste --&gt; Sin: CU-02 código nuevo, se crea el renglón
+    Sin --&gt; Sin: CU-02 reimportar, cambia solo el renglón
+    Sin --&gt; Principal: CU-03 incorporar, nace el artículo
+    Sin --&gt; Principal: CU-04 o CU-05 como principal, o primera fuente
+    Sin --&gt; Adicional: CU-04 o CU-05 sin marcarla principal
+    Principal --&gt; Principal: CU-02 el costo viaja al artículo y a sus presentaciones
+    Adicional --&gt; Adicional: CU-02 cambia solo el renglón
+    Adicional --&gt; Principal: CU-05 elegirla como principal
+    Principal --&gt; Adicional: CU-05 o CU-04 eligen otra principal
+    Principal --&gt; Sin: quitarla, desvincular o dar de baja el artículo
+    Adicional --&gt; Sin: quitarla, desvincular o dar de baja el artículo
+</pre>
+</figure>
+
+<p>Los estados "principal" y "adicional" son, para el filtro del explorador, un único estado <b>Ya en tienda</b> (<code>EstadoVinculacionCatalogoEnum.YaEnTienda</code>): el renglón es fuente de algún artículo activo. Al dar de baja un artículo, <code>InventarioService</code> <b>libera sus fuentes</b> en la misma operación (J3): atadas a un artículo dado de baja, no podrían vincularse a otro.</p>
+
+<h3>Ciclo de vida de un renglón: su clasificación</h3>
+<figure>
+<figcaption>Diagrama 0.4 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    state "Pendiente de clasificar" as Pend
+    state "Clasificado" as Clas
+    [*] --&gt; Pend: CU-02 el renglón nace pendiente
+    Pend --&gt; Clas: CU-06 las reglas sugieren categoría y marca, o ninguna
+    Clas --&gt; Pend: CU-02 cambian la descripción, el código de barras o los textos del proveedor
+    Clas --&gt; Clas: CU-02 cambia solo el costo
+    Clas --&gt; Clas: CU-06 reclasificar todo el catálogo
+</pre>
+</figure>
+
+<p>"Pendiente" significa <code>fecha_clasificacion</code> nula (M-74). Un renglón <b>clasificado sin categoría</b> no es lo mismo que uno pendiente: las reglas lo miraron y no lo reconocieron. Por eso el filtro "Sin categoría" excluye a los pendientes, y su cantidad sirve para detectar reglas que faltan.</p>
+
+<h3>El artículo respecto de sus fuentes</h3>
+<figure>
+<figcaption>Diagrama 0.5 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    state "Sin fuentes, costo manual" as Manual
+    state "Con fuente principal" as ConPrincipal
+    state "Con fuentes, sin principal" as SinPrincipal
+    state "Presentación derivada" as Deriv
+    [*] --&gt; Manual: alta a mano en Artículos
+    [*] --&gt; ConPrincipal: CU-03 incorporar desde el catálogo
+    Manual --&gt; ConPrincipal: CU-04 o CU-05, la primera fuente es principal
+    ConPrincipal --&gt; ConPrincipal: CU-02 costo nuevo, precio recalculado con su markup
+    ConPrincipal --&gt; ConPrincipal: sumar o quitar fuentes adicionales
+    ConPrincipal --&gt; SinPrincipal: quitar la principal, conserva el último costo
+    SinPrincipal --&gt; ConPrincipal: elegir una principal, toma su costo
+    SinPrincipal --&gt; Manual: quitar todas las fuentes
+    Manual --&gt; Deriv: se define como presentación de otro artículo
+    Deriv --&gt; Deriv: cambia el costo del origen, costo = origen / unidades
+    note right of Deriv
+        Nunca tiene fuentes propias.
+        Vincularla lanza DomainException.
+    end note
+</pre>
+</figure>
+
+<p>Al quitar la principal, el sistema <b>no elige otra solo</b> (J5): cambiar la principal cambia el precio de venta, y esa decisión es del usuario. Mientras tanto el artículo conserva su último costo.</p>
+
+<details><summary>Autoevaluación N0: ¿por qué una importación no crea artículos en la tienda?</summary>
+<p>Porque el catálogo del distribuidor y la tienda son libretas separadas (RF-07: no sobrecargar el inventario propio con miles de productos que el comercio no vende). Un renglón nuevo queda "Sin incorporar" hasta que alguien decida incorporarlo (CU-03) o hacerlo fuente de un artículo existente (CU-04 o CU-05).</p>
+</details>
+<details><summary>Autoevaluación N0: un renglón es fuente adicional de un artículo y llega una planilla con su costo nuevo. ¿Cambia el precio del artículo?</summary>
+<p>No. Se actualiza el costo del renglón, que queda visible para comparar fuentes y para pedir, pero el costo y el precio del artículo solo los fija la planilla de su fuente principal (A-2). Lo mismo vale para la compra: toda compra actualiza el costo de reposición, sea o no de la principal (A-4).</p>
+</details>
+
+<!-- ============================================================ NIVEL 1 -->
+<h2 id="nivel-1">Nivel 1 · Lo que ve el usuario</h2>
+<span class="etiqueta">Caja negra</span>
+
+<p>Tres participantes: el usuario, el sistema como un todo y la base de datos. Todavía no aparecen clases ni capas. Fijate en <b>cuántas veces se guarda</b>: una sola por operación.</p>
+
+<h3>Importar una planilla (CU-02)</h3>
+<figure>
+<figcaption>Diagrama 1.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Encargado
+    participant S as Retail POS
+    participant DB as Base de datos
+    U-&gt;&gt;S: Elige archivo y mapea columnas
+    U-&gt;&gt;S: Interruptor "Clasificar catálogo" (recordado por proveedor)
+    U-&gt;&gt;S: Importar (F9)
+    S-&gt;&gt;S: Lee la planilla fila por fila
+    S--&gt;&gt;U: Progreso cada 250 filas
+    S-&gt;&gt;DB: Consulta una vez lo que ya existe (Q1, Q2 y Q3)
+    S-&gt;&gt;S: Decide fila por fila: renglón nuevo o existente
+    S-&gt;&gt;DB: Guarda todo junto, en una transacción
+    S--&gt;&gt;U: Nuevos, precios actualizados, filas con error
+    opt el interruptor estaba activo
+        S--&gt;&gt;U: Asociar los valores del proveedor sin traducir
+        S-&gt;&gt;DB: Clasifica los renglones nuevos o modificados
+        S--&gt;&gt;U: Clasificados, con categoría, con marca, sin categoría
+    end
+    Note over S,DB: Todo o nada en cada guardado. Si algo falla, la base no cambia.
+</pre>
+</figure>
+
+<p>Importar y clasificar son <b>dos operaciones separadas</b>, cada una con su transacción. Si la clasificación se cancela, la importación ya quedó guardada y los renglones siguen pendientes de clasificar.</p>
+
+<h3>Clasificar el catálogo (CU-06)</h3>
+<figure>
+<figcaption>Diagrama 1.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Encargado
+    participant S as Retail POS
+    participant DB as Base de datos
+    U-&gt;&gt;S: Clasificar catálogo (o al terminar una importación)
+    S-&gt;&gt;DB: ¿Qué valores del proveedor no tienen equivalencia?
+    alt hay valores sin traducir
+        S--&gt;&gt;U: Diálogo: asociar cada rubro, categoría o marca del proveedor
+        U-&gt;&gt;S: Asocia, ignora o deja sin asociar
+        U-&gt;&gt;S: Clasificar (o Cancelar, y no se clasifica nada)
+    end
+    S-&gt;&gt;DB: Aplica las reglas a todos los renglones y guarda, una transacción
+    S--&gt;&gt;U: "Catálogo clasificado: N ítems, X con categoría, Y con marca, Z sin categoría"
+    opt hay renglones sin categoría
+        U-&gt;&gt;S: Ver sin categoría
+        S--&gt;&gt;U: La grilla filtra la columna Categoría por "Sin categoría"
+    end
+</pre>
+</figure>
+
+<p>La clasificación es <b>pasiva</b> (M-73): no pregunta renglón por renglón. Lo que ninguna regla reconoce queda clasificado sin categoría, y eso es la señal de que falta una regla.</p>
+
+<h3>Incorporar a la tienda (CU-03)</h3>
+<figure>
+<figcaption>Diagrama 1.3 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Encargado
+    participant S as Retail POS
+    participant DB as Base de datos
+    U-&gt;&gt;S: Tilda renglones y pulsa Incorporar
+    S-&gt;&gt;DB: Pide sugerencias de categoría y marca para el lote
+    S--&gt;&gt;U: Modal con "Sugerir clasificación" activado
+    opt paso 1: hay valores del proveedor sin traducir
+        U-&gt;&gt;S: Los asocia a categorías o marcas del comercio
+    end
+    opt paso 2: hay términos nuevos en las descripciones
+        U-&gt;&gt;S: Los asigna a una categoría, crea una o los marca ambiguos
+    end
+    U-&gt;&gt;S: Paso 3: revisa categoría, marca y markup de cada artículo
+    U-&gt;&gt;S: Aceptar
+    S-&gt;&gt;DB: Crea los artículos con su fuente principal, una transacción
+    S--&gt;&gt;U: N incorporados, M omitidos porque ya eran fuente de otro artículo
+</pre>
+</figure>
+
+<p>Los pasos 1 y 2 aparecen solo si tienen contenido, y sus decisiones se guardan en el momento: son reglas nuevas del comercio que sirven para todos los lotes siguientes. Con "Sugerir clasificación" apagado, el modal funciona como antes: una categoría y una marca para todo el lote. La sugerencia nunca se aplica sola: la persona confirma, y el sistema registra si la categoría vino de la sugerencia o la eligió ella (M-34).</p>
+
+<h3>Vincular un artículo existente desde el catálogo (CU-04)</h3>
+<figure>
+<figcaption>Diagrama 1.4 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Encargado
+    participant S as Retail POS
+    participant DB as Base de datos
+    U-&gt;&gt;S: Vincular en la fila del renglón
+    S--&gt;&gt;U: Candidatos por código de barras o descripción
+    U-&gt;&gt;S: Elige el artículo y, si quiere, "como principal"
+    S-&gt;&gt;DB: ¿El renglón ya es fuente de otro artículo?
+    alt ya tiene dueño
+        S--&gt;&gt;U: Rechazo: desvincúlelo antes
+    else como principal, o el artículo no tenía principal
+        S-&gt;&gt;DB: Suma la fuente, el artículo toma su costo y se recalculan sus presentaciones
+        S--&gt;&gt;U: Vinculado
+    else el artículo ya tiene principal
+        S-&gt;&gt;DB: Suma la fuente como adicional, el costo no cambia
+        S--&gt;&gt;U: Vinculado
+    end
+</pre>
+</figure>
+
+<p>La coincidencia por código de barras es una <b>sugerencia</b>: el sistema preselecciona el candidato y el usuario confirma. No se atan costos sin que alguien revise.</p>
+
+<h3>Gestionar las fuentes desde el formulario del artículo (CU-05)</h3>
+<figure>
+<figcaption>Diagrama 1.5 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Encargado
+    participant S as Retail POS
+    participant DB as Base de datos
+    U-&gt;&gt;S: Nuevo o Editar artículo
+    S--&gt;&gt;U: Sección Fuentes ordenada por costo: proveedor, código, costo y fecha de la lista
+    opt agregar
+        U-&gt;&gt;S: Agregar fuente
+        S--&gt;&gt;U: Selector de renglones de todos los proveedores
+        U-&gt;&gt;S: Elige un renglón (si no había principal, pasa a serlo)
+    end
+    opt elegir la principal
+        U-&gt;&gt;S: Marcar como principal
+        S--&gt;&gt;U: Vista previa: el costo y el precio de esa fuente
+    end
+    opt quitar
+        U-&gt;&gt;S: Quitar una fuente (si era la principal, queda sin principal)
+    end
+    U-&gt;&gt;S: Guardar
+    S-&gt;&gt;DB: Datos del artículo y fuentes, en una sola transacción
+    Note over S,DB: Nada se aplica hasta Guardar. Cancelar descarta todo.
+</pre>
+</figure>
+
+<p>La grilla de Artículos muestra una fila por artículo con su principal en la columna Distribuidor, y un indicador "+n" cuando tiene n fuentes adicionales (A-19).</p>
+
+<details><summary>Autoevaluación N1: un artículo tiene como principal el renglón del proveedor A. Se lo vincula, como principal, a un renglón del proveedor B. ¿Qué pasa con el renglón de A?</summary>
+<p>Sigue siendo fuente del artículo, ahora como adicional (J2). La nueva principal es la de B: el artículo toma su costo y recalcula el precio. Ningún renglón se libera por cambiar de principal.</p>
+</details>
+
+<!-- ============================================================ NIVEL 2 -->
+<h2 id="nivel-2">Nivel 2 · Qué capa hace cada cosa</h2>
+<span class="etiqueta">Por capas</span>
+
+<p>La caja negra se abre en las capas de Clean Architecture. El prefijo de cada participante indica la capa: <code>[App]</code> WPF y MVVM, <code>[Apl]</code> casos de uso, <code>[Dom]</code> invariantes, <code>[Inf]</code> adaptadores. Las dependencias apuntan hacia adentro: Aplicación solo conoce interfaces como <code>IExcelCatalogParser</code>.</p>
+
+<h3>Importar planilla: <code>ImportarPlanillaProveedorAsync</code></h3>
+<figure class="ancho">
+<figcaption>Diagrama 2.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Encargado
+    participant VM as [App] ImportarPlanillaViewModel
+    participant PS as [Apl] ProveedorService
+    participant D as [Dom] CatalogoProveedor y Articulo
+    participant P as [Inf] ExcelCatalogParser
+    participant R as [Inf] Repositorios y QueryService
+    participant UoW as [Inf] UnitOfWork
+    participant DB as SQL Server
+    U-&gt;&gt;VM: Importar (archivo, mapeo y "Clasificar catálogo")
+    VM-&gt;&gt;PS: Task.Run, ImportarPlanillaProveedorAsync(stream, mapeo, progreso, ct)
+    PS-&gt;&gt;PS: 1. MapeoColumnasValidator
+    PS-&gt;&gt;R: 2. Proveedor activo, guarda la preferencia de clasificar
+    PS-&gt;&gt;P: 3. ParsearCatalogoAsync
+    P--&gt;&gt;VM: IProgress cada 250 filas
+    P--&gt;&gt;PS: Items y FilasDescartadas
+    PS-&gt;&gt;R: 4. Q2: artículos cuya principal es de este proveedor
+    PS-&gt;&gt;R: 5. Q3: presentaciones de esos artículos
+    PS-&gt;&gt;PS: 6. FiltrarFilasValidas (largos, duplicados)
+    PS-&gt;&gt;R: 7. Q1: renglones existentes por código
+    R-&gt;&gt;DB: SELECT con OPENJSON
+    PS-&gt;&gt;PS: 8. Diccionario que no distingue mayúsculas
+    loop 9. cada fila válida, en memoria
+        alt renglón existente
+            PS-&gt;&gt;D: ActualizarPrecio (costo, descripción, textos)
+            PS-&gt;&gt;R: ActualizarAsync: conjunto fijo de 10 columnas
+            PS-&gt;&gt;D: ActualizarCostoYRecalcularPrecio si el costo cambia
+            PS-&gt;&gt;D: RecalcularCostoDesdeOrigen en sus presentaciones
+        else renglón nuevo
+            PS-&gt;&gt;R: AgregarAsync, estado Added
+        end
+    end
+    PS-&gt;&gt;UoW: 10. SaveChangesAsync
+    UoW-&gt;&gt;DB: BEGIN TRAN, lotes de UPDATE e INSERT, COMMIT
+    PS--&gt;&gt;VM: ResultadoImportacionDto (con ClasificaCatalogo)
+    VM--&gt;&gt;U: Contadores y "Fila N: motivo"
+</pre>
+</figure>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li><b>Consultar una vez, no por fila.</b> Q1, Q2 y Q3 se hacen antes del bucle, y el bucle trabaja solo en memoria. Así se evita el problema N+1.</li>
+    <li><b>Las reglas viven en el Dominio.</b> La fórmula <code>precio = costo × (1 + markup / 100)</code> está en <code>Articulo.CalcularPrecioVenta</code>; el servicio solo la invoca. Que un cambio de descripción deje la clasificación pendiente lo decide <code>CatalogoProveedor.ActualizarPrecio</code>.</li>
+    <li><b>Un único punto de confirmación.</b> Durante el bucle todo queda en el Change Tracker; recién el paso 10 escribe en la base.</li>
+</ul>
+</div>
+
+<h3>Clasificar el catálogo: <code>ClasificacionCatalogoService</code></h3>
+<figure class="ancho">
+<figcaption>Diagrama 2.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant VM as [App] ImportadorCatalogosViewModel
+    participant DS as [App] Diálogo AsociarValoresCatalogo
+    participant CS as [Apl] ClasificacionCatalogoService
+    participant M as [Apl] MotorDeClasificacion
+    participant D as [Dom] CatalogoProveedor
+    participant Q as [Inf] QueryServices
+    participant UoW as [Inf] UnitOfWork
+    VM-&gt;&gt;CS: Task.Run, ObtenerValoresSinTraducirAsync(proveedor)
+    CS-&gt;&gt;Q: Valores distintos del proveedor con su cantidad (GROUP BY en SQL)
+    CS-&gt;&gt;M: ¿Cuáles no tienen equivalencia?
+    CS--&gt;&gt;VM: Valores sin traducir
+    opt hay valores sin traducir
+        VM-&gt;&gt;DS: Asociar categorías y marcas
+        DS--&gt;&gt;VM: Clasificar o Cancelar
+    end
+    VM-&gt;&gt;CS: Task.Run, ClasificarAsync(proveedor, soloPendientes, ct)
+    CS-&gt;&gt;Q: Renglones con tracking (todos o solo los pendientes)
+    CS-&gt;&gt;Q: Diccionarios del lote: términos, pares, marcas, prefijos, equivalencias
+    loop cada renglón, en memoria
+        CS-&gt;&gt;M: SugerirMarca y ClasificarCategoria
+        CS-&gt;&gt;D: RegistrarClasificacionSugerida(categoría, marca)
+    end
+    CS-&gt;&gt;UoW: SaveChangesAsync, una transacción
+    CS--&gt;&gt;VM: ResultadoClasificacionCatalogoDto
+    VM-&gt;&gt;VM: Resumen y enlace "Ver sin categoría"
+</pre>
+</figure>
+
+<p><code>MotorDeClasificacion</code> es el mismo motor que sugiere al incorporar (M-77): una sola fuente de reglas, para que la clasificación del catálogo y la sugerencia del modal nunca diverjan. Desde el importador se llama con <code>soloPendientes: true</code>; desde el botón, con <code>false</code>.</p>
+
+<h3>Incorporar: <code>IncorporarArticulosATiendaAsync</code></h3>
+<figure class="ancho">
+<figcaption>Diagrama 2.3 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Encargado
+    participant M as [App] IncorporarArticulosModalViewModel
+    participant CL as [Apl] ClasificacionService
+    participant PS as [Apl] ProveedorService
+    participant D as [Dom] CatalogoProveedor y Articulo
+    participant R as [Inf] QueryService y Repositorio
+    participant UoW as [Inf] UnitOfWork
+    M-&gt;&gt;CL: Task.Run, SugerirAsync(lote)
+    CL--&gt;&gt;M: Sugerencias, valores sin traducir y bloques de términos nuevos
+    U-&gt;&gt;M: Pasos 1 y 2: cada decisión se guarda al tomarla
+    U-&gt;&gt;M: Paso 3: revisa y Aceptar
+    M-&gt;&gt;PS: Task.Run, IncorporarArticulosATiendaAsync(dto)
+    PS-&gt;&gt;PS: IncorporarCatalogoArticulosValidator
+    PS-&gt;&gt;R: ObtenerPorIdsAsync(ids de renglones)
+    loop cada renglón
+        alt ya es fuente de un artículo (EstaVinculado)
+            PS-&gt;&gt;PS: omitidos++
+        else libre
+            PS-&gt;&gt;D: new Articulo y Clasificar(categoría, origen, marca, origen)
+            PS-&gt;&gt;D: catalogo.AsignarArticulo(articulo)
+            PS-&gt;&gt;D: articulo.MarcarFuentePrincipal(catalogo), toma el costo
+            PS-&gt;&gt;R: AddAsync(articulo, stock 0)
+        end
+    end
+    PS-&gt;&gt;UoW: SaveChangesAsync, una transacción
+    PS--&gt;&gt;M: ResultadoIncorporacionDto
+</pre>
+</figure>
+
+<h3>Vincular: <code>VincularArticuloACatalogoAsync</code></h3>
+<figure class="ancho">
+<figcaption>Diagrama 2.4 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant DS as [App] ProveedorDialogService
+    participant MV as [App] VincularArticuloModalViewModel
+    participant PS as [Apl] ProveedorService
+    participant C as [Dom] CatalogoProveedor
+    participant A as [Dom] Articulo
+    participant UoW as [Inf] UnitOfWork
+    DS-&gt;&gt;MV: Buscar candidatos (código de barras o descripción)
+    MV--&gt;&gt;DS: Artículo elegido y ComoPrincipal
+    DS-&gt;&gt;PS: VincularArticuloACatalogoAsync(idArticulo, idRenglón, comoPrincipal)
+    PS-&gt;&gt;PS: Si el renglón ya es de otro artículo, mensaje con su nombre
+    PS-&gt;&gt;C: AsignarArticulo(articulo)
+    Note right of C: Rechaza derivados, servicios y renglones ajenos
+    alt no es principal y el artículo ya tiene principal
+        PS-&gt;&gt;UoW: SaveChangesAsync, fuente adicional
+    else es principal o la primera fuente
+        PS-&gt;&gt;A: MarcarFuentePrincipal(renglón), toma su costo
+        PS-&gt;&gt;A: RecalcularCostoDesdeOrigen en cada presentación
+        PS-&gt;&gt;UoW: SaveChangesAsync, una transacción
+    end
+</pre>
+</figure>
+
+<h3>Fuentes del formulario: <code>AplicarFuentesDelFormularioAsync</code></h3>
+<figure class="ancho">
+<figcaption>Diagrama 2.5 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant F as [App] ArticuloFormViewModel
+    participant IS as [Apl] InventarioService
+    participant C as [Dom] CatalogoProveedor
+    participant A as [Dom] Articulo
+    participant UoW as [Inf] UnitOfWork
+    F-&gt;&gt;IS: Crear o Actualizar(datos, IdsFuentes, IdCatalogoProveedor)
+    IS-&gt;&gt;A: Datos del artículo
+    IS-&gt;&gt;IS: Fuentes actuales contra el estado deseado
+    loop fuentes que ya no figuran
+        IS-&gt;&gt;A: QuitarFuentePrincipal si era la principal
+        IS-&gt;&gt;C: LiberarArticulo
+    end
+    loop fuentes nuevas
+        IS-&gt;&gt;C: AsignarArticulo(articulo)
+    end
+    alt hay principal elegida
+        IS-&gt;&gt;A: MarcarFuentePrincipal, su costo reemplaza al del formulario
+    else sin principal
+        IS-&gt;&gt;A: QuitarFuentePrincipal, se respeta el costo del formulario
+    end
+    IS-&gt;&gt;UoW: SaveChangesAsync, una transacción
+    Note over IS,UoW: Si el dominio rechaza algo, DescartarCambios y no se guarda nada
+</pre>
+</figure>
+
+<p><b>Dónde vive la regla "un renglón, un artículo".</b> En el <b>Dominio</b>: el renglón conoce a su único artículo (<code>IdArticulo</code>), así que <code>CatalogoProveedor.AsignarArticulo</code> puede rechazar un renglón ajeno sin mirar ninguna otra fila. Aplicación solo adelanta la verificación para nombrar en el mensaje al artículo que ya lo tiene. Antes de las fuentes múltiples, el vínculo vivía solo en el artículo, que no conoce a los demás, y la regla tenía que estar en Aplicación y en un índice único.</p>
+
+<details><summary>Autoevaluación N2: ¿por qué los casos de uso se lanzan con <code>Task.Run</code> desde el ViewModel?</summary>
+<p>Porque <code>async</code> por sí solo no garantiza que el trabajo salga del hilo de la interfaz: parsear, recorrer y clasificar consumen CPU. <code>Task.Run</code> lo manda al ThreadPool y la ventana sigue respondiendo (Ley 4, RNF-02).</p>
+</details>
+
+<!-- ============================================================ NIVEL 3 -->
+<h2 id="nivel-3">Nivel 3 · Por dentro de la importación</h2>
+<span class="etiqueta">Mecanismos</span>
+
+<p>CU-02 es el caso de uso más complejo, y este nivel lo mira desde cinco ángulos: el estado de la ventana, los hilos de ejecución, el estado de cada fila, la atomicidad y la clasificación de errores.</p>
+
+<h3>Estados del diálogo <code>ImportarPlanillaDialog</code></h3>
+<figure>
+<figcaption>Diagrama 3.1 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    state "Sin archivo" as SinArchivo
+    state "Archivo elegido" as Elegido
+    state "Con observaciones" as Obs
+    [*] --&gt; SinArchivo: Inicializar(proveedor), toma su preferencia de clasificar
+    SinArchivo --&gt; Elegido: Examinar (F1)
+    Elegido --&gt; Elegido: editar el mapeo o el interruptor, se recalcula PuedeImportar
+    Elegido --&gt; Importando: Importar (F9)
+    Importando --&gt; Completado: sin filas con error
+    Importando --&gt; Obs: FilasConError mayor a 0
+    Importando --&gt; Error: excepción, MensajeError
+    Importando --&gt; Cancelado: token cancelado, hoy solo en tests
+    Error --&gt; Importando: reintentar
+    Cancelado --&gt; Importando: reintentar
+    Completado --&gt; Elegido: elegir OTRO archivo
+    Obs --&gt; Elegido: elegir OTRO archivo
+    Completado --&gt; [*]: Cerrar, sigue la clasificación si correspondía
+    Obs --&gt; [*]: Cerrar, sigue la clasificación si correspondía
+    Importando --&gt; [*]: Cerrar o Esc, la importación sigue
+</pre>
+</figure>
+
+<p>Después de un éxito, el botón Importar queda deshabilitado hasta que se elija un archivo <b>distinto</b>: es la protección contra la reimportación accidental (E-22).</p>
+
+<h3>Hilos de ejecución y progreso</h3>
+<figure>
+<figcaption>Diagrama 3.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant UI as Hilo de la interfaz
+    participant TP1 as ThreadPool, caso de uso
+    participant TP2 as ThreadPool, parser
+    participant DB as SQL Server
+    UI-&gt;&gt;UI: IsBusy true, File.OpenRead
+    UI-&gt;&gt;UI: new Progress, captura el contexto de la interfaz
+    UI-&gt;&gt;TP1: await Task.Run(caso de uso)
+    Note over UI: libre, repinta la barra
+    TP1-&gt;&gt;DB: validar y buscar el proveedor
+    TP1-&gt;&gt;TP2: await Task.Run(bucle de MiniExcel)
+    loop cada 250 filas
+        TP2--&gt;&gt;UI: Report(n), Post al Dispatcher
+        UI-&gt;&gt;UI: "Leyendo planilla... (n filas)"
+    end
+    TP2--&gt;&gt;TP1: resultado del parseo
+    TP1-&gt;&gt;DB: Q2, Q3 y Q1
+    TP1-&gt;&gt;TP1: filtrar y recorrer, CPU
+    TP1-&gt;&gt;DB: SaveChangesAsync
+    TP1--&gt;&gt;UI: continuación del await
+    UI-&gt;&gt;UI: resultado, finally IsBusy false
+</pre>
+</figure>
+
+<p><code>Progress&lt;T&gt;</code> captura el contexto del hilo que lo crea; por eso se crea en el ViewModel y no en el servicio. Si se creara en el ThreadPool, el callback no podría tocar la pantalla.</p>
+
+<div class="nota"><b>Limitaciones conocidas.</b> (1) El servicio respeta el <code>CancellationToken</code> y descarta los cambios, pero el diálogo no tiene un botón que lo active: cerrar con la cruz o con Esc no cancela, la ventana se cierra y la importación sigue (E-20). (2) El progreso solo informa la lectura: durante las consultas y el guardado el texto queda fijo. (3) Salir del explorador mientras clasifica cancela la clasificación sin avisar: el scope de la pantalla se descarta con su DbContext. No se pierden datos, porque la clasificación es todo o nada, pero el usuario no se entera.</p>
+
+<h3>Estado de una fila de la planilla</h3>
+<figure>
+<figcaption>Diagrama 3.3 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    state "Leída por el parser" as Leida
+    state "Descartada por el parser" as DParser
+    state "Descartada por el filtro" as DFiltro
+    state "Válida" as Valida
+    state "Renglón existente" as Existente
+    state "Renglón nuevo" as Nueva
+    state "Rechazada por el dominio" as ConError
+    state "Renglón actualizado" as RAct
+    state "Sin artículo con esta principal" as SinArt
+    state "Artículo sin cambio" as ASin
+    state "Artículo recalculado" as ARec
+    state "Presentación recalculada" as PRec
+    state "Presentación sin cambio" as PSin
+    state "Renglón creado" as RNew
+    state "Pendiente en el Change Tracker" as Pend
+    state "Guardada" as Guardada
+    state "Descartada en bloque" as Tirada
+    [*] --&gt; Leida: el parser la interpreta
+    [*] --&gt; DParser: vacía, precio ilegible o negativo
+    Leida --&gt; DFiltro: largo excedido o código duplicado
+    Leida --&gt; Valida: pasa FiltrarFilasValidas
+    Valida --&gt; Existente: está en el mapa de Q1
+    Valida --&gt; Nueva: no está en el mapa
+    Existente --&gt; ConError: ActualizarPrecio lanza por costo 0
+    Existente --&gt; RAct: ActualizarPrecio y ActualizarAsync
+    RAct --&gt; SinArt: sin incorporar o fuente adicional
+    RAct --&gt; ASin: costo del artículo igual, H-16
+    RAct --&gt; ARec: ActualizarCostoYRecalcularPrecio
+    ARec --&gt; PRec: cambia el costo unitario
+    ARec --&gt; PSin: igual tras redondear
+    Nueva --&gt; RNew: AgregarAsync, pendiente de clasificar
+    RAct --&gt; Pend
+    SinArt --&gt; Pend
+    ASin --&gt; Pend
+    PRec --&gt; Pend
+    PSin --&gt; Pend
+    RNew --&gt; Pend
+    Pend --&gt; Guardada: SaveChangesAsync confirma
+    Pend --&gt; Tirada: cancelación o falla, DescartarCambios
+    DParser --&gt; [*]: se informa Fila N y motivo
+    DFiltro --&gt; [*]: se informa Fila N y motivo
+    ConError --&gt; [*]: se informa Fila N y motivo
+    Guardada --&gt; [*]
+    Tirada --&gt; [*]
+</pre>
+</figure>
+
+<p>El estado clave es <b>Pendiente</b>: ninguna fila llega sola a la base. Todas esperan el mismo <code>SaveChangesAsync</code> y, si el recorrido se interrumpe, se descartan todas juntas.</p>
+
+<div class="nota"><b>Costo cero (H-07, abierto).</b> Si el código ya existe, <code>ActualizarPrecio</code> rechaza el costo 0 y la fila se informa como error. Si el código es nuevo, el renglón se crea con un inicializador de objeto sin validación de dominio y se guarda con costo 0. La misma regla da dos resultados según el camino.</div>
+
+<h3>Atomicidad y <code>DescartarCambios</code></h3>
+<figure>
+<figcaption>Diagrama 3.4 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant PS as ProveedorService
+    participant CT as ChangeTracker de la pantalla
+    participant UoW as UnitOfWork
+    participant DB as SQL Server
+    loop filas válidas
+        PS-&gt;&gt;CT: renglones y artículos Modified o Added
+    end
+    alt cancelación o error inesperado en el bucle
+        PS-&gt;&gt;UoW: DescartarCambios()
+        UoW-&gt;&gt;CT: ChangeTracker.Clear()
+        PS--&gt;&gt;PS: relanza la excepción
+        Note over DB: la base no se tocó
+    else el bucle termina
+        PS-&gt;&gt;UoW: SaveChangesAsync
+        UoW-&gt;&gt;DB: BEGIN TRAN, INSERT y UPDATE
+        alt falla SQL, unicidad o concurrencia
+            DB--&gt;&gt;UoW: error, ROLLBACK
+            UoW-&gt;&gt;CT: Clear()
+            UoW--&gt;&gt;PS: excepción traducida
+        else todo bien
+            DB--&gt;&gt;UoW: COMMIT
+            UoW--&gt;&gt;PS: ok
+        end
+    end
+</pre>
+</figure>
+
+<p>¿Por qué limpiar la memoria si la base no se tocó? El <code>DbContext</code> vive mientras la pantalla está abierta. Sin <code>Clear()</code>, la media planilla cancelada se guardaría "de colado" con la próxima operación de esa pantalla, por ejemplo una incorporación, y la atomicidad se rompería más tarde.</p>
+
+<h3>Las cuatro redes de errores</h3>
+<figure>
+<figcaption>Diagrama 3.5 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["Planilla .xlsx o .csv"] --&gt; P["Red 1: ExcelCatalogParser&lt;br/&gt;celdas vacías, precio ilegible o negativo,&lt;br/&gt;columna obligatoria inexistente"]
+    P --&gt;|"FilasDescartadas"| E["ErroresDetalle&lt;br/&gt;Fila N: motivo"]
+    P --&gt;|"InvalidDataException"| X["Aborta antes de escribir"]
+    P --&gt;|"Items"| F["Red 2: FiltrarFilasValidas&lt;br/&gt;longitudes, código duplicado"]
+    F --&gt;|"motivo"| E
+    F --&gt;|"filas válidas"| D["Red 3: Dominio&lt;br/&gt;ActualizarPrecio rechaza costo 0 o menor&lt;br/&gt;y textos de clasificación inválidos"]
+    D --&gt;|"ArgumentException o DomainException"| E
+    D --&gt;|"cambios pendientes"| U["Red 4: SaveChangesAsync&lt;br/&gt;una transacción"]
+    U --&gt;|"falla del motor, unicidad,&lt;br/&gt;concurrencia, cancelación"| X2["Aborta, DescartarCambios"]
+    U --&gt;|"COMMIT"| OK["ResultadoImportacionDto"]
+    E --&gt; OK
+</pre>
+</figure>
+
+<p>Hay dos políticas en el mismo caso de uso. Un <b>error de dato</b> afecta a una fila: esa fila se descarta, se informa y se sigue con las demás. Un <b>error de configuración o de sistema</b> afecta a todo el lote: se corta la importación y no se escribe nada.</p>
+
+<details><summary>Autoevaluación N3: el bucle tiene dos <code>try</code> anidados. ¿Qué atrapa cada uno?</summary>
+<p>El interior atrapa solo <code>ArgumentException</code> y <code>DomainException</code>, con un filtro <code>when</code>: son errores de dato, se agrega "Fila N" y se sigue. El exterior atrapa todo lo demás (cancelación, defectos): llama a <code>DescartarCambios</code> y relanza la excepción, así que la importación entera se aborta.</p>
+</details>
+
+<!-- ============================================================ NIVEL 4 -->
+<h2 id="nivel-4">Nivel 4 · Los algoritmos</h2>
+<span class="etiqueta">Algoritmo</span>
+
+<p>El nivel más cercano al código: cómo se lee la planilla, qué decide el servicio en cada fila que ya existe y cómo clasifican las reglas.</p>
+
+<h3><code>ParsearCatalogoAsync</code> en streaming</h3>
+<figure>
+<figcaption>Diagrama 4.1 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["ParsearCatalogoAsync"] --&gt; B["Task.Run"]
+    B --&gt; C{"¿Extensión .csv?"}
+    C --&gt;|Sí| D["ExcelType.CSV"]
+    C --&gt;|No| E["ExcelType.XLSX"]
+    D --&gt; F["stream.Query, useHeaderRow false"]
+    E --&gt; F
+    F --&gt; G["Por cada fila: ThrowIfCancellationRequested,&lt;br/&gt;numeroFila++"]
+    G --&gt; H{"¿Antes del encabezado?"}
+    H --&gt;|Sí| G
+    H --&gt;|No| I{"¿Es la fila de encabezado?"}
+    I --&gt;|Sí| J["ResolverColumnas&lt;br/&gt;puede lanzar InvalidDataException"]
+    J --&gt; G
+    I --&gt;|No| K["InterpretarFila&lt;br/&gt;a Items o a FilasDescartadas"]
+    K --&gt; L{"¿Múltiplo de 250?"}
+    L --&gt;|Sí| M["progreso.Report"]
+    L --&gt;|No| G
+    M --&gt; G
+    G --&gt;|"fin del archivo"| N{"¿Se encontró el encabezado?"}
+    N --&gt;|No| O["InvalidDataException"]
+    N --&gt;|Sí| Q["Report final y return"]
+</pre>
+</figure>
+
+<p>MiniExcel lee <b>fila por fila</b>, sin armar el libro completo en memoria como haría un modelo DOM. Lo que sí se acumula es la lista de renglones válidos. <code>useHeaderRow: false</code> permite que cada distribuidor tenga el encabezado en otra fila y con otros nombres.</p>
+
+<h3>Propagación del costo en una fila existente</h3>
+<figure>
+<figcaption>Diagrama 4.2 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["Fila presente en el mapa de Q1"] --&gt; B{"ActualizarPrecio:&lt;br/&gt;¿costo mayor a 0?"}
+    B --&gt;|No| E["Fila N: motivo"]
+    B --&gt;|Sí| C["Renglón Modified, fecha renovada&lt;br/&gt;si cambió la descripción o un texto,&lt;br/&gt;clasificación pendiente"]
+    C --&gt; P{"¿Es la principal de algún artículo?&lt;br/&gt;(lookup de Q2)"}
+    P --&gt;|"No: sin incorporar o fuente adicional"| Z["Termina la fila"]
+    P --&gt;|Sí| F{"¿Cambia el costo del artículo?"}
+    F --&gt;|No| G["No se toca ni se cuenta.&lt;br/&gt;Sus presentaciones tampoco."]
+    F --&gt;|Sí| H["ActualizarCostoYRecalcularPrecio&lt;br/&gt;actualizados++"]
+    H --&gt; I{"Para cada presentación:&lt;br/&gt;¿cambia el costo tras redondear?"}
+    I --&gt;|Sí| J["UpdateAsync, actualizados++"]
+    I --&gt;|No| K["No se cuenta"]
+</pre>
+</figure>
+
+<p>El contador <code>PreciosActualizados</code> cuenta solo los cambios reales (H-16). Se compara contra el costo <b>de cada artículo</b>, porque un artículo pudo haberse editado a mano o haber tomado el costo de una compra (A-4).</p>
+
+<h3>Un costo nuevo recorriendo la fuente principal</h3>
+<p>La planilla trae el renglón "Sobres x100" con costo nuevo $4.500. Ese renglón es la principal del pack, con markup del 40 %; el sobre suelto es una presentación del pack (100 unidades por origen) con markup del 60 %. El redondeo es a 2 decimales con <code>MidpointRounding.AwayFromZero</code>. Datos inventados.</p>
+<table>
+<tr><th>Paso</th><th>Método</th><th>Cálculo</th><th>Resultado</th></tr>
+<tr><td>Renglón del catálogo</td><td><code>ActualizarPrecio</code></td><td>costo = 4500,00</td><td>4500,00</td></tr>
+<tr><td>Pack (su principal es el renglón)</td><td><code>ActualizarCostoYRecalcularPrecio</code></td><td>4500,00 × (1 + 40 / 100)</td><td>precio 6300,00</td></tr>
+<tr><td>Sobre suelto: costo</td><td><code>CalcularCostoPresentacion</code></td><td>4500,00 / 100</td><td>45,00</td></tr>
+<tr><td>Sobre suelto: precio</td><td><code>CalcularPrecioVenta</code></td><td>45,00 × (1 + 60 / 100)</td><td>72,00</td></tr>
+</table>
+<p>Caso borde: con 1000 unidades por origen, costos de $45,00 y $45,20 dan el mismo costo unitario (0,05). La presentación queda igual y no se cuenta como actualizada.</p>
+
+<h3>Las reglas de clasificación</h3>
+<figure>
+<figcaption>Diagrama 4.3 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    R["Renglón: descripción, código de barras&lt;br/&gt;y textos del proveedor"] --&gt; N["Nivel 0: normalizar una sola vez&lt;br/&gt;término, segunda palabra, palabras y prefijo EAN"]
+    N --&gt; CA{"¿Rubro o categoría del proveedor&lt;br/&gt;con equivalencia?"}
+    CA --&gt;|Sí| C1["Categoría por equivalencia del proveedor"]
+    CA --&gt;|No| T{"¿El término está en el diccionario?"}
+    T --&gt;|"No"| C0["Sin categoría"]
+    T --&gt;|"Con categoría"| C2["Categoría del término"]
+    T --&gt;|"Ambiguo"| PA{"¿Par término + segunda palabra?"}
+    PA --&gt;|Sí| C3["Categoría del par"]
+    PA --&gt;|No| C0
+    N --&gt; MA{"¿Columna de marca del proveedor?"}
+    MA --&gt;|"Nombre o alias del comercio"| M1["Marca"]
+    MA --&gt;|"Con equivalencia"| M1
+    MA --&gt;|"No o sin traducir"| MD{"¿Cuántas marcas nombra la descripción?"}
+    MD --&gt;|"Una"| M1
+    MD --&gt;|"Varias, y el prefijo EAN es de una de ellas"| M1
+    MD --&gt;|"Ninguna, o varias sin desempate"| M0["Sin marca"]
+</pre>
+</figure>
+
+<p>La regla de fondo es que <b>una sugerencia equivocada cuesta más que una ausente</b>: un término ambiguo sin par, una forma de marca que comparten dos marcas o varias marcas sin desempate no sugieren nada. El prefijo EAN identifica a la empresa titular y no a la marca, por eso solo desempata (M-69). Las marcas se buscan como palabras o frases completas: "BIC" no aparece en "BICOLOR".</p>
+
+<details><summary>Autoevaluación N4: ¿por qué <code>ActualizarCostoYRecalcularPrecio</code> calcula el precio antes de asignar el costo?</summary>
+<p>Para no dejar el artículo a medias (H-08). Si el cálculo lanza una excepción (costo o ganancia negativos), el artículo no queda con el costo nuevo y el precio viejo. Primero se valida todo y después se modifica el estado.</p>
+</details>
+
+<!-- ============================================================ DEFENSA A -->
+<h2 id="defensa-a">Defensa A · Las consultas Q1, Q2 y Q3</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<p>Antes de recorrer las filas, la importación hace tres consultas, cada una <b>una sola vez</b>. Cada una responde una pregunta distinta y deja en memoria una estructura para que el bucle busque en O(1) sin volver a la base. La idea de fondo es evitar el antipatrón <b>N+1</b>: con 5.000 filas, preguntar por fila serían más de 10.000 viajes; así son tres.</p>
+
+<h3>Tres preguntas, tres saltos por las claves foráneas</h3>
+<figure>
+<figcaption>Diagrama A.1 · qué alcanza cada consulta</figcaption>
+<pre class="mermaid">
+flowchart LR
+    PL["Planilla ya filtrada&lt;br/&gt;lista de códigos"]
+    PROV[("PROVEEDORES&lt;br/&gt;el proveedor importado")]
+    CAT[("CATALOGOS_PROVEEDORES&lt;br/&gt;renglones")]
+    ART[("ARTICULOS&lt;br/&gt;con principal de este proveedor")]
+    PRE[("ARTICULOS&lt;br/&gt;presentaciones derivadas")]
+    PL --&gt;|"Q1 por codigo_proveedor"| CAT
+    PROV --&gt;|"id_proveedor"| CAT
+    CAT --&gt;|"Q2 por id_catalogo_proveedor&lt;br/&gt;(la principal)"| ART
+    ART --&gt;|"Q3 por id_articulo_origen"| PRE
+</pre>
+</figure>
+
+<table>
+<tr><th>Consulta</th><th>Pregunta que responde</th><th>Filtro</th><th>Estructura en memoria</th><th>Índice que la sirve</th></tr>
+<tr><td><b>Q1</b></td><td>¿Cuáles de los códigos de la planilla ya existen en el catálogo de este proveedor?</td><td><code>id_proveedor = @p</code> y <code>codigo_proveedor IN (OPENJSON(@lista))</code></td><td><code>Dictionary&lt;string, CatalogoProveedor&gt;</code> que no distingue mayúsculas</td><td><code>(id_proveedor, codigo_proveedor)</code> único</td></tr>
+<tr><td><b>Q2</b></td><td>¿Qué artículos tienen como <b>principal</b> un renglón de este proveedor?</td><td><code>JOIN</code> artículo → renglón principal, <code>id_proveedor = @p</code></td><td><code>ILookup&lt;int, Articulo&gt;</code> por <code>IdCatalogoProveedor</code></td><td><code>IX_ARTICULOS_id_catalogo_proveedor</code></td></tr>
+<tr><td><b>Q3</b></td><td>¿Qué presentaciones derivan de esos artículos?</td><td>Doble <code>JOIN</code> presentación → origen → renglón, <code>id_proveedor = @p</code></td><td><code>ILookup&lt;int?, Articulo&gt;</code> por <code>IdArticuloOrigen</code></td><td><code>IX_ARTICULOS_id_articulo_origen</code></td></tr>
+</table>
+
+<h3>Q1: buscar por los códigos de la planilla</h3>
+<pre class="codigo">// CatalogoProveedorQueryService.ObtenerMapaPorCodigosProveedorAsync
+var codigoList = codigos.Where(c =&gt; !string.IsNullOrWhiteSpace(c))
+                        .Distinct().ToList();
+var lista = await _context.CatalogosProveedores
+    .Where(c =&gt; c.IdProveedor == idProveedor
+             &amp;&amp; codigoList.Contains(c.CodigoProveedor))
+    .ToListAsync(ct);          // CON tracking: se van a modificar</pre>
+<pre class="codigo">-- SQL aproximado (EF Core 8, reconstruido)
+SELECT c.* FROM CATALOGOS_PROVEEDORES c
+WHERE c.deleted_at IS NULL
+  AND c.id_proveedor = @idProveedor
+  AND c.codigo_proveedor IN (
+      SELECT value FROM OPENJSON(@codigoList)
+      WITH (value nvarchar(50) '$'))
+-- @codigoList = '["BIC-AZ","sob-100","GOMA-1","RES-A4"]'</pre>
+<ul>
+    <li><b>Solo los códigos de la planilla</b>, no el catálogo entero del proveedor: si llega una planilla parcial, no se traen miles de renglones de más.</li>
+    <li><b>El límite de 2.100 parámetros no aplica.</b> EF Core 8 manda toda la lista en <b>un solo parámetro JSON</b> que SQL Server desarma con <code>OPENJSON</code>. Lo prueba un test con 3.000 códigos. Requisito: la base necesita nivel de compatibilidad 130 o más.</li>
+    <li><b>Diccionario que no distingue mayúsculas.</b> SQL Server compara con una intercalación <code>CI</code>, así que <code>sob-100</code> encuentra <code>SOB-100</code>. El diccionario se arma con <code>OrdinalIgnoreCase</code> y <code>Trim()</code> para que C# compare igual que la base. Si no, esa fila se trataría como nueva, el <code>INSERT</code> chocaría con el índice único y se perdería <b>toda</b> la planilla.</li>
+</ul>
+
+<h3>Q2 y Q3: filtrar navegando, no mandando listas de ids</h3>
+<pre class="codigo">// Q2: artículos cuya principal es de este proveedor
+_articuloRepository.FindAsync(a =&gt;
+    a.CatalogoProveedor != null
+ &amp;&amp; a.CatalogoProveedor.IdProveedor == mapeo.IdProveedor, ...);
+var articulosPorCatalogo =
+    articulosLocales.ToLookup(a =&gt; a.IdCatalogoProveedor!.Value);
+
+// Q3: presentaciones, un salto más
+_articuloRepository.FindAsync(a =&gt;
+    a.ArticuloOrigen != null
+ &amp;&amp; a.ArticuloOrigen.CatalogoProveedor != null
+ &amp;&amp; a.ArticuloOrigen.CatalogoProveedor.IdProveedor == mapeo.IdProveedor, ...);
+var presentacionesPorOrigen =
+    presentaciones.ToLookup(a =&gt; a.IdArticuloOrigen);</pre>
+<ul>
+    <li><b>Q2 sigue la principal a propósito.</b> <code>Articulo.CatalogoProveedor</code> es la navegación de <code>id_catalogo_proveedor</code>, la fuente principal. Es la implementación directa de A-2: la importación solo propaga el costo a los artículos cuya principal es de este proveedor. Si Q2 recorriera todas las fuentes (<code>CATALOGOS_PROVEEDORES.id_articulo</code>), una fuente adicional cambiaría el precio y volvería la oscilación que A-2 evita.</li>
+    <li><b>H-14.</b> La primera versión traía los artículos de <b>todos</b> los proveedores. El predicado navega <code>Articulo → CatalogoProveedor → IdProveedor</code> y EF lo traduce a un <code>JOIN</code> con un solo parámetro. Medido: con 2.000 artículos de otro proveedor como ruido, se siguen 2.500 entidades y no 4.500.</li>
+    <li><b><code>ToLookup</code> y no <code>ToDictionary</code>.</b> Para una clave ausente, un lookup devuelve una secuencia vacía en lugar de lanzar una excepción. Así, <code>articulosPorCatalogo[renglon.Id]</code> nunca falla aunque el renglón no sea principal de nadie.</li>
+    <li><b>Q3 existe porque la presentación no tiene fuentes</b>: Q2 no puede encontrarla, solo se llega a ella por su origen.</li>
+    <li><b>Ambas se hacen con tracking</b>: los artículos que traen son los que el bucle va a modificar.</li>
+</ul>
+
+<h3>Qué devuelve cada consulta para el proveedor 7</h3>
+<p>Datos inventados. La planilla del proveedor 7 trae cuatro códigos: <code>BIC-AZ</code>, <code>sob-100</code> (en minúsculas), <code>RES-A4</code> y <code>GOMA-1</code> (nuevo).</p>
+<table>
+<tr><th>CATALOGOS_PROVEEDORES</th><th>proveedor</th><th>código</th><th>id_articulo (fuente de)</th></tr>
+<tr><td>10</td><td>7</td><td>BIC-AZ</td><td>100</td></tr>
+<tr><td>11</td><td>7</td><td>SOB-100</td><td>101</td></tr>
+<tr><td>12</td><td>7</td><td>COR-12</td><td>104</td></tr>
+<tr><td>14</td><td>7</td><td>RES-A4</td><td>105</td></tr>
+<tr><td>13</td><td>9</td><td>BIROME-AZUL</td><td>100</td></tr>
+<tr><td>21</td><td>9</td><td>RESMA-A4</td><td>105</td></tr>
+</table>
+<table>
+<tr><th>ARTICULOS</th><th>descripción</th><th>id_catalogo_proveedor (principal)</th><th>origen</th></tr>
+<tr><td>100</td><td>Birome azul</td><td>10 (proveedor 7)</td><td>—</td></tr>
+<tr><td>101</td><td>Sobres x100</td><td>11 (proveedor 7)</td><td>—</td></tr>
+<tr><td>102</td><td>Sobre suelto</td><td>—</td><td>101</td></tr>
+<tr><td>104</td><td>Corrector</td><td>12 (proveedor 7)</td><td>—</td></tr>
+<tr><td>105</td><td>Resma A4</td><td>21 (proveedor 9)</td><td>—</td></tr>
+</table>
+<table>
+<tr><th>Consulta</th><th>Devuelve</th><th>Estructura</th><th>Qué conviene notar</th></tr>
+<tr><td><b>Q1</b></td><td>Renglones 10, 11 y 14</td><td><code>{"BIC-AZ"→10, "SOB-100"→11, "RES-A4"→14}</code></td><td><code>sob-100</code> encuentra al 11. <code>GOMA-1</code> no aparece: será un renglón nuevo</td></tr>
+<tr><td><b>Q2</b></td><td>Artículos 100, 101 y 104</td><td><code>{10→[100], 11→[101], 12→[104]}</code></td><td>El 105 queda afuera aunque el renglón 14 del proveedor 7 sea su fuente: su principal es del proveedor 9. El 104 entra aunque <code>COR-12</code> no esté en la planilla: Q2 trae lo del proveedor, no lo de la planilla</td></tr>
+<tr><td><b>Q3</b></td><td>Artículo 102</td><td><code>{101→[102]}</code></td><td>Se alcanza por su origen 101, cuya principal es el renglón 11 del proveedor 7</td></tr>
+</table>
+<p>En el bucle, la fila <code>sob-100</code> hace tres búsquedas en memoria: <code>mapa["sob-100"]</code> devuelve el renglón 11, <code>articulosPorCatalogo[11]</code> devuelve el artículo 101 y <code>presentacionesPorOrigen[101]</code> devuelve el 102. La fila <code>RES-A4</code> actualiza el renglón 14 y termina: <code>articulosPorCatalogo[14]</code> está vacío, y la resma conserva el precio que fija su principal, la del proveedor 9.</p>
+
+<div class="nota"><b>Precisión aceptada.</b> Q2 y Q3 dependen del proveedor y no de la planilla. Si un proveedor con 3.000 artículos vinculados manda una planilla de 10 renglones, se cargan igual los 3.000. Es un intercambio deliberado: una consulta simple con un parámetro, a cambio de traer de más en planillas chicas.</div>
+
+<details><summary>Pregunta probable: ¿por qué Q2 no usa todas las fuentes del artículo?</summary>
+<p>Porque la importación solo debe cambiar el costo de los artículos cuya principal es de este proveedor (A-2). Una fuente adicional es información para comparar y para pedir, no la referencia de precio. Si Q2 siguiera <code>CATALOGOS_PROVEEDORES.id_articulo</code>, importar la lista de un proveedor secundario cambiaría el precio de venta, y el precio dependería del orden en que se importan las listas.</p>
+</details>
+<details><summary>Pregunta probable: ¿por qué no partir Q1 en bloques de 1.000 códigos?</summary>
+<p>Porque el problema que se quería resolver no existe en EF Core 8: <code>Contains</code> envía la lista como un único parámetro JSON. Fue un falso positivo de una auditoría y quedó verificado con un test de 3.000 códigos contra SQL Server. Ese test controla el comportamiento y no la forma del SQL: si una versión futura de EF cambia la traducción, el test avisa.</p>
+</details>
+<details><summary>Pregunta probable: ¿por qué Q2 no usa <code>Include(a =&gt; a.Presentaciones)</code>?</summary>
+<p>Funcionaría, pero obligaría a que el repositorio genérico aceptara <i>includes</i> o a escribir un método nuevo. Con dos <code>FindAsync</code> y predicados de navegación se reutiliza el contrato existente, y cada consulta trae exactamente las entidades que se van a modificar.</p>
+</details>
+
+<!-- ============================================================ DEFENSA B -->
+<h2 id="defensa-b">Defensa B · Rendimiento con muchas filas</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<p>La pregunta típica es: "¿qué pasa con 30.000 o 50.000 filas?". La respuesta se arma siguiendo los datos desde el archivo hasta la base y diciendo, en cada etapa, qué estructura los contiene, cuánto cuesta y qué está medido.</p>
+
+<h3>Del archivo al COMMIT, etapa por etapa</h3>
+<table>
+<tr><th>Etapa</th><th>Estructura</th><th>Por qué esa estructura</th><th>Costo</th></tr>
+<tr><td>Lectura</td><td><code>IEnumerable</code> diferido de MiniExcel</td><td>No arma el libro completo en memoria como un modelo DOM. <code>useHeaderRow: false</code> conserva el número de fila real</td><td>Memoria de una fila. Tiempo O(n)</td></tr>
+<tr><td>Salida del parser</td><td><code>List&lt;ItemCatalogoImportadoDto&gt;</code> y <code>List&lt;string&gt;</code></td><td>El caso de uso <b>necesita todos los códigos</b> antes de Q1 y haber visto todas las filas para detectar duplicados</td><td>O(n)</td></tr>
+<tr><td>Filtro</td><td><code>HashSet&lt;string&gt;</code> con <code>OrdinalIgnoreCase</code></td><td><code>Add</code> devuelve <code>false</code> si el código ya estaba: detecta y registra en una sola operación</td><td>O(1) por fila</td></tr>
+<tr><td>Mapa de existentes</td><td><code>Dictionary&lt;string, CatalogoProveedor&gt;</code></td><td>Búsqueda por código igual a la intercalación de la base</td><td>O(1) por fila</td></tr>
+<tr><td>Dependientes</td><td>Dos <code>ILookup</code></td><td>Uno a muchos sin excepción para claves ausentes</td><td>O(1) por fila más los artículos afectados</td></tr>
+<tr><td>Cambios pendientes</td><td>Change Tracker del <code>DbContext</code> de la pantalla</td><td>Unit of Work: todo se confirma junto o no se confirma</td><td>O(n). Es el cuello de botella de memoria</td></tr>
+<tr><td>Escritura</td><td>Lotes de <code>UPDATE</code> e <code>INSERT</code> en una transacción</td><td>Atomicidad. EF agrupa hasta 42 comandos por viaje. Todos los <code>UPDATE</code> de renglones llevan las mismas 10 columnas (M-84), así que los lotes repiten el texto y SQL Server reutiliza un único plan</td><td>Unos 715 viajes para 30.000 filas, un solo COMMIT</td></tr>
+</table>
+
+<h3>Lo que se puede afirmar con evidencia</h3>
+<table>
+<tr><th>Escenario</th><th>Resultado</th></tr>
+<tr><td>Parseo de 5.000 filas</td><td>Menos de 3 s y menos de 50 MB (afirmado en un test)</td></tr>
+<tr><td>Importación de 5.000 filas: 2.500 existentes y 2.500 nuevas, con 2.000 artículos de ruido</td><td>Unos 13 MB retenidos, afirmado menos de 100 MB. Límite RNF-03: 300 MB</td></tr>
+<tr><td>Artículos en el Change Tracker con esa planilla</td><td>2.500, no 4.500 (H-14)</td></tr>
+<tr><td>Viajes de lectura</td><td>4: proveedor, Q2, Q3 y Q1, sin importar n</td></tr>
+<tr><td>Alta inicial de 30.000 filas</td><td>Unos 21 s. Medido, no afirmado</td></tr>
+<tr><td>Reimportación idéntica de 30.000 filas</td><td>Unos 14 s (unos 22 s antes de M-84). Medido, no afirmado</td></tr>
+<tr><td>Reimportación semanal de 30.000 filas: 10 % de precios y 2 % de descripciones cambiados al azar, 1 % de renglones nuevos</td><td>Unos 15 s (unos 24 s antes de M-84), con 5 textos de lote y unas 13 compilaciones de SQL, cualquiera sea la proporción de cambios. Medido, no afirmado</td></tr>
+<tr><td>Clasificar 30.000 renglones</td><td>Unos 9 s (154 s antes de M-82 y M-83). Medido, no afirmado</td></tr>
+</table>
+<p>Las mediciones de 30.000 filas salen de <code>ImportacionPlanillaRendimientoTests</code> y <code>ClasificacionCatalogoRendimientoTests</code> (<code>Category=Rendimiento</code>), en Release y en un equipo con poca memoria libre: sirven para comparar versiones en el mismo equipo, no como tiempos de referencia. La memoria con 30.000 filas no se midió. El tiempo no se afirma en los tests porque depende de SQL Server Express y del disco; un test que falla al azar no protege nada.</p>
+
+<h3>Complejidad y escalabilidad</h3>
+<ul>
+    <li><b>Tiempo O(n)</b> en filas, más las consultas indexadas: Q1 cuesta O(C · log R), con C códigos de la planilla y R renglones del proveedor.</li>
+    <li><b>Hasta M-83 eso no era cierto.</b> El paso 2 carga el proveedor y Q1 trae después los renglones con tracking, así que EF Core agregaba cada uno a la colección <code>Proveedor.Catalogos</code>, una <code>List</code>, tras un <code>Contains</code> lineal: un O(n²) escondido. Con 5.000 filas no se notaba; con 30.000 eran unos 4,6 s de los que nadie se beneficiaba, porque nadie leía esa colección. Se quitó la navegación y el esquema no cambió.</li>
+    <li><b>Memoria O(n), no O(1).</b> El lector es streaming, pero la lista del parser y el Change Tracker crecen con la planilla (H-15).</li>
+    <li><b>50.000 filas:</b> unos 130 MB de punta a punta según una extrapolación lineal, <b>sin medir</b>. Sigue por debajo de 300 MB, con menos margen, porque WPF y el resto de la aplicación también consumen.</li>
+    <li><b>Procesar por lotes (D-08)</b> está documentado pero cerrado: la medición no lo justifica, y partir el guardado rompería la atomicidad. Es el principio de medir antes de optimizar.</li>
+</ul>
+
+<div class="nota"><b>Costos que conviene reconocer.</b> (1) Cada renglón existente genera un <code>UPDATE</code> aunque su costo no varíe, porque <code>FechaActualizacion</code> se renueva siempre. Es correcto: esa fecha dice que el renglón venía en la última planilla y alimenta el aviso de lista desactualizada. (2) Después de un guardado exitoso no se limpia el Change Tracker: las entidades siguen en memoria hasta que se cierra la pantalla. (3) Las limitaciones de progreso y cancelación del nivel 3.</div>
+
+<h3>Tres correcciones que salieron de medir con 30.000 filas</h3>
+<table>
+<tr><th>Decisión</th><th>Síntoma medido</th><th>Causa</th><th>Corrección</th></tr>
+<tr><td><b>M-82</b></td><td>Clasificar tardaba 154 s; 146 s eran del guardado, y SQL Server ejecutaba en 12 ms</td><td>EF manda en cada <code>UPDATE</code> solo las columnas modificadas. Las combinaciones de categoría y marca nulas hacían único el texto de cada lote, y SQL Server compilaba un plan por lote (731 compilaciones)</td><td>Si cambia alguna de las tres columnas de la clasificación, se envían las tres</td></tr>
+<tr><td><b>M-83</b></td><td>Leer los renglones con el proveedor cargado tardaba 5 s, contra 0,5 s sin él</td><td>El enlace cuadrático en <code>Proveedor.Catalogos</code></td><td>Se quitó la colección, que no tenía ningún lector</td></tr>
+<tr><td><b>M-84</b></td><td>Reimportar sin cambios tardaba lo mismo que dar de alta</td><td><code>DbSet.Update</code> sobre renglones ya seguidos reescribía las 15 columnas, con sus claves foráneas e índices</td><td>Un conjunto fijo: las 10 columnas que la planilla puede cambiar</td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿por qué no enviar solo las columnas que cambiaron?</summary>
+<p>Porque en una escritura masiva lo que se optimiza no es cada fila sino cada <b>lote</b>. EF Core agrupa hasta 42 <code>UPDATE</code> en un solo texto, y SQL Server busca el plan en caché por ese texto exacto. Con solo lo modificado, una fila con el precio nuevo y otra sin cambios tienen formas distintas, y como los cambios están repartidos al azar en la planilla, cada lote mezcla formas en un orden distinto: casi cada lote es un texto nuevo y se compila de cero, aunque esté parametrizado.</p>
+<p>Con una proporción p de filas distintas, la probabilidad de que un lote salga diferente es 1 − (1 − p)<sup>42</sup>: con apenas un 5 % de descripciones cambiadas, casi 9 de cada 10 lotes se recompilarían. La eficiencia dependería de los datos, y el peor caso sería más lento que enviar todas las columnas.</p>
+<p>Por eso <code>ActualizarAsync</code> envía un <b>conjunto fijo</b>: las 10 columnas que <code>ActualizarPrecio</code> puede cambiar, aunque no hayan cambiado. Quedan afuera las que la importación nunca toca: proveedor, código, alta, baja y artículo vinculado. El conjunto <b>suma</b> a lo que EF detecte y nunca excluye: si otra columna cambiara, se guardaría igual.</p>
+</details>
+<details><summary>Pregunta probable: ¿por qué el parser no devuelve un <code>IAsyncEnumerable</code> para procesar fila por fila?</summary>
+<p>Porque el diseño anti N+1 necesita la lista completa: para consultar en un solo viaje qué códigos existen (Q1) hay que conocerlos todos, y para detectar duplicados hay que haber visto las filas anteriores. Procesar fila por fila obligaría a consultar la base por fila o a partir en lotes, con más complejidad y sin una necesidad medida.</p>
+</details>
+<details><summary>Pregunta probable: ¿la interfaz se congela con una planilla grande?</summary>
+<p>No. El ViewModel lanza el caso de uso con <code>Task.Run</code>, así que el parseo y el recorrido corren en el ThreadPool y el hilo de la interfaz queda libre (RNF-02). El avance cruza de hilo con <code>Progress&lt;int&gt;</code>, cada 250 filas para no saturar el Dispatcher: 5.000 filas generan 20 mensajes y no 5.000.</p>
+</details>
+<details><summary>Pregunta probable: ¿qué mide exactamente la cifra de 13 MB?</summary>
+<p>Memoria administrada retenida (<code>GC.GetTotalMemory</code>) al terminar la importación. No es el consumo total del proceso (<i>working set</i>), así que es una medición parcial de RNF-03. Hay que decirlo con esa precisión.</p>
+</details>
+
+<!-- ============================================================ DEFENSA C -->
+<h2 id="defensa-c">Defensa C · Validaciones por capa</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<p>Un principio ordena todo: <b>cada capa valida lo que solo ella puede saber</b>. La frontera valida el pedido; el parser valida el archivo; Aplicación valida lo que depende del destino y del conjunto de filas; el Dominio protege sus invariantes; la base garantiza lo que ninguna capa puede ver sola, como la unicidad entre terminales.</p>
+
+<h3>De la pantalla a la base, en el orden en que se ejecutan</h3>
+<table>
+<tr><th>Capa</th><th>Componente</th><th>Qué valida</th><th>Por qué ahí</th><th>Si falla</th></tr>
+<tr><td>App</td><td><code>PuedeImportar</code></td><td>Archivo elegido, columnas cargadas, fila válida</td><td>Experiencia de uso. Es defensa en profundidad: la regla que manda es la del validador</td><td>Botón deshabilitado</td></tr>
+<tr><td>Aplicación</td><td><code>MapeoColumnasValidator</code> (FluentValidation)</td><td>Forma del pedido: proveedor, nombres de columna, fila de encabezado</td><td>Validación en la frontera. Se ejecuta antes de tocar el archivo o la base</td><td>Corta todo</td></tr>
+<tr><td>Aplicación</td><td><code>ProveedorService</code></td><td>Proveedor existente y activo</td><td>Necesita consultar la base</td><td>Corta todo</td></tr>
+<tr><td>Infraestructura</td><td><code>ResolverColumnas</code></td><td>Que las columnas del mapeo existan en la fila de encabezado</td><td>Solo se sabe al leer el archivo. Es un error de <b>configuración</b>: afectaría a todas las filas</td><td>Corta todo, con la lista de columnas encontradas</td></tr>
+<tr><td>Infraestructura</td><td><code>InterpretarFila</code> y <code>ParseadorPrecioTexto</code></td><td>Código, descripción y precio presentes; precio legible en formato es-AR y no negativo; redondeo a 2 decimales</td><td>Son reglas del <b>formato del archivo</b>. Un único motivo por fila, el primero que falla</td><td>Descarta la fila y sigue</td></tr>
+<tr><td>Aplicación</td><td><code>FiltrarFilasValidas</code></td><td>Largos de 50 y 200 caracteres según las columnas <code>nvarchar</code>; códigos duplicados (gana la primera aparición)</td><td>Dependen del <b>destino</b> y del <b>conjunto</b>. Sin el control de largo, una sola fila haría fallar el guardado de toda la planilla</td><td>Descarta la fila y sigue</td></tr>
+<tr><td>Dominio</td><td><code>CatalogoProveedor.ActualizarPrecio</code>, <code>Articulo.CalcularPrecioVenta</code></td><td>Costo estrictamente positivo; costo y ganancia no negativos; textos de clasificación del proveedor válidos</td><td>Invariantes de las entidades. Validan <b>antes</b> de modificar (H-08)</td><td>Descarta la fila y sigue</td></tr>
+<tr><td>Base</td><td><code>CK_CATALOGOS_PROVEEDORES_PrecioCosto</code>, <code>CK_ARTICULOS_Precios</code>, <code>CK_ARTICULOS_Presentacion</code>, índices únicos y concurrencia optimista</td><td>Integridad final y concurrencia entre terminales</td><td>Es la única que ve todas las filas a la vez</td><td>Rollback de todo</td></tr>
+</table>
+
+<h3>Error de dato contra error de configuración</h3>
+<ul>
+    <li><b>Error de dato:</b> afecta a una fila. No lanza excepción: se agrega "Fila N: motivo" y se sigue. Un precio ilegible en la fila 4.312 no justifica descartar las otras 4.999.</li>
+    <li><b>Error de configuración o de sistema:</b> afecta a todas las filas o a la consistencia del lote. Lanza y corta la importación, y la base no cambia.</li>
+    <li>El informe junta en un solo lugar los descartes del parser, del filtro y del dominio (H-03), pero <b>no</b> los ordena por número de fila.</li>
+</ul>
+
+<h3>Validaciones de incorporar, vincular y gestionar fuentes</h3>
+<table>
+<tr><th>Regla</th><th>Quién la aplica</th><th>Resultado</th></tr>
+<tr><td>Al menos un renglón, ids positivos y sin repetir, markups no negativos, categoría y marca positivas si vienen</td><td><code>IncorporarCatalogoArticulosValidator</code></td><td>Rechaza el pedido</td></tr>
+<tr><td>Un renglón es fuente de un solo artículo (A-1, H-17)</td><td><code>CatalogoProveedor.AsignarArticulo</code>; Aplicación lo adelanta para nombrar al dueño</td><td>Al incorporar se omite y se informa; al vincular o guardar fuentes, <code>DomainException</code></td></tr>
+<tr><td>Una presentación derivada o un servicio no tienen fuentes (RF-21, RF-04)</td><td><code>CatalogoProveedor.AsignarArticulo</code>, respaldado por <code>CK_ARTICULOS_Presentacion</code></td><td><code>DomainException</code></td></tr>
+<tr><td>La principal es una de las fuentes del artículo (J1)</td><td><code>Articulo.MarcarFuentePrincipal</code> y el validador del formulario</td><td><code>DomainException</code> o validación</td></tr>
+<tr><td>Un renglón es principal de un solo artículo</td><td>Índice único filtrado <code>IX_ARTICULOS_id_catalogo_proveedor</code></td><td>Rollback</td></tr>
+</table>
+
+<div class="nota"><b>Huecos conocidos.</b> (1) La extensión del archivo no se valida: todo lo que no es <code>.csv</code> se lee como XLSX. (2) Dos campos del mapeo pueden apuntar a la misma columna. (3) Costo 0 en un código nuevo pasa sin validación de dominio (H-07). (4) Los límites 50 y 200 son constantes repetidas en el servicio, y ningún test las ata a la configuración de EF. (5) El parser redondea con <code>Math.Round</code> bancario, distinto del <code>AwayFromZero</code> del resto del sistema. (6) <code>"1.500"</code> se lee como 1500: esa ambigüedad de formato no tiene solución sintáctica (H-10).</div>
+
+<details><summary>Pregunta probable: ¿no es duplicación validar el largo en Aplicación si la base ya tiene <code>nvarchar(50)</code>?</summary>
+<p>No, porque las consecuencias son distintas. En Aplicación, una fila larga se descarta y se informa con su número. En la base, esa misma fila haría fallar el <code>SaveChangesAsync</code> de toda la planilla con un error de truncamiento. La base es la red final; Aplicación permite la política de "tolerar el dato malo".</p>
+</details>
+<details><summary>Pregunta probable: ¿por qué el parser no usa FluentValidation para cada fila?</summary>
+<p>Porque un validador de frontera rechaza el pedido entero, y la regla del negocio es omitir la fila mala y seguir. Además, las reglas de la fila (celdas vacías, formato del precio) son del formato del archivo: pertenecen al adaptador de Infraestructura que conoce ese formato.</p>
+</details>
+<details><summary>Pregunta probable: si el parser ya filtra los códigos vacíos, ¿por qué <code>FiltrarFilasValidas</code> los vuelve a mirar?</summary>
+<p>Porque Aplicación no confía en la implementación de su puerto <code>IExcelCatalogParser</code>: el parser se puede reemplazar, y en los tests se lo sustituye por un doble. La regla de Aplicación tiene que valer para cualquier implementación.</p>
+</details>
+
+<p class="pie">Decisiones citadas: A-1 a A-19 en <code>docs/roadmap/etapa-4-track-4.3-abastecimiento.md</code>; M-xx en <code>docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md</code>; H-xx, D-xx y E-xx en las auditorías del importador. El SQL es aproximado: está reconstruido a partir del LINQ y no capturado de un log. La versión resumida, dentro de la wiki, es <code>wiki/05-casos-de-uso-y-flujos/flujo-importador-excel.md</code>.</p>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+    if (window.mermaid) {
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: "neutral",
+            securityLevel: "strict",
+            fontFamily: "Segoe UI, system-ui, sans-serif",
+            flowchart: { htmlLabels: true, useMaxWidth: true },
+            sequence: { useMaxWidth: false, wrap: true, width: 160, actorMargin: 40, messageMargin: 28, noteMargin: 10, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12 },
+            state: { useMaxWidth: true },
+            er: { useMaxWidth: true }
+        });
+    }
+    // Chrome imprime cerradas las secciones plegadas: se abren antes de imprimir y se restauran después.
+    var plegadas = [];
+    window.addEventListener("beforeprint", function () {
+        plegadas = Array.prototype.filter.call(document.querySelectorAll("details"), function (d) { return !d.open; });
+        plegadas.forEach(function (d) { d.open = true; });
+    });
+    window.addEventListener("afterprint", function () {
+        plegadas.forEach(function (d) { d.open = false; });
+    });
+</script>
+</body>
+</html>
