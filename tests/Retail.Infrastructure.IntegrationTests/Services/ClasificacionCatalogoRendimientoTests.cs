@@ -110,7 +110,7 @@ public class ClasificacionCatalogoRendimientoTests : IAsyncLifetime, IDisposable
         _comandos.Reiniciar();
         _guardado.Reiniciar();
         long escalamientosAntes = await EscalamientosDeBloqueoAsync();
-        long compilacionesAntes = await CompilacionesDelServidorAsync();
+        long compilacionesAntes = await EstadisticasSqlServer.CompilacionesAsync(_context);
         GC.Collect();
         GC.WaitForPendingFinalizers();
         long memoriaInicial = GC.GetTotalMemory(forceFullCollection: true);
@@ -122,7 +122,7 @@ public class ClasificacionCatalogoRendimientoTests : IAsyncLifetime, IDisposable
         long memoriaFinal = GC.GetTotalMemory(forceFullCollection: true);
         double incrementoMb = (memoriaFinal - memoriaInicial) / (1024.0 * 1024.0);
         long escalamientos = await EscalamientosDeBloqueoAsync() - escalamientosAntes;
-        long compilaciones = await CompilacionesDelServidorAsync() - compilacionesAntes;
+        long compilaciones = await EstadisticasSqlServer.CompilacionesAsync(_context) - compilacionesAntes;
         Informar("3. ClasificarAsync (total)", tiempoClasificacion,
             $"{resultado.ItemsClasificados} ítems, {resultado.ConCategoria} con categoría, {resultado.ConMarca} con marca");
         Informar("   3a. SaveChanges (detección de cambios + lotes)", _guardado.Duracion, $"{_guardado.Guardados} guardado(s)");
@@ -182,21 +182,6 @@ public class ClasificacionCatalogoRendimientoTests : IAsyncLifetime, IDisposable
             .SqlQuery<long>($"""
                 SELECT ISNULL(SUM(index_lock_promotion_count), 0) AS [Value]
                 FROM sys.dm_db_index_operational_stats(DB_ID(), OBJECT_ID('CATALOGOS_PROVEEDORES'), NULL, NULL)
-                """)
-            .SingleAsync();
-    }
-
-    /// <summary>
-    /// Compilaciones de SQL acumuladas por la instancia (contador "SQL Compilations/sec", que pese al nombre es un
-    /// total). Se compara antes y después de la operación; incluye la poca actividad ajena que haya en el servidor.
-    /// </summary>
-    private async Task<long> CompilacionesDelServidorAsync()
-    {
-        return await _context.Database
-            .SqlQuery<long>($"""
-                SELECT cntr_value AS [Value]
-                FROM sys.dm_os_performance_counters
-                WHERE counter_name = 'SQL Compilations/sec' AND object_name LIKE '%SQL Statistics%'
                 """)
             .SingleAsync();
     }
