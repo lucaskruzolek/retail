@@ -1,4 +1,4 @@
-﻿using System.Windows.Controls;
+using System.Windows.Controls;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -2379,5 +2379,33 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de Ajustes debe resolver sus recursos y plantillas");
         vista.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void AyudaDialog_AlInstanciarse_ResuelveRecursosYLayout()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        AyudaDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var viewModel = new Retail.App.ViewModels.Ayuda.AyudaViewModel(Substitute.For<IAyudaDialogService>());
+                dialog = new AyudaDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(580, double.PositiveInfinity));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 580, 600));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de AyudaDialog debe resolver sus recursos y estilos");
+        dialog.Should().NotBeNull();
     }
 }

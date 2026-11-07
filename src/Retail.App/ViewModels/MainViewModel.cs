@@ -24,6 +24,7 @@ public partial class MainViewModel : ObservableObject
     private readonly NavegacionSecciones _navegacion;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IConfirmacionesAvisoRestauracion? _confirmaciones;
+    private readonly IAyudaDialogService? _ayudaDialogService;
     private readonly ILogger<MainViewModel> _logger;
 
     /// <summary>
@@ -112,13 +113,15 @@ public partial class MainViewModel : ObservableObject
         IServiceScopeFactory scopeFactory,
         IConfirmacionesAvisoRestauracion? confirmaciones = null,
         ILogger<MainViewModel>? logger = null,
-        NavegacionSecciones? navegacion = null)
+        NavegacionSecciones? navegacion = null,
+        IAyudaDialogService? ayudaDialogService = null)
     {
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _navigationService = navigationService ?? throw new ArgumentNullException(nameof(navigationService));
         _scopeFactory = scopeFactory ?? throw new ArgumentNullException(nameof(scopeFactory));
         _confirmaciones = confirmaciones;
         _logger = logger ?? NullLogger<MainViewModel>.Instance;
+        _ayudaDialogService = ayudaDialogService;
 
         _navegacion = navegacion ?? new NavegacionSecciones(_session, _navigationService);
 
@@ -333,6 +336,12 @@ public partial class MainViewModel : ObservableObject
     public void ToggleSidebar()
     {
         IsSidebarExpanded = !IsSidebarExpanded;
+    }
+
+    [RelayCommand]
+    public void AbrirAyuda()
+    {
+        _ayudaDialogService?.MostrarCentroAyuda();
     }
 
     [RelayCommand]

@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Retail POS - Manual de Usuario</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 20mm 15mm 20mm 15mm;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #18181B;
+            background-color: #FFFFFF;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #9D0F33;
+            font-size: 26px;
+            border-bottom: 2px solid #9D0F33;
+            padding-bottom: 8px;
+            margin-top: 0;
+            margin-bottom: 12px;
+            page-break-after: avoid;
+        }
+        h2 {
+            color: #9D0F33;
+            font-size: 18px;
+            border-bottom: 1px solid #E4E4E7;
+            padding-bottom: 6px;
+            margin-top: 28px;
+            margin-bottom: 10px;
+            page-break-after: avoid;
+        }
+        h3 {
+            color: #27272A;
+            font-size: 14px;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            page-break-after: avoid;
+        }
+        p {
+            margin: 0 0 10px 0;
+            text-align: justify;
+        }
+        ul, ol {
+            margin: 0 0 12px 0;
+            padding-left: 24px;
+        }
+        li {
+            margin-bottom: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0 18px 0;
+            font-size: 12px;
+            page-break-inside: avoid;
+        }
+        th, td {
+            border: 1px solid #D4D4D8;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #F4F4F5;
+            color: #18181B;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #FAFAFA;
+        }
+        pre {
+            background-color: #18181B;
+            color: #F4F4F5;
+            padding: 12px 14px;
+            border-radius: 6px;
+            font-family: "Cascadia Code", Consolas, Monaco, monospace;
+            font-size: 11px;
+            line-height: 1.4;
+            overflow-x: auto;
+            page-break-inside: avoid;
+            margin: 12px 0;
+        }
+        code {
+            font-family: "Cascadia Code", Consolas, monospace;
+            background-color: #F4F4F5;
+            color: #9D0F33;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+        pre code {
+            background-color: transparent;
+            color: inherit;
+            padding: 0;
+        }
+        .keycap {
+            display: inline-block;
+            background-color: #27272A;
+            color: #FAFAFA;
+            border: 1px solid #3F3F46;
+            border-radius: 4px;
+            padding: 2px 7px;
+            font-family: "Cascadia Code", Consolas, monospace;
+            font-size: 11px;
+            font-weight: 600;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.15);
+        }
+        .formula {
+            font-family: "Cascadia Code", Consolas, monospace;
+            color: #9D0F33;
+            font-weight: bold;
+        }
+        div.formula {
+            background: #FFF1F4;
+            border-left: 3px solid #9D0F33;
+            padding: 8px 12px;
+            margin: 10px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        hr {
+            border: 0;
+            border-top: 1px solid #E4E4E7;
+            margin: 24px 0;
+        }
+        a {
+            color: #9D0F33;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        blockquote {
+            border-left: 4px solid #9D0F33;
+            background-color: #FFF5F7;
+            margin: 12px 0;
+            padding: 8px 14px;
+            color: #4A0516;
+            border-radius: 0 6px 6px 0;
+        }
+    </style>
+</head>
+<body>
+<h1 id="retail-pos-manual-de-usuario-y-gua-de-operacin">Retail POS — Manual de Usuario y Guía de Operación</h1>
+<h3 id="sistema-erp-punto-de-venta-para-librera-y-mostrador-comercial">Sistema ERP & Punto de Venta para Librería y Mostrador Comercial</h3>
+<p><strong>Plataforma:</strong> .NET 8 LTS | Windows 11 Fluent Design  </p>
+<p><strong>Versión del Sistema:</strong> v1.0.0  </p>
+<p><strong>Audiencia:</strong> Cajeros, Repositores, Encargados, Gerentes y Administradores de Sistema.</p>
+<hr />
+<h2 id="-tabla-de-contenidos">📑 Tabla de Contenidos</h2>
+<ol>
+<li><a href="#capítulo-1-introducción-ergonomía-de-mostrador-y-atajos-globales">Capítulo 1: Introducción, Ergonomía de Mostrador y Atajos Globales</a></li>
+<li><a href="#capítulo-2-ventana-de-autenticación-login">Capítulo 2: Ventana de Autenticación (Login)</a></li>
+<li><a href="#capítulo-3-ventana-principal-shell-sidebar-y-navegación">Capítulo 3: Ventana Principal (Shell, Sidebar y Navegación)</a></li>
+<li><a href="#capítulo-4-punto-de-venta-de-alta-velocidad-pos">Capítulo 4: Punto de Venta de Alta Velocidad (POS)</a></li>
+<li><a href="#capítulo-5-diálogo-de-cobro-multimedio-y-facturación-fiscal">Capítulo 5: Diálogo de Cobro Multimedio y Facturación Fiscal</a></li>
+<li><a href="#capítulo-6-selector-y-búsqueda-rápida-de-clientes">Capítulo 6: Selector y Búsqueda Rápida de Clientes</a></li>
+<li><a href="#capítulo-7-padrón-y-gestión-de-clientes">Capítulo 7: Padrón y Gestión de Clientes</a></li>
+<li><a href="#capítulo-8-formulario-de-alta-y-edición-de-clientes">Capítulo 8: Formulario de Alta y Edición de Clientes</a></li>
+<li><a href="#capítulo-9-cobranza-de-cuenta-corriente">Capítulo 9: Cobranza de Cuenta Corriente</a></li>
+<li><a href="#capítulo-10-control-de-caja-y-gestión-de-turnos">Capítulo 10: Control de Caja y Gestión de Turnos</a></li>
+<li><a href="#capítulo-11-apertura-y-movimientos-manuales-de-caja">Capítulo 11: Apertura y Movimientos Manuales de Caja</a></li>
+<li><a href="#capítulo-12-arqueo-ciego-y-cierre-de-turno">Capítulo 12: Arqueo Ciego y Cierre de Turno</a></li>
+<li><a href="#capítulo-13-catálogo-maestro-de-artículos-e-inventario">Capítulo 13: Catálogo Maestro de Artículos e Inventario</a></li>
+<li><a href="#capítulo-14-ficha-integral-de-artículo-alta-y-modificación">Capítulo 14: Ficha Integral de Artículo (Alta y Modificación)</a></li>
+<li><a href="#capítulo-15-presentaciones-derivadas-y-fraccionamiento">Capítulo 15: Presentaciones Derivadas y Fraccionamiento</a></li>
+<li><a href="#capítulo-16-clasificación-y-taxonomía-rubros-categorías-y-marcas">Capítulo 16: Clasificación y Taxonomía (Rubros, Categorías y Marcas)</a></li>
+<li><a href="#capítulo-17-padrón-y-formulario-de-proveedores-mayoristas">Capítulo 17: Padrón y Formulario de Proveedores Mayoristas</a></li>
+<li><a href="#capítulo-18-equivalencias-de-proveedor">Capítulo 18: Equivalencias de Proveedor</a></li>
+<li><a href="#capítulo-19-importador-de-catálogos-y-planillas-excelcsv">Capítulo 19: Importador de Catálogos y Planillas Excel/CSV</a></li>
+<li><a href="#capítulo-20-asistente-de-incorporación-asistida-al-catálogo">Capítulo 20: Asistente de Incorporación Asistida al Catálogo</a></li>
+<li><a href="#capítulo-21-pedidos-de-abastecimiento-a-proveedores">Capítulo 21: Pedidos de Abastecimiento a Proveedores</a></li>
+<li><a href="#capítulo-22-armado-y-emisión-de-pedidos-de-compra">Capítulo 22: Armado y Emisión de Pedidos de Compra</a></li>
+<li><a href="#capítulo-23-ingreso-y-recepción-de-compras-facturas-y-remitos">Capítulo 23: Ingreso y Recepción de Compras (Facturas y Remitos)</a></li>
+<li><a href="#capítulo-24-gestión-de-usuarios-y-roles-de-seguridad">Capítulo 24: Gestión de Usuarios y Roles de Seguridad</a></li>
+<li><a href="#capítulo-25-formulario-de-usuario-y-blanqueo-de-contraseña">Capítulo 25: Formulario de Usuario y Blanqueo de Contraseña</a></li>
+<li><a href="#capítulo-26-copias-de-seguridad-y-respaldo-de-base-de-datos">Capítulo 26: Copias de Seguridad y Respaldo de Base de Datos</a></li>
+<li><a href="#capítulo-27-restauración-segura-y-confirmación-con-credencial">Capítulo 27: Restauración Segura y Confirmación con Credencial</a></li>
+<li><a href="#capítulo-28-tablero-gerencial-e-indicadores-de-rendimiento">Capítulo 28: Tablero Gerencial e Indicadores de Rendimiento</a></li>
+<li><a href="#capítulo-29-reportes-analíticos-y-exportación-a-excelpdf">Capítulo 29: Reportes Analíticos y Exportación a Excel/PDF</a></li>
+<li><a href="#capítulo-30-ajustes-del-sistema-y-preferencias-de-tema">Capítulo 30: Ajustes del Sistema y Preferencias de Tema</a></li>
+<li><a href="#capítulo-31-centro-de-ayuda-y-consulta-rápida">Capítulo 31: Centro de Ayuda y Consulta Rápida</a></li>
+</ol>
+<hr />
+<h2 id="captulo-1-introduccin-ergonoma-de-mostrador-y-atajos-globales">Capítulo 1: Introducción, Ergonomía de Mostrador y Atajos Globales</h2>
+<p>Retail POS ha sido diseñado priorizando la <strong>velocidad de atención comercial</strong>. En mostrador, retirar las manos del teclado para usar el ratón retrasa el despacho de clientes y genera fatiga operativa. Por ello, el 100% de las operaciones críticas cuenta con soporte directo de teclas de función (<code>F1</code> a <code>F12</code>) y atajos universales.</p>
+<h3 id="tabla-general-de-atajos-de-teclado-del-sistema">Tabla General de Atajos de Teclado del Sistema</h3>
+<table><thead><tr><th>Tecla / Combinación</th><th>Acción Global</th><th>Módulo Asociado</th></tr></thead><tbody><tr><td><strong><kbd class="keycap">F1</kbd></strong></td><td>Abrir Punto de Venta (Terminal POS)</td><td>Ventas y Mostrador</td></tr><tr><td><strong><kbd class="keycap">F2</kbd></strong></td><td>Abrir Catálogo de Artículos y Stock</td><td>Inventario</td></tr><tr><td><strong><kbd class="keycap">F4</kbd></strong></td><td>Buscar y Seleccionar Cliente / Abrir Padrón</td><td>Clientes</td></tr><tr><td><strong><kbd class="keycap">F5</kbd></strong></td><td>Consultar Caja y Estado de Turno</td><td>Caja</td></tr><tr><td><strong><kbd class="keycap">F6</kbd></strong></td><td>Presupuestos y Cotizaciones</td><td>Ventas</td></tr><tr><td><strong><kbd class="keycap">F7</kbd></strong></td><td>Abrir Tablero Gerencial (Gerente)</td><td>Reportes</td></tr><tr><td><strong><kbd class="keycap">F10</kbd></strong></td><td>Administrar Usuarios y Operadores</td><td>Seguridad</td></tr><tr><td><strong><kbd class="keycap">F11</kbd></strong></td><td>Copias de Seguridad y Respaldos</td><td>Base de Datos</td></tr><tr><td><strong><kbd class="keycap">F12</kbd></strong></td><td>Cobrar Venta (en POS) / Registrar Compra (en Compras)</td><td>Transaccional</td></tr><tr><td><strong><kbd class="keycap">Ctrl + B</kbd></strong></td><td>Expandir / Contraer Menú Lateral (Sidebar)</td><td>Shell General</td></tr><tr><td><strong><kbd class="keycap">Ctrl + H</kbd></strong></td><td>Abrir Centro de Ayuda y Atajos Rápidos</td><td>Soporte</td></tr><tr><td><strong><kbd class="keycap">Enter</kbd></strong></td><td>Confirmar acción primaria en diálogos (<code>IsDefault</code>)</td><td>Formularios y Modales</td></tr><tr><td><strong><kbd class="keycap">Esc</kbd></strong></td><td>Cerrar diálogo actual / Cancelar búsqueda activa</td><td>Universal</td></tr></tbody></table>
+<h3 id="reglas-de-entrada-de-datos-numricos-y-decimales">Reglas de Entrada de Datos Numéricos y Decimales</h3>
+<ul>
+<li><strong>Cantidades Enteras (Stock, Unidades):</strong> El sistema bloquea el ingreso de caracteres no numéricos y espacios. Solo admite dígitos (<code>0</code> al <code>9</code>).</li>
+<li><strong>Importes y Porcentajes Moneda:</strong> Se admite tanto el punto (<code>.</code>) como la coma (<code>,</code>); el sistema normaliza automáticamente el separador decimal según la configuración regional argentina (<code>es-AR</code>).</li>
+<li><strong>Números Tabulares:</strong> Todos los montos se alinean visualmente a la derecha para que los centavos coincidan en la misma vertical.</li>
+</ul>
+<hr />
+<h2 id="captulo-2-ventana-de-autenticacin-login">Capítulo 2: Ventana de Autenticación (Login)</h2>
+<p>La ventana de inicio de sesión (<code>LoginWindow</code>) es la puerta de entrada al sistema y garantiza el control de acceso basado en roles (RBAC).</p>
+<pre><code>┌────────────────────────────────────────────────────────┐
+│  Retail POS - Inicio de Sesión                         │
+├────────────────────────────────────────────────────────┤
+│                                                        │
+│  Usuario o Correo Electrónico:                         │
+│  [ admin@libreria.com.ar                             ] │
+│                                                        │
+│  Contraseña:                                           │
+│  [ ••••••••••••                                      ] │
+│                                                        │
+│  [ Iniciar Sesión ]  (Enter)                           │
+│                                                        │
+└────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="campos-y-carga-de-datos">Campos y Carga de Datos</h3>
+<ol>
+<li>*<em>Usuario o Correo Electrónico (<code></em></code> Obligatorio):**</li>
+</ol>
+<ul>
+<li>Puede ingresarse el nombre de usuario (ej. <code>juan.perez</code>) o la casilla de correo (ej. <code>juan@libreria.com</code>).</li>
+<li>No distingue mayúsculas de minúsculas.</li>
+</ul>
+<ol>
+<li>*<em>Contraseña (<code></em></code> Obligatorio):**</li>
+</ol>
+<ul>
+<li>Caracteres enmascarados de seguridad.</li>
+<li>Si la cuenta fue recién creada o blanqueada, el sistema exigirá el cambio de credencial en el primer acceso.</li>
+</ul>
+<h3 id="operatoria-y-validacin">Operatoria y Validación</h3>
+<ul>
+<li>Presione <strong><kbd class="keycap">Enter</kbd></strong> para enviar el formulario o haga clic en <strong>Iniciar Sesión</strong>.</li>
+<li>Si las credenciales son incorrectas o la cuenta está inhabilitada, se mostrará un mensaje descriptivo en color carmín.</li>
+<li>Si el operador supera la validación, la ventana de login se cierra y el Shell principal adapta sus menús según el rol asignado (Cajero, Encargado, Gerente o Administrador).</li>
+</ul>
+<hr />
+<h2 id="captulo-3-ventana-principal-shell-sidebar-y-navegacin">Capítulo 3: Ventana Principal (Shell, Sidebar y Navegación)</h2>
+<p>El Shell (<code>MainWindow</code>) gobierna el entorno de trabajo continuo de mostrador.</p>
+<h3 id="zonas-de-la-interfaz">Zonas de la Interfaz</h3>
+<ol>
+<li><strong>Sidebar Lateral Izquierdo:</strong></li>
+</ol>
+<ul>
+<li><strong>Botón Hamburguesa (<kbd class="keycap">Ctrl + B</kbd>):</strong> Alterna el ancho del menú entre modo compacto (58 px, solo íconos con tooltips flotantes) y modo expandido (200 px, ícono + texto descriptivo).</li>
+<li><strong>Botonera de Módulos:</strong> Accesos directos a Tablero, Punto de Venta, Clientes, Caja, Inventario, Compras y Administración. Los módulos no permitidos para el rol activo permanecen ocultos automáticamente.</li>
+<li><strong>Pie Fijo del Menú:</strong></li>
+<li><strong>Botón Ayuda (<kbd class="keycap">Ctrl + H</kbd>):</strong> Despliega el Centro de Ayuda modal.</li>
+<li><strong>Botón Ajustes:</strong> Conduce a la personalización de tema claro/oscuro.</li>
+<li><strong>Ficha del Operador:</strong> Muestra el nombre y rol del usuario activo.</li>
+<li><strong>Botón "Cambiar Operador":</strong> Permite cambiar de turno o usuario en menos de 15 ms sin cerrar el programa.</li>
+</ul>
+<ol>
+<li><strong>Barra de Título Superior:</strong></li>
+</ol>
+<ul>
+<li>Integra controles estándar de ventana (Minimizar, Maximizar con Snap Layouts de Windows 11 y Cerrar).</li>
+<li>Muestra avisos destacados no bloqueantes (por ejemplo, advertencia de restauración reciente de base de datos para Gerentes).</li>
+</ul>
+<ol>
+<li><strong>Área Central de Contenido (<code>RootFrame</code>):</strong></li>
+</ol>
+<ul>
+<li>Contenedor dinámico donde se presentan las páginas operativas sin recargas destructivas de memoria.</li>
+</ul>
+<hr />
+<h2 id="captulo-4-punto-de-venta-de-alta-velocidad-pos">Capítulo 4: Punto de Venta de Alta Velocidad (POS)</h2>
+<p>El Punto de Venta (<code>PosView</code>, tecla rápida <strong><kbd class="keycap">F1</kbd></strong>) es el centro neurálgico del mostrador comercial. Permite escanear artículos, modificar cantidades y cobrar en segundos.</p>
+<pre><code>┌───────────────────────────────────────────────────┬────────────────────────┐
+│ Buscador: [ 7791234567890                        ]│ TOTAL A COBRAR         │
+├───────────────────────────────────────────────────┤                        │
+│ Cant │ Código        │ Descripción  │ Unit  │ Sub │ $ 15.420,00            │
+├──────┼───────────────┼──────────────┼───────┼─────┤                        │
+│  2   │ 7791234567890 │ Cuaderno A4  │ 4.500 │9.000│ Cliente: Consumidor    │
+│  1   │ 9789501234567 │ Libro Novela │ 6.420 │6.420│                        │
+│      │               │              │       │     │ [ Cobrar Venta - F12 ] │
+│      │               │              │       │     │ [ Cancelar Ticket - F8]│
+└───────────────────────────────────────────────────┴────────────────────────┘</code></pre>
+<h3 id="proceso-de-carga-y-escaneo">Proceso de Carga y Escaneo</h3>
+<ol>
+<li><strong>Búsqueda por Lector de Código de Barras (Modo Escáner):</strong></li>
+</ol>
+<ul>
+<li>El cursor se ubica por defecto en el cuadro de búsqueda al ingresar a la pantalla.</li>
+<li>Al disparar el lector sobre el código de barras del producto, el escáner emite la secuencia numérica seguida de un retorno de carro (<code>Enter</code>).</li>
+<li>El artículo se incorpora inmediatamente a la grilla con cantidad <code>1</code>. Si ya existía en el ticket, se incrementa su cantidad automáticamente.</li>
+</ul>
+<ol>
+<li><strong>Búsqueda Manual por Texto (Predictivo):</strong></li>
+</ol>
+<ul>
+<li>Escriba parte del título, autor o código (ej. <code>"cuaderno rivadavia"</code> o <code>"lapicera"</code>).</li>
+<li>Se abrirá un menú desplegable con coincidencias en tiempo real mostrando título, precio y stock disponible.</li>
+<li>Con las flechas de dirección <strong><kbd class="keycap">↓</kbd></strong> / <strong><kbd class="keycap">↑</kbd></strong> seleccione el ítem y presione <strong><kbd class="keycap">Enter</kbd></strong> para incorporarlo.</li>
+</ul>
+<ol>
+<li><strong>Modificación Rápida de Cantidad:</strong></li>
+</ol>
+<ul>
+<li><strong>Botones <code>-</code> y <code>+</code>:</strong> Modifican de a 1 unidad directamente sobre la fila. El foco regresa de inmediato al buscador para seguir escaneando.</li>
+<li><strong>Edición Directa:</strong> Haga clic o tabule a la columna "Cant", escriba la cantidad deseada (ej. <code>10</code>) y presione <strong><kbd class="keycap">Enter</kbd></strong>.</li>
+</ul>
+<ol>
+<li><strong>Eliminación de un Ítem:</strong></li>
+</ol>
+<ul>
+<li>Haga clic sobre el botón de tacho rojo (<code>IconDangerButtonStyle</code>) en el extremo derecho de la fila del ticket.</li>
+</ul>
+<ol>
+<li><strong>Acciones de Mostrador:</strong></li>
+</ol>
+<ul>
+<li><strong><kbd class="keycap">F4</kbd>:</strong> Abre el diálogo para asignar un cliente registrado en lugar del Consumidor Final predeterminado.</li>
+<li><strong><kbd class="keycap">F8</kbd>:</strong> Cancela el ticket completo previa confirmación rápida, limpiando la grilla.</li>
+<li><strong><kbd class="keycap">F12</kbd>:</strong> Dispara el diálogo de cobro final.</li>
+</ul>
+<hr />
+<h2 id="captulo-5-dilogo-de-cobro-multimedio-y-facturacin-fiscal">Capítulo 5: Diálogo de Cobro Multimedio y Facturación Fiscal</h2>
+<p>El diálogo de cobro (<code>CobroModalDialog</code>, tecla <strong><kbd class="keycap">F12</kbd></strong> desde el POS) permite registrar los medios de pago del cliente, calcular el vuelto con exactitud y emitir el comprobante correspondiente.</p>
+<h3 id="carga-de-pagos-multimedio">Carga de Pagos Multimedio</h3>
+<p>El sistema admite combinar diferentes formas de pago en un mismo comprobante:</p>
+<ol>
+<li><strong>Efectivo:</strong></li>
+</ol>
+<ul>
+<li>Ingrese el monto en el campo Efectivo o utilice los <strong>Botones de Billetes Rápidos</strong> (<code>+<span class="formula">1.000</code>, <code>+</span>2.000</code>, <code>+<span class="formula">5.000</code>, <code>+</span>10.000</code>, <code>+$20.000</code>).</li>
+<li>El sistema calcula de inmediato el <strong>Vuelto</strong> en números grandes y destacados.</li>
+</ul>
+<ol>
+<li><strong>Tarjeta de Débito / Crédito:</strong></li>
+</ol>
+<ul>
+<li>Ingrese el importe cobrado en la terminal POS física (posnet/lapos).</li>
+<li>Opcionalmente, ingrese los últimos 4 dígitos o número de cupón de autorización.</li>
+</ul>
+<ol>
+<li><strong>Transferencia / QR (MercadoPago / Modo):</strong></li>
+</ol>
+<ul>
+<li>Ingrese el importe transferido una vez corroborada la acreditación en la terminal o teléfono de caja.</li>
+</ul>
+<ol>
+<li><strong>Cuenta Corriente:</strong></li>
+</ol>
+<ul>
+<li>Habilitado únicamente si se asignó un cliente con cuenta corriente activa (<kbd class="keycap">F4</kbd>).</li>
+<li>Si el monto imputado supera el límite de crédito disponible del cliente, el sistema mostrará una alerta en rojo impidiendo la confirmación hasta ajustar el monto.</li>
+</ul>
+<h3 id="seleccin-de-comprobante">Selección de Comprobante</h3>
+<ul>
+<li><strong>Ticket Factura B / C:</strong> Seleccionado por defecto para Consumidores Finales y Monotributistas.</li>
+<li><strong>Factura A:</strong> Disponible automáticamente cuando el cliente asignado es Responsable Inscripto con CUIT válido.</li>
+<li>Presione <strong><kbd class="keycap">Enter</kbd></strong> o haga clic en <strong>"Confirmar Cobro"</strong>:</li>
+<li>Se registra la venta de forma atómica en base de datos.</li>
+<li>Se descuenta el stock de los artículos vendidos.</li>
+<li>Se envía la solicitud fiscal a ARCA/AFIP (o simulador de CAE en modo local).</li>
+<li>Se envía la orden de impresión del ticket fiscal al servicio térmico.</li>
+<li>El POS se reinicia limpio para la siguiente venta.</li>
+</ul>
+<hr />
+<h2 id="captulo-6-selector-y-bsqueda-rpida-de-clientes">Capítulo 6: Selector y Búsqueda Rápida de Clientes</h2>
+<p>Invocado con <strong><kbd class="keycap">F4</kbd></strong> desde el Punto de Venta o el formulario de presupuestos (<code>SeleccionarClienteModalDialog</code>).</p>
+<h3 id="procedimiento-de-uso">Procedimiento de Uso</h3>
+<ol>
+<li>Ingrese en el cuadro de búsqueda el DNI, CUIT, Razón Social o Teléfono del cliente.</li>
+<li>La lista filtra los resultados en tiempo real mostrando:</li>
+</ol>
+<ul>
+<li>Nombre o Razón Social.</li>
+<li>Documento e identificación tributaria.</li>
+<li>Estado de cuenta corriente y saldo deudor si correspondiera.</li>
+</ul>
+<ol>
+<li>Seleccione el cliente con las flechas del teclado y presione <strong><kbd class="keycap">Enter</kbd></strong> (o doble clic).</li>
+<li>El cliente queda vinculado al ticket actual y se actualiza el panel derecho del POS. Para volver al consumidor final genérico, presione <strong><kbd class="keycap">Esc</kbd></strong>.</li>
+</ol>
+<hr />
+<h2 id="captulo-7-padrn-y-gestin-de-clientes">Capítulo 7: Padrón y Gestión de Clientes</h2>
+<p>Accesible desde el menú lateral en <strong>Ventas <span class="formula">\rightarrow</span> Clientes</strong> (tecla <strong><kbd class="keycap">F4</kbd></strong> desde el Shell).</p>
+<h3 id="componentes-de-la-pantalla">Componentes de la Pantalla</h3>
+<ul>
+<li><strong>Barra Superior de Filtros (<code>ListToolbar</code>):</strong></li>
+<li>Cuadro de búsqueda: filtra por nombre, apellido, DNI, CUIT, email o localidad.</li>
+<li>Botón de alternancia <strong>"Solo con Deuda"</strong>: filtra instantáneamente aquellos clientes que presentan saldo pendiente en cuenta corriente.</li>
+<li>Botón <strong>"Limpiar filtros"</strong>: restablece la vista al padrón completo.</li>
+<li><strong>Grilla Principal de Clientes:</strong></li>
+<li>Columnas: Documento, Razón Social / Nombre, Condición IVA, Teléfono, Saldo Cta. Cte., Estado.</li>
+<li>Badges de estado: <code>Activo</code> (verde), <code>Inactivo</code> (gris), <code>Con Saldo Deudor</code> (amarillo de advertencia).</li>
+<li><strong>Botonera de Acciones:</strong></li>
+<li><strong>"Nuevo Cliente":</strong> Abre el formulario de alta.</li>
+<li><strong>"Cobranza Rápida":</strong> Abre directamente el módulo de cobro para el cliente seleccionado.</li>
+<li><strong>Barra de Paginación (<code>PaginationBar</code>):</strong> Permite navegar entre páginas de resultados y ajustar la cantidad de filas visibles (15, 25, 50).</li>
+</ul>
+<hr />
+<h2 id="captulo-8-formulario-de-alta-y-edicin-de-clientes">Capítulo 8: Formulario de Alta y Edición de Clientes</h2>
+<p>Modal <code>ClienteFormDialog</code> utilizado para registrar un nuevo cliente o actualizar sus datos de contacto y comerciales.</p>
+<h3 id="campos-y-reglas-de-carga">Campos y Reglas de Carga</h3>
+<table><thead><tr><th>Campo</th><th>Obligatorio</th><th>Regla de Validación y Formato</th></tr></thead><tbody><tr><td><strong>Tipo de Documento</strong></td><td>Sí</td><td>Selección en desplegable: <code>DNI</code>, <code>CUIT</code>, <code>CUIL</code>, <code>Pasaporte</code>.</td></tr><tr><td><strong>Número de Documento</strong></td><td>Sí</td><td>Solo números sin puntos ni guiones (DNI: 7-8 dígitos; CUIT/CUIL: 11 dígitos con validación de dígito verificador).</td></tr><tr><td><strong>Razón Social / Nombre Completo</strong></td><td>Sí</td><td>Mínimo 3 caracteres, máximo 150 caracteres. En mayúsculas y minúsculas legibles.</td></tr><tr><td><strong>Condición frente al IVA</strong></td><td>Sí</td><td>Desplegable: <code>Consumidor Final</code>, <code>Responsable Inscripto</code>, <code>Monotributo</code>, <code>Exento</code>.</td></tr><tr><td><strong>Correo Electrónico</strong></td><td>No</td><td>Formato de email estándar (<code>usuario@dominio.com</code>).</td></tr><tr><td><strong>Teléfono / Celular</strong></td><td>No</td><td>Solo dígitos, espacios y prefijos telefónicos.</td></tr><tr><td><strong>Domicilio Fiscal / Comercial</strong></td><td>No</td><td>Calle, número, piso/depto y localidad.</td></tr><tr><td><strong>Habilitar Cuenta Corriente</strong></td><td>No</td><td>Interruptor <code>ToggleSwitch</code> (Sí / No).</td></tr><tr><td><strong>Límite de Crédito ($)</strong></td><td>Condicional</td><td>Obligatorio si Cta. Cte. está habilitada. Monto numérico mayor a cero.</td></tr><tr><td><strong>Días de Gracia / Vencimiento</strong></td><td>Condicional</td><td>Días pactados para la cancelación del saldo (ej. 30 días).</td></tr></tbody></table>
+<p>Presione <strong><kbd class="keycap">Enter</kbd></strong> para guardar o <strong><kbd class="keycap">Esc</kbd></strong> para cancelar sin guardar cambios.</p>
+<hr />
+<h2 id="captulo-9-cobranza-de-cuenta-corriente">Capítulo 9: Cobranza de Cuenta Corriente</h2>
+<p>Modal <code>CobranzaModalDialog</code> para asentar pagos totales o parciales sobre el saldo deudor de un cliente.</p>
+<h3 id="operatoria">Operatoria</h3>
+<ol>
+<li>La cabecera muestra el <strong>Saldo Actual Deudor</strong> del cliente en tipografía tabular destacada.</li>
+<li><strong>Monto a Imputar:</strong></li>
+</ol>
+<ul>
+<li>Escriba el monto específico que el cliente abona.</li>
+<li>O haga clic en <strong>"Pagar Totalidad"</strong> para completar automáticamente el total del saldo pendiente.</li>
+</ul>
+<ol>
+<li><strong>Medio de Cobro:</strong> Seleccione Efectivo, Débito, Transferencia bancaria o Cheque.</li>
+<li>Si paga en efectivo con un billete de mayor valor, el visor calcula el vuelto en tiempo real.</li>
+<li>Presione <strong>"Confirmar Cobranza"</strong>: se genera el recibo de cobranza, se descuenta la deuda en la ficha del cliente y se imputa el ingreso en la caja activa del cajero.</li>
+</ol>
+<hr />
+<h2 id="captulo-10-control-de-caja-y-gestin-de-turnos">Capítulo 10: Control de Caja y Gestión de Turnos</h2>
+<p>Accesible desde <strong>Ventas <span class="formula">\rightarrow</span> Caja y turnos</strong> (tecla <strong><kbd class="keycap">F5</kbd></strong>). Gobierna la responsabilidad patrimonial del dinero en mostrador.</p>
+<h3 id="estados-de-la-caja">Estados de la Caja</h3>
+<ul>
+<li><strong>Caja Cerrada:</strong> No se pueden facturar ventas en el POS ni registrar cobranzas hasta realizar la apertura.</li>
+<li><strong>Caja Abierta:</strong> Muestra el turno vigente con:</li>
+<li>Operador responsable y fecha/hora de apertura.</li>
+<li>Saldo inicial de cambio.</li>
+<li>Total recaudado por sistema desglosado por: Efectivo, Tarjetas de Débito, Tarjetas de Crédito y Pagos QR/Transferencias.</li>
+<li>Total de egresos/ingresos manuales.</li>
+</ul>
+<hr />
+<h2 id="captulo-11-apertura-y-movimientos-manuales-de-caja">Capítulo 11: Apertura y Movimientos Manuales de Caja</h2>
+<h3 id="1-apertura-de-turno-aperturaturnodialog">1. Apertura de Turno (<code>AperturaTurnoDialog</code>)</h3>
+<p>Al iniciar la jornada de trabajo o el turno de mostrador:</p>
+<ul>
+<li>*<em>Fondo Inicial de Caja (<span class="formula">) (<code></em></code> Obligatorio):** Ingrese el dinero en efectivo disponible en el cajón para dar cambio (ej. <code></span>25.000,00</code>). Si la caja abre sin cambio, ingrese <code>0</code>.</li>
+<li>Presione <strong>"Abrir Caja"</strong>: el estado cambia a Activo y habilita la facturación en el POS.</li>
+</ul>
+<h3 id="2-ingresos-y-egresos-manuales-movimientocajadialog">2. Ingresos y Egresos Manuales (<code>MovimientoCajaDialog</code>)</h3>
+<p>Para movimientos de efectivo no derivados de ventas:</p>
+<ul>
+<li><strong>Tipo de Movimiento:</strong> Seleccione <code>Ingreso de Dinero</code> (ej. reposición de cambio) o <code>Retiro / Egreso de Dinero</code> (ej. pago a cadetería, gastos de limpieza, retiro de seguridad).</li>
+<li>*<em>Importe ($) (<code></em></code> Obligatorio):** Monto exacto que entra o sale del cajón.</li>
+<li>*<em>Motivo / Concepto (<code></em></code> Obligatorio):** Detalle explicativo de la operación (mínimo 5 caracteres).</li>
+<li>Presione <strong>"Registrar Movimiento"</strong>.</li>
+</ul>
+<hr />
+<h2 id="captulo-12-arqueo-ciego-y-cierre-de-turno">Capítulo 12: Arqueo Ciego y Cierre de Turno</h2>
+<p>Retail POS implementa el protocolo de <strong>Arqueo Ciego</strong> (<code>ArqueoCiegoDialog</code>): para prevenir irregularidades, el cajero debe contar físicamente el dinero y declararlo <strong>sin que la pantalla le revele cuánto efectivo espera el sistema</strong>.</p>
+<pre><code>┌────────────────────────────────────────────────────────┐
+│ Arqueo y Cierre de Turno de Caja                      │
+├────────────────────────────────────────────────────────┤
+│                                                        │
+│  Efectivo Recontado en Cajón:                          │
+│  [ $ 84.500,00                                       ] │
+│                                                        │
+│  Observaciones del Cierre (Opcional):                  │
+│  [ Se retiraron $50.000 a sobre de tesorería         ] │
+│                                                        │
+│  [ Cerrar Turno Definitivamente ]                      │
+│                                                        │
+└────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="pasos-para-el-cierre">Pasos para el Cierre</h3>
+<ol>
+<li>El cajero realiza el recuento físico de todos los billetes y monedas del cajón.</li>
+<li>Ingresa el total en el campo <strong>Efectivo Recontado</strong>.</li>
+<li>Opcionalmente agrega notas u observaciones sobre anomalías del turno.</li>
+<li>Presione <strong>"Cerrar Turno Definitivamente"</strong>.</li>
+<li>El sistema consolida la información, calcula las diferencias (Sobrante / Faltante / Exacto) y emite el reporte de cierre para auditoría gerencial.</li>
+</ol>
+<hr />
+<h2 id="captulo-13-catlogo-maestro-de-artculos-e-inventario">Capítulo 13: Catálogo Maestro de Artículos e Inventario</h2>
+<p>Accesible desde <strong>Inventario <span class="formula">\rightarrow</span> Artículos</strong> (tecla <strong><kbd class="keycap">F2</kbd></strong>).</p>
+<h3 id="visualizacin-y-controles">Visualización y Controles</h3>
+<ul>
+<li><strong>Grilla de Artículos:</strong></li>
+<li>Muestra Código, Descripción, Rubro, Categoría, Marca, Stock Actual, Stock Mínimo, Costo Principal, Markup % y Precio de Venta.</li>
+<li>Badges de Alerta:</li>
+<li><code>Verde</code>: Stock normal.</li>
+<li><code>Amarillo (Warning)</code>: Stock actual menor o igual al stock mínimo de reposición.</li>
+<li><code>Rojo (Danger)</code>: Stock en cero o negativo.</li>
+<li><strong>Buscador Universal:</strong> Búsqueda en servidor traducible a SQL por código de barras, descripción o marca.</li>
+<li><strong>Filtros por Taxonomía:</strong> Desplegables de Rubro (acota las categorías hijas) y Marca.</li>
+<li><strong>Acciones:</strong></li>
+<li><strong>Nuevo Artículo:</strong> Abre la ficha en blanco.</li>
+<li><strong>Doble clic sobre una fila:</strong> Abre la ficha de edición del artículo.</li>
+</ul>
+<hr />
+<h2 id="captulo-14-ficha-integral-de-artculo-alta-y-modificacin">Capítulo 14: Ficha Integral de Artículo (Alta y Modificación)</h2>
+<p>Modal <code>ArticuloFormDialog</code>: estructurado en dos columnas de alta precisión ergonómica.</p>
+<h3 id="columna-izquierda-identificacin-y-stock">Columna Izquierda: Identificación y Stock</h3>
+<ol>
+<li><strong>Código de Barras:</strong> Código EAN-13, EAN-8 o código alfanumérico interno. Puede dispararse con la pistola lectora directamente sobre el campo.</li>
+<li>*<em>Descripción (<code></em></code> Obligatorio):*<em> Nombre comercial claro (ej. </em>"Cuaderno Rivadavia Tapa Dura 100 Hojas Rayado"*).</li>
+<li><strong>Tipo de Ítem:</strong> Selector segmentado <code>Producto</code> (maneja inventario físico) o <code>Servicio</code> (fotocopias, anillados, impresiones; no descuenta stock).</li>
+<li><strong>Clasificación:</strong> Selectores de Rubro, Categoría y Marca.</li>
+<li><strong>Stock Actual:</strong> En alta se ingresa la existencia inicial; en edición se realiza mediante el botón asistido de ajuste de stock con motivo.</li>
+<li><strong>Stock Mínimo:</strong> Cantidad umbral para disparar alertas automáticas de compra.</li>
+</ol>
+<h3 id="columna-derecha-fuentes-de-proveedor-y-formacin-de-precios">Columna Derecha: Fuentes de Proveedor y Formación de Precios</h3>
+<ol>
+<li><strong>Fuentes de Compra:</strong> Permite vincular los códigos y costos de diferentes distribuidores mayoristas para un mismo artículo. Se selecciona una como <strong>Fuente Principal</strong>.</li>
+<li>*<em>Costo de Reposición ($) (<code></em></code> Obligatorio):** Tomado de la fuente principal o cargado manualmente.</li>
+<li><strong>Margen de Ganancia (Markup %):</strong> Porcentaje de beneficio deseado sobre el costo (ej. <code>40%</code>).</li>
+<li><strong>Alícuota IVA:</strong> Desplegable (<code>21%</code>, <code>10.5%</code>, <code>0%</code>).</li>
+<li><strong>Precio de Venta Final ($):</strong> Calculado automáticamente en tiempo real mediante la fórmula:</li>
+</ol>
+<p>   <div class="formula">\text{Precio Final} = \text{Costo} \times \left(1 + \frac{\text{Markup}}{100}\right) \times (1 + \text{IVA})</div></p>
+<p>   El recuadro muestra el importe en números grandes y claros.</p>
+<p>Presione <strong><kbd class="keycap">Enter</kbd></strong> para guardar el artículo.</p>
+<hr />
+<h2 id="captulo-15-presentaciones-derivadas-y-fraccionamiento">Capítulo 15: Presentaciones Derivadas y Fraccionamiento</h2>
+<h3 id="1-presentaciones-derivadas-presentacionformdialog">1. Presentaciones Derivadas (<code>PresentacionFormDialog</code>)</h3>
+<p>Permite comercializar un producto en diferentes formatos a partir de un artículo padre (ej. <em>Paquete de 10 Resmas</em> o <em>Caja de 50 Lapiceras</em>):</p>
+<ul>
+<li>Se indica el factor de conversión (cantidad de unidades contenidas).</li>
+<li>El costo se recalcula dinámicamente en base al producto origen.</li>
+</ul>
+<h3 id="2-fraccionar-stock-fraccionardialog">2. Fraccionar Stock (<code>FraccionarDialog</code>)</h3>
+<p>Permite desarmar una presentación mayor para abastecer la venta individual:</p>
+<ul>
+<li>Ingrese la cantidad de bultos a abrir.</li>
+<li>La pantalla previsualiza el stock resultante: se restan los bultos mayores y se incrementan automáticamente las unidades sueltas correspondientes.</li>
+</ul>
+<hr />
+<h2 id="captulo-16-clasificacin-y-taxonoma-rubros-categoras-y-marcas">Capítulo 16: Clasificación y Taxonomía (Rubros, Categorías y Marcas)</h2>
+<p>Modal <code>AdministrarClasificacionDialog</code>: organiza el árbol de productos de la librería.</p>
+<h3 id="secciones">Secciones</h3>
+<ol>
+<li><strong>Rubros y Categorías:</strong> Maestro-detalle. Al seleccionar un Rubro (ej. <em>Papelería</em>), se listan a la derecha sus Categorías asociadas (ej. <em>Carpetas</em>, <em>Repuestos</em>, <em>Hojas</em>).</li>
+<li><strong>Marcas y Editoriales:</strong> Padrón de fabricantes con gestión de alias comerciales y prefijos EAN (los primeros dígitos del código de barras que identifican a la marca).</li>
+<li><strong>Términos y Normalización:</strong> Mapeo de términos de distribuidores hacia categorías internas para facilitar importaciones masivas.</li>
+</ol>
+<hr />
+<h2 id="captulo-17-padrn-y-formulario-de-proveedores-mayoristas">Capítulo 17: Padrón y Formulario de Proveedores Mayoristas</h2>
+<p>Accesible desde <strong>Compras <span class="formula">\rightarrow</span> Proveedores</strong>.</p>
+<h3 id="carga-del-proveedor-proveedorformdialog">Carga del Proveedor (<code>ProveedorFormDialog</code>)</h3>
+<ol>
+<li>*<em>CUIT (<code></em></code> Obligatorio):** 11 dígitos numéricos. El sistema aplica validación algorítmica de CUIT argentino (Módulo 11) impidiendo registrar números erróneos o inexistentes.</li>
+<li>*<em>Razón Social (<code></em></code> Obligatorio):** Nombre legal del distribuidor o editorial.</li>
+<li><strong>Nombre de Fantasía:</strong> Nombre comercial o de catálogo.</li>
+<li><strong>Condición Tributaria:</strong> Seleccione Responsable Inscripto, etc.</li>
+<li><strong>Datos de Contacto:</strong> Email de pedidos, teléfono de despacho y domicilio comercial.</li>
+</ol>
+<hr />
+<h2 id="captulo-18-equivalencias-de-proveedor">Capítulo 18: Equivalencias de Proveedor</h2>
+<p>Diálogo <code>EquivalenciasProveedorDialog</code>: resuelve la discrepancia de nombres entre la planilla del distribuidor y la base de datos interna.</p>
+<ul>
+<li>Permite homologar cómo llama el proveedor a una marca o categoría (ej. <em>"BIC ARGENTINA"</em> <span class="formula">\rightarrow</span> <em>"Bic"</em>).</li>
+<li>Evita tener que clasificar manualmente los artículos en cada ingreso de mercadería.</li>
+</ul>
+<hr />
+<h2 id="captulo-19-importador-de-catlogos-y-planillas-excelcsv">Capítulo 19: Importador de Catálogos y Planillas Excel/CSV</h2>
+<p>Accesible desde <strong>Inventario <span class="formula">\rightarrow</span> Catálogos mayoristas</strong> o el botón "Importar Planilla" (<code>ImportarPlanillaDialog</code>).</p>
+<h3 id="procedimiento-de-ingesta-masiva">Procedimiento de Ingesta Masiva</h3>
+<ol>
+<li><strong>Selección del Archivo:</strong> Haga clic en "Examinar" y elija el archivo <code>.xlsx</code>, <code>.xls</code> o <code>.csv</code> provisto por el mayorista.</li>
+<li><strong>Mapeo de Columnas:</strong> Asocie las columnas de la planilla con los campos del sistema:</li>
+</ol>
+<ul>
+<li>Columna de Código / EAN.</li>
+<li>Columna de Descripción / Título.</li>
+<li>Columna de Precio de Costo.</li>
+<li>Columna de Marca / Editorial.</li>
+</ul>
+<ol>
+<li><strong>Streaming MiniExcel:</strong> El procesamiento se ejecuta en streaming de bajo consumo de memoria RAM (<span class="formula">< 100\text{ MB}</span> para más de 30.000 filas).</li>
+<li>El catálogo queda cargado en la tabla de trabajo para su revisión antes de ingresar al inventario de la tienda.</li>
+</ol>
+<hr />
+<h2 id="captulo-20-asistente-de-incorporacin-asistida-al-catlogo">Capítulo 20: Asistente de Incorporación Asistida al Catálogo</h2>
+<p>Modal <code>IncorporarArticulosModalDialog</code>: asistente de 3 pasos para sumar artículos nuevos desde la lista mayorista hacia el catálogo oficial.</p>
+<ul>
+<li><strong>Paso 1 (Asociar Valores):</strong> Resuelve marcas o categorías de la planilla que aún no tengan equivalencia en el sistema.</li>
+<li><strong>Paso 2 (Términos Nuevos):</strong> Sugiere categorías automáticas en base a palabras clave de la descripción.</li>
+<li><strong>Paso 3 (Revisión de Margen y Precios):</strong></li>
+<li>Permite definir un <strong>Margen de Ganancia Global</strong> para todo el lote (ej. <code>45%</code>).</li>
+<li>Permite ajustar márgenes individuales en la grilla para artículos destacados.</li>
+<li>Muestra el precio de venta sugerido resultante.</li>
+<li>Haga clic en <strong>"Confirmar Incorporación"</strong>: los artículos se dan de alta en el catálogo oficial de forma definitiva.</li>
+</ul>
+<hr />
+<h2 id="captulo-21-pedidos-de-abastecimiento-a-proveedores">Capítulo 21: Pedidos de Abastecimiento a Proveedores</h2>
+<p>Accesible desde <strong>Compras <span class="formula">\rightarrow</span> Pedidos</strong>. Permite planificar las órdenes de compra evitando quiebres de stock.</p>
+<h3 id="estados-del-pedido">Estados del Pedido</h3>
+<ul>
+<li><strong>Borrador:</strong> Pedido en confección que puede modificarse o eliminarse.</li>
+<li><strong>Emitido:</strong> Orden cerrada enviada al proveedor pendiente de entrega.</li>
+<li><strong>Recibido:</strong> Mercadería entregada e ingresada al stock.</li>
+<li><strong>Cancelado:</strong> Pedido desestimado con registro obligatorio de motivo.</li>
+</ul>
+<hr />
+<h2 id="captulo-22-armado-y-emisin-de-pedidos-de-compra">Capítulo 22: Armado y Emisión de Pedidos de Compra</h2>
+<p>Modal <code>PedirArticulosDialog</code>:</p>
+<ol>
+<li>Agrupa automáticamente los ítems sugeridos según su <strong>Fuente de Proveedor Principal</strong>.</li>
+<li>Muestra el stock actual, el stock mínimo y la cantidad recomendada a pedir para alcanzar el nivel óptimo.</li>
+<li>Permite editar libremente las cantidades de cada renglón.</li>
+<li>Presione <strong>"Emitir Pedido"</strong>: el pedido pasa a estado Emitido y queda listo para asociarse al remito o factura cuando el camión entregue los paquetes.</li>
+</ol>
+<hr />
+<h2 id="captulo-23-ingreso-y-recepcin-de-compras-facturas-y-remitos">Capítulo 23: Ingreso y Recepción de Compras (Facturas y Remitos)</h2>
+<p>Pantalla <code>ComprasView</code> (tecla <strong><kbd class="keycap">F12</kbd></strong> para confirmar recepción).</p>
+<h3 id="carga-del-comprobante">Carga del Comprobante</h3>
+<ol>
+<li>*<em>Proveedor (<code></em></code> Obligatorio):** Seleccione el distribuidor del menú desplegable.</li>
+<li><strong>Vincular Pedido (Opcional):</strong> Haga clic en "Recibir pedido emitido..." para precargar automáticamente la grilla con los ítems y cantidades esperadas.</li>
+<li><strong>Tipo de Comprobante:</strong> Selector segmentado <code>Factura</code> o <code>Remito</code>.</li>
+<li><strong>Punto de Venta y Número:</strong> Formato <code>XXXXX - XXXXXXXX</code>.</li>
+<li><strong>Fecha de Emisión:</strong> Selección mediante calendario desplegable (<code>dd/MM/yyyy</code>).</li>
+<li><strong>Grilla de Artículos Recibidos:</strong></li>
+</ol>
+<ul>
+<li>Ingrese el código o busque el artículo en el cuadro predictivo.</li>
+<li>Verifique la cantidad recibida.</li>
+<li>Ingrese el <strong>Costo Real Facturado</strong>: si el costo subió o bajó respecto al costo histórico, la fila se resaltará en color y calculará el nuevo precio de venta sugerido para mantener el margen comercial.</li>
+</ul>
+<ol>
+<li>Presione <strong><kbd class="keycap">F12</kbd> ("Registrar Compra")</strong>:</li>
+</ol>
+<ul>
+<li>Se actualiza el stock físico de todos los artículos de la lista.</li>
+<li>Se actualizan los costos de reposición de la fuente principal.</li>
+<li>Se actualizan los precios de mostrador si correspondiera.</li>
+<li>El pedido asociado pasa automáticamente a estado <em>Recibido</em>.</li>
+</ul>
+<hr />
+<h2 id="captulo-24-gestin-de-usuarios-y-roles-de-seguridad">Capítulo 24: Gestión de Usuarios y Roles de Seguridad</h2>
+<p>Accesible para Gerentes y Administradores desde <strong>Administración <span class="formula">\rightarrow</span> Usuarios</strong> (tecla <strong><kbd class="keycap">F10</kbd></strong>).</p>
+<h3 id="matriz-de-roles-rbac">Matriz de Roles (RBAC)</h3>
+<ul>
+<li><strong>Cajero:</strong> Opera exclusivamente el Punto de Venta (POS), clientes y su turno de caja. No puede ver compras ni alterar configuraciones de costo.</li>
+<li><strong>Encargado:</strong> Gestiona ventas, stock, pedidos a proveedores y recepción de mercadería.</li>
+<li><strong>Gerente:</strong> Acceso pleno al negocio, reportes de rentabilidad, modificación de precios y módulo de respaldos de base de datos.</li>
+<li><strong>Administrador:</strong> Soporte técnico y de infraestructura. Gestiona usuarios y respaldos; no opera la venta diaria de mostrador.</li>
+</ul>
+<hr />
+<h2 id="captulo-25-formulario-de-usuario-y-blanqueo-de-contrasea">Capítulo 25: Formulario de Usuario y Blanqueo de Contraseña</h2>
+<h3 id="1-formulario-de-operador-usuarioformdialog">1. Formulario de Operador (<code>UsuarioFormDialog</code>)</h3>
+<ul>
+<li>*<em>Nombre de Usuario (<code></em></code> Obligatorio):** Identificador único sin espacios (ej. <code>mperez</code>).</li>
+<li>*<em>Nombre y Apellido (<code></em></code> Obligatorio):** Nombre completo del empleado.</li>
+<li>*<em>Correo Electrónico (<code></em></code> Obligatorio):** Casilla institucional o personal.</li>
+<li>*<em>Rol Asignado (<code></em></code> Obligatorio):** Cajero, Encargado, Gerente o Administrador.</li>
+<li><strong>Contraseña Inicial:</strong> Mínimo 8 caracteres, al menos una mayúscula y un número.</li>
+</ul>
+<h3 id="2-blanqueo-de-contrasea-cambiarpassworddialog">2. Blanqueo de Contraseña (<code>CambiarPasswordDialog</code>)</h3>
+<p>Utilizado cuando un operador olvida su clave:</p>
+<ul>
+<li>El Gerente o Administrador ingresa la nueva contraseña provisoria y la reitera en el campo de confirmación.</li>
+<li>Al iniciar sesión por primera vez con esa clave, el sistema solicitará al operador elegir una contraseña personal privada.</li>
+</ul>
+<hr />
+<h2 id="captulo-26-copias-de-seguridad-y-respaldo-de-base-de-datos">Capítulo 26: Copias de Seguridad y Respaldo de Base de Datos</h2>
+<p>Accesible desde <strong>Administración <span class="formula">\rightarrow</span> Copias</strong> (tecla <strong><kbd class="keycap">F11</kbd></strong>).</p>
+<h3 id="generacin-de-copia-de-seguridad">Generación de Copia de Seguridad</h3>
+<ol>
+<li>Haga clic en <strong>"Crear Copia de Seguridad Ahora"</strong>.</li>
+<li>El sistema ejecuta una copia nativa de SQL Server (<code>.bak</code>) en el directorio seguro del sistema.</li>
+<li>El registro se incorpora automáticamente a la tabla histórica indicando:</li>
+</ol>
+<ul>
+<li>Nombre del archivo con timestamp (ej. <code>retail_backup_20261107_120000.bak</code>).</li>
+<li>Tamaño en megabytes legibles.</li>
+<li>Operador que disparó la copia.</li>
+</ul>
+<hr />
+<h2 id="captulo-27-restauracin-segura-y-confirmacin-con-credencial">Capítulo 27: Restauración Segura y Confirmación con Credencial</h2>
+<p>La restauración de base de datos (<code>ConfirmarCredencialDialog</code>) es una operación destructiva crítica que sobreescribe la información actual.</p>
+<pre><code>┌────────────────────────────────────────────────────────┐
+│ Confirmar Restauración Crítica                         │
+├────────────────────────────────────────────────────────┤
+│                                                        │
+│  [!] ADVERTENCIA FISCAL ARCA:                          │
+│  Restaurar una base anterior no anula comprobantes     │
+│  ya emitidos ante el fisco. Se requerirá conciliación. │
+│                                                        │
+│  Para continuar, escriba la palabra RESTAURAR:         │
+│  [ RESTAURAR                                         ] │
+│                                                        │
+│  Contraseña del Gerente Autorizante:                   │
+│  [ ••••••••••••                                      ] │
+│                                                        │
+│  [ Iniciar Restauración ]  (Enter)                     │
+│                                                        │
+└────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="protocolo-de-seguridad">Protocolo de Seguridad</h3>
+<ol>
+<li>Seleccione la copia deseada en la pestaña "Copias" y presione "Restaurar".</li>
+<li><strong>Palabra de Confirmación:</strong> Escriba exactamente la palabra <code>RESTAURAR</code> en mayúsculas.</li>
+<li><strong>Credencial:</strong> Ingrese la contraseña del Gerente.</li>
+<li>Presione <strong>"Iniciar Restauración"</strong>:</li>
+</ol>
+<ul>
+<li>El sistema genera una copia preventiva de seguridad de la base actual antes de tocar los datos.</li>
+<li>Aplica la restauración del backup seleccionado.</li>
+<li>Notifica el éxito y procede al reinicio seguro de la aplicación.</li>
+<li>Durante los siguientes 7 días, el Shell mostrará un aviso de advertencia para garantizar que el evento sea auditado.</li>
+</ul>
+<hr />
+<h2 id="captulo-28-tablero-gerencial-e-indicadores-de-rendimiento">Capítulo 28: Tablero Gerencial e Indicadores de Rendimiento</h2>
+<p>Accesible exclusivamente para el rol Gerente en <strong>Tablero</strong> (tecla <strong><kbd class="keycap">F7</kbd></strong>).</p>
+<h3 id="indicadores-clave-kpis-en-tiempo-real">Indicadores Clave (KPIs en Tiempo Real)</h3>
+<ol>
+<li><strong>Facturación Total del Período:</strong> Monto global vendido comparado con el período inmediatamente anterior.</li>
+<li><strong>Margen Bruto de Ganancia (%):</strong> Rentabilidad comercial sobre los costos de reposición.</li>
+<li><strong>Ticket Promedio:</strong> Gasto medio por cliente atendido.</li>
+<li><strong>Cantidad de Artículos Despachados:</strong> Volumen físico de mercadería vendida.</li>
+</ol>
+<p>Cada indicador cuenta con flechas de variación porcentual en verde (crecimiento) o rojo (caída) respecto al ciclo comparable.</p>
+<hr />
+<h2 id="captulo-29-reportes-analticos-y-exportacin-a-excelpdf">Capítulo 29: Reportes Analíticos y Exportación a Excel/PDF</h2>
+<p>Pestañas de reporte disponibles en la parte inferior del Tablero:</p>
+<ol>
+<li><strong>Ventas por Período y Medios de Pago:</strong> Grilla con desglose de totales cobrados en Efectivo, Débito, Crédito y QR.</li>
+<li><strong>Rentabilidad por Rubro y Categoría:</strong> Análisis de qué secciones de la librería generan mayor margen neto.</li>
+<li><strong>Ranking de Artículos Más Vendidos:</strong> Top de productos por volumen y por facturación.</li>
+<li><strong>Ranking de Clientes:</strong> Principales compradores de mostrador y cuentas corrientes.</li>
+<li><strong>Auditoría de Turnos y Arqueos:</strong> Historial de cierres de caja con diferencias de efectivo declaradas.</li>
+</ol>
+<h3 id="exportacin">Exportación</h3>
+<ul>
+<li>Haga clic en <strong>"Exportar a Excel (.xlsx)"</strong> o <strong>"Exportar a PDF (.pdf)"</strong>.</li>
+<li>El sistema guarda el informe respetando el formato de moneda y tipografía tabular argentina.</li>
+<li>Si el archivo se encontrara abierto por otra aplicación (ej. Excel), el sistema ofrecerá la opción de reintentar sin perder los datos calculados.</li>
+</ul>
+<hr />
+<h2 id="captulo-30-ajustes-del-sistema-y-preferencias-de-tema">Capítulo 30: Ajustes del Sistema y Preferencias de Tema</h2>
+<p>Accesible desde el pie del menú lateral en el botón <strong>Ajustes</strong>.</p>
+<h3 id="opciones-de-configuracin">Opciones de Configuración</h3>
+<ol>
+<li><strong>Apariencia y Tema Visual:</strong></li>
+</ol>
+<ul>
+<li>Selector segmentado: <code>Tema Claro</code> (fondo blanco/gris de alta luminosidad) o <code>Tema Oscuro</code> (superficies zinc/oscuras para baja fatiga visual nocturna).</li>
+<li>El cambio se aplica en caliente en toda la interfaz sin necesidad de reiniciar la aplicación y se almacena de forma persistente para el operador conectado.</li>
+</ul>
+<ol>
+<li><strong>Documentación y Ayuda:</strong></li>
+</ol>
+<ul>
+<li>Acceso de un clic para abrir el Manual de Usuario en PDF en el visor nativo de Windows.</li>
+<li>Botón para abrir el Centro de Ayuda interactivo.</li>
+</ul>
+<hr />
+<h2 id="captulo-31-centro-de-ayuda-y-consulta-rpida">Capítulo 31: Centro de Ayuda y Consulta Rápida</h2>
+<p>Invocable en cualquier momento mediante la combinación de teclas <strong><kbd class="keycap">Ctrl + H</kbd></strong> o desde el botón con ícono de interrogación (<code>RegularHelpCircle</code>) en el pie del sidebar.</p>
+<pre><code>┌────────────────────────────────────────────────────────┐
+│ Ayuda y Soporte                             [ _ ] [ X ]│
+├────────────────────────────────────────────────────────┤
+│  Manual de Usuario en PDF                              │
+│  Consulte la guía completa de operación de mostrador,  │
+│  apertura y cierre de caja y facturación.              │
+│  [📕 Abrir Manual de Usuario ]                         │
+│                                                        │
+│  Atajos Rápidos de Mostrador                           │
+│   [F1]   Punto de Venta     [F5]   Caja y Turnos       │
+│   [F2]   Artículos y Stock  [F10]  Usuarios            │
+│   [F4]   Clientes           [F12]  Cobrar Venta        │
+│   [Ctrl+B] Menú Lateral     [Ctrl+H] Ayuda             │
+│   [Esc]  Cerrar / Cancelar                             │
+│                                                        │
+│  Retail POS v1.0.0 • Cátedra Universitaria  [Entendido]│
+└────────────────────────────────────────────────────────┘</code></pre>
+<h3 id="funcionalidades">Funcionalidades</h3>
+<ol>
+<li><strong>Botón "Abrir Manual de Usuario":</strong> Lanza el documento PDF oficial en el lector predeterminado del sistema operativo (Microsoft Edge, Adobe Acrobat, etc.), permitiendo imprimir, buscar texto (<span class="formula">Ctrl+F</span>) o estudiar los procedimientos en una segunda pantalla.</li>
+<li><strong>Chuleta de Atajos Rápidos:</strong> Tarjeta de consulta visual instantánea para cajeros y personal de mostrador sin abandonar la tarea en curso.</li>
+<li>Presione <strong><kbd class="keycap">Esc</kbd></strong> o <strong><kbd class="keycap">Enter</kbd></strong> para cerrar el diálogo y retomar la operación inmediatamente.</li>
+</ol>
+</body>
+</html>

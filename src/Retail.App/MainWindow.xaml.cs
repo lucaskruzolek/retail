@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Retail.App.Services;
@@ -55,6 +55,14 @@ public partial class MainWindow : FluentWindow
         if (e.Key == Key.B && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
         {
             ViewModel.ToggleSidebar();
+            e.Handled = true;
+            return;
+        }
+
+        // Atajo Ctrl+H para abrir el Centro de Ayuda y soporte
+        if (e.Key == Key.H && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            ViewModel.AbrirAyudaCommand.Execute(null);
             e.Handled = true;
             return;
         }

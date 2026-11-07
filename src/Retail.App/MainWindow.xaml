@@ -251,6 +251,49 @@
                             BorderThickness="0,1,0,0"
                             Padding="8,10">
                         <StackPanel>
+                            <!-- Ayuda y Soporte: acceso fijo para todos los roles con atajo Ctrl+H -->
+                            <Button Margin="0,0,0,8"
+                                    Command="{Binding AbrirAyudaCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource SidebarItemButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                                <Setter Property="ToolTipService.IsEnabled" Value="False" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.ToolTip>
+                                    <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="Ayuda y Soporte" FontWeight="SemiBold" Margin="0,0,6,0" />
+                                            <Border Style="{StaticResource KeycapBadgeStyle}">
+                                                <TextBlock Text="Ctrl+H" Style="{StaticResource TextBlockKeycap}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </ToolTip>
+                                </Button.ToolTip>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="36" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <iconPacks:PackIconBoxIcons Grid.Column="0"
+                                                                Kind="RegularHelpCircle"
+                                                                Width="20"
+                                                                Height="20"
+                                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               Text="Ayuda"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                                </Grid>
+                            </Button>
+
                             <!-- Ajustes: acceso fijo sobre el operador (tema claro/oscuro y futuras configuraciones) -->
                             <Button Margin="0,0,0,8"
                                     Command="{Binding IrASeccionCommand}"
