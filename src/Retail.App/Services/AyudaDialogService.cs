@@ -14,16 +14,18 @@ namespace Retail.App.Services;
 public class AyudaDialogService : IAyudaDialogService
 {
     private const string NombreArchivoManual = "Manual_Usuario_Retail_POS.pdf";
+    private readonly ICurrentUserSession _sesion;
     private readonly ILogger<AyudaDialogService> _logger;
 
-    public AyudaDialogService(ILogger<AyudaDialogService>? logger = null)
+    public AyudaDialogService(ICurrentUserSession sesion, ILogger<AyudaDialogService>? logger = null)
     {
+        _sesion = sesion ?? throw new ArgumentNullException(nameof(sesion));
         _logger = logger ?? NullLogger<AyudaDialogService>.Instance;
     }
 
     public void MostrarCentroAyuda()
     {
-        var viewModel = new AyudaViewModel(this);
+        var viewModel = new AyudaViewModel(_sesion.Rol, this);
         var dialog = new AyudaDialog(viewModel);
 
         if (System.Windows.Application.Current?.MainWindow is { IsVisible: true } owner)

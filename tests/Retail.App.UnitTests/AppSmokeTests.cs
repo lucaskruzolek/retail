@@ -2650,7 +2650,7 @@ public class AppSmokeTests
         {
             try
             {
-                var viewModel = new Retail.App.ViewModels.Ayuda.AyudaViewModel(Substitute.For<IAyudaDialogService>());
+                var viewModel = new Retail.App.ViewModels.Ayuda.AyudaViewModel(RolUsuarioEnum.Gerente, Substitute.For<IAyudaDialogService>());
                 dialog = new AyudaDialog(viewModel);
                 dialog.Measure(new System.Windows.Size(580, double.PositiveInfinity));
                 dialog.Arrange(new System.Windows.Rect(0, 0, 580, 600));

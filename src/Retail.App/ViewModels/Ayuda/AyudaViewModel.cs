@@ -1,7 +1,9 @@
 using System.Reflection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Retail.App.Navegacion;
 using Retail.App.Services;
+using Retail.Domain.Enums;
 
 namespace Retail.App.ViewModels.Ayuda;
 
@@ -34,7 +36,19 @@ public partial class AyudaViewModel : ObservableObject
 
     public bool TieneError => !string.IsNullOrWhiteSpace(MensajeError);
 
-    public AyudaViewModel(IAyudaDialogService? ayudaDialogService = null)
+    /// <summary>
+    /// Atajos del Shell que no abren una página y por eso no están en <see cref="RegistroNavegacion"/>.
+    /// </summary>
+    private static readonly IReadOnlyList<AtajoItemViewModel> AtajosDelShell =
+    [
+        new("Ctrl+B", "Menú lateral", "Expandir o contraer la barra de módulos"),
+        new("Ctrl+H", "Ayuda", "Abrir este centro de soporte y atajos"),
+        new("Esc", "Cerrar o volver", "Cierra modales o cancela la operación actual")
+    ];
+
+    /// <param name="rol">Rol del operador: solo se listan los atajos de las páginas que puede abrir.</param>
+    /// <param name="ayudaDialogService">Servicio para abrir el manual, o <c>null</c> si no está disponible.</param>
+    public AyudaViewModel(RolUsuarioEnum? rol, IAyudaDialogService? ayudaDialogService = null)
     {
         _ayudaDialogService = ayudaDialogService;
 
@@ -42,20 +56,15 @@ public partial class AyudaViewModel : ObservableObject
         var versionStr = version != null ? $"v{version.Major}.{version.Minor}.{version.Build}" : "v1.0.0";
         VersionInfo = $"Retail POS {versionStr} • Cátedra Universitaria";
 
-        Atajos =
-        [
-            new("F1", "Punto de Venta", "Venta de mostrador y facturación"),
-            new("F2", "Artículos", "Consulta de catálogo, precios y stock"),
-            new("F4", "Clientes", "Cuentas corrientes y datos de contacto"),
-            new("F5", "Caja y Turnos", "Apertura, movimientos y arqueo ciego"),
-            new("F6", "Presupuestos", "Emisión y conversión a venta"),
-            new("F10", "Usuarios", "Gestión de cuentas y asignación de roles"),
-            new("F11", "Copias y Restauraciones", "Seguridad y respaldos de base de datos"),
-            new("F12", "Cobrar Venta", "Confirmación de cobro y medios de pago en POS"),
-            new("Ctrl+B", "Menú Lateral", "Expandir o contraer la barra de módulos"),
-            new("Ctrl+H", "Ayuda", "Abrir este centro de soporte y atajos"),
-            new("Esc", "Cerrar / Volver", "Cierra modales o cancela la operación actual")
-        ];
+        // Los atajos de páginas salen del registro de navegación, la misma fuente que usa el Shell para atenderlos:
+        // así el diálogo no puede mostrar una tecla que no existe o que el rol no tiene permitida.
+        var atajosDePaginas = RegistroNavegacion.AtajosVisibles(rol)
+            .Select(x => new AtajoItemViewModel(
+                x.Pagina.Atajo!,
+                x.Pagina.Titulo,
+                x.Seccion.Titulo == x.Pagina.Titulo ? string.Empty : x.Seccion.Titulo));
+
+        Atajos = [.. atajosDePaginas, .. AtajosDelShell];
     }
 
     [RelayCommand]
