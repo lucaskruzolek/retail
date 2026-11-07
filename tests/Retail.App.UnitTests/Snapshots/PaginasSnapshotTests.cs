@@ -122,6 +122,65 @@ public class PaginasSnapshotTests
     }
 
     [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void PedidosView_BorradorConCantidadesEditadas_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var servicioPedidos = Substitute.For<IPedidoService>();
+            servicioPedidos.ListarPedidosAsync(Arg.Any<ConsultaPedidosDto>(), Arg.Any<CancellationToken>())
+                .Returns(new PedidosPaginadosDto
+                {
+                    Items = DatosDeMuestraPaginas.Pedidos(),
+                    TotalRegistros = 8,
+                    PaginaActual = 1,
+                    TamanoPagina = 20
+                });
+            servicioPedidos.ObtenerDetalleAsync(48, Arg.Any<CancellationToken>()).Returns(DatosDeMuestraPaginas.DetalleDeBorrador());
+
+            var servicioProveedores = Substitute.For<IProveedorService>();
+            servicioProveedores.ListarProveedoresAsync(Arg.Any<CancellationToken>()).Returns(DatosDeMuestraPaginas.Proveedores());
+
+            var viewModel = new PedidosViewModel(
+                servicioPedidos,
+                servicioProveedores,
+                Substitute.For<IPedidoDialogService>(),
+                new RelojDePrueba(new DateTimeOffset(2026, 10, 31, 12, 0, 0, TimeSpan.Zero)),
+                Substitute.For<ILogger<PedidosViewModel>>());
+
+            // Con el borrador #48 elegido y dos cantidades editadas, "Guardar cambios" se ve habilitado junto a "Emitir pedido"
+            var editado = false;
+            var vista = new PedidosView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PedidosView_ConCambios", () =>
+            {
+                if (viewModel.Pedidos.Count > 0 && viewModel.PedidoSeleccionado is null)
+                {
+                    viewModel.PedidoSeleccionado = viewModel.Pedidos[0];
+                    return false;
+                }
+
+                if (viewModel.Renglones.Count == 0)
+                {
+                    return false;
+                }
+
+                if (!editado)
+                {
+                    viewModel.Renglones[0].Cantidad = 18;
+                    viewModel.Renglones[2].Cantidad = 4;
+                    editado = true;
+                    return false;
+                }
+
+                return true;
+            });
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
     [InlineData("", TemaPrueba.Claro)]
     [InlineData("", TemaPrueba.Oscuro)]
     [InlineData("_ConPedido", TemaPrueba.Claro)]

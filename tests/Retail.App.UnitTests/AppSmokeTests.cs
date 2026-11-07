@@ -10,6 +10,7 @@ using Retail.App.ViewModels.Auth;
 using Retail.App.ViewModels.Backups;
 using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Compras;
+using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Proveedores;
 using Retail.App.ViewModels.Reportes;
 using Retail.App.ViewModels.Usuarios;
@@ -1238,6 +1239,31 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void SelectorCantidad_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var control = new SelectorCantidad { Valor = 3 };
+                control.Measure(new System.Windows.Size(200, 40));
+                control.Arrange(new System.Windows.Rect(0, 0, 200, 40));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de SelectorCantidad debe resolverse sin errores");
+    }
+
+    [Fact]
     public void SelectorFechaUnica_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
@@ -1882,6 +1908,109 @@ public class AppSmokeTests
         // Assert
         tras.Should().Be(norte);
         trasRechazar.Should().Be(norte, "al rechazar el cambio el combo debe volver a mostrar el proveedor anterior");
+    }
+
+    private static PedidosViewModel CrearPedidosViewModelConBorrador(IPedidoService pedidos, IPedidoDialogService dialogos)
+    {
+        pedidos.ListarPedidosAsync(Arg.Any<Retail.Application.DTOs.Pedidos.ConsultaPedidosDto>(), Arg.Any<CancellationToken>())
+            .Returns(new Retail.Application.DTOs.Pedidos.PedidosPaginadosDto { Items = Retail.App.UnitTests.Snapshots.DatosDeMuestraPaginas.Pedidos(), TotalRegistros = 8, PaginaActual = 1, TamanoPagina = 20 });
+        pedidos.ObtenerDetalleAsync(48, Arg.Any<CancellationToken>()).Returns(Retail.App.UnitTests.Snapshots.DatosDeMuestraPaginas.DetalleDeBorrador());
+        var proveedores = Substitute.For<IProveedorService>();
+        proveedores.ListarProveedoresAsync(Arg.Any<CancellationToken>()).Returns(Retail.App.UnitTests.Snapshots.DatosDeMuestraPaginas.Proveedores());
+
+        return new PedidosViewModel(
+            pedidos,
+            proveedores,
+            dialogos,
+            TimeProvider.System,
+            Substitute.For<ILogger<PedidosViewModel>>());
+    }
+
+    private static void BombearHasta(Func<bool> condicion)
+    {
+        var limite = DateTime.UtcNow.AddSeconds(5);
+        while (!condicion() && DateTime.UtcNow < limite)
+        {
+            System.Windows.Threading.Dispatcher.CurrentDispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+        }
+    }
+
+    [Fact]
+    public void PedidosView_ElegirOtroPedidoConCantidadesSinGuardar_LaGrillaVuelveAlPedidoAnteriorSiNoSeDescarta()
+    {
+        // Arrange
+        object? seleccionTras = null;
+        bool hayCambios = false;
+
+        WpfTestHelper.Run(() =>
+        {
+            var dialogos = Substitute.For<IPedidoDialogService>();
+            dialogos.Confirmar("Cantidades sin guardar", Arg.Any<string>()).Returns(false);
+            var viewModel = CrearPedidosViewModelConBorrador(Substitute.For<IPedidoService>(), dialogos);
+            Task.Run(() => viewModel.InicializarAsync()).GetAwaiter().GetResult();
+
+            var view = new PedidosView(viewModel);
+            var ventana = new System.Windows.Window { Content = view, Width = 1366, Height = 768, Left = -10000, Top = -10000, ShowInTaskbar = false };
+            ventana.Show();
+            var grilla = FindVisualChild<System.Windows.Controls.DataGrid>(view)!;
+
+            grilla.SelectedItem = viewModel.Pedidos[0];
+            BombearHasta(() => viewModel.Renglones.Count == 3);
+            viewModel.Renglones[0].Cantidad = 18;
+
+            // Act: el usuario hace clic en otro pedido de la grilla
+            grilla.SelectedItem = viewModel.Pedidos[1];
+
+            seleccionTras = grilla.SelectedItem;
+            hayCambios = viewModel.HayCambiosSinGuardar;
+            ventana.Close();
+        });
+
+        // Assert
+        ((PedidoFila)seleccionTras!).IdPedido.Should().Be(48, "el usuario eligió quedarse a guardar");
+        hayCambios.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PedidosView_EnterEnUnaCantidad_GuardaTodosLosCambiosJuntos()
+    {
+        // Arrange
+        var pedidos = Substitute.For<IPedidoService>();
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = CrearPedidosViewModelConBorrador(pedidos, Substitute.For<IPedidoDialogService>());
+            Task.Run(() => viewModel.InicializarAsync()).GetAwaiter().GetResult();
+
+            var view = new PedidosView(viewModel);
+            var ventana = new System.Windows.Window { Content = view, Width = 1366, Height = 768, Left = -10000, Top = -10000, ShowInTaskbar = false };
+            ventana.Show();
+            var grilla = FindVisualChild<System.Windows.Controls.DataGrid>(view)!;
+            grilla.SelectedItem = viewModel.Pedidos[0];
+            BombearHasta(() => viewModel.Renglones.Count == 3);
+            viewModel.Renglones[0].Cantidad = 18;
+            viewModel.Renglones[2].Cantidad = 4;
+            view.UpdateLayout();
+
+            var selector = FindVisualChild<SelectorCantidad>(view)!;
+            var cuadro = (System.Windows.Controls.TextBox)selector.FindName("Cuadro");
+            cuadro.Focus();
+
+            // Act: Enter en el número, como lo presiona el usuario
+            var fuente = System.Windows.PresentationSource.FromVisual(cuadro)!;
+            cuadro.RaiseEvent(new System.Windows.Input.KeyEventArgs(System.Windows.Input.Keyboard.PrimaryDevice, fuente, 0, System.Windows.Input.Key.Enter)
+            {
+                RoutedEvent = System.Windows.Input.Keyboard.KeyDownEvent
+            });
+
+            BombearHasta(() => pedidos.ReceivedCalls().Any(c => c.GetMethodInfo().Name == nameof(IPedidoService.CambiarCantidadesAsync)));
+            ventana.Close();
+        });
+
+        // Assert: una sola llamada con los dos renglones editados
+        pedidos.Received(1).CambiarCantidadesAsync(
+            Arg.Is<Retail.Application.DTOs.Pedidos.CambiarCantidadesPedidoDto>(d => d.IdPedido == 48 && d.Renglones.Count == 2),
+            Arg.Any<CancellationToken>());
     }
 
     private static ComprasViewModel CrearComprasViewModel(ICompraDialogService? dialogos = null, IProveedorService? proveedores = null)

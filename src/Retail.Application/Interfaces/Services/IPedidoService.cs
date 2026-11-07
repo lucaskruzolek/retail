@@ -43,7 +43,8 @@ public interface IPedidoService
 
     Task<PedidoDetalleDto?> ObtenerDetalleAsync(int idPedido, CancellationToken cancellationToken = default);
 
-    Task CambiarCantidadAsync(CambiarCantidadRenglonDto dto, CancellationToken cancellationToken = default);
+    /// <summary>Cambia las cantidades de varios renglones del borrador: todas o ninguna, en una transacción.</summary>
+    Task CambiarCantidadesAsync(CambiarCantidadesPedidoDto dto, CancellationToken cancellationToken = default);
 
     Task QuitarRenglonAsync(int idPedido, int idCatalogoProveedor, CancellationToken cancellationToken = default);
 

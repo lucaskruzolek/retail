@@ -36,6 +36,20 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     // Evita que el primer valor de los filtros dispare una carga mientras la pantalla se inicializa.
     private bool _inicializando;
 
+    // Verdadero mientras MostrarPedidos reemplaza la lista: la grilla suelta y vuelve a tomar la selección, y eso no es
+    // el usuario eligiendo otro pedido.
+    private bool _recargandoGrilla;
+
+    // Verdadero mientras se devuelve la selección al pedido anterior porque el usuario no quiso descartar cantidades.
+    private bool _revirtiendoSeleccion;
+
+    // Un comando del pedido (guardar, quitar, emitir…) recarga todo: el detalle se vuelve a leer aunque haya cantidades
+    // en edición, que el propio comando ya resolvió. Una recarga común (filtros, páginas) las conserva.
+    private bool _forzarRecargaDetalle;
+
+    // Los renglones del detalle cuyo cambio de cantidad escuchamos para habilitar "Guardar cambios".
+    private readonly List<RenglonPedidoFila> _renglonesObservados = [];
+
     public PedidosViewModel(
         IPedidoService pedidoService,
         IProveedorService proveedorService,
@@ -128,6 +142,7 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(FechaCierreLocal))]
     [NotifyCanExecuteChangedFor(nameof(EmitirCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelarCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GuardarCambiosCommand))]
     private PedidoDetalleDto? _detalle;
 
     public ObservableCollection<RenglonPedidoFila> Renglones { get; } = new();
@@ -138,6 +153,11 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     private string _motivoParaCancelar = string.Empty;
 
     public bool TieneDetalle => Detalle is not null;
+
+    /// <summary>Hay cantidades editadas y todavía no guardadas: habilita "Guardar cambios".</summary>
+    public bool HayCambiosSinGuardar => Renglones.Any(r => r.TieneCambios);
+
+    private int CantidadesSinGuardar => Renglones.Count(r => r.TieneCambios);
 
     public bool EsBorrador => Detalle?.Estado == EstadoPedidoEnum.Borrador;
 
@@ -269,17 +289,53 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         RecargarDesdePrimeraPagina();
     }
 
-    partial void OnPedidoSeleccionadoChanged(PedidoFila? value)
+    partial void OnPedidoSeleccionadoChanged(PedidoFila? oldValue, PedidoFila? newValue)
     {
+        var forzar = _forzarRecargaDetalle;
+        _forzarRecargaDetalle = false;
+
+        if (!_revirtiendoSeleccion && !forzar && HayCambiosSinGuardar)
+        {
+            // Una recarga de la lista (filtros, páginas) suelta y vuelve a tomar la selección: las cantidades en edición
+            // se conservan. Solo el usuario eligiendo otro pedido las descarta, y antes se le pregunta.
+            if (_recargandoGrilla)
+            {
+                return;
+            }
+
+            if (!ConfirmarDescarteDeCantidades())
+            {
+                _revirtiendoSeleccion = true;
+                try
+                {
+                    PedidoSeleccionado = oldValue;
+                }
+                finally
+                {
+                    _revirtiendoSeleccion = false;
+                }
+
+                return;
+            }
+        }
+
         MotivoParaCancelar = string.Empty;
 
-        if (value is null)
+        if (newValue is null)
         {
             MostrarDetalle(null);
             return;
         }
 
-        _ = CargarDetalleAsync(value.IdPedido);
+        _ = CargarDetalleAsync(newValue.IdPedido);
+    }
+
+    /// <summary>Pregunta si se descartan las cantidades sin guardar; el usuario puede quedarse a guardarlas.</summary>
+    private bool ConfirmarDescarteDeCantidades()
+    {
+        return _dialogService.Confirmar(
+            "Cantidades sin guardar",
+            $"Hay {CantidadesSinGuardar} cambio(s) de cantidad sin guardar en este pedido. Si continúa, se descartarán. ¿Desea continuar?");
     }
 
     [RelayCommand]
@@ -341,19 +397,35 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
 
     private bool PuedeCancelar() => PuedeCancelarse && !string.IsNullOrWhiteSpace(MotivoParaCancelar);
 
+    /// <summary>
+    /// Emite el pedido tal como se ve en pantalla: si hay cantidades sin guardar, las guarda primero (todas o ninguna) y
+    /// después emite. Emitir es irreversible; no puede actuar sobre lo que hay en la base si el usuario ve otra cosa.
+    /// </summary>
     [RelayCommand(CanExecute = nameof(PuedeEmitir))]
     private async Task EmitirAsync()
     {
         var pedido = Detalle!;
+        var cambios = HayCambiosSinGuardar ? CrearCambioDeCantidades(pedido.IdPedido) : null;
+        var guardado = cambios is null ? string.Empty : $"Se guardarán {cambios.Renglones.Count} cambio(s) de cantidad y se emitirá el pedido. ";
+
         if (!_dialogService.Confirmar(
                 "Emitir pedido",
-                $"¿Emitir el pedido #{pedido.IdPedido} a {pedido.RazonSocialProveedor}? Una vez emitido, sus renglones ya no se pueden modificar."))
+                $"{guardado}¿Emitir el pedido #{pedido.IdPedido} a {pedido.RazonSocialProveedor}? Una vez emitido, sus renglones ya no se pueden modificar."))
         {
             return;
         }
 
         await EjecutarComandoAsync(
-            token => _pedidoService.EmitirAsync(pedido.IdPedido, token));
+            async token =>
+            {
+                // Si el guardado falla (validación, concurrencia), no se emite: la excepción corta acá
+                if (cambios is not null)
+                {
+                    await _pedidoService.CambiarCantidadesAsync(cambios, token);
+                }
+
+                await _pedidoService.EmitirAsync(pedido.IdPedido, token);
+            });
     }
 
     [RelayCommand(CanExecute = nameof(PuedeCancelar))]
@@ -372,24 +444,34 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
             token => _pedidoService.CancelarAsync(new CancelarPedidoDto { IdPedido = pedido.IdPedido, Motivo = motivo }, token));
     }
 
-    /// <summary>Guarda la cantidad editada de un renglón (G3): solo si la fila tiene un cambio válido.</summary>
-    [RelayCommand]
-    private async Task AplicarCantidadAsync(RenglonPedidoFila? fila)
+    /// <summary>
+    /// Guarda de una vez todas las cantidades editadas del borrador (G3): todas o ninguna, en una sola transacción. Lo
+    /// invocan el botón "Guardar cambios" y Enter en cualquier cantidad.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HayCambiosSinGuardar))]
+    private async Task GuardarCambiosAsync()
     {
-        if (fila is null || !fila.TieneCambios || Detalle is null)
+        if (Detalle is null)
         {
             return;
         }
 
-        var dto = new CambiarCantidadRenglonDto
-        {
-            IdPedido = Detalle.IdPedido,
-            IdCatalogoProveedor = fila.IdCatalogoProveedor,
-            Cantidad = fila.Cantidad
-        };
+        var cambios = CrearCambioDeCantidades(Detalle.IdPedido);
 
         await EjecutarComandoAsync(
-            token => _pedidoService.CambiarCantidadAsync(dto, token));
+            token => _pedidoService.CambiarCantidadesAsync(cambios, token));
+    }
+
+    private CambiarCantidadesPedidoDto CrearCambioDeCantidades(int idPedido)
+    {
+        return new CambiarCantidadesPedidoDto
+        {
+            IdPedido = idPedido,
+            Renglones = Renglones
+                .Where(r => r.TieneCambios)
+                .Select(r => new CantidadRenglonDto { IdCatalogoProveedor = r.IdCatalogoProveedor, Cantidad = r.Cantidad })
+                .ToList()
+        };
     }
 
     [RelayCommand]
@@ -401,7 +483,8 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         }
 
         var idPedido = Detalle.IdPedido;
-        if (!_dialogService.Confirmar("Quitar renglón", $"¿Quitar \"{fila.Descripcion}\" del pedido #{idPedido}?"))
+        var descarte = HayCambiosSinGuardar ? $"\n\nLos {CantidadesSinGuardar} cambio(s) de cantidad sin guardar se descartarán." : string.Empty;
+        if (!_dialogService.Confirmar("Quitar renglón", $"¿Quitar \"{fila.Descripcion}\" del pedido #{idPedido}?{descarte}"))
         {
             return;
         }
@@ -420,6 +503,7 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         IsBusy = true;
         MensajeError = null;
         var recargar = true;
+        _forzarRecargaDetalle = true;
 
         await _carga.EjecutarOperacionAsync(
             async token =>
@@ -433,9 +517,14 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         if (recargar)
         {
             await CargarPedidosAsync();
+
+            // Si la recarga no llegó a cambiar la selección (se canceló o falló), la marca no debe quedar armada
+            _forzarRecargaDetalle = false;
         }
         else
         {
+            // No se recargó: lo que el usuario escribió sigue en pantalla
+            _forzarRecargaDetalle = false;
             IsBusy = _carga.EnCurso;
         }
     }
@@ -521,33 +610,71 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
         // detalle, así el panel muestra el estado actual.
         var idSeleccionado = PedidoSeleccionado?.IdPedido;
 
-        Pedidos.Clear();
-        foreach (var resumen in resultado.Items)
+        _recargandoGrilla = true;
+        try
         {
-            Pedidos.Add(new PedidoFila(resumen, _reloj));
+            Pedidos.Clear();
+            foreach (var resumen in resultado.Items)
+            {
+                Pedidos.Add(new PedidoFila(resumen, _reloj));
+            }
+
+            TotalRegistros = resultado.TotalRegistros;
+            TotalPaginas = Math.Max(1, resultado.TotalPaginas);
+            OnPropertyChanged(nameof(PuedeAvanzarPagina));
+
+            PedidoSeleccionado = Pedidos.FirstOrDefault(p => p.IdPedido == idSeleccionado);
+        }
+        finally
+        {
+            _recargandoGrilla = false;
         }
 
-        TotalRegistros = resultado.TotalRegistros;
-        TotalPaginas = Math.Max(1, resultado.TotalPaginas);
-        OnPropertyChanged(nameof(PuedeAvanzarPagina));
-
-        PedidoSeleccionado = Pedidos.FirstOrDefault(p => p.IdPedido == idSeleccionado);
+        // Si el pedido que se editaba salió de la página, su detalle (y lo escrito) ya no corresponde a ninguna fila
+        if (PedidoSeleccionado is null && Detalle is not null)
+        {
+            MostrarDetalle(null);
+        }
     }
 
     private void MostrarDetalle(PedidoDetalleDto? detalle)
     {
         Detalle = detalle;
-        Renglones.Clear();
-        if (detalle is null)
+
+        foreach (var observado in _renglonesObservados)
         {
-            return;
+            observado.PropertyChanged -= AlCambiarRenglon;
         }
 
-        var editable = detalle.Estado == EstadoPedidoEnum.Borrador;
-        foreach (var renglon in detalle.Renglones)
+        _renglonesObservados.Clear();
+        Renglones.Clear();
+        if (detalle is not null)
         {
-            Renglones.Add(new RenglonPedidoFila(renglon, editable));
+            var editable = detalle.Estado == EstadoPedidoEnum.Borrador;
+            foreach (var renglon in detalle.Renglones)
+            {
+                var fila = new RenglonPedidoFila(renglon, editable);
+                fila.PropertyChanged += AlCambiarRenglon;
+                _renglonesObservados.Add(fila);
+                Renglones.Add(fila);
+            }
         }
+
+        NotificarCambiosSinGuardar();
+    }
+
+    private void AlCambiarRenglon(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(RenglonPedidoFila.TieneCambios))
+        {
+            NotificarCambiosSinGuardar();
+        }
+    }
+
+    private void NotificarCambiosSinGuardar()
+    {
+        OnPropertyChanged(nameof(HayCambiosSinGuardar));
+        GuardarCambiosCommand.NotifyCanExecuteChanged();
     }
 
     private DateTime? ALocal(DateTime? fechaUtc)

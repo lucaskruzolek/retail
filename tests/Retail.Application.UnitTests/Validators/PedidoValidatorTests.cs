@@ -9,7 +9,7 @@ namespace Retail.Application.UnitTests.Validators;
 public class PedidoValidatorTests
 {
     private readonly AgregarVariosAlPedidoValidator _agregarValidator = new();
-    private readonly CambiarCantidadRenglonValidator _cambiarValidator = new();
+    private readonly CambiarCantidadesPedidoValidator _cambiarValidator = new();
     private readonly CancelarPedidoValidator _cancelarValidator = new();
 
     private static AgregarVariosAlPedidoDto CrearLote(int idUsuario = 1, params RenglonAAgregarDto[] renglones)
@@ -87,10 +87,24 @@ public class PedidoValidatorTests
                 && e.ErrorMessage.Contains("repetirse"));
     }
 
-    [Fact]
-    public void CambiarCantidadRenglon_ConDatosValidos_DebeAprobar()
+    private static CambiarCantidadesPedidoDto CrearCambio(int idPedido = 1, params CantidadRenglonDto[] renglones)
     {
-        var dto = new CambiarCantidadRenglonDto { IdPedido = 1, IdCatalogoProveedor = 1, Cantidad = 5 };
+        return new CambiarCantidadesPedidoDto
+        {
+            IdPedido = idPedido,
+            Renglones = renglones.Length == 0
+                ? new[] { new CantidadRenglonDto { IdCatalogoProveedor = 1, Cantidad = 5 } }
+                : renglones
+        };
+    }
+
+    [Fact]
+    public void CambiarCantidades_ConDatosValidos_DebeAprobar()
+    {
+        var dto = CrearCambio(
+            1,
+            new CantidadRenglonDto { IdCatalogoProveedor = 1, Cantidad = 5 },
+            new CantidadRenglonDto { IdCatalogoProveedor = 2, Cantidad = 12 });
 
         _cambiarValidator.Validate(dto).IsValid.Should().BeTrue();
     }
@@ -98,31 +112,54 @@ public class PedidoValidatorTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void CambiarCantidadRenglon_IdPedidoInvalido_DebeFallar(int id)
+    public void CambiarCantidades_IdPedidoInvalido_DebeFallar(int id)
     {
-        var dto = new CambiarCantidadRenglonDto { IdPedido = id, IdCatalogoProveedor = 1, Cantidad = 5 };
+        _cambiarValidator.Validate(CrearCambio(id)).Errors
+            .Should().ContainSingle(e => e.PropertyName == nameof(CambiarCantidadesPedidoDto.IdPedido));
+    }
 
-        _cambiarValidator.Validate(dto).Errors.Should().ContainSingle(e => e.PropertyName == nameof(CambiarCantidadRenglonDto.IdPedido));
+    [Fact]
+    public void CambiarCantidades_SinRenglones_DebeFallar()
+    {
+        var dto = new CambiarCantidadesPedidoDto { IdPedido = 1 };
+
+        _cambiarValidator.Validate(dto).Errors
+            .Should().Contain(e => e.PropertyName == nameof(CambiarCantidadesPedidoDto.Renglones));
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void CambiarCantidadRenglon_IdCatalogoInvalido_DebeFallar(int id)
+    public void CambiarCantidades_IdCatalogoInvalido_DebeFallar(int id)
     {
-        var dto = new CambiarCantidadRenglonDto { IdPedido = 1, IdCatalogoProveedor = id, Cantidad = 5 };
+        var dto = CrearCambio(1, new CantidadRenglonDto { IdCatalogoProveedor = id, Cantidad = 5 });
 
-        _cambiarValidator.Validate(dto).Errors.Should().ContainSingle(e => e.PropertyName == nameof(CambiarCantidadRenglonDto.IdCatalogoProveedor));
+        _cambiarValidator.Validate(dto).Errors
+            .Should().ContainSingle(e => e.PropertyName.EndsWith(nameof(CantidadRenglonDto.IdCatalogoProveedor)));
     }
 
     [Theory]
     [InlineData(0)]
     [InlineData(-2)]
-    public void CambiarCantidadRenglon_CantidadInvalida_DebeFallar(int cantidad)
+    public void CambiarCantidades_CantidadInvalida_DebeFallar(int cantidad)
     {
-        var dto = new CambiarCantidadRenglonDto { IdPedido = 1, IdCatalogoProveedor = 1, Cantidad = cantidad };
+        var dto = CrearCambio(1, new CantidadRenglonDto { IdCatalogoProveedor = 1, Cantidad = cantidad });
 
-        _cambiarValidator.Validate(dto).Errors.Should().ContainSingle(e => e.PropertyName == nameof(CambiarCantidadRenglonDto.Cantidad));
+        _cambiarValidator.Validate(dto).Errors
+            .Should().ContainSingle(e => e.PropertyName.EndsWith(nameof(CantidadRenglonDto.Cantidad)));
+    }
+
+    [Fact]
+    public void CambiarCantidades_RenglonRepetido_DebeFallar()
+    {
+        var dto = CrearCambio(
+            1,
+            new CantidadRenglonDto { IdCatalogoProveedor = 3, Cantidad = 1 },
+            new CantidadRenglonDto { IdCatalogoProveedor = 3, Cantidad = 2 });
+
+        _cambiarValidator.Validate(dto).Errors
+            .Should().ContainSingle(e => e.PropertyName == nameof(CambiarCantidadesPedidoDto.Renglones)
+                && e.ErrorMessage.Contains("dos veces"));
     }
 
     [Fact]

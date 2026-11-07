@@ -265,46 +265,32 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
-                                <DataGridTemplateColumn Header="Cant." Width="118">
+                                <!-- Cantidad (SelectorCantidad): editable solo en un borrador. Lo escrito no se guarda solo: "Guardar
+                                     cambios" (o Enter en cualquier cantidad) persiste todos los renglones juntos -->
+                                <DataGridTemplateColumn Header="Cantidad" HeaderStyle="{StaticResource DataGridColumnHeaderCenterStyle}" Width="136">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <Grid VerticalAlignment="Center" Margin="8,0">
+                                            <Grid VerticalAlignment="Center">
                                                 <!-- Solo lectura fuera de un borrador -->
                                                 <TextBlock Text="{Binding Cantidad}"
                                                            FontFamily="{StaticResource FontFamilyNumeric}"
                                                            Typography.NumeralAlignment="Tabular"
                                                            FontWeight="SemiBold"
+                                                           HorizontalAlignment="Center"
                                                            VerticalAlignment="Center"
                                                            Visibility="{Binding EsEditable, Converter={StaticResource InverseBoolToVisConverter}}" />
-                                                <!-- En un borrador: se edita y se guarda con Aplicar o Enter (G3) -->
-                                                <StackPanel Orientation="Horizontal"
-                                                            Visibility="{Binding EsEditable, Converter={StaticResource BoolToVisConverter}}">
-                                                    <TextBox Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
-                                                             Width="52"
-                                                             Height="28"
-                                                             MinHeight="0"
-                                                             Padding="2,0"
-                                                             HorizontalContentAlignment="Center"
-                                                             VerticalContentAlignment="Center"
-                                                             FontFamily="{StaticResource FontFamilyNumeric}"
-                                                             Typography.NumeralAlignment="Tabular"
-                                                             FontWeight="SemiBold"
-                                                             ToolTip="Escriba la cantidad y presione Enter para guardarla">
-                                                        <TextBox.InputBindings>
-                                                            <KeyBinding Key="Enter"
-                                                                        Command="{Binding DataContext.AplicarCantidadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                        CommandParameter="{Binding}" />
-                                                        </TextBox.InputBindings>
-                                                    </TextBox>
-                                                    <Button Style="{StaticResource RowActionButtonStyle}"
-                                                            Margin="4,0,0,0"
-                                                            Command="{Binding DataContext.AplicarCantidadCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}"
-                                                            ToolTip="Guardar la nueva cantidad"
-                                                            Visibility="{Binding TieneCambios, Converter={StaticResource BoolToVisConverter}}">
-                                                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="16" Height="16" />
-                                                    </Button>
-                                                </StackPanel>
+                                                <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay}"
+                                                                             Minimo="1"
+                                                                             NombreAutomatizacion="Cantidad pedida"
+                                                                             HorizontalAlignment="Center"
+                                                                             VerticalAlignment="Center"
+                                                                             Visibility="{Binding EsEditable, Converter={StaticResource BoolToVisConverter}}">
+                                                    <!-- El ancestro es la grilla y no un UserControl: el más cercano sería el propio selector -->
+                                                    <components:SelectorCantidad.InputBindings>
+                                                        <KeyBinding Key="Enter"
+                                                                    Command="{Binding DataContext.GuardarCambiosCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                                                    </components:SelectorCantidad.InputBindings>
+                                                </components:SelectorCantidad>
                                             </Grid>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
@@ -344,18 +330,38 @@
                                                Style="{StaticResource TextBlockCurrencyLarge}" />
                                 </DockPanel>
 
-                                <!-- Emitir: solo en borrador -->
-                                <Button Command="{Binding EmitirCommand}"
-                                        Style="{StaticResource PrimaryActionButtonStyle}"
-                                        HorizontalAlignment="Stretch"
-                                        Margin="0,12,0,0"
-                                        Visibility="{Binding EsBorrador, Converter={StaticResource BoolToVisConverter}}"
-                                        ToolTip="Pasar el pedido a Emitido: ya no se podrán modificar sus renglones">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconBoxIcons Kind="RegularSend" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                        <TextBlock Text="Emitir pedido" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Button>
+                                <!-- Solo en borrador: "Guardar cambios" (neutro; se habilita con cantidades editadas) a la izquierda de
+                                     "Emitir pedido", que guarda lo pendiente antes de emitir -->
+                                <Grid Margin="0,12,0,0"
+                                      Visibility="{Binding EsBorrador, Converter={StaticResource BoolToVisConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Grid.Column="0"
+                                            Command="{Binding GuardarCambiosCommand}"
+                                            Style="{StaticResource KeycapButtonStyle}"
+                                            Margin="0,0,8,0"
+                                            ToolTip="Guardar las cantidades modificadas [Enter]"
+                                            ToolTipService.ShowOnDisabled="True">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Guardar cambios" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button Grid.Column="1"
+                                            Command="{Binding EmitirCommand}"
+                                            Style="{StaticResource PrimaryActionButtonStyle}"
+                                            HorizontalAlignment="Stretch"
+                                            ToolTip="Pasar el pedido a Emitido: ya no se podrán modificar sus renglones">
+                                        <StackPanel Orientation="Horizontal">
+                                            <iconPacks:PackIconBoxIcons Kind="RegularSend" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Emitir pedido" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
 
                                 <!-- Cancelar con motivo: en borrador o emitido (G2) -->
                                 <DockPanel Margin="0,12,0,0"

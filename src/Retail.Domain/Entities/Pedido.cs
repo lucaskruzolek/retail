@@ -127,6 +127,28 @@ public class Pedido : BaseEntity, IAggregateRoot
     }
 
     /// <summary>
+    /// Cambia la cantidad de varios renglones del borrador, todos o ninguno: primero se valida que cada renglón exista
+    /// y que cada cantidad sea válida, y solo entonces se aplican. Un borrador con la mitad de los cambios sería un
+    /// estado que el usuario nunca vio.
+    /// </summary>
+    public void CambiarCantidades(IReadOnlyDictionary<int, int> cantidadesPorRenglon)
+    {
+        ArgumentNullException.ThrowIfNull(cantidadesPorRenglon);
+        ExigirEstado("cambiar la cantidad de los renglones de", EstadoPedidoEnum.Borrador);
+
+        foreach (var (idCatalogoProveedor, cantidad) in cantidadesPorRenglon)
+        {
+            ExigirCantidad(cantidad);
+            ObtenerRenglon(idCatalogoProveedor);
+        }
+
+        foreach (var (idCatalogoProveedor, cantidad) in cantidadesPorRenglon)
+        {
+            ObtenerRenglon(idCatalogoProveedor).CambiarCantidad(cantidad);
+        }
+    }
+
+    /// <summary>
     /// Quita un renglón del borrador (solo se admite en <c>Borrador</c>). El dominio solo lo saca de la colección: al
     /// guardar, la persistencia convierte el renglón huérfano en una baja lógica (Ley 3, D4), así que queda registro
     /// de lo que se quitó. Puede dejar el borrador vacío; no lo cancela.
