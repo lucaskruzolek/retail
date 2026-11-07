@@ -13,6 +13,25 @@ namespace Retail.Infrastructure.Persistence.Services;
 /// </summary>
 public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
 {
+    /// <summary>
+    /// Columnas que una reimportación puede cambiar en un ítem existente: las que asigna
+    /// <see cref="CatalogoProveedor.ActualizarPrecio"/>, incluida la clasificación que deja pendiente (M-74). Las demás
+    /// (proveedor, código, alta, baja y artículo vinculado) la importación no las toca.
+    /// </summary>
+    private static readonly string[] ColumnasQueRenuevaLaPlanilla =
+    [
+        nameof(CatalogoProveedor.CostoReposicion),
+        nameof(CatalogoProveedor.FechaActualizacion),
+        nameof(CatalogoProveedor.DescripcionProveedor),
+        nameof(CatalogoProveedor.CodigoBarras),
+        nameof(CatalogoProveedor.RubroProveedor),
+        nameof(CatalogoProveedor.CategoriaProveedor),
+        nameof(CatalogoProveedor.MarcaProveedor),
+        nameof(CatalogoProveedor.IdCategoriaSugerida),
+        nameof(CatalogoProveedor.IdMarcaSugerida),
+        nameof(CatalogoProveedor.FechaClasificacion)
+    ];
+
     private readonly RetailDbContext _context;
 
     public CatalogoProveedorQueryService(RetailDbContext context)
@@ -251,10 +270,29 @@ public class CatalogoProveedorQueryService : ICatalogoProveedorQueryService
         await _context.CatalogosProveedores.AddAsync(catalogo, cancellationToken);
     }
 
+    /// <summary>
+    /// Registra los cambios de un ítem que trajo la planilla (Track 6.6, M-84). Si el contexto ya lo sigue, se marcan
+    /// siempre las mismas columnas, las que la planilla puede cambiar, en lugar de las 15 de <c>Update</c>: todos los
+    /// UPDATE de la importación tienen la misma forma, cualquiera sea la proporción de cambios, y dejan afuera las claves
+    /// foráneas y el código, que no cambian. Lo que EF Core detecte además se sigue enviando. Un ítem desconectado se
+    /// actualiza entero, como antes.
+    /// </summary>
     public Task ActualizarAsync(CatalogoProveedor catalogo, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(catalogo);
-        _context.CatalogosProveedores.Update(catalogo);
+
+        var entrada = _context.Entry(catalogo);
+        if (entrada.State == EntityState.Detached)
+        {
+            _context.CatalogosProveedores.Update(catalogo);
+            return Task.CompletedTask;
+        }
+
+        foreach (var columna in ColumnasQueRenuevaLaPlanilla)
+        {
+            entrada.Property(columna).IsModified = true;
+        }
+
         return Task.CompletedTask;
     }
 }

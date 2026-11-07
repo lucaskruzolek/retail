@@ -13,6 +13,7 @@ namespace Retail.Infrastructure.IntegrationTests.Services;
 public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
 {
     private readonly string _dbName = $"RetailDb_Test_CatQ_{Guid.NewGuid():N}";
+    private DbContextOptions<RetailDbContext> _options = null!;
     private RetailDbContext _context = null!;
     private CatalogoProveedorQueryService _sut = null!;
 
@@ -22,6 +23,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         var options = new DbContextOptionsBuilder<RetailDbContext>()
             .UseSqlServer(connectionString)
             .Options;
+        _options = options;
 
         _context = new RetailDbContext(options);
         await _context.Database.CrearDesdePlantillaAsync();
@@ -596,5 +598,110 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
             new ValorDelProveedorDto { Tipo = TipoEquivalenciaEnum.Categoria, Rubro = "Papelería", Texto = null, CantidadDeItems = 1 },
             new ValorDelProveedorDto { Tipo = TipoEquivalenciaEnum.Marca, Texto = "Rivadavia", CantidadDeItems = 2 }
         });
+    }
+
+    /// <summary>
+    /// M-84: con ítems en seguimiento, cada UPDATE lleva siempre las columnas que la planilla puede cambiar, haya
+    /// cambiado el precio, la descripción o nada. Los cambios se reparten al azar, como en una planilla real: los lotes
+    /// completos tienen que salir con el mismo texto y sin el proveedor, el código, el alta ni el artículo vinculado.
+    /// </summary>
+    [Fact]
+    public async Task ActualizarAsync_ItemsEnSeguimientoConCambiosMezclados_EnviaLotesCompletosConElMismoTexto()
+    {
+        // Arrange
+        int idProveedor = await CrearCatalogoAsync(100);
+        var medidor = new MedidorDeComandosSql();
+        await using var contexto = ContextoMedido(medidor);
+        var servicio = new CatalogoProveedorQueryService(contexto);
+        var items = await contexto.CatalogosProveedores.OrderBy(c => c.Id).ToListAsync();
+        var aleatorio = new Random(7);
+        foreach (var item in items)
+        {
+            decimal costo = aleatorio.NextDouble() < 0.3 ? 120m : item.CostoReposicion;
+            string descripcion = aleatorio.NextDouble() < 0.1 ? $"{item.DescripcionProveedor} NUEVO" : item.DescripcionProveedor;
+            item.ActualizarPrecio(costo, descripcion);
+            await servicio.ActualizarAsync(item);
+        }
+
+        // Act
+        await contexto.SaveChangesAsync();
+
+        // Assert: 100 UPDATE = dos lotes completos de 42 y uno de 16
+        medidor.TextosDeEscritura.Should().HaveCount(3);
+        medidor.TextosDeEscritura[1].Should().Be(medidor.TextosDeEscritura[0]);
+        medidor.TextosDeEscritura.Should().OnlyContain(t =>
+            !t.Contains("[id_proveedor] =") && !t.Contains("[codigo_proveedor] =") &&
+            !t.Contains("[id_articulo] =") && !t.Contains("[created_at] ="));
+
+        await using var lectura = new RetailDbContext(_options);
+        var guardados = await lectura.CatalogosProveedores.AsNoTracking().Where(c => c.IdProveedor == idProveedor).OrderBy(c => c.Id).ToListAsync();
+        guardados.Select(c => (c.CostoReposicion, c.DescripcionProveedor))
+            .Should().Equal(items.Select(c => (c.CostoReposicion, c.DescripcionProveedor)));
+    }
+
+    /// <summary>M-84 conserva el contrato para un ítem que el contexto no sigue: se actualiza entero.</summary>
+    [Fact]
+    public async Task ActualizarAsync_ItemDesconectado_LoActualizaConTodasLasColumnas()
+    {
+        // Arrange
+        await CrearCatalogoAsync(1);
+        var medidor = new MedidorDeComandosSql();
+        await using var contexto = ContextoMedido(medidor);
+        var item = await contexto.CatalogosProveedores.AsNoTracking().SingleAsync();
+        item.CostoReposicion = 130m;
+
+        // Act
+        await new CatalogoProveedorQueryService(contexto).ActualizarAsync(item);
+        await contexto.SaveChangesAsync();
+
+        // Assert
+        medidor.TextosDeEscritura.Should().ContainSingle().Which.Should().Contain("[id_proveedor] =");
+        await using var lectura = new RetailDbContext(_options);
+        (await lectura.CatalogosProveedores.AsNoTracking().SingleAsync()).CostoReposicion.Should().Be(130m);
+    }
+
+    /// <summary>
+    /// M-84 suma columnas, no excluye: si cambia una columna que la planilla no toca, EF Core la detecta y se guarda.
+    /// </summary>
+    [Fact]
+    public async Task ActualizarAsync_CambioEnColumnaQueLaPlanillaNoToca_TambienSeGuarda()
+    {
+        // Arrange
+        await CrearCatalogoAsync(1);
+        var medidor = new MedidorDeComandosSql();
+        await using var contexto = ContextoMedido(medidor);
+        var item = await contexto.CatalogosProveedores.SingleAsync();
+        item.CodigoProveedor = "C-999";
+
+        // Act
+        await new CatalogoProveedorQueryService(contexto).ActualizarAsync(item);
+        await contexto.SaveChangesAsync();
+
+        // Assert
+        medidor.TextosDeEscritura.Should().ContainSingle().Which.Should().Contain("[codigo_proveedor] =");
+        await using var lectura = new RetailDbContext(_options);
+        (await lectura.CatalogosProveedores.AsNoTracking().SingleAsync()).CodigoProveedor.Should().Be("C-999");
+    }
+
+    private RetailDbContext ContextoMedido(MedidorDeComandosSql medidor)
+    {
+        return new RetailDbContext(new DbContextOptionsBuilder<RetailDbContext>(_options).AddInterceptors(medidor).Options);
+    }
+
+    private async Task<int> CrearCatalogoAsync(int cantidad)
+    {
+        var proveedor = Proveedor.Crear("Distribuidora Sur", "30-12345678-1");
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+        _context.CatalogosProveedores.AddRange(Enumerable.Range(1, cantidad).Select(i => new CatalogoProveedor
+        {
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = $"C-{i:D3}",
+            DescripcionProveedor = $"Cuaderno {i}",
+            CostoReposicion = 100m
+        }));
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+        return proveedor.Id;
     }
 }

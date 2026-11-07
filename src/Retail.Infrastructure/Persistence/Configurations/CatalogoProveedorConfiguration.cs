@@ -111,8 +111,11 @@ public class CatalogoProveedorConfiguration : IEntityTypeConfiguration<CatalogoP
 
         builder.Ignore(cp => cp.IsDeleted);
 
+        // Sin colección del lado del proveedor (Track 6.6, M-83): el catálogo puede tener decenas de miles de ítems y se
+        // consulta por id_proveedor, nunca a través de la raíz. Con la colección, EF Core enlazaba cada ítem leído en una
+        // lista que nadie leía, con un costo cuadrático (4,6 s para 30.000 ítems).
         builder.HasOne(cp => cp.Proveedor)
-            .WithMany(p => p.Catalogos)
+            .WithMany()
             .HasForeignKey(cp => cp.IdProveedor)
             .OnDelete(DeleteBehavior.Restrict);
 

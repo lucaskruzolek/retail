@@ -36,8 +36,6 @@ public class Proveedor : BaseEntity, IAggregateRoot
     /// </summary>
     public bool ClasificaCatalogo { get; private set; }
 
-    public ICollection<CatalogoProveedor> Catalogos { get; set; } = new List<CatalogoProveedor>();
-
     public ICollection<Compra> Compras { get; set; } = new List<Compra>();
 
     /// <summary>

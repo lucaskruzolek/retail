@@ -79,8 +79,7 @@ public class ClasificacionCatalogoService : IClasificacionCatalogoService
         var proveedor = await _proveedorRepository.GetByIdAsync(idProveedor, includeDeleted: false, cancellationToken)
             ?? throw new DomainException($"No se encontró el proveedor con ID {idProveedor}.");
 
-        // Antes de cargar los ítems, como en el importador: Update recorre el grafo del proveedor y marcaría como
-        // modificadas todas las columnas de los ítems ya enganchados en Catalogos.
+        // El proveedor no tiene colección de ítems (M-83), así que Update no alcanza a los ítems del catálogo.
         if (!soloPendientes)
         {
             proveedor.ConfigurarClasificacionDelCatalogo(true);
