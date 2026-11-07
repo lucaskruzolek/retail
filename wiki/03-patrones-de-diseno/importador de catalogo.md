@@ -255,7 +255,7 @@ sequenceDiagram
         end
     end
     PS->>UoW: 10. SaveChangesAsync
-    UoW->>DB: BEGIN TRAN, UPDATE e INSERT, COMMIT
+    UoW->>DB: BEGIN TRAN, UPDATE (10 columnas fijas) e INSERT, COMMIT
     PS-->>VM: ResultadoImportacionDto
     VM-->>U: Aviso con contadores y "Fila N: motivo"
 ```
@@ -742,7 +742,7 @@ Diagrama B.1 · tubería de datos
 |Mapa de existentes|`Dictionary<string, CatalogoProveedor>`|Búsqueda por código que no distingue mayúsculas, igual que la intercalación de la base|O(1) por fila|
 |Dependientes|Dos `ILookup`|Uno a muchos sin excepción para claves ausentes|O(1) por fila más los artículos afectados|
 |Cambios pendientes|Change Tracker del `DbContext` de la pantalla|Unit of Work: todo se confirma junto o no se confirma|O(n). Es el cuello de botella de memoria|
-|Escritura|Lotes de `UPDATE` e `INSERT` en una transacción|Atomicidad. EF agrupa varios comandos por viaje|Varios viajes de escritura, un solo COMMIT|
+|Escritura|Lotes de `UPDATE` e `INSERT` en una transacción|Atomicidad. EF agrupa hasta 42 comandos por viaje. Todos los `UPDATE` de renglones llevan las mismas 10 columnas (M-84), así que los lotes repiten el texto y SQL Server reutiliza un único plan|Unos 715 viajes de escritura para 30.000 filas, un solo COMMIT|
 
 Medido y afirmado en tests
 
@@ -755,17 +755,26 @@ Medido y afirmado en tests
 |Artículos en el Change Tracker|2.500, no 4.500 (H-14)|
 |Tiempo total|3,9 a 4,6 s típicos. Medido, no afirmado|
 |Viajes de lectura|4: proveedor, Q2, Q3 y Q1, sin importar n|
+|Alta inicial de 30.000 filas|unos 21 s. Medido, no afirmado|
+|Reimportación de 30.000 filas, idéntica|unos 14 s (unos 22 s antes de M-84). Medido, no afirmado|
+|Reimportación semanal de 30.000 filas: 10 % de precios y 2 % de descripciones cambiados al azar, 1 % de renglones nuevos|unos 15 s (unos 24 s antes de M-84), con los mismos 5 textos de lote y unas 13 compilaciones de SQL, cualquiera sea la proporción de cambios. Medido, no afirmado|
+
+Las mediciones de 30.000 filas son de `ImportacionPlanillaRendimientoTests` (`Category=Rendimiento`), en Release y en un equipo con poca memoria libre: sirven para comparar versiones en el mismo equipo, no como tiempos de referencia. La memoria con 30.000 filas no se midió.
 
 Cómo crece
 
 ### Complejidad y escalabilidad
 
-* **Tiempo O(n)** en filas, más las consultas indexadas: Q1 cuesta O(C · log R), con C códigos de la planilla y R renglones del proveedor.
+* **Tiempo O(n)** en filas, más las consultas indexadas: Q1 cuesta O(C · log R), con C códigos de la planilla y R renglones del proveedor. **Hasta M-83 no era cierto.** El paso 2 carga el proveedor y Q1 trae después los renglones con tracking, así que EF Core agregaba cada uno a la colección `Proveedor.Catalogos`, una `List`, tras un `Contains` lineal: un O(n²) escondido. Con 5.000 filas no se notaba; con 30.000 eran unos 4,6 s de los que nadie se beneficiaba, porque nadie leía esa colección. Se quitó la navegación y el esquema no cambió.
 * **Memoria O(n), no O(1).** El lector es streaming, pero la lista del parser y el Change Tracker crecen con la planilla. Conviene decirlo así: una versión anterior de la documentación prometía "memoria O(1)" y no coincidía con el código (H-15).
 * **50.000 filas:** unos 130 MB de punta a punta según extrapolación lineal, **sin medir**. Sigue por debajo de 300 MB, pero con menos margen, porque WPF y el resto de la aplicación también consumen.
 * **Procesar por lotes (D-08)** está documentado pero cerrado: la medición no lo justifica. Es el principio de medir antes de optimizar.
 
-**Costos que conviene reconocer.** (1) `DbSet.Update` envía **todas** las columnas, y como `FechaActualizacion` cambia siempre, cada renglón existente genera un `UPDATE` aunque su costo no varíe. (2) Después de un guardado exitoso no se limpia el Change Tracker: las entidades siguen en memoria hasta que se cierra la pantalla. (3) El progreso solo informa la lectura; durante las consultas y el guardado el texto queda fijo en "Leyendo planilla...".
+**Costos que conviene reconocer.** (1) Cada renglón existente genera un `UPDATE` aunque su costo no varíe, porque `FechaActualizacion` cambia siempre: es correcto, porque esa fecha dice que el renglón venía en la última planilla y alimenta el aviso de lista desactualizada. Hasta M-84 ese `UPDATE` llevaba además **las 15 columnas**, porque `ActualizarAsync` llamaba a `DbSet.Update` sobre renglones que el contexto ya seguía; ahora lleva las 10 que la planilla puede cambiar. (2) Después de un guardado exitoso no se limpia el Change Tracker: las entidades siguen en memoria hasta que se cierra la pantalla. (3) El progreso solo informa la lectura; durante las consultas y el guardado el texto queda fijo en "Leyendo planilla...".
+
+Pregunta probable: ¿por qué no enviar solo las columnas que cambiaron?
+
+Porque en una escritura masiva lo que se optimiza no es cada fila sino cada **lote**. EF Core agrupa hasta 42 `UPDATE` en un solo texto, y SQL Server busca el plan en caché por ese texto exacto. Con solo lo modificado, una fila con el precio nuevo y otra sin cambios tienen formas distintas, y como los cambios están repartidos al azar en la planilla, cada lote mezcla formas en un orden distinto: casi cada lote es un texto nuevo y se compila de cero, aunque esté parametrizado. Con una proporción p de filas distintas, la probabilidad de que un lote salga diferente es 1 − (1 − p)^42: con apenas 5 % de descripciones cambiadas, casi 9 de cada 10 lotes se recompilarían. La eficiencia dependería de los datos, y el peor caso sería más lento que enviar todas las columnas. Por eso `ActualizarAsync` envía un **conjunto fijo**: las 10 columnas que `ActualizarPrecio` puede cambiar, aunque no hayan cambiado. Quedan afuera las que la importación nunca toca: proveedor, código, alta, baja y artículo vinculado. El conjunto **suma** a lo que EF detecte, nunca excluye: si otra columna cambiara, se guardaría igual. Medido: la reimportación semanal bajó de unos 24 s a unos 15 s y la forma de los lotes no depende de la proporción de cambios (M-84; el mismo problema de compilaciones ya se había corregido en la clasificación, M-82).
 
 Pregunta probable: ¿por qué el parser no devuelve un `IAsyncEnumerable` para procesar fila por fila?
 
