@@ -472,6 +472,15 @@
                        Style="{StaticResource GaleriaNotaStyle}" />
             <components:SelectorFechaUnica Fecha="2026-11-03" HorizontalAlignment="Left" Margin="0,0,0,16" />
 
+            <!-- B.5 quinquies Selector de cantidad -->
+            <TextBlock Text="Selector de cantidad (SelectorCantidad)" Style="{StaticResource GaleriaRotuloStyle}" />
+            <TextBlock Text="Cantidad entera con pasos: − y + a los lados (fuera del orden de Tab), ↑ y ↓ desde el número. Solo admite dígitos; fuera de rango se recorta y vacío vale el mínimo, así lo que se ve es lo que se confirma."
+                       Style="{StaticResource GaleriaNotaStyle}" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                <components:SelectorCantidad Valor="1" Margin="0,0,16,0" />
+                <components:SelectorCantidad Valor="12" />
+            </StackPanel>
+
             <!-- B.5 ter Ícono de información -->
             <TextBlock Text="Ícono de información (descripción en un tooltip)" Style="{StaticResource GaleriaRotuloStyle}" />
             <TextBlock Text="Reemplaza a subtítulos y leyendas (R11). El glifo es de 12, pero reacciona en todo el cuadrado de 20 que lo rodea; el tooltip aparece a los 150 ms."

@@ -236,52 +236,19 @@
                                             Width="*"
                                             IsReadOnly="True" />
 
-                        <!-- Cantidad con botones + / - -->
+                        <!-- Cantidad con pasos (SelectorCantidad): se tipea (100 hojas sueltas sin 100 clics) o se ajusta con
+                             − y +, que no toman el foco, así el buscador lo conserva para seguir escaneando. Nunca baja de 1:
+                             quitar un artículo es una acción explícita (papelera o Supr, D-25). Enter o Esc devuelven el foco
+                             al buscador; Esc deshace lo escrito. -->
                         <DataGridTemplateColumn Header="Cantidad" HeaderStyle="{StaticResource DataGridColumnHeaderCenterStyle}" Width="140">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Button Command="{Binding DataContext.DecrementarCantidadCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Click="OnAjusteCantidadClick"
-                                                Width="24"
-                                                Height="24"
-                                                MinHeight="0"
-                                                Padding="0"
-                                                Margin="{StaticResource InlineXs}"
-                                                ToolTip="Restar una unidad">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularMinus" Width="12" Height="12" />
-                                        </Button>
-                                        <!-- Cantidad editable por teclado (100 hojas sueltas sin 100 clics). Se confirma con
-                                             Enter, Tab o al salir; un valor inválido vuelve al anterior (D-25). -->
-                                        <TextBox Text="{Binding Cantidad, UpdateSourceTrigger=LostFocus}"
-                                                 Width="56"
-                                                 Height="24"
-                                                 MinHeight="0"
-                                                 Padding="2,0"
-                                                 HorizontalContentAlignment="Center"
-                                                 VerticalContentAlignment="Center"
-                                                 FontSize="{StaticResource FontSizeMd}"
-                                                 FontWeight="SemiBold"
-                                                 ToolTip="Escriba la cantidad y presione Enter"
-                                                 PreviewMouseLeftButtonDown="OnCantidadPreviewMouseLeftButtonDown"
-                                                 GotKeyboardFocus="OnCantidadGotKeyboardFocus"
-                                                 PreviewKeyDown="OnCantidadPreviewKeyDown"
-                                                 LostFocus="OnCantidadLostFocus" />
-                                        <Button Command="{Binding DataContext.IncrementarCantidadCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource KeycapButtonStyle}"
-                                                Click="OnAjusteCantidadClick"
-                                                Width="24"
-                                                Height="24"
-                                                MinHeight="0"
-                                                Padding="0"
-                                                Margin="4,0,0,0"
-                                                ToolTip="Sumar una unidad">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="12" Height="12" />
-                                        </Button>
-                                    </StackPanel>
+                                    <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay}"
+                                                                 Minimo="1"
+                                                                 NombreAutomatizacion="Cantidad"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center"
+                                                                 KeyDown="OnCantidadKeyDown" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

@@ -123,7 +123,7 @@ public class PosViewModelTests
         var viewModel = await CrearViewModelAsync();
         viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Hoja A4", PrecioVenta = 50m, StockActual = 500, EsServicio = false });
 
-        // Act: lo mismo que hace el binding del TextBox de la celda
+        // Act: lo mismo que hace el SelectorCantidad de la celda (al tipear o con − y +)
         viewModel.Items[0].Cantidad = 100;
 
         // Assert
@@ -287,38 +287,6 @@ public class PosViewModelTests
         buscoAntesDeLiberar.Should().BeFalse("la búsqueda del artículo espera a que la predictiva libere el DbContext (H-19)");
         viewModel.Items.Should().ContainSingle().Which.IdArticulo.Should().Be(10);
         _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarError(default!, default!);
-    }
-
-    [Fact]
-    public async Task IncrementarYDecrementarCantidad_DebeActualizarSubtotalesYTotales()
-    {
-        // Arrange
-        var viewModel = await CrearViewModelAsync();
-        var articulo = new ArticuloVentaDto
-        {
-            IdArticulo = 5,
-            CodigoBarras = "7790001",
-            Descripcion = "Regla 30cm",
-            PrecioVenta = 1000m,
-            StockActual = 10,
-            EsServicio = false
-        };
-        viewModel.AgregarArticuloAlTicket(articulo);
-        var item = viewModel.Items[0];
-
-        // Act
-        viewModel.IncrementarCantidad(item);
-
-        // Assert
-        item.Cantidad.Should().Be(2);
-        viewModel.Total.Should().Be(2000m);
-
-        // Act 2
-        viewModel.DecrementarCantidad(item);
-
-        // Assert 2
-        item.Cantidad.Should().Be(1);
-        viewModel.Total.Should().Be(1000m);
     }
 
     [Fact]

@@ -339,15 +339,16 @@
                                             ElementStyle="{StaticResource CeldaNumericaDerecha}"
                                             Width="84" />
 
-                        <!-- Cantidad recibida (editable) -->
-                        <DataGridTemplateColumn Header="Recibido" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="104">
+                        <!-- Cantidad recibida (SelectorCantidad): se tipea o se ajusta con − y +. Nunca baja de 1: un artículo
+                             que no llegó se quita con la papelera -->
+                        <DataGridTemplateColumn Header="Recibido" HeaderStyle="{StaticResource DataGridColumnHeaderCenterStyle}" Width="128">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBox Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource CeldaEditableStyle}"
-                                             helpers:EntradaNumericaHelper.SoloDigitos="True"
-                                             Width="72"
-                                             AutomationProperties.Name="Cantidad recibida" />
+                                    <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay}"
+                                                                 Minimo="1"
+                                                                 NombreAutomatizacion="Cantidad recibida"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>

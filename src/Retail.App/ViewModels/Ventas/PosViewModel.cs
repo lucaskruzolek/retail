@@ -350,37 +350,6 @@ public partial class PosViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    public void IncrementarCantidad(ItemVentaPosViewModel? item)
-    {
-        if (item == null)
-        {
-            return;
-        }
-
-        item.Cantidad++;
-        RecalcularTotales();
-    }
-
-    [RelayCommand]
-    public void DecrementarCantidad(ItemVentaPosViewModel? item)
-    {
-        if (item == null)
-        {
-            return;
-        }
-
-        if (item.Cantidad > 1)
-        {
-            item.Cantidad--;
-            RecalcularTotales();
-        }
-        else
-        {
-            EliminarItem(item);
-        }
-    }
-
-    [RelayCommand]
     public void EliminarItem(ItemVentaPosViewModel? item)
     {
         var target = item ?? ItemSeleccionado;
