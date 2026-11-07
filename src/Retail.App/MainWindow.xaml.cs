@@ -59,6 +59,14 @@ public partial class MainWindow : FluentWindow
             return;
         }
 
+        // Atajo Ctrl+H para abrir el Centro de Ayuda y soporte
+        if (e.Key == Key.H && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+        {
+            ViewModel.AbrirAyudaCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
         // Atajos de conmutación global con teclas de función: cada página declara el suyo en el registro de navegación
         // y la política de acceso decide si el rol puede abrirla; sin página asignada o sin permiso, la tecla sigue de largo
         if (e.Key is >= Key.F1 and <= Key.F12 && ViewModel.AbrirPorAtajo(e.Key.ToString()))

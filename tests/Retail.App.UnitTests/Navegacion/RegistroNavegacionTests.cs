@@ -102,6 +102,22 @@ public class RegistroNavegacionTests
     }
 
     [Theory]
+    [InlineData(RolUsuarioEnum.Gerente, "F1,F2,F4,F5,F6,F9,F10,F11")]
+    [InlineData(RolUsuarioEnum.Encargado, "F1,F2,F4,F5,F6")]
+    [InlineData(RolUsuarioEnum.Cajero, "F1,F2,F4,F5,F6")]
+    [InlineData(RolUsuarioEnum.Administrador, "F10,F11")]
+    public void AtajosVisibles_PorRol_SonLosPermitidosEnOrdenDeTecla(RolUsuarioEnum rol, string esperados)
+    {
+        RegistroNavegacion.AtajosVisibles(rol).Select(x => x.Pagina.Atajo).Should().Equal(esperados.Split(','));
+    }
+
+    [Fact]
+    public void AtajosVisibles_SinRol_NoHayNinguno()
+    {
+        RegistroNavegacion.AtajosVisibles(null).Should().BeEmpty();
+    }
+
+    [Theory]
     [InlineData(RolUsuarioEnum.Gerente)]
     [InlineData(RolUsuarioEnum.Encargado)]
     [InlineData(RolUsuarioEnum.Cajero)]

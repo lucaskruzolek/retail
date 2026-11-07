@@ -20,31 +20,64 @@
                                Titulo="Ajustes"
                                Descripcion="Preferencias de la aplicación: apariencia y otras configuraciones." />
 
-        <!-- Apariencia: tema claro u oscuro, se aplica al instante y queda guardado para el próximo inicio -->
-        <Border Grid.Row="1"
-                Style="{StaticResource DialogSectionStyle}"
-                HorizontalAlignment="Left"
-                MinWidth="400">
-            <StackPanel>
-                <TextBlock Text="Apariencia" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
+        <!-- Secciones de Ajustes -->
+        <StackPanel Grid.Row="1" HorizontalAlignment="Left" MinWidth="400" MaxWidth="560">
+            <!-- Apariencia: tema claro u oscuro, se aplica al instante y queda guardado para el próximo inicio -->
+            <Border Style="{StaticResource DialogSectionStyle}"
+                    Margin="{StaticResource StackLg}">
+                <StackPanel>
+                    <TextBlock Text="Apariencia" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
-                <TextBlock Text="Tema"
-                           Style="{StaticResource TextBlockBodySecondary}"
-                           Margin="{StaticResource StackSm}" />
+                    <TextBlock Text="Tema"
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               Margin="{StaticResource StackSm}" />
 
-                <components:SelectorSegmentado>
-                    <UniformGrid Columns="2">
-                        <RadioButton
-                                     IsChecked="{Binding TemaClaro, Mode=TwoWay}"
-                                     Style="{StaticResource SegmentedRadioButtonStyle}"
-                                     Content="Claro" />
-                        <RadioButton
-                                     IsChecked="{Binding TemaOscuro, Mode=TwoWay}"
-                                     Style="{StaticResource SegmentedRadioButtonStyle}"
-                                     Content="Oscuro" />
-                    </UniformGrid>
-                </components:SelectorSegmentado>
-            </StackPanel>
-        </Border>
+                    <components:SelectorSegmentado>
+                        <UniformGrid Columns="2">
+                            <RadioButton
+                                         IsChecked="{Binding TemaClaro, Mode=TwoWay}"
+                                         Style="{StaticResource SegmentedRadioButtonStyle}"
+                                         Content="Claro" />
+                            <RadioButton
+                                         IsChecked="{Binding TemaOscuro, Mode=TwoWay}"
+                                         Style="{StaticResource SegmentedRadioButtonStyle}"
+                                         Content="Oscuro" />
+                        </UniformGrid>
+                    </components:SelectorSegmentado>
+                </StackPanel>
+            </Border>
+
+            <!-- Documentación y ayuda: manual de usuario en PDF y resumen de atajos de teclado -->
+            <Border Style="{StaticResource DialogSectionStyle}">
+                <StackPanel>
+                    <TextBlock Text="Documentación y ayuda" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
+
+                    <TextBlock Text="Acceda al manual de usuario operativo o consulte el resumen rápido de atajos de teclado."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextWrapping="Wrap"
+                               Margin="{StaticResource StackMd}" />
+
+                    <WrapPanel>
+                        <Button Command="{Binding AbrirManualPdfCommand}"
+                                Style="{StaticResource PrimaryActionButtonStyle}"
+                                Margin="0,0,8,0">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularBookOpen" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Abrir manual (PDF)" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <Button Command="{Binding AbrirCentroAyudaCommand}"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                ToolTip="Abrir el centro de ayuda [Ctrl+H]">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularHelpCircle" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Centro de ayuda" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
     </Grid>
 </UserControl>
