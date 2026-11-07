@@ -4,6 +4,11 @@
 # Convierte docs/MANUAL_DE_USUARIO.md a HTML estilizado con la identidad de marca
 # y utiliza el motor headless de Microsoft Edge para exportar a PDF en:
 # src/Retail.App/Assets/Manual/Manual_Usuario_Retail_POS.pdf
+#
+# Requisitos: Node.js (conversor scripts/convertir-md-a-html.js) y Microsoft Edge.
+# Solo hacen falta para regenerar el manual: el build y el CI usan el PDF versionado.
+# El HTML intermedio (docs/MANUAL_DE_USUARIO.html) no se versiona.
+# Ejecutar cada vez que cambie docs/MANUAL_DE_USUARIO.md y commitear el PDF resultante.
 # ==============================================================================
 
 [CmdletBinding()]

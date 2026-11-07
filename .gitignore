@@ -74,3 +74,5 @@ __pycache__/
 # Entorno virtual de los experimentos (scikit-learn solo para exploración; versiones en ml/requirements.txt).
 ml/.venv/
 artifacts/
+# HTML intermedio del manual de usuario: lo genera scripts/generar-manual-pdf.ps1 a partir del .md.
+docs/MANUAL_DE_USUARIO.html
