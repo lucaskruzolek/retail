@@ -112,10 +112,7 @@
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Style="{StaticResource CardHeaderIconStyle}" />
-                                <TextBlock Text="Rubros" Style="{StaticResource CardHeaderTextStyle}" />
-                            </StackPanel>
+                            <TextBlock Text="Rubros" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding NuevoRubroCommand}"
                                     Style="{StaticResource PrimaryActionButtonStyle}">
@@ -184,10 +181,7 @@
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <iconPacks:PackIconBoxIcons Kind="RegularLayers" Style="{StaticResource CardHeaderIconStyle}" />
-                                <TextBlock Text="Categorías" Style="{StaticResource CardHeaderTextStyle}" />
-                            </StackPanel>
+                            <TextBlock Text="Categorías" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding NuevaCategoriaCommand}"
                                     Style="{StaticResource PrimaryActionButtonStyle}">
@@ -272,10 +266,7 @@
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
-                                <TextBlock Text="Marcas" Style="{StaticResource CardHeaderTextStyle}" />
-                            </StackPanel>
+                            <TextBlock Text="Marcas" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding NuevaMarcaCommand}"
                                     Style="{StaticResource PrimaryActionButtonStyle}">
@@ -346,11 +337,10 @@
                         </Grid.RowDefinitions>
 
                         <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconBoxIcons Kind="RegularListUl" Style="{StaticResource CardHeaderIconStyle}" />
-                                <TextBlock Text="{Binding Marca.NombreMarca, FallbackValue='Detalle de la marca', TargetNullValue='Detalle de la marca'}"
-                                           Style="{StaticResource CardHeaderTextStyle}" />
-                            </StackPanel>
+                            <!-- El nombre de la marca elegida es un dato: en tinta plena -->
+                            <TextBlock Text="{Binding Marca.NombreMarca, FallbackValue='Detalle de la marca', TargetNullValue='Detalle de la marca'}"
+                                       Style="{StaticResource CardHeaderTextStyle}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="Seleccione una marca de la lista para ver y editar sus alias y prefijos."
                                        Style="{StaticResource TextBlockCaption}"
                                        Margin="0,4,0,0"
@@ -500,10 +490,7 @@
                         </Grid.RowDefinitions>
 
                         <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <iconPacks:PackIconBoxIcons Kind="RegularBookContent" Style="{StaticResource CardHeaderIconStyle}" />
-                                <TextBlock Text="Términos" Style="{StaticResource CardHeaderTextStyle}" />
-                            </StackPanel>
+                            <TextBlock Text="Términos" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
                             <Button DockPanel.Dock="Right"
                                     Command="{Binding NuevoTerminoCommand}"
                                     Style="{StaticResource PrimaryActionButtonStyle}">
@@ -627,10 +614,7 @@
                             </Grid.RowDefinitions>
 
                             <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,12">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <iconPacks:PackIconBoxIcons Kind="RegularLink" Style="{StaticResource CardHeaderIconStyle}" />
-                                    <TextBlock Text="Pares del término" Style="{StaticResource CardHeaderTextStyle}" />
-                                </StackPanel>
+                                <TextBlock Text="Pares del término" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
                                 <Button DockPanel.Dock="Right"
                                         Command="{Binding NuevoParCommand}"
                                         Style="{StaticResource PrimaryActionButtonStyle}"

@@ -50,10 +50,7 @@
                 <!-- Grupo 1: Artículo de origen (solo lectura) -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Artículo de Origen (se compra)" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Artículo de Origen (se compra)" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <TextBlock Text="{Binding DescripcionOrigen}"
                                    Style="{StaticResource TextBlockBody}"
@@ -87,10 +84,7 @@
                 <!-- Grupo 2: Datos de la presentación -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Presentación (se vende)" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Presentación (se vende)" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <TextBlock Text="Descripción *"
                                    Style="{StaticResource TextBlockBodySecondary}"

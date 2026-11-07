@@ -77,7 +77,7 @@
     <SolidColorBrush x:Key="TextMutedBrush" Color="#71717A" />
     <SolidColorBrush x:Key="TextSubtleBrush" Color="#8B8B94" />
     <SolidColorBrush x:Key="TextOnDarkBrush" Color="#FAFAFA" />
-    <SolidColorBrush x:Key="SectionTitleBrush" Color="#FAFAFA" />
+    <SolidColorBrush x:Key="SectionTitleBrush" Color="#A1A1AA" />
 
     <!-- ================================================================= -->
     <!-- TOKENS DE ESTADO Y SEMÁFOROS DE NEGOCIO (LIBRERÍA POS)            -->

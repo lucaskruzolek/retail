@@ -79,8 +79,9 @@
     <!-- Títulos de tarjeta "grabados": entre secundario y atenuado, 4,8:1 sobre blanco (cumple AA, que el atenuado no) -->
     <SolidColorBrush x:Key="TextSubtleBrush" Color="#71717A" />
     <SolidColorBrush x:Key="TextOnDarkBrush" Color="#FAFAFA" />
-    <!-- Título de sección de un modal y el ícono que lo precede: los dos toman este mismo token -->
-    <SolidColorBrush x:Key="SectionTitleBrush" Color="#18181B" />
+    <!-- Título de sección de un modal (rótulo, sin ícono): el mismo gris que las etiquetas de campo, para que lo único
+         oscuro del cuerpo sean los datos. Se distingue de la etiqueta por tamaño y peso (14 SemiBold contra 13 Regular) -->
+    <SolidColorBrush x:Key="SectionTitleBrush" Color="#52525B" />
 
     <!-- ================================================================= -->
     <!-- TOKENS DE ESTADO Y SEMÁFOROS DE NEGOCIO (LIBRERÍA POS)            -->

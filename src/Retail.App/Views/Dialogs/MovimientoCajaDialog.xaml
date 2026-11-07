@@ -29,10 +29,7 @@
         <StackPanel Grid.Row="1" Margin="12,0,12,12">
             <Border Style="{StaticResource DialogSectionStyle}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularDollarCircle" Style="{StaticResource CardHeaderIconStyle}" />
-                        <TextBlock Text="Movimiento extraordinario" Style="{StaticResource CardHeaderTextStyle}" />
-                    </StackPanel>
+                    <TextBlock Text="Movimiento extraordinario" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
 
                     <TextBlock Text="Registre un ingreso extraordinario o retiro de efectivo en la gaveta activa."
                                Style="{StaticResource TextBlockBodySecondary}"

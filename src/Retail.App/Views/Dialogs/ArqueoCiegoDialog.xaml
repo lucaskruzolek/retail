@@ -29,10 +29,7 @@
             <!-- Saldo Declarado -->
             <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularCalculator" Style="{StaticResource CardHeaderIconStyle}" />
-                        <TextBlock Text="Efectivo contado" Style="{StaticResource CardHeaderTextStyle}" />
-                    </StackPanel>
+                    <TextBlock Text="Efectivo contado" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
 
                     <TextBlock Text="Declare únicamente el dinero físico contado en la gaveta."
                                Style="{StaticResource TextBlockBodySecondary}"
@@ -52,10 +49,7 @@
             <!-- Monto Retenido -->
             <Border Style="{StaticResource DialogSectionStyle}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularWallet" Style="{StaticResource CardHeaderIconStyle}" />
-                        <TextBlock Text="Fondo para el próximo turno" Style="{StaticResource CardHeaderTextStyle}" />
-                    </StackPanel>
+                    <TextBlock Text="Fondo para el próximo turno" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
 
                     <TextBlock Text="Monto Retenido en Caja para Próximo Turno ($):"
                                Style="{StaticResource TextBlockBodySecondary}"

@@ -26,10 +26,7 @@
                 HorizontalAlignment="Left"
                 MinWidth="400">
             <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                    <iconPacks:PackIconBoxIcons Kind="RegularPalette" Style="{StaticResource CardHeaderIconStyle}" />
-                    <TextBlock Text="Apariencia" Style="{StaticResource CardHeaderTextStyle}" />
-                </StackPanel>
+                <TextBlock Text="Apariencia" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                 <TextBlock Text="Tema"
                            Style="{StaticResource TextBlockBodySecondary}"

@@ -56,10 +56,7 @@
                 <!-- Identificación del Proveedor -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularTruck" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Proveedor" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Proveedor" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
                         <TextBlock Text="{Binding Proveedor.RazonSocial}"
                                    FontWeight="Bold"
                                    FontSize="{StaticResource FontSizeMd}"
@@ -91,10 +88,7 @@
                 <!-- Selección de Archivo -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularFile" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Archivo de planilla" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Archivo de planilla" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
                         <TextBlock Text="Excel o CSV *"
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    Margin="{StaticResource StackXs}" />
@@ -123,10 +117,7 @@
                 <!-- Mapeo de Columnas -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularTableColumns" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Mapeo de columnas" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Mapeo de columnas" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
                         <TextBlock Text="Nombres de las columnas tal como figuran en el archivo."
                                    Style="{StaticResource TextBlockBodySecondary}"
                                    Margin="{StaticResource StackMd}" />
@@ -371,10 +362,7 @@
                             Margin="0,8,0,0"
                             Visibility="{Binding TieneErroresDetalle, Converter={StaticResource BoolToVisConverter}}">
                         <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                                <iconPacks:PackIconBoxIcons Kind="RegularAlertTriangle" Style="{StaticResource CardHeaderIconStyle}" />
-                                <TextBlock Text="Detalle de filas con error" Style="{StaticResource CardHeaderTextStyle}" />
-                            </StackPanel>
+                            <TextBlock Text="Detalle de filas con error" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
                             <ScrollViewer MaxHeight="96"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">

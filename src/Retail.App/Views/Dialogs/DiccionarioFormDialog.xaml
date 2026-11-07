@@ -49,10 +49,7 @@
 
                 <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularBookAlt" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Datos del Término" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Datos del Término" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
                         <!-- Texto (término, alias, prefijo o segunda palabra) -->
                         <TextBlock Text="{Binding EtiquetaTexto}"
                                    Style="{StaticResource TextBlockBodySecondary}"

@@ -44,10 +44,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                    <iconPacks:PackIconBoxIcons Kind="RegularPackage" Style="{StaticResource CardHeaderIconStyle}" />
-                    <TextBlock Text="{Binding RazonSocialProveedor, TargetNullValue='Pedidos emitidos de todos los proveedores'}" Style="{StaticResource CardHeaderTextStyle}" />
-                </StackPanel>
+                <TextBlock Text="{Binding RazonSocialProveedor, TargetNullValue='Pedidos emitidos de todos los proveedores'}" Style="{StaticResource CardHeaderTextStyle}" Grid.Row="0" Margin="{StaticResource StackMd}" />
 
                 <TextBlock Grid.Row="1"
                            Text="Elija el pedido que llegó: sus artículos se cargan en la compra para que ajuste cantidades y costos según el comprobante."
