@@ -107,6 +107,21 @@ public static class RegistroNavegacion
         return Secciones.SelectMany(s => s.Paginas).FirstOrDefault(p => p.Atajo == atajo);
     }
 
+    /// <summary>
+    /// Páginas con atajo que el rol puede abrir, junto con su sección, en el orden de las teclas (F1, F2… F10) y no en
+    /// el del menú. Es la misma regla que aplica <see cref="NavegacionSecciones.IrAAtajo"/>: lo que se lista funciona.
+    /// </summary>
+    public static IReadOnlyList<(SeccionNavegacion Seccion, PaginaNavegacion Pagina)> AtajosVisibles(RolUsuarioEnum? rol)
+    {
+        // Ordenar por largo y después alfabéticamente da el orden natural de las teclas de función ("F9" antes que "F10").
+        return Secciones
+            .SelectMany(s => s.Paginas, (seccion, pagina) => (Seccion: seccion, Pagina: pagina))
+            .Where(x => x.Pagina.Atajo is not null && PoliticaAcceso.Permite(x.Pagina.Acceso, rol))
+            .OrderBy(x => x.Pagina.Atajo!.Length)
+            .ThenBy(x => x.Pagina.Atajo, StringComparer.Ordinal)
+            .ToList();
+    }
+
     /// <summary>Primera página que muestra una vista (la de Copias para Respaldos), o <c>null</c> si no está registrada.</summary>
     public static PaginaNavegacion? BuscarPorVista(Type tipoVista)
     {

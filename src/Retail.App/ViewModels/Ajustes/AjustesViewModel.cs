@@ -1,21 +1,26 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Retail.App.Services;
 
 namespace Retail.App.ViewModels.Ajustes;
 
 /// <summary>
-/// Pantalla de Ajustes. Hoy solo permite elegir el tema claro/oscuro: al cambiarlo se aplica en caliente y se guarda
-/// en las preferencias del usuario, de modo que la próxima vez la aplicación arranca con ese tema.
+/// Pantalla de Ajustes. Permite elegir el tema claro/oscuro y consultar la documentación y manual de usuario.
 /// </summary>
 public partial class AjustesViewModel : ObservableObject
 {
     private readonly IServicioTema _servicioTema;
     private readonly IPreferenciasUsuario _preferencias;
+    private readonly IAyudaDialogService? _ayudaDialogService;
 
-    public AjustesViewModel(IServicioTema servicioTema, IPreferenciasUsuario preferencias)
+    public AjustesViewModel(
+        IServicioTema servicioTema,
+        IPreferenciasUsuario preferencias,
+        IAyudaDialogService? ayudaDialogService = null)
     {
         _servicioTema = servicioTema ?? throw new ArgumentNullException(nameof(servicioTema));
         _preferencias = preferencias ?? throw new ArgumentNullException(nameof(preferencias));
+        _ayudaDialogService = ayudaDialogService;
 
         // Se asigna el campo (no la propiedad) para no volver a aplicar ni guardar el tema que ya está vigente.
         _temaOscuro = _preferencias.Tema == TemaVisual.Oscuro;
@@ -42,5 +47,17 @@ public partial class AjustesViewModel : ObservableObject
         _preferencias.Tema = tema;
         _servicioTema.Aplicar(tema);
         _preferencias.Guardar();
+    }
+
+    [RelayCommand]
+    private void AbrirManualPdf()
+    {
+        _ayudaDialogService?.AbrirManualPdf();
+    }
+
+    [RelayCommand]
+    private void AbrirCentroAyuda()
+    {
+        _ayudaDialogService?.MostrarCentroAyuda();
     }
 }
