@@ -9,9 +9,9 @@ using Wpf.Ui.Controls;
 namespace Retail.App;
 
 /// <summary>
-/// Shell principal de mostrador y contenedor de navegaciÃ³n de Retail POS (RF-01, RF-02).
+/// Shell principal de mostrador y contenedor de navegación de Retail POS (RF-01, RF-02).
 /// Inyectado estrictamente como Singleton conforme a la Ley 10 de Arquitectura.
-/// Incorpora Sidebar colapsable para operadores y acceso con teclas rÃ¡pidas a mÃ³dulos.
+/// Incorpora Sidebar colapsable para operadores y acceso con teclas rápidas a módulos.
 /// </summary>
 public partial class MainWindow : FluentWindow
 {
@@ -45,7 +45,7 @@ public partial class MainWindow : FluentWindow
         // Página inicial según el rol: tablero para el Gerente, punto de venta para quien opera y usuarios para el Administrador.
         ViewModel.NavegarModuloInicial();
 
-        // El operador ya iniciÃ³ sesiÃ³n antes de crear el Shell: el aviso de restauraciÃ³n reciente se consulta acÃ¡ (R-20).
+        // El operador ya inició sesión antes de crear el Shell: el aviso de restauración reciente se consulta acá (R-20).
         await ViewModel.CargarAvisoRestauracionAsync();
     }
 

@@ -1,11 +1,7 @@
-﻿<<<<<<< HEAD
-﻿using System.Collections.ObjectModel;
-=======
 using System.Collections;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
->>>>>>> 99183622c6fc37529459a45c6a7bcb99336cb1b7
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;

@@ -46,7 +46,10 @@ public class AyudaDialogService : IAyudaDialogService
 
         try
         {
-            _logger.LogInformation("Iniciando visor del sistema operativo para el manual PDF: {Ruta}", ruta);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation("Iniciando visor del sistema operativo para el manual PDF: {Ruta}", ruta);
+            }
 
             var psi = new ProcessStartInfo
             {
