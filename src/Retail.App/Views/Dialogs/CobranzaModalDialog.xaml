@@ -50,10 +50,7 @@
                 <!-- Tarjeta 1: Información del Cliente y Saldo Deudor -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularUser" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Cliente" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Cliente" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <Grid Margin="{StaticResource StackSm}">
                             <Grid.ColumnDefinitions>
@@ -116,10 +113,7 @@
                 <!-- Tarjeta 2: Detalle del Cobro -->
                 <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularDollarCircle" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Liquidación del pago" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Liquidación del pago" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <!-- Medio de Pago -->
                         <TextBlock Text="Medio de Pago *"

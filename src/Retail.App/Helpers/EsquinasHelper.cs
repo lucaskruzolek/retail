@@ -26,6 +26,18 @@ public static class EsquinasHelper
             typeof(EsquinasHelper),
             new PropertyMetadata(0.0, AlCambiarRadioDelRecorte));
 
+    /// <summary>
+    /// Lo que enlaza la plantilla de la grilla: recibe las <see cref="EsquinasProperty"/> de la grilla y recorta el contenido al
+    /// radio de su esquina superior izquierda (<see cref="RadioDelRecorteProperty"/>). Existe porque un TemplateBinding no
+    /// puede tomar una sola esquina (<c>.TopLeft</c>) de un <see cref="CornerRadius"/>.
+    /// </summary>
+    public static readonly DependencyProperty RecorteEsquinasProperty =
+        DependencyProperty.RegisterAttached(
+            "RecorteEsquinas",
+            typeof(CornerRadius),
+            typeof(EsquinasHelper),
+            new PropertyMetadata(new CornerRadius(0), AlCambiarRecorteEsquinas));
+
     public static void SetEsquinas(DependencyObject element, CornerRadius value)
     {
         ArgumentNullException.ThrowIfNull(element);
@@ -38,6 +50,18 @@ public static class EsquinasHelper
         return (CornerRadius)element.GetValue(EsquinasProperty);
     }
 
+    public static void SetRecorteEsquinas(DependencyObject element, CornerRadius value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(RecorteEsquinasProperty, value);
+    }
+
+    public static CornerRadius GetRecorteEsquinas(DependencyObject element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return (CornerRadius)element.GetValue(RecorteEsquinasProperty);
+    }
+
     public static void SetRadioDelRecorte(DependencyObject element, double value)
     {
         ArgumentNullException.ThrowIfNull(element);
@@ -48,6 +72,11 @@ public static class EsquinasHelper
     {
         ArgumentNullException.ThrowIfNull(element);
         return (double)element.GetValue(RadioDelRecorteProperty);
+    }
+
+    private static void AlCambiarRecorteEsquinas(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        SetRadioDelRecorte(d, ((CornerRadius)e.NewValue).TopLeft);
     }
 
     private static void AlCambiarRadioDelRecorte(DependencyObject d, DependencyPropertyChangedEventArgs e)

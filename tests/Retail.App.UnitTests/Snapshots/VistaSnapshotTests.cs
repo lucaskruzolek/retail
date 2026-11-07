@@ -20,6 +20,7 @@ using Retail.App.Views.Dev;
 using Retail.App.Views.Dialogs;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.Interfaces.Services;
@@ -188,43 +189,63 @@ public class VistaSnapshotTests
     }
 
     [Theory]
-    [InlineData(TemaPrueba.Claro)]
-    [InlineData(TemaPrueba.Oscuro)]
-    public void PosView_PorTema_GeneraCaptura(TemaPrueba tema)
+    [InlineData(TemaPrueba.Claro, true, true, "PosView")]
+    [InlineData(TemaPrueba.Oscuro, true, true, "PosView")]
+    [InlineData(TemaPrueba.Claro, false, false, "PosView_CajaCerrada")]
+    [InlineData(TemaPrueba.Oscuro, false, false, "PosView_CajaCerrada")]
+    [InlineData(TemaPrueba.Claro, true, false, "PosView_TicketVacio")]
+    [InlineData(TemaPrueba.Oscuro, true, false, "PosView_TicketVacio")]
+    public void PosView_PorTema_GeneraCaptura(TemaPrueba tema, bool cajaAbierta, bool conItems, string nombre)
     {
         var (ruta, error) = Capturar(tema, carpeta =>
         {
-            var sesion = Substitute.For<ICurrentUserSession>();
-            sesion.NombreCompleto.Returns("Administrador General");
+            var caja = Substitute.For<ICajaService>();
+            caja.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(cajaAbierta
+                ? new TurnoCajaDto
+                {
+                    IdTurno = 12,
+                    IdUsuario = 1,
+                    NombreUsuario = "admin",
+                    FechaApertura = DateTime.UtcNow,
+                    SaldoInicial = 5000m,
+                    SaldoTeoricoEfectivo = 5000m,
+                    Estado = EstadoTurnoEnum.Abierto
+                }
+                : null);
+
             var viewModel = new PosViewModel(
                 Substitute.For<IVentaService>(),
-                Substitute.For<ICajaService>(),
+                caja,
                 Substitute.For<IInventarioService>(),
-                sesion,
-                Substitute.For<IVentaDialogService>());
+                Substitute.For<ICurrentUserSession>(),
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<ICajaDialogService>());
 
-            // Dos líneas de venta, para que la grilla del mostrador dibuje filas, cantidades y botones de eliminar.
-            viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
+            if (conItems)
             {
-                IdArticulo = 1,
-                CodigoBarras = "7790001000011",
-                Descripcion = "Hoja A4 Autor 75 g x 500",
-                PrecioVenta = 9800m,
-                StockActual = 120,
-                EsServicio = false
-            });
-            viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
-            {
-                IdArticulo = 2,
-                CodigoBarras = "7790001000028",
-                Descripcion = "Lápiz negro HB Faber",
-                PrecioVenta = 450m,
-                StockActual = 300,
-                EsServicio = false
-            });
+                // Dos líneas de venta, para que la grilla del mostrador dibuje filas, cantidades y botones de eliminar.
+                viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
+                {
+                    IdArticulo = 1,
+                    CodigoBarras = "7790001000011",
+                    Descripcion = "Hoja A4 Autor 75 g x 500",
+                    PrecioVenta = 9800m,
+                    StockActual = 120,
+                    EsServicio = false
+                });
+                viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
+                {
+                    IdArticulo = 2,
+                    CodigoBarras = "7790001000028",
+                    Descripcion = "Lápiz negro HB Faber",
+                    PrecioVenta = 450m,
+                    StockActual = 300,
+                    EsServicio = false
+                });
+            }
 
             var vista = new PosView(viewModel);
-            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PosView");
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/" + nombre, () => viewModel.EstadoCajaVerificado);
         });
 
         VerificarCaptura(ruta, error);
@@ -314,6 +335,8 @@ public class VistaSnapshotTests
             viewModel.Pedidos.Add(new PedidoEmitidoDto
             {
                 IdPedido = 101,
+                IdProveedor = 1,
+                RazonSocialProveedor = "Distribuidora Sur S.R.L.",
                 FechaEmision = new DateTime(2026, 11, 1, 10, 30, 0, DateTimeKind.Utc),
                 CantidadRenglones = 4,
                 TotalEstimado = 12500.50m,
@@ -321,6 +344,8 @@ public class VistaSnapshotTests
             viewModel.Pedidos.Add(new PedidoEmitidoDto
             {
                 IdPedido = 102,
+                IdProveedor = 1,
+                RazonSocialProveedor = "Distribuidora Sur S.R.L.",
                 FechaEmision = new DateTime(2026, 10, 28, 15, 0, 0, DateTimeKind.Utc),
                 CantidadRenglones = 2,
                 TotalEstimado = 4800m,
@@ -328,6 +353,42 @@ public class VistaSnapshotTests
 
             var dialogo = new SeleccionarPedidoModalDialog(viewModel);
             return SnapshotRenderer.Guardar(dialogo, 540, 620, carpeta + "/SeleccionarPedidoModalDialog");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void SeleccionarPedidoModalDialog_TodosLosProveedores_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            // Sin proveedor elegido en la compra: se listan los pedidos de todos y aparece la columna Proveedor
+            var pedidoService = Substitute.For<IPedidoService>();
+            var viewModel = new SeleccionarPedidoModalViewModel(null, null, pedidoService);
+            viewModel.Pedidos.Add(new PedidoEmitidoDto
+            {
+                IdPedido = 101,
+                IdProveedor = 1,
+                RazonSocialProveedor = "Distribuidora Sur S.R.L.",
+                FechaEmision = new DateTime(2026, 11, 1, 10, 30, 0, DateTimeKind.Utc),
+                CantidadRenglones = 4,
+                TotalEstimado = 12500.50m,
+            });
+            viewModel.Pedidos.Add(new PedidoEmitidoDto
+            {
+                IdPedido = 102,
+                IdProveedor = 2,
+                RazonSocialProveedor = "Papelera del Litoral S.A.",
+                FechaEmision = new DateTime(2026, 10, 28, 15, 0, 0, DateTimeKind.Utc),
+                CantidadRenglones = 2,
+                TotalEstimado = 4800m,
+            });
+
+            var dialogo = new SeleccionarPedidoModalDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, SeleccionarPedidoModalDialog.AnchoConProveedor, 620, carpeta + "/SeleccionarPedidoModalDialog_TodosLosProveedores");
         });
 
         VerificarCaptura(ruta, error);

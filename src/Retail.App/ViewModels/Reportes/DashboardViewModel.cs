@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Converters;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Reportes;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -20,11 +21,18 @@ namespace Retail.App.ViewModels.Reportes;
 /// <see cref="IReporteService"/> (que autoriza al Gerente, valida los filtros y convierte las fechas), guarda el
 /// último resultado de cada reporte y lo presenta en tarjetas, gráficos y grillas. Exportar usa el resultado guardado,
 /// sin volver a consultar la base.
+/// <para>
+/// No hay botón "Consultar": cada cambio de filtro (el rango aplicado en el selector de fechas, una opción de un combo)
+/// consulta solo el reporte visible y descarta los resultados guardados de los demás, que dejaron de corresponder a los
+/// filtros y se consultan al volver a ellos. "Limpiar filtros" vuelve todo a lo predeterminado con una sola consulta.
+/// </para>
 /// </summary>
 public partial class DashboardViewModel : ObservableObject, IDisposable
 {
     private const string TextoTodas = "Todas";
     private const string TextoTodos = "Todos";
+    private const int CantidadPredeterminada = 10;
+    private const int DiasPredeterminados = 90;
     private const string MensajeErrorInesperado =
         "Ocurrió un error inesperado. Intente nuevamente; si el problema continúa, avise al administrador del sistema.";
 
@@ -46,6 +54,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     private readonly ILogger<DashboardViewModel> _logger;
 
     private bool _listasCargadas;
+    private bool _restableciendo;
     private Task _consultaAutomatica = Task.CompletedTask;
 
     public DashboardViewModel(
@@ -67,10 +76,14 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         _reloj = reloj ?? throw new ArgumentNullException(nameof(reloj));
         _logger = logger ?? NullLogger<DashboardViewModel>.Instance;
 
-        var hoy = Hoy;
-        FechaMaxima = hoy.ToDateTime(TimeOnly.MinValue);
-        Hasta = FechaMaxima;
-        Desde = new DateTime(hoy.Year, hoy.Month, 1);
+        // El período exige los dos extremos y no admite fechas futuras (los reportes tampoco)
+        FiltroPeriodo = new FiltroFechaColumnaViewModel("Período", _reloj, exigeRangoCompleto: true)
+        {
+            FechaMaxima = Hoy.ToDateTime(TimeOnly.MinValue)
+        };
+        var (desdeInicial, hastaInicial) = RangoPredeterminado();
+        FiltroPeriodo.EstablecerRango(desdeInicial, hastaInicial);
+        FiltroPeriodo.Aplicado += (_, _) => AlCambiarFiltro();
 
         Categorias = [new OpcionFiltro(null, TextoTodas)];
         Marcas = [new OpcionFiltro(null, TextoTodas)];
@@ -92,13 +105,21 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(MostrarRankingFiltros))]
     [NotifyPropertyChangedFor(nameof(MostrarAgruparPor))]
     [NotifyPropertyChangedFor(nameof(MostrarDias))]
+    [NotifyPropertyChangedFor(nameof(HayFiltrosActivos))]
+    [NotifyCanExecuteChangedFor(nameof(LimpiarFiltrosCommand))]
     private TipoReporteEnum _reporteSeleccionado = TipoReporteEnum.Tablero;
 
-    [ObservableProperty]
-    private DateTime? _desde;
+    /// <summary>
+    /// Período de los reportes con fechas: el rango aplicado en el selector. Aplicarlo consulta el reporte visible. Los dos
+    /// extremos son obligatorios y el calendario no admite días sin ventas ni futuros.
+    /// </summary>
+    public FiltroFechaColumnaViewModel FiltroPeriodo { get; }
 
-    [ObservableProperty]
-    private DateTime? _hasta;
+    /// <summary>Primer día del período aplicado.</summary>
+    public DateTime? Desde => FiltroPeriodo.DesdeAplicado;
+
+    /// <summary>Último día del período aplicado.</summary>
+    public DateTime? Hasta => FiltroPeriodo.HastaAplicado;
 
     [ObservableProperty]
     private AgrupacionTemporalEnum _agrupacion = AgrupacionTemporalEnum.Dia;
@@ -110,10 +131,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     private CriterioRankingEnum _criterio = CriterioRankingEnum.Unidades;
 
     [ObservableProperty]
-    private int _cantidad = 10;
+    private int _cantidad = CantidadPredeterminada;
 
     [ObservableProperty]
-    private int _dias = 90;
+    private int _dias = DiasPredeterminados;
 
     [ObservableProperty]
     private OpcionFiltro? _categoriaSeleccionada;
@@ -124,22 +145,11 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private OpcionFiltro? _cajeroSeleccionado;
 
-    /// <summary>Último día elegible: los reportes no admiten fechas futuras.</summary>
-    public DateTime FechaMaxima { get; }
+    /// <summary>Opciones del combo "Cantidad" del ranking.</summary>
+    public IReadOnlyList<int> CantidadesDisponibles { get; } = [5, 10, 20, 50];
 
-    /// <summary>
-    /// Primer día elegible (D-32): el de la primera venta registrada o, sin ventas, el día 1 del mes en curso. Antes de
-    /// consultarlo no hay límite.
-    /// </summary>
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(MesAnteriorCommand))]
-    [NotifyPropertyChangedFor(nameof(TooltipMesAnterior))]
-    private DateTime _fechaMinima = DateTime.MinValue;
-
-    /// <summary>"Mes anterior" solo tiene sentido si ese mes termina en o después de la primera venta (D-32).</summary>
-    public bool PuedeMesAnterior => new DateOnly(Hoy.Year, Hoy.Month, 1).AddDays(-1).ToDateTime(TimeOnly.MinValue) >= FechaMinima;
-
-    public string? TooltipMesAnterior => PuedeMesAnterior ? null : "No hay ventas registradas en el mes anterior";
+    /// <summary>Opciones del combo "Días sin ventas".</summary>
+    public IReadOnlyList<int> DiasDisponibles { get; } = [30, 60, 90, 180, 365];
 
     public ObservableCollection<OpcionFiltro> Categorias { get; }
 
@@ -176,10 +186,21 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
 
     public bool MostrarDias => ReporteSeleccionado == TipoReporteEnum.SinMovimiento;
 
+    /// <summary>
+    /// Algún filtro de los que muestra el reporte visible se apartó de su valor predeterminado: habilita "Limpiar filtros".
+    /// </summary>
+    public bool HayFiltrosActivos =>
+        (MostrarFechas && PeriodoDistintoDelPredeterminado()) ||
+        (MostrarAgrupacion && Agrupacion != AgrupacionTemporalEnum.Dia) ||
+        (MostrarCajero && CajeroSeleccionado?.Id is not null) ||
+        (MostrarCategoriaYMarca && (CategoriaSeleccionada?.Id is not null || MarcaSeleccionada?.Id is not null)) ||
+        (MostrarRankingFiltros && (Criterio != CriterioRankingEnum.Unidades || Cantidad != CantidadPredeterminada)) ||
+        (MostrarAgruparPor && AgrupacionRentabilidad != AgrupacionRentabilidadEnum.Categoria) ||
+        (MostrarDias && Dias != DiasPredeterminados);
+
     // ---------------------------------------------------------------- Estado de la pantalla
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ConsultarCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportarExcelCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportarPdfCommand))]
     private bool _estaCargando;
@@ -206,7 +227,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _mensajeVacio = string.Empty;
 
-    /// <summary>El reporte visible todavía no se consultó.</summary>
+    /// <summary>El reporte visible todavía no tiene resultado (se está consultando por primera vez o cambió un filtro).</summary>
     [ObservableProperty]
     private bool _sinConsultar = true;
 
@@ -358,41 +379,38 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         await ConsultarReporteAsync(TipoReporteEnum.Tablero);
     }
 
-    [RelayCommand(CanExecute = nameof(PuedeConsultar))]
-    public async Task ConsultarAsync()
+    /// <summary>
+    /// Vuelve todos los filtros a lo predeterminado (período del mes en curso, "Todas", "Todos", los valores iniciales de
+    /// cada combo) y consulta una sola vez el reporte visible.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HayFiltrosActivos))]
+    public void LimpiarFiltros()
     {
-        await ConsultarReporteAsync(ReporteSeleccionado);
-    }
+        _restableciendo = true;
+        try
+        {
+            var (desde, hasta) = RangoPredeterminado();
+            FiltroPeriodo.EstablecerRango(desde, hasta);
+            Agrupacion = AgrupacionTemporalEnum.Dia;
+            AgrupacionRentabilidad = AgrupacionRentabilidadEnum.Categoria;
+            Criterio = CriterioRankingEnum.Unidades;
+            Cantidad = CantidadPredeterminada;
+            Dias = DiasPredeterminados;
+            CategoriaSeleccionada = Categorias[0];
+            MarcaSeleccionada = Marcas[0];
+            CajeroSeleccionado = Cajeros[0];
+        }
+        finally
+        {
+            _restableciendo = false;
+        }
 
-    [RelayCommand]
-    public void EsteMes()
-    {
-        var hoy = Hoy;
-        Desde = LimitarAlMinimo(new DateTime(hoy.Year, hoy.Month, 1));
-        Hasta = hoy.ToDateTime(TimeOnly.MinValue);
-    }
-
-    [RelayCommand(CanExecute = nameof(PuedeMesAnterior))]
-    public void MesAnterior()
-    {
-        var primeroDeEsteMes = new DateOnly(Hoy.Year, Hoy.Month, 1);
-        var primeroDelAnterior = primeroDeEsteMes.AddMonths(-1);
-
-        Desde = LimitarAlMinimo(primeroDelAnterior.ToDateTime(TimeOnly.MinValue));
-        Hasta = primeroDeEsteMes.AddDays(-1).ToDateTime(TimeOnly.MinValue);
-    }
-
-    [RelayCommand]
-    public void EsteAnio()
-    {
-        var hoy = Hoy;
-        Desde = LimitarAlMinimo(new DateTime(hoy.Year, 1, 1));
-        Hasta = hoy.ToDateTime(TimeOnly.MinValue);
+        AlCambiarFiltro();
     }
 
     /// <summary>
-    /// Espera la consulta que se disparó sola al cambiar de reporte. Las pruebas y quien necesite saber cuándo terminó
-    /// la usan; el enlace de la pantalla no.
+    /// Espera la consulta que se disparó sola al cambiar de reporte o de filtro. Las pruebas y quien necesite saber cuándo
+    /// terminó la usan; el enlace de la pantalla no.
     /// </summary>
     public Task EsperarConsultaAutomaticaAsync() => _consultaAutomatica;
 
@@ -415,19 +433,75 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         }
     }
 
-    partial void OnCategoriaSeleccionadaChanged(OpcionFiltro? value) => OnPropertyChanged(nameof(IdCategoria));
+    partial void OnCategoriaSeleccionadaChanged(OpcionFiltro? value)
+    {
+        OnPropertyChanged(nameof(IdCategoria));
+        AlCambiarFiltro();
+    }
 
-    partial void OnMarcaSeleccionadaChanged(OpcionFiltro? value) => OnPropertyChanged(nameof(IdMarca));
+    partial void OnMarcaSeleccionadaChanged(OpcionFiltro? value)
+    {
+        OnPropertyChanged(nameof(IdMarca));
+        AlCambiarFiltro();
+    }
 
-    partial void OnCajeroSeleccionadoChanged(OpcionFiltro? value) => OnPropertyChanged(nameof(IdUsuario));
+    partial void OnCajeroSeleccionadoChanged(OpcionFiltro? value)
+    {
+        OnPropertyChanged(nameof(IdUsuario));
+        AlCambiarFiltro();
+    }
 
-    private bool PuedeConsultar() => !EstaCargando;
+    partial void OnAgrupacionChanged(AgrupacionTemporalEnum value) => AlCambiarFiltro();
+
+    partial void OnAgrupacionRentabilidadChanged(AgrupacionRentabilidadEnum value) => AlCambiarFiltro();
+
+    partial void OnCriterioChanged(CriterioRankingEnum value) => AlCambiarFiltro();
+
+    partial void OnCantidadChanged(int value) => AlCambiarFiltro();
+
+    partial void OnDiasChanged(int value) => AlCambiarFiltro();
 
     /// <summary>
-    /// Los atajos (Este mes, Mes anterior, Este año) pueden proponer un Desde anterior a la primera venta; se recorta a
-    /// la fecha mínima en lugar de dejar que el servicio lo rechace (D-32).
+    /// Un filtro cambió: los resultados guardados de los demás reportes ya no corresponden a los filtros y se descartan (se
+    /// consultan al volver a ellos); el visible se consulta ahora y conserva su resultado anterior en pantalla hasta que
+    /// llega el nuevo. No consulta antes de la carga inicial ni mientras "Limpiar filtros" cambia varios filtros a la vez.
     /// </summary>
-    private DateTime LimitarAlMinimo(DateTime fecha) => fecha < FechaMinima ? FechaMinima : fecha;
+    private void AlCambiarFiltro()
+    {
+        OnPropertyChanged(nameof(HayFiltrosActivos));
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
+        OnPropertyChanged(nameof(Desde));
+        OnPropertyChanged(nameof(Hasta));
+
+        if (!_listasCargadas || _restableciendo)
+        {
+            return;
+        }
+
+        var visible = ReporteSeleccionado;
+        foreach (var tipo in _resultados.Keys.Where(t => t != visible).ToList())
+        {
+            _resultados.Remove(tipo);
+        }
+
+        _consultaAutomatica = ConsultarReporteAsync(visible);
+    }
+
+    // Desde el día 1 del mes en curso (o la primera venta, si es posterior) hasta hoy
+    private (DateTime Desde, DateTime Hasta) RangoPredeterminado()
+    {
+        var hoy = Hoy;
+        var desde = FiltroPeriodo.Acotar(new DateTime(hoy.Year, hoy.Month, 1));
+
+        return (desde, hoy.ToDateTime(TimeOnly.MinValue));
+    }
+
+    private bool PeriodoDistintoDelPredeterminado()
+    {
+        var (desde, hasta) = RangoPredeterminado();
+
+        return FiltroPeriodo.DesdeAplicado != desde || FiltroPeriodo.HastaAplicado != hasta;
+    }
 
     private async Task CargarFechaMinimaAsync()
     {
@@ -439,15 +513,14 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             {
                 var fechaMinima = minima.ToDateTime(TimeOnly.MinValue);
 
-                // Primero el Desde y después el límite del calendario: un Desde fuera de su rango no debe llegar al DatePicker.
                 // Un Desde por defecto (día 1 del mes) anterior a la primera venta se corre a ella; si no, la primera
-                // consulta del tablero sería rechazada.
-                if (Desde is { } desde && desde < fechaMinima)
+                // consulta del tablero sería rechazada. Sin avisar: CargarAsync consulta a continuación.
+                if (FiltroPeriodo.DesdeAplicado is { } desde && desde < fechaMinima)
                 {
-                    Desde = fechaMinima;
+                    FiltroPeriodo.EstablecerRango(fechaMinima, FiltroPeriodo.HastaAplicado);
                 }
 
-                FechaMinima = fechaMinima;
+                FiltroPeriodo.FechaMinima = fechaMinima;
             },
             InformarError);
     }
@@ -608,12 +681,12 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
 
     private (DateOnly Desde, DateOnly Hasta) LeerPeriodo()
     {
-        if (Desde is null || Hasta is null)
+        if (FiltroPeriodo.DesdeAplicado is not { } desde || FiltroPeriodo.HastaAplicado is not { } hasta)
         {
             throw new InvalidOperationException("Indique las fechas Desde y Hasta del período.");
         }
 
-        return (DateOnly.FromDateTime(Desde.Value), DateOnly.FromDateTime(Hasta.Value));
+        return (DateOnly.FromDateTime(desde), DateOnly.FromDateTime(hasta));
     }
 
     // ---------------------------------------------------------------- Exportación

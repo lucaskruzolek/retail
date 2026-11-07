@@ -165,15 +165,18 @@ public class ArticuloQueryService : IArticuloQueryService
 
     public async Task<IReadOnlyList<ArticuloParaCompraDto>> BuscarParaCompraAsync(
         string termino,
+        int idProveedor,
         int limite,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(termino);
 
-        // Solo artículos comprables: ni servicios ni presentaciones derivadas (reciben stock por fraccionamiento, RF-21).
+        // Solo artículos comprables: ni servicios ni presentaciones derivadas (reciben stock por fraccionamiento, RF-21),
+        // y solo los que el proveedor vende: un ítem de su catálogo vinculado al artículo (EXISTS en SQL).
         return await _context.Articulos
             .AsNoTracking()
             .Where(a => !a.EsServicio && a.IdArticuloOrigen == null)
+            .Where(a => _context.CatalogosProveedores.Any(c => c.IdProveedor == idProveedor && c.IdArticulo == a.Id))
             .Where(a => a.Descripcion.Contains(termino) || (a.CodigoBarras != null && a.CodigoBarras.Contains(termino)))
             .OrderBy(a => a.Descripcion)
             .Take(Math.Max(1, limite))

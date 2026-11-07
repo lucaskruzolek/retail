@@ -3,20 +3,42 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:components="clr-namespace:Retail.App.Views.Components"
+                 xmlns:converters="clr-namespace:Retail.App.Converters"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  Title="Agregar al pedido"
-                 Width="580"
+                 Language="es-AR"
+                 Width="720"
                  Height="684"
-                 MinWidth="540"
+                 MinWidth="640"
                  MinHeight="544"
                  WindowStartupLocation="CenterOwner"
                  ExtendsContentIntoTitleBar="True"
                  Background="{DynamicResource DialogBackgroundBrush}"
                  ResizeMode="NoResize">
 
+    <!-- Language="es-AR" en la ventana: todos los importes (StringFormat=C2) y fechas se escriben como en el resto de la
+         aplicación ("$ 5.642,90"). Sin él, WPF usa en-US y "$5,642.90" se lee como cinco pesos con 642. -->
+
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+            <converters:AMayusculasConverter x:Key="AMayusculasConverter" />
+
+            <!-- Las mismas columnas en el encabezado, en cada renglón y en el subtotal del grupo: los importes quedan en
+                 una sola columna y el subtotal se lee como la suma de lo que tiene arriba -->
+            <GridLength x:Key="AnchoStock">88</GridLength>
+            <GridLength x:Key="AnchoCantidad">120</GridLength>
+            <GridLength x:Key="AnchoSubtotal">112</GridLength>
+            <GridLength x:Key="AnchoQuitar">40</GridLength>
+
+            <Style x:Key="ImporteRenglonStyle" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+                <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
+                <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                <Setter Property="HorizontalAlignment" Value="Right" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
@@ -27,29 +49,23 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de título: título y botones de ventana en la misma banda -->
+        <!-- Barra de título: título y botones de ventana en la misma banda. Sin párrafo de instrucciones: las tarjetas
+             por proveedor, el destino de cada una y "Ya en el borrador: N" ya dicen cómo se arma el pedido. -->
         <components:EncabezadoDialogo Titulo="Agregar al pedido" />
 
         <Grid Grid.Row="1" Margin="12,0,12,12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0"
-                       Text="Revise las cantidades y, si un artículo tiene varias fuentes, a qué proveedor pedirlo. Cada renglón se agrega al borrador de su proveedor; si el ítem ya figura en él, la cantidad se suma."
-                       Style="{StaticResource TextBlockBodySecondary}"
-                       TextWrapping="Wrap"
-                       Margin="4,0,4,12" />
-
             <!-- Ítems que no se pueden pedir (A-17) -->
-            <Border Grid.Row="1"
+            <Border Grid.Row="0"
                     Background="{DynamicResource WarningBackgroundBrush}"
                     BorderBrush="{DynamicResource WarningBorderBrush}"
                     BorderThickness="1"
-                    CornerRadius="6"
+                    CornerRadius="{StaticResource RadiusMd}"
                     Padding="12,8"
                     Margin="{StaticResource StackMd}"
                     Visibility="{Binding TieneOmitidos, Converter={StaticResource BoolToVisConverter}}">
@@ -81,60 +97,59 @@
                 </StackPanel>
             </Border>
 
-            <!-- Renglones agrupados por proveedor, con el destino informado (A-7) -->
-            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <!-- Renglones agrupados por proveedor, con el destino informado (A-7): una tarjeta por borrador -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Grupos}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                                 <StackPanel>
-                                    <DockPanel LastChildFill="False">
-                                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularStore" Style="{StaticResource CardHeaderIconStyle}" />
-                                            <TextBlock Text="{Binding RazonSocialProveedor}" Style="{StaticResource CardHeaderTextStyle}" />
-                                        </StackPanel>
-                                        <TextBlock DockPanel.Dock="Right"
-                                                   Text="{Binding Subtotal, StringFormat=C2}"
-                                                   FontFamily="{StaticResource FontFamilyNumeric}"
-                                                   Typography.NumeralAlignment="Tabular"
-                                                   FontWeight="SemiBold"
-                                                   VerticalAlignment="Center" />
-                                    </DockPanel>
-                                    <TextBlock Text="{Binding TextoDestino}" Style="{StaticResource TextBlockCaptionSecondary}" Margin="24,4,0,8" />
+                                    <!-- Cabecera: el proveedor y a qué borrador va. El subtotal no va acá: es el resultado de la suma y
+                                         se lee al pie, debajo de los subtotales que suma -->
+                                    <!-- El proveedor es un dato (a quién va el borrador), no un rótulo: en tinta plena -->
+                                    <TextBlock Text="{Binding RazonSocialProveedor}"
+                                               Style="{StaticResource CardHeaderTextStyle}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding TextoDestino}" Style="{StaticResource TextBlockCaptionSecondary}" Margin="0,2,0,12" />
 
                                     <!-- Encabezado de columnas -->
-                                    <Grid Margin="0,0,0,4">
+                                    <Grid Margin="{StaticResource StackXs}">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="72" />
-                                            <ColumnDefinition Width="64" />
-                                            <ColumnDefinition Width="88" />
-                                            <ColumnDefinition Width="44" />
+                                            <ColumnDefinition Width="{StaticResource AnchoStock}" />
+                                            <ColumnDefinition Width="{StaticResource AnchoCantidad}" />
+                                            <ColumnDefinition Width="{StaticResource AnchoSubtotal}" />
+                                            <ColumnDefinition Width="{StaticResource AnchoQuitar}" />
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Ítem" Style="{StaticResource TextBlockCaptionSecondary}" />
+                                        <TextBlock Grid.Column="0" Text="Artículo" Style="{StaticResource TextBlockCaptionSecondary}" />
                                         <TextBlock Grid.Column="1" Text="Stock / mín." Style="{StaticResource TextBlockCaptionSecondary}" HorizontalAlignment="Right" />
-                                        <TextBlock Grid.Column="2" Text="Cant." Style="{StaticResource TextBlockCaptionSecondary}" HorizontalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="Cantidad" Style="{StaticResource TextBlockCaptionSecondary}" HorizontalAlignment="Center" />
                                         <TextBlock Grid.Column="3" Text="Subtotal" Style="{StaticResource TextBlockCaptionSecondary}" HorizontalAlignment="Right" />
                                     </Grid>
 
-                                    <ItemsControl ItemsSource="{Binding Renglones}">
+                                    <ItemsControl ItemsSource="{Binding Renglones}" Focusable="False">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <Border BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0" Padding="0,8">
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="*" />
-                                                            <ColumnDefinition Width="72" />
-                                                            <ColumnDefinition Width="64" />
-                                                            <ColumnDefinition Width="88" />
-                                                            <ColumnDefinition Width="44" />
+                                                            <ColumnDefinition Width="{StaticResource AnchoStock}" />
+                                                            <ColumnDefinition Width="{StaticResource AnchoCantidad}" />
+                                                            <ColumnDefinition Width="{StaticResource AnchoSubtotal}" />
+                                                            <ColumnDefinition Width="{StaticResource AnchoQuitar}" />
                                                         </Grid.ColumnDefinitions>
 
-                                                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                        <StackPanel Grid.Column="0" Margin="0,0,12,0">
                                                             <TextBlock Text="{Binding CodigoProveedor}" FontFamily="{StaticResource FontFamilyMonospace}" FontSize="{StaticResource FontSizeXs}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                                            <TextBlock Text="{Binding Descripcion}" TextTrimming="CharacterEllipsis" ToolTip="{Binding Descripcion}" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                                            <!-- Fuente del renglón (Track 4.3, A-18): solo si el artículo tiene varias, ordenadas por costo; al cambiarla,
-                                                                 el renglón pasa al grupo de su proveedor (K3) -->
+                                                            <TextBlock Text="{Binding Descripcion, Converter={StaticResource AMayusculasConverter}}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       ToolTip="{Binding Descripcion}"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                            <!-- Fuente del renglón (Track 4.3, A-18): solo si el artículo tiene varias, ordenadas por costo; al
+                                                                 cambiarla, el renglón pasa al grupo de su proveedor (K3). Cerrado muestra lo que distingue a la
+                                                                 fuente elegida (costo y fecha de su lista): el proveedor ya es el de la tarjeta. Abierto, cada
+                                                                 opción lleva además el proveedor, que es lo que se elige. -->
                                                             <ComboBox Margin="0,4,0,0"
                                                                       Padding="8,4"
                                                                       HorizontalAlignment="Stretch"
@@ -147,23 +162,33 @@
                                                                 <ComboBox.ItemTemplate>
                                                                     <DataTemplate>
                                                                         <StackPanel Orientation="Horizontal">
-                                                                            <TextBlock FontSize="{StaticResource FontSizeSm}" VerticalAlignment="Center">
-                                                                                <Run Text="{Binding RazonSocialProveedor, Mode=OneWay}" FontWeight="SemiBold" />
-                                                                                <Run Text=" · " Foreground="{DynamicResource TextMutedBrush}" />
-                                                                                <Run Text="{Binding CostoActual, StringFormat=C2, Mode=OneWay}"
-                                                                                     FontFamily="{StaticResource FontFamilyNumeric}"
-                                                                                     Typography.NumeralAlignment="Tabular" />
-                                                                                <Run Text=" · " Foreground="{DynamicResource TextMutedBrush}" />
-                                                                                <Run Text="{Binding FechaLocal, StringFormat={}{0:dd/MM/yyyy}, Mode=OneWay}"
-                                                                                     Foreground="{DynamicResource TextSecondaryBrush}" />
-                                                                            </TextBlock>
-                                                                            <Border Style="{StaticResource BadgeNeutralStyle}"
-                                                                                    Margin="8,0,0,0"
-                                                                                    VerticalAlignment="Center"
-                                                                                    Visibility="{Binding EsPrincipal, Converter={StaticResource BoolToVisConverter}}">
-                                                                                <TextBlock Text="Principal" FontSize="{StaticResource FontSize2Xs}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                                                            </Border>
+                                                                            <TextBlock x:Name="Proveedor"
+                                                                                       Text="{Binding RazonSocialProveedor, Mode=OneWay}"
+                                                                                       FontSize="{StaticResource FontSizeSm}"
+                                                                                       FontWeight="SemiBold"
+                                                                                       Margin="0,0,8,0"
+                                                                                       VerticalAlignment="Center" />
+                                                                            <TextBlock Text="{Binding CostoActual, StringFormat=C2, Mode=OneWay}"
+                                                                                       FontSize="{StaticResource FontSizeSm}"
+                                                                                       FontFamily="{StaticResource FontFamilyNumeric}"
+                                                                                       Typography.NumeralAlignment="Tabular"
+                                                                                       VerticalAlignment="Center" />
+                                                                            <TextBlock Text="{Binding FechaLocal, StringFormat=' · lista del {0:dd/MM/yyyy}', Mode=OneWay}"
+                                                                                       FontSize="{StaticResource FontSizeSm}"
+                                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                                       VerticalAlignment="Center" />
+                                                                            <TextBlock Text=" · principal"
+                                                                                       FontSize="{StaticResource FontSizeSm}"
+                                                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                                                       VerticalAlignment="Center"
+                                                                                       Visibility="{Binding EsPrincipal, Converter={StaticResource BoolToVisConverter}}" />
                                                                         </StackPanel>
+                                                                        <!-- En la caja cerrada la plantilla no está dentro de un ComboBoxItem -->
+                                                                        <DataTemplate.Triggers>
+                                                                            <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ComboBoxItem}, FallbackValue={x:Null}}" Value="{x:Null}">
+                                                                                <Setter TargetName="Proveedor" Property="Visibility" Value="Collapsed" />
+                                                                            </DataTrigger>
+                                                                        </DataTemplate.Triggers>
                                                                     </DataTemplate>
                                                                 </ComboBox.ItemTemplate>
                                                             </ComboBox>
@@ -171,7 +196,7 @@
                                                                     HorizontalAlignment="Left"
                                                                     Margin="0,4,0,0"
                                                                     Visibility="{Binding TieneCantidadEnBorrador, Converter={StaticResource BoolToVisConverter}}">
-                                                                <TextBlock Text="{Binding CantidadEnBorrador, StringFormat=Ya en el borrador: {0}}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                                <TextBlock Text="{Binding CantidadEnBorrador, StringFormat=Ya en el borrador: {0}}" Style="{StaticResource BadgeNeutralTextStyle}" />
                                                             </Border>
                                                         </StackPanel>
 
@@ -197,34 +222,26 @@
                                                             <Run Text="{Binding StockMinimo, Mode=OneWay}" Foreground="{DynamicResource TextMutedBrush}" />
                                                         </TextBlock>
 
-                                                        <TextBox Grid.Column="2"
-                                                                 Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
-                                                                 Width="52"
-                                                                 Height="28"
-                                                                 MinHeight="0"
-                                                                 Padding="2,0"
-                                                                 HorizontalAlignment="Center"
-                                                                 VerticalAlignment="Center"
-                                                                 HorizontalContentAlignment="Center"
-                                                                 VerticalContentAlignment="Center"
-                                                                 FontFamily="{StaticResource FontFamilyNumeric}"
-                                                                 Typography.NumeralAlignment="Tabular"
-                                                                 FontWeight="SemiBold" />
+                                                        <!-- Cantidad con pasos: solo dígitos, nunca menos de 1 -->
+                                                        <components:SelectorCantidad Grid.Column="2"
+                                                                                     Valor="{Binding Cantidad, Mode=TwoWay}"
+                                                                                     Minimo="1"
+                                                                                     NombreAutomatizacion="Cantidad a pedir"
+                                                                                     HorizontalAlignment="Center"
+                                                                                     VerticalAlignment="Center" />
 
                                                         <TextBlock Grid.Column="3"
                                                                    Text="{Binding Subtotal, StringFormat=C2}"
-                                                                   HorizontalAlignment="Right"
-                                                                   VerticalAlignment="Center"
-                                                                   FontFamily="{StaticResource FontFamilyNumeric}"
-                                                                   Typography.NumeralAlignment="Tabular"
-                                                                   FontWeight="SemiBold" />
+                                                                   Style="{StaticResource ImporteRenglonStyle}" />
 
                                                         <Button Grid.Column="4"
                                                                 Style="{StaticResource IconDangerButtonStyle}"
                                                                 HorizontalAlignment="Right"
+                                                                VerticalAlignment="Center"
                                                                 Command="{Binding DataContext.QuitarRenglonCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                 CommandParameter="{Binding}"
-                                                                ToolTip="Quitar este ítem del pedido">
+                                                                ToolTip="Quitar este artículo del pedido"
+                                                                AutomationProperties.Name="Quitar artículo">
                                                             <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
                                                         </Button>
                                                     </Grid>
@@ -232,6 +249,26 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+
+                                    <!-- Subtotal del borrador: debajo de una línea y en la misma columna que los subtotales que suma -->
+                                    <Border BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0" Padding="0,8,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="{StaticResource AnchoSubtotal}" />
+                                                <ColumnDefinition Width="{StaticResource AnchoQuitar}" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Subtotal del borrador"
+                                                       Style="{StaticResource TextBlockCaptionSecondary}"
+                                                       HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,12,0" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Subtotal, StringFormat=C2}"
+                                                       Style="{StaticResource ImporteRenglonStyle}"
+                                                       FontWeight="SemiBold" />
+                                        </Grid>
+                                    </Border>
                                 </StackPanel>
                             </Border>
                         </DataTemplate>
@@ -239,8 +276,9 @@
                 </ItemsControl>
             </ScrollViewer>
 
-            <!-- Total del lote: es contenido del pedido, no una acción, por eso va fuera de la barra de botones -->
-            <Border Grid.Row="3"
+            <!-- Total del lote: es contenido del pedido, no una acción, por eso va fuera de la barra de botones. En el color de
+                 texto: el carmín queda para la acción de abajo -->
+            <Border Grid.Row="2"
                     BorderBrush="{DynamicResource SurfaceBorderBrush}"
                     BorderThickness="0,1,0,0"
                     Padding="0,12,0,0">
@@ -252,12 +290,13 @@
                     <TextBlock DockPanel.Dock="Right"
                                Text="{Binding TotalEstimado, StringFormat=C2}"
                                Style="{StaticResource TextBlockCurrencyLarge}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
                                VerticalAlignment="Center" />
                 </DockPanel>
             </Border>
         </Grid>
 
-        <!-- Barra inferior: total y acciones -->
+        <!-- Barra inferior: acciones. El botón dice cuántos borradores cambian (uno por proveedor) -->
         <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
             <DockPanel LastChildFill="False">
                 <Button DockPanel.Dock="Left"
@@ -271,10 +310,7 @@
                         Click="BtnConfirmar_Click"
                         IsEnabled="{Binding PuedeConfirmar}"
                         Style="{StaticResource PrimaryActionButtonStyle}">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Agregar al pedido" VerticalAlignment="Center" />
-                    </StackPanel>
+                    <TextBlock Text="{Binding TextoConfirmar}" VerticalAlignment="Center" />
                 </Button>
             </DockPanel>
         </Border>

@@ -8,8 +8,10 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Converters;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Backups;
@@ -18,6 +20,11 @@ namespace Retail.App.ViewModels.Backups;
 /// ViewModel de la pantalla de respaldos (RF-22, IU-10): historial de copias, copia manual y restauración. El
 /// Gerente opera con su contraseña; el Administrador también, pero restaura solo con la autorización de un Gerente
 /// (D-30, D-32). La autoridad real es de los servicios de Aplicación.
+/// <para>
+/// Los filtros de columna de las dos grillas se aplican acá, sobre las listas ya cargadas: ambos historiales llegan completos y
+/// sin paginar por diseño del servicio (D-34; las copias se purgan y las restauraciones son excepcionales), así que no hay
+/// una tabla creciente que filtrar en SQL como en el listado de pedidos.
+/// </para>
 /// </summary>
 public partial class BackupViewModel : ObservableObject, IDisposable
 {
@@ -31,13 +38,18 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     private readonly IReinicioAplicacion _reinicio;
     private readonly ILogger<BackupViewModel> _logger;
 
+    // Los historiales completos tal como llegaron; las colecciones de las grillas son lo que pasa los filtros
+    private List<RegistroBackupFila> _todasLasCopias = [];
+    private List<RegistroRestauracionFila> _todasLasRestauraciones = [];
+
     public BackupViewModel(
         IBackupService backupService,
         IRestauracionService restauracionService,
         IBackupDialogService dialogService,
         ICurrentUserSession session,
         IReinicioAplicacion reinicio,
-        ILogger<BackupViewModel>? logger = null)
+        ILogger<BackupViewModel>? logger = null,
+        TimeProvider? reloj = null)
     {
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
         _restauracionService = restauracionService ?? throw new ArgumentNullException(nameof(restauracionService));
@@ -45,11 +57,127 @@ public partial class BackupViewModel : ObservableObject, IDisposable
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _reinicio = reinicio ?? throw new ArgumentNullException(nameof(reinicio));
         _logger = logger ?? NullLogger<BackupViewModel>.Instance;
+
+        FiltroCopiaFecha = new FiltroFechaColumnaViewModel("Fecha", reloj);
+        FiltroRestauracionFecha = new FiltroFechaColumnaViewModel("Fecha", reloj);
+        FiltroCopiaTipo.CargarOpciones(OpcionesDeEnum<TipoBackupEnum>());
+        FiltroCopiaEstado.CargarOpciones(OpcionesDeEnum<EstadoBackupEnum>());
+        FiltroRestauracionOrigen.CargarOpciones(OpcionesDeEnum<OrigenRestauracionEnum>());
+
+        foreach (var filtro in new[] { FiltroCopiaTipo, FiltroCopiaEstado, FiltroRestauracionOrigen, FiltroCopiaOperador.Filtro, FiltroRestauracionEjecutadaPor.Filtro, FiltroRestauracionAutorizadaPor.Filtro })
+        {
+            filtro.Aplicado += AlAplicarFiltro;
+        }
+
+        FiltroCopiaFecha.Aplicado += AlAplicarFiltro;
+        FiltroRestauracionFecha.Aplicado += AlAplicarFiltro;
     }
 
     public ObservableCollection<RegistroBackupFila> Copias { get; } = new();
 
     public ObservableCollection<RegistroRestauracionFila> Restauraciones { get; } = new();
+
+    // ------------------------------------------------------------------ //
+    // Filtros de columna                                                  //
+    // ------------------------------------------------------------------ //
+
+    public FiltroFechaColumnaViewModel FiltroCopiaFecha { get; }
+
+    public FiltroColumnaViewModel FiltroCopiaTipo { get; } = new("Tipo");
+
+    public FiltroPorValoresViewModel FiltroCopiaOperador { get; } = new("Operador");
+
+    public FiltroColumnaViewModel FiltroCopiaEstado { get; } = new("Estado");
+
+    public FiltroFechaColumnaViewModel FiltroRestauracionFecha { get; }
+
+    public FiltroColumnaViewModel FiltroRestauracionOrigen { get; } = new("Origen");
+
+    public FiltroPorValoresViewModel FiltroRestauracionEjecutadaPor { get; } = new("Ejecutada por");
+
+    public FiltroPorValoresViewModel FiltroRestauracionAutorizadaPor { get; } = new("Autorizada por");
+
+    /// <summary>Hay algún filtro aplicado en la grilla que se está mostrando.</summary>
+    public bool HayFiltrosActivos => MostrandoCopias
+        ? FiltroCopiaFecha.HayFiltroActivo || FiltroCopiaTipo.HayFiltroActivo || FiltroCopiaOperador.Filtro.HayFiltroActivo || FiltroCopiaEstado.HayFiltroActivo
+        : FiltroRestauracionFecha.HayFiltroActivo || FiltroRestauracionOrigen.HayFiltroActivo || FiltroRestauracionEjecutadaPor.Filtro.HayFiltroActivo || FiltroRestauracionAutorizadaPor.Filtro.HayFiltroActivo;
+
+    [RelayCommand(CanExecute = nameof(HayFiltrosActivos))]
+    public void LimpiarFiltros()
+    {
+        if (MostrandoCopias)
+        {
+            FiltroCopiaFecha.QuitarFiltro();
+            FiltroCopiaTipo.QuitarFiltro();
+            FiltroCopiaOperador.Filtro.QuitarFiltro();
+            FiltroCopiaEstado.QuitarFiltro();
+        }
+        else
+        {
+            FiltroRestauracionFecha.QuitarFiltro();
+            FiltroRestauracionOrigen.QuitarFiltro();
+            FiltroRestauracionEjecutadaPor.Filtro.QuitarFiltro();
+            FiltroRestauracionAutorizadaPor.Filtro.QuitarFiltro();
+        }
+
+        AplicarFiltros();
+    }
+
+    private void AlAplicarFiltro(object? sender, EventArgs e)
+    {
+        AplicarFiltros();
+    }
+
+    /// <summary>Vuelve a armar las dos grillas con lo que pasa los filtros aplicados, sin tocar la base.</summary>
+    private void AplicarFiltros()
+    {
+        var copias = _todasLasCopias.Where(c =>
+            FiltroCopiaFecha.Contiene(c.FechaLocal) &&
+            Pasa(FiltroCopiaTipo, (int)c.Tipo) &&
+            FiltroCopiaOperador.Coincide(c.Operador) &&
+            Pasa(FiltroCopiaEstado, (int)c.Estado)).ToList();
+
+        Copias.Clear();
+        foreach (var copia in copias)
+        {
+            Copias.Add(copia);
+        }
+
+        if (CopiaSeleccionada is not null && !copias.Contains(CopiaSeleccionada))
+        {
+            CopiaSeleccionada = null;
+        }
+
+        var restauraciones = _todasLasRestauraciones.Where(r =>
+            FiltroRestauracionFecha.Contiene(r.FechaLocal) &&
+            Pasa(FiltroRestauracionOrigen, (int)r.Dto.Origen) &&
+            FiltroRestauracionEjecutadaPor.Coincide(r.EjecutadaPor) &&
+            FiltroRestauracionAutorizadaPor.Coincide(r.AutorizadaPor)).ToList();
+
+        Restauraciones.Clear();
+        foreach (var restauracion in restauraciones)
+        {
+            Restauraciones.Add(restauracion);
+        }
+
+        OnPropertyChanged(nameof(NoHayRestauraciones));
+        OnPropertyChanged(nameof(NoHayCopias));
+        OnPropertyChanged(nameof(MensajeSinRestauraciones));
+        OnPropertyChanged(nameof(MensajeSinCopias));
+        OnPropertyChanged(nameof(HayFiltrosActivos));
+        LimpiarFiltrosCommand.NotifyCanExecuteChanged();
+    }
+
+    // Sin casillas aplicadas no se filtra
+    private static bool Pasa(FiltroColumnaViewModel filtro, int id)
+    {
+        return !filtro.HayFiltroActivo || filtro.IdsAplicados.Contains(id);
+    }
+
+    private static IEnumerable<OpcionFiltroColumna> OpcionesDeEnum<T>() where T : struct, Enum
+    {
+        return Enum.GetValues<T>().Select(valor => new OpcionFiltroColumna(Convert.ToInt32(valor, CultureInfo.InvariantCulture), EnumATextoConverter.ATexto(valor)));
+    }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RestaurarCopiaCommand))]
@@ -77,6 +205,8 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MostrandoRestauraciones))]
+    [NotifyPropertyChangedFor(nameof(HayFiltrosActivos))]
+    [NotifyCanExecuteChangedFor(nameof(LimpiarFiltrosCommand))]
     private bool _mostrandoCopias = true;
 
     public bool MostrandoRestauraciones
@@ -86,6 +216,17 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     }
 
     public bool NoHayRestauraciones => Restauraciones.Count == 0;
+
+    public bool NoHayCopias => Copias.Count == 0;
+
+    /// <summary>Distingue "nunca se restauró" de "los filtros no dejan ninguna".</summary>
+    public string MensajeSinRestauraciones => _todasLasRestauraciones.Count == 0
+        ? "No se registraron restauraciones"
+        : "Ninguna restauración coincide con los filtros";
+
+    public string MensajeSinCopias => _todasLasCopias.Count == 0
+        ? "No hay copias registradas"
+        : "Ninguna copia coincide con los filtros";
 
     public bool TieneError => !string.IsNullOrWhiteSpace(MensajeError);
 
@@ -121,19 +262,14 @@ public partial class BackupViewModel : ObservableObject, IDisposable
                 token),
             resultado =>
             {
-                Copias.Clear();
-                foreach (var dto in resultado.Copias)
-                {
-                    Copias.Add(new RegistroBackupFila(dto));
-                }
+                _todasLasCopias = resultado.Copias.Select(dto => new RegistroBackupFila(dto)).ToList();
+                _todasLasRestauraciones = resultado.Restauraciones.Select(dto => new RegistroRestauracionFila(dto)).ToList();
 
-                Restauraciones.Clear();
-                foreach (var dto in resultado.Restauraciones)
-                {
-                    Restauraciones.Add(new RegistroRestauracionFila(dto));
-                }
+                FiltroCopiaOperador.Actualizar(_todasLasCopias.Select(c => c.Operador));
+                FiltroRestauracionEjecutadaPor.Actualizar(_todasLasRestauraciones.Select(r => r.EjecutadaPor));
+                FiltroRestauracionAutorizadaPor.Actualizar(_todasLasRestauraciones.Select(r => r.AutorizadaPor));
+                AplicarFiltros();
 
-                OnPropertyChanged(nameof(NoHayRestauraciones));
                 UltimaRestauracionTexto = resultado.Ultima is null ? null : DescribirRestauracion(resultado.Ultima);
                 MensajeEstado = string.Empty;
             },

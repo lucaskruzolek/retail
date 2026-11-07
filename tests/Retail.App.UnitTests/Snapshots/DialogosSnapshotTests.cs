@@ -330,22 +330,48 @@ public class DialogosSnapshotTests
     }
 
     [Theory]
-    [InlineData(TemaPrueba.Claro)]
-    [InlineData(TemaPrueba.Oscuro)]
-    public void CobroModalDialog_PorTema_GeneraCaptura(TemaPrueba tema)
+    [InlineData(TemaPrueba.Claro, "")]
+    [InlineData(TemaPrueba.Oscuro, "")]
+    [InlineData(TemaPrueba.Claro, "_Vuelto")]
+    [InlineData(TemaPrueba.Oscuro, "_Vuelto")]
+    [InlineData(TemaPrueba.Claro, "_PagoDividido")]
+    [InlineData(TemaPrueba.Oscuro, "_PagoDividido")]
+    [InlineData(TemaPrueba.Claro, "_Error")]
+    [InlineData(TemaPrueba.Oscuro, "_Error")]
+    public void CobroModalDialog_PorTema_GeneraCaptura(TemaPrueba tema, string estado)
     {
         var (ruta, error) = Capturar(tema, carpeta =>
         {
-            var viewModel = new CobroModalViewModel(18650m, ClienteConCuentaCorriente());
+            // Consumidor final en el caso de error: la cuenta corriente se ve deshabilitada
+            var viewModel = new CobroModalViewModel(
+                18650m,
+                estado == "_Error" ? null : ClienteConCuentaCorriente());
 
-            // Pago mixto: primero 10.000 en efectivo (con vuelto) y queda un saldo pendiente para el segundo medio.
-            viewModel.MontoImputar = 10000m;
-            viewModel.EfectivoRecibido = 12000m;
-            viewModel.ImputarPago();
-            viewModel.MedioPagoSeleccionado = MedioPagoEnum.TransferenciaQr;
+            switch (estado)
+            {
+                case "_Vuelto":
+                    viewModel.Monto = 20000m;
+                    break;
+                case "_PagoDividido":
+                    // Dos pagos parciales con tarjeta y el resto propuesto en efectivo, el primer medio sin usar: es el
+                    // caso más alto del modal (lista de pagos, billetes y vuelto a la vista)
+                    viewModel.MedioPagoSeleccionado = MedioPagoEnum.TarjetaDebito;
+                    viewModel.Monto = 5000m;
+                    viewModel.ConfirmarPagoActual();
+                    viewModel.MedioPagoSeleccionado = MedioPagoEnum.TarjetaCredito;
+                    viewModel.Monto = 5000m;
+                    viewModel.ConfirmarPagoActual();
+                    viewModel.Monto = 10000m;
+                    break;
+                case "_Error":
+                    viewModel.MedioPagoSeleccionado = MedioPagoEnum.TarjetaCredito;
+                    viewModel.Monto = 20000m;
+                    viewModel.ConfirmarPagoActual();
+                    break;
+            }
 
             var dialogo = new CobroModalDialog(viewModel);
-            return SnapshotRenderer.Guardar(dialogo, 560, 704, carpeta + "/CobroModalDialog");
+            return SnapshotRenderer.Guardar(dialogo, (int)dialogo.Width, (int)dialogo.Height, carpeta + "/CobroModalDialog" + estado);
         });
 
         VerificarCaptura(ruta, error);

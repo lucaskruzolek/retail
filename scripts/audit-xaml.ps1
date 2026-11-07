@@ -165,6 +165,90 @@ else {
     }
 }
 
+Write-Host "`n--- REVISION DE LA DESCRIPCION DE CADA PAGINA (R11) ---" -ForegroundColor Yellow
+# Toda pagina con PageHeader lleva su descripcion (el icono de informacion con tooltip): sin ella la pagina queda sin ayuda.
+$paginasSinDescripcion = @(Get-ChildItem -Path (Join-Path $appDir "Views") -Recurse -Filter "*.xaml" | Where-Object {
+    $_.FullName -notmatch "\\Views\\Dev\\"
+} | Where-Object {
+    $texto = Get-Content $_.FullName -Raw
+    $texto -match "<components:PageHeader" -and $texto -notmatch "Descripcion"
+} | ForEach-Object { $_.Name })
+if ($paginasSinDescripcion.Count -eq 0) {
+    Write-Host "[OK] Toda pagina con PageHeader declara su Descripcion." -ForegroundColor Green
+}
+else {
+    $hasErrors = $true
+    Write-Host "[ERROR] Paginas con PageHeader sin Descripcion (agregue Descripcion=""Pagina . lo que muestra""):" -ForegroundColor Red
+    foreach ($name in $paginasSinDescripcion) {
+        Write-Host "  * $name" -ForegroundColor Red
+    }
+}
+
+Write-Host "`n--- REVISION DE GRAFICOS Y GRUPOS DE OPCIONES (R13, R14) ---" -ForegroundColor Yellow
+# R13: el control de gráficos de LiveCharts pinta blanco sobre el tema oscuro si no se le fija un Background.
+# R14: un RadioButton con GroupName registra su grupo en toda la ventana. Las páginas se recrean en cada navegación y las
+#      anteriores siguen registradas hasta que las recoge el recolector: al marcar una opción en la vista nueva, la vieja
+#      recibe el desmarcado y su ViewModel actúa (en Ajustes volvía al tema claro). Los RadioButton hermanos de un mismo
+#      panel ya forman un grupo, sin GroupName.
+$graficosSinFondo = [System.Collections.Generic.List[string]]::new()
+$gruposEnPaginas = [System.Collections.Generic.List[string]]::new()
+foreach ($file in (Get-ChildItem -Path (Join-Path $appDir "Views") -Recurse -Filter "*.xaml")) {
+    $texto = Get-Content $file.FullName -Raw
+    foreach ($m in [regex]::Matches($texto, '<lvc:CartesianChart[^>]*>')) {
+        if ($m.Value -notmatch 'Background=') {
+            $graficosSinFondo.Add($file.Name)
+        }
+    }
+    if ($file.FullName -match "\\Views\\Pages\\" -and $texto -match 'GroupName=') {
+        $gruposEnPaginas.Add($file.Name)
+    }
+}
+
+if ($graficosSinFondo.Count -eq 0) {
+    Write-Host "[OK] Todo grafico declara su Background (Transparent)." -ForegroundColor Green
+}
+else {
+    $hasErrors = $true
+    Write-Host "[ERROR] Graficos sin Background (pintan blanco en el tema oscuro; use Background=""Transparent""):" -ForegroundColor Red
+    foreach ($name in ($graficosSinFondo | Select-Object -Unique)) {
+        Write-Host "  * $name" -ForegroundColor Red
+    }
+}
+
+if ($gruposEnPaginas.Count -eq 0) {
+    Write-Host "[OK] Ninguna pagina usa GroupName en sus RadioButton." -ForegroundColor Green
+}
+else {
+    $hasErrors = $true
+    Write-Host "[ERROR] Paginas con RadioButton GroupName (el grupo cruza las vistas; deje que el panel los agrupe):" -ForegroundColor Red
+    foreach ($name in ($gruposEnPaginas | Select-Object -Unique)) {
+        Write-Host "  * $name" -ForegroundColor Red
+    }
+}
+
+Write-Host "`n--- REVISION DE BINDINGS A PROPIEDADES ADJUNTAS EN ESTILOS (R15) ---" -ForegroundColor Yellow
+# R15: un {Binding (prefijo:Tipo.Propiedad)} dentro de una plantilla de Styles/ puede fallar con "property not found" al
+#      instanciarla (la ruta con prefijo no se resolvia) y el rasgo visual desaparece sin avisar. Se usa TemplateBinding.
+$bindingsAdjuntos = [System.Collections.Generic.List[string]]::new()
+foreach ($file in (Get-ChildItem -Path $stylesDir -Filter "*.xaml")) {
+    $texto = Get-Content $file.FullName -Raw
+    foreach ($m in [regex]::Matches($texto, '\{Binding\s+\([A-Za-z]+:[A-Za-z]+\.[A-Za-z]+\)')) {
+        $linea = ($texto.Substring(0, $m.Index) -split "`n").Count
+        $bindingsAdjuntos.Add("$($file.Name):$linea  $($m.Value)")
+    }
+}
+
+if ($bindingsAdjuntos.Count -eq 0) {
+    Write-Host "[OK] Ningun estilo enlaza una propiedad adjunta con ruta de prefijo (se usa TemplateBinding)." -ForegroundColor Green
+}
+else {
+    $hasErrors = $true
+    Write-Host "[ERROR] Bindings a propiedades adjuntas por ruta en Styles/ (use TemplateBinding):" -ForegroundColor Red
+    foreach ($item in $bindingsAdjuntos) {
+        Write-Host "  * $item" -ForegroundColor Red
+    }
+}
+
 Write-Host "`n--- REVISION DE COLORES ESTATICOS (TEMA CLARO/OSCURO) ---" -ForegroundColor Yellow
 # Los pinceles de la paleta llegan congelados: un {StaticResource} de color conserva el pincel viejo y no cambia al
 # alternar el tema. Todo color se toma con {DynamicResource}. Los pinceles son los de Colors.xaml (terminan en "Brush").

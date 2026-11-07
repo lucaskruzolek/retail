@@ -16,6 +16,15 @@ public record class ConsultaPedidosDto
 
     public IReadOnlyList<int> IdsProveedor { get; init; } = [];
 
+    /// <summary>
+    /// Rango de la fecha del pedido (la de emisión o, si aún no se emitió, la de creación) como intervalo semiabierto en
+    /// UTC: <c>[FechaDesdeUtc, FechaHastaUtc)</c>. Un extremo <c>null</c> no pone tope.
+    /// </summary>
+    public DateTime? FechaDesdeUtc { get; init; }
+
+    /// <summary>Extremo superior <b>exclusivo</b> del rango de fechas (el inicio del día siguiente al último elegido).</summary>
+    public DateTime? FechaHastaUtc { get; init; }
+
     public int Pagina { get; init; } = 1;
 
     public int TamanoPagina { get; init; } = 20;

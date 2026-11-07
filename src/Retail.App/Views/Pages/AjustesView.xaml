@@ -17,7 +17,8 @@
 
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
-                               Titulo="Ajustes" />
+                               Titulo="Ajustes"
+                               Descripcion="Preferencias de la aplicación: apariencia y otras configuraciones." />
 
         <!-- Apariencia: tema claro u oscuro, se aplica al instante y queda guardado para el próximo inicio -->
         <Border Grid.Row="1"
@@ -25,10 +26,7 @@
                 HorizontalAlignment="Left"
                 MinWidth="400">
             <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                    <iconPacks:PackIconBoxIcons Kind="RegularPalette" Style="{StaticResource CardHeaderIconStyle}" />
-                    <TextBlock Text="Apariencia" Style="{StaticResource CardHeaderTextStyle}" />
-                </StackPanel>
+                <TextBlock Text="Apariencia" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                 <TextBlock Text="Tema"
                            Style="{StaticResource TextBlockBodySecondary}"
@@ -36,11 +34,11 @@
 
                 <components:SelectorSegmentado>
                     <UniformGrid Columns="2">
-                        <RadioButton GroupName="TemaVisual"
+                        <RadioButton
                                      IsChecked="{Binding TemaClaro, Mode=TwoWay}"
                                      Style="{StaticResource SegmentedRadioButtonStyle}"
                                      Content="Claro" />
-                        <RadioButton GroupName="TemaVisual"
+                        <RadioButton
                                      IsChecked="{Binding TemaOscuro, Mode=TwoWay}"
                                      Style="{StaticResource SegmentedRadioButtonStyle}"
                                      Content="Oscuro" />

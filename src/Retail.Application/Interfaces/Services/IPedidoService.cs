@@ -8,6 +8,11 @@ namespace Retail.Application.Interfaces.Services;
 public interface IPedidoService
 {
     /// <summary>
+    /// Contrato de frontera con Compras, §5.2: pedidos emitidos de todos los proveedores, del más reciente al más antiguo.
+    /// </summary>
+    Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Contrato de frontera con Compras, §5.2: pedidos emitidos del proveedor, del más reciente al más antiguo.
     /// </summary>
     Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosPorProveedorAsync(int idProveedor, CancellationToken cancellationToken = default);
@@ -38,7 +43,8 @@ public interface IPedidoService
 
     Task<PedidoDetalleDto?> ObtenerDetalleAsync(int idPedido, CancellationToken cancellationToken = default);
 
-    Task CambiarCantidadAsync(CambiarCantidadRenglonDto dto, CancellationToken cancellationToken = default);
+    /// <summary>Cambia las cantidades de varios renglones del borrador: todas o ninguna, en una transacción.</summary>
+    Task CambiarCantidadesAsync(CambiarCantidadesPedidoDto dto, CancellationToken cancellationToken = default);
 
     Task QuitarRenglonAsync(int idPedido, int idCatalogoProveedor, CancellationToken cancellationToken = default);
 

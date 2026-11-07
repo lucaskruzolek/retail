@@ -68,10 +68,7 @@
                 <Border x:Name="PanelComandos"
                         Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularTerminal" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Comandos a ejecutar en PowerShell, en este orden" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Comandos a ejecutar en PowerShell, en este orden" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
 
                         <TextBlock x:Name="TxtNotaDesarrollo"
                                    Text="Ejecútelos parado en la raíz del repositorio."

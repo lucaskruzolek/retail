@@ -20,7 +20,9 @@
         </Grid.ColumnDefinitions>
 
         <!-- Búsqueda rápida -->
-        <ui:TextBox Grid.Column="0"
+        <ui:TextBox x:Name="CuadroBusqueda"
+                    Grid.Column="0"
+                    IsEnabled="{Binding BuscadorHabilitado, ElementName=Raiz}"
                     Text="{Binding Texto, ElementName=Raiz, UpdateSourceTrigger=PropertyChanged}"
                     PlaceholderText="{Binding PlaceholderText, ElementName=Raiz}"
                     Width="390"
@@ -32,8 +34,7 @@
             </ui:TextBox.Icon>
         </ui:TextBox>
 
-        <!-- Limpiar filtros: se deshabilita sola cuando no hay nada que limpiar (CanExecute del comando). Con filas marcadas
-             le cede su lugar al badge "N seleccionados ✕" -->
+        <!-- Limpiar filtros: se deshabilita sola cuando no hay nada que limpiar (CanExecute del comando) -->
         <Button Grid.Column="1"
                 Command="{Binding ComandoLimpiar, ElementName=Raiz}"
                 Margin="8,0,0,0"
@@ -41,9 +42,6 @@
             <Button.Style>
                 <Style TargetType="Button" BasedOn="{StaticResource GhostNeutralButtonStyle}">
                     <Style.Triggers>
-                        <DataTrigger Binding="{Binding HaySeleccion, ElementName=Raiz}" Value="True">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
                         <!-- Una página sin filtros no enlaza ComandoLimpiar: el botón no se muestra -->
                         <DataTrigger Binding="{Binding ComandoLimpiar, ElementName=Raiz}" Value="{x:Null}">
                             <Setter Property="Visibility" Value="Collapsed" />
@@ -57,35 +55,11 @@
             </StackPanel>
         </Button>
 
-        <!-- Sin selección: indicador de carga, a la derecha -->
-        <Grid x:Name="PanelNormal" Grid.Column="2">
-            <Grid.Style>
-                <Style TargetType="Grid">
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding HaySeleccion, ElementName=Raiz}" Value="True">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Grid.Style>
-
-            <!-- Indicador de carga asíncrona -->
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center"
-                        Margin="0,0,16,0"
-                        Visibility="{Binding EstaCargando, ElementName=Raiz, Converter={StaticResource BoolToVisConverter}}">
-                <ui:ProgressRing Width="18" Height="18" Margin="0,0,8,0" IsIndeterminate="True" />
-                <TextBlock Text="Cargando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
-            </StackPanel>
-        </Grid>
-
-        <!-- Con selección: las acciones masivas de la página (una BulkActionBar) ocupan todo lo que sigue al buscador -->
+        <!-- Acciones masivas de la página (una BulkActionBar): siempre a la vista; el badge de cantidad y los botones
+             reaccionan a la selección -->
         <ContentPresenter x:Name="PanelSeleccion"
-                          Grid.Column="1"
-                          Grid.ColumnSpan="2"
+                          Grid.Column="2"
                           Margin="12,0,0,0"
-                          Content="{Binding AccionesDeSeleccion, ElementName=Raiz}"
-                          Visibility="{Binding HaySeleccion, ElementName=Raiz, Converter={StaticResource BoolToVisConverter}}" />
+                          Content="{Binding AccionesDeSeleccion, ElementName=Raiz}" />
     </Grid>
 </UserControl>

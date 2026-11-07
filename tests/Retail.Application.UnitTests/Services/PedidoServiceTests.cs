@@ -36,7 +36,7 @@ public class PedidoServiceTests
             _consultas,
             _catalogo,
             new AgregarVariosAlPedidoValidator(),
-            new CambiarCantidadRenglonValidator(),
+            new CambiarCantidadesPedidoValidator(),
             new CancelarPedidoValidator(),
             new ConsultaPedidosValidator());
     }
@@ -341,17 +341,61 @@ public class PedidoServiceTests
     }
 
     [Fact]
-    public async Task CambiarCantidadAsync_RenglonExistente_ActualizaYGuarda()
+    public async Task CambiarCantidadesAsync_RenglonesExistentes_ActualizaTodosYGuardaUnaVez()
+    {
+        var pedido = CrearBorrador();
+        pedido.AgregarRenglon(IdArticulo + 1, IdCatalogo + 1, "LIB-002", "Cuaderno cuadriculado", 1, 1700m);
+        PrepararPedidoExistente(pedido);
+
+        await _service.CambiarCantidadesAsync(new CambiarCantidadesPedidoDto
+        {
+            IdPedido = pedido.Id,
+            Renglones =
+            [
+                new CantidadRenglonDto { IdCatalogoProveedor = IdCatalogo, Cantidad = 9 },
+                new CantidadRenglonDto { IdCatalogoProveedor = IdCatalogo + 1, Cantidad = 4 }
+            ]
+        });
+
+        pedido.Detalles.Select(d => d.Cantidad).Should().Equal(9, 4);
+        await _pedidos.Received(1).UpdateAsync(pedido, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    [Fact]
+    public async Task CambiarCantidadesAsync_UnRenglonInexistente_NoGuardaNadaYDescartaCambios()
     {
         var pedido = CrearBorrador();
         PrepararPedidoExistente(pedido);
 
-        await _service.CambiarCantidadAsync(new CambiarCantidadRenglonDto { IdPedido = pedido.Id, IdCatalogoProveedor = IdCatalogo, Cantidad = 9 });
+        var act = () => _service.CambiarCantidadesAsync(new CambiarCantidadesPedidoDto
+        {
+            IdPedido = pedido.Id,
+            Renglones =
+            [
+                new CantidadRenglonDto { IdCatalogoProveedor = IdCatalogo, Cantidad = 9 },
+                new CantidadRenglonDto { IdCatalogoProveedor = 999, Cantidad = 4 }
+            ]
+        });
 
-        pedido.Detalles.Single().Cantidad.Should().Be(9);
-        await _pedidos.Received(1).UpdateAsync(pedido, Arg.Any<CancellationToken>());
-        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*no figura*");
+        pedido.Detalles.Single().Cantidad.Should().Be(2, "todos o ninguno");
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
         _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    [Fact]
+    public async Task CambiarCantidadesAsync_CantidadInvalida_RechazaEnLaFronteraSinGuardar()
+    {
+        var act = () => _service.CambiarCantidadesAsync(new CambiarCantidadesPedidoDto
+        {
+            IdPedido = 100,
+            Renglones = [new CantidadRenglonDto { IdCatalogoProveedor = IdCatalogo, Cantidad = 0 }]
+        });
+
+        await act.Should().ThrowAsync<FluentValidation.ValidationException>();
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -398,11 +442,25 @@ public class PedidoServiceTests
     {
         IReadOnlyList<PedidoEmitidoDto> esperado = new[]
         {
-            new PedidoEmitidoDto { IdPedido = 1, FechaEmision = DateTime.UtcNow, CantidadRenglones = 2, TotalEstimado = 3000m }
+            new PedidoEmitidoDto { IdPedido = 1, IdProveedor = IdProveedor, RazonSocialProveedor = "Proveedor", FechaEmision = DateTime.UtcNow, CantidadRenglones = 2, TotalEstimado = 3000m }
         };
         _consultas.ListarEmitidosPorProveedorAsync(IdProveedor, Arg.Any<CancellationToken>()).Returns(esperado);
 
         var resultado = await _service.ListarEmitidosPorProveedorAsync(IdProveedor);
+
+        resultado.Should().BeSameAs(esperado);
+    }
+
+    [Fact]
+    public async Task ListarEmitidosAsync_DelegaEnQueryService()
+    {
+        IReadOnlyList<PedidoEmitidoDto> esperado = new[]
+        {
+            new PedidoEmitidoDto { IdPedido = 1, IdProveedor = IdProveedor, RazonSocialProveedor = "Proveedor", FechaEmision = DateTime.UtcNow, CantidadRenglones = 2, TotalEstimado = 3000m }
+        };
+        _consultas.ListarEmitidosAsync(Arg.Any<CancellationToken>()).Returns(esperado);
+
+        var resultado = await _service.ListarEmitidosAsync();
 
         resultado.Should().BeSameAs(esperado);
     }

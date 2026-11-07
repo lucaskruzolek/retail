@@ -56,6 +56,18 @@ public partial class PosView : UserControl
     }
 
     /// <summary>
+    /// Con la caja cerrada el buscador está bloqueado. Al abrirla (desde el aviso), recupera el foco: el cajero escanea
+    /// sin tener que hacer clic primero en el campo.
+    /// </summary>
+    private void OnTxtBuscadorIsEnabledChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is true)
+        {
+            TxtBuscador.Focus();
+        }
+    }
+
+    /// <summary>
     /// Desplaza el desplegable hasta la fila seleccionada con el teclado. Solo se llama desde las flechas: si se
     /// llamara también al seleccionar con el hover, la lista se movería debajo del mouse y seleccionaría otra fila.
     /// </summary>
@@ -108,73 +120,19 @@ public partial class PosView : UserControl
     }
 
     /// <summary>
-    /// El primer clic sobre la cantidad solo enfoca la celda (y selecciona el número): así el cajero tipea "100" y
-    /// reemplaza el valor, en lugar de que el clic ubique el cursor en medio del número.
+    /// Enter confirma la cantidad (ya está aplicada: SelectorCantidad la actualiza mientras se escribe) y Esc la descarta
+    /// (el selector ya la deshizo); en los dos casos el foco vuelve al buscador para seguir escaneando sin mouse. Se marca
+    /// como atendida para que la grilla no use Enter para bajar de fila.
     /// </summary>
-    private void OnCantidadPreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    private void OnCantidadKeyDown(object sender, KeyEventArgs e)
     {
-        if (sender is TextBox { IsKeyboardFocusWithin: false } celda)
-        {
-            celda.Focus();
-            e.Handled = true;
-        }
-    }
-
-    private void OnCantidadGotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
-    {
-        if (sender is TextBox celda)
-        {
-            celda.SelectAll();
-        }
-    }
-
-    /// <summary>
-    /// Enter confirma la cantidad y Esc la descarta; en los dos casos el foco vuelve al buscador para seguir
-    /// escaneando sin mouse.
-    /// </summary>
-    private void OnCantidadPreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        if (sender is not TextBox celda || e.Key is not (Key.Enter or Key.Escape))
+        if (e.Key is not (Key.Enter or Key.Escape))
         {
             return;
         }
 
-        var enlace = celda.GetBindingExpression(TextBox.TextProperty);
-        if (e.Key == Key.Enter)
-        {
-            enlace?.UpdateSource();
-        }
-
-        // Esc, o un texto que no es un número: se vuelve a mostrar la cantidad vigente (D-25)
-        if (e.Key == Key.Escape || Validation.GetHasError(celda))
-        {
-            enlace?.UpdateTarget();
-        }
-
         TxtBuscador.Focus();
         e.Handled = true;
-    }
-
-    /// <summary>
-    /// Al salir de la celda (Tab o clic afuera) el binding ya intentó guardar el valor. Si el texto no era un número,
-    /// la celda quedaría mostrando el error: se vuelve a mostrar la cantidad vigente (D-25). Los números menores a 1
-    /// los rechaza ItemVentaPosViewModel.
-    /// </summary>
-    private void OnCantidadLostFocus(object sender, RoutedEventArgs e)
-    {
-        if (sender is TextBox celda && Validation.GetHasError(celda))
-        {
-            celda.GetBindingExpression(TextBox.TextProperty)?.UpdateTarget();
-        }
-    }
-
-    /// <summary>
-    /// Tras ajustar la cantidad con - o + el foco vuelve al buscador, igual que con Enter o Esc. El clic ya movió el
-    /// foco al botón (eso confirma lo escrito en la celda), así que el botón no queda marcado como seleccionado.
-    /// </summary>
-    private void OnAjusteCantidadClick(object sender, RoutedEventArgs e)
-    {
-        TxtBuscador.Focus();
     }
 
     private ListBoxItem? ResultadoBajo(object origen)

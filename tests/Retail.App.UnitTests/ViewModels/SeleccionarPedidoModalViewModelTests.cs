@@ -33,6 +33,8 @@ public sealed class SeleccionarPedidoModalViewModelTests : IDisposable
             new()
             {
                 IdPedido = 101,
+                IdProveedor = IdProveedor,
+                RazonSocialProveedor = "Editorial Norte S.A.",
                 FechaEmision = DateTime.UtcNow.AddDays(-1),
                 CantidadRenglones = 3,
                 TotalEstimado = 15000m,
@@ -40,6 +42,8 @@ public sealed class SeleccionarPedidoModalViewModelTests : IDisposable
             new()
             {
                 IdPedido = 102,
+                IdProveedor = IdProveedor,
+                RazonSocialProveedor = "Editorial Norte S.A.",
                 FechaEmision = DateTime.UtcNow,
                 CantidadRenglones = 1,
                 TotalEstimado = 5000m,
@@ -91,6 +95,8 @@ public sealed class SeleccionarPedidoModalViewModelTests : IDisposable
         var pedido = new PedidoEmitidoDto
         {
             IdPedido = 50,
+            IdProveedor = IdProveedor,
+            RazonSocialProveedor = "Editorial Norte S.A.",
             FechaEmision = DateTime.UtcNow,
             CantidadRenglones = 2,
             TotalEstimado = 8900m,
@@ -135,7 +141,7 @@ public sealed class SeleccionarPedidoModalViewModelTests : IDisposable
             .ListarEmitidosPorProveedorAsync(IdProveedor, Arg.Any<CancellationToken>())
             .Returns(new List<PedidoEmitidoDto>
             {
-                new() { IdPedido = 1, FechaEmision = DateTime.UtcNow, CantidadRenglones = 1, TotalEstimado = 100m },
+                new() { IdPedido = 1, IdProveedor = IdProveedor, RazonSocialProveedor = "Editorial Norte S.A.", FechaEmision = DateTime.UtcNow, CantidadRenglones = 1, TotalEstimado = 100m },
             });
         await _sut.CargarPedidosCommand.ExecuteAsync(null);
         _sut.EstaVacio.Should().BeFalse();
@@ -157,6 +163,50 @@ public sealed class SeleccionarPedidoModalViewModelTests : IDisposable
     public void RazonSocialProveedor_AlConstruir_ExponeElNombreParaElEncabezado()
     {
         _sut.RazonSocialProveedor.Should().Be("Editorial Norte S.A.");
+    }
+
+    [Fact]
+    public void MostrarProveedor_ConProveedor_EsFalso()
+    {
+        _sut.MostrarProveedor.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CargarPedidosAsync_SinProveedor_ListaLosEmitidosDeTodosYMuestraLaColumnaProveedor()
+    {
+        // Arrange
+        using var sinProveedor = new SeleccionarPedidoModalViewModel(null, null, _pedidoService, _logger);
+        _pedidoService
+            .ListarEmitidosAsync(Arg.Any<CancellationToken>())
+            .Returns(new List<PedidoEmitidoDto>
+            {
+                new() { IdPedido = 1, IdProveedor = 1, RazonSocialProveedor = "Proveedor A", FechaEmision = DateTime.UtcNow, CantidadRenglones = 1, TotalEstimado = 100m },
+                new() { IdPedido = 2, IdProveedor = 2, RazonSocialProveedor = "Proveedor B", FechaEmision = DateTime.UtcNow, CantidadRenglones = 1, TotalEstimado = 200m },
+            });
+
+        // Act
+        await sinProveedor.CargarPedidosCommand.ExecuteAsync(null);
+
+        // Assert
+        sinProveedor.MostrarProveedor.Should().BeTrue();
+        sinProveedor.Pedidos.Should().HaveCount(2);
+        await _pedidoService.Received(1).ListarEmitidosAsync(Arg.Any<CancellationToken>());
+        await _pedidoService.DidNotReceive().ListarEmitidosPorProveedorAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CargarPedidosAsync_ConProveedor_NoLlamaAlListadoDeTodos()
+    {
+        // Arrange
+        _pedidoService
+            .ListarEmitidosPorProveedorAsync(IdProveedor, Arg.Any<CancellationToken>())
+            .Returns(new List<PedidoEmitidoDto>());
+
+        // Act
+        await _sut.CargarPedidosCommand.ExecuteAsync(null);
+
+        // Assert
+        await _pedidoService.DidNotReceive().ListarEmitidosAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

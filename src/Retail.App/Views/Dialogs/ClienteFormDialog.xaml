@@ -51,10 +51,7 @@
                 <!-- Grupo 1: Identificación y Datos Fiscales -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularUser" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Identificación del Cliente" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Identificación del Cliente" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <!-- Razón Social o Nombre -->
                         <TextBlock Text="Razón Social o Nombre Completo *"
@@ -107,10 +104,7 @@
                 <!-- Grupo 2: Contacto y Domicilio -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularMap" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Contacto y Domicilio Fiscal" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Contacto y Domicilio Fiscal" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <TextBlock Text="Domicilio Fiscal"
                                    Style="{StaticResource TextBlockBodySecondary}"
@@ -150,10 +144,7 @@
                 <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
                         <DockPanel Margin="{StaticResource StackMd}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <iconPacks:PackIconBoxIcons Kind="RegularWallet" Style="{StaticResource CardHeaderIconStyle}" />
-                                <TextBlock Text="Cuenta Corriente Comercial" Style="{StaticResource CardHeaderTextStyle}" />
-                            </StackPanel>
+                            <TextBlock Text="Cuenta Corriente Comercial" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
                             <CheckBox IsChecked="{Binding TieneCuentaCorriente, Mode=TwoWay}"
                                       Content="Habilitada"
                                       HorizontalAlignment="Right"

@@ -14,7 +14,7 @@
                   ResizeMode="NoResize">
 
     <!-- Modal de referencia de la galería (patrón "una sola superficie"): encabezado, secciones blancas sin borde con su
-         ícono y título, y pie sin franja. No guarda nada: Esc o la ✕ cierran, Enter acepta (IsDefault). -->
+         título (solo texto, en el gris de las etiquetas, R5), y pie sin franja. No guarda nada: Esc o la ✕ cierran, Enter acepta (IsDefault). -->
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -28,10 +28,7 @@
             <!-- Sección 1 -->
             <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularUser" Style="{StaticResource CardHeaderIconStyle}" />
-                        <TextBlock Text="Datos del cliente" Style="{StaticResource CardHeaderTextStyle}" />
-                    </StackPanel>
+                    <TextBlock Text="Datos del cliente" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                     <TextBlock Text="Nombre o razón social *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
                     <ui:TextBox x:Name="CampoNombre" PlaceholderText="ej. Librería del Centro" Margin="{StaticResource StackMd}" />
@@ -48,10 +45,7 @@
             <!-- Sección 2 -->
             <Border Style="{StaticResource DialogSectionStyle}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularWallet" Style="{StaticResource CardHeaderIconStyle}" />
-                        <TextBlock Text="Cuenta corriente" Style="{StaticResource CardHeaderTextStyle}" />
-                    </StackPanel>
+                    <TextBlock Text="Cuenta corriente" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                     <CheckBox Content="Habilitar cuenta corriente" IsChecked="True" Margin="{StaticResource StackMd}" />
 

@@ -51,10 +51,7 @@
                 <!-- Grupo de Datos del Distribuidor -->
                 <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularStore" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Datos del Distribuidor" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Datos del Distribuidor" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <!-- Razón Social -->
                         <TextBlock Text="Razón Social *"

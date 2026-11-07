@@ -162,6 +162,27 @@ public class PedidosViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task FiltroFecha_AplicaUnRango_ConsultaConLosExtremosEnUtcDesdeLaPrimeraPagina()
+    {
+        await _sut.InicializarAsync();
+        _sut.PaginaActual = 3;
+
+        _sut.FiltroFecha.BorradorDesde = new DateTime(2026, 10, 26);
+        _sut.FiltroFecha.BorradorHasta = new DateTime(2026, 10, 28);
+        _sut.FiltroFecha.AplicarCommand.Execute(null);
+
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        _sut.PaginaActual.Should().Be(1);
+        await _pedidoService.Received(1).ListarPedidosAsync(
+            Arg.Is<ConsultaPedidosDto>(c =>
+                c.FechaDesdeUtc == new DateTime(2026, 10, 26, 3, 0, 0) &&
+                c.FechaHastaUtc == new DateTime(2026, 10, 29, 3, 0, 0) &&
+                c.Pagina == 1),
+            Arg.Any<CancellationToken>());
+        _sut.HayFiltrosActivos.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task FiltroProveedor_AplicaUnProveedor_ConsultaPorEseProveedor()
     {
         await _sut.InicializarAsync();
@@ -364,31 +385,233 @@ public class PedidosViewModelTests : IDisposable
         _dialogService.Received(1).MostrarError("Error inesperado", Arg.Is<string>(m => !m.Contains("detalle interno")));
     }
 
-    [Fact]
-    public async Task AplicarCantidadCommand_RenglonConCambios_GuardaLaNuevaCantidad()
+    // ------------------------------------------------------------------ //
+    // Guardar cambios de cantidad (G3): todos los renglones juntos         //
+    // ------------------------------------------------------------------ //
+
+    private async Task SeleccionarConRenglonesAsync(int renglones)
     {
+        PrepararDetalle(EstadoPedidoEnum.Borrador, renglones);
         await InicializarYSeleccionarAsync();
-        var renglon = _sut.Renglones.Single();
-        renglon.Cantidad = 7;
+    }
 
-        await _sut.AplicarCantidadCommand.ExecuteAsync(renglon);
+    [Fact]
+    public async Task GuardarCambiosCommand_SinCantidadesEditadas_EstaDeshabilitado()
+    {
+        await SeleccionarConRenglonesAsync(2);
 
-        await _pedidoService.Received(1).CambiarCantidadAsync(
-            Arg.Is<CambiarCantidadRenglonDto>(d => d.IdPedido == IdPedido && d.IdCatalogoProveedor == IdCatalogo && d.Cantidad == 7),
+        _sut.HayCambiosSinGuardar.Should().BeFalse();
+        _sut.GuardarCambiosCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GuardarCambiosCommand_AlEditarUnaCantidad_SeHabilitaYAvisaElCambio()
+    {
+        await SeleccionarConRenglonesAsync(2);
+        var avisos = new List<string?>();
+        _sut.PropertyChanged += (_, e) => avisos.Add(e.PropertyName);
+
+        _sut.Renglones[0].Cantidad = 7;
+
+        _sut.HayCambiosSinGuardar.Should().BeTrue();
+        _sut.GuardarCambiosCommand.CanExecute(null).Should().BeTrue();
+        avisos.Should().Contain(nameof(PedidosViewModel.HayCambiosSinGuardar));
+    }
+
+    [Fact]
+    public async Task GuardarCambiosCommand_VariosRenglonesEditados_LosGuardaJuntosEnUnaSolaLlamada()
+    {
+        await SeleccionarConRenglonesAsync(3);
+        _sut.Renglones[0].Cantidad = 7;
+        _sut.Renglones[2].Cantidad = 11;
+
+        await _sut.GuardarCambiosCommand.ExecuteAsync(null);
+
+        await _pedidoService.Received(1).CambiarCantidadesAsync(
+            Arg.Is<CambiarCantidadesPedidoDto>(d =>
+                d.IdPedido == IdPedido
+                && d.Renglones.Count == 2
+                && d.Renglones.Any(r => r.IdCatalogoProveedor == IdCatalogo && r.Cantidad == 7)
+                && d.Renglones.Any(r => r.IdCatalogoProveedor == IdCatalogo + 2 && r.Cantidad == 11)),
             Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task AplicarCantidadCommand_CantidadInvalida_NoLlamaAlServicio()
+    public async Task GuardarCambiosCommand_TrasGuardar_RecargaYLaPantallaQuedaSinCambiosPendientes()
     {
-        await InicializarYSeleccionarAsync();
-        var renglon = _sut.Renglones.Single();
-        renglon.Cantidad = 0;
+        await SeleccionarConRenglonesAsync(1);
+        _sut.Renglones[0].Cantidad = 7;
+        PrepararDetalle(EstadoPedidoEnum.Borrador);
+        _pedidoService.ClearReceivedCalls();
 
-        await _sut.AplicarCantidadCommand.ExecuteAsync(renglon);
+        await _sut.GuardarCambiosCommand.ExecuteAsync(null);
 
-        renglon.TieneCambios.Should().BeFalse();
-        await _pedidoService.DidNotReceive().CambiarCantidadAsync(Arg.Any<CambiarCantidadRenglonDto>(), Arg.Any<CancellationToken>());
+        await _pedidoService.Received(1).ListarPedidosAsync(Arg.Any<ConsultaPedidosDto>(), Arg.Any<CancellationToken>());
+        await EsperarAsync(() => !_sut.HayCambiosSinGuardar && _sut.Renglones.Count == 1);
+    }
+
+    [Fact]
+    public async Task GuardarCambiosCommand_CantidadMenorAUno_NoCuentaComoCambio()
+    {
+        await SeleccionarConRenglonesAsync(1);
+
+        _sut.Renglones[0].Cantidad = 0;
+
+        _sut.Renglones[0].TieneCambios.Should().BeFalse();
+        _sut.GuardarCambiosCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GuardarCambiosCommand_ValidacionRechazada_MuestraElMensajeEnLineaSinRecargar()
+    {
+        await SeleccionarConRenglonesAsync(1);
+        _sut.Renglones[0].Cantidad = 7;
+        _pedidoService.CambiarCantidadesAsync(Arg.Any<CambiarCantidadesPedidoDto>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ValidationException(new[] { new ValidationFailure("Renglones", "La cantidad pedida debe ser al menos 1.") }));
+        _pedidoService.ClearReceivedCalls();
+
+        await _sut.GuardarCambiosCommand.ExecuteAsync(null);
+
+        _sut.MensajeError.Should().Be("La cantidad pedida debe ser al menos 1.");
+        await _pedidoService.DidNotReceive().ListarPedidosAsync(Arg.Any<ConsultaPedidosDto>(), Arg.Any<CancellationToken>());
+        _sut.Renglones[0].Cantidad.Should().Be(7, "lo escrito no se pierde si el guardado se rechaza");
+    }
+
+    // ------------------------------------------------------------------ //
+    // Emitir guarda primero lo que hay en pantalla                          //
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task EmitirCommand_ConCantidadesSinGuardar_LasGuardaPrimeroYDespuesEmite()
+    {
+        await SeleccionarConRenglonesAsync(1);
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        _sut.Renglones[0].Cantidad = 7;
+
+        await _sut.EmitirCommand.ExecuteAsync(null);
+
+        _dialogService.Received(1).Confirmar("Emitir pedido", Arg.Is<string>(m => m.Contains("Se guardarán 1 cambio(s)")));
+        Received.InOrder(() =>
+        {
+            _pedidoService.CambiarCantidadesAsync(
+                Arg.Is<CambiarCantidadesPedidoDto>(d => d.Renglones.Single().Cantidad == 7),
+                Arg.Any<CancellationToken>());
+            _pedidoService.EmitirAsync(IdPedido, Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task EmitirCommand_SinCantidadesSinGuardar_NoGuardaNadaYElMensajeNoMencionaGuardado()
+    {
+        await SeleccionarConRenglonesAsync(1);
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+
+        await _sut.EmitirCommand.ExecuteAsync(null);
+
+        _dialogService.Received(1).Confirmar("Emitir pedido", Arg.Is<string>(m => !m.Contains("Se guardarán")));
+        await _pedidoService.DidNotReceive().CambiarCantidadesAsync(Arg.Any<CambiarCantidadesPedidoDto>(), Arg.Any<CancellationToken>());
+        await _pedidoService.Received(1).EmitirAsync(IdPedido, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task EmitirCommand_ElGuardadoFalla_NoEmite()
+    {
+        await SeleccionarConRenglonesAsync(1);
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        _sut.Renglones[0].Cantidad = 7;
+        _pedidoService.CambiarCantidadesAsync(Arg.Any<CambiarCantidadesPedidoDto>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new ConflictoDeConcurrenciaException());
+
+        await _sut.EmitirCommand.ExecuteAsync(null);
+
+        await _pedidoService.DidNotReceive().EmitirAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _dialogService.Received(1).MostrarAlerta("Pedido modificado en otra terminal", Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task EmitirCommand_ElUsuarioNoConfirma_NoGuardaNiEmite()
+    {
+        await SeleccionarConRenglonesAsync(1);
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+        _sut.Renglones[0].Cantidad = 7;
+
+        await _sut.EmitirCommand.ExecuteAsync(null);
+
+        await _pedidoService.DidNotReceive().CambiarCantidadesAsync(Arg.Any<CambiarCantidadesPedidoDto>(), Arg.Any<CancellationToken>());
+        await _pedidoService.DidNotReceive().EmitirAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _sut.Renglones[0].Cantidad.Should().Be(7);
+    }
+
+    // ------------------------------------------------------------------ //
+    // No perder cantidades sin guardar en silencio                          //
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task PedidoSeleccionado_ConCantidadesSinGuardarYSinDescartar_VuelveAlPedidoAnteriorConSuEdicion()
+    {
+        await SeleccionarConRenglonesAsync(1);
+        _dialogService.Confirmar("Cantidades sin guardar", Arg.Any<string>()).Returns(false);
+        var fila = _sut.PedidoSeleccionado;
+        _sut.Renglones[0].Cantidad = 7;
+
+        _sut.PedidoSeleccionado = null;
+
+        _sut.PedidoSeleccionado.Should().BeSameAs(fila, "el usuario eligió quedarse a guardar");
+        _sut.Renglones[0].Cantidad.Should().Be(7);
+        _sut.HayCambiosSinGuardar.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PedidoSeleccionado_ConCantidadesSinGuardarYDescartando_CambiaYLimpiaElDetalle()
+    {
+        await SeleccionarConRenglonesAsync(1);
+        _dialogService.Confirmar("Cantidades sin guardar", Arg.Any<string>()).Returns(true);
+        _sut.Renglones[0].Cantidad = 7;
+
+        _sut.PedidoSeleccionado = null;
+
+        _sut.PedidoSeleccionado.Should().BeNull();
+        _sut.Detalle.Should().BeNull();
+        _sut.HayCambiosSinGuardar.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PedidoSeleccionado_SinCantidadesSinGuardar_NoPreguntaNada()
+    {
+        await SeleccionarConRenglonesAsync(1);
+
+        _sut.PedidoSeleccionado = null;
+
+        _dialogService.DidNotReceive().Confirmar("Cantidades sin guardar", Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task CargarPedidos_ConCantidadesEnEdicion_LasConservaSinPreguntar()
+    {
+        // Una recarga de la lista (filtros, páginas) no es el usuario eligiendo otro pedido
+        await SeleccionarConRenglonesAsync(1);
+        var renglon = _sut.Renglones[0];
+        renglon.Cantidad = 7;
+        _dialogService.ClearReceivedCalls();
+
+        await _sut.CargarPedidosAsync();
+
+        _sut.Renglones.Single().Should().BeSameAs(renglon);
+        renglon.Cantidad.Should().Be(7);
+        _sut.HayCambiosSinGuardar.Should().BeTrue();
+        _dialogService.DidNotReceive().Confirmar(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task QuitarRenglonCommand_ConCantidadesSinGuardar_AvisaQueSeDescartan()
+    {
+        await SeleccionarConRenglonesAsync(2);
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        _sut.Renglones[0].Cantidad = 7;
+
+        await _sut.QuitarRenglonCommand.ExecuteAsync(_sut.Renglones[1]);
+
+        _dialogService.Received(1).Confirmar("Quitar renglón", Arg.Is<string>(m => m.Contains("1 cambio(s) de cantidad sin guardar")));
     }
 
     [Fact]

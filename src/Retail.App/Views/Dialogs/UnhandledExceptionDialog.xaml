@@ -73,10 +73,7 @@
                 <!-- Información del Archivo de Log -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularFile" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Registro de auditoría local (log)" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Registro de auditoría local (log)" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
                         <TextBlock x:Name="TxtLogFilePath"
                                    Text="logs/retail-YYYYMMDD.log"
                                    FontFamily="{StaticResource FontFamilyMonospace}"
@@ -89,10 +86,7 @@
                 <!-- Panel de Detalles Técnicos -->
                 <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularBug" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Diagnóstico técnico para soporte" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Diagnóstico técnico para soporte" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
 
                         <TextBlock x:Name="TxtExceptionType"
                                    Text="System.Exception"

@@ -26,7 +26,7 @@
             <components:PageHeader
                                    Margin="{StaticResource StackSm}"
                                    Titulo="Ventas"
-                                   Subtitulo="Control de turno actual, arqueos y movimientos de efectivo.">
+                                   Descripcion="Control de turno actual, arqueos y movimientos de efectivo.">
                 <StackPanel Orientation="Horizontal">
                     <Button Command="{Binding AbrirTurnoCommand}"
                             Style="{StaticResource PrimaryActionButtonStyle}"

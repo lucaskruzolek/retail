@@ -5,11 +5,11 @@ using System.Windows.Input;
 namespace Retail.App.Views.Components;
 
 /// <summary>
-/// Barra superior de un listado: buscador, "Limpiar filtros", e indicador de carga. La página
+/// Barra superior de un listado: buscador y "Limpiar filtros" (la carga se indica en el encabezado de la página). La página
 /// la enlaza a su ViewModel por propiedades de dependencia (el texto de búsqueda en ambos sentidos).
 /// <para>
-/// Mientras <see cref="HaySeleccion"/> es verdadero, <see cref="AccionesDeSeleccion"/> (la <see cref="BulkActionBar"/> de
-/// la página) reemplaza a "Limpiar filtros" y la carga; el buscador sigue a la vista. Las acciones no tienen
+/// <see cref="AccionesDeSeleccion"/> (la <see cref="BulkActionBar"/> de la página) va siempre a la derecha: el badge de
+/// cantidad aparece con filas marcadas y sus botones se habilitan solo entonces. Las acciones no tienen
 /// padre lógico, así que heredan el DataContext por el árbol visual: el de la página, y sus comandos se enlazan directo.
 /// </para>
 /// </summary>
@@ -28,18 +28,28 @@ public partial class ListToolbar : UserControl
     public static readonly DependencyProperty ComandoLimpiarProperty =
         DependencyProperty.Register(nameof(ComandoLimpiar), typeof(ICommand), typeof(ListToolbar), new PropertyMetadata(null));
 
-    public static readonly DependencyProperty EstaCargandoProperty =
-        DependencyProperty.Register(nameof(EstaCargando), typeof(bool), typeof(ListToolbar), new PropertyMetadata(false));
-
-    public static readonly DependencyProperty HaySeleccionProperty =
-        DependencyProperty.Register(nameof(HaySeleccion), typeof(bool), typeof(ListToolbar), new PropertyMetadata(false));
-
     public static readonly DependencyProperty AccionesDeSeleccionProperty =
         DependencyProperty.Register(nameof(AccionesDeSeleccion), typeof(object), typeof(ListToolbar), new PropertyMetadata(null));
+
+    public static readonly DependencyProperty BuscadorHabilitadoProperty =
+        DependencyProperty.Register(nameof(BuscadorHabilitado), typeof(bool), typeof(ListToolbar), new PropertyMetadata(true));
 
     public ListToolbar()
     {
         InitializeComponent();
+    }
+
+    /// <summary>
+    /// El cuadro de búsqueda, para las páginas que cuelgan de él un desplegable de resultados (el de Ingresos) o atienden
+    /// sus teclas (flechas, Enter y Esc).
+    /// </summary>
+    public TextBox Buscador => CuadroBusqueda;
+
+    /// <summary>Un buscador deshabilitado no recibe texto: la página lo apaga mientras le falta un dato previo.</summary>
+    public bool BuscadorHabilitado
+    {
+        get => (bool)GetValue(BuscadorHabilitadoProperty);
+        set => SetValue(BuscadorHabilitadoProperty, value);
     }
 
     public string Texto
@@ -58,18 +68,6 @@ public partial class ListToolbar : UserControl
     {
         get => (ICommand?)GetValue(ComandoLimpiarProperty);
         set => SetValue(ComandoLimpiarProperty, value);
-    }
-
-    public bool EstaCargando
-    {
-        get => (bool)GetValue(EstaCargandoProperty);
-        set => SetValue(EstaCargandoProperty, value);
-    }
-
-    public bool HaySeleccion
-    {
-        get => (bool)GetValue(HaySeleccionProperty);
-        set => SetValue(HaySeleccionProperty, value);
     }
 
     public object? AccionesDeSeleccion
