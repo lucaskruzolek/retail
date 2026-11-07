@@ -7,6 +7,7 @@ using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Auth;
+using Retail.App.ViewModels.Ayuda;
 using Retail.App.ViewModels.Backups;
 using Retail.App.ViewModels.Caja;
 using Retail.App.ViewModels.Clientes;
@@ -201,6 +202,23 @@ public class DialogosSnapshotTests
 
             var dialogo = new CambiarPasswordDialog(viewModel);
             return SnapshotRenderer.Guardar(dialogo, 460, 414, carpeta + "/CambiarPasswordDialog");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void AyudaDialog_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            // El Gerente es el rol con más atajos: la lista más larga es la que pone a prueba el desplazamiento.
+            var viewModel = new AyudaViewModel(RolUsuarioEnum.Gerente, Substitute.For<IAyudaDialogService>());
+
+            var dialogo = new AyudaDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 580, 680, carpeta + "/AyudaDialog");
         });
 
         VerificarCaptura(ruta, error);
