@@ -42,10 +42,7 @@
             <!-- 1. Tarjeta resumen del ítem mayorista -->
             <Border Grid.Row="0" Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackSm}">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularStore" Style="{StaticResource CardHeaderIconStyle}" />
-                        <TextBlock Text="Ítem del Catálogo Mayorista" Style="{StaticResource CardHeaderTextStyle}" />
-                    </StackPanel>
+                    <TextBlock Text="Ítem del Catálogo Mayorista" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
                     <TextBlock Text="{Binding ItemCatalogo.DescripcionProveedor}" FontWeight="SemiBold" FontSize="{StaticResource FontSizeMd}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="{StaticResource StackXs}" />
                     <!-- Etiqueta | valor: los valores arrancan en la misma columna -->
                     <Grid>
@@ -110,10 +107,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="16,16,16,12">
-                        <iconPacks:PackIconBoxIcons Kind="RegularSearch" Style="{StaticResource CardHeaderIconStyle}" />
-                        <TextBlock Text="Artículos de la Tienda" Style="{StaticResource CardHeaderTextStyle}" />
-                    </StackPanel>
+                    <TextBlock Text="Artículos de la Tienda" Style="{StaticResource CardHeaderTextStyle}" Margin="16,16,16,12" />
                 <DataGrid Grid.Row="1"
                           ItemsSource="{Binding ArticulosEncontrados}"
                           SelectedItem="{Binding ArticuloSeleccionado, Mode=TwoWay}"

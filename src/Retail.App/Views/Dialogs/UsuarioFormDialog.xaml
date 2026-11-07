@@ -50,10 +50,7 @@
                 <!-- Sección 1: identificación del operador -->
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularUser" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Datos del Operador" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Datos del Operador" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <!-- Nombre de Usuario -->
                         <TextBlock Text="Nombre de Usuario (Login)" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
@@ -81,10 +78,7 @@
                 <!-- Sección 2: acceso y recuperación -->
                 <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularLock" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Acceso y Seguridad" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Acceso y Seguridad" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <!-- Contraseña (Solo en Alta) -->
                         <StackPanel Visibility="{Binding EsAlta, Converter={StaticResource BoolToVisConverter}}">

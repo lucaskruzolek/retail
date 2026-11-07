@@ -114,153 +114,130 @@
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
             <components:PageHeader Margin="{StaticResource StackSm}"
-                                   Titulo="Compras">
-                <StackPanel Orientation="Horizontal">
-                    <Border Style="{StaticResource BadgeDangerStyle}"
-                            Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
-                        <TextBlock Text="{Binding MensajeError}" FontSize="{StaticResource FontSizeSm}" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" TextWrapping="Wrap" MaxWidth="420" />
-                    </Border>
-                </StackPanel>
-            </components:PageHeader>
+                                   Titulo="Compras"
+                                   Descripcion="Ingresos · Recepción de mercadería y carga de lo recibido contra un pedido." />
             <components:NavegadorSeccion SeccionId="compras" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- ============================================================= -->
-        <!-- 1. COMPROBANTE: proveedor, tipo, número, fecha y origen       -->
+        <!-- 1. COMPROBANTE (sin tarjeta): proveedor, tipo, número, fecha y pedido vinculado -->
         <!-- ============================================================= -->
-        <Border Grid.Row="1" Style="{StaticResource CardBorderStyle}" Margin="{StaticResource SectionSpacing}">
-            <StackPanel>
-                <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                    <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Style="{StaticResource CardHeaderIconStyle}" />
-                    <TextBlock Text="Comprobante" Style="{StaticResource CardHeaderTextStyle}" />
-                </StackPanel>
+        <Grid Grid.Row="1" Margin="{StaticResource SectionSpacing}" HorizontalAlignment="Left">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="360" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="200" />
+                <ColumnDefinition Width="160" />
+            </Grid.ColumnDefinitions>
 
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="220" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="200" />
-                        <ColumnDefinition Width="160" />
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Proveedor -->
-                    <StackPanel Grid.Column="0" Margin="{StaticResource ColumnSpacing}">
-                        <TextBlock Text="Proveedor *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
-                        <ComboBox ItemsSource="{Binding Proveedores}"
-                                  SelectedItem="{Binding ProveedorSeleccionado}"
-                                  DisplayMemberPath="RazonSocial"
-                                  Height="{StaticResource ControlHeight}"
-                                  AutomationProperties.Name="Proveedor" />
-                    </StackPanel>
-
-                    <!-- Tipo de comprobante: dos opciones fijas, un solo binding con el valor en ConverterParameter -->
-                    <StackPanel Grid.Column="1" Margin="{StaticResource ColumnSpacing}">
-                        <TextBlock Text="Tipo *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
-                        <components:SelectorSegmentado>
-                            <UniformGrid Columns="2">
-                                <RadioButton GroupName="TipoComprobanteCompra"
-                                             IsChecked="{Binding TipoComprobante, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter=FACTURA}"
-                                             AutomationProperties.Name="Factura"
-                                             Style="{StaticResource SegmentedRadioButtonStyle}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                                        <TextBlock Text="Factura" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </RadioButton>
-                                <RadioButton GroupName="TipoComprobanteCompra"
-                                             IsChecked="{Binding TipoComprobante, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter=REMITO}"
-                                             AutomationProperties.Name="Remito"
-                                             Style="{StaticResource SegmentedRadioButtonStyle}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                                        <TextBlock Text="Remito" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </RadioButton>
-                            </UniformGrid>
-                        </components:SelectorSegmentado>
-                    </StackPanel>
-
-                    <!-- Número: es un código, va en monoespaciada -->
-                    <StackPanel Grid.Column="2" Margin="{StaticResource ColumnSpacing}">
-                        <TextBlock Text="Número *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
-                        <ui:TextBox Text="{Binding NumeroComprobante, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="0001-00000123"
-                                    Height="{StaticResource ControlHeight}"
-                                    FontFamily="{StaticResource FontFamilyMonospace}"
-                                    AutomationProperties.Name="Número de comprobante" />
-                    </StackPanel>
-
-                    <!-- Fecha de emisión -->
-                    <StackPanel Grid.Column="3">
-                        <TextBlock Text="Fecha *" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
-                        <components:SelectorFechaCorta Style="{StaticResource DatePickerRetailStyle}"
-                                                       SelectedDate="{Binding FechaEmision}"
-                                                       Language="es-AR"
-                                                       SelectedDateFormat="Short"
-                                                       Height="{StaticResource ControlHeight}"
-                                                       AutomationProperties.Name="Fecha de emisión" />
-                    </StackPanel>
-                </Grid>
-
-                <!-- Origen: recibir un pedido emitido, o el pedido ya vinculado -->
-                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                    <TextBlock Text="Origen" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" Margin="{StaticResource InlineMd}" />
-
-                    <Button Command="{Binding ImportarPedidoCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Visibility="{Binding TienePedidoOrigen, Converter={StaticResource InverseBoolToVisConverter}}"
-                            ToolTip="Cargar los renglones de un pedido emitido a este proveedor"
-                            ToolTipService.ShowOnDisabled="True">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                            <TextBlock Text="Recibir pedido emitido…" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </Button>
-
-                    <Border Style="{StaticResource BadgeNeutralStyle}"
-                            Visibility="{Binding TienePedidoOrigen, Converter={StaticResource BoolToVisConverter}}"
-                            VerticalAlignment="Center">
-                        <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14"
-                                                        Foreground="{DynamicResource TextSecondaryBrush}"
-                                                        Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding InformacionPedidoOrigen}" Style="{StaticResource BadgeNeutralTextStyle}" />
-                            <Button Command="{Binding DesvincularPedidoCommand}"
-                                    Style="{StaticResource BadgeCancelButtonStyle}"
-                                    Margin="8,0,0,0"
-                                    VerticalAlignment="Center"
-                                    ToolTip="Desvincular el pedido (los renglones se conservan)"
-                                    AutomationProperties.Name="Desvincular pedido">
-                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="9" Height="9" />
-                            </Button>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+            <!-- Proveedor: la primera opción, "Todos los proveedores", es el valor inicial (ningún proveedor elegido).
+                 Se enlaza por Id para no necesitar un conversor de null. -->
+            <StackPanel Grid.Column="0" Margin="{StaticResource ColumnSpacing}">
+                <TextBlock Text="Proveedor" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                <ComboBox x:Name="CmbProveedor"
+                          ItemsSource="{Binding OpcionesProveedor}"
+                          SelectedItem="{Binding OpcionProveedor}"
+                          DisplayMemberPath="RazonSocial"
+                          Height="{StaticResource ControlHeight}"
+                          AutomationProperties.Name="Proveedor" />
             </StackPanel>
-        </Border>
+
+            <!-- Tipo de comprobante: dos opciones fijas, un solo binding con el valor en ConverterParameter -->
+            <StackPanel Grid.Column="1" Margin="{StaticResource ColumnSpacing}">
+                <TextBlock Text="Tipo" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                <components:SelectorSegmentado>
+                    <UniformGrid Columns="2">
+                        <RadioButton
+                                     IsChecked="{Binding TipoComprobante, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter=FACTURA}"
+                                     AutomationProperties.Name="Factura"
+                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                            <TextBlock Text="Factura" VerticalAlignment="Center" />
+                        </RadioButton>
+                        <RadioButton
+                                     IsChecked="{Binding TipoComprobante, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter=REMITO}"
+                                     AutomationProperties.Name="Remito"
+                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                            <TextBlock Text="Remito" VerticalAlignment="Center" />
+                        </RadioButton>
+                    </UniformGrid>
+                </components:SelectorSegmentado>
+            </StackPanel>
+
+            <!-- Número: es un código, va en monoespaciada -->
+            <StackPanel Grid.Column="2" Margin="{StaticResource ColumnSpacing}">
+                <TextBlock Text="Número" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                <ui:TextBox Text="{Binding NumeroComprobante, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="0001-00000123"
+                            Height="{StaticResource ControlHeight}"
+                            FontFamily="{StaticResource FontFamilyMonospace}"
+                            AutomationProperties.Name="Número de comprobante" />
+            </StackPanel>
+
+            <!-- Fecha de emisión -->
+            <StackPanel Grid.Column="3" Margin="{StaticResource ColumnSpacing}">
+                <TextBlock Text="Fecha" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                <components:SelectorFechaUnica Fecha="{Binding FechaEmision, Mode=TwoWay}"
+                                               NombreAutomatizacion="Fecha de emisión" />
+            </StackPanel>
+        </Grid>
 
         <!-- ============================================================= -->
-        <!-- 2. BUSCADOR DE ARTÍCULOS (sin atajo de teclado)               -->
+        <!-- 2. BUSCADOR DE ARTÍCULOS (el de todos los listados) Y, A SU   -->
+        <!--    DERECHA, EL PEDIDO: "Recibir pedido" o su ficha            -->
         <!-- ============================================================= -->
-        <Grid Grid.Row="2" Margin="{StaticResource StackMd}" HorizontalAlignment="Left">
-            <ui:TextBox x:Name="TxtBuscador"
-                        Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                        PlaceholderText="Buscar artículo por nombre o código de barras…"
-                        IsEnabled="{Binding TieneProveedor}"
-                        Width="390"
-                        Height="{StaticResource ControlHeight}"
-                        FontSize="{StaticResource FontSizeMd}"
-                        PreviewKeyDown="OnTxtBuscadorPreviewKeyDown"
-                        AutomationProperties.Name="Buscar artículo">
-                <ui:TextBox.Icon>
-                    <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
-                </ui:TextBox.Icon>
-            </ui:TextBox>
+        <Grid Grid.Row="2" Margin="0,0,0,12">
+            <components:ListToolbar x:Name="BarraBusqueda"
+                                    Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Buscar artículo por nombre o código de barras…"
+                                    BuscadorHabilitado="{Binding TieneProveedor}">
+                <components:ListToolbar.AccionesDeSeleccion>
+                    <StackPanel Orientation="Horizontal">
+                        <!-- Sin pedido: la acción para recibir uno. Se deshabilita solo si el proveedor elegido no es válido -->
+                        <Button Command="{Binding ImportarPedidoCommand}"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                Height="{StaticResource ControlHeight}"
+                                ToolTip="Cargar los artículos de un pedido emitido"
+                                ToolTipService.ShowOnDisabled="True"
+                                Visibility="{Binding TienePedidoOrigen, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                                <TextBlock Text="Recibir pedido" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Con pedido: su ficha, de la altura del buscador. Quitarlo también quita sus artículos -->
+                        <Border Background="{DynamicResource SurfaceSelectedBrush}"
+                                CornerRadius="{StaticResource RadiusMd}"
+                                Height="{StaticResource ControlHeight}"
+                                Padding="12,0,8,0"
+                                Visibility="{Binding TienePedidoOrigen, Converter={StaticResource BoolToVisConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularPackage" Width="14" Height="14"
+                                                            Foreground="{DynamicResource TextSecondaryBrush}"
+                                                            Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding InformacionPedidoOrigen}"
+                                           FontSize="{StaticResource FontSizeMd}"
+                                           FontWeight="Medium"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center" />
+                                <Button Command="{Binding DesvincularPedidoCommand}"
+                                        Style="{StaticResource BadgeCancelButtonStyle}"
+                                        Margin="8,0,0,0"
+                                        VerticalAlignment="Center"
+                                        ToolTip="Quitar el pedido y sus artículos"
+                                        AutomationProperties.Name="Quitar pedido">
+                                    <iconPacks:PackIconBoxIcons Kind="RegularX" Width="9" Height="9" />
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </components:ListToolbar.AccionesDeSeleccion>
+            </components:ListToolbar>
 
             <!-- Desplegable de resultados: mismo patrón que el buscador del POS -->
             <Popup x:Name="PopupResultados"
                    IsOpen="{Binding MostrarResultados, Mode=TwoWay}"
-                   PlacementTarget="{Binding ElementName=TxtBuscador}"
+                   PlacementTarget="{Binding Buscador, ElementName=BarraBusqueda}"
                    Placement="Bottom"
                    StaysOpen="False"
                    AllowsTransparency="True"
@@ -273,7 +250,7 @@
                         CornerRadius="{StaticResource RadiusMd}"
                         Padding="0,4"
                         Margin="8,4,8,12"
-                        Width="{Binding ActualWidth, ElementName=TxtBuscador}"
+                        Width="{Binding Buscador.ActualWidth, ElementName=BarraBusqueda}"
                         MaxHeight="300">
                     <Border.Effect>
                         <DropShadowEffect Color="{StaticResource ElevationShadowColor}"
@@ -355,21 +332,23 @@
                                             MinWidth="240" />
 
                         <!-- Cantidad pedida: solo tiene valor si el renglón viene de un pedido -->
-                        <DataGridTextColumn Header="Pedido"
+                        <DataGridTextColumn x:Name="ColumnaPedido"
+                                            Header="Pedido"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding CantidadPedida, TargetNullValue='—', FallbackValue='—'}"
                                             ElementStyle="{StaticResource CeldaNumericaDerecha}"
                                             Width="84" />
 
-                        <!-- Cantidad recibida (editable) -->
-                        <DataGridTemplateColumn Header="Recibido" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="104">
+                        <!-- Cantidad recibida (SelectorCantidad): se tipea o se ajusta con − y +. Nunca baja de 1: un artículo
+                             que no llegó se quita con la papelera -->
+                        <DataGridTemplateColumn Header="Recibido" HeaderStyle="{StaticResource DataGridColumnHeaderCenterStyle}" Width="128">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBox Text="{Binding Cantidad, UpdateSourceTrigger=PropertyChanged}"
-                                             Style="{StaticResource CeldaEditableStyle}"
-                                             helpers:EntradaNumericaHelper.SoloDigitos="True"
-                                             Width="72"
-                                             AutomationProperties.Name="Cantidad recibida" />
+                                    <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay}"
+                                                                 Minimo="1"
+                                                                 NombreAutomatizacion="Cantidad recibida"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
@@ -423,16 +402,17 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
-                <!-- Estado vacío: dice qué hacer a continuación según haya o no proveedor -->
+                <!-- Estado vacío: dice qué hacer a continuación; las acciones están en la barra del buscador -->
                 <StackPanel HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             Margin="0,32,0,0"
-                            IsHitTestVisible="False"
                             Visibility="{Binding GrillaVacia, Converter={StaticResource BoolToVisConverter}}">
                     <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Width="24" Height="24"
                                                 Foreground="{DynamicResource TextMutedBrush}"
                                                 HorizontalAlignment="Center" Margin="{StaticResource StackSm}" />
-                    <TextBlock Text="{Binding TextoGrillaVacia}" Style="{StaticResource TextBlockBodySecondary}" TextAlignment="Center" />
+                    <TextBlock Text="{Binding TextoGrillaVacia}"
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextAlignment="Center" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -440,7 +420,7 @@
         <!-- ============================================================= -->
         <!-- 3. TOTAL Y REGISTRO                                           -->
         <!-- ============================================================= -->
-        <Border Grid.Row="4" Style="{StaticResource CardBorderStyle}">
+        <Border Grid.Row="4" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource SurfaceBorderBrush}" Padding="0,16,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -450,24 +430,49 @@
 
                 <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,32,0">
                     <TextBlock Text="Total" Style="{StaticResource TextBlockCaption}" Foreground="{DynamicResource TextSecondaryBrush}" />
-                    <TextBlock Text="{Binding TotalCompra, StringFormat=C2}" Style="{StaticResource TextBlockCurrencyLarge}" Language="es-AR" />
+                    <TextBlock Text="{Binding TotalCompra, StringFormat=C2}"
+                               Style="{StaticResource TextBlockCurrencyLarge}"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               Language="es-AR" />
                 </StackPanel>
 
-                <!-- Lo que falta para registrar, o el aviso de la última operación -->
+                <!-- Mientras falte algo: lo cumplido con una tilde y, a continuación, "Faltan: …". El error y el aviso de la
+                     última operación van debajo -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="{StaticResource ColumnSpacing}">
-                    <TextBlock Text="{Binding Faltantes}"
-                               TextWrapping="Wrap"
-                               Margin="{StaticResource StackXs}">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockBodySecondary}">
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding TieneFaltantes}" Value="False">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
+                    <StackPanel Orientation="Horizontal"
+                                Margin="{StaticResource StackXs}"
+                                Visibility="{Binding TieneFaltantes, Converter={StaticResource BoolToVisConverter}}">
+                        <ItemsControl ItemsSource="{Binding RequisitosCumplidos}" Focusable="False">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,16,0">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14"
+                                                                    Foreground="{DynamicResource SuccessForegroundBrush}"
+                                                                    Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding}" Style="{StaticResource TextBlockBodySecondary}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="{Binding TextoFaltantes}" Style="{StaticResource TextBlockBodySecondary}" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularXCircle" Width="14" Height="14"
+                                                    Foreground="{DynamicResource DangerForegroundBrush}"
+                                                    Margin="0,0,8,0" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding MensajeError}"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Foreground="{DynamicResource DangerForegroundBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
                     <Border Style="{StaticResource BadgeSuccessStyle}"
                             HorizontalAlignment="Left"
                             Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
@@ -478,14 +483,12 @@
                 <Button Grid.Column="2"
                         Command="{Binding RegistrarCompraCommand}"
                         Style="{StaticResource PrimaryActionButtonStyle}"
+                        MinWidth="160"
+                        MinHeight="{StaticResource ControlHeightLg}"
+                        ToolTip="[F12]"
+                        ToolTipService.ShowOnDisabled="True"
                         VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                        <TextBlock Text="Registrar compra" VerticalAlignment="Center" />
-                        <Border Style="{StaticResource KeycapPrimaryBadgeStyle}">
-                            <TextBlock Text="F12" Style="{StaticResource TextBlockKeycap}" />
-                        </Border>
-                    </StackPanel>
+                    <TextBlock Text="Registrar compra" VerticalAlignment="Center" />
                 </Button>
             </Grid>
         </Border>

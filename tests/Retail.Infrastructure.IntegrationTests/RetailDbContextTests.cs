@@ -703,4 +703,95 @@ public class RetailDbContextTests : IAsyncLifetime, IDisposable
         dto.CoincideConArticuloTienda.Should().BeTrue();
         dto.CodigoBarras.Should().Be(eanCompartido);
     }
+
+    /// <summary>
+    /// M-82: el motor deja combinaciones distintas de categoría y marca nulas, y EF Core manda solo las columnas
+    /// modificadas. Sin uniformar, cada lote de 42 UPDATE tendría un texto distinto y SQL Server compilaría un plan
+    /// por lote. Los lotes completos tienen que salir idénticos y los valores guardados, exactos.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_ClasificacionesConDistintasColumnasNulas_EnviaLotesCompletosConElMismoTexto()
+    {
+        // Arrange
+        var categoria = Categoria.Crear("Cuadernos", await IdRubroAsync());
+        var marca = Marca.Crear("Rivadavia");
+        var proveedor = Proveedor.Crear("Distribuidora Sur", "30-11111111-8");
+        _context.AddRange(categoria, marca, proveedor);
+        await _context.SaveChangesAsync();
+        _context.CatalogosProveedores.AddRange(Enumerable.Range(1, 100).Select(i => new CatalogoProveedor
+        {
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = $"C-{i:D3}",
+            DescripcionProveedor = $"Ítem {i}",
+            CostoReposicion = 10m
+        }));
+        await _context.SaveChangesAsync();
+
+        var medidor = new MedidorDeComandosSql();
+        await using var contexto = new RetailDbContext(new DbContextOptionsBuilder<RetailDbContext>()
+            .UseSqlServer(_connectionString)
+            .AddInterceptors(medidor)
+            .Options);
+        var items = await contexto.CatalogosProveedores.OrderBy(c => c.Id).ToListAsync();
+        for (var i = 0; i < items.Count; i++)
+        {
+            // Las cuatro formas, repartidas de modo que dos lotes consecutivos no empiecen igual (42 no es múltiplo de 4).
+            items[i].RegistrarClasificacionSugerida(i % 2 == 0 ? categoria.Id : null, i % 4 < 2 ? marca.Id : null);
+        }
+
+        // Act
+        await contexto.SaveChangesAsync();
+
+        // Assert: 100 UPDATE = dos lotes completos de 42 y uno de 16
+        medidor.TextosDeEscritura.Should().HaveCount(3);
+        medidor.TextosDeEscritura[1].Should().Be(medidor.TextosDeEscritura[0]);
+
+        await using var lectura = CrearContexto();
+        var guardados = await lectura.CatalogosProveedores.AsNoTracking().OrderBy(c => c.Id).ToListAsync();
+        guardados.Should().OnlyContain(c => c.FechaClasificacion != null);
+        guardados[0].IdCategoriaSugerida.Should().Be(categoria.Id);
+        guardados[0].IdMarcaSugerida.Should().Be(marca.Id);
+        guardados[1].IdCategoriaSugerida.Should().BeNull();
+        guardados[1].IdMarcaSugerida.Should().Be(marca.Id);
+        guardados[2].IdCategoriaSugerida.Should().Be(categoria.Id);
+        guardados[2].IdMarcaSugerida.Should().BeNull();
+        guardados[3].IdCategoriaSugerida.Should().BeNull();
+        guardados[3].IdMarcaSugerida.Should().BeNull();
+    }
+
+    /// <summary>
+    /// M-82 solo actúa cuando cambia la clasificación: una importación que actualiza el costo no reescribe las
+    /// columnas de la clasificación sugerida.
+    /// </summary>
+    [Fact]
+    public async Task SaveChangesAsync_ItemConSoloElCostoModificado_NoEnviaLasColumnasDeClasificacion()
+    {
+        // Arrange
+        var proveedor = Proveedor.Crear("Distribuidora Sur", "30-11111111-8");
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+        _context.CatalogosProveedores.Add(new CatalogoProveedor
+        {
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = "C-001",
+            DescripcionProveedor = "Cuaderno",
+            CostoReposicion = 10m
+        });
+        await _context.SaveChangesAsync();
+
+        var medidor = new MedidorDeComandosSql();
+        await using var contexto = new RetailDbContext(new DbContextOptionsBuilder<RetailDbContext>()
+            .UseSqlServer(_connectionString)
+            .AddInterceptors(medidor)
+            .Options);
+        var item = await contexto.CatalogosProveedores.SingleAsync();
+        item.CostoReposicion = 12m;
+
+        // Act
+        await contexto.SaveChangesAsync();
+
+        // Assert
+        medidor.TextosDeEscritura.Should().ContainSingle()
+            .Which.Should().NotContain("id_categoria_sugerida").And.NotContain("fecha_clasificacion");
+    }
 }

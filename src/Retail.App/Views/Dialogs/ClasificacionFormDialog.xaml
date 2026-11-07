@@ -49,10 +49,7 @@
 
                 <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Datos de la Clasificación" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Datos de la Clasificación" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
                         <!-- Nombre -->
                         <TextBlock Text="{Binding EtiquetaNombre}"
                                    Style="{StaticResource TextBlockBodySecondary}"

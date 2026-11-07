@@ -45,6 +45,31 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
     }
 
     [Fact]
+    public async Task ListarEmitidos_DeVariosProveedores_DevuelveSoloEmitidosConSuRazonSocial()
+    {
+        // Arrange
+        var proveedorA = await SembrarProveedorAsync("Proveedor A", "30-11111111-8");
+        var proveedorB = await SembrarProveedorAsync("Proveedor B", "30-11223344-6");
+        var deA = await SembrarEmitidoAsync(proveedorA);
+        var deB = await SembrarEmitidoAsync(proveedorB);
+        var recibido = await SembrarEmitidoAsync(proveedorA);
+        recibido.MarcarRecibido();
+        var itemBorrador = await SembrarItemAsync(proveedorB);
+        await SembrarBorradorAsync(proveedorB, (itemBorrador.Articulo!, itemBorrador.Catalogo));
+        await Contexto.SaveChangesAsync();
+        var servicio = new PedidoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ListarEmitidosAsync();
+
+        // Assert
+        resultado.Select(p => p.IdPedido).Should().BeEquivalentTo([deA.Id, deB.Id]);
+        resultado.Single(p => p.IdPedido == deA.Id).RazonSocialProveedor.Should().Be("Proveedor A");
+        resultado.Single(p => p.IdPedido == deA.Id).IdProveedor.Should().Be(proveedorA.Id);
+        resultado.Single(p => p.IdPedido == deB.Id).RazonSocialProveedor.Should().Be("Proveedor B");
+    }
+
+    [Fact]
     public async Task ObtenerParaCompra_PedidoNoEmitido_DevuelveNull()
     {
         // Arrange
@@ -529,6 +554,28 @@ public class PedidoQueryServiceTests : PedidosPruebaBase
 
         // Assert
         detalle.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Listar_ConRangoDeFechas_FiltraPorLaFechaDeEmisionConIntervaloSemiabierto()
+    {
+        // Arrange
+        var proveedor = await SembrarProveedorAsync();
+        var emitido = await SembrarEmitidoAsync(proveedor);
+        var servicio = new PedidoQueryService(NuevoContexto());
+        var ahora = DateTime.UtcNow;
+
+        // Act
+        var dentro = await servicio.ListarAsync(new ConsultaPedidosDto { FechaDesdeUtc = ahora.AddDays(-1), FechaHastaUtc = ahora.AddDays(1) });
+        var soloDesde = await servicio.ListarAsync(new ConsultaPedidosDto { FechaDesdeUtc = ahora.AddDays(-1) });
+        var terminaAntes = await servicio.ListarAsync(new ConsultaPedidosDto { FechaHastaUtc = ahora.AddDays(-1) });
+        var empiezaDespues = await servicio.ListarAsync(new ConsultaPedidosDto { FechaDesdeUtc = ahora.AddDays(1) });
+
+        // Assert
+        dentro.Items.Should().ContainSingle().Which.IdPedido.Should().Be(emitido.Id);
+        soloDesde.Items.Should().ContainSingle();
+        terminaAntes.Items.Should().BeEmpty("el tope superior es exclusivo y el pedido es posterior");
+        empiezaDespues.Items.Should().BeEmpty();
     }
 
     /// <summary>

@@ -23,10 +23,14 @@ public partial class SeleccionarPedidoModalViewModel : ObservableObject, IDispos
     // Evita mostrar "no tiene pedidos" antes de que termine la primera carga.
     private bool _cargaIntentada;
 
-    public int IdProveedor { get; }
+    /// <summary>Proveedor cuyos pedidos se listan; <c>null</c> lista los de todos los proveedores.</summary>
+    public int? IdProveedor { get; }
 
-    /// <summary>Nombre del proveedor, para que el diálogo diga de quién son los pedidos.</summary>
-    public string RazonSocialProveedor { get; }
+    /// <summary>Nombre del proveedor, para que el diálogo diga de quién son los pedidos; <c>null</c> si son de todos.</summary>
+    public string? RazonSocialProveedor { get; }
+
+    /// <summary>Sin proveedor elegido hay pedidos de varios: la vista muestra la columna Proveedor.</summary>
+    public bool MostrarProveedor => IdProveedor is null;
 
     public ObservableCollection<PedidoEmitidoDto> Pedidos { get; } = new();
 
@@ -56,13 +60,13 @@ public partial class SeleccionarPedidoModalViewModel : ObservableObject, IDispos
     public bool OperacionConfirmada { get; private set; }
 
     public SeleccionarPedidoModalViewModel(
-        int idProveedor,
-        string razonSocialProveedor,
+        int? idProveedor,
+        string? razonSocialProveedor,
         IPedidoService pedidoService,
         ILogger<SeleccionarPedidoModalViewModel>? logger = null)
     {
         IdProveedor = idProveedor;
-        RazonSocialProveedor = razonSocialProveedor ?? throw new ArgumentNullException(nameof(razonSocialProveedor));
+        RazonSocialProveedor = razonSocialProveedor;
         _pedidoService = pedidoService ?? throw new ArgumentNullException(nameof(pedidoService));
         _logger = logger ?? NullLogger<SeleccionarPedidoModalViewModel>.Instance;
         _carga = new CargaSerializada(_logger);
@@ -76,7 +80,11 @@ public partial class SeleccionarPedidoModalViewModel : ObservableObject, IDispos
         MensajeError = null;
 
         await _carga.EjecutarAsync(
-            token => Task.Run(() => _pedidoService.ListarEmitidosPorProveedorAsync(IdProveedor, token), token),
+            token => Task.Run(
+                () => IdProveedor is int idProveedor
+                    ? _pedidoService.ListarEmitidosPorProveedorAsync(idProveedor, token)
+                    : _pedidoService.ListarEmitidosAsync(token),
+                token),
             resultados =>
             {
                 Pedidos.Clear();
@@ -90,8 +98,16 @@ public partial class SeleccionarPedidoModalViewModel : ObservableObject, IDispos
             },
             ex =>
             {
-                _logger.LogError(ex, "Error al cargar pedidos emitidos para el proveedor {IdProveedor}", IdProveedor);
-                MensajeError = "No se pudieron cargar los pedidos emitidos del proveedor.";
+                if (IdProveedor is null)
+                {
+                    _logger.LogError(ex, "Error al cargar los pedidos emitidos de todos los proveedores");
+                    MensajeError = "No se pudieron cargar los pedidos emitidos.";
+                }
+                else
+                {
+                    _logger.LogError(ex, "Error al cargar pedidos emitidos para el proveedor {IdProveedor}", IdProveedor);
+                    MensajeError = "No se pudieron cargar los pedidos emitidos del proveedor.";
+                }
             },
             cancellationToken: cancellationToken);
 

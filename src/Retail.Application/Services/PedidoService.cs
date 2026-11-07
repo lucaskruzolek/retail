@@ -22,7 +22,7 @@ public class PedidoService : IPedidoService
     private readonly IPedidoQueryService _consultas;
     private readonly ICatalogoProveedorQueryService _catalogo;
     private readonly IValidator<AgregarVariosAlPedidoDto> _agregarValidator;
-    private readonly IValidator<CambiarCantidadRenglonDto> _cambiarCantidadValidator;
+    private readonly IValidator<CambiarCantidadesPedidoDto> _cambiarCantidadesValidator;
     private readonly IValidator<CancelarPedidoDto> _cancelarValidator;
     private readonly IValidator<ConsultaPedidosDto> _consultaValidator;
 
@@ -32,7 +32,7 @@ public class PedidoService : IPedidoService
         IPedidoQueryService consultas,
         ICatalogoProveedorQueryService catalogo,
         IValidator<AgregarVariosAlPedidoDto> agregarValidator,
-        IValidator<CambiarCantidadRenglonDto> cambiarCantidadValidator,
+        IValidator<CambiarCantidadesPedidoDto> cambiarCantidadesValidator,
         IValidator<CancelarPedidoDto> cancelarValidator,
         IValidator<ConsultaPedidosDto> consultaValidator)
     {
@@ -41,7 +41,7 @@ public class PedidoService : IPedidoService
         _consultas = consultas ?? throw new ArgumentNullException(nameof(consultas));
         _catalogo = catalogo ?? throw new ArgumentNullException(nameof(catalogo));
         _agregarValidator = agregarValidator ?? throw new ArgumentNullException(nameof(agregarValidator));
-        _cambiarCantidadValidator = cambiarCantidadValidator ?? throw new ArgumentNullException(nameof(cambiarCantidadValidator));
+        _cambiarCantidadesValidator = cambiarCantidadesValidator ?? throw new ArgumentNullException(nameof(cambiarCantidadesValidator));
         _cancelarValidator = cancelarValidator ?? throw new ArgumentNullException(nameof(cancelarValidator));
         _consultaValidator = consultaValidator ?? throw new ArgumentNullException(nameof(consultaValidator));
     }
@@ -127,6 +127,11 @@ public class PedidoService : IPedidoService
         return _consultas.ObtenerDetalleAsync(idPedido, cancellationToken);
     }
 
+    public Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosAsync(CancellationToken cancellationToken = default)
+    {
+        return _consultas.ListarEmitidosAsync(cancellationToken);
+    }
+
     public Task<IReadOnlyList<PedidoEmitidoDto>> ListarEmitidosPorProveedorAsync(int idProveedor, CancellationToken cancellationToken = default)
     {
         return _consultas.ListarEmitidosPorProveedorAsync(idProveedor, cancellationToken);
@@ -137,15 +142,15 @@ public class PedidoService : IPedidoService
         return _consultas.ObtenerParaCompraAsync(idPedido, cancellationToken);
     }
 
-    public async Task CambiarCantidadAsync(CambiarCantidadRenglonDto dto, CancellationToken cancellationToken = default)
+    public async Task CambiarCantidadesAsync(CambiarCantidadesPedidoDto dto, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(dto);
-        await _cambiarCantidadValidator.ValidateAndThrowAsync(dto, cancellationToken);
+        await _cambiarCantidadesValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
         try
         {
             var pedido = await CargarPedidoAsync(dto.IdPedido, cancellationToken);
-            pedido.CambiarCantidad(dto.IdCatalogoProveedor, dto.Cantidad);
+            pedido.CambiarCantidades(dto.Renglones.ToDictionary(r => r.IdCatalogoProveedor, r => r.Cantidad));
 
             await GuardarRaizAsync(pedido, cancellationToken);
         }
@@ -171,7 +176,7 @@ public class PedidoService : IPedidoService
         }
         finally
         {
-            // D-15: ver CambiarCantidadAsync.
+            // D-15: ver CambiarCantidadesAsync.
             _unitOfWork.DescartarCambios();
         }
     }
@@ -189,7 +194,7 @@ public class PedidoService : IPedidoService
         }
         finally
         {
-            // D-15: ver CambiarCantidadAsync.
+            // D-15: ver CambiarCantidadesAsync.
             _unitOfWork.DescartarCambios();
         }
     }
@@ -208,7 +213,7 @@ public class PedidoService : IPedidoService
         }
         finally
         {
-            // D-15: ver CambiarCantidadAsync.
+            // D-15: ver CambiarCantidadesAsync.
             _unitOfWork.DescartarCambios();
         }
     }

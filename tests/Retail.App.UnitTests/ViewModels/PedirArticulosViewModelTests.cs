@@ -103,6 +103,21 @@ public class PedirArticulosViewModelTests
     }
 
     [Fact]
+    public void TextoConfirmar_SegunCuantosBorradoresCambian_LoDiceEnElBoton()
+    {
+        var sut = new PedirArticulosViewModel(CrearVistaPrevia());
+        var notificados = new List<string?>();
+        sut.PropertyChanged += (_, e) => notificados.Add(e.PropertyName);
+
+        sut.TextoConfirmar.Should().Be("Agregar a 2 borradores", "la vista previa tiene renglones de dos proveedores");
+
+        sut.QuitarRenglonCommand.Execute(sut.Grupos[1].Renglones[0]);
+
+        sut.TextoConfirmar.Should().Be("Agregar al borrador");
+        notificados.Should().Contain(nameof(PedirArticulosViewModel.TextoConfirmar));
+    }
+
+    [Fact]
     public void QuitarRenglon_TodosLosRenglones_NoPermiteConfirmar()
     {
         var sut = new PedirArticulosViewModel(CrearVistaPrevia());

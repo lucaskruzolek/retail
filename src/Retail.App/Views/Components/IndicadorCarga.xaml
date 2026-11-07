@@ -1,0 +1,31 @@
+<UserControl x:Class="Retail.App.Views.Components.IndicadorCarga"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             Width="20"
+             Height="20"
+             Focusable="False">
+    <UserControl.Style>
+        <Style TargetType="{x:Type UserControl}">
+            <!-- Oculto, no colapsado: el cuadrado de 20 x 20 queda reservado, así que aparecer o desaparecer no mueve nada -->
+            <Setter Property="Visibility" Value="Hidden" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding EstaCargando, RelativeSource={RelativeSource Self}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Style>
+
+    <ui:ProgressRing Width="14"
+                     Height="14"
+                     IsIndeterminate="True"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     ToolTip="Cargando…"
+                     ToolTipService.InitialShowDelay="150"
+                     AutomationProperties.Name="Cargando" />
+</UserControl>

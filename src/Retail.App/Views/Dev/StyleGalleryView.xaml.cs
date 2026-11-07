@@ -43,6 +43,12 @@ public partial class StyleGalleryView : UserControl
     /// <summary>Filtro de la columna Stock, con un estado aplicado para mostrar el embudo resaltado.</summary>
     public FiltroColumnaViewModel FiltroStock { get; } = new("Stock");
 
+    /// <summary>Filtro de la columna Fecha, con un rango aplicado para mostrar el botón resaltado.</summary>
+    public FiltroFechaColumnaViewModel FiltroFecha { get; } = new("Fecha");
+
+    /// <summary>Filtro de fechas sin aplicar, con el borrador armado: es el contenido del panel, que la galería muestra suelto.</summary>
+    public FiltroFechaColumnaViewModel FiltroFechaPanel { get; } = new("Fecha");
+
     public PaginacionMuestra Paginacion { get; } = new();
 
     /// <summary>Navegación de muestra del <c>NavegadorSeccion</c>: cambia la marca sin abrir páginas de verdad.</summary>
@@ -78,6 +84,10 @@ public partial class StyleGalleryView : UserControl
         FiltroStock.EstaAbierto = true;
         FiltroStock.Grupos[0].Opciones[1].Seleccionada = true;
         FiltroStock.AplicarCommand.Execute(null);
+
+        FiltroFecha.ElegirAtajoCommand.Execute(AtajoFecha.EsteMes);
+        FiltroFecha.AplicarCommand.Execute(null);
+        FiltroFechaPanel.ElegirAtajoCommand.Execute(AtajoFecha.SemanaPasada);
     }
 
     private void BtnAbrirModalMuestra_Click(object sender, RoutedEventArgs e)

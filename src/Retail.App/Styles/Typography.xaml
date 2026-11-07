@@ -33,7 +33,8 @@
     <sys:Double x:Key="FontSizeLg">16</sys:Double>       <!-- Cabecera de sección o modal -->
     <sys:Double x:Key="FontSizeXl">20</sys:Double>       <!-- Título de pantalla -->
     <sys:Double x:Key="FontSize2Xl">24</sys:Double>      <!-- Título de página, importe destacado -->
-    <sys:Double x:Key="FontSizeDisplay">32</sys:Double>  <!-- Total del POS -->
+    <sys:Double x:Key="FontSizeDisplay">32</sys:Double>  <!-- Total del cobro e importes de visor -->
+    <sys:Double x:Key="FontSizeDisplayPos">40</sys:Double>  <!-- Total del POS: se lee de pie, a distancia -->
 
     <!-- ================================================================= -->
     <!-- ESCALA TIPOGRÁFICA DE TEXTBLOCK                                   -->

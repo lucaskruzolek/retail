@@ -7,6 +7,10 @@ public record class PedidoEmitidoDto
 {
     public required int IdPedido { get; init; }
 
+    public required int IdProveedor { get; init; }
+
+    public required string RazonSocialProveedor { get; init; }
+
     public required DateTime FechaEmision { get; init; }
 
     public required int CantidadRenglones { get; init; }

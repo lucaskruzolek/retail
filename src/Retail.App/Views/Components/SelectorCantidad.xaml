@@ -1,0 +1,102 @@
+<UserControl x:Class="Retail.App.Views.Components.SelectorCantidad"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             x:Name="Raiz"
+             Width="104"
+             Height="{StaticResource ControlHeight}">
+    <UserControl.Resources>
+        <!-- − y +: fantasmas dentro del marco, con hover neutro. Fuera del orden de Tab: con el teclado, el número se
+             cambia con ↑ y ↓ desde el cuadro, y Tab pasa directo a la cantidad siguiente. -->
+        <Style x:Key="PasoCantidadStyle" TargetType="Button" BasedOn="{StaticResource IconDangerButtonStyle}">
+            <Setter Property="Width" Value="{StaticResource ControlHeightSm}" />
+            <Setter Property="Height" Value="{StaticResource ControlHeightSm}" />
+            <Setter Property="Margin" Value="1,0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.35" />
+                    <Setter Property="Cursor" Value="Arrow" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- Un solo marco con el aspecto de un cuadro de texto: − a la izquierda, el número al centro y + a la derecha.
+         Con el foco en el número, el marco toma el borde de marca, igual que cualquier campo del sistema. -->
+    <Border x:Name="Marco"
+            Background="{DynamicResource SurfaceCardBrush}"
+            BorderBrush="{DynamicResource SurfaceBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource RadiusMd}"
+            SnapsToDevicePixels="True">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Button x:Name="BotonMenos"
+                    Grid.Column="0"
+                    Style="{StaticResource PasoCantidadStyle}"
+                    Click="BotonMenos_Click"
+                    ToolTip="Restar uno"
+                    AutomationProperties.Name="Restar uno">
+                <iconPacks:PackIconBoxIcons Kind="RegularMinus" Width="12" Height="12" />
+            </Button>
+
+            <!-- Sin borde ni fondo propios: el marco es el del control. Solo admite dígitos (EntradaNumericaHelper) -->
+            <TextBox x:Name="Cuadro"
+                     Grid.Column="1"
+                     MinWidth="0"
+                     MinHeight="0"
+                     Padding="0"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     HorizontalContentAlignment="Center"
+                     VerticalContentAlignment="Center"
+                     TextAlignment="Center"
+                     FontFamily="{StaticResource FontFamilyNumeric}"
+                     Typography.NumeralAlignment="Tabular"
+                     FontSize="{StaticResource FontSizeBase}"
+                     FontWeight="SemiBold"
+                     MaxLength="5"
+                     helpers:EntradaNumericaHelper.SoloDigitos="True"
+                     AutomationProperties.Name="{Binding NombreAutomatizacion, ElementName=Raiz}">
+                <!-- El TextBox de WPF-UI dibuja su propio marco y su línea de foco: se reemplaza por el texto solo -->
+                <TextBox.Template>
+                    <ControlTemplate TargetType="TextBox">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      VerticalAlignment="Center"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden"
+                                      Focusable="False" />
+                    </ControlTemplate>
+                </TextBox.Template>
+            </TextBox>
+
+            <Button x:Name="BotonMas"
+                    Grid.Column="2"
+                    Style="{StaticResource PasoCantidadStyle}"
+                    Click="BotonMas_Click"
+                    ToolTip="Sumar uno"
+                    AutomationProperties.Name="Sumar uno">
+                <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="12" Height="12" />
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>

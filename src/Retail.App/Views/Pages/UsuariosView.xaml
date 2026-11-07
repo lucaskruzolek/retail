@@ -31,7 +31,9 @@
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
             <components:PageHeader Margin="{StaticResource StackSm}"
-                                   Titulo="Administración">
+                                   Titulo="Administración"
+                                   Descripcion="Usuarios · Cuentas del sistema y sus roles."
+                                   EstaCargando="{Binding IsBusy}">
                 <StackPanel Orientation="Horizontal">
                     <!-- Desbloquear la cuenta de Administrador seleccionada (solo Gerente, D-31) -->
                     <Button Command="{Binding DesbloquearCommand}"
@@ -62,8 +64,7 @@
         <components:ListToolbar Grid.Row="1"
                                 Margin="{StaticResource StackMd}"
                                 Texto="{Binding FiltroBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="Buscar por usuario o nombre completo..."
-                                EstaCargando="{Binding IsBusy}" />
+                                PlaceholderText="Buscar por usuario o nombre completo..." />
 
         <!-- ============================================================= -->
         <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->

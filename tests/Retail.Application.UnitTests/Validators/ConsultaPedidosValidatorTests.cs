@@ -46,6 +46,37 @@ public class ConsultaPedidosValidatorTests
         resultado.IsValid.Should().BeFalse();
     }
 
+    [Fact]
+    public void Validate_ConRangoDeFechasEnOrden_EsValido()
+    {
+        var resultado = _validator.Validate(new ConsultaPedidosDto
+        {
+            FechaDesdeUtc = new DateTime(2026, 10, 26, 3, 0, 0, DateTimeKind.Utc),
+            FechaHastaUtc = new DateTime(2026, 10, 29, 3, 0, 0, DateTimeKind.Utc)
+        });
+
+        resultado.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_ConUnSoloExtremoDeFecha_EsValido()
+    {
+        _validator.Validate(new ConsultaPedidosDto { FechaDesdeUtc = new DateTime(2026, 10, 26, 3, 0, 0, DateTimeKind.Utc) }).IsValid.Should().BeTrue();
+        _validator.Validate(new ConsultaPedidosDto { FechaHastaUtc = new DateTime(2026, 10, 26, 3, 0, 0, DateTimeKind.Utc) }).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_ConRangoDeFechasAlReves_Falla()
+    {
+        var resultado = _validator.Validate(new ConsultaPedidosDto
+        {
+            FechaDesdeUtc = new DateTime(2026, 10, 29, 3, 0, 0, DateTimeKind.Utc),
+            FechaHastaUtc = new DateTime(2026, 10, 26, 3, 0, 0, DateTimeKind.Utc)
+        });
+
+        resultado.IsValid.Should().BeFalse();
+    }
+
     [Theory]
     [InlineData(0, 20)]
     [InlineData(1, 0)]

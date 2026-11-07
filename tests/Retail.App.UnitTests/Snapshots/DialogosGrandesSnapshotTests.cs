@@ -252,7 +252,7 @@ public class DialogosGrandesSnapshotTests
                 ofrecerIncorporar: true);
             var dialogo = new PedirArticulosDialog(viewModel);
 
-            return SnapshotRenderer.Guardar(dialogo, 580, 684, carpeta + "/PedirArticulosDialog");
+            return SnapshotRenderer.Guardar(dialogo, dialogo.Width, dialogo.Height, carpeta + "/PedirArticulosDialog");
         });
 
         VerificarCaptura(ruta, error);

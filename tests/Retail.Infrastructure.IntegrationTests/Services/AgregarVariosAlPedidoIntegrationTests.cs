@@ -33,7 +33,7 @@ public class AgregarVariosAlPedidoIntegrationTests : PedidosPruebaBase
             new PedidoQueryService(contexto),
             new CatalogoProveedorQueryService(contexto),
             new AgregarVariosAlPedidoValidator(),
-            new CambiarCantidadRenglonValidator(),
+            new CambiarCantidadesPedidoValidator(),
             new CancelarPedidoValidator(),
             new ConsultaPedidosValidator());
     }

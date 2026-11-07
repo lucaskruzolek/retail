@@ -63,10 +63,7 @@
 
                 <Border Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularKey" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Confirmación" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Confirmación" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                         <!-- Qué va a pasar -->
                         <TextBlock Text="{Binding Mensaje}"

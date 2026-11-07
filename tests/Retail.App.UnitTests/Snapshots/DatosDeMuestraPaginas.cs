@@ -104,6 +104,41 @@ internal static class DatosDeMuestraPaginas
         ];
     }
 
+    /// <summary>El detalle del primer pedido de <see cref="Pedidos"/> (el borrador #48): tres renglones editables.</summary>
+    public static PedidoDetalleDto DetalleDeBorrador()
+    {
+        return new PedidoDetalleDto
+        {
+            IdPedido = 48,
+            IdProveedor = 1,
+            RazonSocialProveedor = "Distribuidora Sur S.R.L.",
+            Estado = EstadoPedidoEnum.Borrador,
+            FechaCreacion = new DateTime(2026, 10, 30, 14, 20, 0),
+            CantidadRenglones = 3,
+            TotalEstimado = 184500m,
+            Renglones =
+            [
+                RenglonDePedido(10, 1, "DS-CU-001", "Cuaderno Rivadavia ABC 50 hojas rayado", 12, 1110m),
+                RenglonDePedido(11, 2, "DS-LA-014", "Lápiz negro Faber-Castell HB x12", 6, 3300m),
+                RenglonDePedido(12, 3, "DS-BI-203", "Birome Bic Cristal azul caja x50", 2, 9800m)
+            ]
+        };
+    }
+
+    private static RenglonPedidoDto RenglonDePedido(int idCatalogo, int idArticulo, string codigo, string descripcion, int cantidad, decimal costo)
+    {
+        return new RenglonPedidoDto
+        {
+            IdCatalogoProveedor = idCatalogo,
+            IdArticulo = idArticulo,
+            CodigoProveedor = codigo,
+            Descripcion = descripcion,
+            Cantidad = cantidad,
+            CostoPactado = costo,
+            Subtotal = cantidad * costo
+        };
+    }
+
     public static IReadOnlyList<CatalogoProveedorDto> CatalogoProveedor()
     {
         var hoy = new DateTime(2026, 10, 28);

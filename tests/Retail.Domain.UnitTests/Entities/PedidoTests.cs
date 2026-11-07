@@ -185,6 +185,56 @@ public class PedidoTests
         act.Should().Throw<DomainException>().WithMessage("*no figura*");
     }
 
+    private static Pedido BorradorConTresRenglones()
+    {
+        var pedido = BorradorConUnRenglon();
+        pedido.AgregarRenglon(11, 101, "LAP-02", "Lápiz rojo", 3, 25m);
+        pedido.AgregarRenglon(12, 102, "LAP-03", "Lápiz azul", 1, 30m);
+        return pedido;
+    }
+
+    [Fact]
+    public void CambiarCantidades_VariosRenglones_AplicaTodos()
+    {
+        var pedido = BorradorConTresRenglones();
+
+        pedido.CambiarCantidades(new Dictionary<int, int> { [100] = 12, [102] = 7 });
+
+        pedido.Detalles.Select(d => d.Cantidad).Should().Equal(12, 3, 7);
+    }
+
+    [Fact]
+    public void CambiarCantidades_UnaCantidadInvalida_NoCambiaNingunRenglon()
+    {
+        var pedido = BorradorConTresRenglones();
+
+        var act = () => pedido.CambiarCantidades(new Dictionary<int, int> { [100] = 12, [101] = 0 });
+
+        act.Should().Throw<DomainException>().WithMessage("*al menos 1*");
+        pedido.Detalles.Select(d => d.Cantidad).Should().Equal(5, 3, 1); // todos o ninguno
+    }
+
+    [Fact]
+    public void CambiarCantidades_UnRenglonInexistente_NoCambiaNingunRenglon()
+    {
+        var pedido = BorradorConTresRenglones();
+
+        var act = () => pedido.CambiarCantidades(new Dictionary<int, int> { [100] = 12, [999] = 4 });
+
+        act.Should().Throw<DomainException>().WithMessage("*no figura*");
+        pedido.Detalles.Select(d => d.Cantidad).Should().Equal(5, 3, 1); // todos o ninguno
+    }
+
+    [Fact]
+    public void CambiarCantidades_PedidoEmitido_LanzaDomainException()
+    {
+        var pedido = Emitido();
+
+        var act = () => pedido.CambiarCantidades(new Dictionary<int, int> { [100] = 2 });
+
+        act.Should().Throw<DomainException>();
+    }
+
     [Fact]
     public void QuitarRenglon_UnicoRenglon_DejaBorradorVacioSinCancelar()
     {

@@ -114,7 +114,6 @@
             <!-- Tarjeta 1: ganancia global -->
             <Border Grid.Row="1" Style="{StaticResource DialogSectionStyle}" Margin="{StaticResource StackMd}">
                 <StackPanel Orientation="Horizontal">
-                    <iconPacks:PackIconBoxIcons Kind="RegularPercentage" Style="{StaticResource CardHeaderIconStyle}" />
                     <TextBlock Text="Ganancia global"
                                Style="{StaticResource CardHeaderTextStyle}"
                                Margin="0,0,24,0" />
@@ -153,10 +152,7 @@
 
                     <!-- Encabezado en una sola fila (M-70): título, indicador de pasos e interruptor M-11 -->
                     <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="True">
-                        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Margin="0,0,24,0">
-                            <iconPacks:PackIconBoxIcons Kind="RegularTag" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Clasificación" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Clasificación" Style="{StaticResource CardHeaderTextStyle}" DockPanel.Dock="Left" Margin="0,0,24,0" />
                         <ui:ToggleSwitch DockPanel.Dock="Right"
                                          Content="Sugerir clasificación"
                                          IsChecked="{Binding SugerirClasificacion}"

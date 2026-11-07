@@ -367,7 +367,15 @@ internal static class DatosDeMuestraDialogosGrandes
             Renglones =
             [
                 Renglon(10, 1, "CU-A4-48", "Cuaderno tapa dura A4 48H", 2150m, 3, 12, 4),
-                Renglon(11, 1, "LAP-HB-12", "Lápiz negro HB caja x12", 3400m, 1, 6, 0),
+                // Con dos fuentes: muestra el desplegable de fuente (cerrado, solo costo y fecha de la lista)
+                Renglon(11, 1, "LAP-HB-12", "Lápiz negro HB caja x12", 3400m, 1, 6, 0) with
+                {
+                    Fuentes =
+                    [
+                        Fuente(11, 1, "Distribuidora Norte S.R.L.", "LAP-HB-12", 3400m, new DateTime(2026, 10, 26, 15, 0, 0, DateTimeKind.Utc), esPrincipal: true),
+                        Fuente(22, 2, "Papelera del Sur S.A.", "PS-LAPHB12", 3550m, new DateTime(2026, 10, 28, 15, 0, 0, DateTimeKind.Utc), esPrincipal: false)
+                    ]
+                },
                 Renglon(12, 1, "BOL-AZ-50", "Bolígrafo cristal azul caja x50", 5200m, 2, 5, 2),
                 Renglon(20, 2, "RES-A4-75", "Resma A4 75 g x500", 8900m, 0, 10, 0),
                 Renglon(21, 2, "ADH-VIN-250", "Adhesivo vinílico 250 g", 1980m, 4, 8, 0),
@@ -384,6 +392,28 @@ internal static class DatosDeMuestraDialogosGrandes
                     Motivo = MotivoOmisionPedidoEnum.SinIncorporar
                 }
             ]
+        };
+    }
+
+    private static FuenteRenglonDto Fuente(
+        int idCatalogo,
+        int idProveedor,
+        string razonSocial,
+        string codigo,
+        decimal costo,
+        DateTime actualizacionUtc,
+        bool esPrincipal)
+    {
+        return new FuenteRenglonDto
+        {
+            IdCatalogoProveedor = idCatalogo,
+            IdProveedor = idProveedor,
+            RazonSocialProveedor = razonSocial,
+            CodigoProveedor = codigo,
+            Descripcion = "Lápiz negro HB caja x12",
+            CostoActual = costo,
+            FechaActualizacion = actualizacionUtc,
+            EsPrincipal = esPrincipal
         };
     }
 

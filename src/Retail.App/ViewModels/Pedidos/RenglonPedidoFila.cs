@@ -5,7 +5,7 @@ namespace Retail.App.ViewModels.Pedidos;
 
 /// <summary>
 /// Renglón del panel de detalle de <c>PedidosView</c>. La cantidad es editable en un borrador y se guarda solo con
-/// una acción explícita (G3): <see cref="TieneCambios"/> indica cuándo mostrar "Aplicar".
+/// una acción explícita (G3): <see cref="TieneCambios"/> marca los renglones que "Guardar cambios" persiste.
 /// </summary>
 public partial class RenglonPedidoFila : ObservableObject
 {

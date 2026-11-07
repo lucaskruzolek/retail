@@ -28,8 +28,6 @@
             <RowDefinition Height="Auto" />
             <!-- Búsqueda y carga, directo sobre el fondo -->
             <RowDefinition Height="Auto" />
-            <!-- Mensajes de estado y de error -->
-            <RowDefinition Height="Auto" />
             <!-- Tabla + paginación: la única superficie de la página -->
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
@@ -39,8 +37,27 @@
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
             <components:PageHeader Margin="{StaticResource StackSm}"
-                                   Titulo="Compras">
+                                   Titulo="Compras"
+                                   Descripcion="Proveedores · Alta y modificación de los proveedores y sus datos de contacto."
+                                   EstaCargando="{Binding IsBusy}">
                 <StackPanel Orientation="Horizontal">
+                    <!-- Mensajes de estado y de error: en el encabezado, para que no ocupen una fila (con su margen) entre el
+                         buscador y la grilla cuando no hay nada que decir -->
+                    <Border Style="{StaticResource BadgeSuccessStyle}"
+                            Margin="0,0,12,0"
+                            Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeEstado}"
+                                   Style="{StaticResource BadgeNeutralTextStyle}"
+                                   Foreground="{DynamicResource SuccessForegroundBrush}" />
+                    </Border>
+                    <Border Style="{StaticResource BadgeDangerStyle}"
+                            Margin="0,0,12,0"
+                            Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock Text="{Binding MensajeError}"
+                                   Style="{StaticResource BadgeNeutralTextStyle}"
+                                   Foreground="{DynamicResource DangerForegroundBrush}" />
+                    </Border>
+
                     <!-- Botón Nuevo Proveedor (F2) -->
                     <Button x:Name="BtnNuevoProveedor"
                             Command="{Binding NuevoProveedorCommand}"
@@ -59,33 +76,14 @@
         <!-- 2. BÚSQUEDA Y CARGA (sin tarjeta, sin contador)               -->
         <!-- ============================================================= -->
         <components:ListToolbar Grid.Row="1"
-                                Margin="{StaticResource StackMd}"
+                                Margin="0,0,0,12"
                                 Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
-                                PlaceholderText="Buscar por razón social, CUIT o email..."
-                                EstaCargando="{Binding IsBusy}" />
+                                PlaceholderText="Buscar por razón social, CUIT o email..." />
 
         <!-- ============================================================= -->
-        <!-- 3. MENSAJES DE ESTADO Y ERROR                                 -->
+        <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->
         <!-- ============================================================= -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="{StaticResource StackMd}">
-            <Border Style="{StaticResource BadgeSuccessStyle}"
-                    Visibility="{Binding TieneMensajeEstado, Converter={StaticResource BoolToVisConverter}}">
-                <TextBlock Text="{Binding MensajeEstado}"
-                           Style="{StaticResource BadgeNeutralTextStyle}"
-                           Foreground="{DynamicResource SuccessForegroundBrush}" />
-            </Border>
-            <Border Style="{StaticResource BadgeDangerStyle}"
-                    Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
-                <TextBlock Text="{Binding MensajeError}"
-                           Style="{StaticResource BadgeNeutralTextStyle}"
-                           Foreground="{DynamicResource DangerForegroundBrush}" />
-            </Border>
-        </StackPanel>
-
-        <!-- ============================================================= -->
-        <!-- 4. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->
-        <!-- ============================================================= -->
-        <Border Grid.Row="3" Style="{StaticResource TablaListadoStyle}">
+        <Border Grid.Row="2" Style="{StaticResource TablaListadoStyle}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="*" />

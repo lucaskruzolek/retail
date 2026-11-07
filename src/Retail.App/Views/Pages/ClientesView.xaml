@@ -37,7 +37,9 @@
         <StackPanel Grid.Row="0">
             <components:PageHeader
                                    Margin="{StaticResource StackSm}"
-                                   Titulo="Ventas">
+                                   Titulo="Ventas"
+                                   Descripcion="Clientes · Padrón de clientes y su cuenta corriente; desde acá se cobran deudas."
+                                   EstaCargando="{Binding IsBusy}">
                 <StackPanel Orientation="Horizontal">
                     <!-- Cobrar Cta Cte (F4): secundaria con contorno; el único acento carmín de la vista es "Nuevo Cliente" -->
                     <Button Command="{Binding CobrarCuentaCorrienteCommand}"
@@ -73,8 +75,7 @@
                                 Margin="0,0,0,12"
                                 Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
                                 PlaceholderText="Buscar por Razón Social, CUIT, DNI o Email..."
-                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}"
-                                EstaCargando="{Binding IsBusy}" />
+                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}" />
 
         <!-- ============================================================= -->
         <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->

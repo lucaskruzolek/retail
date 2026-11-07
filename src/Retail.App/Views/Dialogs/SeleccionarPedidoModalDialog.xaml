@@ -44,13 +44,10 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="{StaticResource StackMd}">
-                    <iconPacks:PackIconBoxIcons Kind="RegularPackage" Style="{StaticResource CardHeaderIconStyle}" />
-                    <TextBlock Text="{Binding RazonSocialProveedor}" Style="{StaticResource CardHeaderTextStyle}" />
-                </StackPanel>
+                <TextBlock Text="{Binding RazonSocialProveedor, TargetNullValue='Pedidos emitidos de todos los proveedores'}" Style="{StaticResource CardHeaderTextStyle}" Grid.Row="0" Margin="{StaticResource StackMd}" />
 
                 <TextBlock Grid.Row="1"
-                           Text="Elegí el pedido que llegó: sus renglones se cargan en la compra para que ajustes cantidades y costos a lo que dice el comprobante."
+                           Text="Elija el pedido que llegó: sus artículos se cargan en la compra para que ajuste cantidades y costos según el comprobante."
                            Style="{StaticResource TextBlockBodySecondary}"
                            TextWrapping="Wrap"
                            Margin="{StaticResource StackMd}" />
@@ -70,11 +67,18 @@
                                                 Binding="{Binding IdPedido, StringFormat='#{0}'}"
                                                 ElementStyle="{StaticResource TextBlockMonospaceCell}"
                                                 Width="84" />
+                            <!-- Solo cuando hay pedidos de varios proveedores (sin proveedor elegido en la compra) -->
+                            <DataGridTextColumn x:Name="ColumnaProveedor"
+                                                Header="Proveedor"
+                                                Binding="{Binding RazonSocialProveedor}"
+                                                ElementStyle="{StaticResource TextBlockTextCell}"
+                                                Width="*"
+                                                MinWidth="180" />
                             <DataGridTextColumn Header="Fecha"
                                                 Binding="{Binding FechaEmision, StringFormat='dd/MM/yyyy'}"
                                                 ElementStyle="{StaticResource TextBlockNumericCell}"
                                                 Width="116" />
-                            <DataGridTextColumn Header="Renglones"
+                            <DataGridTextColumn Header="Artículos"
                                                 HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                                 Binding="{Binding CantidadRenglones}"
                                                 ElementStyle="{StaticResource CeldaNumericaDerecha}"
@@ -96,7 +100,7 @@
                                Margin="0,32,0,0"
                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}" />
 
-                    <TextBlock Text="Este proveedor no tiene pedidos emitidos."
+                    <TextBlock Text="No hay pedidos emitidos para recibir."
                                Style="{StaticResource TextBlockBodySecondary}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"

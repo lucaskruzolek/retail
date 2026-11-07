@@ -205,10 +205,14 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         derivada.DefinirComoPresentacionDe(origen, 500);
         _context.Articulos.Add(derivada);
         await _context.SaveChangesAsync();
+
+        // El dominio no deja vincular un servicio al catálogo de un proveedor; el origen sí
+        var proveedor = await SembrarProveedorAsync("Distribuidora Sur", "20111111112");
+        await VincularAsync(proveedor, "P-1", origen);
         _context.ChangeTracker.Clear();
 
         // Act
-        var resultado = await _sut.BuscarParaCompraAsync("Resma", limite: 10);
+        var resultado = await _sut.BuscarParaCompraAsync("Resma", proveedor.Id, limite: 10);
 
         // Assert: costo, markup y precio vienen en la misma proyección; el contexto no sigue entidades
         var unico = resultado.Should().ContainSingle().Which;
@@ -217,6 +221,31 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         unico.PorcentajeGanancia.Should().Be(50m);
         unico.PrecioVenta.Should().Be(150m);
         _context.ChangeTracker.Entries().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task BuscarParaCompraAsync_ConArticulosDeOtroProveedorOSinVincular_SoloDevuelveLosDelProveedor()
+    {
+        // Arrange: tres resmas; una vendida por cada proveedor y otra sin ningún vínculo
+        var delSur = CrearArticulo("Resma Sur", codigoBarras: "701");
+        var delNorte = CrearArticulo("Resma Norte", codigoBarras: "702");
+        var sinVinculo = CrearArticulo("Resma suelta", codigoBarras: "703");
+        _context.Articulos.AddRange(delSur, delNorte, sinVinculo);
+        await _context.SaveChangesAsync();
+
+        var sur = await SembrarProveedorAsync("Distribuidora Sur", "20111111112");
+        var norte = await SembrarProveedorAsync("Distribuidora Norte", "20123456786");
+        await VincularAsync(sur, "S-1", delSur);
+        await VincularAsync(norte, "N-1", delNorte);
+        _context.ChangeTracker.Clear();
+
+        // Act
+        var deSur = await _sut.BuscarParaCompraAsync("Resma", sur.Id, limite: 10);
+        var deNorte = await _sut.BuscarParaCompraAsync("Resma", norte.Id, limite: 10);
+
+        // Assert
+        deSur.Should().ContainSingle().Which.IdArticulo.Should().Be(delSur.Id);
+        deNorte.Should().ContainSingle().Which.IdArticulo.Should().Be(delNorte.Id);
     }
 
     [Fact]
@@ -649,6 +678,29 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         este.MarkAsDeleted();
         await _context.SaveChangesAsync();
         return (cuaderno.Id, sur.Id, norte.Id);
+    }
+
+    private async Task<Proveedor> SembrarProveedorAsync(string razonSocial, string cuit)
+    {
+        var proveedor = Proveedor.Crear(razonSocial, cuit);
+        _context.Proveedores.Add(proveedor);
+        await _context.SaveChangesAsync();
+        return proveedor;
+    }
+
+    // Un ítem del catálogo del proveedor, vinculado al artículo: es lo que lo convierte en "artículo de ese proveedor".
+    private async Task VincularAsync(Proveedor proveedor, string codigoProveedor, Articulo articulo)
+    {
+        var item = new CatalogoProveedor
+        {
+            IdProveedor = proveedor.Id,
+            CodigoProveedor = codigoProveedor,
+            DescripcionProveedor = articulo.Descripcion,
+            CostoReposicion = 100m
+        };
+        item.AsignarArticulo(articulo);
+        _context.CatalogosProveedores.Add(item);
+        await _context.SaveChangesAsync();
     }
 
     private static Articulo CrearArticulo(string descripcion, string? codigoBarras = null, int stock = 10, int stockMinimo = 1, bool esServicio = false)

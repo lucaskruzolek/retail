@@ -55,10 +55,7 @@
                 <Border Style="{StaticResource DialogSectionStyle}"
                         Margin="{StaticResource StackMd}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularBookOpen" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Manual de Usuario en PDF" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Manual de Usuario en PDF" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
 
                         <TextBlock Text="Consulte la guía completa de operación de mostrador, apertura y cierre de caja, control de inventario y facturación."
                                    Style="{StaticResource TextBlockBodySecondary}"
@@ -88,10 +85,7 @@
                 <!-- Tarjeta 2: Atajos Rápidos de Mostrador -->
                 <Border Style="{StaticResource DialogSectionStyle}">
                     <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="{StaticResource StackSm}">
-                            <iconPacks:PackIconBoxIcons Kind="RegularHelpCircle" Style="{StaticResource CardHeaderIconStyle}" />
-                            <TextBlock Text="Atajos Rápidos de Mostrador" Style="{StaticResource CardHeaderTextStyle}" />
-                        </StackPanel>
+                        <TextBlock Text="Atajos Rápidos de Mostrador" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackSm}" />
 
                         <TextBlock Text="Teclas rápidas asignadas para agilizar la atención comercial sin depender del ratón:"
                                    Style="{StaticResource TextBlockBodySecondary}"

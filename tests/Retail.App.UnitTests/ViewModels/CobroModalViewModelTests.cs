@@ -39,223 +39,304 @@ public class CobroModalViewModelTests
     }
 
     [Fact]
-    public void Inicializacion_DebeFijarTotalYSaldoPendiente()
+    public void Constructor_SinPagos_PreseleccionaEfectivoConElTotalCargado()
     {
-        // Arrange & Act
         var viewModel = new CobroModalViewModel(15000m, null);
 
-        // Assert
-        viewModel.TotalVenta.Should().Be(15000m);
+        viewModel.MedioPagoSeleccionado.Should().Be(MedioPagoEnum.Efectivo);
+        viewModel.Monto.Should().Be(15000m);
         viewModel.SaldoPendiente.Should().Be(15000m);
         viewModel.TotalImputado.Should().Be(0m);
-        viewModel.MontoImputar.Should().Be(15000m);
-        viewModel.EfectivoRecibido.Should().Be(15000m);
-        viewModel.TieneSaldoPendiente.Should().BeTrue();
-        viewModel.PuedeConfirmar.Should().BeFalse();
+        viewModel.CubreLoQueFalta.Should().BeTrue();
+        viewModel.TextoAccionPrincipal.Should().Be("Cobrar");
+    }
+
+    [Fact]
+    public void SeleccionarMedioSiguiente_ConservaElMonto()
+    {
+        var viewModel = new CobroModalViewModel(15000m, null);
+
+        viewModel.SeleccionarMedioSiguiente();
+
+        viewModel.MedioPagoSeleccionado.Should().Be(MedioPagoEnum.TarjetaDebito);
+        viewModel.Monto.Should().Be(15000m);
+        viewModel.EtiquetaMonto.Should().Be("Monto");
+    }
+
+    [Fact]
+    public void SeleccionarMedioAnterior_EnElPrimero_NoDaLaVuelta()
+    {
+        var viewModel = new CobroModalViewModel(15000m, null);
+
+        viewModel.SeleccionarMedioAnterior();
+
+        viewModel.MedioPagoSeleccionado.Should().Be(MedioPagoEnum.Efectivo);
+    }
+
+    [Fact]
+    public void SeleccionarMedioSiguiente_SinCuentaCorrienteHabilitada_LaSaltea()
+    {
+        var viewModel = new CobroModalViewModel(5000m, CrearClienteSinCuentaCorriente())
+        {
+            MedioPagoSeleccionado = MedioPagoEnum.TransferenciaQr
+        };
+
+        viewModel.SeleccionarMedioSiguiente();
+
+        viewModel.MedioPagoSeleccionado.Should().Be(MedioPagoEnum.TransferenciaQr);
+        viewModel.EstaHabilitado(MedioPagoEnum.CuentaCorriente).Should().BeFalse();
+    }
+
+    [Fact]
+    public void SeleccionarMedioSiguiente_ConCuentaCorrienteHabilitada_LaSelecciona()
+    {
+        var viewModel = new CobroModalViewModel(5000m, CrearClienteConCuentaCorriente())
+        {
+            MedioPagoSeleccionado = MedioPagoEnum.TransferenciaQr
+        };
+
+        viewModel.SeleccionarMedioSiguiente();
+
+        viewModel.MedioPagoSeleccionado.Should().Be(MedioPagoEnum.CuentaCorriente);
     }
 
     [Fact]
     public void Efectivo_SumarBilletes_DebeAcumularMontoRecibido()
     {
-        // Arrange
         var viewModel = new CobroModalViewModel(10000m, null);
-        viewModel.EfectivoRecibido = 0m;
+        viewModel.Monto = 0m;
 
-        // Act
         viewModel.SumarMil();
         viewModel.SumarDosMil();
         viewModel.SumarCincoMil();
         viewModel.SumarDiezMil();
         viewModel.SumarVeinteMil();
 
-        // Assert
-        viewModel.EfectivoRecibido.Should().Be(38000m);
+        viewModel.Monto.Should().Be(38000m);
     }
 
     [Fact]
-    public void Efectivo_PrimerBillete_ReemplazaElMontoExactoPrecargado()
+    public void Efectivo_PrimerBillete_ReemplazaElMontoPrecargado()
     {
-        // Arrange: el modal precarga el monto exacto como sugerencia
+        // El modal precarga lo que falta cobrar como sugerencia (D-16)
         var viewModel = new CobroModalViewModel(3500m, null);
 
-        // Act
         viewModel.SumarCincoMil();
 
-        // Assert
-        viewModel.EfectivoRecibido.Should().Be(5000m);
+        viewModel.Monto.Should().Be(5000m);
         viewModel.Vuelto.Should().Be(1500m);
     }
 
     [Fact]
     public void Efectivo_BilletesSiguientes_SumanAlPrimero()
     {
-        // Arrange
         var viewModel = new CobroModalViewModel(3500m, null);
 
-        // Act: el cliente entrega dos billetes de $2.000
+        // El cliente entrega dos billetes de $2.000
         viewModel.SumarDosMil();
         viewModel.SumarDosMil();
 
-        // Assert
-        viewModel.EfectivoRecibido.Should().Be(4000m);
+        viewModel.Monto.Should().Be(4000m);
         viewModel.Vuelto.Should().Be(500m);
     }
 
     [Fact]
     public void Efectivo_Exacto_ReiniciaElConteoDeBilletes()
     {
-        // Arrange
         var viewModel = new CobroModalViewModel(3500m, null);
         viewModel.SumarCincoMil();
 
-        // Act
         viewModel.EstablecerPagoExacto();
-        var recibidoTrasExacto = viewModel.EfectivoRecibido;
+        var montoTrasExacto = viewModel.Monto;
         viewModel.SumarMil();
 
-        // Assert
-        recibidoTrasExacto.Should().Be(3500m);
-        viewModel.EfectivoRecibido.Should().Be(1000m);
+        montoTrasExacto.Should().Be(3500m);
+        viewModel.Monto.Should().Be(1000m);
     }
 
     [Fact]
     public void Efectivo_MontoTipeadoPorElCajero_LosBilletesLeSuman()
     {
-        // Arrange
         var viewModel = new CobroModalViewModel(3500m, null);
-        viewModel.EfectivoRecibido = 3000m;
+        viewModel.Monto = 3000m;
 
-        // Act
         viewModel.SumarMil();
 
-        // Assert
-        viewModel.EfectivoRecibido.Should().Be(4000m);
+        viewModel.Monto.Should().Be(4000m);
     }
 
     [Fact]
-    public void Efectivo_TrasImputarUnPagoParcial_ElPrimerBilleteVuelveAReemplazar()
+    public void Efectivo_MontoMayorALoQueFalta_LaDiferenciaEsVuelto()
     {
-        // Arrange: se imputan $4.000 de un total de $10.000 y queda sugerido el saldo de $6.000
-        var viewModel = new CobroModalViewModel(10000m, null);
-        viewModel.MontoImputar = 4000m;
-        viewModel.SumarCincoMil();
-        viewModel.ImputarPago();
-
-        // Act
-        var sugerido = viewModel.EfectivoRecibido;
-        viewModel.SumarDiezMil();
-
-        // Assert
-        sugerido.Should().Be(6000m);
-        viewModel.EfectivoRecibido.Should().Be(10000m);
-        viewModel.Vuelto.Should().Be(4000m);
-    }
-
-    [Fact]
-    public void Efectivo_CalculoVuelto_DebeSerDiferenciaEntreRecibidoYTotal()
-    {
-        // Arrange
         var viewModel = new CobroModalViewModel(7500m, null);
 
-        // Act
-        viewModel.EfectivoRecibido = 10000m;
+        viewModel.Monto = 10000m;
 
-        // Assert
         viewModel.Vuelto.Should().Be(2500m);
+        viewModel.MontoAImputar.Should().Be(7500m);
+        viewModel.TieneVuelto.Should().BeTrue();
     }
 
     [Fact]
-    public void CuentaCorriente_SinHabilitacion_DebeEmitirErrorAlImputar()
+    public void ConfirmarPagoActual_MontoIgualALoQueFalta_ImputaYConfirmaLaOperacion()
     {
-        // Arrange
-        var clienteSinCtaCte = CrearClienteSinCuentaCorriente();
-        var viewModel = new CobroModalViewModel(5000m, clienteSinCtaCte)
+        var viewModel = new CobroModalViewModel(5000m, null)
+        {
+            MedioPagoSeleccionado = MedioPagoEnum.TarjetaDebito
+        };
+
+        viewModel.ConfirmarPagoActual();
+
+        viewModel.OperacionConfirmada.Should().BeTrue();
+        viewModel.PagosImputados.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(new { MedioPago = MedioPagoEnum.TarjetaDebito, Monto = 5000m });
+        viewModel.SaldoPendiente.Should().Be(0m);
+    }
+
+    [Fact]
+    public void ConfirmarPagoActual_EfectivoMayorALoQueFalta_ImputaLoQueFaltaConVueltoYConfirma()
+    {
+        var viewModel = new CobroModalViewModel(18650m, null)
+        {
+            Monto = 20000m
+        };
+
+        viewModel.ConfirmarPagoActual();
+
+        viewModel.OperacionConfirmada.Should().BeTrue();
+        var pago = viewModel.PagosImputados.Should().ContainSingle().Subject;
+        pago.Monto.Should().Be(18650m);
+        pago.MontoRecibido.Should().Be(20000m);
+        pago.Vuelto.Should().Be(1350m);
+    }
+
+    [Fact]
+    public void ConfirmarPagoActual_MontoMenor_ImputaParcialYPreparaOtroMedioConElRestante()
+    {
+        var viewModel = new CobroModalViewModel(18650m, null)
+        {
+            Monto = 10000m
+        };
+
+        viewModel.ConfirmarPagoActual();
+
+        viewModel.OperacionConfirmada.Should().BeFalse();
+        viewModel.PagosImputados.Should().ContainSingle()
+            .Which.Should().BeEquivalentTo(new { MedioPago = MedioPagoEnum.Efectivo, Monto = 10000m, Vuelto = 0m });
+        viewModel.SaldoPendiente.Should().Be(8650m);
+        viewModel.MedioPagoSeleccionado.Should().Be(MedioPagoEnum.TarjetaDebito);
+        viewModel.Monto.Should().Be(8650m);
+        viewModel.TextoAccionPrincipal.Should().Be("Cobrar");
+    }
+
+    [Fact]
+    public void ConfirmarPagoActual_SegundoPagoQueCompleta_ConfirmaLaOperacion()
+    {
+        var viewModel = new CobroModalViewModel(18650m, null)
+        {
+            Monto = 10000m
+        };
+        viewModel.ConfirmarPagoActual();
+
+        viewModel.ConfirmarPagoActual();
+
+        viewModel.OperacionConfirmada.Should().BeTrue();
+        viewModel.PagosImputados.Should().HaveCount(2);
+        viewModel.TotalImputado.Should().Be(18650m);
+    }
+
+    [Fact]
+    public void ConfirmarPagoActual_TarjetaMayorALoQueFalta_MuestraErrorSinImputar()
+    {
+        var viewModel = new CobroModalViewModel(5000m, null)
+        {
+            MedioPagoSeleccionado = MedioPagoEnum.TarjetaCredito,
+            Monto = 6000m
+        };
+
+        viewModel.ConfirmarPagoActual();
+
+        viewModel.MensajeError.Should().Contain("solo el efectivo da vuelto");
+        viewModel.PagosImputados.Should().BeEmpty();
+        viewModel.OperacionConfirmada.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ConfirmarPagoActual_MontoEnCero_MuestraErrorSinImputar()
+    {
+        var viewModel = new CobroModalViewModel(5000m, null)
+        {
+            Monto = 0m
+        };
+
+        viewModel.ConfirmarPagoActual();
+
+        viewModel.TieneError.Should().BeTrue();
+        viewModel.PagosImputados.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ConfirmarPagoActual_CuentaCorrienteSinHabilitacion_MuestraError()
+    {
+        var viewModel = new CobroModalViewModel(5000m, CrearClienteSinCuentaCorriente())
         {
             MedioPagoSeleccionado = MedioPagoEnum.CuentaCorriente
         };
 
-        // Act
-        viewModel.ImputarPago();
+        viewModel.ConfirmarPagoActual();
 
-        // Assert
         viewModel.MensajeError.Should().Contain("cuenta corriente habilitada");
         viewModel.PagosImputados.Should().BeEmpty();
     }
 
     [Fact]
-    public void CuentaCorriente_SuperaCreditoDisponible_DebeEmitirError()
+    public void ConfirmarPagoActual_CuentaCorrienteSuperaElCreditoDisponible_MuestraError()
     {
-        // Arrange (Límite 50.000, debe 45.000 -> Disponible 5.000)
-        var cliente = CrearClienteConCuentaCorriente(50000m, 45000m);
-        var viewModel = new CobroModalViewModel(8000m, cliente)
+        // Límite 50.000, debe 45.000 -> disponible 5.000
+        var viewModel = new CobroModalViewModel(8000m, CrearClienteConCuentaCorriente(50000m, 45000m))
         {
-            MedioPagoSeleccionado = MedioPagoEnum.CuentaCorriente,
-            MontoImputar = 8000m
+            MedioPagoSeleccionado = MedioPagoEnum.CuentaCorriente
         };
 
-        // Act
-        viewModel.ImputarPago();
+        viewModel.ConfirmarPagoActual();
 
-        // Assert
         viewModel.MensajeError.Should().Contain("supera el crédito disponible");
         viewModel.PagosImputados.Should().BeEmpty();
     }
 
     [Fact]
-    public void ImputarPago_PagoParcial_DebeReducirSaldoPendiente()
+    public void Efectivo_TrasUnPagoParcial_ElPrimerBilleteVuelveAReemplazar()
     {
-        // Arrange
+        // Se cobran $4.000 con débito de un total de $10.000: queda sugerido el resto, $6.000, en efectivo
         var viewModel = new CobroModalViewModel(10000m, null)
         {
-            MedioPagoSeleccionado = MedioPagoEnum.Efectivo,
-            MontoImputar = 4000m,
-            EfectivoRecibido = 4000m
+            MedioPagoSeleccionado = MedioPagoEnum.TarjetaDebito,
+            Monto = 4000m
         };
+        viewModel.ConfirmarPagoActual();
 
-        // Act
-        viewModel.ImputarPago();
+        var sugerido = viewModel.Monto;
+        viewModel.SumarDiezMil();
 
-        // Assert
-        viewModel.PagosImputados.Should().HaveCount(1);
-        viewModel.TotalImputado.Should().Be(4000m);
-        viewModel.SaldoPendiente.Should().Be(6000m);
-        viewModel.MontoImputar.Should().Be(6000m);
-        viewModel.PuedeConfirmar.Should().BeFalse();
+        viewModel.MedioPagoSeleccionado.Should().Be(MedioPagoEnum.Efectivo);
+        sugerido.Should().Be(6000m);
+        viewModel.Monto.Should().Be(10000m);
+        viewModel.Vuelto.Should().Be(4000m);
     }
 
     [Fact]
-    public void ConfirmarCobro_ConSaldoPendiente_NoDebeConfirmar()
+    public void RemoverPago_DespuesDeUnParcial_RecalculaElMontoPendiente()
     {
-        // Arrange
-        var viewModel = new CobroModalViewModel(5000m, null);
-
-        // Act
-        viewModel.ConfirmarCobro();
-
-        // Assert
-        viewModel.OperacionConfirmada.Should().BeFalse();
-        viewModel.MensajeError.Should().NotBeNullOrWhiteSpace();
-    }
-
-    [Fact]
-    public void ConfirmarCobro_ConSaldoCubierto_DebeConfirmarExitosamente()
-    {
-        // Arrange
-        var viewModel = new CobroModalViewModel(5000m, null)
+        var viewModel = new CobroModalViewModel(10000m, null)
         {
-            MedioPagoSeleccionado = MedioPagoEnum.Efectivo,
-            MontoImputar = 5000m,
-            EfectivoRecibido = 5000m
+            Monto = 4000m
         };
+        viewModel.ConfirmarPagoActual();
 
-        viewModel.ImputarPago();
+        viewModel.RemoverPago(viewModel.PagosImputados[0]);
 
-        // Act
-        viewModel.ConfirmarCobro();
-
-        // Assert
-        viewModel.OperacionConfirmada.Should().BeTrue();
-        viewModel.SaldoPendiente.Should().Be(0m);
-        viewModel.PuedeConfirmar.Should().BeTrue();
+        viewModel.PagosImputados.Should().BeEmpty();
+        viewModel.SaldoPendiente.Should().Be(10000m);
+        viewModel.Monto.Should().Be(10000m);
     }
 }

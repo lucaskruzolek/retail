@@ -321,6 +321,11 @@
                 <Setter Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             </Trigger>
+            <!-- Último: el hover no debe reavivar un botón deshabilitado -->
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.4" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
         </Style.Triggers>
     </Style>
 
@@ -452,6 +457,45 @@
         </Style.Triggers>
     </Style>
 
+    <!-- Botón con el rango de fechas elegido (FiltroRangoFecha): mismo aspecto que un botón con contorno (KeycapButtonStyle),
+         pero ToggleButton, para que quede hundido mientras su panel está abierto. -->
+    <Style x:Key="RangoFechaBotonStyle" TargetType="ToggleButton">
+        <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="MinHeight" Value="{StaticResource ControlHeight}" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SurfaceBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisualRetailStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="Fondo"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            Padding="{TemplateBinding Padding}"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fondo" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Fondo" Property="Background" Value="{DynamicResource SurfacePressedBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Panel flotante del filtro: tarjeta con borde, radio 8 y la sombra de las superficies flotantes. El margen deja lugar
          a la sombra dentro del Popup transparente. -->
     <Style x:Key="FiltroColumnaPanelStyle" TargetType="Border">
@@ -467,6 +511,244 @@
                                   BlurRadius="16"
                                   ShadowDepth="4"
                                   Direction="270" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ================================================================= -->
+    <!-- CALENDARIO (SelectorRangoFecha)                                    -->
+    <!-- ================================================================= -->
+    <!-- El Calendar de WPF-UI marca "hoy" con relleno y el día elegido con un aro, y navega con triángulos. Acá se invierte
+         lo primero (el elegido va relleno en carmín; hoy, con un fondo suave) y se navega con flechas. Los estados de un
+         día los maneja el propio control con VisualStateManager (IsToday e IsSelected no son propiedades de dependencia),
+         así que cada estado anima la opacidad de capas ya pintadas con tokens DynamicResource (los pinceles de
+         una animación se congelarían y no seguirían al tema). -->
+    <Style x:Key="CalendarioDiaButtonStyle" TargetType="CalendarDayButton">
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarDayButton">
+                    <Grid Margin="1">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="MouseOver">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Texto" Storyboard.TargetProperty="Opacity" To="0.3" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="SelectionStates">
+                                <VisualState x:Name="Unselected" />
+                                <VisualState x:Name="Selected">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Seleccionado" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                        <DoubleAnimation Storyboard.TargetName="Texto" Storyboard.TargetProperty="Opacity" To="0" Duration="0" />
+                                        <DoubleAnimation Storyboard.TargetName="TextoSeleccionado" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="ActiveStates">
+                                <VisualState x:Name="Active" />
+                                <VisualState x:Name="Inactive">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Texto" Storyboard.TargetProperty="Opacity" To="0.4" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="DayStates">
+                                <VisualState x:Name="RegularDay" />
+                                <VisualState x:Name="Today">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hoy" Storyboard.TargetProperty="Opacity" To="1" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="BlackoutDayStates">
+                                <VisualState x:Name="NormalDay" />
+                                <VisualState x:Name="BlackoutDay">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Texto" Storyboard.TargetProperty="Opacity" To="0.3" Duration="0" />
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <Border x:Name="Hoy" Background="{DynamicResource SurfaceSelectedBrush}" CornerRadius="{StaticResource RadiusMd}" Opacity="0" />
+                        <Border x:Name="Hover" Background="{DynamicResource SurfaceHoverBrush}" CornerRadius="{StaticResource RadiusMd}" Opacity="0" />
+                        <Border x:Name="Seleccionado" Background="{DynamicResource PrimaryBrush}" CornerRadius="{StaticResource RadiusMd}" Opacity="0" />
+                        <TextBlock x:Name="Texto"
+                                   Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   FontSize="{TemplateBinding FontSize}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="TextoSeleccionado"
+                                   Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                   FontSize="{TemplateBinding FontSize}"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Opacity="0" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Botón de las flechas del encabezado y título del mes: texto plano, con fondo suave al pasar el mouse -->
+    <Style x:Key="CalendarioNavegacionButtonStyle" TargetType="Button">
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Fondo"
+                            Background="Transparent"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            MinWidth="28"
+                            MinHeight="28"
+                            Padding="8,0">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fondo" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.3" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CalendarioItemStyle" TargetType="CalendarItem">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CalendarItem">
+                    <ControlTemplate.Resources>
+                        <!-- Letra del día de la semana (L M M J V S D), tenue y chica. CalendarItem la busca en los recursos
+                             de la plantilla, no en los del estilo ni los del Grid -->
+                        <DataTemplate x:Key="{x:Static CalendarItem.DayTitleTemplateResourceKey}">
+                            <TextBlock Text="{Binding}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       FontSize="{StaticResource FontSizeSm}"
+                                       FontWeight="Medium"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,4,0,6" />
+                        </DataTemplate>
+                    </ControlTemplate.Resources>
+                    <Grid x:Name="PART_Root" Margin="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Grid.Row="0" Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="PART_PreviousButton"
+                                    Grid.Column="0"
+                                    Style="{StaticResource CalendarioNavegacionButtonStyle}"
+                                    AutomationProperties.Name="Mes anterior">
+                                <iconPacks:PackIconBoxIcons Kind="RegularChevronLeft" Width="16" Height="16" />
+                            </Button>
+                            <Button x:Name="PART_HeaderButton"
+                                    Grid.Column="1"
+                                    Style="{StaticResource CalendarioNavegacionButtonStyle}"
+                                    HorizontalAlignment="Center"
+                                    Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <Button x:Name="PART_NextButton"
+                                    Grid.Column="2"
+                                    Style="{StaticResource CalendarioNavegacionButtonStyle}"
+                                    AutomationProperties.Name="Mes siguiente">
+                                <iconPacks:PackIconBoxIcons Kind="RegularChevronRight" Width="16" Height="16" />
+                            </Button>
+                        </Grid>
+
+                        <Grid x:Name="PART_MonthView" Grid.Row="1" Visibility="Visible">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                        </Grid>
+
+                        <Grid x:Name="PART_YearView" Grid.Row="1" Visibility="Hidden">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                        </Grid>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CalendarioStyle" TargetType="Calendar">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="FirstDayOfWeek" Value="Monday" />
+        <Setter Property="CalendarItemStyle" Value="{StaticResource CalendarioItemStyle}" />
+        <Setter Property="CalendarDayButtonStyle" Value="{StaticResource CalendarioDiaButtonStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Calendar">
+                    <Viewbox Stretch="None" StretchDirection="DownOnly">
+                        <CalendarItem x:Name="PART_CalendarItem"
+                                      Style="{TemplateBinding CalendarItemStyle}"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}" />
+                    </Viewbox>
+                </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
@@ -570,21 +852,20 @@
                 <ControlTemplate TargetType="{x:Type components:PageHeader}">
                     <DockPanel LastChildFill="False">
                         <ContentPresenter DockPanel.Dock="Right" VerticalAlignment="Center" />
-                        <StackPanel VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="{TemplateBinding Titulo}"
                                        Style="{StaticResource TextBlockPageTitle}" />
-                            <TextBlock x:Name="TextoSubtitulo"
-                                       Text="{TemplateBinding Subtitulo}"
-                                       Style="{StaticResource TextBlockBodySecondary}"
-                                       Margin="0,4,0,0" />
+                            <!-- La descripción de la página vive en un tooltip: sin ella el ícono se oculta solo -->
+                            <components:IconoInformacion x:Name="IconoDescripcion"
+                                                         Texto="{TemplateBinding Descripcion}"
+                                                         Margin="4,2,0,0"
+                                                         VerticalAlignment="Center" />
+                            <!-- Círculo de carga sin leyenda, con su lugar siempre reservado (R12) -->
+                            <components:IndicadorCarga EstaCargando="{TemplateBinding EstaCargando}"
+                                                       Margin="0,2,0,0"
+                                                       VerticalAlignment="Center" />
                         </StackPanel>
                     </DockPanel>
-                    <!-- Sin subtítulo no queda una línea vacía: el título se centra con las acciones -->
-                    <ControlTemplate.Triggers>
-                        <Trigger Property="Subtitulo" Value="">
-                            <Setter TargetName="TextoSubtitulo" Property="Visibility" Value="Collapsed" />
-                        </Trigger>
-                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
@@ -622,7 +903,7 @@
     <!-- Acciones masivas, sin recuadro que las contenga: a la izquierda la insignia rectangular (radio 4, como las de la
          grilla) "N seleccionados ✕" (fondo gris como el de
          las filas marcadas, texto de tinta; la "✕" cancela la selección); a la derecha, las acciones de la página (su
-         Content), que aparecen solo con selección. Va en la barra del buscador (ListToolbar.AccionesDeSeleccion), en lugar
+         Content), que se habilitan con selección. Va en la barra del buscador (ListToolbar.AccionesDeSeleccion), en lugar
          de "Limpiar filtros", la carga y el contador. Mide lo mismo que el buscador (32) para que la página no se desplace. -->
     <Style TargetType="{x:Type components:BulkActionBar}">
         <Setter Property="IsTabStop" Value="False" />
@@ -631,7 +912,8 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type components:BulkActionBar}">
                     <DockPanel LastChildFill="False" Height="{StaticResource ControlHeight}">
-                        <Border DockPanel.Dock="Left"
+                        <Border x:Name="InsigniaSeleccion"
+                                DockPanel.Dock="Left"
                                 Background="{DynamicResource SurfaceSelectedBrush}"
                                 CornerRadius="{StaticResource RadiusSm}"
                                 Height="{StaticResource ControlHeightSm}"
@@ -655,6 +937,12 @@
                         </Border>
                         <ContentPresenter DockPanel.Dock="Right" VerticalAlignment="Center" />
                     </DockPanel>
+                    <!-- Sin filas marcadas no hay badge: las acciones siguen a la vista, deshabilitadas por sus comandos -->
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="CantidadSeleccionados" Value="0">
+                            <Setter TargetName="InsigniaSeleccion" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

@@ -92,6 +92,14 @@ public partial class PedirArticulosViewModel : ObservableObject
 
     public bool PuedeConfirmar => CantidadRenglones > 0 && Grupos.SelectMany(g => g.Renglones).All(r => r.EsValida);
 
+    /// <summary>
+    /// Texto de la acción: dice cuántos borradores cambian, porque cada proveedor tiene el suyo. "Agregar al pedido" en
+    /// singular ocultaba que un lote con dos proveedores modifica (o crea) dos borradores.
+    /// </summary>
+    public string TextoConfirmar => Grupos.Count > 1
+        ? $"Agregar a {Grupos.Count} borradores"
+        : "Agregar al borrador";
+
     [RelayCommand]
     private void QuitarRenglon(RenglonPedirFila? fila)
     {
@@ -233,6 +241,7 @@ public partial class PedirArticulosViewModel : ObservableObject
         OnPropertyChanged(nameof(CantidadRenglones));
         OnPropertyChanged(nameof(TotalEstimado));
         OnPropertyChanged(nameof(PuedeConfirmar));
+        OnPropertyChanged(nameof(TextoConfirmar));
     }
 
     private static string DescribirOmitido(RenglonOmitidoDto omitido)

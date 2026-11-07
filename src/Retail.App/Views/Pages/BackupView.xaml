@@ -32,14 +32,35 @@
         <!-- 1. ENCABEZADO Y ACCIONES (Gerente y Administrador operan, D-30 y D-32), sin tarjeta -->
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
+            <!-- La descripción sigue a la página abierta (Copias o Restauraciones): el título es el de la sección -->
             <components:PageHeader Margin="{StaticResource StackSm}"
                                    Titulo="Administración"
-                                   Subtitulo="Historial de copias completas de la base de datos y restauración desde una copia verificada (RF-22)">
-                <StackPanel Orientation="Horizontal"
-                            Visibility="{Binding PuedeOperar, Converter={StaticResource BoolToVisConverter}}">
+                                   EstaCargando="{Binding IsBusy}">
+                <components:PageHeader.Style>
+                    <Style TargetType="components:PageHeader" BasedOn="{StaticResource {x:Type components:PageHeader}}">
+                        <Setter Property="Descripcion" Value="Copias · Historial de copias completas de la base de datos; permite crear una y restaurar desde una verificada (RF-22)" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MostrandoRestauraciones}" Value="True">
+                                <Setter Property="Descripcion" Value="Restauraciones · Registro de las restauraciones de la base de datos: quién las ejecutó, quién las autorizó y desde qué copia" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </components:PageHeader.Style>
+                <StackPanel Orientation="Horizontal">
+                    <!-- Quita los filtros de columna de la grilla que se está mostrando; se deshabilita sola si no hay ninguno -->
+                    <Button Command="{Binding LimpiarFiltrosCommand}"
+                            Style="{StaticResource GhostNeutralButtonStyle}"
+                            Margin="{StaticResource InlineSm}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularFilter" Width="14" Height="14" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Limpiar filtros" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding PuedeOperar, Converter={StaticResource BoolToVisConverter}}">
                     <Button Command="{Binding RestaurarCopiaCommand}"
                             Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}"
-                            Style="{StaticResource DangerActionButtonStyle}"
+                            Style="{StaticResource KeycapButtonStyle}"
                             Margin="{StaticResource InlineSm}"
                             ToolTip="Restaurar la copia seleccionada (solo copias verificadas)">
                         <StackPanel Orientation="Horizontal">
@@ -56,6 +77,7 @@
                             <TextBlock Text="Crear copia" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
+                    </StackPanel>
                 </StackPanel>
             </components:PageHeader>
             <components:NavegadorSeccion SeccionId="administracion" Margin="{StaticResource SectionSpacing}" />
@@ -85,57 +107,52 @@
         </StackPanel>
 
         <!-- ============================================================= -->
-        <!-- 3. ESTADO Y CARGA, sin tarjeta (la vista se elige en el selector de sección)-->
-        <!-- ============================================================= -->
-        <DockPanel Grid.Row="2" LastChildFill="False" Margin="{StaticResource StackMd}">
-            <TextBlock Text="{Binding MensajeEstado}"
-                       Style="{StaticResource TextBlockBodySecondary}"
-                       VerticalAlignment="Center" />
-
-            <!-- Indicador de carga o de operación en curso -->
-            <StackPanel Orientation="Horizontal"
-                        DockPanel.Dock="Right"
-                        VerticalAlignment="Center"
-                        Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisConverter}}">
-                <ui:ProgressRing Width="20" Height="20" Margin="{StaticResource InlineSm}" IsIndeterminate="True" />
-                <TextBlock Text="Procesando..." Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
-            </StackPanel>
-        </DockPanel>
-
-        <!-- ============================================================= -->
         <!-- 4. TABLA: una sola superficie con la vista elegida             -->
         <!-- ============================================================= -->
         <Border Grid.Row="3" Style="{StaticResource TablaListadoStyle}">
             <Grid>
                 <!-- Historial de copias -->
-                <DataGrid Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}"
-                          ItemsSource="{Binding Copias}"
+                <Grid Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}">
+                <DataGrid ItemsSource="{Binding Copias}"
                           SelectedItem="{Binding CopiaSeleccionada, Mode=TwoWay}"
                           Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           BorderThickness="0"
                           helpers:EsquinasHelper.Esquinas="7">
                     <DataGrid.Columns>
-                        <!-- Fecha local de inicio -->
-                        <DataGridTextColumn Header="Fecha"
-                                            Binding="{Binding FechaLocal, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}"
-                                            Width="150"
-                                            ElementStyle="{StaticResource TextBlockNumericCell}" />
+                        <!-- Fecha local de inicio; las cabeceras llevan filtros de columna (el DataContext de la página se toma del
+                             UserControl ancestro: una columna no está en el árbol visual) -->
+                        <DataGridTextColumn Binding="{Binding FechaLocal, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}"
+                                            Width="190"
+                                            ElementStyle="{StaticResource TextBlockNumericCell}">
+                            <DataGridTextColumn.Header>
+                                <components:FiltroFechaColumna Filtro="{Binding DataContext.FiltroCopiaFecha, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
 
                         <!-- Tipo -->
-                        <DataGridTextColumn Header="Tipo"
-                                            Binding="{Binding Tipo, Converter={StaticResource EnumATextoConverter}}"
-                                            Width="170"
-                                            ElementStyle="{StaticResource TextBlockTextCell}" />
+                        <DataGridTextColumn Binding="{Binding Tipo, Converter={StaticResource EnumATextoConverter}}"
+                                            Width="190"
+                                            ElementStyle="{StaticResource TextBlockTextCell}">
+                            <DataGridTextColumn.Header>
+                                <components:FiltroColumna Filtro="{Binding DataContext.FiltroCopiaTipo, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
 
                         <!-- Operador -->
-                        <DataGridTextColumn Header="Operador"
-                                            Binding="{Binding Operador}"
+                        <DataGridTextColumn Binding="{Binding Operador}"
                                             Width="*"
-                                            ElementStyle="{StaticResource TextBlockTextCell}" />
+                                            ElementStyle="{StaticResource TextBlockTextCell}">
+                            <DataGridTextColumn.Header>
+                                <components:FiltroColumna Filtro="{Binding DataContext.FiltroCopiaOperador.Filtro, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTextColumn.Header>
+                        </DataGridTextColumn>
 
                         <!-- Estado con badge semáforo -->
-                        <DataGridTemplateColumn Header="Estado" Width="150">
+                        <DataGridTemplateColumn Width="170" SortMemberPath="Estado">
+                            <DataGridTemplateColumn.Header>
+                                <components:FiltroColumna Filtro="{Binding DataContext.FiltroCopiaEstado, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
                                     <Border x:Name="EstadoBadge"
@@ -195,6 +212,13 @@
                     </DataGrid.Columns>
                 </DataGrid>
 
+                <TextBlock Text="{Binding MensajeSinCopias}"
+                           Style="{StaticResource TextBlockBodyMuted}"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding NoHayCopias, Converter={StaticResource BoolToVisConverter}}" />
+                </Grid>
+
                 <!-- Historial de restauraciones (D-34): solo lectura -->
                 <Grid Visibility="{Binding MostrandoRestauraciones, Converter={StaticResource BoolToVisConverter}}">
                     <DataGrid ItemsSource="{Binding Restauraciones}"
@@ -204,22 +228,34 @@
                               BorderThickness="0"
                               helpers:EsquinasHelper.Esquinas="7">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Fecha"
-                                                Binding="{Binding FechaLocal, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}"
-                                                Width="150"
-                                                ElementStyle="{StaticResource TextBlockNumericCell}" />
-                            <DataGridTextColumn Header="Origen"
-                                                Binding="{Binding OrigenTexto}"
-                                                Width="110"
-                                                ElementStyle="{StaticResource TextBlockTextCell}" />
-                            <DataGridTextColumn Header="Ejecutada por"
-                                                Binding="{Binding EjecutadaPor}"
+                            <DataGridTextColumn Binding="{Binding FechaLocal, StringFormat='{}{0:dd/MM/yyyy HH:mm}'}"
+                                                Width="190"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}">
+                                <DataGridTextColumn.Header>
+                                    <components:FiltroFechaColumna Filtro="{Binding DataContext.FiltroRestauracionFecha, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Binding="{Binding OrigenTexto}"
+                                                Width="140"
+                                                ElementStyle="{StaticResource TextBlockTextCell}">
+                                <DataGridTextColumn.Header>
+                                    <components:FiltroColumna Filtro="{Binding DataContext.FiltroRestauracionOrigen, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Binding="{Binding EjecutadaPor}"
                                                 Width="*"
-                                                ElementStyle="{StaticResource TextBlockTextCell}" />
-                            <DataGridTextColumn Header="Autorizada por"
-                                                Binding="{Binding AutorizadaPor}"
+                                                ElementStyle="{StaticResource TextBlockTextCell}">
+                                <DataGridTextColumn.Header>
+                                    <components:FiltroColumna Filtro="{Binding DataContext.FiltroRestauracionEjecutadaPor.Filtro, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
+                            <DataGridTextColumn Binding="{Binding AutorizadaPor}"
                                                 Width="*"
-                                                ElementStyle="{StaticResource TextBlockTextCell}" />
+                                                ElementStyle="{StaticResource TextBlockTextCell}">
+                                <DataGridTextColumn.Header>
+                                    <components:FiltroColumna Filtro="{Binding DataContext.FiltroRestauracionAutorizadaPor.Filtro, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
                             <DataGridTextColumn Header="Copia restaurada"
                                                 Binding="{Binding ArchivoCopia}"
                                                 Width="2*"
@@ -231,7 +267,7 @@
                         </DataGrid.Columns>
                     </DataGrid>
 
-                    <TextBlock Text="No se registraron restauraciones"
+                    <TextBlock Text="{Binding MensajeSinRestauraciones}"
                                Style="{StaticResource TextBlockBodyMuted}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"

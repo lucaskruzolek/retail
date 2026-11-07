@@ -204,6 +204,7 @@ public class CompraService : ICompraService
     /// <inheritdoc/>
     public Task<IReadOnlyList<ArticuloParaCompraDto>> BuscarArticulosAsync(
         string termino,
+        int idProveedor,
         int limite = 15,
         CancellationToken cancellationToken = default)
     {
@@ -212,7 +213,7 @@ public class CompraService : ICompraService
             return Task.FromResult<IReadOnlyList<ArticuloParaCompraDto>>(Array.Empty<ArticuloParaCompraDto>());
         }
 
-        return _articuloQueryService.BuscarParaCompraAsync(termino.Trim(), limite, cancellationToken);
+        return _articuloQueryService.BuscarParaCompraAsync(termino.Trim(), idProveedor, limite, cancellationToken);
     }
 
     /// <inheritdoc/>
