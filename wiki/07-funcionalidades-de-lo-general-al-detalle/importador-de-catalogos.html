@@ -135,64 +135,64 @@ details[open] > summary { margin-bottom: 8px; }
 <h2 id="nivel-0" class="sin-salto">Nivel 0 · El mapa</h2>
 <span class="etiqueta">Abstracción máxima</span>
 
-<p>Hay dos tablas que esta guía llama <b>libretas</b>: el <b>catálogo del proveedor</b> (<code>CATALOGOS_PROVEEDORES</code>), con un renglón por producto de cada lista de precios, y la <b>tienda</b> (<code>ARTICULOS</code>), con lo que el comercio vende. Un renglón del catálogo puede ser <b>fuente</b> de un artículo: el lugar donde se compra y del que sale su costo. Los siete casos de uso se entienden según qué hacen con las libretas y con esa relación.</p>
+<p>Hay dos tablas que esta guía llama <b>libretas</b>: el <b>catálogo del proveedor</b> (<code>CATALOGOS_PROVEEDORES</code>), con un renglón por producto de cada lista de precios, y la <b>tienda</b> (<code>ARTICULOS</code>), con lo que el comercio vende. Un renglón del catálogo puede ser <b>fuente</b> de un artículo: el lugar donde se compra y del que sale su costo. Los seis casos de uso se entienden según qué hacen con las libretas y con esa relación.</p>
 
-<h3>Quién hace qué y sobre qué tabla escribe</h3>
+<h3>Las dos libretas y cómo se relacionan</h3>
 <figure>
-<figcaption>Diagrama 0.1 · casos de uso</figcaption>
-<pre class="mermaid">
-flowchart LR
-    U(["Encargado del comercio"])
-    subgraph IMP["Pantalla Catálogos mayoristas"]
-        CU1["CU-01 Explorar el catálogo&lt;br/&gt;búsqueda, vinculación, categoría y marca"]
-        CU2["CU-02 Importar planilla"]
-        CU7["CU-07 Clasificar el catálogo"]
-        CU3["CU-03 Incorporar a la tienda"]
-        CU4["CU-04 Vincular un artículo existente"]
-    end
-    subgraph ART["Pantalla Artículos"]
-        CU5["CU-05 Gestionar las fuentes&lt;br/&gt;agregar, quitar, elegir la principal"]
-    end
-    CAT[("Libreta 1&lt;br/&gt;CATALOGOS_PROVEEDORES")]
-    TIE[("Libreta 2&lt;br/&gt;ARTICULOS")]
-    U --&gt; CU1
-    U --&gt; CU2
-    U --&gt; CU7
-    U --&gt; CU3
-    U --&gt; CU4
-    U --&gt; CU5
-    CU1 --&gt;|"lee"| CAT
-    CU2 --&gt;|"escribe costos y textos"| CAT
-    CU2 -.-&gt;|"el costo viaja solo&lt;br/&gt;por la fuente principal"| TIE
-    CU2 -.-&gt;|"opcional: encadena"| CU7
-    CU7 --&gt;|"escribe categoría&lt;br/&gt;y marca sugeridas"| CAT
-    CU3 --&gt;|"crea artículos con su fuente"| TIE
-    CU4 --&gt;|"suma una fuente"| TIE
-    CU5 --&gt;|"suma, quita o cambia la principal"| TIE
-</pre>
-</figure>
-
-<div class="llevarte"><b>Qué tenés que llevarte</b>
-<ul>
-    <li>La planilla <b>solo escribe en el catálogo</b>. La importación nunca crea artículos de la tienda: a la tienda llega únicamente el costo nuevo, y solo a los artículos cuya <b>fuente principal</b> es un renglón de esa planilla.</li>
-    <li>Clasificar (CU-07) tampoco toca la tienda: guarda en cada renglón la categoría y la marca <b>del comercio</b> que sugieren las reglas, para poder explorar el catálogo con la taxonomía propia.</li>
-    <li>CU-03 a CU-05 son de <b>curaduría</b>: deciden qué renglones pasan a la tienda y de qué artículos son fuente.</li>
-</ul>
-</div>
-
-<h3>El modelo: dos claves foráneas con roles distintos</h3>
-<figure>
-<figcaption>Diagrama 0.2 · entidad-relación</figcaption>
+<figcaption>Diagrama 0.1 · entidad-relación</figcaption>
 <pre class="mermaid">
 erDiagram
     PROVEEDORES ||--o{ CATALOGOS_PROVEEDORES : "id_proveedor"
-    ARTICULOS ||--o{ CATALOGOS_PROVEEDORES : "id_articulo: todas sus fuentes"
+    ARTICULOS |o--o{ CATALOGOS_PROVEEDORES : "id_articulo: sus fuentes"
     CATALOGOS_PROVEEDORES |o--o| ARTICULOS : "id_catalogo_proveedor: la principal"
-    ARTICULOS ||--o{ ARTICULOS : "id_articulo_origen: presentaciones"
+    ARTICULOS |o--o{ ARTICULOS : "id_articulo_origen: presentaciones"
     CATALOGOS_PROVEEDORES }o--o| CATEGORIAS : "id_categoria_sugerida"
     CATALOGOS_PROVEEDORES }o--o| MARCAS : "id_marca_sugerida"
+    ARTICULOS }o--o| CATEGORIAS : "id_categoria"
+    ARTICULOS }o--o| MARCAS : "id_marca"
+    CATALOGOS_PROVEEDORES {
+        int id_catalogo PK
+        int id_proveedor FK
+        nvarchar codigo_proveedor UK "único por proveedor"
+        nvarchar codigo_barras
+        nvarchar descripcion_proveedor
+        decimal precio_costo "mayor o igual a 0"
+        datetime2 fecha_actualizacion "vino en la última planilla"
+        nvarchar rubro_proveedor "texto del proveedor"
+        nvarchar categoria_proveedor "texto del proveedor"
+        nvarchar marca_proveedor "texto del proveedor"
+        int id_categoria_sugerida FK
+        int id_marca_sugerida FK
+        datetime2 fecha_clasificacion "nula si está pendiente"
+        int id_articulo FK "de qué artículo es fuente"
+        datetime2 created_at
+        datetime2 deleted_at "baja lógica"
+    }
+    ARTICULOS {
+        int id_articulo PK
+        nvarchar codigo_barras UK "si no es nulo"
+        nvarchar descripcion
+        int id_categoria FK
+        int id_marca FK
+        nvarchar origen_categoria "sugerida o elegida"
+        nvarchar origen_marca "sugerida o elegida"
+        int id_catalogo_proveedor FK,UK "la fuente principal"
+        int id_articulo_origen FK "si es presentación"
+        int unidades_por_origen
+        decimal costo_reposicion
+        decimal porcentaje_ganancia "markup"
+        decimal precio_venta
+        int stock_actual
+        int stock_minimo
+        bit es_servicio
+        datetime2 created_at
+        datetime2 deleted_at "baja lógica"
+        rowversion row_version "concurrencia optimista"
+    }
 </pre>
 </figure>
+
+<p>El DER muestra las columnas reales de las dos libretas. Además de las relaciones con proveedores, categorías y marcas, las une <b>un par de claves foráneas con roles distintos</b>:</p>
 
 <table>
 <tr><th>Columna</th><th>Qué significa</th><th>Qué garantiza que sea a lo sumo uno</th><th>Decisión</th></tr>
@@ -204,6 +204,52 @@ erDiagram
 <p><b>¿Por qué dos caminos al mismo dato?</b> Se evaluaron alternativas (A-16). Guardar la principal en <code>ARTICULOS</code> deja que cambiarla toque solo al artículo, que es el dueño de esa decisión, y mantuvo intactos el importador y la propagación del costo. A cambio, la regla "la principal es una de las fuentes del artículo" cruza dos tablas y la base no puede expresarla: la protege el dominio.</p>
 
 <p><b>Por qué solo la principal fija el costo (A-2).</b> Con varias fuentes, "la última planilla importada gana" haría oscilar el precio de venta según el orden en que se importen las listas. Las demás fuentes son de consulta y de pedido: el formulario las compara por costo y el pedido a proveedor puede elegir cualquiera.</p>
+
+<h3>Quién hace qué y sobre qué tabla escribe</h3>
+<figure>
+<figcaption>Diagrama 0.2 · casos de uso</figcaption>
+<pre class="mermaid">
+flowchart LR
+    U(["Encargado del comercio"])
+    subgraph IMP["Pantalla Catálogos mayoristas"]
+        CU1["CU-01 Explorar el catálogo&lt;br/&gt;búsqueda, vinculación, categoría y marca"]
+        CU2["CU-02 Importar planilla"]
+        CU6["CU-06 Clasificar el catálogo"]
+        CU3["CU-03 Incorporar a la tienda"]
+        CU4["CU-04 Vincular un artículo existente"]
+    end
+    subgraph ART["Pantalla Artículos"]
+        CU5["CU-05 Gestionar las fuentes&lt;br/&gt;agregar, quitar, elegir la principal"]
+    end
+    CAT[("Libreta 1&lt;br/&gt;CATALOGOS_PROVEEDORES")]
+    TIE[("Libreta 2&lt;br/&gt;ARTICULOS")]
+    U --&gt; CU1
+    U --&gt; CU2
+    U --&gt; CU6
+    U --&gt; CU3
+    U --&gt; CU4
+    U --&gt; CU5
+    CU1 --&gt;|"lee"| CAT
+    CU2 --&gt;|"escribe costos y textos"| CAT
+    CU2 -.-&gt;|"el costo viaja solo&lt;br/&gt;por la fuente principal"| TIE
+    CU2 -.-&gt;|"opcional: encadena"| CU6
+    CU6 --&gt;|"escribe categoría&lt;br/&gt;y marca sugeridas"| CAT
+    CU3 --&gt;|"escribe id_articulo"| CAT
+    CU3 --&gt;|"crea el artículo con su principal"| TIE
+    CU4 --&gt;|"escribe id_articulo"| CAT
+    CU4 --&gt;|"si es principal:&lt;br/&gt;costo y precio"| TIE
+    CU5 --&gt;|"escribe o libera id_articulo"| CAT
+    CU5 --&gt;|"principal, costo y precio"| TIE
+</pre>
+</figure>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>La planilla <b>solo escribe en el catálogo</b>. La importación nunca crea artículos de la tienda: a la tienda llega únicamente el costo nuevo, y solo a los artículos cuya <b>fuente principal</b> es un renglón de esa planilla.</li>
+    <li>Clasificar (CU-06) tampoco toca la tienda: guarda en cada renglón la categoría y la marca <b>del comercio</b> que sugieren las reglas, para poder explorar el catálogo con la taxonomía propia.</li>
+    <li>CU-03 a CU-05 son de <b>curaduría</b> y escriben en <b>las dos libretas</b>: en el renglón, de qué artículo es fuente (<code>id_articulo</code>); en el artículo, cuál es su principal y, con ella, su costo y su precio. Por eso cada una guarda todo en una sola transacción.</li>
+</ul>
+</div>
 
 <h3>Ciclo de vida de un renglón: su relación con la tienda</h3>
 <figure>
@@ -239,10 +285,10 @@ stateDiagram-v2
     state "Pendiente de clasificar" as Pend
     state "Clasificado" as Clas
     [*] --&gt; Pend: CU-02 el renglón nace pendiente
-    Pend --&gt; Clas: CU-07 las reglas sugieren categoría y marca, o ninguna
+    Pend --&gt; Clas: CU-06 las reglas sugieren categoría y marca, o ninguna
     Clas --&gt; Pend: CU-02 cambian la descripción, el código de barras o los textos del proveedor
     Clas --&gt; Clas: CU-02 cambia solo el costo
-    Clas --&gt; Clas: CU-07 reclasificar todo el catálogo
+    Clas --&gt; Clas: CU-06 reclasificar todo el catálogo
 </pre>
 </figure>
 
@@ -317,7 +363,7 @@ sequenceDiagram
 
 <p>Importar y clasificar son <b>dos operaciones separadas</b>, cada una con su transacción. Si la clasificación se cancela, la importación ya quedó guardada y los renglones siguen pendientes de clasificar.</p>
 
-<h3>Clasificar el catálogo (CU-07)</h3>
+<h3>Clasificar el catálogo (CU-06)</h3>
 <figure>
 <figcaption>Diagrama 1.2 · secuencia</figcaption>
 <pre class="mermaid">
