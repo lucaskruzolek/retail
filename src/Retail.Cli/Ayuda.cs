@@ -18,6 +18,9 @@ internal static class Ayuda
                             Carga la taxonomía y los diccionarios de clasificación (términos, pares, marcas,
                             alias y prefijos). Solo agrega lo que falta: no modifica lo que el comercio editó.
               datos-demo    Carga un proveedor, categorías y marcas de demostración.
+              historial-demo
+                            Simula 6 meses de operación para demostrar los reportes. Solo en una base sin ventas ni
+                            turnos de caja; requiere un Gerente. Ver scripts\iniciar-demo.ps1.
               backup        Copia completa y verificada de la base. La tarea programada diaria (21:00, como SYSTEM)
                             la ejecuta; se registra con scripts\registrar-tarea-backup.ps1 como administrador.
               restaurar <ruta.bak>
