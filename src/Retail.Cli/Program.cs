@@ -76,6 +76,7 @@ internal static class Program
             builder.Services.AddTransient<ComandoMigrar>();
             builder.Services.AddTransient<ComandoInicializar>();
             builder.Services.AddTransient<ComandoDatosDemo>();
+            builder.Services.AddTransient<ComandoHistorialDemo>();
             builder.Services.AddTransient<ComandoCargarDiccionarios>();
             builder.Services.AddTransient<ComandoBackup>();
             builder.Services.AddTransient<ComandoRestaurar>();
@@ -93,6 +94,7 @@ internal static class Program
                 "migrar" => await servicios.GetRequiredService<ComandoMigrar>().EjecutarAsync(),
                 "inicializar" => await servicios.GetRequiredService<ComandoInicializar>().EjecutarAsync(),
                 "datos-demo" => await servicios.GetRequiredService<ComandoDatosDemo>().EjecutarAsync(),
+                "historial-demo" => await servicios.GetRequiredService<ComandoHistorialDemo>().EjecutarAsync(),
                 "cargar-diccionarios" => await servicios.GetRequiredService<ComandoCargarDiccionarios>().EjecutarAsync(),
                 "backup" => await servicios.GetRequiredService<ComandoBackup>().EjecutarAsync(),
                 "restaurar" => await servicios.GetRequiredService<ComandoRestaurar>().EjecutarAsync(args[1..]),

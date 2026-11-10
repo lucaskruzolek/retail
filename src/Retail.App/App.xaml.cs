@@ -54,10 +54,9 @@ public partial class App : System.Windows.Application
         // 3. Construcción del Generic Host integrado con Serilog
         _host = Host.CreateDefaultBuilder()
             .UseSerilog()
-            .ConfigureAppConfiguration((context, config) =>
-            {
-                config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
-            })
+            // La configuración se lee junto al ejecutable, como en Retail.Cli: CreateDefaultBuilder ya carga appsettings.json
+            // antes que las variables de entorno, así que una variable siempre tiene prioridad sobre el archivo.
+            .UseContentRoot(AppContext.BaseDirectory)
             // Validación de ciclos de vida: si un servicio Scoped (por ejemplo, el DbContext) se resuelve
             // desde el proveedor raíz, la app falla al arrancar en lugar de compartir el contexto en silencio (H-19).
             .UseDefaultServiceProvider(options =>

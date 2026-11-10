@@ -40,7 +40,7 @@ public static class SemilleroDatosDemo
     [
         "Rivadavia",
         "Bic",
-        "Faber-Castell",
+        "Faber",
         "Maped",
         "Pelikan",
         "Creaciones Artesanales"
