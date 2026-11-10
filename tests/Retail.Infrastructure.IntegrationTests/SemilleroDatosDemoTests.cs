@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Retail.Domain.Common;
 using Retail.Domain.Entities;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Initialization;
@@ -73,6 +74,35 @@ public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
         // Los usuarios los crea "inicializar"; los artículos, la importación de la planilla del proveedor.
         (await _context.Usuarios.IgnoreQueryFilters().CountAsync()).Should().Be(0);
         (await _context.Articulos.IgnoreQueryFilters().CountAsync()).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CargarAsync_ConLosDiccionariosEnCualquierOrden_NoDuplicaRubrosCategoriasNiMarcas(bool demoPrimero)
+    {
+        // Arrange
+        var semilla = LectorSemillaDiccionarios.Leer(Path.Combine(AppContext.BaseDirectory, "Semilla"));
+
+        // Act
+        if (demoPrimero)
+        {
+            await SemilleroDatosDemo.CargarAsync(_context);
+            await SemilleroDiccionarios.CargarAsync(_context, semilla);
+        }
+        else
+        {
+            await SemilleroDiccionarios.CargarAsync(_context, semilla);
+            await SemilleroDatosDemo.CargarAsync(_context);
+        }
+
+        // Assert
+        (await _context.Rubros.Select(r => r.NombreRubro).ToListAsync())
+            .GroupBy(ReglasClasificacion.NormalizarTexto).Should().OnlyContain(g => g.Count() == 1);
+        (await _context.Categorias.Select(c => c.NombreCategoria).ToListAsync())
+            .GroupBy(ReglasClasificacion.NormalizarTexto).Should().OnlyContain(g => g.Count() == 1);
+        (await _context.Marcas.Select(m => m.NombreMarca).ToListAsync())
+            .GroupBy(ReglasClasificacion.NormalizarTexto).Should().OnlyContain(g => g.Count() == 1);
     }
 
     [Fact]
