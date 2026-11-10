@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 
 namespace Retail.App.Views.Components;
@@ -124,6 +125,22 @@ public partial class SelectorCantidad : UserControl
     {
         Valor += paso;
         EscribirCuadro();
+        ConfirmarValor();
+    }
+
+    /// <summary>
+    /// Lleva al ViewModel el valor que eligió el usuario. Dentro de un <c>DataGrid</c>, el binding de una celda forma parte
+    /// del <c>BindingGroup</c> de la fila y, sin un <c>UpdateSourceTrigger</c> explícito, retiene el valor hasta que la fila
+    /// confirma su edición: el cuadro mostraba 49 y la venta salía con 1. Confirmarlo acá protege a todas las grillas que
+    /// usan el control (POS, Compras, Pedidos). Quien declare <c>UpdateSourceTrigger=Explicit</c> decide cuándo confirmar.
+    /// </summary>
+    private void ConfirmarValor()
+    {
+        var expresion = GetBindingExpression(ValorProperty);
+        if (expresion is not null && expresion.ParentBinding.UpdateSourceTrigger != UpdateSourceTrigger.Explicit)
+        {
+            expresion.UpdateSource();
+        }
     }
 
     private void AlPresionarTecla(object sender, KeyEventArgs e)
@@ -146,6 +163,7 @@ public partial class SelectorCantidad : UserControl
                 // Deshace lo escrito; no se marca atendida, para que la página o el diálogo también reaccionen
                 Valor = _valorAlEntrar;
                 EscribirCuadro();
+                ConfirmarValor();
                 break;
         }
     }
@@ -178,6 +196,7 @@ public partial class SelectorCantidad : UserControl
         if (leido is null)
         {
             Valor = Minimo;
+            ConfirmarValor();
             return;
         }
 
@@ -188,6 +207,8 @@ public partial class SelectorCantidad : UserControl
             EscribirCuadro();
             Cuadro.CaretIndex = Cuadro.Text.Length;
         }
+
+        ConfirmarValor();
     }
 
     private int? LeerCuadro()

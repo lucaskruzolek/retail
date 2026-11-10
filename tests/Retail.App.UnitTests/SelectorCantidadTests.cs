@@ -1,6 +1,10 @@
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Markup;
+using System.Windows.Media;
 using FluentAssertions;
 using Retail.App.UnitTests.Helpers;
+using Retail.App.ViewModels.Ventas;
 using Retail.App.Views.Components;
 using Xunit;
 
@@ -117,6 +121,96 @@ public class SelectorCantidadTests
 
         valor.Should().Be(4);
         texto.Should().Be("4");
+    }
+
+    [Fact]
+    public void Tipear_DentroDeUnaGrilla_ActualizaLaCantidadDelItem()
+    {
+        // El binding de una celda forma parte del BindingGroup de la fila: si el control no confirma su valor, el cuadro
+        // muestra lo tipeado y el ViewModel conserva el anterior (se vendía 1 unidad con 49 en pantalla).
+        var cantidad = WpfTestHelper.Run(() =>
+        {
+            var item = new ItemVentaPosViewModel { Cantidad = 1, StockActual = 46 };
+            var ventana = MostrarEnGrilla(item, "Mode=TwoWay");
+
+            Descendientes<TextBox>(ventana).Single().Text = "49";
+
+            ventana.Close();
+            return item.Cantidad;
+        });
+
+        cantidad.Should().Be(49);
+    }
+
+    [Fact]
+    public void BotonMas_DentroDeUnaGrilla_ActualizaLaCantidadDelItem()
+    {
+        var cantidad = WpfTestHelper.Run(() =>
+        {
+            var item = new ItemVentaPosViewModel { Cantidad = 1 };
+            var ventana = MostrarEnGrilla(item, "Mode=TwoWay");
+
+            Descendientes<Button>(ventana).Single(b => b.Name == "BotonMas").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            ventana.Close();
+            return item.Cantidad;
+        });
+
+        cantidad.Should().Be(2);
+    }
+
+    [Fact]
+    public void Tipear_DentroDeUnaGrillaConBindingExplicito_DejaQueQuienLoUsaConfirme()
+    {
+        var cantidad = WpfTestHelper.Run(() =>
+        {
+            var item = new ItemVentaPosViewModel { Cantidad = 1 };
+            var ventana = MostrarEnGrilla(item, "Mode=TwoWay, UpdateSourceTrigger=Explicit");
+
+            Descendientes<TextBox>(ventana).Single().Text = "49";
+
+            ventana.Close();
+            return item.Cantidad;
+        });
+
+        cantidad.Should().Be(1);
+    }
+
+    // Misma forma que la columna de cantidad de PosView.xaml: plantilla de celda, sin modo de edición de la grilla.
+    private static Window MostrarEnGrilla(ItemVentaPosViewModel item, string opcionesDelBinding)
+    {
+        var columna = (DataGridTemplateColumn)XamlReader.Parse(
+            "<DataGridTemplateColumn xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' " +
+            "xmlns:c='clr-namespace:Retail.App.Views.Components;assembly=Retail.App'>" +
+            "<DataGridTemplateColumn.CellTemplate><DataTemplate>" +
+            $"<c:SelectorCantidad Valor='{{Binding Cantidad, {opcionesDelBinding}}}' Minimo='1' />" +
+            "</DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>");
+
+        var grilla = new DataGrid { AutoGenerateColumns = false, ItemsSource = new[] { item } };
+        grilla.Columns.Add(columna);
+
+        System.Windows.Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var ventana = new Window { Content = grilla, Width = 400, Height = 200, ShowInTaskbar = false, Left = -3000, Top = -3000 };
+        ventana.Show();
+        ventana.UpdateLayout();
+        return ventana;
+    }
+
+    private static IEnumerable<T> Descendientes<T>(DependencyObject raiz) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(raiz); i++)
+        {
+            var hijo = VisualTreeHelper.GetChild(raiz, i);
+            if (hijo is T encontrado)
+            {
+                yield return encontrado;
+            }
+
+            foreach (var nieto in Descendientes<T>(hijo))
+            {
+                yield return nieto;
+            }
+        }
     }
 
     [Fact]
