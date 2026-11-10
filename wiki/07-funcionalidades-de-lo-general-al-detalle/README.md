@@ -7,9 +7,13 @@ A diferencia del resto de la wiki, estos documentos son **HTML autocontenido**: 
 | Funcionalidad | Requisitos | Documento |
 | :--- | :--- | :--- |
 | **Importador de catálogos:** importación de listas de precios, clasificación del catálogo, incorporación a la tienda y fuentes múltiples de un artículo | `RF-05`, `RF-07`, `RF-21`, `RF-27`, `RF-28` | [importador-de-catalogos.html](importador-de-catalogos.html) |
+| **Copia de seguridad:** copia manual, diaria y previa a migrar o a restaurar; verificación, bloqueo entre procesos, copias huérfanas y retención | `RF-22`, `RF-23`, `RNF-08`, `RF-03` | [copia-de-seguridad.html](copia-de-seguridad.html) |
+| **Restauración de una copia:** desde el historial, con control dual (Administrador y Gerente) y por consola; base temporal e intercambio, validaciones, historial que sobrevive y red de seguridad | `RF-22`, `RF-23`, `RF-03` | [restauracion.html](restauracion.html) |
 
 ## Cómo se mantienen
 
 * Los diagramas se escriben como texto Mermaid dentro de `<pre class="mermaid">`, con `<`, `>` y `&` escapados como entidades HTML (`&lt;br/&gt;` para un salto de línea en una etiqueta).
 * Antes de entregar un cambio, abrir el documento en el navegador y confirmar que ningún diagrama muestra "Syntax error". En el modo headless de Edge se puede verificar sin abrir la ventana: `msedge --headless --virtual-time-budget=20000 --dump-dom <archivo>` y buscar ese texto.
+* **Modo oscuro automático.** Los colores son variables CSS en `:root`; bajo `@media (prefers-color-scheme: dark)` se redefinen, y el script elige el tema `dark` o `neutral` de Mermaid según la preferencia del sistema. Mermaid fija el tema al dibujar, así que si cambia el modo con la página abierta se recarga para redibujar. Al imprimir, la paleta vuelve a la clara y los diagramas dibujados en oscuro se invierten con un filtro (`.modo-oscuro pre.mermaid svg`). Los tres documentos comparten estas reglas: un cambio de paleta se hace en los tres.
+* Para probar el modo oscuro sin cambiar el sistema: `msedge --headless --blink-settings=preferredColorScheme=0 --virtual-time-budget=20000 --screenshot=<png> <archivo>` (en Edge, `0` es oscuro y `1` es claro).
 * Cada afirmación sobre el sistema se contrasta con el código, y la fecha de esa revisión figura en el subtítulo del documento.

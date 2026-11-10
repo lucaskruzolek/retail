@@ -107,6 +107,8 @@ graph TD
 
 ### [07. 🔭 Funcionalidades de lo General al Detalle](07-funcionalidades-de-lo-general-al-detalle/README.md)
 * [**Importador de Catálogos:**](07-funcionalidades-de-lo-general-al-detalle/importador-de-catalogos.html) Recorrido progresivo en cinco niveles, de los casos de uso a los algoritmos, más preparación para la defensa: importación, clasificación del catálogo, incorporación y fuentes múltiples. Documento HTML para leer en el navegador e imprimir.
+* [**Copia de Seguridad:**](07-funcionalidades-de-lo-general-al-detalle/copia-de-seguridad.html) Copia manual, diaria y previa a migrar o a restaurar: verificación con `CHECKSUM` y SHA-256, bloqueo entre procesos con `sp_getapplock`, autorreparación de copias huérfanas y retención.
+* [**Restauración de una Copia:**](07-funcionalidades-de-lo-general-al-detalle/restauracion.html) Restauración en una base temporal e intercambio de nombres, control dual Administrador y Gerente, credencial verificada dentro de la copia por consola, punto de no retorno, historial que sobrevive y doble red de seguridad.
 
 ---
 
