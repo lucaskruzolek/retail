@@ -327,4 +327,28 @@ public class ExcelCatalogParserTests : IDisposable
         // Assert
         await accion.Should().ThrowAsync<InvalidDataException>().WithMessage("*fila de encabezado 10*");
     }
+
+    [Fact]
+    public async Task ParsearCatalogoAsync_ConSoloLaFilaDeEncabezado_DevuelveListasVaciasSinError()
+    {
+        // Act
+        var resultado = await ParsearCsvAsync("CODIGO,DETALLE,PRECIO\n");
+
+        // Assert
+        resultado.Items.Should().BeEmpty();
+        resultado.FilasDescartadas.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ParsearCatalogoAsync_ConFilaEncabezadoMenorA1_LanzaArgumentOutOfRangeException()
+    {
+        // Act
+        var accion = () => ParsearCsvAsync(
+            "CODIGO,DETALLE,PRECIO\n" +
+            "A1,Libro uno,100\n",
+            Mapeo(".csv", filaEncabezado: 0));
+
+        // Assert
+        await accion.Should().ThrowAsync<ArgumentOutOfRangeException>();
+    }
 }
