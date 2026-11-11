@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Retail.App.Helpers;
 
 namespace Retail.App.Views.Components;
 
@@ -15,7 +16,10 @@ namespace Retail.App.Views.Components;
 /// <item><description><b>Esc cierra el diálogo</b>, igual que la ✕, si ningún control lo atendió antes (un desplegable
 /// abierto, por ejemplo, lo usa para cerrarse). Todos los diálogos llevan este encabezado, así que la regla vale para
 /// todos sin repetirla en cada uno. Enter, en cambio, lo resuelve el botón primario de cada diálogo con
-/// <c>IsDefault="True"</c>.</description></item>
+/// <c>IsDefault="True"</c>. La ventana principal y el inicio de sesión lo desactivan con
+/// <see cref="CerrarConEscape"/>: cerrarlas termina la aplicación.</description></item>
+/// <item><description>Sin <see cref="Titulo"/> la banda queda solo con los botones: así la usa la ventana principal,
+/// cuyo título lo dibuja cada página.</description></item>
 /// </list>
 /// </para>
 /// </summary>
@@ -26,6 +30,14 @@ public class EncabezadoDialogo : Control
 
     public static readonly DependencyProperty PermitirMaximizarProperty =
         DependencyProperty.Register(nameof(PermitirMaximizar), typeof(bool), typeof(EncabezadoDialogo), new PropertyMetadata(false));
+
+    public static readonly DependencyProperty CerrarConEscapeProperty =
+        DependencyProperty.Register(nameof(CerrarConEscape), typeof(bool), typeof(EncabezadoDialogo), new PropertyMetadata(true));
+
+    private static readonly DependencyPropertyKey EstaMaximizadaPropertyKey =
+        DependencyProperty.RegisterReadOnly(nameof(EstaMaximizada), typeof(bool), typeof(EncabezadoDialogo), new PropertyMetadata(false));
+
+    public static readonly DependencyProperty EstaMaximizadaProperty = EstaMaximizadaPropertyKey.DependencyProperty;
 
     private Window? _ventana;
     private FrameworkElement? _banda;
@@ -50,6 +62,23 @@ public class EncabezadoDialogo : Control
     {
         get => (bool)GetValue(PermitirMaximizarProperty);
         set => SetValue(PermitirMaximizarProperty, value);
+    }
+
+    /// <summary>
+    /// Esc cierra la ventana si nada lo atendió antes (predeterminado). La ventana principal y el inicio de sesión lo
+    /// desactivan: Esc se usa para cerrar desplegables y filtros, y no debe terminar la aplicación por accidente.
+    /// </summary>
+    public bool CerrarConEscape
+    {
+        get => (bool)GetValue(CerrarConEscapeProperty);
+        set => SetValue(CerrarConEscapeProperty, value);
+    }
+
+    /// <summary>La ventana está maximizada: la plantilla cambia el ícono de maximizar por el de restaurar.</summary>
+    public bool EstaMaximizada
+    {
+        get => (bool)GetValue(EstaMaximizadaProperty);
+        private set => SetValue(EstaMaximizadaPropertyKey, value);
     }
 
     public override void OnApplyTemplate()
@@ -106,20 +135,36 @@ public class EncabezadoDialogo : Control
     {
         SoltarVentana();
         _ventana = Window.GetWindow(this);
+        if (_ventana is null)
+        {
+            return;
+        }
 
         // Manejador del evento burbujeante: solo llega si ningún control del diálogo atendió la tecla antes
-        _ventana?.AddHandler(KeyDownEvent, new KeyEventHandler(AlPresionarTecla));
+        _ventana.AddHandler(KeyDownEvent, new KeyEventHandler(AlPresionarTecla));
+        _ventana.StateChanged += AlCambiarEstado;
+        EstaMaximizada = _ventana.WindowState == WindowState.Maximized;
     }
 
     private void SoltarVentana()
     {
-        _ventana?.RemoveHandler(KeyDownEvent, new KeyEventHandler(AlPresionarTecla));
+        if (_ventana is not null)
+        {
+            _ventana.RemoveHandler(KeyDownEvent, new KeyEventHandler(AlPresionarTecla));
+            _ventana.StateChanged -= AlCambiarEstado;
+        }
+
         _ventana = null;
+    }
+
+    private void AlCambiarEstado(object? sender, EventArgs e)
+    {
+        EstaMaximizada = _ventana?.WindowState == WindowState.Maximized;
     }
 
     private void AlPresionarTecla(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Escape || _ventana is null)
+        if (e.Key != Key.Escape || _ventana is null || !CerrarConEscape)
         {
             return;
         }
@@ -152,22 +197,7 @@ public class EncabezadoDialogo : Control
 
     private void AlPresionarLaBanda(object sender, MouseButtonEventArgs e)
     {
-        var ventana = Window.GetWindow(this);
-        if (ventana is null)
-        {
-            return;
-        }
-
-        if (e.ClickCount == 2 && PermitirMaximizar)
-        {
-            AlternarMaximizado(ventana);
-            return;
-        }
-
-        if (e.ButtonState == MouseButtonState.Pressed)
-        {
-            ventana.DragMove();
-        }
+        ArrastreVentana.AlPresionar(this, e, PermitirMaximizar);
     }
 
     private void AlMinimizar(object sender, RoutedEventArgs e)
@@ -182,17 +212,12 @@ public class EncabezadoDialogo : Control
     {
         if (Window.GetWindow(this) is { } ventana)
         {
-            AlternarMaximizado(ventana);
+            ArrastreVentana.AlternarMaximizado(ventana);
         }
     }
 
     private void AlCerrar(object sender, RoutedEventArgs e)
     {
         Window.GetWindow(this)?.Close();
-    }
-
-    private static void AlternarMaximizado(Window ventana)
-    {
-        ventana.WindowState = ventana.WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     }
 }

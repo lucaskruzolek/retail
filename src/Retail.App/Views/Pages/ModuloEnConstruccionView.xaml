@@ -14,10 +14,12 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <components:NavegadorSeccion Grid.Row="0"
-                                     HorizontalAlignment="Left"
-                                     VerticalAlignment="Top"
-                                     SeccionId="{Binding SeccionId, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+        <!-- Sin título propio: la banda del encabezado queda libre para los botones de ventana y el selector de sección va debajo -->
+        <components:PageHeader Grid.Row="0" Margin="{StaticResource SectionSpacing}">
+            <components:PageHeader.Navegacion>
+                <components:NavegadorSeccion SeccionId="{Binding SeccionId, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+            </components:PageHeader.Navegacion>
+        </components:PageHeader>
 
         <Border Grid.Row="1"
                 Style="{StaticResource CardBorderStyle}"

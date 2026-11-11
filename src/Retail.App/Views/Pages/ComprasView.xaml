@@ -113,10 +113,13 @@
         <!-- ENCABEZADO (sin tarjeta) Y SELECTOR DE SECCIÓN                -->
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
-            <components:PageHeader Margin="{StaticResource StackSm}"
+            <components:PageHeader Margin="{StaticResource SectionSpacing}"
                                    Titulo="Compras"
-                                   Descripcion="Ingresos · Recepción de mercadería y carga de lo recibido contra un pedido." />
-            <components:NavegadorSeccion SeccionId="compras" Margin="{StaticResource SectionSpacing}" />
+                                   Descripcion="Ingresos · Recepción de mercadería y carga de lo recibido contra un pedido.">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="compras" />
+                </components:PageHeader.Navegacion>
+            </components:PageHeader>
         </StackPanel>
 
         <!-- ============================================================= -->

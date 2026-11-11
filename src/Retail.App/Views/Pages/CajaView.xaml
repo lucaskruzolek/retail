@@ -24,9 +24,12 @@
         <!-- 1. Encabezado y acciones principales (sin tarjeta) -->
         <StackPanel Grid.Row="0">
             <components:PageHeader
-                                   Margin="{StaticResource StackSm}"
+                                   Margin="{StaticResource SectionSpacing}"
                                    Titulo="Ventas"
                                    Descripcion="Control de turno actual, arqueos y movimientos de efectivo.">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="ventas" />
+                </components:PageHeader.Navegacion>
                 <StackPanel Orientation="Horizontal">
                     <Button Command="{Binding AbrirTurnoCommand}"
                             Style="{StaticResource PrimaryActionButtonStyle}"
@@ -57,7 +60,6 @@
                     </Button>
                 </StackPanel>
             </components:PageHeader>
-            <components:NavegadorSeccion SeccionId="ventas" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- 2. Estado del turno / resumen de saldos: una sola superficie -->

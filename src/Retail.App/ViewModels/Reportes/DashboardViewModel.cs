@@ -203,11 +203,13 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportarExcelCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportarPdfCommand))]
+    [NotifyPropertyChangedFor(nameof(PuedeExportarAhora))]
     private bool _estaCargando;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportarExcelCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportarPdfCommand))]
+    [NotifyPropertyChangedFor(nameof(PuedeExportarAhora))]
     private bool _estaExportando;
 
     [ObservableProperty]
@@ -255,6 +257,9 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
 
     /// <summary>Se puede exportar el reporte visible: tiene resultado y no está vacío (D-25).</summary>
     public bool PuedeExportarResultado => ResultadoActual is not null && !EstaVacio;
+
+    /// <summary>El botón "Exportar" del encabezado se habilita: hay datos y no hay una consulta ni otra exportación en curso.</summary>
+    public bool PuedeExportarAhora => PuedeExportar();
 
     public string? TooltipExportar => PuedeExportarResultado ? null : "No hay datos para exportar";
 
@@ -887,6 +892,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
         Resumen = resumen;
 
         OnPropertyChanged(nameof(PuedeExportarResultado));
+        OnPropertyChanged(nameof(PuedeExportarAhora));
         OnPropertyChanged(nameof(TooltipExportar));
         ExportarExcelCommand.NotifyCanExecuteChanged();
         ExportarPdfCommand.NotifyCanExecuteChanged();
@@ -981,10 +987,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Sufijo del título cuando el gráfico muestra menos elementos que la grilla: " (primeros 8)".</summary>
-    // "(5 con mayor margen)": sin género gramatical, sirve igual para categorías, marcas y artículos.
+    // "(top 5)": sin género gramatical, sirve igual para categorías, marcas y artículos.
     private static string SufijoPrimeros(int cantidad, int maximo)
     {
-        return cantidad > maximo ? $" ({maximo} con mayor margen)" : string.Empty;
+        return cantidad > maximo ? $" (top {maximo})" : string.Empty;
     }
 
     private static void Reemplazar(ObservableCollection<OpcionFiltro> destino, string textoTodas, IEnumerable<OpcionFiltro> opciones)

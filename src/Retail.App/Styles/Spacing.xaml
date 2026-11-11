@@ -14,7 +14,11 @@
 
     <!-- Margen entre el borde de la ventana (o el Sidebar) y el contenido de toda página. Arriba es menor (16) porque la
          barra de título ya separa el contenido del borde de la ventana. -->
-    <Thickness x:Key="PageMargin">24,16,24,24</Thickness>
+    <Thickness x:Key="PageMargin">24,0,24,24</Thickness>
+
+    <!-- Reserva la esquina superior derecha donde MainWindow superpone los botones de ventana (minimizar, maximizar y
+         cerrar), para que el título de la página no quede debajo de ellos -->
+    <Thickness x:Key="ReservaBotonesVentana">0,0,128,0</Thickness>
 
     <!-- Separación vertical entre secciones de una página (encabezado, filtros, cuerpo) -->
     <Thickness x:Key="SectionSpacing">0,0,0,16</Thickness>

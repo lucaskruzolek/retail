@@ -7,9 +7,8 @@
                   xmlns:components="clr-namespace:Retail.App.Views.Components"
                   Title="Retail POS - Inicio de sesión"
                   Width="440"
-                  Height="540"
+                  Height="480"
                   MinWidth="400"
-                  MinHeight="480"
                   WindowStartupLocation="CenterScreen"
                   ExtendsContentIntoTitleBar="True"
                   Background="{DynamicResource DialogBackgroundBrush}"
@@ -27,28 +26,12 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- Barra de Título Fluent Estandarizada (Título Centrado y Estilizado) -->
-        <Grid Grid.Row="0">
-            <ui:TitleBar Height="32"
-                         MinHeight="32"
-                         Padding="8,0"
-                         Background="{DynamicResource DialogBackgroundBrush}"
-                         ShowMaximize="False"
-                         CanMaximize="False" />
-            <TextBlock Text="Retail POS"
-                       FontFamily="{StaticResource FontFamilyText}"
-                       FontSize="{StaticResource FontSizeSm}"
-                       FontWeight="SemiBold"
-                       Foreground="{DynamicResource TextPrimaryBrush}"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       Margin="48,0"
-                       TextTrimming="CharacterEllipsis"
-                       IsHitTestVisible="False" />
-        </Grid>
+        <!-- Barra de los diálogos sin título: solo minimizar y cerrar (el logo ya dice qué aplicación es). Esc no cierra:
+             cerrar el inicio de sesión termina la aplicación. -->
+        <components:EncabezadoDialogo Grid.Row="0" CerrarConEscape="False" />
 
-        <!-- Contenedor Central -->
-        <Grid Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Width="360" Margin="0,0,0,24">
+        <!-- Contenedor Central: arriba, pegado a la banda, para que la ventana no tenga aire muerto -->
+        <Grid Grid.Row="1" VerticalAlignment="Top" HorizontalAlignment="Center" Width="360" Margin="0,0,0,28">
             <StackPanel>
                 <!-- Logotipo e Identidad Visual -->
                 <StackPanel HorizontalAlignment="Center" Margin="{StaticResource StackXl}">

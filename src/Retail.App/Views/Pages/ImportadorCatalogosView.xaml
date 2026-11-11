@@ -77,10 +77,13 @@
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
             <components:PageHeader
-                                   Margin="{StaticResource StackSm}"
+                                   Margin="{StaticResource SectionSpacing}"
                                    Titulo="Inventario"
                                    EstaCargando="{Binding IsBusy}"
                                    Descripcion="Catálogos mayoristas: consulta de listas de distribuidores e importación asistida de artículos a tienda.">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="inventario" />
+                </components:PageHeader.Navegacion>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
                     <!-- Selector de Distribuidor: elige QUÉ catálogo se carga (no filtra la tabla) y muestra la antigüedad de su lista -->
                     <StackPanel VerticalAlignment="Top" Margin="0,0,16,0">
@@ -149,7 +152,6 @@
                     </Button>
                 </StackPanel>
             </components:PageHeader>
-            <components:NavegadorSeccion SeccionId="inventario" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- ============================================================= -->

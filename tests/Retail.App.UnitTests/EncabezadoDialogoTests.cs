@@ -149,6 +149,40 @@ public class EncabezadoDialogoTests
     }
 
     [Fact]
+    public void Escape_ConCerrarConEscapeDesactivado_NoCierraLaVentana()
+    {
+        bool cerradaPorEscape = false;
+
+        ConEncabezado(permitirMaximizar: true, (encabezado, ventana) =>
+        {
+            // Como la ventana principal y el inicio de sesión: cerrarlas termina la aplicación
+            encabezado.CerrarConEscape = false;
+            ventana.Closing += (_, _) => cerradaPorEscape = true;
+
+            var tecla = Escape(ventana);
+            encabezado.RaiseEvent(tecla);
+
+            tecla.Handled.Should().BeFalse("Esc sigue disponible para otros controles");
+            cerradaPorEscape.Should().BeFalse();
+        });
+    }
+
+    [Fact]
+    public void EstaMaximizada_AlMaximizarYRestaurarLaVentana_SigueSuEstado()
+    {
+        ConEncabezado(permitirMaximizar: true, (encabezado, ventana) =>
+        {
+            encabezado.EstaMaximizada.Should().BeFalse();
+
+            ventana.WindowState = WindowState.Maximized;
+            encabezado.EstaMaximizada.Should().BeTrue("el botón pasa a restaurar");
+
+            ventana.WindowState = WindowState.Normal;
+            encabezado.EstaMaximizada.Should().BeFalse();
+        });
+    }
+
+    [Fact]
     public void BotonCerrar_AlHacerClic_CierraLaVentana()
     {
         bool cerrada = false;

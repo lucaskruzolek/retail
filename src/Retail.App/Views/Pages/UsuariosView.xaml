@@ -30,10 +30,13 @@
         <!-- 1. ENCABEZADO Y TÍTULO DEL MÓDULO                             -->
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
-            <components:PageHeader Margin="{StaticResource StackSm}"
+            <components:PageHeader Margin="{StaticResource SectionSpacing}"
                                    Titulo="Administración"
                                    Descripcion="Usuarios · Cuentas del sistema y sus roles."
                                    EstaCargando="{Binding IsBusy}">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="administracion" />
+                </components:PageHeader.Navegacion>
                 <StackPanel Orientation="Horizontal">
                     <!-- Desbloquear la cuenta de Administrador seleccionada (solo Gerente, D-31) -->
                     <Button Command="{Binding DesbloquearCommand}"
@@ -55,7 +58,6 @@
                     </Button>
                 </StackPanel>
             </components:PageHeader>
-            <components:NavegadorSeccion SeccionId="administracion" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- ============================================================= -->

@@ -64,10 +64,13 @@
         <!-- 1. ENCABEZADO DEL MÓDULO (sin tarjeta)                        -->
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
-            <components:PageHeader Margin="{StaticResource StackSm}"
+            <components:PageHeader Margin="{StaticResource SectionSpacing}"
                                    Titulo="Compras"
                                    Descripcion="Pedidos · Pedidos a proveedores: borradores, emitidos, recibidos y cancelados."
                                    EstaCargando="{Binding IsBusy}">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="compras" />
+                </components:PageHeader.Navegacion>
                 <StackPanel Orientation="Horizontal">
                     <Border Style="{StaticResource BadgeDangerStyle}"
                             Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
@@ -75,7 +78,6 @@
                     </Border>
                 </StackPanel>
             </components:PageHeader>
-            <components:NavegadorSeccion SeccionId="compras" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- ============================================================= -->

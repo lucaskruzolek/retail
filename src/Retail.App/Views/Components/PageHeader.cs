@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using Retail.App.Helpers;
 
 namespace Retail.App.Views.Components;
 
@@ -19,6 +21,11 @@ public class PageHeader : ContentControl
 
     public static readonly DependencyProperty EstaCargandoProperty =
         DependencyProperty.Register(nameof(EstaCargando), typeof(bool), typeof(PageHeader), new PropertyMetadata(false));
+
+    public static readonly DependencyProperty NavegacionProperty =
+        DependencyProperty.Register(nameof(Navegacion), typeof(object), typeof(PageHeader), new PropertyMetadata(null));
+
+    private FrameworkElement? _filaTitulo;
 
     static PageHeader()
     {
@@ -49,5 +56,41 @@ public class PageHeader : ContentControl
     {
         get => (bool)GetValue(EstaCargandoProperty);
         set => SetValue(EstaCargandoProperty, value);
+    }
+
+    /// <summary>
+    /// Las pestañas de sección de la página (un <c>NavegadorSeccion</c> o un <c>SelectorSegmentado</c>), a la izquierda de la
+    /// segunda fila; a la derecha van las acciones (<see cref="ContentControl.Content"/>). Hereda el DataContext de la página.
+    /// </summary>
+    public object? Navegacion
+    {
+        get => GetValue(NavegacionProperty);
+        set => SetValue(NavegacionProperty, value);
+    }
+
+    /// <inheritdoc />
+    public override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+
+        if (_filaTitulo is not null)
+        {
+            _filaTitulo.MouseLeftButtonDown -= AlPresionarFilaTitulo;
+        }
+
+        _filaTitulo = GetTemplateChild("PART_FilaTitulo") as FrameworkElement;
+
+        if (_filaTitulo is not null)
+        {
+            _filaTitulo.MouseLeftButtonDown += AlPresionarFilaTitulo;
+        }
+    }
+
+    /// <summary>La fila del título hace de barra de título: arrastrarla mueve la ventana y el doble clic la maximiza.</summary>
+    private void AlPresionarFilaTitulo(object sender, MouseButtonEventArgs e)
+    {
+        var ventana = Window.GetWindow(this);
+        var permitirMaximizar = ventana?.ResizeMode is ResizeMode.CanResize or ResizeMode.CanResizeWithGrip;
+        ArrastreVentana.AlPresionar(this, e, permitirMaximizar);
     }
 }

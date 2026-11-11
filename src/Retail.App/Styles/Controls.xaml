@@ -923,7 +923,7 @@
                                     Style="{StaticResource DialogWindowButtonStyle}"
                                     ToolTip="Maximizar"
                                     AutomationProperties.Name="Maximizar">
-                                <iconPacks:PackIconBoxIcons Kind="RegularSquareRounded" Width="12" Height="12" />
+                                <iconPacks:PackIconBoxIcons x:Name="IconoMaximizar" Kind="RegularSquareRounded" Width="12" Height="12" />
                             </Button>
                             <Button x:Name="PART_Cerrar"
                                     Style="{StaticResource DialogWindowButtonStyle}"
@@ -936,6 +936,12 @@
                     <ControlTemplate.Triggers>
                         <Trigger Property="PermitirMaximizar" Value="False">
                             <Setter TargetName="PART_Maximizar" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <!-- Maximizada: el botón restaura -->
+                        <Trigger Property="EstaMaximizada" Value="True">
+                            <Setter TargetName="IconoMaximizar" Property="Kind" Value="RegularCopy" />
+                            <Setter TargetName="PART_Maximizar" Property="ToolTip" Value="Restaurar" />
+                            <Setter TargetName="PART_Maximizar" Property="AutomationProperties.Name" Value="Restaurar" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -1290,59 +1296,47 @@
     </Style>
 
     <!-- ================================================================= -->
-    <!-- BOTÓN DE CONMUTACIÓN DE MENÚ HAMBURGUESA (SidebarHamburgerButton) -->
+    <!-- BOTÓN FLOTANTE PARA EXPANDIR / CONTRAER EL SIDEBAR                -->
     <!-- ================================================================= -->
-    <Style x:Key="SidebarHamburgerButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="Transparent" />
+    <!-- Círculo de 28 px montado sobre el borde del sidebar (la mitad sobre el menú y la mitad sobre la página), con el
+         mismo fondo y borde que una tarjeta y un chevron que apunta hacia donde se mueve el menú. Hover neutro, sin
+         carmín: es un control de la interfaz, no una acción del negocio. -->
+    <Style x:Key="SidebarToggleFlotanteStyle" TargetType="Button">
+        <Setter Property="Width" Value="28" />
+        <Setter Property="Height" Value="28" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SidebarBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
-        <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Padding" Value="8,6" />
-        <Setter Property="Height" Value="36" />
-        <Setter Property="Width" Value="36" />
         <Setter Property="Cursor" Value="Hand" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-        <!-- Riel colapsado: el botón (36 px) se centra en los 42 px útiles de la cabecera. Expandido, el trigger lo
-             devuelve al margen izquierdo, que es su lugar junto al contenido. -->
-        <Setter Property="HorizontalAlignment" Value="Center" />
-        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
-        <Setter Property="ToolTipService.InitialShowDelay" Value="0" />
-        <Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
+        <Setter Property="AutomationProperties.Name" Value="Expandir o contraer el menú" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="300" />
         <Setter Property="ToolTipService.Placement" Value="Right" />
         <Setter Property="ToolTipService.HorizontalOffset" Value="8" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="border"
-                            UseLayoutRounding="True"
+                    <Border x:Name="Circulo"
                             Background="{TemplateBinding Background}"
-                            BorderBrush="Transparent"
-                            BorderThickness="0"
-                            CornerRadius="{StaticResource RadiusMd}"
-                            Padding="{TemplateBinding Padding}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="14"
                             SnapsToDevicePixels="True">
-                        <ContentPresenter HorizontalAlignment="Center"
-                                          VerticalAlignment="Center" />
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                            <Setter TargetName="Circulo" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="border" Property="Background" Value="{DynamicResource SidebarPressedBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource SidebarTextStrongBrush}" />
+                            <Setter TargetName="Circulo" Property="Background" Value="{DynamicResource SidebarPressedBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
-        <Style.Triggers>
-            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                <Setter Property="HorizontalAlignment" Value="Left" />
-                <Setter Property="Margin" Value="6,0,0,0" />
-            </DataTrigger>
-        </Style.Triggers>
     </Style>
 
     <!-- ================================================================= -->

@@ -36,10 +36,13 @@
         <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta)                      -->
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
-            <components:PageHeader Margin="{StaticResource StackSm}"
+            <components:PageHeader Margin="{StaticResource SectionSpacing}"
                                    Titulo="Compras"
                                    Descripcion="Proveedores · Alta y modificación de los proveedores y sus datos de contacto."
                                    EstaCargando="{Binding IsBusy}">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="compras" />
+                </components:PageHeader.Navegacion>
                 <StackPanel Orientation="Horizontal">
                     <!-- Mensajes de estado y de error: en el encabezado, para que no ocupen una fila (con su margen) entre el
                          buscador y la grilla cuando no hay nada que decir -->
@@ -69,7 +72,6 @@
                     </Button>
                 </StackPanel>
             </components:PageHeader>
-            <components:NavegadorSeccion SeccionId="compras" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- ============================================================= -->
