@@ -851,16 +851,16 @@ public class DashboardViewModelTests : IDisposable
         await _sut.CargarAsync();
 
         // Assert
-        _sut.TotalVendidoTexto.Should().Be("$ 1.234.567,50");
-        _sut.TotalVendidoVariacion.Texto.Should().Be("\u25B2 +12,50 % vs período anterior");
+        _sut.TotalVendidoTexto.Should().Be("$ 1.234.568");
+        _sut.TotalVendidoVariacion.Texto.Should().Be("\u25B2 +12,50 %");
         _sut.TotalVendidoVariacion.Estado.Should().Be(EstadoVariacionEnum.Sube);
         _sut.CantidadVentasTexto.Should().Be("1.250");
-        _sut.CantidadVentasVariacion.Texto.Should().Be("\u25BC \u22123,10 % vs período anterior");
+        _sut.CantidadVentasVariacion.Texto.Should().Be("\u25BC \u22123,10 %");
         _sut.CantidadVentasVariacion.Estado.Should().Be(EstadoVariacionEnum.Baja);
-        _sut.MargenBrutoTexto.Should().Be("$ 400.000,00");
+        _sut.MargenBrutoTexto.Should().Be("$ 400.000");
         _sut.MargenBrutoVariacion.Estado.Should().Be(EstadoVariacionEnum.SinBase);
         _sut.MargenBrutoVariacion.Texto.Should().Be("Sin datos del período anterior");
-        _sut.ValorizacionTexto.Should().Be("$ 5.000.000,00");
+        _sut.ValorizacionTexto.Should().Be("$ 5.000.000");
         _sut.BajoMinimoTexto.Should().Be("3 bajo mínimo");
         _sut.HayBajoMinimo.Should().BeTrue();
     }
@@ -868,6 +868,13 @@ public class DashboardViewModelTests : IDisposable
     [Fact]
     public async Task CargarAsync_ElTablero_ArmaLaEvolucionComoLineaSinSuavizarYElMargenComoBarrasConElPrimeroArriba()
     {
+        // Arrange: un período ya cerrado (termina ayer), sin tramo en curso
+        var tablero = Tablero() with
+        {
+            Filtro = new FiltroPeriodoDto { Desde = new DateOnly(2026, 10, 1), Hasta = Hoy.AddDays(-1) }
+        };
+        _reporteService.ObtenerTableroAsync(IdActor, Arg.Any<FiltroPeriodoDto>(), Arg.Any<CancellationToken>()).Returns(tablero);
+
         // Act
         await _sut.CargarAsync();
 
@@ -1058,7 +1065,34 @@ public class DashboardViewModelTests : IDisposable
         // Assert
         _sut.GraficoMargenCategoria.EjesY[0].Labels.Should().HaveCount(ConstructorGraficos.MaximoBarrasTablero);
         _sut.GraficoMargenCategoria.EjesY[0].Labels!.Last().Should().Be("Categoría 1");
-        _sut.TituloMargenCategoria.Should().Be("Margen bruto por categoría (primeras 5)");
+        _sut.TituloMargenCategoria.Should().Be("Margen bruto por categoría (5 con mayor margen)");
+    }
+
+    [Fact]
+    public async Task CargarAsync_ElTableroHastaHoy_DibujaElUltimoTramoComoPeriodoEnCurso()
+    {
+        // Arrange: el tablero predeterminado termina hoy (15/10)
+
+        // Act
+        await _sut.CargarAsync();
+
+        // Assert: la serie principal llega hasta el anteúltimo punto y el tramo final es una segunda serie
+        _sut.GraficoEvolucion.Series.Should().HaveCount(2);
+        var principal = _sut.GraficoEvolucion.Series[0].Should().BeOfType<LineSeries<double>>().Subject;
+        ((IEnumerable<double>)principal.Values!).Should().Equal(1000d);
+    }
+
+    [Fact]
+    public async Task VerStockCritico_DesdeElTablero_SeleccionaElReporteDeStockCritico()
+    {
+        // Arrange
+        await _sut.CargarAsync();
+
+        // Act
+        _sut.VerStockCriticoCommand.Execute(null);
+
+        // Assert
+        _sut.ReporteSeleccionado.Should().Be(TipoReporteEnum.StockCritico);
     }
 
     [Fact]

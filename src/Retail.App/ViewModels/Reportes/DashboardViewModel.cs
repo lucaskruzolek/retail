@@ -380,6 +380,16 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
+    /// Abre el reporte de stock crítico desde el aviso "N bajo mínimo" del tablero: es el único indicador accionable y
+    /// lleva al detalle de qué reponer. Reutiliza el cambio de pestaña, que consulta el reporte si todavía no lo hizo.
+    /// </summary>
+    [RelayCommand]
+    public void VerStockCritico()
+    {
+        ReporteSeleccionado = TipoReporteEnum.StockCritico;
+    }
+
+    /// <summary>
     /// Vuelve todos los filtros a lo predeterminado (período del mes en curso, "Todas", "Todos", los valores iniciales de
     /// cada combo) y consulta una sola vez el reporte visible.
     /// </summary>
@@ -891,27 +901,29 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             return;
         }
 
-        TotalVendidoTexto = FormatoReporte.Moneda(tablero.TotalVendido.Valor);
+        // Los indicadores van redondeados a pesos; los reportes de detalle y la exportación conservan los centavos.
+        TotalVendidoTexto = FormatoReporte.MonedaSinCentavos(tablero.TotalVendido.Valor);
         TotalVendidoVariacion = FormatoReporte.Variacion(tablero.TotalVendido.VariacionPorcentual);
 
         CantidadVentasTexto = FormatoReporte.Entero((long)tablero.CantidadVentas.Valor);
         CantidadVentasVariacion = FormatoReporte.Variacion(tablero.CantidadVentas.VariacionPorcentual);
 
-        MargenBrutoTexto = FormatoReporte.Moneda(tablero.MargenBruto.Valor);
+        MargenBrutoTexto = FormatoReporte.MonedaSinCentavos(tablero.MargenBruto.Valor);
         MargenBrutoVariacion = FormatoReporte.Variacion(tablero.MargenBruto.VariacionPorcentual);
 
         var desdeAnterior = tablero.DesdeAnterior.ToString("dd/MM/yyyy", FormatoReporte.Cultura);
         var hastaAnterior = tablero.HastaAnterior.ToString("dd/MM/yyyy", FormatoReporte.Cultura);
         TextoComparacion = $"Comparado con el período del {desdeAnterior} al {hastaAnterior}";
 
-        ValorizacionTexto = FormatoReporte.Moneda(tablero.ValorizacionInventarioCosto);
+        ValorizacionTexto = FormatoReporte.MonedaSinCentavos(tablero.ValorizacionInventarioCosto);
         BajoMinimoTexto = $"{FormatoReporte.Entero(tablero.ArticulosBajoStockMinimo)} bajo mínimo";
         HayBajoMinimo = tablero.ArticulosBajoStockMinimo > 0;
 
         GraficoEvolucion = ConstructorGraficos.Lineas(
             "Total vendido",
             tablero.EvolucionVentas.Select(p => FormatoReporte.EtiquetaPeriodo(p.InicioPeriodo, tablero.AgrupacionEvolucion)).ToList(),
-            tablero.EvolucionVentas.Select(p => p.TotalVendido).ToList());
+            tablero.EvolucionVentas.Select(p => p.TotalVendido).ToList(),
+            ultimoPuntoParcial: tablero.Filtro.Hasta >= Hoy);
 
         GraficoMargenCategoria = ConstructorGraficos.BarrasHorizontales(
             "Margen bruto",
@@ -919,7 +931,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
             tablero.MargenPorCategoria.Select(f => f.MargenBruto).ToList(),
             ConstructorGraficos.MaximoBarrasTablero);
         TituloMargenCategoria = "Margen bruto por categoría"
-            + SufijoPrimeros(tablero.MargenPorCategoria.Count, ConstructorGraficos.MaximoBarrasTablero, "primeras");
+            + SufijoPrimeros(tablero.MargenPorCategoria.Count, ConstructorGraficos.MaximoBarrasTablero);
     }
 
     /// <summary>
@@ -941,10 +953,7 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
                         ConstructorGraficos.MaximoBarrasReporte,
                         ConstructorGraficos.LargoEtiquetaReporte),
                     $"Margen bruto por {EnumATextoConverter.ATexto(agrupacion).ToLower(FormatoReporte.Cultura)}"
-                        + SufijoPrimeros(
-                            rentabilidad.Filas.Count,
-                            ConstructorGraficos.MaximoBarrasReporte,
-                            agrupacion == AgrupacionRentabilidadEnum.Articulo ? "primeros" : "primeras"),
+                        + SufijoPrimeros(rentabilidad.Filas.Count, ConstructorGraficos.MaximoBarrasReporte),
                     []);
 
             case StockCriticoDto stock:
@@ -972,9 +981,10 @@ public partial class DashboardViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Sufijo del título cuando el gráfico muestra menos elementos que la grilla: " (primeros 8)".</summary>
-    private static string SufijoPrimeros(int cantidad, int maximo, string palabra)
+    // "(5 con mayor margen)": sin género gramatical, sirve igual para categorías, marcas y artículos.
+    private static string SufijoPrimeros(int cantidad, int maximo)
     {
-        return cantidad > maximo ? $" ({palabra} {maximo})" : string.Empty;
+        return cantidad > maximo ? $" ({maximo} con mayor margen)" : string.Empty;
     }
 
     private static void Reemplazar(ObservableCollection<OpcionFiltro> destino, string textoTodas, IEnumerable<OpcionFiltro> opciones)

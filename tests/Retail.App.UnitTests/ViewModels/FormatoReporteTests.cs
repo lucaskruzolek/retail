@@ -24,7 +24,7 @@ public class FormatoReporteTests
         var variacion = FormatoReporte.Variacion(12.5m);
 
         // Assert
-        variacion.Texto.Should().Be("▲ +12,50 % vs período anterior");
+        variacion.Texto.Should().Be("▲ +12,50 %");
         variacion.Estado.Should().Be(EstadoVariacionEnum.Sube);
     }
 
@@ -35,7 +35,7 @@ public class FormatoReporteTests
         var variacion = FormatoReporte.Variacion(-3.1m);
 
         // Assert
-        variacion.Texto.Should().Be("▼ −3,10 % vs período anterior");
+        variacion.Texto.Should().Be("▼ −3,10 %");
         variacion.Estado.Should().Be(EstadoVariacionEnum.Baja);
     }
 
@@ -57,7 +57,7 @@ public class FormatoReporteTests
         var variacion = FormatoReporte.Variacion(0m);
 
         // Assert
-        variacion.Texto.Should().Be("= 0,00 % vs período anterior");
+        variacion.Texto.Should().Be("= 0,00 %");
         variacion.Estado.Should().Be(EstadoVariacionEnum.SinBase);
     }
 
@@ -67,6 +67,8 @@ public class FormatoReporteTests
     [InlineData(2_500_000, 40_000_000, true, "2,5 M")]
     [InlineData(0, 40_000_000, true, "0")]
     [InlineData(1_000_000, 1_000_000, true, "1 M")]
+    [InlineData(1_000_000, 960_000, true, "1 M")]
+    [InlineData(750_000, 960_000, true, "750 mil")]
     [InlineData(15_000, 40_000, true, "15 mil")]
     [InlineData(12_500, 40_000, true, "12,5 mil")]
     [InlineData(5_000, 9_000, true, "5.000")]
@@ -76,6 +78,16 @@ public class FormatoReporteTests
     {
         // Act + Assert
         FormatoReporte.EtiquetaEje(valor, maximo, datosEnteros).Should().Be(esperado);
+    }
+
+    [Theory]
+    [InlineData(5177577.66, "$ 5.177.578")]
+    [InlineData(1234567.49, "$ 1.234.567")]
+    [InlineData(0, "$ 0")]
+    public void MonedaSinCentavos_ConDecimales_RedondeaAPesosConSeparadorDeMiles(decimal valor, string esperado)
+    {
+        // Act + Assert
+        FormatoReporte.MonedaSinCentavos(valor).Should().Be(esperado);
     }
 
     [Fact]

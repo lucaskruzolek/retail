@@ -1,6 +1,10 @@
 using System.Windows.Media;
+using LiveChartsCore;
+using LiveChartsCore.Defaults;
+using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
 using LiveChartsCore.SkiaSharpView.Painting;
+using LiveChartsCore.SkiaSharpView.Painting.Effects;
 using SkiaSharp;
 
 namespace Retail.App.ViewModels.Reportes;
@@ -41,6 +45,10 @@ public static class ConstructorGraficos
     // Tamaño de las etiquetas de los ejes: más chico que el predeterminado para que entren en un gráfico angosto.
     private const double TamanoTexto = 12;
 
+    // Fracción del máximo que se suma al eje de una barra para que entre la etiqueta de valor de la más larga. Se dimensiona
+    // para el panel más angosto (gráfico de los reportes, 30 % del ancho): "303,4 mil" necesita ~26 % del área de trazado.
+    private const double MargenEtiquetaBarra = 0.35;
+
     // Múltiplos "redondos" de una potencia de diez para el paso de un eje.
     private static readonly double[] s_multiplos = [1d, 2d, 2.5d, 5d, 10d];
 
@@ -48,12 +56,18 @@ public static class ConstructorGraficos
     private static readonly SKColor s_marcaPorDefecto = new(0x9D, 0x0F, 0x33); // PrimaryBrush
     private static readonly SKColor s_grillaPorDefecto = new(0xE4, 0xE4, 0xE7); // SurfaceBorderBrush
     private static readonly SKColor s_textoPorDefecto = new(0x52, 0x52, 0x5B); // TextSecondaryBrush
+    private static readonly SKColor s_fondoPorDefecto = new(0xFF, 0xFF, 0xFF); // SurfaceCardBrush
 
-    /// <summary>Gráfico de una línea sin suavizar ni relleno, con un punto por etiqueta.</summary>
+    /// <summary>
+    /// Gráfico de una línea sin suavizar ni relleno, con un punto por etiqueta. Con <paramref name="ultimoPuntoParcial"/>
+    /// el último período todavía está en curso (incluye hoy): el tramo que llega a él va punteado y su punto, hueco,
+    /// para que una jornada a medias no se lea como una caída de las ventas.
+    /// </summary>
     public static GraficoPantalla Lineas(
         string nombreSerie,
         IReadOnlyList<string> etiquetas,
-        IReadOnlyList<decimal> valores)
+        IReadOnlyList<decimal> valores,
+        bool ultimoPuntoParcial = false)
     {
         ArgumentNullException.ThrowIfNull(etiquetas);
         ArgumentNullException.ThrowIfNull(valores);
@@ -66,10 +80,13 @@ public static class ConstructorGraficos
         var colores = LeerColores();
         var datos = valores.Select(v => (double)v).ToArray();
 
+        // Con un solo punto no hay tramo que puntear: se dibuja como un período completo.
+        var hayTramoParcial = ultimoPuntoParcial && datos.Length >= 2;
+
         var serie = new LineSeries<double>
         {
             Name = nombreSerie,
-            Values = datos,
+            Values = hayTramoParcial ? datos[..^1] : datos,
             Stroke = new SolidColorPaint(colores.Marca, 2),
             GeometrySize = 8,
             GeometryStroke = new SolidColorPaint(colores.Marca, 2),
@@ -77,8 +94,15 @@ public static class ConstructorGraficos
 
             // Sin suavizado: una curva inventaría valores entre dos puntos (D-22).
             LineSmoothness = 0,
-            Fill = null
+            Fill = null,
+
+            // Encima del tramo parcial: el punto relleno del anteúltimo período tapa el hueco de la serie punteada.
+            ZIndex = 1
         };
+
+        ISeries[] series = hayTramoParcial
+            ? [serie, CrearTramoParcial(nombreSerie, datos, colores)]
+            : [serie];
 
         var ejeCategorias = new Axis
         {
@@ -93,7 +117,35 @@ public static class ConstructorGraficos
             ForceStepToMin = true
         };
 
-        return new GraficoPantalla([serie], [ejeCategorias], [CrearEjeValores(datos, colores, esBarra: false)]);
+        return new GraficoPantalla(series, [ejeCategorias], [CrearEjeValores(datos, colores, esBarra: false)]);
+    }
+
+    /// <summary>
+    /// Tramo punteado entre el anteúltimo y el último punto. Usa puntos con X explícita (el índice de la etiqueta) para
+    /// ubicarse sobre el mismo eje de categorías que la serie principal sin repetir los valores anteriores.
+    /// </summary>
+    private static LineSeries<ObservablePoint> CrearTramoParcial(string nombreSerie, double[] datos, ColoresGrafico colores)
+    {
+        var ultimo = datos.Length - 1;
+
+        return new LineSeries<ObservablePoint>
+        {
+            Name = $"{nombreSerie} (período en curso)",
+            Values =
+            [
+                new ObservablePoint(ultimo - 1, datos[ultimo - 1]),
+                new ObservablePoint(ultimo, datos[ultimo])
+            ],
+            Stroke = new SolidColorPaint(colores.Marca, 2) { PathEffect = new DashEffect([6f, 4f]) },
+            GeometrySize = 8,
+            GeometryStroke = new SolidColorPaint(colores.Marca, 2),
+
+            // Punto hueco: el relleno es el fondo de la tarjeta.
+            GeometryFill = new SolidColorPaint(colores.Fondo),
+            LineSmoothness = 0,
+            Fill = null,
+            ZIndex = 0
+        };
     }
 
     /// <summary>
@@ -118,12 +170,21 @@ public static class ConstructorGraficos
 
         var colores = LeerColores();
         var datos = valores.Take(cantidad).Select(v => (double)v).ToArray();
+        var maximoAbsoluto = datos.Select(Math.Abs).Max();
+        var soloEnteros = datos.All(v => v == Math.Floor(v));
 
         var serie = new RowSeries<double>
         {
             Name = nombreSerie,
             Values = datos.Reverse().ToArray(),
-            Fill = new SolidColorPaint(colores.Marca)
+            Fill = new SolidColorPaint(colores.Marca),
+
+            // Valor al final de cada barra, en el mismo formato compacto que el eje: con pocas barras se lee el dato
+            // directamente en lugar de estimarlo contra separadores lejanos.
+            DataLabelsPaint = new SolidColorPaint(colores.Texto),
+            DataLabelsSize = TamanoTexto,
+            DataLabelsPosition = DataLabelsPosition.Right,
+            DataLabelsFormatter = punto => FormatoReporte.EtiquetaEje(punto.Model, maximoAbsoluto, soloEnteros)
         };
 
         var ejeCategorias = new Axis
@@ -211,6 +272,12 @@ public static class ConstructorGraficos
             limiteSuperior = 0;
             eje.MaxLimit = 0;
         }
+        else if (esBarra)
+        {
+            // Lugar a la derecha de la barra más larga para su etiqueta de valor.
+            limiteSuperior = maximo * (1 + MargenEtiquetaBarra);
+            eje.MaxLimit = limiteSuperior;
+        }
 
         var rango = limiteSuperior - limiteInferior;
         if (rango > 0)
@@ -246,7 +313,8 @@ public static class ConstructorGraficos
         return new ColoresGrafico(
             LeerRecurso("PrimaryBrush", s_marcaPorDefecto),
             LeerRecurso("SurfaceBorderBrush", s_grillaPorDefecto),
-            LeerRecurso("TextSecondaryBrush", s_textoPorDefecto));
+            LeerRecurso("TextSecondaryBrush", s_textoPorDefecto),
+            LeerRecurso("SurfaceCardBrush", s_fondoPorDefecto));
     }
 
     /// <summary>
@@ -271,5 +339,5 @@ public static class ConstructorGraficos
         return respaldo;
     }
 
-    private readonly record struct ColoresGrafico(SKColor Marca, SKColor Grilla, SKColor Texto);
+    private readonly record struct ColoresGrafico(SKColor Marca, SKColor Grilla, SKColor Texto, SKColor Fondo);
 }
