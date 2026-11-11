@@ -6,9 +6,12 @@ Estos documentos son **HTML**: están pensados para leerse en un navegador e imp
 
 | Funcionalidad | Requisitos | Documento |
 | :--- | :--- | :--- |
+| **Anatomía de un CRUD** *(fundamentos)*: las 13 piezas de un módulo con el código real de Cliente, inyección de dependencias y Unit of Work | `RF-20`, `RNF-03` | [anatomia-de-un-crud.html](anatomia-de-un-crud.html) |
 | **Importador de catálogos:** importación de listas de precios, clasificación del catálogo, incorporación a la tienda y fuentes múltiples de un artículo | `RF-05`, `RF-07`, `RF-21`, `RF-27`, `RF-28` | [importador-de-catalogos.html](importador-de-catalogos.html) |
 | **Copia de seguridad:** copia manual, diaria y previa a migrar o a restaurar; verificación, bloqueo entre procesos, copias huérfanas y retención | `RF-22`, `RF-23`, `RNF-08`, `RF-03` | [copia-de-seguridad.html](copia-de-seguridad.html) |
 | **Restauración de una copia:** desde el historial, con control dual (Administrador y Gerente) y por consola; base temporal e intercambio, validaciones, historial que sobrevive y red de seguridad | `RF-22`, `RF-23`, `RF-03` | [restauracion.html](restauracion.html) |
+| **Tablero y reportes:** indicadores del período contra el anterior, cinco reportes con filtros resueltos en SQL (ventas por período, ranking, rentabilidad, stock crítico y sin movimiento), costo congelado al vender y exportación a Excel y PDF | `RF-24`, `RF-25`, `RF-26`, `RNF-09` | [tablero-y-reportes.html](tablero-y-reportes.html) |
+| **Pedidos a proveedores:** pedir desde Artículos y desde el importador, un borrador por proveedor, foto del costo en cada renglón, lote en una sola transacción, concurrencia y cierre atómico con la compra | `RF-29`, `RF-28`, `RF-19` | [pedidos-a-proveedores.html](pedidos-a-proveedores.html) |
 
 La portada también muestra los recorridos que faltan escribir, con sus requisitos: la lista está en [`wiki/recursos/recorridos.js`](../recursos/recorridos.js).
 
@@ -29,4 +32,5 @@ La portada también muestra los recorridos que faltan escribir, con sus requisit
   | `marca/logo.svg` | El ícono de la marca (provisorio: `webhook` de Boxicons 3, MIT). Para cambiar la marca se reemplaza este archivo |
 
 * **Agregar un recorrido:** copiar la cabecera y el pie de uno existente (los `<link>` a `comun.css`, la `<header class="barra">`, `<body class="recorrido">` y los tres `<script>` del final), escribir el contenido con `id` en cada `<h2>`, y pasar su entrada de `recorridos.js` a `"escrito"`. La barra lateral, anterior y siguiente, y la tarjeta de la portada se arman solas. Los `<h3>` reciben su `id` al cargar, generado del texto.
+* **Fundamentos:** un documento que explica cómo funciona el sistema y no una funcionalidad (como *Anatomía de un CRUD*) se marca en `recorridos.js` con `fundamento: true`: aparece en la portada y en la barra lateral, pero no cuenta en la cobertura de funcionalidades.
 * **Verificar los enlaces** antes de entregar: `powershell -ExecutionPolicy Bypass -File scripts/verificar-enlaces-wiki.ps1`. Comprueba los enlaces relativos y sus anclas, los enlaces a este repositorio en GitHub contra los archivos locales, y que `recorridos.js` coincida con los archivos que existen.

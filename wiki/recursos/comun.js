@@ -173,15 +173,17 @@
 
     // ------------------------------------------------------------------ Portada: tarjetas y cobertura
     function armarPortada(contenedor) {
-        var escritos = recorridos.filter(function (r) { return r.estado === "escrito"; }).length;
+        // Los fundamentos explican cómo funciona el sistema, no una funcionalidad: no cuentan en la cobertura.
+        var funcionalidades = recorridos.filter(function (r) { return !r.fundamento; });
+        var escritos = funcionalidades.filter(function (r) { return r.estado === "escrito"; }).length;
         var cobertura = document.getElementById("cobertura");
-        if (cobertura && recorridos.length) {
+        if (cobertura && funcionalidades.length) {
             var pista = crear("div", "pista");
             var relleno = crear("span");
-            relleno.style.width = Math.round(100 * escritos / recorridos.length) + "%";
+            relleno.style.width = Math.round(100 * escritos / funcionalidades.length) + "%";
             pista.appendChild(relleno);
             cobertura.appendChild(pista);
-            cobertura.appendChild(crear("span", null, escritos + " de " + recorridos.length + " funcionalidades con su recorrido escrito"));
+            cobertura.appendChild(crear("span", null, escritos + " de " + funcionalidades.length + " funcionalidades con su recorrido escrito"));
         }
 
         var grupoActual = null;

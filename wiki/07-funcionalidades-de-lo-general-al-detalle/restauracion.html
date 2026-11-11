@@ -429,22 +429,22 @@ flowchart LR
 <figcaption>Diagrama 4.1 · flujo</figcaption>
 <pre class="mermaid">
 flowchart TD
-    S1["1. Bloqueo exclusivo, sin esperar&lt;br/&gt;si hay copias o restauraciones: rechazo"] --&gt; S2["2. Huella SHA-256 y tamaño&lt;br/&gt;iguales a los registrados"]
-    S2 --&gt; S3{"3. ¿Existe la vigente?"}
+    S1["1 · Bloqueo exclusivo, sin esperar&lt;br/&gt;si hay copias o restauraciones: rechazo"] --&gt; S2["2 · Huella SHA-256 y tamaño&lt;br/&gt;iguales a los registrados"]
+    S2 --&gt; S3{"3 · ¿Existe la vigente?"}
     S3 --&gt;|"Sí, pero no responde"| X1["Abortar: no se reemplaza a ciegas&lt;br/&gt;una base que puede tener los únicos datos"]
     S3 --&gt;|"No: PC nueva"| S5
-    S3 --&gt;|"Sí y responde"| S4["4. Sin turno de caja abierto&lt;br/&gt;cerrar copias huérfanas"]
-    S4 --&gt; S5["5. RESTORE en la base temporal"]
-    S5 --&gt; S6{"6. ¿La copia trae migraciones&lt;br/&gt;que esta versión no conoce?"}
+    S3 --&gt;|"Sí y responde"| S4["4 · Sin turno de caja abierto&lt;br/&gt;cerrar copias huérfanas"]
+    S4 --&gt; S5["5 · RESTORE en la base temporal"]
+    S5 --&gt; S6{"6 · ¿La copia trae migraciones&lt;br/&gt;que esta versión no conoce?"}
     S6 --&gt;|Sí| X2["Abortar: actualice la aplicación"]
-    S6 --&gt;|No| S7["7. Aplicar las migraciones pendientes&lt;br/&gt;a la temporal"]
-    S7 --&gt; S8["8. Aviso si falta el usuario&lt;br/&gt;de la tarea programada"]
-    S8 --&gt; S9["9. Verificar al Gerente en la copia"]
-    S9 --&gt; S10["10. Otra vez: sin turno de caja abierto&lt;br/&gt;copia PreRestauracion de la vigente"]
-    S10 --&gt; S11["11. Importar el historial de la vigente&lt;br/&gt;cerrar copias en curso de la copia"]
-    S11 --&gt; S12["12. RegistroRestauracion en la temporal"]
-    S12 --&gt; S13["13. Intercambio: punto de no retorno"]
-    S13 --&gt; S14["14. Eliminar bases anteriores viejas"]
+    S6 --&gt;|No| S7["7 · Aplicar las migraciones pendientes&lt;br/&gt;a la temporal"]
+    S7 --&gt; S8["8 · Aviso si falta el usuario&lt;br/&gt;de la tarea programada"]
+    S8 --&gt; S9["9 · Verificar al Gerente en la copia"]
+    S9 --&gt; S10["10 · Otra vez: sin turno de caja abierto&lt;br/&gt;copia PreRestauracion de la vigente"]
+    S10 --&gt; S11["11 · Importar el historial de la vigente&lt;br/&gt;cerrar copias en curso de la copia"]
+    S11 --&gt; S12["12 · RegistroRestauracion en la temporal"]
+    S12 --&gt; S13["13 · Intercambio: punto de no retorno"]
+    S13 --&gt; S14["14 · Eliminar bases anteriores viejas"]
 </pre>
 </figure>
 

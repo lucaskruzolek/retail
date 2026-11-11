@@ -1,0 +1,677 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tablero y reportes</title>
+<link rel="icon" type="image/svg+xml" href="../recursos/marca/logo.svg">
+<link rel="stylesheet" href="../recursos/comun.css">
+</head>
+<body class="recorrido">
+<main>
+
+<header class="barra">
+    <a class="marca" href="../index.html"><img src="../recursos/marca/logo.svg" alt="">Retail</a>
+    <span class="separador">/</span><a href="../index.html#recorridos">Recorridos</a>
+    <span class="separador">/</span><span>Tablero y reportes</span>
+</header>
+
+<span class="etiqueta">Funcionalidades de lo general al detalle</span>
+<h1>Tablero y reportes</h1>
+<p class="subtitulo">Cómo el Gerente ve lo que pasó en el comercio: indicadores del período comparados con el anterior, cinco reportes con filtros y la exportación a Excel y PDF. Contrastado con el código el 11 de noviembre de 2026.</p>
+
+<p>El documento recorre la funcionalidad en cinco niveles. Cada uno muestra el anterior con más detalle: primero qué datos se leen y cómo cambia el estado de la pantalla, después qué ve el Gerente, después qué capa hace cada cosa, luego los mecanismos que hacen confiables los números y por último los algoritmos. Al final hay tres secciones para preparar la defensa.</p>
+
+<p>Todo el módulo es del <b>lado lectura</b>: no modifica ninguna entidad, solo consulta y agrega. Esa es la razón de fondo de la mayoría de las decisiones: los cálculos se hacen en SQL Server sobre miles de filas y no en el dominio, que protege las reglas de las operaciones que cambian el estado del negocio.</p>
+
+<div class="niveles">
+    <div><b>Nivel 0</b>El mapa: los datos que se leen, quién entra y el ciclo de un resultado.</div>
+    <div><b>Nivel 1</b>Caja negra: abrir el tablero, cambiar un filtro y exportar.</div>
+    <div><b>Nivel 2</b>Por capas: App, Aplicación, Dominio, Infraestructura y SQL Server.</div>
+    <div><b>Nivel 3</b>Mecanismos: costo congelado, prorrateo, bajas lógicas y medios de pago.</div>
+    <div><b>Nivel 4</b>Los algoritmos: el tablero paso a paso, períodos, variaciones y exportación.</div>
+    <div><b>Defensa</b>A. Seguridad. B. Rendimiento y robustez. C. Decisiones.</div>
+</div>
+
+<nav class="indice" aria-label="Índice">
+<ol>
+    <li><a href="#nivel-0">Nivel 0 · El mapa</a></li>
+    <li><a href="#nivel-1">Nivel 1 · Lo que ve el usuario</a></li>
+    <li><a href="#nivel-2">Nivel 2 · Qué capa hace cada cosa</a></li>
+    <li><a href="#nivel-3">Nivel 3 · Los mecanismos</a></li>
+    <li><a href="#nivel-4">Nivel 4 · Los algoritmos</a></li>
+    <li><a href="#defensa-a">Defensa A · Seguridad y datos</a></li>
+    <li><a href="#defensa-b">Defensa B · Rendimiento y robustez</a></li>
+    <li><a href="#defensa-c">Defensa C · Decisiones y alternativas</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ NIVEL 0 -->
+<h2 id="nivel-0" class="sin-salto">Nivel 0 · El mapa</h2>
+<span class="etiqueta">Abstracción máxima</span>
+
+<p>Un tablero gerencial responde preguntas, no ejecuta operaciones: <i>¿cuánto vendí?, ¿gano plata con lo que vendo?, ¿qué se mueve y qué está parado?, ¿cómo entró el dinero?</i> La pantalla ofrece seis vistas sobre los mismos datos:</p>
+
+<table>
+<tr><th>Pestaña</th><th>Qué pregunta responde</th><th>Período</th><th>Requisito</th></tr>
+<tr><td><b>Tablero</b></td><td>Cuatro indicadores del período con su variación, la evolución de las ventas y el margen por categoría</td><td>Sí</td><td>RF-24</td></tr>
+<tr><td><b>Ventas por período</b></td><td>Cuánto se vendió por día, semana o mes, con el desglose por medio de pago</td><td>Sí</td><td>RF-25 (a)</td></tr>
+<tr><td><b>Ranking</b></td><td>Los N artículos más y menos vendidos, por unidades o por importe</td><td>Sí</td><td>RF-25 (b)</td></tr>
+<tr><td><b>Rentabilidad</b></td><td>Ingreso neto, costo y margen bruto por categoría, marca o artículo</td><td>Sí</td><td>RF-25 (c)</td></tr>
+<tr><td><b>Stock crítico</b></td><td>Qué reponer: artículos en o bajo su stock mínimo y la valorización del inventario</td><td>No: es una foto de hoy</td><td>RF-25 (d)</td></tr>
+<tr><td><b>Sin movimiento</b></td><td>Qué liquidar: artículos con stock que no se venden hace N días y el capital inmovilizado</td><td>No: cuenta N días hacia atrás</td><td>RF-25 (e)</td></tr>
+</table>
+
+<p>Cualquiera de las seis se exporta a Excel o PDF (RF-26). Los reportes de stock crítico y de sin movimiento excluyen los servicios, porque un servicio no ocupa lugar en el inventario.</p>
+
+<h3>De dónde salen los datos</h3>
+<figure>
+<figcaption>Diagrama 0.1 · entidad-relación</figcaption>
+<pre class="mermaid">
+erDiagram
+    USUARIOS ||--o{ VENTAS : "registra"
+    VENTAS ||--|{ DETALLE_VENTAS : "tiene"
+    VENTAS ||--|{ PAGOS_VENTA : "se paga con"
+    ARTICULOS ||--o{ DETALLE_VENTAS : "se vende en"
+    CATEGORIAS ||--o{ ARTICULOS : "clasifica"
+    MARCAS ||--o{ ARTICULOS : "identifica"
+    VENTAS {
+        datetime2 fecha_hora "en UTC, con índice"
+        decimal subtotal "suma de los ítems"
+        decimal descuento "de la venta completa"
+        decimal total
+        int id_usuario "el cajero"
+        datetime2 deleted_at "baja lógica"
+    }
+    DETALLE_VENTAS {
+        int cantidad
+        decimal precio_unitario "foto del precio al vender"
+        decimal costo_unitario "foto del costo al vender"
+        decimal subtotal_item
+    }
+    PAGOS_VENTA {
+        nvarchar medio_pago
+        decimal monto
+    }
+    ARTICULOS {
+        int stock_actual
+        int stock_minimo
+        decimal costo_reposicion "el costo de hoy"
+        decimal precio_venta
+        bit es_servicio
+    }
+</pre>
+</figure>
+
+<p>Hay un solo dato que el módulo agregó al modelo: <code>costo_unitario</code> en cada ítem vendido. Todo lo demás ya existía para vender. Los reportes leen estas seis tablas y no escriben ninguna.</p>
+
+<h3>Quién hace qué</h3>
+<figure>
+<figcaption>Diagrama 0.2 · casos de uso</figcaption>
+<pre class="mermaid">
+flowchart LR
+    G(["Gerente"])
+    X(["Cajero o Administrador"])
+    subgraph PANT["Pantalla Tablero"]
+        CU1["CU-01 Ver el tablero del período"]
+        CU2["CU-02 Consultar un reporte&lt;br/&gt;con sus filtros"]
+        CU3["CU-03 Exportar el reporte&lt;br/&gt;a Excel o PDF"]
+    end
+    R["Rechazo:&lt;br/&gt;OperacionNoAutorizadaException"]
+    G --&gt; CU1
+    G --&gt; CU2
+    G --&gt; CU3
+    X -.-&gt;|"ni ve la entrada del menú"| R
+    CU2 --&gt;|"lee"| DB[("VENTAS, DETALLE_VENTAS,&lt;br/&gt;PAGOS_VENTA y ARTICULOS")]
+    CU1 --&gt;|"lee"| DB
+    CU3 --&gt;|"escribe el archivo"| ARCH[("Excel o PDF&lt;br/&gt;donde elija el Gerente")]
+</pre>
+</figure>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>El módulo es <b>solo lectura</b> y <b>solo del Gerente</b>. Un Cajero o un Administrador no ven la entrada del menú y, aunque la llamaran por otra vía, el servicio los rechaza (D-11).</li>
+    <li>El margen no sale de la entidad <code>Venta</code>: sale de una consulta de agregación en SQL. Para que el margen de marzo no cambie cuando en abril sube el costo de un artículo, cada ítem vendido <b>guarda el costo que tenía ese día</b>.</li>
+    <li>Cada reporte recibe sus propios filtros y los valida. El resultado que se ve en pantalla es el mismo objeto que se exporta: la exportación nunca vuelve a consultar.</li>
+</ul>
+</div>
+
+<h3>Ciclo de vida de un resultado en pantalla</h3>
+<figure>
+<figcaption>Diagrama 0.3 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --&gt; SinConsultar
+    state "Sin consultar" as SinConsultar
+    state "Consultando" as Consultando
+    state "Con resultado" as ConResultado
+    state "Vacío" as Vacio
+    state "Con error" as ConError
+    SinConsultar --&gt; Consultando: primera vez en la pestaña
+    Consultando --&gt; ConResultado: llega el resultado
+    Consultando --&gt; Vacio: el reporte no tiene filas
+    Consultando --&gt; ConError: no autorizado, filtro inválido o falla
+    ConResultado --&gt; Consultando: cambia un filtro
+    Vacio --&gt; Consultando: cambia un filtro
+    ConError --&gt; Consultando: cambia un filtro
+    ConResultado --&gt; ConResultado: vuelve a la pestaña, sin consultar
+</pre>
+</figure>
+
+<p>El estado vive en el <code>DashboardViewModel</code>, que guarda <b>el último resultado de cada pestaña</b>. Tres reglas lo gobiernan: una pestaña nunca consultada se consulta sola al abrirla; una ya consultada muestra su resultado guardado; y un cambio de filtro descarta los resultados de las otras pestañas, porque ya no corresponden a los filtros vigentes. Exportar solo se habilita en «Con resultado»: un reporte vacío no tiene nada para exportar (D-25).</p>
+
+<details><summary>Autoevaluación N0: ¿por qué <code>DETALLE_VENTAS</code> guarda <code>costo_unitario</code> si el costo ya está en <code>ARTICULOS</code>?</summary>
+<p>Porque el costo del artículo es el de <b>hoy</b>. Cada importación de una lista (RF-07) o cada compra (RF-19) lo cambia. Si el reporte de marzo leyera el costo actual, el margen de una venta pasada cambiaría cada vez que llega una lista nueva. El ítem conserva la foto del costo en el momento de vender, igual que conserva el precio: una transacción guarda los valores con los que se hizo.</p>
+</details>
+
+<!-- ============================================================ NIVEL 1 -->
+<h2 id="nivel-1">Nivel 1 · Lo que ve el usuario</h2>
+<span class="etiqueta">Caja negra</span>
+
+<p>El Tablero es la <b>página de aterrizaje del Gerente</b>: al iniciar sesión entra directamente ahí, y también lo encuentra en el menú. La pantalla tiene una fila de filtros arriba, las seis pestañas y, debajo, el contenido de la pestaña elegida. No hay un botón «Consultar»: cada cambio de filtro consulta solo.</p>
+
+<h3>Abrir el tablero</h3>
+<figure>
+<figcaption>Diagrama 1.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor G as Gerente
+    participant VM as DashboardViewModel
+    participant S as ReporteService
+    participant L as Servicios de inventario y de usuarios
+    G-&gt;&gt;VM: Entra a Tablero
+    VM-&gt;&gt;L: Categorías, marcas y usuarios para los combos
+    VM-&gt;&gt;S: ObtenerFechaMinimaAsync
+    S--&gt;&gt;VM: Día de la primera venta
+    Note over VM: El calendario no ofrece días anteriores
+    VM-&gt;&gt;S: ObtenerTableroAsync del mes en curso
+    S--&gt;&gt;VM: TableroDto
+    VM--&gt;&gt;G: Cuatro tarjetas, evolución y margen por categoría
+</pre>
+</figure>
+
+<p>El período inicial es <b>desde el día 1 del mes en curso hasta hoy</b>. Si el comercio empezó a vender después del día 1, el período arranca en la primera venta: pedir un día sin ventas sería rechazado.</p>
+
+<h3>Qué muestran las tarjetas</h3>
+<table>
+<tr><th>Tarjeta</th><th>Qué muestra</th><th>Cómo se compara</th></tr>
+<tr><td>Total vendido</td><td>La suma de los totales de las ventas del período</td><td>Variación porcentual contra el período de comparación</td></tr>
+<tr><td>Cantidad de ventas</td><td>Cuántos tickets hubo</td><td>Variación porcentual</td></tr>
+<tr><td>Margen bruto</td><td>Ingreso neto menos el costo de lo vendido, en pesos</td><td>Variación porcentual. El margen en porcentaje y su variación en puntos están en Rentabilidad y en los archivos exportados</td></tr>
+<tr><td>Inventario a costo</td><td>La valorización del stock a costo de reposición, con cuántos artículos están bajo el mínimo</td><td>Es una foto de hoy: no se compara</td></tr>
+</table>
+
+<p>La variación nunca depende solo del color: lleva flecha, signo y texto (<code>▲ +20,00 % vs período anterior</code>, <code>▼ −5,00 % vs período anterior</code>). Si el período anterior no tuvo ventas, dice <i>Sin datos del período anterior</i> en lugar de calcular una división por cero. Bajo las tarjetas, la pantalla informa contra qué fechas compara: <i>Comparado con el período del … al …</i>.</p>
+
+<h3>Cambiar un filtro</h3>
+<figure>
+<figcaption>Diagrama 1.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor G as Gerente
+    participant VM as DashboardViewModel
+    participant S as ReporteService
+    G-&gt;&gt;VM: Cambia un filtro del reporte visible
+    VM-&gt;&gt;VM: Descarta los resultados guardados de las otras pestañas
+    VM-&gt;&gt;S: Consulta con una copia de los filtros de este instante
+    Note over VM: Mientras llega, la pantalla conserva el resultado anterior
+    S--&gt;&gt;VM: Resultado nuevo
+    VM--&gt;&gt;G: Redibuja
+    G-&gt;&gt;VM: Vuelve a otra pestaña
+    VM-&gt;&gt;S: La consulta de nuevo, porque su resultado se descartó
+</pre>
+</figure>
+
+<h3>Qué filtros tiene cada pestaña</h3>
+<table>
+<tr><th>Pestaña</th><th>Filtros</th><th>Valores iniciales</th></tr>
+<tr><td>Tablero</td><td>Período</td><td>Mes en curso hasta hoy</td></tr>
+<tr><td>Ventas por período</td><td>Período, agrupación (día, semana o mes) y cajero</td><td>Agrupación por día, todos los cajeros</td></tr>
+<tr><td>Ranking</td><td>Período, categoría, marca, criterio (unidades o importe) y cantidad (5, 10, 20 o 50)</td><td>Unidades, 10, todas las categorías y marcas</td></tr>
+<tr><td>Rentabilidad</td><td>Período, categoría, marca y agrupar por (categoría, marca o artículo)</td><td>Por categoría</td></tr>
+<tr><td>Stock crítico</td><td>Categoría y marca</td><td>Todas</td></tr>
+<tr><td>Sin movimiento</td><td>Categoría, marca y días sin ventas (30, 60, 90, 180 o 365)</td><td>90 días</td></tr>
+</table>
+
+<p>«Limpiar filtros» vuelve todo a estos valores y consulta una sola vez. El combo de cajeros no incluye a los Administradores: no operan ventas.</p>
+
+<h3>Exportar</h3>
+<figure>
+<figcaption>Diagrama 1.3 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor G as Gerente
+    participant VM as DashboardViewModel
+    participant D as ReporteDialogService
+    participant E as ExportacionReportesService
+    G-&gt;&gt;VM: Exportar a PDF
+    VM-&gt;&gt;D: ElegirArchivoDestino con un nombre sugerido
+    D--&gt;&gt;VM: La ruta que eligió
+    VM-&gt;&gt;E: ExportarAsync con el resultado en pantalla
+    alt Se escribió el archivo
+        VM--&gt;&gt;G: Reporte guardado en la ruta
+    else El archivo está abierto o no hay permiso
+        VM-&gt;&gt;D: Borra el archivo parcial
+        VM--&gt;&gt;G: No se pudo guardar. ¿Reintentar?
+        G-&gt;&gt;VM: Sí
+        VM-&gt;&gt;E: El mismo resultado, sin consultar la base
+    end
+</pre>
+</figure>
+
+<p>El nombre sugerido es <code>Reporte-&lt;tipo&gt;-&lt;desde&gt;-&lt;hasta&gt;</code>, y las fechas salen del <b>resultado</b> que se exporta, no de lo que el filtro diga ahora. Si el Gerente cambió un filtro y todavía no llegó el resultado nuevo, el archivo lleva los filtros del resultado que estaba en pantalla: lo exportado siempre coincide con lo que se veía (RF-26).</p>
+
+<details><summary>Autoevaluación N1: ¿por qué no hay un botón «Consultar»?</summary>
+<p>Porque cada filtro es barato de cambiar y la consulta es rápida (RNF-09): obligar a un paso más por cada cambio haría la pantalla más lenta de usar sin aportar nada. A cambio, hay que resolver tres cosas que un botón evita: no consultar antes de la carga inicial ni mientras «Limpiar filtros» cambia varios filtros a la vez; descartar los resultados de las otras pestañas; y que una respuesta lenta no pise a una más nueva.</p>
+</details>
+
+<!-- ============================================================ NIVEL 2 -->
+<h2 id="nivel-2">Nivel 2 · Qué capa hace cada cosa</h2>
+<span class="etiqueta">Por capas</span>
+
+<p>El flujo respeta la regla de dependencia: la pantalla solo conoce a Aplicación, y Aplicación define los puertos que Infraestructura implementa. La pantalla jamás toca el <code>DbContext</code>.</p>
+
+<figure>
+<figcaption>Diagrama 2.1 · capas</figcaption>
+<pre class="mermaid">
+graph TD
+    subgraph App["Retail.App"]
+        VW["DashboardView y DashboardViewModel&lt;br/&gt;ConstructorGraficos, FormatoReporte"]
+        DLG["ReporteDialogService&lt;br/&gt;diálogo de guardado"]
+    end
+    subgraph Application["Retail.Application"]
+        SVC["ReporteService&lt;br/&gt;autoriza, valida, convierte fechas, redondea"]
+        EXS["ExportacionReportesService&lt;br/&gt;autoriza y arma el DocumentoReporte"]
+        QRY["IReporteQueryService&lt;br/&gt;puerto de lectura"]
+        EXP["IExportadorReportes&lt;br/&gt;puerto de exportación"]
+    end
+    subgraph Domain["Retail.Domain"]
+        DOM["DetalleVenta.CostoUnitario&lt;br/&gt;ReglasMonetarias.Redondear"]
+    end
+    subgraph Infra["Retail.Infrastructure"]
+        QIMP["ReporteQueryService&lt;br/&gt;LINQ, AsNoTracking, push-down a SQL"]
+        XLS["ExportadorExcel, MiniExcel"]
+        PDF["ExportadorPdf, QuestPDF"]
+    end
+    DB[("SQL Server Express&lt;br/&gt;IX_VENTAS_fecha_hora")]
+    VW --&gt; SVC
+    VW --&gt; EXS
+    VW --&gt; DLG
+    SVC --&gt; QRY
+    EXS --&gt; EXP
+    SVC --&gt; DOM
+    QIMP -.implementa.-&gt; QRY
+    XLS -.-&gt; EXP
+    PDF -.-&gt; EXP
+    QIMP --&gt; DB
+</pre>
+</figure>
+
+<table>
+<tr><th>Capa</th><th>Pieza</th><th>Responsabilidad</th></tr>
+<tr><td>App</td><td><code>DashboardViewModel</code></td><td>El estado de la pantalla, los filtros, el último resultado de cada pestaña y la exportación con reintento. No hace cuentas de negocio</td></tr>
+<tr><td>App</td><td><code>FormatoReporte</code> y <code>ConstructorGraficos</code></td><td>Presentación: moneda y fechas en es-AR, ejes compactos («25 M», «15 mil») y cuántas barras entran en cada gráfico</td></tr>
+<tr><td>App</td><td><code>ReporteDialogService</code></td><td>El diálogo «Guardar como» y los avisos, detrás de una interfaz para poder probar el ViewModel sin ventanas</td></tr>
+<tr><td>Aplicación</td><td><code>ReporteService</code></td><td>Autoriza al Gerente, valida el filtro, convierte los días locales a UTC, pide los datos, redondea y calcula márgenes y variaciones</td></tr>
+<tr><td>Aplicación</td><td>Validadores de <code>Validators/Reportes/</code></td><td>Un validador por filtro con FluentValidation: fechas, largo máximo del período, cantidad del ranking y días sin movimiento</td></tr>
+<tr><td>Aplicación</td><td><code>ExportacionReportesService</code> y <code>ConstructorDocumentoReporte</code></td><td>Autoriza, resuelve los nombres de categoría, marca y cajero, y traduce el resultado a un <code>DocumentoReporte</code> neutro</td></tr>
+<tr><td>Dominio</td><td><code>DetalleVenta</code> y <code>ReglasMonetarias</code></td><td>El costo congelado de cada ítem y el único punto de redondeo monetario del sistema</td></tr>
+<tr><td>Infraestructura</td><td><code>ReporteQueryService</code></td><td>Las consultas: agrupar, sumar, contar y ordenar dentro de SQL Server, sin materializar ventas en memoria</td></tr>
+<tr><td>Infraestructura</td><td><code>ExportadorReportes</code>, <code>ExportadorExcel</code>, <code>ExportadorPdf</code></td><td>Escribir el archivo en cada formato, fuera del hilo de la interfaz</td></tr>
+</table>
+
+<h3>Una consulta de punta a punta: <code>ObtenerRentabilidadAsync</code></h3>
+<figure>
+<figcaption>Diagrama 2.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant VM as DashboardViewModel
+    participant S as ReporteService
+    participant U as IRepository de Usuario
+    participant Q as ReporteQueryService
+    participant DB as SQL Server
+    VM-&gt;&gt;S: ObtenerRentabilidadAsync(idActor, filtro)
+    S-&gt;&gt;U: Busca al actor
+    S-&gt;&gt;S: Solo un Gerente: si no, OperacionNoAutorizadaException
+    S-&gt;&gt;S: Valida el filtro con FluentValidation
+    S-&gt;&gt;Q: ObtenerFechaPrimeraVentaAsync
+    Q-&gt;&gt;DB: SELECT MIN de fecha_hora
+    S-&gt;&gt;S: Desde no puede ser anterior a la primera venta
+    S-&gt;&gt;S: Días locales a un rango UTC
+    S-&gt;&gt;Q: ObtenerRentabilidadAsync(rango, filtro)
+    Q-&gt;&gt;DB: SELECT con GROUP BY, prorrateo y costo en la proyección
+    DB--&gt;&gt;Q: Una fila por grupo
+    Q-&gt;&gt;DB: Los nombres de esos grupos, por id
+    Q--&gt;&gt;S: Importes sin redondear
+    S-&gt;&gt;S: Redondea, suma la fila Total y ordena por margen
+    S--&gt;&gt;VM: RentabilidadDto
+</pre>
+</figure>
+
+<p>Dos detalles del orden. Primero se <b>autoriza</b> y después se valida: un Cajero recibe «no autorizado» sin enterarse de si su filtro era válido. Y el servicio devuelve los importes ya redondeados, mientras que el puerto de lectura los devuelve <b>sin redondear</b>: cada capa hace lo suyo, y el criterio de redondeo vive en un solo lugar.</p>
+
+<h3>Las cinco consultas del tablero</h3>
+<p><code>ObtenerTableroAsync</code> necesita cinco lecturas: el resumen del período, el resumen del período anterior, la evolución de ventas, la rentabilidad por categoría y el resumen del inventario. Se hacen <b>una después de la otra</b>, nunca con <code>Task.WhenAll</code>: todas comparten el mismo <code>DbContext</code> y Entity Framework Core no admite dos operaciones simultáneas sobre una misma instancia. La evolución se agrupa sola según el largo del período: hasta 62 días por día, hasta 366 por semana, y más por mes.</p>
+
+<details><summary>Autoevaluación N2: ¿por qué el servicio de Aplicación redondea y el puerto de lectura no?</summary>
+<p>Porque el redondeo es una regla del sistema, no del motor de base de datos, y tiene que existir en un único lugar (<code>ReglasMonetarias.Redondear</code>, D-17). Si el puerto redondeara cada fila, el total se calcularía sumando importes ya redondeados y acumularía error. Por eso el puerto entrega los importes crudos, y el servicio redondea cada importe que muestra y suma las filas crudas antes de redondear un total (D-18).</p>
+</details>
+
+<!-- ============================================================ NIVEL 3 -->
+<h2 id="nivel-3">Nivel 3 · Los mecanismos</h2>
+<span class="etiqueta">Mecanismos</span>
+
+<h3>El costo se congela al vender</h3>
+<p>Cuando el cajero cierra una venta, <code>VentaService</code> agrega cada ítem con <code>venta.AgregarItem(idArticulo, cantidad, precio, costo)</code>, tomando precio y costo del artículo <b>en ese momento</b>. Dos reglas lo protegen:</p>
+<ul>
+    <li>El dominio rechaza que un mismo artículo figure dos veces en el ticket con costos distintos: una línea no puede mezclar dos costos.</li>
+    <li>La tabla tiene la restricción <code>CK_DETALLE_VENTAS_Valores</code>, que exige <code>costo_unitario &gt;= 0</code>. Es defensa en profundidad: si un bug dejara pasar un costo negativo, la base lo rechaza.</li>
+</ul>
+
+<h3>El prorrateo del descuento</h3>
+<p>El descuento es de la venta completa, no de cada ítem. Para saber cuánto ganó cada artículo hay que repartirlo en proporción al subtotal de cada uno:</p>
+<p style="text-align:center"><code>descuento del ítem = descuento de la venta × subtotal del ítem ÷ subtotal de la venta</code><br><code>ingreso neto del ítem = subtotal del ítem − descuento del ítem</code></p>
+
+<table>
+<tr><th>Ejemplo: subtotal $ 1.000 y descuento $ 100</th><th>Subtotal</th><th>Descuento prorrateado</th><th>Ingreso neto</th><th>Costo</th><th>Margen</th></tr>
+<tr><td>Artículo A: 2 unidades a $ 300, costo unitario $ 180</td><td>$ 600</td><td>$ 60</td><td>$ 540</td><td>$ 360</td><td>$ 180</td></tr>
+<tr><td>Artículo B: 1 unidad a $ 400, costo unitario $ 260</td><td>$ 400</td><td>$ 40</td><td>$ 360</td><td>$ 260</td><td>$ 100</td></tr>
+<tr><td><b>Venta completa</b></td><td>$ 1.000</td><td>$ 100</td><td><b>$ 900</b></td><td>$ 620</td><td><b>$ 280</b></td></tr>
+</table>
+
+<p>La suma de los márgenes por artículo ($ 180 + $ 100) coincide con el margen de la venta ($ 900 − $ 620). Sin prorratear, la suma por categoría no cerraría con el total. Si el subtotal de la venta fuera cero, el descuento prorrateado es cero, para no dividir por cero.</p>
+
+<h3>La «vista en C#» y las bajas lógicas</h3>
+<p>En lugar de una vista SQL, el módulo tiene un método, <code>ItemsVendidos(rango)</code>, que devuelve un <code>IQueryable</code> con cada ítem vendido, su ingreso neto ya prorrateado y su costo. Rentabilidad, ranking y tablero se componen sobre él, y Entity Framework Core lo traduce a <b>una sola sentencia</b> por consulta. Da lo bueno de una vista (una definición única) sin sacar del compilador la fórmula del margen.</p>
+
+<p>Ese método usa <code>IgnoreQueryFilters()</code>, y hay una razón. El filtro global de baja lógica de <code>Articulo</code> haría desaparecer del historial las ventas de un artículo dado de baja: RF-06 dice que el historial se conserva.</p>
+
+<figure>
+<figcaption>Diagrama 3.1 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["Una fila de VENTAS"] --&gt; B{"¿La venta tiene baja lógica?"}
+    B --&gt;|Sí| X["No cuenta en ningún reporte"]
+    B --&gt;|No| C["Un ítem de DETALLE_VENTAS"]
+    C --&gt; D{"¿El ítem tiene baja lógica?"}
+    D --&gt;|Sí| X
+    D --&gt;|No| E{"¿El artículo tiene baja lógica?"}
+    E --&gt;|No| F["Cuenta"]
+    E --&gt;|"Sí, en ventas, ranking y rentabilidad"| F
+    E --&gt;|"Sí, en menos vendidos, stock y sin movimiento"| G["No aparece: ya no se puede reponer ni vender"]
+</pre>
+</figure>
+
+<div class="nota"><b>Una trampa que ya se pisó (D-19).</b> <code>IgnoreQueryFilters()</code> desactiva los filtros de <b>toda</b> la consulta, no solo de la tabla que uno tiene en mente. Cuando «menos vendidos» combinaba artículos con la consulta de ventas, un artículo dado de baja reaparecía en la lista. Por eso, en toda consulta de reportes que use <code>IgnoreQueryFilters()</code>, la baja lógica de cada tabla que sí debe excluirse se filtra a mano (<code>DeletedAt == null</code>). Lo descubrió una prueba de integración, no una revisión.</div>
+
+<h3>El desglose por medio de pago: dos consultas, no un JOIN</h3>
+<p>La pestaña de ventas por período muestra el total de cada período repartido en cinco columnas: efectivo, tarjeta de débito, tarjeta de crédito, transferencia o QR y cuenta corriente. Los importes salen de <code>PAGOS_VENTA</code>. La idea natural sería unir ventas con pagos en una sola consulta, pero eso falla:</p>
+
+<figure>
+<figcaption>Diagrama 3.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant S as ReporteService
+    participant Q as ReporteQueryService
+    participant DB as SQL Server
+    S-&gt;&gt;Q: ObtenerVentasPorPeriodoAsync con medios de pago
+    Q-&gt;&gt;DB: Consulta 1: ventas agrupadas por período, con COUNT y SUM del total
+    DB--&gt;&gt;Q: Una fila por período
+    Q-&gt;&gt;DB: Consulta 2: pagos de las mismas ventas, agrupados por la misma clave, con una SUM condicional por medio
+    DB--&gt;&gt;Q: Una fila por período
+    Q-&gt;&gt;Q: Combina las dos por clave de período, en memoria
+    Q--&gt;&gt;S: Filas con el total y los cinco medios
+</pre>
+</figure>
+
+<p>Si se unieran en una sola consulta, una venta pagada con efectivo y tarjeta aparecería dos veces y se contaría dos veces. Con dos consultas agregadas, cada peso de cada pago cae en una sola columna, y la combinación en memoria trabaja sobre filas <b>ya agregadas</b> (como mucho unas 366), no sobre tablas. Como el dominio exige que los pagos de una venta cubran exactamente su total (<code>Venta.ValidarCierre</code>), <b>la suma de los cinco medios de cada período coincide con su total</b>. El tablero no necesita este desglose y pide <code>incluirMediosDePago: false</code>, con lo que esa segunda consulta ni se ejecuta (D-35).</p>
+
+<h3>Las fechas: del día local a un rango UTC</h3>
+<table>
+<tr><th>Problema</th><th>Cómo se resuelve</th><th>Dónde</th></tr>
+<tr><td>Las ventas se guardan en UTC, pero el Gerente piensa en días locales. Una venta de las 22:30 en Argentina ya es del día siguiente en UTC</td><td>El rango local se convierte a UTC <b>antes</b> de consultar: <code>[desde 00:00, hasta + 1 día 00:00)</code>. Con el extremo final excluido no se pierde ni se duplica ninguna venta</td><td><code>ReporteService.CrearRango</code></td></tr>
+<tr><td>Para agrupar por día, semana o mes hay que mirar la fecha local</td><td>SQL le suma a <code>fecha_hora</code> el desfase de la zona local antes de agrupar. Es un único desfase para todo el rango: Argentina no aplica horario de verano desde 2009. Si volviera a aplicarlo, habría que pasar a <code>AT TIME ZONE</code> (R-2)</td><td><code>RangoUtcDto</code> y <code>ReporteQueryService</code></td></tr>
+<tr><td><code>DATEPART(week)</code> cambia según la configuración regional del servidor</td><td>La semana empieza el lunes y se numera con <code>DATEDIFF(day, ancla, fecha) / 7</code>, donde el ancla es el lunes 01/01/2001. No depende de ninguna configuración (D-10)</td><td><code>ReporteQueryService</code></td></tr>
+<tr><td>«Hoy» y la zona horaria dificultan las pruebas</td><td>Se inyecta un <code>TimeProvider</code>: en las pruebas se fija el instante y la zona (D-16)</td><td><code>ReporteService</code></td></tr>
+</table>
+
+<h3>La pantalla también tiene que ser correcta</h3>
+<ul>
+    <li><b>Una sola consulta a la vez.</b> El ViewModel usa <code>CargaSerializada</code>, que ordena las consultas sobre el <code>DbContext</code> de la pantalla y descarta las respuestas viejas: si el Gerente cambia de pestaña mientras se consulta otra, solo se aplica la consulta vigente.</li>
+    <li><b>Una copia de los filtros.</b> La consulta se arma con los filtros de ese instante: lo que el Gerente cambie mientras tanto no altera la consulta en curso.</li>
+    <li><b>Fuera del hilo de la interfaz.</b> Las consultas y la escritura del archivo corren con <code>Task.Run</code> (Ley 4), para no congelar la pantalla.</li>
+    <li><b>Gráfico y datos juntos.</b> El gráfico, su título y los totales se calculan a la vez desde el resultado guardado de la pestaña visible y se asignan de una vez. Una versión anterior mostraba en Rentabilidad el gráfico de ventas por período, porque el control conservaba la serie anterior al cambiar de pestaña.</li>
+</ul>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>Tres decisiones hacen que los números sean confiables: el <b>costo congelado</b>, el <b>prorrateo</b> del descuento y las <b>bajas lógicas</b> tratadas a propósito (el historial se conserva).</li>
+    <li>Las fechas se resuelven en el servicio de Aplicación y la agrupación en SQL, con un ancla fija para las semanas.</li>
+    <li>Cada vez que algo se agrega en memoria, son filas que SQL ya agregó: nunca ventas sin agrupar.</li>
+</ul>
+</div>
+
+<details><summary>Autoevaluación N3: ¿por qué un artículo dado de baja sigue en rentabilidad y en «más vendidos», pero no en «menos vendidos»?</summary>
+<p>Porque responden preguntas distintas. Rentabilidad y «más vendidos» describen <b>lo que pasó</b>: las ventas de un artículo que se discontinuó siguen siendo ventas, y borrarlas falsearía el margen histórico. «Menos vendidos» es una lista para <b>decidir</b> qué reponer o liquidar: un artículo dado de baja ya no se puede vender, así que figurar ahí no tendría sentido. La misma idea aplica al stock crítico y al de sin movimiento.</p>
+</details>
+
+<!-- ============================================================ NIVEL 4 -->
+<h2 id="nivel-4">Nivel 4 · Los algoritmos</h2>
+<span class="etiqueta">Algoritmo</span>
+
+<h3><code>ObtenerTableroAsync</code> paso a paso</h3>
+<figure>
+<figcaption>Diagrama 4.1 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    S1["1 · Autoriza al actor: solo un Gerente"] --&gt; S2["2 · Valida el filtro con FluentValidation"]
+    S2 --&gt; S3["3 · Valida el límite inferior:&lt;br/&gt;no antes de la primera venta"]
+    S3 --&gt; S4["4 · Calcula el período anterior&lt;br/&gt;y la agrupación de la evolución"]
+    S4 --&gt; S5["5 · Convierte los dos períodos a rango UTC"]
+    S5 --&gt; S6["6 · Resumen del período actual"]
+    S6 --&gt; S7["7 · Resumen del período anterior"]
+    S7 --&gt; S8["8 · Evolución de las ventas"]
+    S8 --&gt; S9["9 · Rentabilidad por categoría"]
+    S9 --&gt; S10["10 · Resumen del inventario de hoy"]
+    S10 --&gt; S11["11 · Redondea, calcula los márgenes&lt;br/&gt;y las variaciones"]
+    S11 --&gt; S12["12 · Completa con ceros los períodos sin ventas"]
+    S12 --&gt; S13["13 · Devuelve el TableroDto"]
+</pre>
+</figure>
+
+<p>Los pasos 6 a 10 son consultas y van en secuencia. Los pasos 1 a 3 son los que dejan salir con error sin haber tocado ningún dato del negocio: si el actor no es Gerente o el filtro es inválido, no se consulta nada.</p>
+
+<h3>El período de comparación: <code>CalcularPeriodoAnterior</code></h3>
+<p>Un comercio compara octubre con septiembre y el año con el año anterior, no con «los 31 días anteriores». Por eso la comparación es de <b>calendario</b> (D-31), no de igual duración:</p>
+
+<figure>
+<figcaption>Diagrama 4.2 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["Rango desde - hasta"] --&gt; B{"¿Está dentro de un mes&lt;br/&gt;y empieza el día 1?"}
+    B --&gt;|Sí| C{"¿Termina el último día del mes?"}
+    C --&gt;|Sí| D["El mes anterior completo"]
+    C --&gt;|No| E["El mismo tramo del mes anterior"]
+    B --&gt;|No| F{"¿Empieza el 1 de enero y abarca&lt;br/&gt;más de un mes del mismo año?"}
+    F --&gt;|Sí| G["El mismo tramo del año anterior"]
+    F --&gt;|No| H["El período inmediato anterior&lt;br/&gt;de igual duración"]
+</pre>
+</figure>
+
+<table>
+<tr><th>Rango elegido</th><th>Se compara con</th><th>Regla</th></tr>
+<tr><td>01/10/2026 al 31/10/2026</td><td>01/09/2026 al 30/09/2026</td><td>El mes anterior completo</td></tr>
+<tr><td>01/10/2026 al 15/10/2026</td><td>01/09/2026 al 15/09/2026</td><td>El mismo tramo del mes anterior</td></tr>
+<tr><td>01/03/2026 al 31/03/2026</td><td>01/02/2026 al 28/02/2026</td><td>El mes anterior completo: febrero tiene 28 días</td></tr>
+<tr><td>01/03/2026 al 30/03/2026</td><td>01/02/2026 al 28/02/2026</td><td>El mismo tramo: el 30 no existe en febrero, así que se recorta al último día</td></tr>
+<tr><td>01/01/2026 al 31/01/2026</td><td>01/12/2025 al 31/12/2025</td><td>El mes anterior completo, que es del año anterior</td></tr>
+<tr><td>01/01/2026 al 15/05/2026</td><td>01/01/2025 al 15/05/2025</td><td>El mismo tramo del año anterior</td></tr>
+<tr><td>10/10/2026 al 20/10/2026 (11 días)</td><td>29/09/2026 al 09/10/2026</td><td>Las 11 fechas inmediatamente anteriores</td></tr>
+</table>
+
+<p>Con «igual duración» para todo, «mes anterior» (setiembre, 30 días) se comparaba con 02/08 al 31/08: perdía el 1 de agosto, y «este año» no era una comparación interanual. <code>AddMonths</code> y <code>AddYears</code> recortan el día al fin de mes, y eso evita fechas inexistentes como el 30 de febrero.</p>
+
+<h3>Cómo se calcula una variación</h3>
+<p>Para cada indicador, <code>CrearIndicador</code> guarda el valor actual, el anterior y la variación. La variación es <code>(actual − anterior) ÷ anterior × 100</code>, redondeada, y es <b>nula</b> si el anterior es cero:</p>
+
+<table>
+<tr><th>Actual</th><th>Anterior</th><th>Variación</th><th>Cómo se muestra</th></tr>
+<tr><td>$ 120.000</td><td>$ 100.000</td><td>+20,00 %</td><td><code>▲ +20,00 % vs período anterior</code></td></tr>
+<tr><td>$ 95.000</td><td>$ 100.000</td><td>−5,00 %</td><td><code>▼ −5,00 % vs período anterior</code></td></tr>
+<tr><td>$ 50.000</td><td>$ 0</td><td>No existe (sería una división por cero)</td><td><i>Sin datos del período anterior</i></td></tr>
+</table>
+
+<p>El margen porcentual es distinto: es una proporción, y la variación de una proporción se informa en <b>puntos porcentuales</b>, no como porcentaje de porcentaje. Pasar de un margen del 20 % al 25 % es <b>+5 puntos</b>; decir «+25 %» confundiría a quien lee dos cifras que ya son porcentajes (D-18).</p>
+
+<h3>Completar los períodos sin ventas</h3>
+<p>SQL devuelve una fila solo por los períodos que tuvieron ventas. Para que la línea de evolución no salte días, <code>CompletarPeriodos</code> recorre el rango desde el inicio del primer período hasta el final y agrega un punto con ceros donde falta. El inicio de una semana se calcula con <code>(día de la semana + 6) % 7</code>: el domingo es 0, y ese desplazamiento hace que la semana arranque el lunes, igual que en SQL. No materializa tablas: son a lo sumo unos cientos de puntos ya agregados.</p>
+
+<h3>Redondeo y totales</h3>
+<table>
+<tr><th>Regla</th><th>Por qué</th></tr>
+<tr><td>Cada importe se redondea a dos decimales, de a uno, con <code>Math.Round(…, MidpointRounding.AwayFromZero)</code></td><td>Es el criterio monetario único del sistema; <code>Articulo</code> usa el mismo método</td></tr>
+<tr><td>El margen es la <b>resta de valores ya redondeados</b> (ingreso − costo)</td><td>Así lo que se muestra cierra visualmente: nadie encuentra una cuenta que difiera en un centavo</td></tr>
+<tr><td>Los totales suman las filas <b>crudas</b> y redondean al final</td><td>Sumar importes ya redondeados acumularía error</td></tr>
+</table>
+
+<h3>La exportación</h3>
+<figure>
+<figcaption>Diagrama 4.3 · flujo</figcaption>
+<pre class="mermaid">
+flowchart LR
+    R["Resultado en pantalla"] --&gt; A["ExportacionReportesService&lt;br/&gt;autoriza al Gerente y resuelve nombres"]
+    A --&gt; C["ConstructorDocumentoReporte"]
+    C --&gt;|"DocumentoReporte neutro"| E["ExportadorReportes"]
+    E --&gt;|"Task.Run"| X["ExportadorExcel&lt;br/&gt;MiniExcel"]
+    E --&gt;|"Task.Run"| P["ExportadorPdf&lt;br/&gt;QuestPDF"]
+    P --&gt; G["Gráficos de LiveCharts2&lt;br/&gt;dibujados fuera de pantalla"]
+</pre>
+</figure>
+
+<ul>
+    <li><b>Modelo neutro (D-12).</b> Aplicación arma un <code>DocumentoReporte</code> con el título, los filtros legibles, la fecha, el usuario, las tablas tipadas y los gráficos. No conoce MiniExcel ni QuestPDF, y por eso hay un exportador por <b>formato</b> y no uno por reporte: seis reportes por dos formatos serían doce piezas.</li>
+    <li><b>Nombres, no ids (D-24).</b> Un filtro por categoría 7 aparece como «Libros», no como «#7». Un id que ya no existe se muestra como «#id». Se buscan incluso los dados de baja: un filtro histórico sigue mostrando su nombre.</li>
+    <li><b>Excel (D-21).</b> Una hoja «Reporte» con el encabezado y una hoja por tabla. Los importes y cantidades son <b>números</b>, no texto, para poder sumarlos o graficarlos. Los porcentajes van en unidades de porcentaje (25,5) con «%» en el encabezado.</li>
+    <li><b>PDF (D-22, D-23, D-36).</b> A4, con la letra Segoe UI del sistema; se pasa a horizontal si alguna tabla tiene 8 o más columnas. El título de una tabla nunca queda separado de sus primeras filas y el de un gráfico nunca queda separado de su imagen. Las barras arrancan en cero y las líneas no se suavizan.</li>
+    <li><b>Fuera del hilo de la interfaz.</b> MiniExcel y QuestPDF son síncronos y consumen CPU: <code>ExportadorReportes</code> los ejecuta con <code>Task.Run</code>.</li>
+</ul>
+
+<details><summary>Autoevaluación N4: ¿por qué la variación del margen porcentual se informa en puntos y no como porcentaje?</summary>
+<p>Porque un margen ya es un porcentaje, y un porcentaje de un porcentaje se lee mal. Si el margen pasa de 20 % a 25 %, la variación relativa es +25 %, y quien ve «margen 25 %» y «variación +25 %» podría creer que el margen subió a 50 %. En puntos, «+5 puntos» describe exactamente lo ocurrido. Para los importes en pesos y las cantidades, la variación relativa sí es lo natural.</p>
+</details>
+
+<!-- ============================================================ DEFENSA A -->
+<h2 id="defensa-a">Defensa A · Seguridad y datos</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Capa</th><th>Medida</th><th>Decisión</th></tr>
+<tr><td>Menú</td><td>La entrada «Tablero» solo se ofrece al Gerente (<code>AccesoPagina.Gerente</code>)</td><td>D-27</td></tr>
+<tr><td>Servicio de consulta</td><td><code>ReporteService</code> comprueba que el actor exista, no esté dado de baja y sea Gerente <b>antes</b> de validar o consultar nada. Un Cajero o un Administrador reciben <code>OperacionNoAutorizadaException</code></td><td>D-11, RNF-06</td></tr>
+<tr><td>Servicio de exportación</td><td><code>ExportacionReportesService</code> repite la misma comprobación: exportar también está protegido</td><td>D-11</td></tr>
+<tr><td>Datos que muestran</td><td>Agregan por período, artículo, categoría, marca y cajero. Ninguno de los seis reportes agrupa ni filtra por cliente</td><td>RF-25</td></tr>
+<tr><td>El archivo exportado</td><td>Lo escribe donde el Gerente elija. El sistema no lo cifra ni controla su destino</td><td>Ver la pregunta de abajo</td></tr>
+</table>
+
+<details><summary>Pregunta probable: si se oculta el botón, ¿un Cajero no podría llamar igual al servicio?</summary>
+<p>Ocultar el botón no es control de acceso: es comodidad. La barrera real está en el servicio de Aplicación, que recibe el id del usuario que pide la operación y comprueba su rol, igual que <code>BackupService</code>. Aunque otra pantalla, la consola o un ViewModel alterado llamaran a <code>ReporteService</code>, un actor que no sea Gerente recibe <code>OperacionNoAutorizadaException</code> y la consulta no se ejecuta. Hay pruebas para un Cajero y para un actor inexistente; el Administrador cae en la misma comprobación (<code>EsGerente()</code>), porque la regla pregunta por el rol de Gerente y no por «no ser Cajero».</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué se autoriza antes de validar el filtro?</summary>
+<p>Porque un mensaje de validación le cuenta algo a quien lo recibe: por ejemplo, la fecha de la primera venta del comercio, o los límites de los períodos. Autorizando primero, quien no tiene permiso recibe siempre la misma respuesta, sin enterarse de si su filtro era válido.</p>
+</details>
+
+<details><summary>Pregunta probable: el Excel o el PDF exportado tiene márgenes y costos. ¿Cómo se protege?</summary>
+<p>El sistema no lo protege una vez escrito: el archivo queda donde el Gerente lo guarde y su cuidado es responsabilidad del comercio, como con cualquier planilla de gestión. Lo que sí garantiza es quién puede generarlo (solo un Gerente), que el archivo incluye quién lo generó y cuándo, y que no contiene datos personales de clientes. Cifrar los archivos exportados no está en el alcance; si el comercio lo necesitara, correspondería sumarlo como un requisito nuevo.</p>
+</details>
+
+<!-- ============================================================ DEFENSA B -->
+<h2 id="defensa-b">Defensa B · Rendimiento y robustez</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<h3>RNF-09: menos de 2 segundos con un año de operación</h3>
+<p>El requisito pide que el tablero y cada reporte respondan en menos de 2 s con un año de operación (referencia: 50.000 ventas y 200.000 ítems vendidos), y que filtrar, agrupar y agregar ocurra en el motor y no en memoria. Hay tres medidas detrás:</p>
+
+<table>
+<tr><th>Medida</th><th>Efecto</th></tr>
+<tr><td>Índice filtrado <code>IX_VENTAS_fecha_hora</code>, con <code>deleted_at IS NULL</code> y las columnas de los totales incluidas</td><td>Todo reporte filtra por rango de fechas: lee el índice sin ir a la tabla</td></tr>
+<tr><td><code>LEFT JOIN</code> y un único <code>GROUP BY</code> en «menos vendidos» y «sin movimiento»</td><td>Con 50.000 ventas, «menos vendidos» pasó de 5,5 s a 588 ms y «sin movimiento» de 2,1 s a 197 ms: una subconsulta por artículo recorre los ítems una vez por cada artículo (D-20)</td></tr>
+<tr><td>Consultas con <code>AsNoTracking</code>, proyectadas a DTO y compuestas sobre <code>IQueryable</code></td><td>Sin el costo del rastreo de cambios, sin materializar tablas, con una prueba que verifica que la sentencia se traduce a SQL con <code>GROUP BY</code></td></tr>
+</table>
+
+<p>La medición se hizo una vez, el 15 de octubre de 2026, con una base sembrada de 50.000 ventas, 200.000 ítems y 200 artículos en un año. Tiempo de la segunda ejecución de cada consulta (la primera incluye compilar el modelo):</p>
+
+<table>
+<tr><th>Consulta</th><th>Tiempo</th><th>Consulta</th><th>Tiempo</th></tr>
+<tr><td>Resumen de ventas</td><td>230 ms</td><td>Rentabilidad por categoría</td><td>381 ms</td></tr>
+<tr><td>Ventas por día</td><td>48 ms</td><td>Rentabilidad por marca</td><td>377 ms</td></tr>
+<tr><td>Ventas por semana</td><td>54 ms</td><td>Rentabilidad por artículo</td><td>390 ms</td></tr>
+<tr><td>Ventas por mes</td><td>63 ms</td><td>Resumen de inventario</td><td>1 ms</td></tr>
+<tr><td>Más vendidos (100, por importe)</td><td>318 ms</td><td>Stock crítico</td><td>1 ms</td></tr>
+<tr><td>Menos vendidos</td><td>588 ms</td><td>Sin movimiento</td><td>197 ms</td></tr>
+</table>
+
+<p>El tablero hace cinco consultas en secuencia, con un costo estimado de alrededor de 1 s.</p>
+
+<details><summary>Pregunta probable: si dicen que RNF-09 se cumple, ¿por qué no hay una prueba automática de rendimiento?</summary>
+<p>Se escribió y se eliminó, a propósito. En una segunda corrida, el <code>INSERT</code> del sembrado se colgó 5 minutos. El diagnóstico mostró una espera por memoria (<code>RESOURCE_SEMAPHORE</code>): el equipo tenía 474 MB libres de 8 GB, SQL Server había reducido su memoria y le quedaban 6 MB para consultas, contra los 7 MB que pedía el <code>INSERT</code>. El resultado dependía del estado de la máquina y no del código, y una prueba así, en la suite por defecto, fallaría o pasaría al azar. Por eso quedó la medición documentada y no una prueba que mienta. El riesgo que queda (R-10) es real: las consultas de reportes también necesitan memoria de trabajo, y en un equipo de mostrador con poca RAM libre podrían esperar. La mitigación es de despliegue: una PC con RAM suficiente y, si hiciera falta, fijar la memoria mínima de la instancia.</p>
+</details>
+
+<h3>Escenarios extremos</h3>
+<table>
+<tr><th>Escenario</th><th>Qué pasa</th></tr>
+<tr><td>El período anterior no tuvo ventas</td><td>La variación queda nula y se muestra «Sin datos del período anterior»</td></tr>
+<tr><td>El Gerente elige un rango desde el año 1800</td><td>El calendario no ofrece fechas anteriores a la primera venta y, si se forzara, el servicio rechaza el rango con un mensaje claro. Sin ese límite se generarían unas 83.000 filas rellenadas con ceros</td></tr>
+<tr><td>El período es muy largo</td><td>Hay un máximo: 366 días agrupando por día, 5 años por semana y 10 años por mes y en los demás reportes. El resultado nunca supera unas 366 filas</td></tr>
+<tr><td>Un artículo se dio de baja después de venderse</td><td>Sigue sumando en «más vendidos» y en rentabilidad, y no aparece en «menos vendidos»</td></tr>
+<tr><td>Una venta con baja lógica</td><td>No suma en ningún reporte, ni sus pagos en el desglose por medio</td></tr>
+<tr><td>Un reporte no tiene filas</td><td>La pantalla muestra «No hay datos…» y exportar se deshabilita con el aviso «No hay datos para exportar». El tablero nunca se considera vacío</td></tr>
+<tr><td>El archivo de destino está abierto en Excel</td><td>Mensaje con el motivo y opción de reintentar con el <b>mismo</b> resultado, sin volver a consultar</td></tr>
+<tr><td>Falla a mitad de escribir</td><td>Se borra el archivo parcial antes de ofrecer reintentar. Si falló al <b>abrirlo</b> no se toca, porque el archivo existente no es del sistema</td></tr>
+<tr><td>Se copia solo el <code>.exe</code>, sin los archivos que lo acompañan</td><td>El PDF se genera igual, con la letra Segoe UI del sistema (R-12, D-36)</td></tr>
+<tr><td>Un reporte de la pestaña vieja llega tarde</td><td>Se descarta: solo se aplica la consulta vigente</td></tr>
+</table>
+
+<!-- ============================================================ DEFENSA C -->
+<h2 id="defensa-c">Defensa C · Decisiones y alternativas</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Decisión</th><th>Por qué</th><th>Alternativa descartada</th></tr>
+<tr><td><b>Consultas en LINQ sobre EF Core</b> (D-6, D-7)</td><td>El compilador detecta un nombre de columna equivocado; el filtro global de baja lógica funciona solo; la fórmula del margen queda en C#; una definición compartida (<code>ItemsVendidos</code>)</td><td>Vistas, funciones de tabla, procedimientos almacenados, vista indexada</td></tr>
+<tr><td><b>Costo congelado en el ítem</b> (D-5)</td><td>El margen histórico no cambia con las listas nuevas</td><td>Leer el costo actual del artículo</td></tr>
+<tr><td><b>Descuento prorrateado</b> (D-4)</td><td>La suma de los márgenes por categoría coincide con el margen total</td><td>Ignorar el descuento en el margen por categoría</td></tr>
+<tr><td><b>Comparación de calendario</b> (D-31)</td><td>Es lo que un comercio compara: mes con mes, año con año</td><td>Período anterior de igual duración para todo</td></tr>
+<tr><td><b>Acotar el rango, sin paginar</b> (D-32)</td><td>Los datos ya están agregados; el gráfico y la exportación necesitan todos los puntos</td><td>Paginar la grilla</td></tr>
+<tr><td><b>Modelo neutro y un exportador por formato</b> (D-12)</td><td>Aplicación no conoce MiniExcel ni QuestPDF; seis reportes por dos formatos no son doce piezas</td><td>Un exportador por reporte; pasar los DTO de pantalla</td></tr>
+<tr><td><b>Dos servicios</b>: consulta y exportación (D-14)</td><td>Responsabilidad única; cada uno tiene su puerto</td><td>Un servicio único</td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿por qué no usaron vistas o procedimientos almacenados, si el motor «es más rápido»?</summary>
+<p>Porque en este volumen no lo es. Una vista común no guarda resultados: el motor la expande dentro de la consulta, igual que un LINQ. El rendimiento lo da el <b>índice</b>, que se agregó. Un procedimiento almacenado, además, está prohibido para calcular márgenes (la regla de no trasladar lógica de negocio a la base) y Entity Framework no puede componer filtros sobre él. La única opción que sí mejoraba el rendimiento, la vista indexada, la paga cada venta del mostrador, porque cada venta actualizaría el índice dentro de su transacción, y en SQL Server Express hay que pedirla con <code>NOEXPAND</code>, que EF no genera. Si una prueba con el volumen de RNF-09 superara los 2 s con el índice creado, el siguiente paso sería una tabla de resumen diario calculada desde Aplicación.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué el margen no es un método de la entidad <code>Venta</code>?</summary>
+<p>Porque se calcula sobre miles de ventas y no sobre una. Ponerlo en la entidad obligaría a traer todas las ventas a memoria para sumar métodos de objeto, y el requisito pide lo contrario (RNF-09). Las reglas de negocio que cambian estado viven en el dominio; un reporte es una pregunta de lectura, y la agregación pertenece al motor relacional. Lo que sí está en el dominio es lo que tiene que ser verdad al momento de vender: el costo congelado del ítem.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué el exportador recibe un <code>Stream</code> y un documento neutro?</summary>
+<p>El <code>Stream</code> deja la decisión sobre la ruta y el archivo en la interfaz: permite abrir el destino, y si falla, reintentar con el mismo resultado sin generar el reporte de nuevo (RF-26). El documento neutro mantiene a Aplicación sin conocer los formatos y limita el trabajo de agregar uno nuevo a un solo exportador.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué QuestPDF, y qué licencia tiene?</summary>
+<p>QuestPDF compone documentos en código y permite repetir encabezados, partir tablas entre páginas y controlar que un título no quede huérfano. Se usa con su licencia Community, que es gratuita para proyectos educativos y para empresas con facturación anual bruta menor a USD 1.000.000, y el código declara esa licencia antes del primer documento. Si el comercio superara ese umbral, habría que pasar a la licencia comercial o a la alternativa documentada, PDFsharp con MigraDoc (MIT, sin bibliotecas nativas), a cambio de una interfaz más verbosa.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué el gráfico de pantalla tiene 5 u 8 barras y el PDF 15, si la grilla tiene todas las filas?</summary>
+<p>Porque son medios distintos. En una pantalla de 960 × 600 con datos realistas (15 categorías, importes de 9 cifras) los nombres y los números se encimaban. El gráfico de pantalla muestra como máximo 5 barras en el tablero y 8 en los reportes, con «(primeras N)» en el título, y la grilla siempre tiene todas las filas, con el texto completo en un <i>tooltip</i>. El PDF es más ancho, así que conserva 15 barras y los números completos.</p>
+</details>
+
+<p class="pie">Decisiones citadas: D-xx y R-xx en <code>docs/roadmap/etapa-6-track-6.4-dashboard-reportes.md</code>. El artículo breve de este flujo está en <code>wiki/05-casos-de-uso-y-flujos/flujo-tablero-gerencial-y-reportes.md</code> y las preguntas de defensa, en <code>wiki/06-vademecum-defensa-tecnica/defensa-tablero-gerencial-y-reportes.md</code>. Requisitos: RF-24 (tablero), RF-25 (reportes), RF-26 (exportación), RNF-09 (rendimiento de reportes) y RNF-06 (roles).</p>
+
+</main>
+<script src="../recursos/recorridos.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script src="../recursos/comun.js"></script>
+</body>
+</html>

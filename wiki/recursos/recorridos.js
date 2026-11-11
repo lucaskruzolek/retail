@@ -3,8 +3,18 @@
 // Es un .js y no un .json porque el navegador no deja leer un JSON local abierto con doble clic (file://).
 //
 // archivo: ruta desde wiki/. estado: "escrito" o "pendiente". implementado: false si el código todavía no existe.
+// fundamento: true para un documento que no cuenta una funcionalidad sino cómo funciona el sistema: no entra en la cobertura.
 // El orden es el de lectura sugerido; anterior y siguiente recorren solo los escritos, en este orden.
 window.RETAIL_RECORRIDOS = [
+    {
+        grupo: "Fundamentos",
+        titulo: "Anatomía de un CRUD",
+        archivo: "07-funcionalidades-de-lo-general-al-detalle/anatomia-de-un-crud.html",
+        requisitos: ["RF-20", "RNF-03"],
+        resumen: "El esqueleto que repite cada módulo, con el código real de Cliente: entidad, DTO, validador, servicio, repositorio, consulta, ViewModel, inyección de dependencias y Unit of Work.",
+        estado: "escrito",
+        fundamento: true
+    },
     {
         grupo: "Mostrador",
         titulo: "Venta en mostrador",
@@ -67,7 +77,7 @@ window.RETAIL_RECORRIDOS = [
         archivo: "07-funcionalidades-de-lo-general-al-detalle/pedidos-a-proveedores.html",
         requisitos: ["RF-29", "RF-28"],
         resumen: "Pedidos armados desde el catálogo, por fila o en lote, con la fuente principal de cada artículo, y su emisión.",
-        estado: "pendiente"
+        estado: "escrito"
     },
     {
         grupo: "Catálogo y abastecimiento",
@@ -107,7 +117,7 @@ window.RETAIL_RECORRIDOS = [
         archivo: "07-funcionalidades-de-lo-general-al-detalle/tablero-y-reportes.html",
         requisitos: ["RF-24", "RF-25", "RF-26", "RNF-09"],
         resumen: "Indicadores del período, reportes parametrizables resueltos en SQL y exportación a Excel y PDF.",
-        estado: "pendiente"
+        estado: "escrito"
     },
     {
         grupo: "Sin implementar",
