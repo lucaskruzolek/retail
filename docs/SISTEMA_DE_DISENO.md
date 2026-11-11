@@ -158,6 +158,8 @@ Definida en `Typography.xaml`. Se usa el token (`{StaticResource FontSizeBase}`)
 ### 5. Uso del acento (carmín)
 El carmín es escaso a propósito: **solo** rellena la acción principal de la vista, marca el ítem activo (opción marcada de una píldora, paso actual de un asistente), el tilde de una casilla marcada y la línea seleccionada del POS. El resto de los estados interactivos no usan marca.
 
+El carmín tampoco comunica magnitud: los importes de los indicadores de un tablero van en `TextPrimaryBrush` (pasan `Foreground` sobre `TextBlockCurrencyLarge`, cuyo carmín por defecto queda para el importe destacado de un formulario o de la caja). Un importe en rojo se lee como pérdida y compite con el rojo semántico de las variaciones a la baja.
+
 ### 6. Estados neutros (hover, pressed, selected)
 | Estado | Token (claro / oscuro) | Notas |
 | :--- | :--- | :--- |

@@ -1,5 +1,8 @@
 using FluentAssertions;
+using LiveChartsCore.Defaults;
+using LiveChartsCore.Measure;
 using LiveChartsCore.SkiaSharpView;
+using LiveChartsCore.SkiaSharpView.Painting;
 using Retail.App.ViewModels.Reportes;
 using Xunit;
 
@@ -165,5 +168,56 @@ public class ConstructorGraficosTests
     {
         // Act + Assert
         ConstructorGraficos.Truncar("Libros").Should().Be("Libros");
+    }
+
+    [Fact]
+    public void Lineas_ConUltimoPuntoParcial_SeparaElTramoFinalEnUnaSeriePunteadaDeDosPuntos()
+    {
+        // Act
+        var grafico = ConstructorGraficos.Lineas("Ventas", ["01/11", "02/11", "03/11"], [100m, 200m, 50m], ultimoPuntoParcial: true);
+
+        // Assert: la serie principal termina en el anteúltimo punto y queda encima del tramo parcial
+        grafico.Series.Should().HaveCount(2);
+        var principal = grafico.Series[0].Should().BeOfType<LineSeries<double>>().Subject;
+        ((IEnumerable<double>)principal.Values!).Should().Equal(100d, 200d);
+
+        var tramo = grafico.Series[1].Should().BeOfType<LineSeries<ObservablePoint>>().Subject;
+        tramo.Values!.Select(p => (p.X, p.Y)).Should().Equal((1d, 200d), (2d, 50d));
+        tramo.Stroke.Should().BeOfType<SolidColorPaint>().Which.PathEffect.Should().NotBeNull();
+        principal.ZIndex.Should().BeGreaterThan(tramo.ZIndex);
+    }
+
+    [Fact]
+    public void Lineas_SinPeriodoEnCurso_DibujaUnaSolaSerieConTodosLosPuntos()
+    {
+        // Act
+        var grafico = ConstructorGraficos.Lineas("Ventas", ["01/11", "02/11"], [100m, 200m]);
+
+        // Assert
+        var linea = grafico.Series.Should().ContainSingle().Which.Should().BeOfType<LineSeries<double>>().Subject;
+        ((IEnumerable<double>)linea.Values!).Should().Equal(100d, 200d);
+    }
+
+    [Fact]
+    public void Lineas_ParcialConUnSoloPunto_NoAgregaTramo()
+    {
+        // Act
+        var grafico = ConstructorGraficos.Lineas("Ventas", ["01/11"], [100m], ultimoPuntoParcial: true);
+
+        // Assert
+        grafico.Series.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void BarrasHorizontales_ConDatos_MuestraElValorAlFinalDeCadaBarraYDejaLugarParaLaEtiqueta()
+    {
+        // Act
+        var grafico = ConstructorGraficos.BarrasHorizontales("Margen", ["A", "B"], [850_000m, 300_000m], ConstructorGraficos.MaximoBarrasTablero);
+
+        // Assert
+        var barras = grafico.Series.Should().ContainSingle().Which.Should().BeOfType<RowSeries<double>>().Subject;
+        barras.DataLabelsPaint.Should().NotBeNull();
+        barras.DataLabelsPosition.Should().Be(DataLabelsPosition.Right);
+        grafico.EjesX[0].MaxLimit.Should().BeGreaterThan(850_000d);
     }
 }

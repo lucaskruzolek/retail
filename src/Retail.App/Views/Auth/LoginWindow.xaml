@@ -5,7 +5,7 @@
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   xmlns:helpers="clr-namespace:Retail.App.Helpers"
                   xmlns:components="clr-namespace:Retail.App.Views.Components"
-                  Title="Retail POS - Inicio de Sesión"
+                  Title="Retail POS - Inicio de sesión"
                   Width="440"
                   Height="540"
                   MinWidth="400"
@@ -58,7 +58,7 @@
                                            HorizontalAlignment="Center"
                                            Margin="{StaticResource StackMd}" />
 
-                    <TextBlock Text="Acceso a Mostrador y Gestión"
+                    <TextBlock Text="Acceso a mostrador y gestión"
                                Style="{StaticResource TextBlockBodySecondary}"
                                HorizontalAlignment="Center"
                                Margin="0,4,0,0" />
@@ -121,7 +121,7 @@
                                                             Height="14"
                                                             Margin="{StaticResource InlineSm}"
                                                             VerticalAlignment="Center" />
-                                <TextBlock Text="Iniciar Sesión" VerticalAlignment="Center" />
+                                <TextBlock Text="Iniciar sesión" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                     </StackPanel>

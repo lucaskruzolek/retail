@@ -81,12 +81,32 @@
             <Setter Property="Padding" Value="8,10,16,10" />
         </Style>
 
-        <!-- Variación contra el período anterior: flecha y signo en el texto; el color refuerza pero no es la única señal -->
+        <!-- Badge accionable: el botón solo dibuja su contenido (el badge), con cursor de mano y foco de teclado -->
+        <Style x:Key="BadgeAccionStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <ContentPresenter x:Name="Contenido" />
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Contenido" Property="Opacity" Value="0.8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Variación contra el período anterior: flecha y signo en el texto; el color refuerza pero no es la única señal.
+             El badge no repite "vs período anterior" (está junto al selector de fechas): queda en el tooltip. -->
         <DataTemplate x:Key="VariacionTemplate">
             <Border x:Name="Badge"
                     Style="{StaticResource BadgeNeutralStyle}"
                     HorizontalAlignment="Left"
-                    Margin="0,6,0,0">
+                    Margin="0,6,0,0"
+                    ToolTip="{Binding DataContext.TextoComparacion, RelativeSource={RelativeSource AncestorType=UserControl}}">
                 <TextBlock x:Name="Texto"
                            Text="{Binding Texto}"
                            FontSize="{StaticResource FontSizeXs}"
@@ -148,8 +168,9 @@
                             <TextBlock Text="Exportar a Excel" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
+                    <!-- Exportar es secundario en una vista de consulta: el tablero no tiene acción principal en carmín -->
                     <Button Command="{Binding ExportarPdfCommand}"
-                            Style="{StaticResource PrimaryActionButtonStyle}"
+                            Style="{StaticResource KeycapButtonStyle}"
                             ToolTip="{Binding TooltipExportar}"
                             ToolTipService.ShowOnDisabled="True">
                         <StackPanel Orientation="Horizontal">
@@ -162,7 +183,7 @@
 
             <components:SelectorSegmentado HorizontalAlignment="Left" Margin="{StaticResource SectionSpacing}">
                 <UniformGrid Rows="1">
-                    <RadioButton  Content="Tablero" Style="{StaticResource SegmentedRadioButtonStyle}"
+                    <RadioButton  Content="Resumen" Style="{StaticResource SegmentedRadioButtonStyle}"
                                  IsChecked="{Binding ReporteSeleccionado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static vm:TipoReporteEnum.Tablero}}" />
                     <RadioButton  Content="Ventas por período" Style="{StaticResource SegmentedRadioButtonStyle}"
                                  IsChecked="{Binding ReporteSeleccionado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static vm:TipoReporteEnum.VentasPorPeriodo}}" />
@@ -358,7 +379,7 @@
                                 <TextBlock Text="Total vendido" Style="{StaticResource TextBlockBodySecondary}" />
                                 <!-- Achica la fuente solo si el importe no entra: ninguna celda corta cifras -->
                                 <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Left" Margin="0,4,0,0">
-                                    <TextBlock Text="{Binding TotalVendidoTexto}" Style="{StaticResource TextBlockCurrencyLarge}" />
+                                    <TextBlock Text="{Binding TotalVendidoTexto}" Style="{StaticResource TextBlockCurrencyLarge}" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 </Viewbox>
                                 <ContentControl Content="{Binding TotalVendidoVariacion}" ContentTemplate="{StaticResource VariacionTemplate}" />
                             </StackPanel>
@@ -367,9 +388,9 @@
                         <!-- Ventas -->
                         <Border Grid.Column="2" Style="{StaticResource DialogSectionStyle}" Padding="16,12">
                             <StackPanel>
-                                <TextBlock Text="Ventas" Style="{StaticResource TextBlockBodySecondary}" />
+                                <TextBlock Text="Cantidad de ventas" Style="{StaticResource TextBlockBodySecondary}" />
                                 <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Left" Margin="0,4,0,0">
-                                    <TextBlock Text="{Binding CantidadVentasTexto}" Style="{StaticResource TextBlockCurrencyLarge}" />
+                                    <TextBlock Text="{Binding CantidadVentasTexto}" Style="{StaticResource TextBlockCurrencyLarge}" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 </Viewbox>
                                 <ContentControl Content="{Binding CantidadVentasVariacion}" ContentTemplate="{StaticResource VariacionTemplate}" />
                             </StackPanel>
@@ -380,7 +401,7 @@
                             <StackPanel>
                                 <TextBlock Text="Margen bruto" Style="{StaticResource TextBlockBodySecondary}" />
                                 <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Left" Margin="0,4,0,0">
-                                    <TextBlock Text="{Binding MargenBrutoTexto}" Style="{StaticResource TextBlockCurrencyLarge}" />
+                                    <TextBlock Text="{Binding MargenBrutoTexto}" Style="{StaticResource TextBlockCurrencyLarge}" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 </Viewbox>
                                 <ContentControl Content="{Binding MargenBrutoVariacion}" ContentTemplate="{StaticResource VariacionTemplate}" />
                             </StackPanel>
@@ -391,17 +412,22 @@
                             <StackPanel>
                                 <TextBlock Text="Inventario a costo" Style="{StaticResource TextBlockBodySecondary}" />
                                 <Viewbox StretchDirection="DownOnly" HorizontalAlignment="Left" Margin="0,4,0,0">
-                                    <TextBlock Text="{Binding ValorizacionTexto}" Style="{StaticResource TextBlockCurrencyLarge}" />
+                                    <TextBlock Text="{Binding ValorizacionTexto}" Style="{StaticResource TextBlockCurrencyLarge}" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 </Viewbox>
-                                <Border Style="{StaticResource BadgeWarningStyle}"
-                                        HorizontalAlignment="Left"
+                                <!-- El único indicador accionable: lleva al reporte de stock crítico -->
+                                <Button Command="{Binding VerStockCriticoCommand}"
+                                        Style="{StaticResource BadgeAccionStyle}"
                                         Margin="0,6,0,0"
+                                        ToolTip="Ver el reporte de stock crítico"
+                                        AutomationProperties.Name="Ver el reporte de stock crítico"
                                         Visibility="{Binding HayBajoMinimo, Converter={StaticResource BoolToVisConverter}}">
-                                    <TextBlock Text="{Binding BajoMinimoTexto}"
-                                               FontSize="{StaticResource FontSizeXs}"
-                                               FontWeight="Bold"
-                                               Foreground="{DynamicResource WarningForegroundBrush}" />
-                                </Border>
+                                    <Border Style="{StaticResource BadgeWarningStyle}">
+                                        <TextBlock Text="{Binding BajoMinimoTexto}"
+                                                   FontSize="{StaticResource FontSizeXs}"
+                                                   FontWeight="Bold"
+                                                   Foreground="{DynamicResource WarningForegroundBrush}" />
+                                    </Border>
+                                </Button>
                                 <Border Style="{StaticResource BadgeNeutralStyle}"
                                         HorizontalAlignment="Left"
                                         Margin="0,6,0,0"

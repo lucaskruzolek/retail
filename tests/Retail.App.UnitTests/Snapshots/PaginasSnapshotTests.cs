@@ -1,4 +1,5 @@
 using System.IO;
+using System.Windows;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -411,6 +412,7 @@ public class PaginasSnapshotTests
             var viewModel = Task.Run(() => CrearDashboardConTableroAsync()).GetAwaiter().GetResult();
 
             var vista = new DashboardView(viewModel);
+            DesactivarAnimacionesDeGraficos(vista);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/DashboardView");
         });
 
@@ -430,10 +432,26 @@ public class PaginasSnapshotTests
             var viewModel = Task.Run(() => CrearDashboardConTableroAsync(reporte)).GetAwaiter().GetResult();
 
             var vista = new DashboardView(viewModel);
+            DesactivarAnimacionesDeGraficos(vista);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/DashboardView_" + reporte);
         });
 
         VerificarCaptura(ruta, error);
+    }
+
+    // Sin animación: la captura se toma en el primer cuadro y, con la animación de LiveCharts, mostraba las barras y
+    // las líneas a mitad de camino (barras cortas con la etiqueta de valor encima, tramo final sin dibujar).
+    private static void DesactivarAnimacionesDeGraficos(DependencyObject raiz)
+    {
+        foreach (var hijo in LogicalTreeHelper.GetChildren(raiz).OfType<DependencyObject>())
+        {
+            if (hijo is LiveChartsCore.SkiaSharpView.WPF.CartesianChart grafico)
+            {
+                grafico.AnimationsSpeed = TimeSpan.Zero;
+            }
+
+            DesactivarAnimacionesDeGraficos(hijo);
+        }
     }
 
     private static async Task<DashboardViewModel> CrearDashboardConTableroAsync(TipoReporteEnum reporte = TipoReporteEnum.Tablero)

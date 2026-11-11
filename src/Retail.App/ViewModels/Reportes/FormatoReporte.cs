@@ -20,6 +20,12 @@ public static class FormatoReporte
 
     public static string Moneda(decimal valor) => valor.ToString("$ #,##0.00", Cultura);
 
+    /// <summary>
+    /// Importe redondeado a pesos para los indicadores del tablero: en un resumen los centavos son ruido y la precisión
+    /// completa sigue en los reportes de detalle y en la exportación.
+    /// </summary>
+    public static string MonedaSinCentavos(decimal valor) => valor.ToString("$ #,##0", Cultura);
+
     // Umbrales del formato compacto de los ejes de valores: en un gráfico angosto "20.000.000" no entra.
     private const double UmbralMillones = 1_000_000;
     private const double UmbralMiles = 10_000;
@@ -30,14 +36,15 @@ public static class FormatoReporte
     /// <summary>
     /// Etiqueta de un valor del eje de valores de un gráfico en pantalla. Con un máximo de un millón o más es compacta
     /// ("20 M", "2,5 M"); desde diez mil, en miles ("15 mil"); por debajo, completa: dos decimales solo si algún dato no
-    /// es entero y el máximo es menor a 10, y enteros en cualquier otro caso.
+    /// es entero y el máximo es menor a 10, y enteros en cualquier otro caso. Un separador que llega al millón se escribe
+    /// en millones aunque los datos no lleguen ("1 M" y no "1.000 mil").
     /// </summary>
     /// <param name="valor">Valor del separador del eje.</param>
     /// <param name="maximoAbsoluto">Mayor valor absoluto de los datos; decide la escala de todas las etiquetas del eje.</param>
     /// <param name="datosEnteros">Todos los datos son enteros.</param>
     public static string EtiquetaEje(double valor, double maximoAbsoluto, bool datosEnteros)
     {
-        if (maximoAbsoluto >= UmbralMillones)
+        if (maximoAbsoluto >= UmbralMillones || Math.Abs(valor) >= UmbralMillones)
         {
             return Escalar(valor / UmbralMillones, " M");
         }
@@ -74,7 +81,10 @@ public static class FormatoReporte
         return inicio.ToString(agrupacion == AgrupacionTemporalEnum.Mes ? "MM/yyyy" : "dd/MM", Cultura);
     }
 
-    /// <summary>Variación porcentual relativa de un indicador; <c>null</c> significa que el período anterior fue cero.</summary>
+    /// <summary>
+    /// Variación porcentual relativa de un indicador; <c>null</c> significa que el período anterior fue cero. El texto no
+    /// repite "vs período anterior": la comparación ya está escrita junto al selector de fechas y en el tooltip del badge.
+    /// </summary>
     public static VariacionIndicador Variacion(decimal? porcentaje)
     {
         if (porcentaje is null)
@@ -86,14 +96,14 @@ public static class FormatoReporte
 
         if (porcentaje > 0)
         {
-            return new VariacionIndicador($"{FlechaSube} +{magnitud} % vs período anterior", EstadoVariacionEnum.Sube);
+            return new VariacionIndicador($"{FlechaSube} +{magnitud} %", EstadoVariacionEnum.Sube);
         }
 
         if (porcentaje < 0)
         {
-            return new VariacionIndicador($"{FlechaBaja} {SignoMenos}{magnitud} % vs período anterior", EstadoVariacionEnum.Baja);
+            return new VariacionIndicador($"{FlechaBaja} {SignoMenos}{magnitud} %", EstadoVariacionEnum.Baja);
         }
 
-        return new VariacionIndicador($"= {magnitud} % vs período anterior", EstadoVariacionEnum.SinBase);
+        return new VariacionIndicador($"= {magnitud} %", EstadoVariacionEnum.SinBase);
     }
 }
