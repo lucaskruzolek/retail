@@ -850,22 +850,50 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type components:PageHeader}">
-                    <DockPanel LastChildFill="False">
-                        <ContentPresenter DockPanel.Dock="Right" VerticalAlignment="Center" />
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="{TemplateBinding Titulo}"
-                                       Style="{StaticResource TextBlockPageTitle}" />
-                            <!-- La descripción de la página vive en un tooltip: sin ella el ícono se oculta solo -->
-                            <components:IconoInformacion x:Name="IconoDescripcion"
-                                                         Texto="{TemplateBinding Descripcion}"
-                                                         Margin="4,2,0,0"
-                                                         VerticalAlignment="Center" />
-                            <!-- Círculo de carga sin leyenda, con su lugar siempre reservado (R12) -->
-                            <components:IndicadorCarga EstaCargando="{TemplateBinding EstaCargando}"
-                                                       Margin="0,2,0,0"
-                                                       VerticalAlignment="Center" />
-                        </StackPanel>
-                    </DockPanel>
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <!-- Fila del título: misma banda que los botones de ventana que superpone el shell; hace de barra de título -->
+                        <Grid x:Name="PART_FilaTitulo"
+                              Grid.Row="0"
+                              Height="{StaticResource DialogTitleBarHeight}"
+                              Background="Transparent">
+                            <StackPanel Orientation="Horizontal"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Left"
+                                        Margin="{StaticResource ReservaBotonesVentana}">
+                                <TextBlock Text="{TemplateBinding Titulo}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Style="{StaticResource TextBlockPageTitle}" />
+                                <!-- La descripción de la página vive en un tooltip: sin ella el ícono se oculta solo -->
+                                <components:IconoInformacion x:Name="IconoDescripcion"
+                                                             Texto="{TemplateBinding Descripcion}"
+                                                             Margin="4,2,0,0"
+                                                             VerticalAlignment="Center" />
+                                <!-- Círculo de carga sin leyenda, con su lugar siempre reservado (R12) -->
+                                <components:IndicadorCarga EstaCargando="{TemplateBinding EstaCargando}"
+                                                           Margin="0,2,0,0"
+                                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+                        <!-- Segunda fila: pestañas a la izquierda y acciones de la página a la derecha -->
+                        <DockPanel x:Name="PART_FilaAcciones" Grid.Row="1" LastChildFill="True">
+                            <!-- 12 de separación mínima con las pestañas: aunque la fila se llene, nunca quedan pegadas -->
+                            <ContentPresenter DockPanel.Dock="Right" VerticalAlignment="Center" Margin="12,0,0,0" />
+                            <ContentPresenter Content="{TemplateBinding Navegacion}" VerticalAlignment="Center" />
+                        </DockPanel>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <MultiTrigger>
+                            <MultiTrigger.Conditions>
+                                <Condition Property="Content" Value="{x:Null}" />
+                                <Condition Property="Navegacion" Value="{x:Null}" />
+                            </MultiTrigger.Conditions>
+                            <Setter TargetName="PART_FilaAcciones" Property="Visibility" Value="Collapsed" />
+                        </MultiTrigger>
+                    </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

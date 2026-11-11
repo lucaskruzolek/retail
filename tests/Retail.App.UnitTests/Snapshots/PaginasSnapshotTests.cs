@@ -419,6 +419,23 @@ public class PaginasSnapshotTests
         VerificarCaptura(ruta, error);
     }
 
+    [Fact]
+    public void DashboardView_AnchoMinimoConMenuExpandido_GeneraCaptura()
+    {
+        // Ventana de 960 (MinWidth) con el menú expandido (200): a la página le quedan 760. Las seis pestañas y "Exportar"
+        // comparten la fila del encabezado y tienen que entrar sin cortarse.
+        var (ruta, error) = Capturar(TemaPrueba.Claro, carpeta =>
+        {
+            var viewModel = Task.Run(() => CrearDashboardConTableroAsync()).GetAwaiter().GetResult();
+
+            var vista = new DashboardView(viewModel);
+            DesactivarAnimacionesDeGraficos(vista);
+            return SnapshotRenderer.Guardar(vista, 760, 768, carpeta + "/DashboardView_AnchoMinimo");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
     [Theory]
     [InlineData(TipoReporteEnum.VentasPorPeriodo, TemaPrueba.Claro)]
     [InlineData(TipoReporteEnum.Ranking, TemaPrueba.Claro)]

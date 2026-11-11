@@ -37,10 +37,13 @@
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
             <components:PageHeader
-                                   Margin="{StaticResource StackSm}"
+                                   Margin="{StaticResource SectionSpacing}"
                                    Titulo="Inventario"
                                    Descripcion="Artículos · Catálogo de la tienda: precios, stock y distribuidores de cada artículo."
                                    EstaCargando="{Binding IsBusy}">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="inventario" />
+                </components:PageHeader.Navegacion>
                 <StackPanel Orientation="Horizontal">
                     <!-- Administrar rubros, categorías y marcas (solo Gerente y Encargado; sin atajo, D-27) -->
                     <Button Command="{Binding AdministrarClasificacionCommand}"
@@ -63,7 +66,6 @@
                     </Button>
                 </StackPanel>
             </components:PageHeader>
-            <components:NavegadorSeccion SeccionId="inventario" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- ============================================================= -->

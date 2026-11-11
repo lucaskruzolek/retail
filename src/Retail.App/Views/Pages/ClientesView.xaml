@@ -36,10 +36,13 @@
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
             <components:PageHeader
-                                   Margin="{StaticResource StackSm}"
+                                   Margin="{StaticResource SectionSpacing}"
                                    Titulo="Ventas"
                                    Descripcion="Clientes · Padrón de clientes y su cuenta corriente; desde acá se cobran deudas."
                                    EstaCargando="{Binding IsBusy}">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="ventas" />
+                </components:PageHeader.Navegacion>
                 <StackPanel Orientation="Horizontal">
                     <!-- Cobrar Cta Cte (F4): secundaria con contorno; el único acento carmín de la vista es "Nuevo Cliente" -->
                     <Button Command="{Binding CobrarCuentaCorrienteCommand}"
@@ -64,7 +67,6 @@
                     </Button>
                 </StackPanel>
             </components:PageHeader>
-            <components:NavegadorSeccion SeccionId="ventas" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- ============================================================= -->

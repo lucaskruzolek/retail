@@ -1252,7 +1252,13 @@ public class AppSmokeTests
         {
             try
             {
-                var control = new LogoRetail { Variante = variante, Height = 48 };
+                // BeginInit/EndInit hacen lo que el parser de XAML: un control creado por código que no entra a un árbol
+                // nunca se "inicializa", así que WPF no busca su estilo implícito (la plantilla) y mediría 0.
+                var control = new LogoRetail();
+                control.BeginInit();
+                control.Variante = variante;
+                control.Height = 48;
+                control.EndInit();
                 control.Measure(new System.Windows.Size(double.PositiveInfinity, 48));
                 control.Arrange(new System.Windows.Rect(control.DesiredSize));
                 control.UpdateLayout();

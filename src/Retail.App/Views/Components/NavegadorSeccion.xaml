@@ -4,8 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:components="clr-namespace:Retail.App.Views.Components"
-             mc:Ignorable="d"
-             Margin="{StaticResource StackMd}">
+             mc:Ignorable="d">
     <!-- Las opciones (un RadioButton por página) se generan en el code-behind según las páginas visibles del rol -->
     <components:SelectorSegmentado HorizontalAlignment="Left">
         <UniformGrid x:Name="Opciones" Rows="1" />

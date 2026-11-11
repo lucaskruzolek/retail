@@ -3,6 +3,8 @@
                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                    xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                   xmlns:components="clr-namespace:Retail.App.Views.Components"
+                   xmlns:converters="clr-namespace:Retail.App.Converters"
                    Title="Retail - Sistema ERP &amp; Punto de Venta"
                    Width="1180"
                    Height="680"
@@ -18,6 +20,7 @@
 
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
 
         <!-- Estilo dinámico de ancho para el Sidebar colapsable con transición fluida Fluent -->
         <Style x:Key="CollapsibleSidebarBorderStyle" TargetType="Border">
@@ -85,51 +88,25 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- CABECERA: Botón Toggle Colapso -->
-                    <Border Grid.Row="0"
-                            Height="48"
-                            BorderThickness="0"
-                            Padding="8,8">
-                        <Button Command="{Binding ToggleSidebarCommand}"
-                                Style="{StaticResource SidebarHamburgerButtonStyle}"
-                                VerticalAlignment="Center">
-                            <Button.ToolTip>
-                                <ToolTip Style="{StaticResource SidebarToolTipStyle}">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <TextBlock FontWeight="SemiBold" Margin="0,0,6,0">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
-                                                    <Setter Property="Text" Value="Expandir menú lateral" />
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                            <Setter Property="Text" Value="Contraer menú lateral" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
-                                        <Border Style="{StaticResource KeycapBadgeStyle}">
-                                            <TextBlock Text="Ctrl+B" Style="{StaticResource TextBlockKeycap}" />
-                                        </Border>
-                                    </StackPanel>
-                                </ToolTip>
-                            </Button.ToolTip>
-                            <iconPacks:PackIconBoxIcons Width="20"
-                                                        Height="20"
-                                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
-                                <iconPacks:PackIconBoxIcons.Style>
-                                    <Style TargetType="iconPacks:PackIconBoxIcons">
-                                        <Setter Property="Kind" Value="RegularMenu" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
-                                                <Setter Property="Kind" Value="RegularDockLeftArrow" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </iconPacks:PackIconBoxIcons.Style>
-                            </iconPacks:PackIconBoxIcons>
-                        </Button>
-                    </Border>
+                    <!-- CABECERA: la marca en la misma franja de 56 px que el título de la página y los botones de ventana.
+                         Expandido, el logo horizontal; colapsado, solo el símbolo. Arrastrarla mueve la ventana (no hay
+                         barra de Windows). El botón para expandir o contraer flota sobre el borde (ver más abajo). -->
+                    <Grid Grid.Row="0"
+                          Height="{StaticResource DialogTitleBarHeight}"
+                          Background="Transparent"
+                          MouseLeftButtonDown="CabeceraSidebar_MouseLeftButtonDown">
+                        <components:LogoRetail Variante="Horizontal"
+                                               Height="22"
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Center"
+                                               Margin="18,0,0,0"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource BoolToVisConverter}}" />
+                        <components:LogoRetail Variante="Simbolo"
+                                               Height="22"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding IsSidebarExpanded, Converter={StaticResource InverseBoolToVisConverter}}" />
+                    </Grid>
 
                     <!-- CUERPO DEL SIDEBAR: BOTONERA DE MÓDULOS -->
                     <ScrollViewer Grid.Row="1"
@@ -405,40 +382,75 @@
                 </Grid>
             </Border>
 
+        <!-- Expandir / contraer el menú: círculo montado sobre el borde del sidebar, a la altura de la franja del título.
+             Vive en la grilla raíz y no dentro del sidebar, que recorta su contenido (ClipToBounds) por la animación del
+             ancho; al estar alineado a la derecha de la columna, sigue esa animación sin código. -->
+        <Button Grid.Column="0"
+                Command="{Binding ToggleSidebarCommand}"
+                Style="{StaticResource SidebarToggleFlotanteStyle}"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Top"
+                Margin="0,14,-14,0"
+                Panel.ZIndex="2">
+            <Button.ToolTip>
+                <ToolTip Style="{StaticResource SidebarToolTipStyle}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock FontWeight="SemiBold" Margin="0,0,6,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="Expandir menú" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                            <Setter Property="Text" Value="Contraer menú" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <Border Style="{StaticResource KeycapBadgeStyle}">
+                            <TextBlock Text="Ctrl+B" Style="{StaticResource TextBlockKeycap}" />
+                        </Border>
+                    </StackPanel>
+                </ToolTip>
+            </Button.ToolTip>
+            <iconPacks:PackIconBoxIcons Width="14" Height="14">
+                <iconPacks:PackIconBoxIcons.Style>
+                    <Style TargetType="iconPacks:PackIconBoxIcons">
+                        <Setter Property="Kind" Value="RegularChevronRight" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSidebarExpanded}" Value="True">
+                                <Setter Property="Kind" Value="RegularChevronLeft" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </iconPacks:PackIconBoxIcons.Style>
+            </iconPacks:PackIconBoxIcons>
+        </Button>
+
         <!-- ============================================================= -->
-        <!-- 2. ÁREA DERECHA: BARRA DE TÍTULO + CONTENIDO PRINCIPAL        -->
+        <!-- 2. ÁREA DERECHA: CONTENIDO PRINCIPAL Y BOTONES DE VENTANA     -->
         <!-- ============================================================= -->
+        <!-- Sin barra de Windows: cada página dibuja su título en la franja superior (PageHeader) y el shell solo superpone
+             minimizar / maximizar / cerrar en la esquina, con la misma barra de los diálogos. Esc no cierra la aplicación. -->
         <Grid Grid.Column="1">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- 2.1 BARRA DE TÍTULO FLUENT NATIVA (BORDERLESS & COMPACTA) -->
-            <ui:TitleBar Grid.Row="0"
-                         Title="Retail POS - Librería &amp; Punto de Venta"
-                         Height="32"
-                         MinHeight="32"
-                         Padding="8,0"
-                         BorderThickness="0"
-                         BorderBrush="Transparent"
-                         Background="{DynamicResource SurfaceBackgroundBrush}"
-                         FontFamily="{StaticResource FontFamilyText}"
-                         FontSize="12"
-                         FontWeight="SemiBold"
-                         Foreground="{DynamicResource TextSecondaryBrush}">
-                <!-- Ícono vectorial (Icons.xaml): nítido con cualquier escalado de Windows, a diferencia del .ico. -->
-                <ui:TitleBar.Icon>
-                    <ui:ImageIcon Source="{StaticResource ImagenIconoApp}" Width="16" Height="16" />
-                </ui:TitleBar.Icon>
-            </ui:TitleBar>
+            <components:EncabezadoDialogo Grid.Row="0"
+                                          HorizontalAlignment="Right"
+                                          VerticalAlignment="Top"
+                                          PermitirMaximizar="True"
+                                          CerrarConEscape="False"
+                                          Panel.ZIndex="1" />
 
-            <!-- 2.2 AVISO NO BLOQUEANTE DE RESTAURACIÓN RECIENTE (Gerente / Administrador, R-20) -->
+            <!-- 2.2 AVISO NO BLOQUEANTE DE RESTAURACIÓN RECIENTE (Gerente / Administrador, R-20). Va al pie: arriba
+                     desplazaría el título de la página fuera de la franja de los botones de ventana. -->
             <Border Grid.Row="1"
                     Background="{DynamicResource WarningBackgroundBrush}"
                     BorderBrush="{DynamicResource WarningBorderBrush}"
-                    BorderThickness="0,0,0,1"
+                    BorderThickness="0,1,0,0"
                     Padding="16,6"
                     Visibility="{Binding MostrarAvisoRestauracion, Converter={StaticResource BoolToVisConverter}}">
                 <DockPanel LastChildFill="True">
@@ -459,7 +471,7 @@
 
             <!-- 2.3 ÁREA DE CONTENIDO PRINCIPAL (Frame) -->
             <Frame x:Name="RootFrame"
-                   Grid.Row="2"
+                   Grid.Row="0"
                    NavigationUIVisibility="Hidden"
                    Background="{DynamicResource SurfaceBackgroundBrush}" />
         </Grid>

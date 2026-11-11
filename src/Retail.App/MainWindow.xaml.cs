@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.ViewModels;
 using Retail.App.Views.Auth;
@@ -47,6 +48,15 @@ public partial class MainWindow : FluentWindow
 
         // El operador ya inició sesión antes de crear el Shell: el aviso de restauración reciente se consulta acá (R-20).
         await ViewModel.CargarAvisoRestauracionAsync();
+    }
+
+    /// <summary>
+    /// La cabecera del sidebar (el logo) ocupa la franja donde estaba la barra de Windows: arrastrarla mueve la ventana
+    /// y el doble clic la maximiza o la restaura, igual que la fila del título de cada página.
+    /// </summary>
+    private void CabeceraSidebar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        ArrastreVentana.AlPresionar(this, e, permitirMaximizar: true);
     }
 
     private void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)

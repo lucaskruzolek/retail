@@ -648,6 +648,22 @@ public class DashboardViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task PuedeExportarAhora_SinResultadoYConElTablero_AvisaAlBotonDelEncabezado()
+    {
+        // Arrange
+        var avisos = new List<string?>();
+        _sut.PropertyChanged += (_, e) => avisos.Add(e.PropertyName);
+        _sut.PuedeExportarAhora.Should().BeFalse();
+
+        // Act
+        await _sut.CargarAsync();
+
+        // Assert
+        _sut.PuedeExportarAhora.Should().BeTrue();
+        avisos.Should().Contain(nameof(DashboardViewModel.PuedeExportarAhora));
+    }
+
+    [Fact]
     public async Task Exportar_ConUnReporteVacio_EstaDeshabilitadoYMuestraElEstadoVacio()
     {
         // Arrange
@@ -1065,7 +1081,7 @@ public class DashboardViewModelTests : IDisposable
         // Assert
         _sut.GraficoMargenCategoria.EjesY[0].Labels.Should().HaveCount(ConstructorGraficos.MaximoBarrasTablero);
         _sut.GraficoMargenCategoria.EjesY[0].Labels!.Last().Should().Be("Categoría 1");
-        _sut.TituloMargenCategoria.Should().Be("Margen bruto por categoría (5 con mayor margen)");
+        _sut.TituloMargenCategoria.Should().Be("Margen bruto por categoría (top 5)");
     }
 
     [Fact]

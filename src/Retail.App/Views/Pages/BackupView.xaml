@@ -33,9 +33,12 @@
         <!-- ============================================================= -->
         <StackPanel Grid.Row="0">
             <!-- La descripción sigue a la página abierta (Copias o Restauraciones): el título es el de la sección -->
-            <components:PageHeader Margin="{StaticResource StackSm}"
+            <components:PageHeader Margin="{StaticResource SectionSpacing}"
                                    Titulo="Administración"
                                    EstaCargando="{Binding IsBusy}">
+                <components:PageHeader.Navegacion>
+                    <components:NavegadorSeccion SeccionId="administracion" />
+                </components:PageHeader.Navegacion>
                 <components:PageHeader.Style>
                     <Style TargetType="components:PageHeader" BasedOn="{StaticResource {x:Type components:PageHeader}}">
                         <Setter Property="Descripcion" Value="Copias · Historial de copias completas de la base de datos; permite crear una y restaurar desde una verificada (RF-22)" />
@@ -80,7 +83,6 @@
                     </StackPanel>
                 </StackPanel>
             </components:PageHeader>
-            <components:NavegadorSeccion SeccionId="administracion" Margin="{StaticResource SectionSpacing}" />
         </StackPanel>
 
         <!-- ============================================================= -->
