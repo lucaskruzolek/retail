@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Retail · Portal del desarrollador</title>
+<meta name="description" content="Punto de entrada a la documentación técnica de Retail: arquitectura, requisitos, diseño técnico y recorridos de cada funcionalidad.">
+<link rel="icon" type="image/svg+xml" href="recursos/marca/logo.svg">
+<link rel="stylesheet" href="recursos/comun.css">
+</head>
+<body class="portada">
+<main>
+
+<!-- Los documentos Markdown se enlazan a GitHub, que los muestra con formato y con sus diagramas; los recorridos HTML
+     se enlazan en forma relativa para que se abran sin conexión. Base de los enlaces: la rama main. -->
+
+<header class="presentacion">
+<span class="etiqueta">Portal del desarrollador</span>
+<h1><img src="recursos/marca/logo.svg" alt="">Retail</h1>
+<p class="subtitulo">Sistema de gestión y punto de venta para una librería: ventas de mostrador, caja, clientes con cuenta corriente, catálogo con listas de precios de proveedores, compras y copias de seguridad. Aplicación de escritorio en .NET 8, WPF y SQL Server, hecha como proyecto de cátedra.</p>
+<div class="acciones">
+    <a class="boton principal" href="https://github.com/lucaskruzolek/retail#puesta-en-marcha">Puesta en marcha</a>
+    <a class="boton" href="https://github.com/lucaskruzolek/retail">Repositorio</a>
+    <a class="boton" href="#recorridos">Recorridos</a>
+    <a class="boton" href="https://github.com/lucaskruzolek/retail/issues">Issues</a>
+</div>
+</header>
+
+<nav class="indice" aria-label="Índice">
+<ol>
+    <li><a href="#empezar">Empezar</a></li>
+    <li><a href="#arquitectura">Arquitectura</a></li>
+    <li><a href="#requisitos">Requisitos y planificación</a></li>
+    <li><a href="#diseno-tecnico">Diseño técnico</a></li>
+    <li><a href="#recorridos">Recorridos de cada funcionalidad</a></li>
+    <li><a href="#wiki">Wiki</a></li>
+    <li><a href="#auditorias">Auditorías y traspasos</a></li>
+    <li><a href="#autores">Autores</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ EMPEZAR -->
+<h2 id="empezar" class="sin-salto">Empezar</h2>
+<p>Para tener el sistema corriendo en una máquina nueva, el camino es el README: requisitos, base de datos, migraciones, primer usuario y pruebas. Las reglas de trabajo del repositorio están en <code>AGENTS.md</code>.</p>
+<div class="tarjetas">
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail#puesta-en-marcha"><b>Puesta en marcha</b><p>Requisitos, cadena de conexión, migrar la base, crear el primer Gerente, ejecutar y correr las pruebas.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/wiki/01-fundamentos-y-onboarding/entorno-desarrollo-local.md"><b>Entorno de desarrollo local</b><p>SDK, SQL Server y configuración del editor.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/wiki/01-fundamentos-y-onboarding/convenciones-y-calidad.md"><b>Convenciones y calidad</b><p>Estilo Allman, cero advertencias, tipos que no admiten nulos y nombres de las pruebas.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/AGENTS.md"><b>AGENTS.md</b><p>Las diez leyes de arquitectura, la simplicidad pragmática y qué pruebas correr según lo que cambia.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/tests/README.md"><b>Pruebas</b><p>Cómo están organizadas las suites de unidad, integración, rendimiento y capturas.</p></a>
+</div>
+
+<!-- ============================================================ ARQUITECTURA -->
+<h2 id="arquitectura">Arquitectura</h2>
+<p>Un monolito de escritorio con arquitectura limpia: las dependencias apuntan hacia el dominio, y el compilador lo impone con las referencias entre proyectos. La interfaz y la consola son dos puntos de entrada a los mismos casos de uso.</p>
+<figure>
+<figcaption>Referencias entre los proyectos de la solución</figcaption>
+<pre class="mermaid">
+flowchart LR
+    APP["Retail.App&lt;br/&gt;WPF y MVVM"] --> APLI["Retail.Application&lt;br/&gt;casos de uso, DTOs y validación"]
+    CLI["Retail.Cli&lt;br/&gt;consola: migrar, copias, estado"] --> APLI
+    APP --> INFRA["Retail.Infrastructure&lt;br/&gt;EF Core, SQL Server, Excel, copias"]
+    CLI --> INFRA
+    INFRA --> APLI
+    APLI --> DOM["Retail.Domain&lt;br/&gt;entidades y reglas, sin dependencias"]
+</pre>
+</figure>
+<table>
+<tr><th>Componente</th><th>Tecnología</th></tr>
+<tr><td>Lenguaje y runtime</td><td>C# 12, .NET 8 LTS</td></tr>
+<tr><td>Interfaz</td><td>WPF con CommunityToolkit.Mvvm 8.3.2 y WPF-UI 4.0.0</td></tr>
+<tr><td>Persistencia</td><td>Entity Framework Core 8.0.11 y SQL Server Express</td></tr>
+<tr><td>Validación</td><td>FluentValidation 11.11.0</td></tr>
+<tr><td>Planillas de proveedores</td><td>MiniExcel 1.34.2</td></tr>
+<tr><td>Contraseñas y registros</td><td>BCrypt.Net-Next 4.0.3 y Serilog 4.2.0</td></tr>
+<tr><td>Pruebas</td><td>xUnit, FluentAssertions y NSubstitute</td></tr>
+</table>
+<div class="tarjetas">
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/MAPA_DEL_PROYECTO.md"><b>Mapa del proyecto</b><p>Dónde vive cada responsabilidad: entidades, contratos, DTOs, servicios, vistas y flujos de CI.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/Arquitectura%20y%20Estructura%20del%20Proyecto.md"><b>Arquitectura y estructura</b><p>La propuesta de arquitectura y la organización global de la solución.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/tree/main/wiki/02-capas-de-arquitectura"><b>Capas de arquitectura</b><p>Dominio, aplicación, infraestructura y presentación, una por una.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/tree/main/wiki/03-patrones-de-diseno"><b>Patrones de diseño</b><p>Repositorio y unidad de trabajo, MVVM, adaptador y fachada, borrado lógico y estrategia.</p></a>
+</div>
+
+<!-- ============================================================ REQUISITOS -->
+<h2 id="requisitos">Requisitos y planificación</h2>
+<p>La ERS define qué hace el sistema (<code>RF-xx</code>) y con qué calidad (<code>RNF-xx</code>). El roadmap lo divide en etapas, y cada etapa grande en tracks con su propio plan de diseño y sus decisiones numeradas.</p>
+<div class="tarjetas">
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/ERS%20-%20Libreria%20POS.md"><b>Especificación de requisitos (ERS)</b><p>Requisitos funcionales y no funcionales del sistema.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/Roadmap%20de%20Implementacion.md"><b>Roadmap de implementación</b><p>La hoja de ruta por etapas y quién hace cada parte.</p></a>
+</div>
+<table>
+<tr><th>Etapa</th><th>Plan</th><th>Tracks</th></tr>
+<tr><td>0</td><td><a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-0-cimientos.md">Cimientos técnicos, gobernanza y contratos</a></td><td></td></tr>
+<tr><td>1</td><td><a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-1-auth-usuarios.md">Autenticación, roles y navegación</a></td><td></td></tr>
+<tr><td>2</td><td><a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-2-catalogo-stock.md">Catálogo, artículos e importador</a></td><td></td></tr>
+<tr><td>3</td><td><a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-3-caja-clientes.md">Turnos de caja, clientes y cobranzas</a></td><td></td></tr>
+<tr><td>4</td><td><a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-4-pos-compras.md">Punto de venta y compras</a></td><td>4.3 <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-4-track-4.3-abastecimiento.md">Abastecimiento</a> (paquetes de <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-4-track-4.3-paquete-lucas.md">Lucas</a> y de <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-4-track-4.3-paquete-pablo.md">Pablo</a>)</td></tr>
+<tr><td>5</td><td><a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-5-presupuestos-arca.md">Presupuestos y facturación ARCA</a></td><td></td></tr>
+<tr><td>6</td><td><a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-estabilizacion-release.md">Estabilización y release</a></td><td>6.3 <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.3-backup-restore.md">Copias y restauración</a> · 6.3.1 <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.3.1-control-dual-restore.md">Control dual</a> · 6.4 <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.4-dashboard-reportes.md">Tablero y reportes</a> · 6.5 <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.5-crud-categorias-marcas.md">Rubros, categorías y marcas</a> · 6.6 <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md">Catalogación inteligente</a> (fases <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.6-fase-5-modelo.md">5, modelo</a>, <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.6-fase-5-pares.md">5, pares</a>, <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.6-fase-6-ui.md">6, interfaz</a> y <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/roadmap/etapa-6-track-6.6-fase-8-catalogo-clasificado.md">8, catálogo clasificado</a>)</td></tr>
+</table>
+
+<!-- ============================================================ DISEÑO TÉCNICO -->
+<h2 id="diseno-tecnico">Diseño técnico</h2>
+<p>Los documentos normativos de <code>docs/</code>: cada uno fija las reglas de un sistema que atraviesa todas las capas.</p>
+<div class="tarjetas">
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/DER.mmd"><b>Diagrama entidad-relación</b><p>Las tablas de la base y sus claves foráneas, en Mermaid.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/SISTEMA_DE_PERSISTENCIA.md"><b>Persistencia</b><p>EF Core, configuraciones, índices, transacciones y consultas resueltas en SQL.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/SISTEMA_DE_DISENO.md"><b>Sistema de diseño</b><p>Tokens, tipografía, componentes de mostrador, íconos y temas claro y oscuro.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/SISTEMA_DE_LOGGING.md"><b>Registros y errores</b><p>Serilog, archivos rotativos y captura de excepciones no controladas.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/SISTEMA_DE_CI_CD.md"><b>Integración y entrega</b><p>Los flujos de GitHub Actions, la compilación Release y el empaquetado.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/analisis_flujo_login.md"><b>Análisis del inicio de sesión</b><p>El flujo de autenticación, paso a paso.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/sp_Login_analisis_y_propuesta.md"><b>Propuesta sobre sp_Login</b><p>Análisis del procedimiento almacenado de inicio de sesión y la alternativa propuesta.</p></a>
+</div>
+
+<!-- ============================================================ RECORRIDOS -->
+<h2 id="recorridos">Recorridos de cada funcionalidad</h2>
+<p>Cada recorrido estudia una funcionalidad completa de lo general al detalle: casos de uso y modelo, lo que ve el usuario, qué capa hace cada cosa, los mecanismos y los algoritmos, y cierra con preparación para la defensa. Son HTML que se abren sin servidor; los diagramas necesitan conexión porque Mermaid se carga desde un CDN.</p>
+<div id="cobertura" class="cobertura"></div>
+<div id="lista-recorridos"></div>
+<noscript><p>La lista de recorridos se arma con JavaScript. Sin él, los recorridos escritos están en <a href="07-funcionalidades-de-lo-general-al-detalle/README.md">07-funcionalidades-de-lo-general-al-detalle</a>.</p></noscript>
+
+<!-- ============================================================ WIKI -->
+<h2 id="wiki">Wiki</h2>
+<p>Artículos breves en Markdown, ordenados del fundamento al detalle. Se leen en GitHub o como bóveda de Obsidian; la <a href="https://github.com/lucaskruzolek/retail/blob/main/wiki/README.md">portada de la wiki</a> explica cómo.</p>
+<div class="tarjetas">
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/tree/main/wiki/01-fundamentos-y-onboarding"><b>01 · Fundamentos y onboarding</b><p>Por qué un monolito de escritorio, el entorno local y las convenciones.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/tree/main/wiki/02-capas-de-arquitectura"><b>02 · Capas de arquitectura</b><p>Dominio, aplicación, infraestructura y presentación.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/tree/main/wiki/03-patrones-de-diseno"><b>03 · Patrones de diseño</b><p>Los patrones aplicados y en qué archivo viven.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/tree/main/wiki/04-sistemas-transversales"><b>04 · Sistemas transversales</b><p>Persistencia, diseño de la interfaz, registros y CI/CD, explicados.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/tree/main/wiki/05-casos-de-uso-y-flujos"><b>05 · Casos de uso y flujos</b><p>Venta, catálogo, presupuestos, caja, importador, tablero, copias y restauración.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/tree/main/wiki/06-vademecum-defensa-tecnica"><b>06 · Vademécum de defensa</b><p>Preguntas probables, matriz de alternativas y decisiones defendidas.</p></a>
+    <a class="tarjeta" href="#recorridos"><b>07 · Funcionalidades de lo general al detalle</b><p>Los recorridos HTML de esta portada.</p></a>
+</div>
+
+<!-- ============================================================ AUDITORÍAS -->
+<h2 id="auditorias">Auditorías y traspasos</h2>
+<p>Informes de revisión técnica de módulos concretos y documentos de traspaso entre etapas.</p>
+<div class="tarjetas">
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/auditorias/auditoria-modulo-2-2.md"><b>Auditoría del módulo 2.2</b><p>Proveedores e importador masivo de catálogos.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/auditorias/auditoria-importador-excel-actualizacion-precios.md"><b>Auditoría del importador</b><p>Importación de catálogos Excel y actualización de precios.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/auditorias/solucion-optimizacion-importador-excel.md"><b>Optimización del importador</b><p>La solución propuesta para la importación y el recálculo de precios.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/auditorias/handoff-importador-precios-stock.md"><b>Traspaso: importador, precios y stock</b><p>Estado del importador y del stock por presentaciones.</p></a>
+    <a class="tarjeta" href="https://github.com/lucaskruzolek/retail/blob/main/docs/auditorias/handoff-clasificacion-y-catalogacion.md"><b>Traspaso: clasificación y catalogación</b><p>Tracks 6.5 y 6.6.</p></a>
+</div>
+<p>Para quien usa el sistema en el comercio, la referencia es el <a href="https://github.com/lucaskruzolek/retail/blob/main/docs/MANUAL_DE_USUARIO.md">manual de usuario</a>.</p>
+
+<!-- ============================================================ AUTORES -->
+<h2 id="autores">Autores</h2>
+<div class="tarjetas">
+    <a class="tarjeta" href="https://github.com/lucaskruzolek"><b>Lucas Kruzolek</b><p>github.com/lucaskruzolek</p></a>
+    <a class="tarjeta" href="https://github.com/PabloCF2001"><b>Pablo Fernandez</b><p>github.com/PabloCF2001</p></a>
+</div>
+<p>Las dudas y los errores se registran en los <a href="https://github.com/lucaskruzolek/retail/issues">issues del repositorio</a>. Cada cambio entra por un pull request que revisa el otro autor.</p>
+
+<p class="pie">Retail es un proyecto de cátedra. Nombre e ícono son provisorios. Portada revisada el 10 de noviembre de 2026.</p>
+
+</main>
+<script src="recursos/recorridos.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script src="recursos/comun.js"></script>
+</body>
+</html>

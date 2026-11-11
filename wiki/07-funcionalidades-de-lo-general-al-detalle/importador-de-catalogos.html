@@ -4,127 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Importador de catálogos</title>
-<style>
-:root {
-    --texto: #1f2328;
-    --texto-suave: #57606a;
-    --fondo: #ffffff;
-    --fondo-suave: #f6f8fa;
-    --borde: #d0d7de;
-    --acento: #9d0f33;
-    --acento-suave: #fbeef1;
-    --nota: #fff8e5;
-    --nota-borde: #d4a72c;
-    --ok: #1a7f37;
-    --ancho: 980px;
-    color-scheme: light dark;
-}
-@media (prefers-color-scheme: dark) {
-    :root {
-        --texto: #e6edf3;
-        --texto-suave: #9da7b3;
-        --fondo: #0d1117;
-        --fondo-suave: #161b22;
-        --borde: #30363d;
-        --acento: #ff7b9c;
-        --acento-suave: #2d1620;
-        --nota: #2a2310;
-        --nota-borde: #9e7c1c;
-        --ok: #3fb950;
-    }
-}
-* { box-sizing: border-box; }
-html { font-size: 16px; }
-body {
-    margin: 0;
-    background: var(--fondo);
-    color: var(--texto);
-    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-    line-height: 1.6;
-}
-main { max-width: var(--ancho); margin: 0 auto; padding: 32px 16px 80px; }
-h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
-h2 {
-    font-size: 1.55rem; margin: 56px 0 8px; padding-top: 16px;
-    border-top: 3px solid var(--acento);
-}
-h3 { font-size: 1.15rem; margin: 32px 0 8px; }
-h4 { font-size: 1rem; margin: 20px 0 6px; }
-p, li { max-width: 78ch; }
-a { color: var(--acento); }
-code {
-    font-family: "Cascadia Code", Consolas, monospace; font-size: 0.88em;
-    background: var(--fondo-suave); border: 1px solid var(--borde); border-radius: 4px; padding: 0 4px;
-}
-pre.codigo {
-    font-family: "Cascadia Code", Consolas, monospace; font-size: 0.85rem; line-height: 1.5;
-    background: var(--fondo-suave); border: 1px solid var(--borde); border-radius: 6px;
-    padding: 12px 16px; overflow-x: auto; white-space: pre;
-}
-.subtitulo { color: var(--texto-suave); margin: 0 0 24px; }
-.etiqueta {
-    display: inline-block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
-    color: var(--acento); margin-bottom: 4px;
-}
-.niveles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 16px 0 24px; }
-.niveles div { border: 1px solid var(--borde); border-radius: 6px; padding: 8px 12px; background: var(--fondo-suave); }
-.niveles b { display: block; color: var(--acento); }
-nav.indice { border: 1px solid var(--borde); border-radius: 6px; padding: 12px 20px; background: var(--fondo-suave); }
-nav.indice ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
-nav.indice li { break-inside: avoid; }
-figure { margin: 20px 0; break-inside: avoid; }
-figcaption { font-size: 0.8rem; font-weight: 600; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
-pre.mermaid {
-    background: var(--fondo); border: 1px solid var(--borde); border-radius: 6px; padding: 12px;
-    margin: 0; text-align: center; overflow-x: auto; white-space: pre; font-size: 0.8rem;
-}
-pre.mermaid[data-processed="true"] { white-space: normal; }
-table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.9rem; break-inside: auto; }
-th, td { border: 1px solid var(--borde); padding: 6px 8px; text-align: left; vertical-align: top; }
-th { background: var(--fondo-suave); }
-tr { break-inside: avoid; }
-.llevarte { border-left: 4px solid var(--acento); background: var(--acento-suave); padding: 8px 16px; margin: 16px 0; break-inside: avoid; }
-.llevarte > b { display: block; margin-bottom: 4px; }
-.llevarte ul { margin: 4px 0; padding-left: 20px; }
-.nota { border-left: 4px solid var(--nota-borde); background: var(--nota); padding: 8px 16px; margin: 16px 0; break-inside: avoid; }
-details { border: 1px solid var(--borde); border-radius: 6px; padding: 8px 16px; margin: 12px 0; break-inside: avoid; }
-details > summary { cursor: pointer; font-weight: 600; }
-details > summary::marker { color: var(--acento); }
-details[open] > summary { margin-bottom: 8px; }
-.pie { margin-top: 48px; font-size: 0.85rem; color: var(--texto-suave); border-top: 1px solid var(--borde); padding-top: 12px; }
-@media (max-width: 640px) {
-    nav.indice ol { columns: 1; }
-    h1 { font-size: 1.6rem; }
-}
-@media print {
-    @page { size: A4; margin: 16mm 14mm; }
-    html { font-size: 11pt; }
-    :root {
-        --texto: #1f2328; --texto-suave: #57606a; --fondo: #ffffff; --fondo-suave: #f6f8fa; --borde: #d0d7de;
-        --acento: #9d0f33; --acento-suave: #fbeef1; --nota: #fff8e5; --nota-borde: #d4a72c; --ok: #1a7f37;
-    }
-    /* Los diagramas dibujados con el tema oscuro se invierten para salir claros sobre el papel. */
-    .modo-oscuro pre.mermaid svg { filter: invert(1) hue-rotate(180deg); }
-    main { max-width: none; padding: 0; }
-    h2 { break-before: page; margin-top: 0; }
-    h2.sin-salto { break-before: auto; }
-    h3, h4 { break-after: avoid; }
-    figure, pre.mermaid, .llevarte, .nota, details { break-inside: avoid; }
-    pre.mermaid { border: none; overflow: visible; }
-    pre.mermaid svg { max-width: 100% !important; max-height: 235mm; height: auto; width: auto; }
-    pre.codigo { white-space: pre-wrap; }
-    @page apaisada { size: A4 landscape; margin: 12mm; }
-    figure.ancho { page: apaisada; }
-    figure.ancho pre.mermaid svg { max-height: 175mm; }
-    a { color: inherit; text-decoration: none; }
-    details > summary::marker { content: ""; }
-}
-</style>
+<link rel="icon" type="image/svg+xml" href="../recursos/marca/logo.svg">
+<link rel="stylesheet" href="../recursos/comun.css">
 </head>
-<body>
+<body class="recorrido">
 <main>
 
-<span class="etiqueta">Retail POS · Funcionalidades de lo general al detalle</span>
+<header class="barra">
+    <a class="marca" href="../index.html"><img src="../recursos/marca/logo.svg" alt="">Retail</a>
+    <span class="separador">/</span><a href="../index.html#recorridos">Recorridos</a>
+    <span class="separador">/</span><span>Importador de catálogos</span>
+</header>
+
+<span class="etiqueta">Funcionalidades de lo general al detalle</span>
 <h1>Importador de catálogos</h1>
 <p class="subtitulo">Cómo entra la lista de precios de un distribuidor al sistema, cómo se clasifica y cómo sus renglones se convierten en fuentes de los artículos de la tienda. Contrastado con el código el 7 de noviembre de 2026.</p>
 
@@ -1345,33 +1237,8 @@ porCatalogo.Count         // 3 claves reales: 10, 11 y 12</pre>
 <p class="pie">Decisiones citadas: A-1 a A-19 en <code>docs/roadmap/etapa-4-track-4.3-abastecimiento.md</code>; M-xx en <code>docs/roadmap/etapa-6-track-6.6-catalogacion-inteligente.md</code>; H-xx, D-xx y E-xx en las auditorías del importador. El SQL es aproximado: está reconstruido a partir del LINQ y no capturado de un log. La versión resumida, dentro de la wiki, es <code>wiki/05-casos-de-uso-y-flujos/flujo-importador-excel.md</code>.</p>
 
 </main>
+<script src="../recursos/recorridos.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
-<script>
-    if (window.mermaid) {
-        // Mermaid fija el tema al dibujar: si cambia el modo del sistema, se recarga para redibujar.
-        var consultaOscuro = window.matchMedia("(prefers-color-scheme: dark)");
-        if (consultaOscuro.matches) { document.documentElement.classList.add("modo-oscuro"); }
-        consultaOscuro.addEventListener("change", function () { location.reload(); });
-        mermaid.initialize({
-            startOnLoad: true,
-            theme: consultaOscuro.matches ? "dark" : "neutral",
-            securityLevel: "strict",
-            fontFamily: "Segoe UI, system-ui, sans-serif",
-            flowchart: { htmlLabels: true, useMaxWidth: true },
-            sequence: { useMaxWidth: false, wrap: true, width: 160, actorMargin: 40, messageMargin: 28, noteMargin: 10, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12 },
-            state: { useMaxWidth: true },
-            er: { useMaxWidth: true }
-        });
-    }
-    // Chrome imprime cerradas las secciones plegadas: se abren antes de imprimir y se restauran después.
-    var plegadas = [];
-    window.addEventListener("beforeprint", function () {
-        plegadas = Array.prototype.filter.call(document.querySelectorAll("details"), function (d) { return !d.open; });
-        plegadas.forEach(function (d) { d.open = true; });
-    });
-    window.addEventListener("afterprint", function () {
-        plegadas.forEach(function (d) { d.open = false; });
-    });
-</script>
+<script src="../recursos/comun.js"></script>
 </body>
 </html>

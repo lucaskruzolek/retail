@@ -5,6 +5,8 @@
 **Equipo de Desarrollo:** Lucas Kruzolek & Pablo Fernandez  
 **Plataforma Tecnológica:** .NET 8 LTS | C# 12 | WPF (Windows) | Entity Framework Core 8 | SQL Server LocalDB  
 
+> **Portada del desarrollador:** [`index.html`](index.html) reúne en una sola página la puesta en marcha, la arquitectura, los requisitos, el diseño técnico, los recorridos HTML de cada funcionalidad y esta wiki. Se abre con doble clic en el navegador.
+
 ---
 
 ## 🎯 Manifiesto y Propósito Pedagógico (Anti-Vibecoding)
