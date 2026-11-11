@@ -5,6 +5,7 @@ using NSubstitute;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
+using Retail.Application.Interfaces.Services;
 using Retail.Application.Services;
 using Retail.Application.UnitTests.TestData;
 using Retail.Application.Validators.Proveedores;
@@ -22,6 +23,7 @@ public class ProveedorServiceTests
     private readonly IRepository<Articulo> _articuloRepoMock;
     private readonly IUnitOfWork _unitOfWorkMock;
     private readonly IExcelCatalogParser _excelParserMock;
+    private readonly IConfiguracionComercialService _configuracionComercialMock;
     private readonly ProveedorService _service;
 
     public ProveedorServiceTests()
@@ -31,6 +33,8 @@ public class ProveedorServiceTests
         _articuloRepoMock = Substitute.For<IRepository<Articulo>>();
         _unitOfWorkMock = Substitute.For<IUnitOfWork>();
         _excelParserMock = Substitute.For<IExcelCatalogParser>();
+        _configuracionComercialMock = Substitute.For<IConfiguracionComercialService>();
+        _configuracionComercialMock.ObtenerRedondeoPrecioAsync(Arg.Any<CancellationToken>()).Returns(RedondeoPrecioEnum.EnteroMasCercano);
 
         _service = new ProveedorService(
             _proveedorRepoMock,
@@ -42,7 +46,8 @@ public class ProveedorServiceTests
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
             new IncorporarCatalogoArticulosValidator(),
-            new ConsultaCatalogoProveedorValidator()
+            new ConsultaCatalogoProveedorValidator(),
+            _configuracionComercialMock
         );
     }
 
@@ -288,7 +293,7 @@ public class ProveedorServiceTests
         var articulo = new Articulo { Id = 10, Descripcion = "Marcador Edding 700", CostoReposicion = 500m, PorcentajeGanancia = 40m };
         var principal = new CatalogoProveedor { Id = 25, IdProveedor = 1, CodigoProveedor = "EDD-700", DescripcionProveedor = "Edding 700", CostoReposicion = 800m };
         principal.AsignarArticulo(articulo);
-        articulo.MarcarFuentePrincipal(principal);
+        articulo.MarcarFuentePrincipal(principal, RedondeoPrecioEnum.EnteroMasCercano);
         return (articulo, principal);
     }
 
@@ -452,6 +457,15 @@ public class ProveedorServiceTests
         // Assert
         agregados.Should().ContainSingle().Which.CodigoProveedor.Should().Be("OK-1");
         resultado.ErroresDetalle.Should().ContainSingle(e => e.StartsWith("Fila 2:") && e.Contains("categoría del proveedor"));
+    }
+
+    private static (CatalogoProveedor Catalogo, Articulo Articulo) PrepararArticuloVinculado(int id, string codigo, decimal costo)
+    {
+        var catalogo = new CatalogoProveedor { Id = id, IdProveedor = 1, CodigoProveedor = codigo, DescripcionProveedor = codigo, CostoReposicion = costo };
+        var articulo = new Articulo { Id = id, Descripcion = codigo, CatalogoProveedor = catalogo, CostoReposicion = costo, PorcentajeGanancia = 50m };
+        catalogo.AsignarArticulo(articulo);
+        articulo.MarcarFuentePrincipal(catalogo, RedondeoPrecioEnum.EnteroMasCercano);
+        return (catalogo, articulo);
     }
 
     private static ItemCatalogoImportadoDto Fila(string codigo, string descripcion = "Producto", decimal precio = 100m, string? codigoBarras = null)
@@ -806,11 +820,32 @@ public class ProveedorServiceTests
     }
 
     [Fact]
+    public async Task ImportarPlanillaProveedorAsync_ConVariasFilas_LeeLaPoliticaDeRedondeoUnaSolaVez()
+    {
+        // Arrange: tres filas con ítems existentes vinculados a artículos cuyo costo cambia
+        var (catalogoA, articuloA) = PrepararArticuloVinculado(1, "A-1", costo: 100m);
+        var (catalogoB, articuloB) = PrepararArticuloVinculado(2, "B-2", costo: 200m);
+        var (catalogoC, articuloC) = PrepararArticuloVinculado(3, "C-3", costo: 300m);
+        PrepararImportacion(
+            new List<ItemCatalogoImportadoDto> { Fila("A-1", precio: 110m), Fila("B-2", precio: 220m), Fila("C-3", precio: 330m) },
+            new Dictionary<string, CatalogoProveedor> { ["A-1"] = catalogoA, ["B-2"] = catalogoB, ["C-3"] = catalogoC },
+            new List<Articulo> { articuloA, articuloB, articuloC });
+        EvaluarPredicadosSobre(articuloA, articuloB, articuloC);
+
+        // Act
+        var resultado = await _service.ImportarPlanillaProveedorAsync(new MemoryStream(), Mapeo());
+
+        // Assert: la política se lee antes del bucle, no por fila (D-38)
+        resultado.PreciosActualizados.Should().Be(3);
+        await _configuracionComercialMock.Received(1).ObtenerRedondeoPrecioAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ImportarPlanillaProveedorAsync_CostoDelOrigenSinCambios_NoTocaDerivados()
     {
         // Arrange: el costo del derivado se editó a mano y se respeta mientras el origen no cambie
         var (catalogo, origen, derivado) = PrepararPackConPresentacion(costo: 1000m, unidadesPorOrigen: 100);
-        derivado.ActualizarCostoYRecalcularPrecio(12m);
+        derivado.ActualizarCostoYRecalcularPrecio(12m, RedondeoPrecioEnum.EnteroMasCercano);
         PrepararImportacion(
             new List<ItemCatalogoImportadoDto> { Fila("SOB-100", "Sobre manila x100", 1000m) },
             new Dictionary<string, CatalogoProveedor> { ["SOB-100"] = catalogo });
@@ -851,7 +886,7 @@ public class ProveedorServiceTests
         var catalogo = new CatalogoProveedor { Id = 25, IdProveedor = 1, CodigoProveedor = "EDD-700", DescripcionProveedor = "Edding 700 x10", CostoReposicion = 800m };
         var articulo = new Articulo { Id = 10, Descripcion = "Marcador Edding (caja x10)", CostoReposicion = 500m, PorcentajeGanancia = 40m };
         var unidad = new Articulo { Id = 11, Descripcion = "Marcador Edding (unidad)", PorcentajeGanancia = 50m };
-        unidad.DefinirComoPresentacionDe(articulo, 10);
+        unidad.DefinirComoPresentacionDe(articulo, 10, RedondeoPrecioEnum.EnteroMasCercano);
         PrepararArticulosParaVincular(articulo, catalogo, new List<Articulo> { articulo, unidad });
 
         // Act
@@ -882,9 +917,9 @@ public class ProveedorServiceTests
             PorcentajeGanancia = 40m
         };
         catalogo.AsignarArticulo(origen);
-        origen.MarcarFuentePrincipal(catalogo);
+        origen.MarcarFuentePrincipal(catalogo, RedondeoPrecioEnum.EnteroMasCercano);
         var derivado = new Articulo { Id = 2, Descripcion = "Sobre manila (unidad)", PorcentajeGanancia = 50m };
-        derivado.DefinirComoPresentacionDe(origen, unidadesPorOrigen);
+        derivado.DefinirComoPresentacionDe(origen, unidadesPorOrigen, RedondeoPrecioEnum.EnteroMasCercano);
 
         return (catalogo, origen, derivado);
     }
@@ -906,7 +941,7 @@ public class ProveedorServiceTests
             CostoReposicion = articulo.CostoReposicion
         };
         fuente.AsignarArticulo(articulo);
-        articulo.MarcarFuentePrincipal(fuente);
+        articulo.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
         return articulo;
     }
 

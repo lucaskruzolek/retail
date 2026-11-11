@@ -13,6 +13,7 @@ using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Compras;
@@ -211,14 +212,24 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         }
     }
 
+    private readonly IConfiguracionComercialService? _configuracionComercial;
+
+    /// <summary>
+    /// Política global de redondeo (D-38) con la que se previsualiza el nuevo precio de cada renglón; se lee con los
+    /// proveedores al abrir la pantalla. <c>CompraService</c> vuelve a leerla al registrar la compra.
+    /// </summary>
+    private RedondeoPrecioEnum _redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano;
+
     public ComprasViewModel(
         IProveedorService proveedorService,
         ICompraService compraService,
         IPedidoService pedidoService,
         ICompraDialogService dialogService,
         ICurrentUserSession currentUserSession,
-        ILogger<ComprasViewModel> logger)
+        ILogger<ComprasViewModel> logger,
+        IConfiguracionComercialService? configuracionComercial = null)
     {
+        _configuracionComercial = configuracionComercial;
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
         _compraService = compraService ?? throw new ArgumentNullException(nameof(compraService));
         _pedidoService = pedidoService ?? throw new ArgumentNullException(nameof(pedidoService));
@@ -286,9 +297,21 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         IsBusy = true;
 
         await _carga.EjecutarAsync(
-            token => Task.Run(() => _proveedorService.ListarProveedoresAsync(token), token),
-            lista =>
+            token => Task.Run(
+                async () =>
+                {
+                    // Secuenciales: comparten el DbContext de la pantalla (H-19).
+                    var proveedores = await _proveedorService.ListarProveedoresAsync(token);
+                    var redondeo = _configuracionComercial is null
+                        ? RedondeoPrecioEnum.EnteroMasCercano
+                        : await _configuracionComercial.ObtenerRedondeoPrecioAsync(token);
+                    return (Proveedores: proveedores, Redondeo: redondeo);
+                },
+                token),
+            resultado =>
             {
+                var lista = resultado.Proveedores;
+                _redondeoPrecio = resultado.Redondeo;
                 Proveedores.Clear();
                 OpcionesProveedor.Clear();
                 OpcionesProveedor.Add(TodosLosProveedores);
@@ -388,6 +411,7 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         else
         {
             var renglon = DetalleCompraItemViewModel.DesdeArticulo(articulo);
+            renglon.RedondeoPrecio = _redondeoPrecio;
             DetalleCompraItems.Add(renglon);
             RenglonSeleccionado = renglon;
             MensajeEstado = null;
@@ -650,7 +674,9 @@ public partial class ComprasViewModel : ObservableObject, IDisposable
         VaciarRenglones();
         foreach (var renglon in pedidoParaCompra.Renglones)
         {
-            DetalleCompraItems.Add(DetalleCompraItemViewModel.DesdeRenglonDePedido(renglon));
+            var renglonDeCompra = DetalleCompraItemViewModel.DesdeRenglonDePedido(renglon);
+            renglonDeCompra.RedondeoPrecio = _redondeoPrecio;
+            DetalleCompraItems.Add(renglonDeCompra);
         }
 
         IdPedidoOrigen = pedidoParaCompra.IdPedido;

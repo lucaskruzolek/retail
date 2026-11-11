@@ -97,13 +97,6 @@
                           BorderThickness="0"
                           helpers:EsquinasHelper.Esquinas="7,7,0,0">
                     <DataGrid.Columns>
-                        <!-- ID Cliente -->
-                        <DataGridTextColumn Header="ID"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                            Binding="{Binding IdCliente, StringFormat=#{0:D4}}"
-                                            Width="80"
-                                            ElementStyle="{StaticResource TextBlockCurrencyCell}" />
-
                         <!-- Razón Social o Nombre -->
                         <DataGridTextColumn Header="Razón Social / Nombre"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderListadoStyle}"
@@ -182,7 +175,7 @@
                         <!-- Límite de Crédito -->
                         <DataGridTextColumn Header="Límite Crédito"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                            Binding="{Binding LimiteCredito, StringFormat={}{0:C}}"
+                                            Binding="{Binding LimiteCredito, StringFormat={}{0:C0}}"
                                             Width="124"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
@@ -194,7 +187,7 @@
                             </DataGridTemplateColumn.Header>
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding SaldoCuentaCorriente, StringFormat={}{0:C}}">
+                                    <TextBlock Text="{Binding SaldoCuentaCorriente, StringFormat={}{0:C0}}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource TextBlockPriceCell}">
                                                 <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
@@ -213,7 +206,7 @@
                         <!-- Crédito Disponible -->
                         <DataGridTextColumn Header="Crédito Disp."
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                            Binding="{Binding CreditoDisponible, StringFormat={}{0:C}}"
+                                            Binding="{Binding CreditoDisponible, StringFormat={}{0:C0}}"
                                             Width="124"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 

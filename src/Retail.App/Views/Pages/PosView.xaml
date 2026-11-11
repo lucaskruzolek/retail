@@ -257,14 +257,14 @@
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding PrecioUnitarioFormateado}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="132"
+                                            Width="112"
                                             IsReadOnly="True" />
 
                         <DataGridTextColumn Header="Subtotal"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
                                             Binding="{Binding SubtotalItemFormateado}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="132"
+                                            Width="112"
                                             IsReadOnly="True" />
 
                         <DataGridTemplateColumn Width="52">

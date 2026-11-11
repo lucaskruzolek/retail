@@ -543,38 +543,38 @@
                                                     Width="60" />
                                 <DataGridTextColumn Header="Total"
                                                     HeaderStyle="{StaticResource EncabezadoMuyCompactoDerecha}"
-                                                    Binding="{Binding TotalVendido, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding TotalVendido, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource CeldaMonedaChica}"
                                                     Width="*" />
                                 <DataGridTextColumn Header="Efectivo"
                                                     HeaderStyle="{StaticResource EncabezadoMuyCompactoDerecha}"
-                                                    Binding="{Binding Efectivo, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding Efectivo, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource CeldaMonedaChica}"
                                                     Width="*" />
                                 <DataGridTextColumn Header="Débito"
                                                     HeaderStyle="{StaticResource EncabezadoMuyCompactoDerecha}"
-                                                    Binding="{Binding TarjetaDebito, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding TarjetaDebito, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource CeldaMonedaChica}"
                                                     Width="*" />
                                 <DataGridTextColumn Header="Crédito"
                                                     HeaderStyle="{StaticResource EncabezadoMuyCompactoDerecha}"
-                                                    Binding="{Binding TarjetaCredito, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding TarjetaCredito, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource CeldaMonedaChica}"
                                                     Width="*" />
                                 <DataGridTextColumn Header="Transf./QR"
                                                     HeaderStyle="{StaticResource EncabezadoMuyCompactoDerecha}"
-                                                    Binding="{Binding TransferenciaQr, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding TransferenciaQr, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource CeldaMonedaChica}"
                                                     Width="*" />
                                 <DataGridTextColumn Header="Cta. cte."
                                                     HeaderStyle="{StaticResource EncabezadoMuyCompactoDerecha}"
-                                                    Binding="{Binding CuentaCorriente, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding CuentaCorriente, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource CeldaMonedaChica}"
                                                     Width="*" />
                                 <DataGridTextColumn Header="Descuentos"
                                                     HeaderStyle="{StaticResource EncabezadoBordeDerMuyCompacto}"
                                                     CellStyle="{StaticResource CeldaBordeDerMuyCompacta}"
-                                                    Binding="{Binding Descuentos, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding Descuentos, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource CeldaMonedaChica}"
                                                     Width="*" />
                             </DataGrid.Columns>
@@ -616,9 +616,9 @@
                                         <DataGridTextColumn Header="Importe"
                                                             HeaderStyle="{StaticResource EncabezadoBordeDerCompacto}"
                                                             CellStyle="{StaticResource CeldaBordeDerCompacta}"
-                                                            Binding="{Binding IngresoNeto, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                            Binding="{Binding IngresoNeto, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                            Width="135" />
+                                                            Width="112" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
@@ -650,9 +650,9 @@
                                         <DataGridTextColumn Header="Importe"
                                                             HeaderStyle="{StaticResource EncabezadoBordeDerCompacto}"
                                                             CellStyle="{StaticResource CeldaBordeDerCompacta}"
-                                                            Binding="{Binding IngresoNeto, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                            Binding="{Binding IngresoNeto, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                            Width="135" />
+                                                            Width="112" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </Grid>
@@ -683,19 +683,19 @@
                                                     Width="60" />
                                 <DataGridTextColumn Header="Ingreso neto"
                                                     HeaderStyle="{StaticResource EncabezadoCompactoDerecha}"
-                                                    Binding="{Binding IngresoNeto, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding IngresoNeto, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                    Width="125" />
+                                                    Width="104" />
                                 <DataGridTextColumn Header="Costo"
                                                     HeaderStyle="{StaticResource EncabezadoCompactoDerecha}"
-                                                    Binding="{Binding Costo, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding Costo, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                    Width="125" />
+                                                    Width="104" />
                                 <DataGridTextColumn Header="Margen bruto"
                                                     HeaderStyle="{StaticResource EncabezadoCompactoDerecha}"
-                                                    Binding="{Binding MargenBruto, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding MargenBruto, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                    Width="125" />
+                                                    Width="104" />
                                 <DataGridTextColumn Header="Margen %"
                                                     HeaderStyle="{StaticResource EncabezadoBordeDerCompacto}"
                                                     CellStyle="{StaticResource CeldaBordeDerCompacta}"
@@ -749,14 +749,14 @@
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Costo rep."
                                                     HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                    Binding="{Binding CostoReposicion, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding CostoReposicion, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                    Width="135" />
+                                                    Width="112" />
                                 <DataGridTextColumn Header="Precio venta"
                                                     HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                    Binding="{Binding PrecioVenta, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding PrecioVenta, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                    Width="135" />
+                                                    Width="112" />
                             </DataGrid.Columns>
                         </DataGrid>
 
@@ -787,18 +787,18 @@
                                                     Width="60" />
                                 <DataGridTextColumn Header="Costo rep."
                                                     HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                    Binding="{Binding CostoReposicion, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding CostoReposicion, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                    Width="135" />
+                                                    Width="112" />
                                 <DataGridTextColumn Header="Últ. venta"
                                                     Binding="{Binding UltimaVenta, StringFormat='{}{0:dd/MM/yyyy}', ConverterCulture=es-AR, TargetNullValue='Nunca'}"
                                                     ElementStyle="{StaticResource TextBlockNumericCell}"
                                                     Width="95" />
                                 <DataGridTextColumn Header="Capital inmov."
                                                     HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                    Binding="{Binding CapitalInmovilizado, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}"
+                                                    Binding="{Binding CapitalInmovilizado, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                    Width="135" />
+                                                    Width="112" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
@@ -830,25 +830,25 @@
                                 <TextBlock Text="{Binding TotalesVentas.CantidadVentas, StringFormat='{}{0:N0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaNumericaDerecha}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="2" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="6,8">
-                                <TextBlock Text="{Binding TotalesVentas.TotalVendido, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalesVentas.TotalVendido, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="3" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="6,8">
-                                <TextBlock Text="{Binding TotalesVentas.Efectivo, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalesVentas.Efectivo, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="4" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="6,8">
-                                <TextBlock Text="{Binding TotalesVentas.TarjetaDebito, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalesVentas.TarjetaDebito, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="5" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="6,8">
-                                <TextBlock Text="{Binding TotalesVentas.TarjetaCredito, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalesVentas.TarjetaCredito, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="6" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="6,8">
-                                <TextBlock Text="{Binding TotalesVentas.TransferenciaQr, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalesVentas.TransferenciaQr, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="7" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="6,8">
-                                <TextBlock Text="{Binding TotalesVentas.CuentaCorriente, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalesVentas.CuentaCorriente, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="8" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="6,8,16,8">
-                                <TextBlock Text="{Binding TotalesVentas.Descuentos, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalesVentas.Descuentos, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaMonedaChica}" FontWeight="Bold" />
                             </Viewbox>
                         </Grid>
                     </Border>
@@ -874,13 +874,13 @@
                                 <TextBlock Text="{Binding TotalRentabilidad.Unidades, StringFormat='{}{0:N0}', ConverterCulture=es-AR}" Style="{StaticResource CeldaNumericaDerecha}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="2" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="8,8">
-                                <TextBlock Text="{Binding TotalRentabilidad.IngresoNeto, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource TextBlockCurrencyCell}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalRentabilidad.IngresoNeto, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource TextBlockCurrencyCell}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="3" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="8,8">
-                                <TextBlock Text="{Binding TotalRentabilidad.Costo, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource TextBlockCurrencyCell}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalRentabilidad.Costo, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource TextBlockCurrencyCell}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="4" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="8,8">
-                                <TextBlock Text="{Binding TotalRentabilidad.MargenBruto, StringFormat='$ {0:#,##0.00}', ConverterCulture=es-AR}" Style="{StaticResource TextBlockCurrencyCell}" FontWeight="Bold" />
+                                <TextBlock Text="{Binding TotalRentabilidad.MargenBruto, StringFormat='$ {0:#,##0}', ConverterCulture=es-AR}" Style="{StaticResource TextBlockCurrencyCell}" FontWeight="Bold" />
                             </Viewbox>
                             <Viewbox Grid.Column="5" StretchDirection="DownOnly" HorizontalAlignment="Right" Margin="8,8,16,8">
                                 <TextBlock Text="{Binding TotalRentabilidad.MargenPorcentual, StringFormat='{}{0:N2} %', ConverterCulture=es-AR, TargetNullValue='n/d'}" Style="{StaticResource CeldaNumericaDerecha}" FontWeight="Bold" />

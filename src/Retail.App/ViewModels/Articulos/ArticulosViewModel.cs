@@ -95,7 +95,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     private int _paginaActual = 1;
 
     [ObservableProperty]
-    private int _tamanoPagina = 10;
+    private int _tamanoPagina = 15;
 
     [ObservableProperty]
     private int _totalPaginas = 1;
@@ -109,7 +109,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
-    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = OpcionesPaginacion.Tamanos;
 
     public bool HayFiltrosActivos =>
         !string.IsNullOrWhiteSpace(TextoBusqueda) ||
@@ -128,6 +128,19 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
     /// <summary>Solo el Gerente y el Encargado ven las acciones de pedir (A-14).</summary>
     public bool PuedePedir => _flujoPedir?.PuedePedir == true;
 
+    private readonly IConfiguracionComercialService? _configuracionComercial;
+
+    /// <summary>
+    /// Política global de redondeo (D-38) para la vista previa de precio de los formularios. Se lee en cada apertura y no
+    /// se cachea: el Gerente pudo cambiarla desde otra terminal.
+    /// </summary>
+    private async Task<RedondeoPrecioEnum> ObtenerRedondeoPrecioAsync()
+    {
+        return _configuracionComercial is null
+            ? RedondeoPrecioEnum.EnteroMasCercano
+            : await _configuracionComercial.ObtenerRedondeoPrecioAsync();
+    }
+
     public ArticulosViewModel(
         IInventarioService inventarioService,
         IArticuloDialogService dialogService,
@@ -136,8 +149,10 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
         IClasificacionDialogService? clasificacionDialogService = null,
         ICurrentUserSession? session = null,
         FlujoPedirArticulos? flujoPedir = null,
-        IRubroService? rubroService = null)
+        IRubroService? rubroService = null,
+        IConfiguracionComercialService? configuracionComercial = null)
     {
+        _configuracionComercial = configuracionComercial;
         _inventarioService = inventarioService ?? throw new ArgumentNullException(nameof(inventarioService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _proveedorService = proveedorService;
@@ -394,13 +409,15 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                 _cacheMarcas = (await _inventarioService.ListarMarcasAsync()).ToList();
             }
 
+            var redondeoPrecio = await ObtenerRedondeoPrecioAsync();
             var nuevoDto = _dialogService.MostrarDialogoCrear(
                 _cacheCategorias,
                 _cacheMarcas,
                 async (crearDto) =>
                 {
                     await _inventarioService.CrearArticuloAsync(crearDto);
-                });
+                },
+                redondeoPrecio);
 
             if (nuevoDto != null)
             {
@@ -444,6 +461,7 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                 ? []
                 : await _inventarioService.ObtenerFuentesDeArticuloAsync(target.IdArticulo);
 
+            var redondeoPrecio = await ObtenerRedondeoPrecioAsync();
             var modificadoDto = _dialogService.MostrarDialogoModificar(
                 target,
                 fuentes,
@@ -452,7 +470,8 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
                 async (actDto) =>
                 {
                     await _inventarioService.ActualizarArticuloAsync(actDto);
-                });
+                },
+                redondeoPrecio);
 
             if (modificadoDto != null)
             {
@@ -537,12 +556,14 @@ public partial class ArticulosViewModel : ObservableObject, IDisposable
 
         try
         {
+            var redondeoPrecio = await ObtenerRedondeoPrecioAsync();
             var creada = _dialogService.MostrarDialogoCrearPresentacion(
                 origen,
                 async (dto) =>
                 {
                     await _inventarioService.CrearPresentacionAsync(dto);
-                });
+                },
+                redondeoPrecio);
 
             if (creada != null)
             {

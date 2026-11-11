@@ -57,9 +57,9 @@ public partial class ItemVentaPosViewModel : ObservableObject
 
     public decimal SubtotalItem => Cantidad * PrecioUnitario;
 
-    public string PrecioUnitarioFormateado => PrecioUnitario.ToString("C2", CulturaArgentina);
+    public string PrecioUnitarioFormateado => PrecioUnitario.ToString("C0", CulturaArgentina);
 
-    public string SubtotalItemFormateado => SubtotalItem.ToString("C2", CulturaArgentina);
+    public string SubtotalItemFormateado => SubtotalItem.ToString("C0", CulturaArgentina);
 
     public string IdentificadorVisual => !string.IsNullOrWhiteSpace(CodigoBarras)
         ? CodigoBarras

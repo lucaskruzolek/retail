@@ -10,6 +10,7 @@ using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Proveedores;
@@ -279,7 +280,8 @@ public partial class IncorporarArticulosModalViewModel : ObservableObject, IDisp
     public void Inicializar(
         IEnumerable<CategoriaDto> categorias,
         IEnumerable<MarcaDto> marcas,
-        IEnumerable<CatalogoProveedorDto>? items = null)
+        IEnumerable<CatalogoProveedorDto>? items = null,
+        RedondeoPrecioEnum redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano)
     {
         // El ViewModel se reutiliza entre aperturas: se cancela y descarta todo lo de la anterior. Mientras se
         // reinicia, el interruptor no dispara el cálculo: lo pide quien abre el diálogo con IniciarAsync.
@@ -321,7 +323,8 @@ public partial class IncorporarArticulosModalViewModel : ObservableObject, IDisp
                     item.CostoReposicion,
                     PorcentajeGananciaGlobal,
                     OpcionesCategoria,
-                    OpcionesMarca);
+                    OpcionesMarca,
+                    redondeoPrecio);
                 fila.PropertyChanged += AlCambiarUnItem;
                 Items.Add(fila);
             }

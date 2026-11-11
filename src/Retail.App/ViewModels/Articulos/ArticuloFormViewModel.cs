@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 
 namespace Retail.App.ViewModels.Articulos;
 
@@ -246,6 +247,18 @@ public partial class ArticuloFormViewModel : ObservableObject
         RecalcularPrecioVenta();
     }
 
+    /// <summary>
+    /// Política global de redondeo del precio (D-38) que usa la vista previa; la asigna quien abre el formulario, para
+    /// que el precio mostrado sea el mismo que guardará el servicio.
+    /// </summary>
+    [ObservableProperty]
+    private RedondeoPrecioEnum _redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano;
+
+    partial void OnRedondeoPrecioChanged(RedondeoPrecioEnum value)
+    {
+        RecalcularPrecioVenta();
+    }
+
     partial void OnCostoReposicionChanged(decimal value)
     {
         RecalcularPrecioVenta();
@@ -264,7 +277,7 @@ public partial class ArticuloFormViewModel : ObservableObject
             return;
         }
 
-        PrecioVentaCalculado = Articulo.CalcularPrecioVenta(CostoReposicion, PorcentajeGanancia);
+        PrecioVentaCalculado = Articulo.CalcularPrecioVenta(CostoReposicion, PorcentajeGanancia, RedondeoPrecio);
     }
 
     public void ConfigurarAlta(IReadOnlyList<CategoriaDto> categorias, IReadOnlyList<MarcaDto> marcas)

@@ -329,9 +329,9 @@
                         <!-- Precio de costo -->
                         <DataGridTextColumn Header="Costo Reposición"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                            Binding="{Binding CostoReposicion, StringFormat=C2}"
+                                            Binding="{Binding CostoReposicion, StringFormat=C0}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="160" />
+                                            Width="140" />
 
                         <!-- Estado de vinculación. Su filtro (Sin incorporar / Ya en tienda) vive en la cabecera. Una columna no
                              está en el árbol visual: el filtro toma el DataContext de la página buscando el UserControl ancestro. -->

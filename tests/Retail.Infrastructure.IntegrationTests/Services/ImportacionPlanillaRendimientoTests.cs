@@ -6,7 +6,9 @@ using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Services;
 using Retail.Application.Validators.Proveedores;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.ExternalServices.Excel;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
 using Retail.Infrastructure.Persistence.Services;
@@ -168,7 +170,8 @@ public class ImportacionPlanillaRendimientoTests : IAsyncLifetime, IDisposable
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
             new IncorporarCatalogoArticulosValidator(),
-            new ConsultaCatalogoProveedorValidator());
+            new ConsultaCatalogoProveedorValidator(),
+            ConfiguracionComercialDePrueba.ConRedondeoEntero());
 
         _comandos.Reiniciar();
         _guardado.Reiniciar();
@@ -266,8 +269,8 @@ public class ImportacionPlanillaRendimientoTests : IAsyncLifetime, IDisposable
                 StockMinimo = 2
             };
             catalogo.AsignarArticulo(articulo);
-            articulo.MarcarFuentePrincipal(catalogo);
-            articulo.ActualizarCostoYRecalcularPrecio(100m);
+            articulo.MarcarFuentePrincipal(catalogo, RedondeoPrecioEnum.EnteroMasCercano);
+            articulo.ActualizarCostoYRecalcularPrecio(100m, RedondeoPrecioEnum.EnteroMasCercano);
             _context.Articulos.Add(articulo);
         }
 

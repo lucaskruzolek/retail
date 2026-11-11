@@ -6,6 +6,7 @@ using Retail.App.ViewModels.Articulos;
 using Retail.App.Views.Dialogs;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Domain.Enums;
 
 namespace Retail.App.Services;
 
@@ -59,9 +60,10 @@ public class ArticuloDialogService : IArticuloDialogService
     public CrearArticuloDto? MostrarDialogoCrear(
         IReadOnlyList<CategoriaDto> categorias,
         IReadOnlyList<MarcaDto> marcas,
-        Func<CrearArticuloDto, Task>? onGuardarAsync = null)
+        Func<CrearArticuloDto, Task>? onGuardarAsync = null,
+        RedondeoPrecioEnum redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano)
     {
-        var vm = new ArticuloFormViewModel();
+        var vm = new ArticuloFormViewModel { RedondeoPrecio = redondeoPrecio };
         vm.ConfigurarAlta(categorias, marcas);
         vm.OnAbrirSelectorProveedorAsync = async (texto, idsEnFormulario) =>
         {
@@ -93,11 +95,12 @@ public class ArticuloDialogService : IArticuloDialogService
         IReadOnlyList<FuenteArticuloDto> fuentes,
         IReadOnlyList<CategoriaDto> categorias,
         IReadOnlyList<MarcaDto> marcas,
-        Func<ActualizarArticuloDto, Task>? onGuardarAsync = null)
+        Func<ActualizarArticuloDto, Task>? onGuardarAsync = null,
+        RedondeoPrecioEnum redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano)
     {
         ArgumentNullException.ThrowIfNull(articulo);
 
-        var vm = new ArticuloFormViewModel();
+        var vm = new ArticuloFormViewModel { RedondeoPrecio = redondeoPrecio };
         vm.ConfigurarEdicion(articulo, fuentes, categorias, marcas);
         vm.OnAbrirSelectorProveedorAsync = async (texto, idsEnFormulario) =>
         {
@@ -126,11 +129,12 @@ public class ArticuloDialogService : IArticuloDialogService
 
     public CrearPresentacionDto? MostrarDialogoCrearPresentacion(
         ArticuloDto origen,
-        Func<CrearPresentacionDto, Task>? onGuardarAsync = null)
+        Func<CrearPresentacionDto, Task>? onGuardarAsync = null,
+        RedondeoPrecioEnum redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano)
     {
         ArgumentNullException.ThrowIfNull(origen);
 
-        var vm = new PresentacionFormViewModel();
+        var vm = new PresentacionFormViewModel { RedondeoPrecio = redondeoPrecio };
         vm.Configurar(origen);
 
         if (onGuardarAsync != null)

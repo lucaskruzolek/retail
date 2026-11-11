@@ -374,8 +374,8 @@
                     <!-- Costo de reposición -->
                     <DataGridTextColumn Header="Costo"
                                         HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                        Binding="{Binding Articulo.CostoReposicion, StringFormat={}{0:C2}}"
-                                        Width="110"
+                                        Binding="{Binding Articulo.CostoReposicion, StringFormat={}{0:C0}}"
+                                        Width="88"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
                     <!-- Margen de ganancia -->
@@ -388,7 +388,7 @@
                     <!-- Precio de venta (en negrita; el carmín queda para la marca y las acciones) -->
                     <DataGridTextColumn Header="Precio de venta"
                                         HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                        Binding="{Binding Articulo.PrecioVenta, StringFormat={}{0:C2}}"
+                                        Binding="{Binding Articulo.PrecioVenta, StringFormat={}{0:C0}}"
                                         Width="132"
                                         ElementStyle="{StaticResource TextBlockPriceCell}" />
 

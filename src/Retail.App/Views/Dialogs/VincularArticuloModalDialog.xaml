@@ -126,7 +126,7 @@
                                              Width="*" />
                         <DataGridTextColumn Header="Precio Venta"
                                              HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                             Binding="{Binding PrecioVenta, StringFormat={}{0:C2}}"
+                                             Binding="{Binding PrecioVenta, StringFormat={}{0:C0}}"
                                              ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                              Width="100" />
                         <DataGridTextColumn Header="Stock"

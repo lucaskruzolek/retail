@@ -630,6 +630,42 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.ConfiguracionComercial", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int")
+                        .HasColumnName("id_configuracion_comercial");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("RedondeoPrecio")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasColumnName("redondeo_precio");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CONFIGURACION_COMERCIAL", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_CONFIGURACION_COMERCIAL_RedondeoPrecio", "[redondeo_precio] IN ('EnteroMasCercano', 'MultiploDe5Superior', 'MultiploDe5Inferior', 'MultiploDe10Superior', 'MultiploDe10Inferior', 'MultiploDe100Superior', 'MultiploDe100Inferior')");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTime(2026, 11, 11, 0, 0, 0, 0, DateTimeKind.Utc),
+                            RedondeoPrecio = "EnteroMasCercano"
+                        });
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.DetalleCompra", b =>
                 {
                     b.Property<int>("Id")

@@ -103,7 +103,7 @@ public abstract class PedidosPruebaBase : IAsyncLifetime
             StockMinimo = 1
         };
         catalogo.AsignarArticulo(articulo);
-        articulo.MarcarFuentePrincipal(catalogo);
+        articulo.MarcarFuentePrincipal(catalogo, RedondeoPrecioEnum.EnteroMasCercano);
         Contexto.Articulos.Add(articulo);
         await Contexto.SaveChangesAsync();
         return (articulo, catalogo);

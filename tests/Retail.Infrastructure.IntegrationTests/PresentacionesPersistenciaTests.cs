@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 using Xunit;
 
@@ -47,7 +48,7 @@ public class PresentacionesPersistenciaTests : IAsyncLifetime, IDisposable
         // Arrange
         var origen = await GuardarOrigenAsync();
         var derivado = NuevoArticulo("Sobre manila (unidad)");
-        derivado.DefinirComoPresentacionDe(origen, 100);
+        derivado.DefinirComoPresentacionDe(origen, 100, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(derivado);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();

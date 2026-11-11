@@ -5,6 +5,7 @@ using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
+using Retail.Application.Interfaces.Services;
 using Retail.Application.Services;
 using Retail.Application.Validators.Articulos;
 using Retail.Domain.Entities;
@@ -21,6 +22,7 @@ public class InventarioServiceTests
     private readonly IRepository<Marca> _marcaRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICatalogoProveedorQueryService _catalogoQueryService;
+    private readonly IConfiguracionComercialService _configuracionComercial;
     private readonly CrearArticuloValidator _crearValidator;
     private readonly ActualizarArticuloValidator _actualizarValidator;
     private readonly InventarioService _sut;
@@ -32,6 +34,8 @@ public class InventarioServiceTests
         _marcaRepository = Substitute.For<IRepository<Marca>>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
         _catalogoQueryService = Substitute.For<ICatalogoProveedorQueryService>();
+        _configuracionComercial = Substitute.For<IConfiguracionComercialService>();
+        _configuracionComercial.ObtenerRedondeoPrecioAsync(Arg.Any<CancellationToken>()).Returns(RedondeoPrecioEnum.EnteroMasCercano);
         _crearValidator = new CrearArticuloValidator();
         _actualizarValidator = new ActualizarArticuloValidator();
 
@@ -45,7 +49,8 @@ public class InventarioServiceTests
             new CrearPresentacionValidator(),
             new FraccionarValidator(),
             new ConsultaArticulosValidator(),
-            _catalogoQueryService);
+            _catalogoQueryService,
+            _configuracionComercial);
     }
 
     [Fact]
@@ -899,6 +904,7 @@ public class InventarioServiceTests
             new FraccionarValidator(),
             new ConsultaArticulosValidator(),
             _catalogoQueryService,
+            _configuracionComercial,
             consulta);
 
         // Act
@@ -977,6 +983,7 @@ public class InventarioServiceTests
             new FraccionarValidator(),
             new ConsultaArticulosValidator(),
             _catalogoQueryService,
+            _configuracionComercial,
             consultaService);
     }
 
@@ -1010,7 +1017,7 @@ public class InventarioServiceTests
         var articulo = new Articulo { Id = 10, Descripcion = "Marcador Edding 700", CostoReposicion = 500m, PorcentajeGanancia = 50m };
         var principal = CrearFuente(25, costo: 800m);
         principal.AsignarArticulo(articulo);
-        articulo.MarcarFuentePrincipal(principal);
+        articulo.MarcarFuentePrincipal(principal, RedondeoPrecioEnum.EnteroMasCercano);
         foreach (var adicional in adicionales)
         {
             adicional.AsignarArticulo(articulo);
@@ -1036,6 +1043,21 @@ public class InventarioServiceTests
     }
 
     [Fact]
+    public async Task ActualizarCostoYPrecioAsync_ConPoliticaVigenteMultiploDe10Superior_RedondeaElPrecioAEsaPolitica()
+    {
+        // Arrange: el servicio debe pasarle al Dominio la política actual, no una fija (D-38)
+        _configuracionComercial.ObtenerRedondeoPrecioAsync(Arg.Any<CancellationToken>()).Returns(RedondeoPrecioEnum.MultiploDe10Superior);
+        var origen = CrearOrigen();
+        PrepararTienda(origen);
+
+        // Act
+        await _sut.ActualizarCostoYPrecioAsync(1, 1234m);
+
+        // Assert: 1234 × 1,40 = 1727,60, que sube a 1730
+        origen.PrecioVenta.Should().Be(1730m);
+    }
+
+    [Fact]
     public async Task ActualizarCostoYPrecioAsync_OrigenConPresentaciones_PropagaElCosto()
     {
         // Arrange
@@ -1048,7 +1070,7 @@ public class InventarioServiceTests
 
         // Assert
         derivado.CostoReposicion.Should().Be(45m);
-        derivado.PrecioVenta.Should().Be(67.5m);
+        derivado.PrecioVenta.Should().Be(68m); // 45 × 1,5 = 67,50 → 68 (D-38)
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
     }
 
@@ -1093,7 +1115,7 @@ public class InventarioServiceTests
             PorcentajeGanancia = 50m,
             StockActual = stock
         };
-        derivado.DefinirComoPresentacionDe(origen, 100);
+        derivado.DefinirComoPresentacionDe(origen, 100, RedondeoPrecioEnum.EnteroMasCercano);
         return derivado;
     }
 

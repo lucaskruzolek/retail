@@ -47,7 +47,7 @@
         <DataTemplate x:Key="PlantillaPrecioNuevo">
             <Grid HorizontalAlignment="Right" VerticalAlignment="Center">
                 <TextBlock x:Name="SinCambio"
-                           Text="{Binding NuevoPrecioVenta, StringFormat=C2}"
+                           Text="{Binding NuevoPrecioVenta, StringFormat=C0}"
                            Style="{StaticResource CeldaMonedaSecundaria}" />
 
                 <Border x:Name="Sube" Style="{StaticResource BadgeWarningStyle}" Visibility="Collapsed"
@@ -56,7 +56,7 @@
                         <iconPacks:PackIconBoxIcons Kind="RegularTrendingUp" Width="14" Height="14"
                                                     Foreground="{DynamicResource WarningForegroundBrush}"
                                                     Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding NuevoPrecioVenta, StringFormat=C2}" Language="es-AR"
+                        <TextBlock Text="{Binding NuevoPrecioVenta, StringFormat=C0}" Language="es-AR"
                                    FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular"
                                    FontSize="{StaticResource FontSizeBase}" FontWeight="SemiBold"
                                    Foreground="{DynamicResource WarningForegroundBrush}" />
@@ -69,7 +69,7 @@
                         <iconPacks:PackIconBoxIcons Kind="RegularTrendingDown" Width="14" Height="14"
                                                     Foreground="{DynamicResource SuccessForegroundBrush}"
                                                     Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding NuevoPrecioVenta, StringFormat=C2}" Language="es-AR"
+                        <TextBlock Text="{Binding NuevoPrecioVenta, StringFormat=C0}" Language="es-AR"
                                    FontFamily="{StaticResource FontFamilyNumeric}" Typography.NumeralAlignment="Tabular"
                                    FontSize="{StaticResource FontSizeBase}" FontWeight="SemiBold"
                                    Foreground="{DynamicResource SuccessForegroundBrush}" />
@@ -372,13 +372,13 @@
 
                         <DataGridTextColumn Header="Subtotal"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                            Binding="{Binding Subtotal, StringFormat=C2}"
+                                            Binding="{Binding Subtotal, StringFormat=C0}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                            Width="128" />
+                                            Width="104" />
 
                         <DataGridTextColumn Header="Precio actual"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                            Binding="{Binding PrecioVentaActual, StringFormat=C2}"
+                                            Binding="{Binding PrecioVentaActual, StringFormat=C0}"
                                             ElementStyle="{StaticResource CeldaMonedaSecundaria}"
                                             Width="128" />
 

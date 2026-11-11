@@ -555,10 +555,10 @@
                                         </DataGridTemplateColumn>
 
                                         <!-- Costo de reposición -->
-                                        <DataGridTemplateColumn Header="Costo" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="100">
+                                        <DataGridTemplateColumn Header="Costo" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="84">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock Text="{Binding CostoReposicion, StringFormat=C2}"
+                                                    <TextBlock Text="{Binding CostoReposicion, StringFormat=C0}"
                                                                Style="{StaticResource TextBlockCurrencyCell}" />
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
@@ -585,7 +585,7 @@
                                         <DataGridTemplateColumn Header="Precio Final" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="105">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <TextBlock Text="{Binding PrecioVenta, StringFormat=C2}"
+                                                    <TextBlock Text="{Binding PrecioVenta, StringFormat=C0}"
                                                                FontFamily="{StaticResource FontFamilyNumeric}"
                                                                Typography.NumeralAlignment="Tabular"
                                                                FontWeight="Bold"
@@ -645,7 +645,7 @@
                                     <!-- Costo Reposición -->
                                     <DataGridTextColumn Header="Costo Reposición"
                                                         HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                        Binding="{Binding CostoReposicion, StringFormat=C2}"
+                                                        Binding="{Binding CostoReposicion, StringFormat=C0}"
                                                         ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                         Width="130"
                                                         IsReadOnly="True" />
@@ -671,7 +671,7 @@
                                     <DataGridTemplateColumn Header="Precio Venta Final" HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}" Width="140">
                                         <DataGridTemplateColumn.CellTemplate>
                                             <DataTemplate>
-                                                <TextBlock Text="{Binding PrecioVenta, StringFormat=C2}"
+                                                <TextBlock Text="{Binding PrecioVenta, StringFormat=C0}"
                                                            FontFamily="{StaticResource FontFamilyNumeric}"
                                                            Typography.NumeralAlignment="Tabular"
                                                            FontWeight="Bold"

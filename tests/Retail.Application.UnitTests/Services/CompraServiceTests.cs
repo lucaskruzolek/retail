@@ -4,6 +4,7 @@ using FluentValidation;
 using NSubstitute;
 using Retail.Application.DTOs.Compras;
 using Retail.Application.Interfaces.Persistence;
+using Retail.Application.Interfaces.Services;
 using Retail.Application.Services;
 using Retail.Application.Validators.Compras;
 using Retail.Domain.Entities;
@@ -26,6 +27,7 @@ public class CompraServiceTests
     private readonly IRepository<Pedido> _pedidoRepository;
     private readonly IArticuloQueryService _articuloQueryService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IConfiguracionComercialService _configuracionComercial;
     private readonly CompraService _sut;
 
     // Proveedor y usuario activos configurados por defecto en cada test.
@@ -41,6 +43,8 @@ public class CompraServiceTests
         _pedidoRepository = Substitute.For<IRepository<Pedido>>();
         _articuloQueryService = Substitute.For<IArticuloQueryService>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
+        _configuracionComercial = Substitute.For<IConfiguracionComercialService>();
+        _configuracionComercial.ObtenerRedondeoPrecioAsync(Arg.Any<CancellationToken>()).Returns(RedondeoPrecioEnum.EnteroMasCercano);
 
         _proveedor = Proveedor.Crear("Editorial Norte S.A.", "20123456786");
         _proveedor.Id = IdProveedor;
@@ -63,7 +67,8 @@ public class CompraServiceTests
             _pedidoRepository,
             _articuloQueryService,
             _unitOfWork,
-            new CrearCompraValidator());
+            new CrearCompraValidator(),
+            _configuracionComercial);
     }
 
     // ── Artículos derivados y búsqueda para compra ────────────────────────────
@@ -162,6 +167,24 @@ public class CompraServiceTests
         // Assert: el dominio recalcula PrecioVenta = 130 * (1 + 50/100) = 195
         cuaderno.CostoReposicion.Should().Be(130m);
         cuaderno.PrecioVenta.Should().Be(195m);
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConPoliticaVigenteMultiploDe10Superior_RedondeaElPrecioAEsaPolitica()
+    {
+        // Arrange: el gerente configuró múltiplo de 10 hacia arriba (D-38)
+        _configuracionComercial.ObtenerRedondeoPrecioAsync(Arg.Any<CancellationToken>()).Returns(RedondeoPrecioEnum.MultiploDe10Superior);
+        var cuaderno = CrearArticulo(IdArticulo, "Cuaderno A4", costo: 100m, precio: 150m, stock: 10, markup: 50m);
+        ConfigurarArticulos(cuaderno);
+
+        var dto = CrearDtoValido([Item(cuaderno, 5, costoUnitario: 131m)]);
+
+        // Act
+        await _sut.RegistrarCompraAsync(dto);
+
+        // Assert: 131 × 1,5 = 196,50, que sube al múltiplo de 10 siguiente
+        cuaderno.PrecioVenta.Should().Be(200m);
+        await _configuracionComercial.Received(1).ObtenerRedondeoPrecioAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

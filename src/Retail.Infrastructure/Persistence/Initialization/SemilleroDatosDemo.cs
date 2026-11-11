@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 
 namespace Retail.Infrastructure.Persistence.Initialization;
 
 /// <summary>
-/// Datos de demostración que carga <c>Retail.Cli datos-demo</c> (RF-23): un proveedor, rubros con sus categorías y marcas.
+/// Datos de demostración que carga <c>Retail.Cli datos-demo</c> (RF-23): un proveedor, rubros con sus categorías, marcas y
+/// la política de redondeo de precios de la demo (<see cref="RedondeoPrecioDemo"/>, D-38).
 /// No crea usuarios (el primer Gerente lo crea <c>Retail.Cli inicializar</c>) ni artículos (la demostración los
 /// incorpora importando la planilla del proveedor).
 /// </summary>
@@ -45,6 +47,13 @@ public static class SemilleroDatosDemo
         "Pelikan",
         "Creaciones Artesanales"
     ];
+
+    /// <summary>
+    /// Política de redondeo del precio de venta de la demostración (D-38): precios "redondos" al múltiplo de 10 superior,
+    /// como los de una librería real. La usan <c>historial-demo</c> (lee la configuración guardada) y todo precio que se
+    /// recalcule durante la demostración (importaciones, compras, altas).
+    /// </summary>
+    public const RedondeoPrecioEnum RedondeoPrecioDemo = RedondeoPrecioEnum.MultiploDe10Superior;
 
     // CUIT ficticio con dígito verificador válido: pasa por las mismas reglas que un alta desde la aplicación.
     public const string CuitProveedorDemo = "30709998885";
@@ -106,7 +115,33 @@ public static class SemilleroDatosDemo
             agregados++;
         }
 
+        await AplicarRedondeoDemoAsync(context, cancellationToken);
+
         await context.SaveChangesAsync(cancellationToken);
         return agregados;
+    }
+
+    /// <summary>
+    /// Deja la política de redondeo de la demo, salvo que alguien ya haya elegido otra: solo reemplaza el valor de fábrica
+    /// que siembra la migración (<see cref="RedondeoPrecioEnum.EnteroMasCercano"/>), para no pisar una decisión del Gerente
+    /// al volver a ejecutar el comando (idempotencia, D-16). Pasa por el agregado, que valida la política.
+    /// </summary>
+    private static async Task AplicarRedondeoDemoAsync(RetailDbContext context, CancellationToken cancellationToken)
+    {
+        var configuracion = await context.ConfiguracionesComerciales
+            .SingleOrDefaultAsync(c => c.Id == ConfiguracionComercial.IdUnico, cancellationToken);
+
+        if (configuracion is null)
+        {
+            configuracion = new ConfiguracionComercial { Id = ConfiguracionComercial.IdUnico };
+            configuracion.CambiarRedondeoPrecio(RedondeoPrecioDemo);
+            await context.ConfiguracionesComerciales.AddAsync(configuracion, cancellationToken);
+            return;
+        }
+
+        if (configuracion.RedondeoPrecio == RedondeoPrecioEnum.EnteroMasCercano)
+        {
+            configuracion.CambiarRedondeoPrecio(RedondeoPrecioDemo);
+        }
     }
 }

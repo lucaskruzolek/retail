@@ -9,6 +9,10 @@
              d:DesignHeight="700" d:DesignWidth="1100"
              Background="{DynamicResource SurfaceBackgroundBrush}">
 
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+    </UserControl.Resources>
+
     <Grid Margin="{StaticResource PageMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -44,6 +48,66 @@
                                          Content="Oscuro" />
                         </UniformGrid>
                     </components:SelectorSegmentado>
+                </StackPanel>
+            </Border>
+
+            <!-- Precios (solo Gerente, D-38): redondeo global del precio de venta calculado con el markup. Se guarda con
+                 "Aplicar" y no al elegir, porque cambia los precios que calcula todo el comercio. -->
+            <Border Style="{StaticResource DialogSectionStyle}"
+                    Margin="{StaticResource StackLg}"
+                    Visibility="{Binding MostrarPrecios, Converter={StaticResource BoolToVisConverter}}">
+                <StackPanel>
+                    <TextBlock Text="Precios" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
+
+                    <TextBlock Text="Redondeo del precio de venta"
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               Margin="{StaticResource StackSm}" />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Grid.Column="0"
+                                  ItemsSource="{Binding OpcionesRedondeo}"
+                                  SelectedItem="{Binding RedondeoSeleccionado}"
+                                  DisplayMemberPath="Texto"
+                                  Height="{StaticResource ControlHeight}"
+                                  AutomationProperties.Name="Redondeo del precio de venta" />
+                        <Button Grid.Column="1"
+                                Command="{Binding AplicarRedondeoCommand}"
+                                Style="{StaticResource PrimaryActionButtonStyle}"
+                                Margin="12,0,0,0"
+                                Content="Aplicar" />
+                    </Grid>
+
+                    <TextBlock Text="{Binding EjemploRedondeo}"
+                               Style="{StaticResource TextBlockCaption}"
+                               Margin="0,8,0,0" />
+
+                    <TextBlock Text="Se aplica en los próximos recálculos (alta o edición de artículos, compras e importaciones). Los precios actuales no cambian. El precio nunca queda por debajo del costo: si el redondeo inferior lo dejara así, se usa el superior."
+                               Style="{StaticResource TextBlockCaption}"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+
+                    <TextBlock Text="{Binding MensajeRedondeo}"
+                               TextWrapping="Wrap"
+                               FontSize="{StaticResource FontSizeSm}"
+                               Margin="0,8,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{DynamicResource SuccessForegroundBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MensajeRedondeoEsError}" Value="True">
+                                        <Setter Property="Foreground" Value="{DynamicResource DangerForegroundBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding MensajeRedondeo}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Border>
 

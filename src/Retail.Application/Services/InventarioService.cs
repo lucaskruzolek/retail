@@ -3,6 +3,7 @@ using Retail.Application.DTOs.Articulos;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 using Retail.Domain.Services;
 
@@ -24,6 +25,7 @@ public class InventarioService : IInventarioService
     private readonly IValidator<FraccionarDto> _fraccionarValidator;
     private readonly IValidator<ConsultaArticulosDto> _consultaArticulosValidator;
     private readonly ICatalogoProveedorQueryService _catalogoQueryService;
+    private readonly IConfiguracionComercialService _configuracionComercial;
     private readonly IArticuloQueryService? _articuloQueryService;
 
     public InventarioService(
@@ -37,6 +39,7 @@ public class InventarioService : IInventarioService
         IValidator<FraccionarDto> fraccionarValidator,
         IValidator<ConsultaArticulosDto> consultaArticulosValidator,
         ICatalogoProveedorQueryService catalogoQueryService,
+        IConfiguracionComercialService configuracionComercial,
         IArticuloQueryService? articuloQueryService = null)
     {
         _articuloRepository = articuloRepository ?? throw new ArgumentNullException(nameof(articuloRepository));
@@ -49,6 +52,7 @@ public class InventarioService : IInventarioService
         _fraccionarValidator = fraccionarValidator ?? throw new ArgumentNullException(nameof(fraccionarValidator));
         _consultaArticulosValidator = consultaArticulosValidator ?? throw new ArgumentNullException(nameof(consultaArticulosValidator));
         _catalogoQueryService = catalogoQueryService ?? throw new ArgumentNullException(nameof(catalogoQueryService));
+        _configuracionComercial = configuracionComercial ?? throw new ArgumentNullException(nameof(configuracionComercial));
         _articuloQueryService = articuloQueryService;
     }
 
@@ -197,6 +201,9 @@ public class InventarioService : IInventarioService
         ArgumentNullException.ThrowIfNull(dto);
         await _crearArticuloValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
+        // Política global de redondeo del precio (D-38), leída una vez antes de modificar artículos.
+        var redondeo = await _configuracionComercial.ObtenerRedondeoPrecioAsync(cancellationToken);
+
         await ValidarCodigoBarrasUnicoAsync(dto.CodigoBarras, idArticuloExcluido: null, cancellationToken);
 
         var articulo = new Articulo();
@@ -209,11 +216,12 @@ public class InventarioService : IInventarioService
             porcentajeGanancia: dto.PorcentajeGanancia,
             stockActual: dto.StockActual,
             stockMinimo: dto.StockMinimo,
-            esServicio: dto.EsServicio);
+            esServicio: dto.EsServicio,
+            redondeo: redondeo);
 
         try
         {
-            await AplicarFuentesDelFormularioAsync(articulo, dto.IdsFuentes, dto.IdCatalogoProveedor, cancellationToken);
+            await AplicarFuentesDelFormularioAsync(articulo, dto.IdsFuentes, dto.IdCatalogoProveedor, redondeo, cancellationToken);
         }
         catch (DomainException)
         {
@@ -243,6 +251,9 @@ public class InventarioService : IInventarioService
     {
         ArgumentNullException.ThrowIfNull(dto);
         await _actualizarArticuloValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        // Política global de redondeo del precio (D-38), leída una vez antes de modificar artículos.
+        var redondeo = await _configuracionComercial.ObtenerRedondeoPrecioAsync(cancellationToken);
 
         var articulo = await _articuloRepository.GetByIdAsync(dto.IdArticulo, includeDeleted: false, cancellationToken);
         if (articulo == null)
@@ -276,10 +287,11 @@ public class InventarioService : IInventarioService
                 porcentajeGanancia: dto.PorcentajeGanancia,
                 stockActual: dto.StockActual,
                 stockMinimo: dto.StockMinimo,
-                esServicio: dto.EsServicio);
+                esServicio: dto.EsServicio,
+                redondeo: redondeo);
 
             // Va después de los datos: si cambia la principal, su costo reemplaza al del formulario (A-2).
-            await AplicarFuentesDelFormularioAsync(articulo, dto.IdsFuentes, dto.IdCatalogoProveedor, cancellationToken);
+            await AplicarFuentesDelFormularioAsync(articulo, dto.IdsFuentes, dto.IdCatalogoProveedor, redondeo, cancellationToken);
         }
         catch (DomainException)
         {
@@ -292,7 +304,7 @@ public class InventarioService : IInventarioService
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
         if (articulo.CostoReposicion != costoAnterior)
         {
-            await PropagarCostoAPresentacionesAsync(articulo, presentaciones, cancellationToken);
+            await PropagarCostoAPresentacionesAsync(articulo, presentaciones, redondeo, cancellationToken);
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -375,6 +387,9 @@ public class InventarioService : IInventarioService
             throw new ArgumentOutOfRangeException(nameof(idArticulo), "El identificador del artículo debe ser mayor a cero.");
         }
 
+        // Política global de redondeo del precio (D-38), leída una vez antes de modificar artículos.
+        var redondeo = await _configuracionComercial.ObtenerRedondeoPrecioAsync(cancellationToken);
+
         var articulo = await _articuloRepository.GetByIdAsync(idArticulo, includeDeleted: false, cancellationToken);
         if (articulo == null)
         {
@@ -382,13 +397,13 @@ public class InventarioService : IInventarioService
         }
 
         var costoAnterior = articulo.CostoReposicion;
-        articulo.ActualizarCostoYRecalcularPrecio(nuevoCostoReposicion);
+        articulo.ActualizarCostoYRecalcularPrecio(nuevoCostoReposicion, redondeo);
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
 
         if (articulo.CostoReposicion != costoAnterior && !articulo.EsDerivado)
         {
             var presentaciones = await ObtenerPresentacionesAsync(articulo.Id, cancellationToken);
-            await PropagarCostoAPresentacionesAsync(articulo, presentaciones, cancellationToken);
+            await PropagarCostoAPresentacionesAsync(articulo, presentaciones, redondeo, cancellationToken);
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -398,6 +413,9 @@ public class InventarioService : IInventarioService
     {
         ArgumentNullException.ThrowIfNull(dto);
         await _crearPresentacionValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        // Política global de redondeo del precio (D-38), leída una vez antes de modificar artículos.
+        var redondeo = await _configuracionComercial.ObtenerRedondeoPrecioAsync(cancellationToken);
 
         var origen = await _articuloRepository.GetByIdAsync(dto.IdArticuloOrigen, includeDeleted: false, cancellationToken);
         if (origen == null)
@@ -419,8 +437,9 @@ public class InventarioService : IInventarioService
             porcentajeGanancia: dto.PorcentajeGanancia,
             stockActual: 0,
             stockMinimo: dto.StockMinimo,
-            esServicio: false);
-        presentacion.DefinirComoPresentacionDe(origen, dto.UnidadesPorOrigen);
+            esServicio: false,
+            redondeo: redondeo);
+        presentacion.DefinirComoPresentacionDe(origen, dto.UnidadesPorOrigen, redondeo);
 
         await _articuloRepository.AddAsync(presentacion, cancellationToken);
         await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -543,11 +562,12 @@ public class InventarioService : IInventarioService
     private async Task PropagarCostoAPresentacionesAsync(
         Articulo origen,
         IReadOnlyList<Articulo> presentaciones,
+        RedondeoPrecioEnum redondeo,
         CancellationToken cancellationToken)
     {
         foreach (var presentacion in presentaciones)
         {
-            presentacion.RecalcularCostoDesdeOrigen(origen.CostoReposicion);
+            presentacion.RecalcularCostoDesdeOrigen(origen.CostoReposicion, redondeo);
             await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
         }
     }
@@ -563,6 +583,7 @@ public class InventarioService : IInventarioService
         Articulo articulo,
         IReadOnlyList<int> idsFuentes,
         int? idPrincipal,
+        RedondeoPrecioEnum redondeo,
         CancellationToken cancellationToken)
     {
         var actuales = articulo.Id > 0
@@ -602,7 +623,7 @@ public class InventarioService : IInventarioService
 
         // El validador garantiza que la principal está entre las fuentes deseadas, y ya son todas fuentes del artículo.
         var principal = actuales.Concat(nuevas).First(f => f.Id == id);
-        articulo.MarcarFuentePrincipal(principal);
+        articulo.MarcarFuentePrincipal(principal, redondeo);
     }
 
     private static ArticuloDto MapToDto(

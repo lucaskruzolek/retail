@@ -111,9 +111,9 @@ public partial class PedidosViewModel : ObservableObject, IDisposable
     private int _totalRegistros;
 
     [ObservableProperty]
-    private int _tamanoPagina = 20;
+    private int _tamanoPagina = 30;
 
-    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = OpcionesPaginacion.Tamanos;
 
     public bool PuedeRetrocederPagina => PaginaActual > 1;
 

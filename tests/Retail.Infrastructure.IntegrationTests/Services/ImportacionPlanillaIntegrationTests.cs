@@ -6,7 +6,9 @@ using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Services;
 using Retail.Application.Validators.Proveedores;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.ExternalServices.Excel;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
 using Retail.Infrastructure.Persistence.Services;
@@ -52,7 +54,8 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
             new IncorporarCatalogoArticulosValidator(),
-            new ConsultaCatalogoProveedorValidator());
+            new ConsultaCatalogoProveedorValidator(),
+            ConfiguracionComercialDePrueba.ConRedondeoEntero());
     }
 
     public async Task DisposeAsync()
@@ -106,7 +109,7 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
                 StockMinimo = 2
             };
             catalogo.AsignarArticulo(articulo);
-            articulo.MarcarFuentePrincipal(catalogo);
+            articulo.MarcarFuentePrincipal(catalogo, RedondeoPrecioEnum.EnteroMasCercano);
             _context.Articulos.Add(articulo);
         }
 
@@ -209,7 +212,7 @@ public class ImportacionPlanillaIntegrationTests : IAsyncLifetime, IDisposable
         var origen = await _context.Articulos
             .SingleAsync(a => a.CatalogoProveedor != null && a.CatalogoProveedor.IdProveedor == proveedor.Id);
         var presentacion = new Articulo { Descripcion = $"{origen.Descripcion} (unidad)", PorcentajeGanancia = 100m };
-        presentacion.DefinirComoPresentacionDe(origen, 10);
+        presentacion.DefinirComoPresentacionDe(origen, 10, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(presentacion);
         await _context.SaveChangesAsync();
         return presentacion;
