@@ -4,6 +4,7 @@ using NSubstitute;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
+using Retail.Application.Interfaces.Services;
 using Retail.Application.Services;
 using Retail.Application.Validators.Proveedores;
 using Retail.Domain.Entities;
@@ -50,7 +51,15 @@ public class IncorporacionConClasificacionTests
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
             new IncorporarCatalogoArticulosValidator(),
-            new ConsultaCatalogoProveedorValidator());
+            new ConsultaCatalogoProveedorValidator(),
+            ConfiguracionComercialConRedondeoEntero());
+    }
+
+    private static IConfiguracionComercialService ConfiguracionComercialConRedondeoEntero()
+    {
+        var configuracion = Substitute.For<IConfiguracionComercialService>();
+        configuracion.ObtenerRedondeoPrecioAsync(Arg.Any<CancellationToken>()).Returns(RedondeoPrecioEnum.EnteroMasCercano);
+        return configuracion;
     }
 
     [Theory]

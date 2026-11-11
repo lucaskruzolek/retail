@@ -48,6 +48,7 @@ internal sealed class SimulacionHistorialDemo
     private readonly IReadOnlyList<ArticuloSimulado> _articulos;
     private readonly IReadOnlyDictionary<int, ArticuloSimulado> _simuladoPorId;
     private readonly IReadOnlySet<int> _idsMorosos;
+    private readonly RedondeoPrecioEnum _redondeo;
 
     private Dictionary<int, Articulo> _articulosDelDia = [];
     private List<Cliente> _clientesDelDia = [];
@@ -68,7 +69,8 @@ internal sealed class SimulacionHistorialDemo
         int idProveedorEscolar,
         int idProveedorBazar,
         IReadOnlyList<ArticuloSimulado> articulos,
-        IReadOnlySet<int> idsMorosos)
+        IReadOnlySet<int> idsMorosos,
+        RedondeoPrecioEnum redondeo)
     {
         _context = context;
         _azar = azar;
@@ -82,6 +84,7 @@ internal sealed class SimulacionHistorialDemo
         _articulos = articulos;
         _simuladoPorId = articulos.ToDictionary(a => a.Id);
         _idsMorosos = idsMorosos;
+        _redondeo = redondeo;
     }
 
     public async Task<ResultadoHistorialDemo> EjecutarAsync(int cantidadClientes, CancellationToken cancellationToken)
@@ -174,15 +177,16 @@ internal sealed class SimulacionHistorialDemo
                 continue;
             }
 
-            var nuevoCosto = ReglasMonetarias.Redondear(fuente.CostoReposicion * aumentoPorProveedor[fuente.IdProveedor]);
+            // En la Argentina no se usan centavos: el costo aumentado de los ítems de la demo se redondea a pesos (D-38).
+            var nuevoCosto = Math.Round(fuente.CostoReposicion * aumentoPorProveedor[fuente.IdProveedor], 0, MidpointRounding.AwayFromZero);
             fuente.ActualizarPrecio(nuevoCosto);
             fuente.FechaActualizacion = fecha;
-            _articulosDelDia[idArticulo].ActualizarCostoYRecalcularPrecio(nuevoCosto);
+            _articulosDelDia[idArticulo].ActualizarCostoYRecalcularPrecio(nuevoCosto, _redondeo);
         }
 
         foreach (var simulado in _articulos.Where(a => a.IdOrigen.HasValue))
         {
-            _articulosDelDia[simulado.Id].RecalcularCostoDesdeOrigen(_articulosDelDia[simulado.IdOrigen!.Value].CostoReposicion);
+            _articulosDelDia[simulado.Id].RecalcularCostoDesdeOrigen(_articulosDelDia[simulado.IdOrigen!.Value].CostoReposicion, _redondeo);
         }
 
         await _context.SaveChangesAsync(cancellationToken);

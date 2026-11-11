@@ -10,7 +10,7 @@ public class ArticuloTests
 {
     [Theory]
     [InlineData(100.0, 50.0, 150.0)]
-    [InlineData(2500.50, 30.0, 3250.65)]
+    [InlineData(2500.50, 30.0, 3251.0)] // 3250,65 se redondea al peso entero más cercano (D-38)
     [InlineData(1000.0, 0.0, 1000.0)]
     public void CalcularPrecioVenta_ValoresValidos_DebeCalcularPrecioCorrectamente(
         decimal costo,
@@ -18,17 +18,53 @@ public class ArticuloTests
         decimal precioEsperado)
     {
         // Act
-        var resultado = Articulo.CalcularPrecioVenta(costo, porcentajeGanancia);
+        var resultado = Articulo.CalcularPrecioVenta(costo, porcentajeGanancia, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         resultado.Should().Be(precioEsperado);
     }
 
     [Fact]
+    public void CalcularPrecioVenta_ConPoliticaMultiploDe10Superior_RedondeaAlMultiploSuperior()
+    {
+        // Act: 1000 × 1,35 = 1350 (ya es múltiplo) y 1234 × 1,35 = 1665,90 (sube al siguiente múltiplo de 10)
+        var exacto = Articulo.CalcularPrecioVenta(1000m, 35m, RedondeoPrecioEnum.MultiploDe10Superior);
+        var conResto = Articulo.CalcularPrecioVenta(1234m, 35m, RedondeoPrecioEnum.MultiploDe10Superior);
+
+        // Assert
+        exacto.Should().Be(1350m);
+        conResto.Should().Be(1670m);
+    }
+
+    [Fact]
+    public void CalcularPrecioVenta_InferiorBajoElCosto_NoVendeAPerdida()
+    {
+        // Act: 40,30 × 1,0025 = 40,40: el múltiplo inferior de 100 (0) quedaría bajo el costo, así que sube a 100
+        var resultado = Articulo.CalcularPrecioVenta(40.30m, 0.25m, RedondeoPrecioEnum.MultiploDe100Inferior);
+
+        // Assert
+        resultado.Should().Be(100m);
+    }
+
+    [Fact]
+    public void ActualizarCostoYRecalcularPrecio_ConPolitica_UsaLaPoliticaRecibida()
+    {
+        // Arrange: costo 1000 con 35 % de ganancia
+        var articulo = new Articulo { CostoReposicion = 1000m, PorcentajeGanancia = 35m };
+
+        // Act: 1234 × 1,35 = 1665,90
+        articulo.ActualizarCostoYRecalcularPrecio(1234m, RedondeoPrecioEnum.MultiploDe10Superior);
+
+        // Assert
+        articulo.CostoReposicion.Should().Be(1234m);
+        articulo.PrecioVenta.Should().Be(1670m);
+    }
+
+    [Fact]
     public void CalcularPrecioVenta_CostoNegativo_DebeLanzarArgumentOutOfRangeException()
     {
         // Act
-        var act = () => Articulo.CalcularPrecioVenta(-10m, 30m);
+        var act = () => Articulo.CalcularPrecioVenta(-10m, 30m, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>()
@@ -39,7 +75,7 @@ public class ArticuloTests
     public void CalcularPrecioVenta_PorcentajeGananciaNegativo_DebeLanzarArgumentOutOfRangeException()
     {
         // Act
-        var act = () => Articulo.CalcularPrecioVenta(100m, -5m);
+        var act = () => Articulo.CalcularPrecioVenta(100m, -5m, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>()
@@ -59,7 +95,7 @@ public class ArticuloTests
         };
 
         // Act
-        articulo.ActualizarCostoYRecalcularPrecio(1500m);
+        articulo.ActualizarCostoYRecalcularPrecio(1500m, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         articulo.CostoReposicion.Should().Be(1500m);
@@ -130,7 +166,7 @@ public class ArticuloTests
             porcentajeGanancia: 25m,
             stockActual: 15,
             stockMinimo: 5,
-            esServicio: false);
+            esServicio: false, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         articulo.Descripcion.Should().Be("Modificado");
@@ -160,7 +196,7 @@ public class ArticuloTests
             porcentajeGanancia: 60m,
             stockActual: 4,
             stockMinimo: 1,
-            esServicio: false);
+            esServicio: false, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         articulo.CodigoBarras.Should().BeNull();
@@ -184,7 +220,7 @@ public class ArticuloTests
             porcentajeGanancia: 50m,
             stockActual: 10,
             stockMinimo: 2,
-            esServicio: false);
+            esServicio: false, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<ArgumentException>();
@@ -206,7 +242,7 @@ public class ArticuloTests
             porcentajeGanancia: 50m,
             stockActual: 5,
             stockMinimo: 1,
-            esServicio: false);
+            esServicio: false, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         articulo.IdCategoria.Should().BeNull();
@@ -226,7 +262,7 @@ public class ArticuloTests
         };
         var fuente = CrearFuente(id: 15, costo: 5000m);
         fuente.AsignarArticulo(articulo);
-        articulo.MarcarFuentePrincipal(fuente);
+        articulo.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Act
         articulo.QuitarFuentePrincipal();
@@ -246,7 +282,7 @@ public class ArticuloTests
         var fuente = CrearFuente(id: 42, costo: 1200m);
         fuente.AsignarArticulo(articulo);
 
-        articulo.MarcarFuentePrincipal(fuente);
+        articulo.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
 
         articulo.IdCatalogoProveedor.Should().Be(42);
         articulo.CostoReposicion.Should().Be(1200m);
@@ -260,7 +296,7 @@ public class ArticuloTests
         var fuente = CrearFuente(id: 42, costo: 1200m);
         fuente.AsignarArticulo(articulo);
 
-        articulo.MarcarFuentePrincipal(fuente);
+        articulo.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
 
         articulo.IdCatalogoProveedor.Should().Be(42);
     }
@@ -273,9 +309,9 @@ public class ArticuloTests
         var nueva = CrearFuente(id: 43, costo: 1100m);
         anterior.AsignarArticulo(articulo);
         nueva.AsignarArticulo(articulo);
-        articulo.MarcarFuentePrincipal(anterior);
+        articulo.MarcarFuentePrincipal(anterior, RedondeoPrecioEnum.EnteroMasCercano);
 
-        articulo.MarcarFuentePrincipal(nueva);
+        articulo.MarcarFuentePrincipal(nueva, RedondeoPrecioEnum.EnteroMasCercano);
 
         articulo.IdCatalogoProveedor.Should().Be(43);
         articulo.CostoReposicion.Should().Be(1100m);
@@ -288,7 +324,7 @@ public class ArticuloTests
         var articulo = CrearArticuloConFuentes(id: 7);
         var ajena = CrearFuente(id: 42, costo: 1200m);
 
-        var act = () => articulo.MarcarFuentePrincipal(ajena);
+        var act = () => articulo.MarcarFuentePrincipal(ajena, RedondeoPrecioEnum.EnteroMasCercano);
 
         act.Should().Throw<DomainException>().WithMessage("*no es fuente de este artículo*");
         articulo.IdCatalogoProveedor.Should().BeNull();
@@ -304,7 +340,7 @@ public class ArticuloTests
         fuente.AsignarArticulo(servicio);
         servicio.EsServicio = true;
 
-        var act = () => servicio.MarcarFuentePrincipal(fuente);
+        var act = () => servicio.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
 
         act.Should().Throw<DomainException>().WithMessage("*no puede tener fuente principal*");
         servicio.IdCatalogoProveedor.Should().BeNull();
@@ -318,7 +354,7 @@ public class ArticuloTests
         var fuente = CrearFuente(id: 42, costo: 1200m);
         fuente.AsignarArticulo(CrearArticuloConFuentes(id: 8));
 
-        var act = () => articulo.MarcarFuentePrincipal(fuente);
+        var act = () => articulo.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
 
         act.Should().Throw<DomainException>();
         articulo.IdCatalogoProveedor.Should().BeNull();
@@ -331,7 +367,7 @@ public class ArticuloTests
         var fuente = CrearFuente(id: 0, costo: 1200m);
         fuente.AsignarArticulo(articulo);
 
-        var act = () => articulo.MarcarFuentePrincipal(fuente);
+        var act = () => articulo.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
 
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
@@ -341,7 +377,7 @@ public class ArticuloTests
     {
         var articulo = CrearArticuloConFuentes(id: 7);
 
-        var act = () => articulo.MarcarFuentePrincipal(null!);
+        var act = () => articulo.MarcarFuentePrincipal(null!, RedondeoPrecioEnum.EnteroMasCercano);
 
         act.Should().Throw<ArgumentNullException>();
     }
@@ -351,11 +387,11 @@ public class ArticuloTests
     [Fact]
     public void CalcularPrecioVenta_PuntoMedio_RedondeaAlejandoseDeCero()
     {
-        // Act: 0,67 × 1,5 = 1,005 (con ToEven daría 1,00)
-        var resultado = Articulo.CalcularPrecioVenta(0.67m, 50m);
+        // Act: 3 × 1,5 = 4,5 (con ToEven daría 4)
+        var resultado = Articulo.CalcularPrecioVenta(3m, 50m, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
-        resultado.Should().Be(1.01m);
+        resultado.Should().Be(5m);
     }
 
     [Theory]
@@ -412,7 +448,7 @@ public class ArticuloTests
         };
 
         // Act
-        var act = () => articulo.ActualizarCostoYRecalcularPrecio(-10m);
+        var act = () => articulo.ActualizarCostoYRecalcularPrecio(-10m, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -442,7 +478,7 @@ public class ArticuloTests
             porcentajeGanancia: 50m,
             stockActual: 0,
             stockMinimo: 1,
-            esServicio: false);
+            esServicio: false, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*solo admite dígitos*");
@@ -466,7 +502,7 @@ public class ArticuloTests
             porcentajeGanancia: 50m,
             stockActual: 0,
             stockMinimo: 0,
-            esServicio: true);
+            esServicio: true, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         servicio.CodigoBarras.Should().Be("11");
@@ -495,7 +531,7 @@ public class ArticuloTests
             porcentajeGanancia: -5m,
             stockActual: 99,
             stockMinimo: 1,
-            esServicio: false);
+            esServicio: false, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -516,7 +552,7 @@ public class ArticuloTests
         var derivado = new Articulo { Descripcion = "Sobre manila (unidad)", PorcentajeGanancia = 100m };
 
         // Act
-        derivado.DefinirComoPresentacionDe(origen, 100);
+        derivado.DefinirComoPresentacionDe(origen, 100, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         derivado.EsDerivado.Should().BeTrue();
@@ -534,7 +570,7 @@ public class ArticuloTests
         var derivado = new Articulo { Descripcion = "Unidad" };
 
         // Act
-        var act = () => derivado.DefinirComoPresentacionDe(null!, 10);
+        var act = () => derivado.DefinirComoPresentacionDe(null!, 10, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<ArgumentNullException>();
@@ -549,7 +585,7 @@ public class ArticuloTests
         var derivado = new Articulo { Descripcion = "Unidad" };
 
         // Act
-        var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), unidades);
+        var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), unidades, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<ArgumentOutOfRangeException>();
@@ -563,7 +599,7 @@ public class ArticuloTests
         var articulo = CrearOrigen();
 
         // Act
-        var act = () => articulo.DefinirComoPresentacionDe(articulo, 10);
+        var act = () => articulo.DefinirComoPresentacionDe(articulo, 10, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*sí mismo*");
@@ -577,7 +613,7 @@ public class ArticuloTests
         var mismoArticuloOtraInstancia = CrearOrigen(id: 5);
 
         // Act
-        var act = () => articulo.DefinirComoPresentacionDe(mismoArticuloOtraInstancia, 10);
+        var act = () => articulo.DefinirComoPresentacionDe(mismoArticuloOtraInstancia, 10, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*sí mismo*");
@@ -588,11 +624,11 @@ public class ArticuloTests
     {
         // Arrange
         var origenDerivado = CrearOrigen(id: 2);
-        origenDerivado.DefinirComoPresentacionDe(CrearOrigen(id: 1), 10);
+        origenDerivado.DefinirComoPresentacionDe(CrearOrigen(id: 1), 10, RedondeoPrecioEnum.EnteroMasCercano);
         var derivado = new Articulo { Descripcion = "Segundo nivel" };
 
         // Act
-        var act = () => derivado.DefinirComoPresentacionDe(origenDerivado, 2);
+        var act = () => derivado.DefinirComoPresentacionDe(origenDerivado, 2, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*un solo nivel*");
@@ -606,10 +642,10 @@ public class ArticuloTests
         var derivado = new Articulo { Descripcion = "Unidad" };
         var fuente = CrearFuente(id: 15, costo: 100m);
         fuente.AsignarArticulo(derivado);
-        derivado.MarcarFuentePrincipal(fuente);
+        derivado.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Act
-        var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
+        var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), 10, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*catálogo de proveedor*");
@@ -622,7 +658,7 @@ public class ArticuloTests
         var derivado = new Articulo { Descripcion = "Plastificado", EsServicio = true };
 
         // Act
-        var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
+        var act = () => derivado.DefinirComoPresentacionDe(CrearOrigen(), 10, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*servicios*");
@@ -637,7 +673,7 @@ public class ArticuloTests
         var derivado = new Articulo { Descripcion = "Unidad" };
 
         // Act
-        var act = () => derivado.DefinirComoPresentacionDe(origen, 10);
+        var act = () => derivado.DefinirComoPresentacionDe(origen, 10, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*servicios*");
@@ -651,7 +687,7 @@ public class ArticuloTests
         articuloConPresentaciones.Presentaciones.Add(new Articulo { Descripcion = "Unidad" });
 
         // Act
-        var act = () => articuloConPresentaciones.DefinirComoPresentacionDe(CrearOrigen(id: 1), 10);
+        var act = () => articuloConPresentaciones.DefinirComoPresentacionDe(CrearOrigen(id: 1), 10, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*ya es origen*");
@@ -662,10 +698,10 @@ public class ArticuloTests
     {
         // Arrange
         var derivado = new Articulo { Descripcion = "Unidad", PorcentajeGanancia = 50m };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(costo: 1000m), 100);
+        derivado.DefinirComoPresentacionDe(CrearOrigen(costo: 1000m), 100, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Act
-        derivado.RecalcularCostoDesdeOrigen(2000m);
+        derivado.RecalcularCostoDesdeOrigen(2000m, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         derivado.CostoReposicion.Should().Be(20m);
@@ -677,11 +713,11 @@ public class ArticuloTests
     {
         // Arrange
         var derivado = new Articulo { Descripcion = "Unidad", PorcentajeGanancia = 0m };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(costo: 1000m), 100);
-        derivado.ActualizarCostoYRecalcularPrecio(12.5m); // edición manual
+        derivado.DefinirComoPresentacionDe(CrearOrigen(costo: 1000m), 100, RedondeoPrecioEnum.EnteroMasCercano);
+        derivado.ActualizarCostoYRecalcularPrecio(12.5m, RedondeoPrecioEnum.EnteroMasCercano); // edición manual
 
         // Act
-        derivado.RecalcularCostoDesdeOrigen(1000m);
+        derivado.RecalcularCostoDesdeOrigen(1000m, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         derivado.CostoReposicion.Should().Be(10m);
@@ -694,7 +730,7 @@ public class ArticuloTests
         var articulo = CrearOrigen();
 
         // Act
-        var act = () => articulo.RecalcularCostoDesdeOrigen(500m);
+        var act = () => articulo.RecalcularCostoDesdeOrigen(500m, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<InvalidOperationException>();
@@ -705,7 +741,7 @@ public class ArticuloTests
     {
         // Arrange
         var derivado = new Articulo { Descripcion = "Unidad" };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(), 10);
+        derivado.DefinirComoPresentacionDe(CrearOrigen(), 10, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Act
         var act = () => derivado.ActualizarDatos(
@@ -717,7 +753,7 @@ public class ArticuloTests
             porcentajeGanancia: 50m,
             stockActual: 0,
             stockMinimo: 0,
-            esServicio: true);
+            esServicio: true, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         act.Should().Throw<DomainException>().WithMessage("*servicio*");
@@ -729,7 +765,7 @@ public class ArticuloTests
     {
         // Arrange
         var derivado = new Articulo { Descripcion = "Unidad" };
-        derivado.DefinirComoPresentacionDe(CrearOrigen(costo: 1000m), 100);
+        derivado.DefinirComoPresentacionDe(CrearOrigen(costo: 1000m), 100, RedondeoPrecioEnum.EnteroMasCercano);
 
         // Act
         derivado.ActualizarDatos(
@@ -741,7 +777,7 @@ public class ArticuloTests
             porcentajeGanancia: 100m,
             stockActual: 0,
             stockMinimo: 0,
-            esServicio: false);
+            esServicio: false, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
 
         // Assert
         derivado.CostoReposicion.Should().Be(12.5m);
@@ -1054,7 +1090,7 @@ public class ArticuloTests
             porcentajeGanancia: 50m,
             stockActual: 1,
             stockMinimo: 0,
-            esServicio: false);
+            esServicio: false, redondeo: RedondeoPrecioEnum.EnteroMasCercano);
     }
 
     private static Articulo CrearArticuloConFuentes(int id)
@@ -1089,7 +1125,7 @@ public class ArticuloTests
             Descripcion = "Sobre manila (pack x100)",
             CostoReposicion = costo,
             PorcentajeGanancia = 40m,
-            PrecioVenta = Articulo.CalcularPrecioVenta(costo, 40m),
+            PrecioVenta = Articulo.CalcularPrecioVenta(costo, 40m, RedondeoPrecioEnum.EnteroMasCercano),
             StockActual = 5
         };
     }

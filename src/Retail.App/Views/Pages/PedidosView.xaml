@@ -153,9 +153,9 @@
                             </DataGridTextColumn>
                             <DataGridTextColumn Header="Total est."
                                                 HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                                Binding="{Binding TotalEstimado, StringFormat=C2}"
+                                                Binding="{Binding TotalEstimado, StringFormat=C0}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                Width="128" />
+                                                Width="108" />
                             <DataGridTemplateColumn Width="112" CanUserSort="False">
                                 <DataGridTemplateColumn.Header>
                                     <components:FiltroColumna Filtro="{Binding DataContext.FiltroEstado, RelativeSource={RelativeSource AncestorType=UserControl}}" />
@@ -299,7 +299,7 @@
                                 </DataGridTemplateColumn>
                                 <DataGridTextColumn Header="Subtotal"
                                                     HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                    Binding="{Binding Subtotal, StringFormat=C2}"
+                                                    Binding="{Binding Subtotal, StringFormat=C0}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                     Width="104" />
                                 <!-- El tacho solo existe en un borrador: Auto evita reservar 44 px vacíos a la derecha del subtotal -->

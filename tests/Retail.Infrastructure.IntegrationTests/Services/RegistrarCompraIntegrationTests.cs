@@ -411,7 +411,8 @@ public class RegistrarCompraIntegrationTests : IAsyncLifetime, IDisposable
             new Repository<Pedido>(context),
             new ArticuloQueryService(context),
             new UnitOfWork(context),
-            new CrearCompraValidator());
+            new CrearCompraValidator(),
+            ConfiguracionComercialDePrueba.ConRedondeoEntero());
     }
 
     private async Task<Articulo> GuardarArticuloAsync(string descripcion, decimal costo, decimal markup, decimal precio, int stock)

@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Proveedores;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Exceptions;
@@ -64,9 +65,9 @@ public partial class ProveedoresViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPaginas))]
     [NotifyPropertyChangedFor(nameof(PuedeAvanzarPagina))]
-    private int _tamanoPagina = 20;
+    private int _tamanoPagina = 30;
 
-    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = new[] { 10, 20, 50 };
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = OpcionesPaginacion.Tamanos;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPaginas))]

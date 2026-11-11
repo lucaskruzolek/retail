@@ -29,6 +29,7 @@ public class ProveedorService : IProveedorService
     private readonly IValidator<MapeoColumnasDto> _mapeoColumnasValidator;
     private readonly IValidator<IncorporarCatalogoArticulosDto> _incorporarArticulosValidator;
     private readonly IValidator<ConsultaCatalogoProveedorDto> _consultaCatalogoValidator;
+    private readonly IConfiguracionComercialService _configuracionComercial;
 
     public ProveedorService(
         IRepository<Proveedor> proveedorRepository,
@@ -40,7 +41,8 @@ public class ProveedorService : IProveedorService
         IValidator<ActualizarProveedorDto> actualizarProveedorValidator,
         IValidator<MapeoColumnasDto> mapeoColumnasValidator,
         IValidator<IncorporarCatalogoArticulosDto> incorporarArticulosValidator,
-        IValidator<ConsultaCatalogoProveedorDto> consultaCatalogoValidator)
+        IValidator<ConsultaCatalogoProveedorDto> consultaCatalogoValidator,
+        IConfiguracionComercialService configuracionComercial)
     {
         _proveedorRepository = proveedorRepository ?? throw new ArgumentNullException(nameof(proveedorRepository));
         _catalogoQueryService = catalogoQueryService ?? throw new ArgumentNullException(nameof(catalogoQueryService));
@@ -52,6 +54,7 @@ public class ProveedorService : IProveedorService
         _mapeoColumnasValidator = mapeoColumnasValidator ?? throw new ArgumentNullException(nameof(mapeoColumnasValidator));
         _incorporarArticulosValidator = incorporarArticulosValidator ?? throw new ArgumentNullException(nameof(incorporarArticulosValidator));
         _consultaCatalogoValidator = consultaCatalogoValidator ?? throw new ArgumentNullException(nameof(consultaCatalogoValidator));
+        _configuracionComercial = configuracionComercial ?? throw new ArgumentNullException(nameof(configuracionComercial));
     }
 
     public async Task<IReadOnlyList<ProveedorDto>> ListarProveedoresAsync(CancellationToken cancellationToken = default)
@@ -174,6 +177,9 @@ public class ProveedorService : IProveedorService
             throw new DomainException($"No se encontró el proveedor con ID {mapeo.IdProveedor}.");
         }
 
+        // Política global de redondeo del precio (D-38), leída una vez antes de modificar artículos.
+        var redondeo = await _configuracionComercial.ObtenerRedondeoPrecioAsync(cancellationToken);
+
         // La preferencia viaja con la importación y se guarda en la misma unidad de trabajo que las filas (M-75).
         proveedor.ConfigurarClasificacionDelCatalogo(mapeo.ClasificarCatalogo);
         await _proveedorRepository.UpdateAsync(proveedor, cancellationToken);
@@ -247,7 +253,7 @@ public class ProveedorService : IProveedorService
                                 continue;
                             }
 
-                            articuloAsociado.ActualizarCostoYRecalcularPrecio(item.PrecioCosto);
+                            articuloAsociado.ActualizarCostoYRecalcularPrecio(item.PrecioCosto, redondeo);
                             await _articuloRepository.UpdateAsync(articuloAsociado, cancellationToken);
                             actualizados++;
 
@@ -256,7 +262,7 @@ public class ProveedorService : IProveedorService
                             foreach (var presentacion in presentacionesPorOrigen[articuloAsociado.Id])
                             {
                                 var costoAnteriorPresentacion = presentacion.CostoReposicion;
-                                presentacion.RecalcularCostoDesdeOrigen(articuloAsociado.CostoReposicion);
+                                presentacion.RecalcularCostoDesdeOrigen(articuloAsociado.CostoReposicion, redondeo);
                                 if (presentacion.CostoReposicion == costoAnteriorPresentacion)
                                 {
                                     continue;
@@ -388,6 +394,9 @@ public class ProveedorService : IProveedorService
     {
         await _incorporarArticulosValidator.ValidateAndThrowAsync(dto, cancellationToken);
 
+        // Política global de redondeo del precio (D-38), leída una vez antes de modificar artículos.
+        var redondeo = await _configuracionComercial.ObtenerRedondeoPrecioAsync(cancellationToken);
+
         // El validador garantiza que cada ítem del catálogo figura una sola vez.
         var itemPorCatalogo = dto.Items.ToDictionary(i => i.IdCatalogo);
         var ids = itemPorCatalogo.Keys.ToList();
@@ -432,7 +441,7 @@ public class ProveedorService : IProveedorService
             // El ítem pasa a ser fuente y principal del artículo nuevo (A-16, J1), y la principal fija el costo y el
             // precio. El artículo aún no tiene id: EF Core completa la FK del ítem al guardar.
             catalogo.AsignarArticulo(nuevoArticulo);
-            nuevoArticulo.MarcarFuentePrincipal(catalogo);
+            nuevoArticulo.MarcarFuentePrincipal(catalogo, redondeo);
 
             await _articuloRepository.AddAsync(nuevoArticulo, cancellationToken);
             incorporados++;
@@ -453,6 +462,9 @@ public class ProveedorService : IProveedorService
         bool comoPrincipal,
         CancellationToken cancellationToken = default)
     {
+        // Política global de redondeo del precio (D-38), leída una vez antes de modificar artículos.
+        var redondeo = await _configuracionComercial.ObtenerRedondeoPrecioAsync(cancellationToken);
+
         var articulo = await _articuloRepository.GetByIdAsync(idArticulo, includeDeleted: false, cancellationToken);
         if (articulo == null)
         {
@@ -487,7 +499,7 @@ public class ProveedorService : IProveedorService
             return;
         }
 
-        articulo.MarcarFuentePrincipal(catalogo);
+        articulo.MarcarFuentePrincipal(catalogo, redondeo);
 
         await _articuloRepository.UpdateAsync(articulo, cancellationToken);
 
@@ -498,7 +510,7 @@ public class ProveedorService : IProveedorService
             cancellationToken);
         foreach (var presentacion in presentaciones)
         {
-            presentacion.RecalcularCostoDesdeOrigen(articulo.CostoReposicion);
+            presentacion.RecalcularCostoDesdeOrigen(articulo.CostoReposicion, redondeo);
             await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
         }
 

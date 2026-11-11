@@ -96,7 +96,7 @@ public class ProveedoresViewModelTests : IDisposable
     public async Task Paginacion_NavegacionEntrePaginas_ActualizaPropiedades()
     {
         // Arrange
-        var proveedores = Enumerable.Range(1, 45)
+        var proveedores = Enumerable.Range(1, 65)
             .Select(i => new ProveedorDto
             {
                 IdProveedor = i,
@@ -110,12 +110,12 @@ public class ProveedoresViewModelTests : IDisposable
 
         await _sut.CargarProveedoresCommand.ExecuteAsync(null);
 
-        // Assert estado inicial (TamanoPagina = 20)
+        // Assert estado inicial (TamanoPagina = 30: 30 + 30 + 5)
         _sut.TotalPaginas.Should().Be(3);
         _sut.PaginaActual.Should().Be(1);
         _sut.PuedeRetrocederPagina.Should().BeFalse();
         _sut.PuedeAvanzarPagina.Should().BeTrue();
-        _sut.Proveedores.Should().HaveCount(20);
+        _sut.Proveedores.Should().HaveCount(30);
 
         // Act 1: Avanzar página
         _sut.PaginaSiguienteCommand.Execute(null);

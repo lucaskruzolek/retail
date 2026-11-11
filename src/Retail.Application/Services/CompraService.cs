@@ -23,6 +23,7 @@ public class CompraService : ICompraService
     private readonly IArticuloQueryService _articuloQueryService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IValidator<CrearCompraDto> _validator;
+    private readonly IConfiguracionComercialService _configuracionComercial;
 
     public CompraService(
         IRepository<Compra> compraRepository,
@@ -32,7 +33,8 @@ public class CompraService : ICompraService
         IRepository<Pedido> pedidoRepository,
         IArticuloQueryService articuloQueryService,
         IUnitOfWork unitOfWork,
-        IValidator<CrearCompraDto> validator)
+        IValidator<CrearCompraDto> validator,
+        IConfiguracionComercialService configuracionComercial)
     {
         _compraRepository = compraRepository ?? throw new ArgumentNullException(nameof(compraRepository));
         _articuloRepository = articuloRepository ?? throw new ArgumentNullException(nameof(articuloRepository));
@@ -42,6 +44,7 @@ public class CompraService : ICompraService
         _articuloQueryService = articuloQueryService ?? throw new ArgumentNullException(nameof(articuloQueryService));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _validator = validator ?? throw new ArgumentNullException(nameof(validator));
+        _configuracionComercial = configuracionComercial ?? throw new ArgumentNullException(nameof(configuracionComercial));
     }
 
     /// <inheritdoc/>
@@ -132,6 +135,9 @@ public class CompraService : ICompraService
             .GroupBy(a => a.IdArticuloOrigen!.Value)
             .ToDictionary(g => g.Key, g => g.ToList());
 
+        // Política global de redondeo del precio (D-38), leída una vez antes de modificar artículos.
+        var redondeo = await _configuracionComercial.ObtenerRedondeoPrecioAsync(cancellationToken);
+
         // ── FASE 4: Construcción del Agregado Compra (método fábrica DDD) ─────
         var compra = Compra.Registrar(
             dto.IdProveedor,
@@ -158,7 +164,7 @@ public class CompraService : ICompraService
             // 5c. Recalcular precio de venta si el costo de reposición cambió (RF-19).
             if (item.CostoUnitario != articulo.CostoReposicion)
             {
-                articulo.ActualizarCostoYRecalcularPrecio(item.CostoUnitario);
+                articulo.ActualizarCostoYRecalcularPrecio(item.CostoUnitario, redondeo);
                 articulosActualizados++;
 
                 // 5d. Propagar el nuevo costo a las presentaciones derivadas (RF-21).
@@ -167,7 +173,7 @@ public class CompraService : ICompraService
                     foreach (var derivada in derivadas)
                     {
                         // RecalcularCostoDesdeOrigen usa internamente UnidadesPorOrigen.
-                        derivada.RecalcularCostoDesdeOrigen(articulo.CostoReposicion);
+                        derivada.RecalcularCostoDesdeOrigen(articulo.CostoReposicion, redondeo);
                         await _articuloRepository.UpdateAsync(derivada, cancellationToken);
                     }
                 }

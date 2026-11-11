@@ -231,7 +231,7 @@
                                                                                      VerticalAlignment="Center" />
 
                                                         <TextBlock Grid.Column="3"
-                                                                   Text="{Binding Subtotal, StringFormat=C2}"
+                                                                   Text="{Binding Subtotal, StringFormat=C0}"
                                                                    Style="{StaticResource ImporteRenglonStyle}" />
 
                                                         <Button Grid.Column="4"
@@ -264,7 +264,7 @@
                                                        VerticalAlignment="Center"
                                                        Margin="0,0,12,0" />
                                             <TextBlock Grid.Column="1"
-                                                       Text="{Binding Subtotal, StringFormat=C2}"
+                                                       Text="{Binding Subtotal, StringFormat=C0}"
                                                        Style="{StaticResource ImporteRenglonStyle}"
                                                        FontWeight="SemiBold" />
                                         </Grid>

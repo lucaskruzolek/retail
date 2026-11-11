@@ -119,7 +119,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         if (fuente != null)
         {
             fuente.AsignarArticulo(articulo);
-            articulo.MarcarFuentePrincipal(fuente);
+            articulo.MarcarFuentePrincipal(fuente, RedondeoPrecioEnum.EnteroMasCercano);
         }
 
         return articulo;
@@ -288,7 +288,7 @@ public class CatalogoProveedorQueryServiceTests : IAsyncLifetime, IDisposable
         _context.Articulos.Add(origen);
         await _context.SaveChangesAsync();
         var derivado = CrearArticulo("Unidad", "555");
-        derivado.DefinirComoPresentacionDe(origen, 10);
+        derivado.DefinirComoPresentacionDe(origen, 10, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(derivado);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();

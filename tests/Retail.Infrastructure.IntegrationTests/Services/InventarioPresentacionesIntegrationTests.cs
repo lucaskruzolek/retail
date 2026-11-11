@@ -4,7 +4,9 @@ using Retail.Application.DTOs.Articulos;
 using Retail.Application.Services;
 using Retail.Application.Validators.Articulos;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
 using Retail.Infrastructure.Persistence.Services;
@@ -42,7 +44,8 @@ public class InventarioPresentacionesIntegrationTests : IAsyncLifetime, IDisposa
             new CrearPresentacionValidator(),
             new FraccionarValidator(),
             new ConsultaArticulosValidator(),
-            new CatalogoProveedorQueryService(_context));
+            new CatalogoProveedorQueryService(_context),
+            ConfiguracionComercialDePrueba.ConRedondeoEntero());
     }
 
     public async Task DisposeAsync()
@@ -131,7 +134,7 @@ public class InventarioPresentacionesIntegrationTests : IAsyncLifetime, IDisposa
         // Assert
         var derivadoLeido = await _context.Articulos.AsNoTracking().SingleAsync(a => a.Id == derivado.Id);
         derivadoLeido.CostoReposicion.Should().Be(45m);
-        derivadoLeido.PrecioVenta.Should().Be(67.5m);
+        derivadoLeido.PrecioVenta.Should().Be(68m); // 45 × 1,5 = 67,50 → 68 (D-38)
     }
 
     private async Task<Articulo> GuardarOrigenAsync(int stock)
@@ -153,7 +156,7 @@ public class InventarioPresentacionesIntegrationTests : IAsyncLifetime, IDisposa
     private async Task<Articulo> GuardarPresentacionAsync(Articulo origen)
     {
         var derivado = new Articulo { Descripcion = "Sobre manila (unidad)", PorcentajeGanancia = 50m };
-        derivado.DefinirComoPresentacionDe(origen, 100);
+        derivado.DefinirComoPresentacionDe(origen, 100, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(derivado);
         await _context.SaveChangesAsync();
         return derivado;

@@ -75,7 +75,7 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
     private int _paginaActual = 1;
 
     [ObservableProperty]
-    private int _tamanoPagina = 10;
+    private int _tamanoPagina = 15;
 
     [ObservableProperty]
     private int _totalPaginas = 1;
@@ -91,7 +91,7 @@ public partial class ClientesViewModel : ObservableObject, IDisposable
 
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
-    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = OpcionesPaginacion.Tamanos;
 
     public bool HayFiltrosActivos =>
         !string.IsNullOrWhiteSpace(TextoBusqueda) ||

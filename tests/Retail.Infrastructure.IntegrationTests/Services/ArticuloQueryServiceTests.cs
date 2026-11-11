@@ -202,7 +202,7 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         var derivada = CrearArticulo("Resma A4 por hoja");
-        derivada.DefinirComoPresentacionDe(origen, 500);
+        derivada.DefinirComoPresentacionDe(origen, 500, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(derivada);
         await _context.SaveChangesAsync();
 
@@ -277,7 +277,7 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         var unidad = CrearArticulo("Sobre (unidad)", stock: 2);
-        unidad.DefinirComoPresentacionDe(pack, 100);
+        unidad.DefinirComoPresentacionDe(pack, 100, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(unidad);
         borrado.MarkAsDeleted();
         await _context.SaveChangesAsync();
@@ -307,7 +307,7 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         var unidad = CrearArticulo("Sobre (unidad)", stock: 0);
-        unidad.DefinirComoPresentacionDe(pack, 100);
+        unidad.DefinirComoPresentacionDe(pack, 100, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(unidad);
         pack.MarkAsDeleted();
         await _context.SaveChangesAsync();
@@ -405,7 +405,7 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
         var articulo = CrearArticulo("Cuaderno Rivadavia");
         articulo.Clasificar(categoria.Id, OrigenClasificacionEnum.Manual, marca.Id, OrigenClasificacionEnum.Manual);
         catalogo.AsignarArticulo(articulo);
-        articulo.MarcarFuentePrincipal(catalogo);
+        articulo.MarcarFuentePrincipal(catalogo, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(articulo);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
@@ -437,15 +437,15 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
 
         var cuaderno = CrearArticulo("Cuaderno");
         cuadernoSur.AsignarArticulo(cuaderno);
-        cuaderno.MarcarFuentePrincipal(cuadernoSur);
+        cuaderno.MarcarFuentePrincipal(cuadernoSur, RedondeoPrecioEnum.EnteroMasCercano);
         cuadernoNorte.AsignarArticulo(cuaderno);
         var lapiz = CrearArticulo("Lápiz");
         lapizNorte.AsignarArticulo(lapiz);
-        lapiz.MarcarFuentePrincipal(lapizNorte);
+        lapiz.MarcarFuentePrincipal(lapizNorte, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.AddRange(cuaderno, lapiz, CrearArticulo("Artesanal"));
         await _context.SaveChangesAsync();
         var unidad = CrearArticulo("Unidad");
-        unidad.DefinirComoPresentacionDe(cuaderno, 10);
+        unidad.DefinirComoPresentacionDe(cuaderno, 10, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.Add(unidad);
         await _context.SaveChangesAsync();
         _context.ChangeTracker.Clear();
@@ -666,12 +666,12 @@ public class ArticuloQueryServiceTests : IAsyncLifetime, IDisposable
 
         var cuaderno = CrearArticulo("Cuaderno");
         sur.AsignarArticulo(cuaderno);
-        cuaderno.MarcarFuentePrincipal(sur);
+        cuaderno.MarcarFuentePrincipal(sur, RedondeoPrecioEnum.EnteroMasCercano);
         norte.AsignarArticulo(cuaderno);
         este.AsignarArticulo(cuaderno);
         var lapiz = CrearArticulo("Lápiz");
         oeste.AsignarArticulo(lapiz);
-        lapiz.MarcarFuentePrincipal(oeste);
+        lapiz.MarcarFuentePrincipal(oeste, RedondeoPrecioEnum.EnteroMasCercano);
         _context.Articulos.AddRange(cuaderno, lapiz, CrearArticulo("Artesanal"));
         await _context.SaveChangesAsync();
 

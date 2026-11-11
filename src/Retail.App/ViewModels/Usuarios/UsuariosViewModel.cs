@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -52,7 +53,7 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
     private int _paginaActual = 1;
 
     [ObservableProperty]
-    private int _tamanoPagina = 10;
+    private int _tamanoPagina = 15;
 
     [ObservableProperty]
     private int _totalPaginas = 1;
@@ -69,7 +70,7 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
     /// </summary>
     public bool PuedeDesbloquear => _session.EsGerente;
 
-    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = OpcionesPaginacion.Tamanos;
 
     public UsuariosViewModel(
         IUsuarioService usuarioService,

@@ -84,7 +84,14 @@ public class Articulo : BaseEntity, IAggregateRoot
 
     public bool EsDerivado => IdArticuloOrigen.HasValue;
 
-    public static decimal CalcularPrecioVenta(decimal costoReposicion, decimal porcentajeGanancia)
+    /// <summary>
+    /// Precio de venta: costo × (1 + markup), redondeado a pesos según la política global del comercio (D-38). Nunca
+    /// queda por debajo del costo: si la política redondea hacia abajo y lo haría, se usa el múltiplo superior.
+    /// </summary>
+    /// <param name="costoReposicion">Costo de reposición (puede tener centavos).</param>
+    /// <param name="porcentajeGanancia">Markup en porcentaje.</param>
+    /// <param name="redondeo">Política vigente (<see cref="ConfiguracionComercial.RedondeoPrecio"/>).</param>
+    public static decimal CalcularPrecioVenta(decimal costoReposicion, decimal porcentajeGanancia, RedondeoPrecioEnum redondeo)
     {
         if (costoReposicion < 0m)
         {
@@ -96,7 +103,9 @@ public class Articulo : BaseEntity, IAggregateRoot
             throw new ArgumentOutOfRangeException(nameof(porcentajeGanancia), "El porcentaje de ganancia no puede ser negativo.");
         }
 
-        return RedondearMoneda(costoReposicion * (1m + (porcentajeGanancia / 100m)));
+        var precio = costoReposicion * (1m + (porcentajeGanancia / 100m));
+
+        return ReglasMonetarias.RedondearPrecio(precio, redondeo, minimo: costoReposicion);
     }
 
     /// <summary>
@@ -117,10 +126,10 @@ public class Articulo : BaseEntity, IAggregateRoot
         return RedondearMoneda(costoOrigen / unidadesPorOrigen);
     }
 
-    public void ActualizarCostoYRecalcularPrecio(decimal nuevoCosto)
+    public void ActualizarCostoYRecalcularPrecio(decimal nuevoCosto, RedondeoPrecioEnum redondeo)
     {
         // Se calcula antes de asignar: si el cálculo falla, el artículo no queda con un costo nuevo y un precio viejo (H-08).
-        var nuevoPrecio = CalcularPrecioVenta(nuevoCosto, PorcentajeGanancia);
+        var nuevoPrecio = CalcularPrecioVenta(nuevoCosto, PorcentajeGanancia, redondeo);
 
         CostoReposicion = nuevoCosto;
         PrecioVenta = nuevoPrecio;
@@ -135,7 +144,8 @@ public class Articulo : BaseEntity, IAggregateRoot
         decimal porcentajeGanancia,
         int stockActual,
         int stockMinimo,
-        bool esServicio)
+        bool esServicio,
+        RedondeoPrecioEnum redondeo)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(descripcion);
         ValidarIdentificadoresDeClasificacion(idCategoria, idMarca);
@@ -155,7 +165,7 @@ public class Articulo : BaseEntity, IAggregateRoot
 
         // Todas las validaciones y el cálculo ocurren antes de asignar el primer campo (H-08).
         var codigo = ReglasCodigoBarras.ExigirCodigoDeArticulo(codigoBarras);
-        var precioVenta = CalcularPrecioVenta(costoReposicion, porcentajeGanancia);
+        var precioVenta = CalcularPrecioVenta(costoReposicion, porcentajeGanancia, redondeo);
 
         Descripcion = descripcion.Trim();
         IdCategoria = idCategoria;
@@ -207,7 +217,7 @@ public class Articulo : BaseEntity, IAggregateRoot
     /// el costo (A-2). La fuente anterior, si había, sigue siendo fuente (J2). Las presentaciones derivadas las
     /// recalcula Application, que las conoce. Un servicio no tiene fuentes, así que tampoco principal.
     /// </summary>
-    public void MarcarFuentePrincipal(CatalogoProveedor fuente)
+    public void MarcarFuentePrincipal(CatalogoProveedor fuente, RedondeoPrecioEnum redondeo)
     {
         ArgumentNullException.ThrowIfNull(fuente);
 
@@ -227,7 +237,7 @@ public class Articulo : BaseEntity, IAggregateRoot
                 $"El ítem '{fuente.CodigoProveedor}' no es fuente de este artículo: vincúlelo antes de marcarlo como principal.");
         }
 
-        ActualizarCostoYRecalcularPrecio(fuente.CostoReposicion);
+        ActualizarCostoYRecalcularPrecio(fuente.CostoReposicion, redondeo);
         IdCatalogoProveedor = fuente.Id;
     }
 
@@ -244,7 +254,7 @@ public class Articulo : BaseEntity, IAggregateRoot
     /// Convierte este artículo en una presentación derivada del origen indicado y toma de él su costo (RF-21).
     /// Las reglas que miran a otros artículos (por ejemplo, que el origen no se dé de baja) viven en Application.
     /// </summary>
-    public void DefinirComoPresentacionDe(Articulo origen, int unidadesPorOrigen)
+    public void DefinirComoPresentacionDe(Articulo origen, int unidadesPorOrigen, RedondeoPrecioEnum redondeo)
     {
         ArgumentNullException.ThrowIfNull(origen);
 
@@ -279,7 +289,7 @@ public class Articulo : BaseEntity, IAggregateRoot
         }
 
         var costoDerivado = CalcularCostoPresentacion(origen.CostoReposicion, unidadesPorOrigen);
-        ActualizarCostoYRecalcularPrecio(costoDerivado);
+        ActualizarCostoYRecalcularPrecio(costoDerivado, redondeo);
 
         IdArticuloOrigen = origen.Id;
         ArticuloOrigen = origen;
@@ -290,14 +300,14 @@ public class Articulo : BaseEntity, IAggregateRoot
     /// Recalcula el costo de la presentación a partir del nuevo costo del origen y su precio con el markup propio.
     /// Pisa un costo editado a mano: es el comportamiento acordado (RF-21).
     /// </summary>
-    public void RecalcularCostoDesdeOrigen(decimal costoOrigen)
+    public void RecalcularCostoDesdeOrigen(decimal costoOrigen, RedondeoPrecioEnum redondeo)
     {
         if (!EsDerivado || UnidadesPorOrigen is not int unidadesPorOrigen)
         {
             throw new InvalidOperationException("Solo una presentación derivada puede recalcular su costo desde un artículo de origen.");
         }
 
-        ActualizarCostoYRecalcularPrecio(CalcularCostoPresentacion(costoOrigen, unidadesPorOrigen));
+        ActualizarCostoYRecalcularPrecio(CalcularCostoPresentacion(costoOrigen, unidadesPorOrigen), redondeo);
     }
 
     public void DescontarStock(int cantidad)
@@ -342,7 +352,8 @@ public class Articulo : BaseEntity, IAggregateRoot
     }
 
     /// <summary>
-    /// Único punto de redondeo monetario del artículo: 2 decimales, alejándose del cero en el punto medio (D-06).
+    /// Redondeo de los costos del artículo (el costo de una presentación): 2 decimales, alejándose del cero en el punto
+    /// medio (D-06). El precio de venta se redondea aparte, a pesos (D-38).
     /// </summary>
     private static decimal RedondearMoneda(decimal importe)
     {

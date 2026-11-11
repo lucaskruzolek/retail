@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Retail.App.ViewModels.Comun;
 
 namespace Retail.App.Views.Dev;
 
@@ -17,9 +18,9 @@ public partial class PaginacionMuestra : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TotalPaginas), nameof(PuedeAvanzarPagina))]
-    private int _tamanoPagina = 20;
+    private int _tamanoPagina = 30;
 
-    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = [10, 20, 50];
+    public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = OpcionesPaginacion.Tamanos;
 
     public int TotalPaginas => (int)Math.Ceiling(TotalRegistros / (double)TamanoPagina);
 

@@ -365,3 +365,10 @@ erDiagram
         datetime created_at
         datetime deleted_at
     }
+
+    CONFIGURACION_COMERCIAL {
+        int id_configuracion_comercial PK "fila única, id fijo 1 (D-38)"
+        string redondeo_precio "EnteroMasCercano | MultiploDe5/10/100 Superior | Inferior"
+        datetime created_at
+        datetime deleted_at
+    }

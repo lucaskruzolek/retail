@@ -67,7 +67,12 @@ public static class SemilleroHistorialDemo
         var idProveedorBazar = await CrearProveedorAsync(context, "Bazar y Juguetes Demo S.R.L.", CatalogoHistorialDemo.CuitProveedorBazar, alta, cancellationToken);
         var idsCajeros = await CrearCajerosAsync(context, hasher, alta, cancellationToken);
         var clientes = await CrearClientesAsync(context, alta, cancellationToken);
-        var articulos = await CrearArticulosAsync(context, azar, idProveedorEscolar, idProveedorBazar, alta, cancellationToken);
+
+        // Política global de redondeo del precio (D-38): se lee una vez por corrida y se usa en todo el historial.
+        var redondeo = context.ConfiguracionesComerciales.Find(ConfiguracionComercial.IdUnico)?.RedondeoPrecio
+            ?? RedondeoPrecioEnum.EnteroMasCercano;
+
+        var articulos = await CrearArticulosAsync(context, azar, idProveedorEscolar, idProveedorBazar, alta, redondeo, cancellationToken);
 
         var simulacion = new SimulacionHistorialDemo(
             context,
@@ -80,7 +85,8 @@ public static class SemilleroHistorialDemo
             idProveedorEscolar,
             idProveedorBazar,
             articulos,
-            clientes.IdsMorosos);
+            clientes.IdsMorosos,
+            redondeo);
         var resultado = await simulacion.EjecutarAsync(clientes.Cantidad, cancellationToken);
 
         await transaccion.CommitAsync(cancellationToken);
@@ -237,6 +243,7 @@ public static class SemilleroHistorialDemo
         int idProveedorEscolar,
         int idProveedorBazar,
         DateTime alta,
+        RedondeoPrecioEnum redondeo,
         CancellationToken cancellationToken)
     {
         var idCategoriaPorForma = (await context.Categorias.Select(c => new { c.Id, c.NombreCategoria }).ToListAsync(cancellationToken))
@@ -264,7 +271,7 @@ public static class SemilleroHistorialDemo
                 Descripcion = producto.Descripcion,
                 CostoReposicion = producto.CostoInicial,
                 PorcentajeGanancia = producto.PorcentajeGanancia,
-                PrecioVenta = Articulo.CalcularPrecioVenta(producto.CostoInicial, producto.PorcentajeGanancia),
+                PrecioVenta = Articulo.CalcularPrecioVenta(producto.CostoInicial, producto.PorcentajeGanancia, redondeo),
                 StockActual = producto.EsServicio ? 0 : objetivo,
                 StockMinimo = producto.EsServicio ? 0 : minimo,
                 EsServicio = producto.EsServicio,
@@ -311,10 +318,10 @@ public static class SemilleroHistorialDemo
 
         foreach (var (articulo, fuente) in fuentes)
         {
-            articulo.MarcarFuentePrincipal(fuente);
+            articulo.MarcarFuentePrincipal(fuente, redondeo);
         }
 
-        var presentaciones = CrearPresentaciones(creados.Select(c => c.Articulo), pesoTotal, alta, context);
+        var presentaciones = CrearPresentaciones(creados.Select(c => c.Articulo), pesoTotal, alta, context, redondeo);
         await context.SaveChangesAsync(cancellationToken);
 
         var simulados = creados
@@ -354,7 +361,8 @@ public static class SemilleroHistorialDemo
         IEnumerable<Articulo> articulos,
         double pesoTotal,
         DateTime alta,
-        RetailDbContext context)
+        RetailDbContext context,
+        RedondeoPrecioEnum redondeo)
     {
         var porDescripcion = articulos.ToDictionary(a => a.Descripcion, StringComparer.Ordinal);
         var (minimo, objetivo) = CalcularStock(PesoDePresentacion, pesoTotal);
@@ -372,7 +380,7 @@ public static class SemilleroHistorialDemo
             };
 
             var origen = porDescripcion[datos.DescripcionOrigen];
-            derivado.DefinirComoPresentacionDe(origen, datos.UnidadesPorOrigen);
+            derivado.DefinirComoPresentacionDe(origen, datos.UnidadesPorOrigen, redondeo);
             derivado.Clasificar(origen.IdCategoria, origen.OrigenCategoria, origen.IdMarca, origen.OrigenMarca);
 
             context.Articulos.Add(derivado);

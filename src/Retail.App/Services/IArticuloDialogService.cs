@@ -1,6 +1,7 @@
 using Retail.App.ViewModels.Articulos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Domain.Enums;
 
 namespace Retail.App.Services;
 
@@ -19,7 +20,8 @@ public interface IArticuloDialogService
     CrearArticuloDto? MostrarDialogoCrear(
         IReadOnlyList<CategoriaDto> categorias,
         IReadOnlyList<MarcaDto> marcas,
-        Func<CrearArticuloDto, Task>? onGuardarAsync = null);
+        Func<CrearArticuloDto, Task>? onGuardarAsync = null,
+        RedondeoPrecioEnum redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano);
 
     /// <summary>
     /// Edición del artículo con sus fuentes de la base (Track 4.3, A-19, M5). Devuelve los datos guardados o null si
@@ -30,7 +32,8 @@ public interface IArticuloDialogService
         IReadOnlyList<FuenteArticuloDto> fuentes,
         IReadOnlyList<CategoriaDto> categorias,
         IReadOnlyList<MarcaDto> marcas,
-        Func<ActualizarArticuloDto, Task>? onGuardarAsync = null);
+        Func<ActualizarArticuloDto, Task>? onGuardarAsync = null,
+        RedondeoPrecioEnum redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano);
 
     /// <summary>
     /// Selector de "Agregar fuente" (Track 4.3, A-19): oculta los ítems que el formulario ya tiene, deshabilita los
@@ -47,7 +50,8 @@ public interface IArticuloDialogService
     /// </summary>
     CrearPresentacionDto? MostrarDialogoCrearPresentacion(
         ArticuloDto origen,
-        Func<CrearPresentacionDto, Task>? onGuardarAsync = null);
+        Func<CrearPresentacionDto, Task>? onGuardarAsync = null,
+        RedondeoPrecioEnum redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano);
 
     /// <summary>
     /// Fraccionamiento del origen en la presentación indicada (RF-21). Devuelve las unidades obtenidas o null si se canceló.

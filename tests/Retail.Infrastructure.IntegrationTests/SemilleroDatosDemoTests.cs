@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Retail.Domain.Common;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Initialization;
 using Xunit;
@@ -126,5 +127,33 @@ public class SemilleroDatosDemoTests : IAsyncLifetime, IDisposable
         (await _context.Rubros.CountAsync()).Should().Be(SemilleroDatosDemo.RubrosConCategorias.Count);
         (await _context.Categorias.CountAsync()).Should().Be(SemilleroDatosDemo.Categorias.Count() + 1);
         (await _context.Proveedores.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CargarAsync_BaseRecienMigrada_DejaElRedondeoDeLaDemoAlMultiploDe10Superior()
+    {
+        // Act
+        await SemilleroDatosDemo.CargarAsync(_context);
+
+        // Assert: la fila que sembró la migración pasa a la política de la demo (D-38)
+        var configuracion = await _context.ConfiguracionesComerciales.AsNoTracking().SingleAsync();
+        configuracion.RedondeoPrecio.Should().Be(RedondeoPrecioEnum.MultiploDe10Superior);
+    }
+
+    [Fact]
+    public async Task CargarAsync_PoliticaYaElegidaPorElGerente_NoLaReemplaza()
+    {
+        // Arrange: el Gerente eligió otra política antes de volver a ejecutar el comando
+        var configuracion = await _context.ConfiguracionesComerciales.SingleAsync();
+        configuracion.CambiarRedondeoPrecio(RedondeoPrecioEnum.MultiploDe100Inferior);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await SemilleroDatosDemo.CargarAsync(_context);
+
+        // Assert
+        _context.ChangeTracker.Clear();
+        (await _context.ConfiguracionesComerciales.SingleAsync()).RedondeoPrecio
+            .Should().Be(RedondeoPrecioEnum.MultiploDe100Inferior);
     }
 }

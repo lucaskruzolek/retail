@@ -12,5 +12,8 @@ public partial class AjustesView : UserControl
         InitializeComponent();
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         DataContext = ViewModel;
+
+        // La política de redondeo se lee al abrir la página (solo carga si el usuario es Gerente).
+        Loaded += async (_, _) => await ViewModel.CargarCommand.ExecuteAsync(null);
     }
 }

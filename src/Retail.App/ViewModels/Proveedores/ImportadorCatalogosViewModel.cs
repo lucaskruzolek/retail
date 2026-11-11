@@ -179,6 +179,8 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         FiltroCategoria.HayFiltroActivo ||
         FiltroMarca.HayFiltroActivo;
 
+    private readonly IConfiguracionComercialService? _configuracionComercial;
+
     public ImportadorCatalogosViewModel(
         IProveedorService proveedorService,
         IProveedorDialogService dialogService,
@@ -189,8 +191,10 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         IncorporarArticulosModalViewModel incorporarModalViewModel,
         FlujoPedirArticulos flujoPedir,
         TimeProvider reloj,
-        ILogger<ImportadorCatalogosViewModel> logger)
+        ILogger<ImportadorCatalogosViewModel> logger,
+        IConfiguracionComercialService? configuracionComercial = null)
     {
+        _configuracionComercial = configuracionComercial;
         _incorporarModalViewModel = incorporarModalViewModel ?? throw new ArgumentNullException(nameof(incorporarModalViewModel));
         _reloj = reloj ?? throw new ArgumentNullException(nameof(reloj));
         _proveedorService = proveedorService ?? throw new ArgumentNullException(nameof(proveedorService));
@@ -840,7 +844,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
     /// </remarks>
     private async Task<string?> IncorporarAsync(IList<CatalogoProveedorDto> items)
     {
-        (IReadOnlyList<CategoriaDto> Categorias, IReadOnlyList<MarcaDto> Marcas)? diccionarios = null;
+        (IReadOnlyList<CategoriaDto> Categorias, IReadOnlyList<MarcaDto> Marcas, RedondeoPrecioEnum Redondeo)? diccionarios = null;
         Exception? error = null;
         await _cargaCatalogo.EjecutarOperacionAsync(
             token => Task.Run(
@@ -849,7 +853,12 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
                     // Secuenciales: comparten el DbContext.
                     var categorias = await _inventarioService.ListarCategoriasAsync(token);
                     var marcas = await _inventarioService.ListarMarcasAsync(token);
-                    return (Categorias: categorias, Marcas: marcas);
+
+                    // Política global de redondeo (D-38) para la vista previa de precio del modal.
+                    var redondeo = _configuracionComercial is null
+                        ? RedondeoPrecioEnum.EnteroMasCercano
+                        : await _configuracionComercial.ObtenerRedondeoPrecioAsync(token);
+                    return (Categorias: categorias, Marcas: marcas, Redondeo: redondeo);
                 },
                 token),
             d => diccionarios = d,
@@ -862,7 +871,7 @@ public partial class ImportadorCatalogosViewModel : ObservableObject, IDisposabl
         }
 
         var modalVm = _incorporarModalViewModel;
-        modalVm.Inicializar(d.Categorias, d.Marcas, items);
+        modalVm.Inicializar(d.Categorias, d.Marcas, items, d.Redondeo);
 
         if (!_dialogService.MostrarIncorporacion(modalVm))
         {

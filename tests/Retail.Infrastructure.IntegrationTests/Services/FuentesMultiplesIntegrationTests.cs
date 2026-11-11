@@ -8,6 +8,7 @@ using Retail.Application.Validators.Proveedores;
 using Retail.Domain.Entities;
 using Retail.Domain.Exceptions;
 using Retail.Infrastructure.ExternalServices.Excel;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
 using Retail.Infrastructure.Persistence.Services;
@@ -52,7 +53,8 @@ public class FuentesMultiplesIntegrationTests : IAsyncLifetime, IDisposable
             new ActualizarProveedorValidator(),
             new MapeoColumnasValidator(),
             new IncorporarCatalogoArticulosValidator(),
-            new ConsultaCatalogoProveedorValidator());
+            new ConsultaCatalogoProveedorValidator(),
+            ConfiguracionComercialDePrueba.ConRedondeoEntero());
 
         _inventario = new InventarioService(
             articulos,
@@ -64,7 +66,8 @@ public class FuentesMultiplesIntegrationTests : IAsyncLifetime, IDisposable
             new CrearPresentacionValidator(),
             new FraccionarValidator(),
             new ConsultaArticulosValidator(),
-            catalogos);
+            catalogos,
+            ConfiguracionComercialDePrueba.ConRedondeoEntero());
     }
 
     public async Task DisposeAsync()

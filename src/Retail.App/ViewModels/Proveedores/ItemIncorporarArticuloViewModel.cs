@@ -4,6 +4,7 @@ using Retail.App.Converters;
 using Retail.App.Services;
 using Retail.Application.DTOs.Clasificacion;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 
 namespace Retail.App.ViewModels.Proveedores;
 
@@ -124,6 +125,8 @@ public partial class ItemIncorporarArticuloViewModel : ObservableObject
     /// </summary>
     public bool PuedeVolverALaSugerencia => Estado == EstadoSugerenciaItemEnum.Corregida;
 
+    private readonly RedondeoPrecioEnum _redondeoPrecio;
+
     public ItemIncorporarArticuloViewModel(
         int idCatalogo,
         string codigoProveedor,
@@ -132,22 +135,25 @@ public partial class ItemIncorporarArticuloViewModel : ObservableObject
         decimal costoReposicion,
         decimal porcentajeGananciaInicial,
         IReadOnlyCollection<OpcionDiccionario> opcionesCategoria,
-        IReadOnlyCollection<OpcionDiccionario> opcionesMarca)
+        IReadOnlyCollection<OpcionDiccionario> opcionesMarca,
+        RedondeoPrecioEnum redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano)
     {
+        // Política global de redondeo (D-38): la misma que usará la incorporación al crear el artículo.
+        _redondeoPrecio = redondeoPrecio;
         IdCatalogo = idCatalogo;
         CodigoProveedor = codigoProveedor;
         CodigoBarras = codigoBarras;
         Descripcion = descripcion;
         CostoReposicion = costoReposicion;
         _porcentajeGanancia = porcentajeGananciaInicial;
-        _precioVenta = Articulo.CalcularPrecioVenta(costoReposicion, porcentajeGananciaInicial);
+        _precioVenta = Articulo.CalcularPrecioVenta(costoReposicion, porcentajeGananciaInicial, redondeoPrecio);
         _opcionesCategoria = opcionesCategoria ?? throw new ArgumentNullException(nameof(opcionesCategoria));
         _opcionesMarca = opcionesMarca ?? throw new ArgumentNullException(nameof(opcionesMarca));
     }
 
     partial void OnPorcentajeGananciaChanged(decimal value)
     {
-        PrecioVenta = Articulo.CalcularPrecioVenta(CostoReposicion, value);
+        PrecioVenta = Articulo.CalcularPrecioVenta(CostoReposicion, value, _redondeoPrecio);
     }
 
     /// <summary>

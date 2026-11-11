@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 using Retail.Domain.Services;
 using Xunit;
@@ -160,7 +161,7 @@ public class ServicioFraccionamientoTests
             PorcentajeGanancia = 100m,
             StockActual = stockDerivado
         };
-        derivado.DefinirComoPresentacionDe(origen, unidadesPorOrigen);
+        derivado.DefinirComoPresentacionDe(origen, unidadesPorOrigen, RedondeoPrecioEnum.EnteroMasCercano);
 
         return (origen, derivado);
     }

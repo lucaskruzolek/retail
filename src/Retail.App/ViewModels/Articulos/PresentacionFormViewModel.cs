@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Retail.Application.DTOs.Articulos;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 
 namespace Retail.App.ViewModels.Articulos;
 
@@ -89,6 +90,18 @@ public partial class PresentacionFormViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Política global de redondeo del precio (D-38) que usa la vista previa; la asigna quien abre el formulario, para
+    /// que el precio mostrado sea el mismo que guardará el servicio.
+    /// </summary>
+    [ObservableProperty]
+    private RedondeoPrecioEnum _redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano;
+
+    partial void OnRedondeoPrecioChanged(RedondeoPrecioEnum value)
+    {
+        RecalcularVistaPrevia();
+    }
+
+    /// <summary>
     /// Vista previa del costo y el precio que fijará el Dominio. Con datos inválidos muestra cero en lugar de
     /// lanzar: el error se informa al validar.
     /// </summary>
@@ -102,7 +115,7 @@ public partial class PresentacionFormViewModel : ObservableObject
         }
 
         CostoUnitarioCalculado = Articulo.CalcularCostoPresentacion(CostoOrigen, UnidadesPorOrigen);
-        PrecioVentaCalculado = Articulo.CalcularPrecioVenta(CostoUnitarioCalculado, PorcentajeGanancia);
+        PrecioVentaCalculado = Articulo.CalcularPrecioVenta(CostoUnitarioCalculado, PorcentajeGanancia, RedondeoPrecio);
     }
 
     public bool Validar()

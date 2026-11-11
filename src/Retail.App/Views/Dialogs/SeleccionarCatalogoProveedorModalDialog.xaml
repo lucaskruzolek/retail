@@ -169,9 +169,9 @@
 
                                 <DataGridTextColumn Header="Costo"
                                                     HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                    Binding="{Binding Item.CostoReposicion, StringFormat={}{0:C2}}"
+                                                    Binding="{Binding Item.CostoReposicion, StringFormat={}{0:C0}}"
                                                     ElementStyle="{StaticResource TextBlockCurrencyCell}"
-                                                    Width="95" />
+                                                    Width="80" />
 
                                 <DataGridTextColumn Header="Lista"
                                                     Binding="{Binding FechaLocal, StringFormat={}{0:dd/MM/yyyy}}"

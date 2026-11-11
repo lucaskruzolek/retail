@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 
 namespace Retail.App.ViewModels.Compras;
 
@@ -59,6 +60,16 @@ public partial class DetalleCompraItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(BajaPrecio))]
     private decimal _precioVentaActual;
 
+    /// <summary>
+    /// Política global de redondeo del precio (D-38); la asigna la pantalla de compras al crear el renglón, para que el
+    /// nuevo precio mostrado sea el que fijará <c>CompraService</c>.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NuevoPrecioVenta))]
+    [NotifyPropertyChangedFor(nameof(SubePrecio))]
+    [NotifyPropertyChangedFor(nameof(BajaPrecio))]
+    private RedondeoPrecioEnum _redondeoPrecio = RedondeoPrecioEnum.EnteroMasCercano;
+
     /// <summary>Subtotal del renglón (costo unitario por cantidad recibida).</summary>
     public decimal Subtotal => CostoUnitario * Cantidad;
 
@@ -69,7 +80,7 @@ public partial class DetalleCompraItemViewModel : ObservableObject
     /// </summary>
     public decimal NuevoPrecioVenta => CostoUnitario <= 0m
         ? PrecioVentaActual
-        : Articulo.CalcularPrecioVenta(CostoUnitario, PorcentajeGanancia);
+        : Articulo.CalcularPrecioVenta(CostoUnitario, PorcentajeGanancia, RedondeoPrecio);
 
     /// <summary>Mismo criterio que <c>CompraService</c>: la compra recalcula el precio solo si el costo cambió.</summary>
     public bool CambiaPrecio => CostoUnitario != CostoActual;

@@ -3,6 +3,7 @@ using Retail.App.ViewModels.Compras;
 using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Domain.Entities;
+using Retail.Domain.Enums;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
@@ -26,9 +27,29 @@ public sealed class DetalleCompraItemViewModelTests
         };
 
         // Assert
-        renglon.NuevoPrecioVenta.Should().Be(Articulo.CalcularPrecioVenta(200m, 25m));
+        renglon.NuevoPrecioVenta.Should().Be(Articulo.CalcularPrecioVenta(200m, 25m, RedondeoPrecioEnum.EnteroMasCercano));
         renglon.NuevoPrecioVenta.Should().Be(250m);
         renglon.NuevoPrecioVenta.Should().NotBe(200m * 1.4m);
+    }
+
+    [Fact]
+    public void NuevoPrecioVenta_ConPoliticaMultiploDe10Superior_PrevisualizaElPrecioRedondeado()
+    {
+        // Arrange: 131 × 1,5 = 196,50
+        var renglon = new DetalleCompraItemViewModel
+        {
+            CostoUnitario = 131m,
+            CostoActual = 120m,
+            PorcentajeGanancia = 50m,
+            PrecioVentaActual = 180m,
+        };
+
+        // Act
+        renglon.RedondeoPrecio = RedondeoPrecioEnum.MultiploDe10Superior;
+
+        // Assert: la vista previa coincide con lo que guardará CompraService con esa política (D-38)
+        renglon.NuevoPrecioVenta.Should().Be(200m);
+        renglon.SubePrecio.Should().BeTrue();
     }
 
     [Fact]

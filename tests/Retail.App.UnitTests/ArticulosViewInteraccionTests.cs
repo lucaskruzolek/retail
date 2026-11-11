@@ -284,7 +284,7 @@ public class ArticulosViewInteraccionTests
         });
 
         var es = System.Globalization.CultureInfo.GetCultureInfo("es-AR");
-        textos.Should().Contain(100m.ToString("C2", es), "el costo se formatea como moneda es-AR");
+        textos.Should().Contain(100m.ToString("C0", es), "el costo se formatea como moneda es-AR");
         textos.Should().Contain("50%", "el margen va con su unidad y sin ceros sobrantes");
     }
 

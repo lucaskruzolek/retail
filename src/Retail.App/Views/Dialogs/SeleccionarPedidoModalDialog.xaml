@@ -85,7 +85,7 @@
                                                 Width="104" />
                             <DataGridTextColumn Header="Total est."
                                                 HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                Binding="{Binding TotalEstimado, StringFormat=C2}"
+                                                Binding="{Binding TotalEstimado, StringFormat=C0}"
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="*"
                                                 MinWidth="120" />
