@@ -28,6 +28,8 @@ public class ExcelCatalogParser : IExcelCatalogParser
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(mapeo);
 
+        ArgumentOutOfRangeException.ThrowIfLessThan(mapeo.FilaEncabezado, 1);
+
         var items = new List<ItemCatalogoImportadoDto>();
         var descartadas = new List<string>();
 
@@ -36,42 +38,41 @@ public class ExcelCatalogParser : IExcelCatalogParser
             var tipoArchivo = mapeo.ExtensionArchivo.Equals(".csv", StringComparison.OrdinalIgnoreCase)
                 ? ExcelType.CSV
                 : ExcelType.XLSX;
-            var rows = stream.Query(useHeaderRow: false, excelType: tipoArchivo);
+            using var filas = stream
+                .Query(useHeaderRow: false, excelType: tipoArchivo)
+                .Cast<IDictionary<string, object?>>()
+                .GetEnumerator();
 
-            ColumnasPlanilla? columnas = null;
+            // El recorrido tiene tres tramos que ocurren una sola vez y en este orden: lo que hay antes del
+            // encabezado, el encabezado y los datos. Se avanza hasta el encabezado, se resuelven las columnas y recién
+            // entonces empieza el bucle de datos, que ya no pregunta en qué tramo está cada fila.
             int numeroFila = 0;
+            while (numeroFila < mapeo.FilaEncabezado)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-            foreach (IDictionary<string, object?> row in rows)
+                if (!filas.MoveNext())
+                {
+                    throw new InvalidDataException(
+                        $"La planilla no llega a la fila de encabezado {mapeo.FilaEncabezado} (tiene {numeroFila} filas).");
+                }
+
+                numeroFila++;
+            }
+
+            var columnas = ResolverColumnas(filas.Current, mapeo);
+
+            while (filas.MoveNext())
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 numeroFila++;
 
-                if (numeroFila < mapeo.FilaEncabezado)
-                {
-                    continue;
-                }
-
-                if (numeroFila == mapeo.FilaEncabezado)
-                {
-                    columnas = ResolverColumnas(row, mapeo);
-                    continue;
-                }
-
-                if (columnas is not null)
-                {
-                    InterpretarFila(row, numeroFila, columnas, items, descartadas);
-                }
+                InterpretarFila(filas.Current, numeroFila, columnas, items, descartadas);
 
                 if (numeroFila % IntervaloReporteProgreso == 0)
                 {
                     progreso?.Report(numeroFila);
                 }
-            }
-
-            if (columnas is null)
-            {
-                throw new InvalidDataException(
-                    $"La planilla no llega a la fila de encabezado {mapeo.FilaEncabezado} (tiene {numeroFila} filas).");
             }
 
             progreso?.Report(numeroFila);

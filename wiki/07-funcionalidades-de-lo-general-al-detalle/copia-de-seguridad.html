@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Copia de seguridad</title>
+<style>
+:root {
+    --texto: #1f2328;
+    --texto-suave: #57606a;
+    --fondo: #ffffff;
+    --fondo-suave: #f6f8fa;
+    --borde: #d0d7de;
+    --acento: #9d0f33;
+    --acento-suave: #fbeef1;
+    --nota: #fff8e5;
+    --nota-borde: #d4a72c;
+    --ok: #1a7f37;
+    --ancho: 980px;
+    color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --texto: #e6edf3;
+        --texto-suave: #9da7b3;
+        --fondo: #0d1117;
+        --fondo-suave: #161b22;
+        --borde: #30363d;
+        --acento: #ff7b9c;
+        --acento-suave: #2d1620;
+        --nota: #2a2310;
+        --nota-borde: #9e7c1c;
+        --ok: #3fb950;
+    }
+}
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+}
+main { max-width: var(--ancho); margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+h2 {
+    font-size: 1.55rem; margin: 56px 0 8px; padding-top: 16px;
+    border-top: 3px solid var(--acento);
+}
+h3 { font-size: 1.15rem; margin: 32px 0 8px; }
+h4 { font-size: 1rem; margin: 20px 0 6px; }
+p, li { max-width: 78ch; }
+a { color: var(--acento); }
+code {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 0.88em;
+    background: var(--fondo-suave); border: 1px solid var(--borde); border-radius: 4px; padding: 0 4px;
+}
+pre.codigo {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 0.85rem; line-height: 1.5;
+    background: var(--fondo-suave); border: 1px solid var(--borde); border-radius: 6px;
+    padding: 12px 16px; overflow-x: auto; white-space: pre;
+}
+.subtitulo { color: var(--texto-suave); margin: 0 0 24px; }
+.etiqueta {
+    display: inline-block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--acento); margin-bottom: 4px;
+}
+.niveles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 16px 0 24px; }
+.niveles div { border: 1px solid var(--borde); border-radius: 6px; padding: 8px 12px; background: var(--fondo-suave); }
+.niveles b { display: block; color: var(--acento); }
+nav.indice { border: 1px solid var(--borde); border-radius: 6px; padding: 12px 20px; background: var(--fondo-suave); }
+nav.indice ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+nav.indice li { break-inside: avoid; }
+figure { margin: 20px 0; break-inside: avoid; }
+figcaption { font-size: 0.8rem; font-weight: 600; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+pre.mermaid {
+    background: var(--fondo); border: 1px solid var(--borde); border-radius: 6px; padding: 12px;
+    margin: 0; text-align: center; overflow-x: auto; white-space: pre; font-size: 0.8rem;
+}
+pre.mermaid[data-processed="true"] { white-space: normal; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.9rem; break-inside: auto; }
+th, td { border: 1px solid var(--borde); padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: var(--fondo-suave); }
+tr { break-inside: avoid; }
+.llevarte { border-left: 4px solid var(--acento); background: var(--acento-suave); padding: 8px 16px; margin: 16px 0; break-inside: avoid; }
+.llevarte > b { display: block; margin-bottom: 4px; }
+.llevarte ul { margin: 4px 0; padding-left: 20px; }
+.nota { border-left: 4px solid var(--nota-borde); background: var(--nota); padding: 8px 16px; margin: 16px 0; break-inside: avoid; }
+details { border: 1px solid var(--borde); border-radius: 6px; padding: 8px 16px; margin: 12px 0; break-inside: avoid; }
+details > summary { cursor: pointer; font-weight: 600; }
+details > summary::marker { color: var(--acento); }
+details[open] > summary { margin-bottom: 8px; }
+.pie { margin-top: 48px; font-size: 0.85rem; color: var(--texto-suave); border-top: 1px solid var(--borde); padding-top: 12px; }
+@media (max-width: 640px) {
+    nav.indice ol { columns: 1; }
+    h1 { font-size: 1.6rem; }
+}
+@media print {
+    @page { size: A4; margin: 16mm 14mm; }
+    html { font-size: 11pt; }
+    :root {
+        --texto: #1f2328; --texto-suave: #57606a; --fondo: #ffffff; --fondo-suave: #f6f8fa; --borde: #d0d7de;
+        --acento: #9d0f33; --acento-suave: #fbeef1; --nota: #fff8e5; --nota-borde: #d4a72c; --ok: #1a7f37;
+    }
+    /* Los diagramas dibujados con el tema oscuro se invierten para salir claros sobre el papel. */
+    .modo-oscuro pre.mermaid svg { filter: invert(1) hue-rotate(180deg); }
+    main { max-width: none; padding: 0; }
+    h2 { break-before: page; margin-top: 0; }
+    h2.sin-salto { break-before: auto; }
+    h3, h4 { break-after: avoid; }
+    figure, pre.mermaid, .llevarte, .nota, details { break-inside: avoid; }
+    pre.mermaid { border: none; overflow: visible; }
+    pre.mermaid svg { max-width: 100% !important; max-height: 235mm; height: auto; width: auto; }
+    pre.codigo { white-space: pre-wrap; }
+    @page apaisada { size: A4 landscape; margin: 12mm; }
+    figure.ancho { page: apaisada; }
+    figure.ancho pre.mermaid svg { max-height: 175mm; }
+    a { color: inherit; text-decoration: none; }
+    details > summary::marker { content: ""; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<span class="etiqueta">Retail POS · Funcionalidades de lo general al detalle</span>
+<h1>Copia de seguridad</h1>
+<p class="subtitulo">Cómo se respalda la base completa de Retail POS: quién puede pedir una copia, cómo se genera y verifica, cómo se protege y cuántas se conservan. Contrastado con el código el 7 de noviembre de 2026.</p>
+
+<p>El documento recorre la funcionalidad en cinco niveles. Cada uno muestra el anterior con más detalle: primero qué es una copia y cómo cambia su estado, después qué ve el usuario, después qué capa hace cada cosa, luego los mecanismos que la hacen segura y por último los algoritmos. Al final hay tres secciones para preparar la defensa. La otra mitad de la funcionalidad, volver a una copia, está en el recorrido de la <a href="restauracion.html"><b>restauración</b></a>.</p>
+
+<div class="niveles">
+    <div><b>Nivel 0</b>El mapa: qué es una copia, casos de uso y ciclo de vida.</div>
+    <div><b>Nivel 1</b>Caja negra: copia manual, diaria y previa a migrar.</div>
+    <div><b>Nivel 2</b>Por capas: App, Aplicación, Dominio, Infraestructura y SQL Server.</div>
+    <div><b>Nivel 3</b>Mecanismos: bloqueo entre procesos, copias huérfanas y errores.</div>
+    <div><b>Nivel 4</b>Los algoritmos: la copia paso a paso, integridad y retención.</div>
+    <div><b>Defensa</b>A. Seguridad. B. Robustez. C. Decisiones.</div>
+</div>
+
+<nav class="indice" aria-label="Índice">
+<ol>
+    <li><a href="#nivel-0">Nivel 0 · El mapa</a></li>
+    <li><a href="#nivel-1">Nivel 1 · Lo que ve el usuario</a></li>
+    <li><a href="#nivel-2">Nivel 2 · Qué capa hace cada cosa</a></li>
+    <li><a href="#nivel-3">Nivel 3 · Los mecanismos</a></li>
+    <li><a href="#nivel-4">Nivel 4 · Los algoritmos</a></li>
+    <li><a href="#defensa-a">Defensa A · Seguridad y datos personales</a></li>
+    <li><a href="#defensa-b">Defensa B · Robustez ante fallas</a></li>
+    <li><a href="#defensa-c">Defensa C · Decisiones y alternativas</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ NIVEL 0 -->
+<h2 id="nivel-0" class="sin-salto">Nivel 0 · El mapa</h2>
+<span class="etiqueta">Abstracción máxima</span>
+
+<p>Una copia de seguridad es <b>la base completa en un archivo</b>: artículos, ventas, caja, clientes con sus datos personales y usuarios con sus contraseñas cifradas. Cada copia deja tres cosas, y las tres hacen falta para confiar en ella:</p>
+
+<table>
+<tr><th>Artefacto</th><th>Dónde vive</th><th>Qué aporta</th></tr>
+<tr><td>El archivo <code>.bak</code></td><td>Directorio de respaldos, por defecto <code>C:\RetailData\Backups</code></td><td>Los datos. Lo escribe el propio SQL Server con <code>BACKUP DATABASE</code></td></tr>
+<tr><td>El manifiesto <code>.json</code></td><td>Junto al <code>.bak</code>, con el mismo nombre</td><td>Quién, cuándo y con qué versión del esquema se tomó, y la huella SHA-256 del archivo. Viaja con el <code>.bak</code> si se lo copia a otra PC</td></tr>
+<tr><td>El registro en el historial</td><td>Tabla <code>REGISTROS_BACKUP</code> de la base</td><td>El estado de la copia (en curso, verificada, fallida, purgada) y la evidencia de cada intento, incluso de los que fallaron</td></tr>
+</table>
+
+<h3>El historial de copias</h3>
+<figure>
+<figcaption>Diagrama 0.1 · entidad-relación</figcaption>
+<pre class="mermaid">
+erDiagram
+    REGISTROS_BACKUP {
+        int id_registro_backup PK
+        uniqueidentifier referencia UK "identidad estable entre bases"
+        nvarchar tipo "Manual, Automatico, PreRestauracion, PreMigracion"
+        nvarchar estado UK "un solo EnCurso a la vez"
+        int id_usuario "foto del operador, sin FK"
+        nvarchar nombre_usuario "foto del operador"
+        datetime2 fecha_inicio
+        datetime2 fecha_fin
+        nvarchar ruta_archivo "ruta del .bak"
+        bigint tamano_bytes "mayor a 0"
+        nvarchar hash_sha256 "64 hexadecimales"
+        nvarchar ultima_migracion "versión del esquema copiado"
+        nvarchar version_app
+        nvarchar mensaje_error "motivo si falló"
+        datetime2 created_at
+        datetime2 deleted_at "baja lógica"
+    }
+</pre>
+</figure>
+
+<p>La tabla está sola a propósito: el operador se guarda como una <b>foto</b> (<code>id_usuario</code> y <code>nombre_usuario</code>), no como clave foránea a <code>USUARIOS</code>. Al restaurar una copia vieja, el historial se vuelve a insertar en la base restaurada, donde un usuario creado después de esa copia no existe (R-1). Y un registro de auditoría tiene que conservar quién fue aunque la cuenta cambie. Por la misma razón existe <code>referencia</code>: un GUID que identifica la copia en cualquier base, mientras que el <code>id</code> puede cambiar al restaurar.</p>
+
+<h3>Quién hace qué y dónde escribe</h3>
+<figure>
+<figcaption>Diagrama 0.2 · casos de uso</figcaption>
+<pre class="mermaid">
+flowchart LR
+    G(["Gerente o Administrador"])
+    T(["Programador de tareas&lt;br/&gt;de Windows"])
+    O(["Quien actualiza la versión"])
+    R(["Restauración"])
+    subgraph APP["Aplicación"]
+        CU1["CU-01 Ver el historial de copias"]
+        CU2["CU-02 Copia manual&lt;br/&gt;con su contraseña"]
+    end
+    subgraph CLI["Retail.Cli"]
+        CU3["CU-03 Copia automática diaria&lt;br/&gt;backup, 21:00"]
+        CU4["CU-04 Copia previa a migrar&lt;br/&gt;migrar"]
+    end
+    CU5["CU-05 Copia previa a restaurar"]
+    DIR[("Directorio de respaldos&lt;br/&gt;.bak y .json")]
+    REG[("REGISTROS_BACKUP")]
+    G --&gt; CU1
+    G --&gt; CU2
+    T --&gt; CU3
+    O --&gt; CU4
+    R --&gt; CU5
+    CU1 --&gt;|"lee"| REG
+    CU2 --&gt;|"escribe"| DIR
+    CU3 --&gt;|"escribe"| DIR
+    CU4 --&gt;|"escribe"| DIR
+    CU5 --&gt;|"escribe"| DIR
+    CU2 --&gt;|"registra"| REG
+    CU3 --&gt;|"registra"| REG
+    CU4 --&gt;|"registra si existe"| REG
+    CU5 --&gt;|"registra si existe"| REG
+</pre>
+</figure>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>Hay <b>cuatro clases de copia</b> y una sola manera de hacerlas: todas pasan por el mismo servicio y terminan verificadas o registradas como fallidas.</li>
+    <li>Solo la copia manual la pide una persona desde la aplicación, y por eso es la única que exige contraseña. Las otras tres las dispara el sistema: hacer una copia no da acceso a ninguna cuenta ni modifica datos (D-13).</li>
+    <li>"Registra si existe": antes de migrar o de restaurar, la base puede ser de una versión anterior a la tabla del historial. Igual se copia, porque <b>nunca se migra ni se restaura sin red de seguridad</b>; esa copia queda descrita solo por su manifiesto.</li>
+</ul>
+</div>
+
+<h3>Ciclo de vida de una copia</h3>
+<figure>
+<figcaption>Diagrama 0.3 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    state "En curso" as EnCurso
+    state "Exitosa, sin verificar" as Exitoso
+    state "Verificada" as Verificado
+    state "Fallida" as Fallido
+    state "Archivo purgado" as Purgado
+    [*] --&gt; EnCurso: se registra antes de copiar
+    EnCurso --&gt; Exitoso: el motor terminó de escribir el .bak
+    Exitoso --&gt; Verificado: RESTORE VERIFYONLY y manifiesto escrito
+    EnCurso --&gt; Fallido: error, cancelación o copia huérfana
+    Exitoso --&gt; Fallido: la verificación falló, o el proceso murió verificando
+    Verificado --&gt; Purgado: la retención borró el archivo
+    Exitoso --&gt; Purgado: la retención borró el archivo
+    Verificado --&gt; [*]
+    Fallido --&gt; [*]
+    Purgado --&gt; [*]
+    note right of Verificado
+        Única restaurable.
+    end note
+</pre>
+</figure>
+
+<p>"Exitosa" no alcanza: significa que el archivo se escribió, no que se pueda leer. Solo una copia <b>verificada</b> se puede restaurar (<code>RegistroBackup.EsRestaurable</code>). Ningún registro se borra: una copia fallida o purgada queda como historia (Ley 3, borrado lógico de la información).</p>
+
+<h3>Las cuatro clases de copia</h3>
+<table>
+<tr><th>Tipo</th><th>La dispara</th><th>Operador en el registro</th><th>Autorización</th><th>Retención</th></tr>
+<tr><td><code>Manual</code></td><td>Un Gerente o un Administrador desde la pantalla Copias</td><td>Obligatorio</td><td>Su contraseña otra vez (D-8, D-32)</td><td>Entre las 14 más recientes</td></tr>
+<tr><td><code>Automatico</code></td><td>La tarea programada, todos los días a las 21:00 (<code>Retail.Cli backup</code>)</td><td>Prohibido: "Sistema"</td><td>Ninguna: corre como SYSTEM (D-13, D-29)</td><td>Entre las 14 más recientes</td></tr>
+<tr><td><code>PreMigracion</code></td><td><code>Retail.Cli migrar</code>, si la base ya tiene datos</td><td>Prohibido: "Sistema"</td><td>Ninguna</td><td>Entre las 14 más recientes</td></tr>
+<tr><td><code>PreRestauracion</code></td><td>Una restauración, justo antes de reemplazar la base (D-20)</td><td>Obligatorio: quien restaura</td><td>La de la restauración</td><td>Aparte: 30 días (D-24)</td></tr>
+</table>
+<p>"Un registro no puede mentir sobre su origen": <code>RegistroBackup.Iniciar</code> rechaza una copia manual sin operador y una automática con operador.</p>
+
+<details><summary>Autoevaluación N0: ¿por qué el historial no tiene una clave foránea a <code>USUARIOS</code>?</summary>
+<p>Porque el historial sobrevive a las restauraciones. Si se restaura una copia de hace un mes, el historial actual se vuelve a insertar en esa base, donde los usuarios creados en el último mes no existen: una clave foránea haría fallar la inserción. Además, un registro de auditoría debe decir quién pidió la copia aunque esa cuenta se renombre o se dé de baja.</p>
+</details>
+
+<!-- ============================================================ NIVEL 1 -->
+<h2 id="nivel-1">Nivel 1 · Lo que ve el usuario</h2>
+<span class="etiqueta">Caja negra</span>
+
+<p>Cuatro participantes: quien dispara la copia, el sistema como un todo, SQL Server y el directorio de respaldos. Fijate en que el sistema <b>registra antes de copiar</b> y <b>verifica antes de dar la copia por buena</b>.</p>
+
+<h3>Copia manual (CU-02)</h3>
+<figure>
+<figcaption>Diagrama 1.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor G as Gerente
+    participant S as Retail POS
+    participant SQL as SQL Server
+    participant D as Directorio de respaldos
+    G-&gt;&gt;S: Copias (F11), Crear copia
+    S--&gt;&gt;G: Pide su contraseña otra vez
+    G-&gt;&gt;S: Contraseña
+    S-&gt;&gt;S: ¿Es Gerente o Administrador? ¿La contraseña es correcta?
+    S-&gt;&gt;SQL: Registra la copia "en curso"
+    S-&gt;&gt;SQL: BACKUP DATABASE ... WITH CHECKSUM
+    SQL-&gt;&gt;D: Escribe el .bak
+    SQL--&gt;&gt;S: Avance cada 10 %
+    S--&gt;&gt;G: Barra de progreso
+    S-&gt;&gt;D: Calcula la huella SHA-256 del archivo
+    S-&gt;&gt;SQL: Registra la copia "exitosa"
+    S-&gt;&gt;SQL: RESTORE VERIFYONLY ... WITH CHECKSUM
+    S-&gt;&gt;D: Escribe el manifiesto .json
+    S-&gt;&gt;SQL: Registra la copia "verificada"
+    S-&gt;&gt;D: Retención: borra las copias que sobran
+    S--&gt;&gt;G: "La copia se creó y se verificó", con ruta y tamaño
+</pre>
+</figure>
+
+<p>Si algo falla, el registro queda como <b>fallido</b> con su motivo y el archivo parcial se borra. El historial se recarga igual, para que el fallo se vea.</p>
+
+<h3>Copia automática diaria (CU-03)</h3>
+<figure>
+<figcaption>Diagrama 1.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant T as Programador de tareas
+    participant C as Retail.Cli backup
+    participant SQL as SQL Server
+    participant D as Directorio de respaldos
+    T-&gt;&gt;C: Todos los días a las 21:00, como SYSTEM
+    Note over T,C: Si la PC estaba apagada, corre al encenderla
+    loop hasta 2 minutos, cada 10 s
+        C-&gt;&gt;SQL: ¿Acepta conexiones?
+    end
+    C-&gt;&gt;SQL: ¿La base existe y está al día?
+    alt base no lista
+        C--&gt;&gt;T: Código de error y motivo en el log
+    else base lista
+        C-&gt;&gt;SQL: Copia, verificación y registro, como en la manual
+        SQL-&gt;&gt;D: .bak
+        C-&gt;&gt;D: .json y retención
+        C--&gt;&gt;T: Ruta, tamaño y SHA-256
+    end
+</pre>
+</figure>
+
+<p>No hay reintentos (D-28): si la copia falla, queda registrada como fallida y la de mañana vuelve a intentar. Lo que sí se espera es al <b>motor</b>: con "iniciar si se perdió", la tarea puede arrancar apenas se enciende la PC, antes de que SQL Server termine de iniciar.</p>
+
+<h3>Copia previa a migrar (CU-04)</h3>
+<figure>
+<figcaption>Diagrama 1.3 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor O as Quien actualiza
+    participant C as Retail.Cli migrar
+    participant SQL as SQL Server
+    O-&gt;&gt;C: migrar, con la versión nueva instalada
+    C-&gt;&gt;SQL: ¿Hay migraciones pendientes? ¿La base tiene datos?
+    opt la base tiene datos
+        C-&gt;&gt;SQL: Copia PreMigracion, verificada
+        Note over C,SQL: Si la base es anterior al historial, la copia queda solo con su manifiesto
+    end
+    C-&gt;&gt;SQL: Aplica las migraciones
+    C--&gt;&gt;O: Esquema al día y ruta de la copia
+</pre>
+</figure>
+
+<p>La copia previa a restaurar (CU-05) se ve en el <a href="restauracion.html">recorrido de la restauración</a>: es el paso que garantiza que, si se restauró la copia equivocada, los datos de ese momento siguen a salvo.</p>
+
+<details><summary>Autoevaluación N1: el Gerente ya inició sesión. ¿Por qué se le vuelve a pedir la contraseña?</summary>
+<p>Porque en un mostrador una sesión puede quedar abierta mientras atiende otra persona. La copia contiene toda la base, con datos personales de clientes (Ley 25.326): para generarla no alcanza con que haya una sesión abierta, tiene que estar la persona autorizada. Es autenticación reforzada (<i>step-up authentication</i>, D-8).</p>
+</details>
+
+<!-- ============================================================ NIVEL 2 -->
+<h2 id="nivel-2">Nivel 2 · Qué capa hace cada cosa</h2>
+<span class="etiqueta">Por capas</span>
+
+<p>El prefijo de cada participante indica la capa: <code>[App]</code> WPF y MVVM, <code>[Apl]</code> casos de uso, <code>[Dom]</code> invariantes, <code>[Inf]</code> adaptadores. Aplicación solo conoce interfaces (<code>IEjecutorBackupBaseDatos</code>, <code>IArchivosBackup</code>, <code>IBloqueoRestauracion</code>): no sabe que del otro lado hay SQL Server y un disco.</p>
+
+<h3>Copia manual: <code>CrearBackupManualAsync</code></h3>
+<figure class="ancho">
+<figcaption>Diagrama 2.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant VM as [App] BackupViewModel
+    participant CC as [App] ConfirmarCredencial
+    participant BS as [Apl] BackupService
+    participant AU as [Apl] AuthService
+    participant RB as [Dom] RegistroBackup
+    participant BL as [Inf] Bloqueo (sp_getapplock)
+    participant AR as [Inf] ArchivosBackup
+    participant EJ as [Inf] SqlServerEjecutorBackup
+    VM-&gt;&gt;CC: Pide la contraseña y la ejecución
+    CC-&gt;&gt;BS: Task.Run, CrearBackupManualAsync(actor, contraseña, progreso)
+    BS-&gt;&gt;BS: ¿Gerente o Administrador?
+    BS-&gt;&gt;AU: VerificarCredencialAsync
+    BS-&gt;&gt;BL: Intentar exclusivo: cerrar copias huérfanas (B-0)
+    BS-&gt;&gt;BL: Bloqueo compartido mientras dura la copia
+    BS-&gt;&gt;BS: ¿Hay otra copia en curso?
+    BS-&gt;&gt;AR: PrepararRutaNueva: permiso de escritura y espacio libre
+    BS-&gt;&gt;RB: Iniciar(Manual, operador, ruta, migración, versión)
+    BS-&gt;&gt;BS: SaveChanges: registro EnCurso
+    BS-&gt;&gt;EJ: CrearCopiaAsync(ruta, progreso)
+    EJ--&gt;&gt;BS: Tamaño y SHA-256
+    BS-&gt;&gt;RB: RegistrarExito(tamaño, hash)
+    BS-&gt;&gt;EJ: VerificarCopiaAsync
+    BS-&gt;&gt;AR: EscribirManifiestoAsync
+    BS-&gt;&gt;RB: MarcarVerificado
+    BS-&gt;&gt;BS: Retención
+    BS--&gt;&gt;CC: ResultadoBackupDto
+    CC--&gt;&gt;VM: Completada, se recarga el historial
+</pre>
+</figure>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li><b>Varias transacciones cortas, no una.</b> El registro se guarda <code>EnCurso</code>, después <code>Exitoso</code> y después <code>Verificado</code>, cada estado en su propio <code>SaveChanges</code>. Así, si el proceso muere en el medio, queda evidencia de hasta dónde llegó.</li>
+    <li><b>Las reglas del estado viven en el Dominio.</b> <code>RegistroBackup</code> no deja verificar una copia que no está <code>Exitosa</code>, ni registrar éxito con un tamaño cero o un hash mal formado.</li>
+    <li><b>El trabajo pesado corre fuera del hilo de la interfaz</b>, con <code>Task.Run</code> (Ley 4). El avance cruza de hilo con <code>IProgress</code>.</li>
+</ul>
+</div>
+
+<h3>Copias del sistema: <code>CrearBackupDelSistemaAsync</code></h3>
+<figure>
+<figcaption>Diagrama 2.2 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["CrearBackupDelSistemaAsync(tipo)"] --&gt; B{"¿Automatico o PreMigracion?"}
+    B --&gt;|No| X["DomainException:&lt;br/&gt;ese tipo no lo dispara el sistema"]
+    B --&gt;|Sí| C["Cerrar copias huérfanas (B-0)"]
+    C --&gt; D["Bloqueo compartido"]
+    D --&gt; E{"¿La base tiene la tabla&lt;br/&gt;del historial?"}
+    E --&gt;|Sí| F["CopiarConHistorialAsync&lt;br/&gt;registro, copia, verificación,&lt;br/&gt;manifiesto y retención"]
+    E --&gt;|"No: versión anterior"| G["CopiarSinHistorialAsync&lt;br/&gt;copia, verificación y manifiesto&lt;br/&gt;RegistradaEnHistorial = false"]
+</pre>
+</figure>
+
+<p>La rama sin historial existe para un caso concreto: una PC con una versión vieja que se actualiza. La migración que crea <code>REGISTROS_BACKUP</code> todavía no se aplicó, pero la copia previa a migrar tiene que hacerse igual. Como no hay dónde registrarla, el manifiesto es su única descripción.</p>
+
+<details><summary>Autoevaluación N2: ¿por qué <code>SqlServerEjecutorBackup</code> usa ADO.NET y no EF Core?</summary>
+<p>Porque <code>BACKUP DATABASE</code> no se puede ejecutar dentro de una transacción de usuario, y EF Core no ofrece una API para copias. Con ADO.NET se controla la conexión: sin límite de tiempo (una base grande tarda minutos), con cancelación por token y suscribiéndose a los mensajes de avance del motor (<code>STATS = 10</code>). La ruta viaja como parámetro y el nombre de la base sale de la cadena de conexión y se delimita: no se concatena ningún dato externo en el SQL.</p>
+</details>
+
+<!-- ============================================================ NIVEL 3 -->
+<h2 id="nivel-3">Nivel 3 · Los mecanismos</h2>
+<span class="etiqueta">Mecanismos</span>
+
+<p>Tres procesos distintos pueden tocar la base: la aplicación, <code>Retail.Cli</code> y la tarea programada. Este nivel muestra cómo se coordinan sin pisarse, cómo se recupera el sistema de una copia interrumpida y cómo se tratan los errores.</p>
+
+<h3>Bloqueo de lectores y escritor entre procesos</h3>
+<figure>
+<figcaption>Diagrama 3.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Copia manual (app)
+    participant T as Copia diaria (tarea)
+    participant R as Restauración
+    participant M as SQL Server, master
+    A-&gt;&gt;M: sp_getapplock Shared
+    M--&gt;&gt;A: concedido
+    T-&gt;&gt;M: sp_getapplock Shared
+    M--&gt;&gt;T: concedido, conviven
+    R-&gt;&gt;M: sp_getapplock Exclusive, sin esperar
+    M--&gt;&gt;R: rechazado: hay copias en curso
+    Note over R: "Hay otra restauración o una copia en curso. Espere a que termine."
+    A-&gt;&gt;M: termina, cierra la conexión
+    T-&gt;&gt;M: termina, cierra la conexión
+    R-&gt;&gt;M: nuevo intento: sp_getapplock Exclusive
+    M--&gt;&gt;R: concedido
+    A-&gt;&gt;M: nueva copia: sp_getapplock Shared, espera hasta 10 s
+    M--&gt;&gt;A: rechazado: hay una restauración en curso
+</pre>
+</figure>
+
+<ul>
+    <li><b>Las copias son lectores</b> (<code>Shared</code>) y pueden convivir. <b>La restauración es el escritor</b> (<code>Exclusive</code>) y <b>no espera</b>: si hay una copia en curso, se rechaza al instante con un mensaje. Y ninguna copia empieza mientras se restaura (C-2).</li>
+    <li><b>El bloqueo vive en el motor</b>, no en la memoria de un proceso, así que vale entre la aplicación, la consola y la tarea.</li>
+    <li>Cada bloqueo usa una <b>conexión propia a <code>master</code>, sin pool</b>. Un bloqueo de sesión se libera al cerrar la conexión; con pool, la conexión volvería al pool con el bloqueo tomado. Y se apunta a <code>master</code> porque la base de Retail puede estar siendo reemplazada.</li>
+    <li>Una copia espera el compartido como máximo <b>10 segundos</b>: lo justo para el instante en que otra copia cierra huérfanos, pero no los minutos de una restauración, que se rechaza con un mensaje.</li>
+</ul>
+
+<h3>Copias huérfanas: la autorreparación B-0</h3>
+<figure>
+<figcaption>Diagrama 3.2 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["Empieza una copia"] --&gt; B{"¿Se obtiene el bloqueo&lt;br/&gt;exclusivo sin esperar?"}
+    B --&gt;|"No: hay una copia o una restauración&lt;br/&gt;en marcha"| Z["Sus registros son legítimos:&lt;br/&gt;no se toca nada"]
+    B --&gt;|"Sí: nadie está copiando ni restaurando"| C{"¿Hay registros EnCurso o Exitoso?"}
+    C --&gt;|No| Z2["Nada que reparar"]
+    C --&gt;|Sí| D["Son huérfanos: su proceso murió.&lt;br/&gt;RegistrarFallo('Copia interrumpida...')"]
+    D --&gt; E["Guardar"]
+    E --&gt; F["Borrar el .bak y el .json parciales"]
+    F --&gt; G["Soltar el exclusivo y tomar el compartido"]
+</pre>
+</figure>
+
+<p>La clave es que <b>no es una heurística de tiempo</b>. Una copia real sostiene el bloqueo compartido mientras corre, incluida la verificación, y si su proceso muere el motor suelta el bloqueo. Por lo tanto, si se consigue el exclusivo, es un hecho que ninguna copia está corriendo: todo registro <code>EnCurso</code> o <code>Exitoso</code> quedó huérfano. No hace falta adivinar con "hace más de una hora que empezó".</p>
+
+<h3>Una sola copia en curso</h3>
+<p>Dos defensas en capas:</p>
+<ol>
+    <li><b>Aplicación</b> consulta si hay una copia <code>EnCurso</code> y responde con un mensaje claro: "Ya hay una copia en curso (iniciada a las 21:00)".</li>
+    <li><b>La base</b> tiene el índice único filtrado <code>IX_REGISTROS_BACKUP_EnCurso</code> (<code>estado = 'EnCurso'</code>): si dos procesos pasan la consulta al mismo tiempo, solo uno logra insertar su registro (R-12). El otro recibe <code>RestriccionDeUnicidadException</code> y se traduce al mismo mensaje.</li>
+</ol>
+<p>Por eso el registro se guarda <b>antes</b> de copiar: es el registro el que reserva el turno.</p>
+
+<h3>Las redes de errores</h3>
+<figure>
+<figcaption>Diagrama 3.3 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["Pedido de copia"] --&gt; R1["Red 1: autorización&lt;br/&gt;rol, contraseña y tipo"]
+    R1 --&gt;|"falla"| X1["OperacionNoAutorizadaException,&lt;br/&gt;no se registra nada"]
+    R1 --&gt; R2["Red 2: preparación&lt;br/&gt;bloqueo, otra copia en curso,&lt;br/&gt;permiso de escritura y espacio libre"]
+    R2 --&gt;|"falla"| X2["DomainException o BackupFallidoException,&lt;br/&gt;no se registra nada"]
+    R2 --&gt; R3["Red 3: copia y verificación&lt;br/&gt;BACKUP, SHA-256, VERIFYONLY, manifiesto"]
+    R3 --&gt;|"falla o se cancela"| X3["Registro Fallido con el motivo,&lt;br/&gt;se borra el archivo parcial"]
+    R3 --&gt; R4["Red 4: retención"]
+    R4 --&gt;|"un archivo no se pudo borrar"| W["Se informa y se reintenta la próxima vez,&lt;br/&gt;la copia nueva sigue siendo válida"]
+    R4 --&gt; OK["Copia verificada"]
+    W --&gt; OK
+</pre>
+</figure>
+
+<div class="nota"><b>Si ni siquiera se puede registrar el fallo</b> (por ejemplo, SQL Server dejó de responder), prevalece la excepción original, que es la que explica el problema. El registro queda <code>EnCurso</code> y la autorreparación lo cierra en la próxima copia o restauración. Para registrar el fallo se usa un token propio: aunque la copia se haya cancelado, el historial tiene que reflejar lo que pasó.</div>
+
+<details><summary>Autoevaluación N3: ¿por qué una copia que estaba verificando cuando se cortó la luz queda como fallida y no como exitosa?</summary>
+<p>Porque nunca terminó su verificación: el archivo puede estar completo, pero nadie comprobó que sea legible, y una copia sin verificar no es restaurable. La autorreparación cierra como huérfanos tanto los <code>EnCurso</code> como los <code>Exitoso</code> y borra su archivo. La próxima copia diaria genera una nueva, verificada.</p>
+</details>
+
+<!-- ============================================================ NIVEL 4 -->
+<h2 id="nivel-4">Nivel 4 · Los algoritmos</h2>
+<span class="etiqueta">Algoritmo</span>
+
+<h3><code>CopiarConHistorialAsync</code> paso a paso</h3>
+<figure>
+<figcaption>Diagrama 4.1 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["¿Hay un registro EnCurso?"] --&gt;|Sí| X["DomainException: ya hay una copia en curso"]
+    A --&gt;|No| B["Última migración aplicada&lt;br/&gt;si no hay ninguna: nada que respaldar"]
+    B --&gt; C["PrepararRutaNueva&lt;br/&gt;crea el directorio, prueba escribir un archivo,&lt;br/&gt;exige 500 MB libres"]
+    C --&gt; D["Nombre: Retail_AAAAMMDD_HHMMSS_Tipo.bak&lt;br/&gt;hora local, sufijo _2 si ya existe"]
+    D --&gt; E["RegistroBackup.Iniciar y SaveChanges&lt;br/&gt;el índice único reserva el turno"]
+    E --&gt; F["BACKUP DATABASE TO DISK = @ruta&lt;br/&gt;WITH FORMAT, INIT, CHECKSUM, STATS = 10"]
+    F --&gt; G["SHA-256 del .bak por streaming"]
+    G --&gt; H["RegistrarExito y SaveChanges"]
+    H --&gt; I["RESTORE VERIFYONLY FROM DISK = @ruta&lt;br/&gt;WITH CHECKSUM"]
+    I --&gt; J["Escribir el manifiesto .json"]
+    J --&gt; K["MarcarVerificado y SaveChanges"]
+    K --&gt; L["Aplicar la retención"]
+    F --&gt;|"error o cancelación"| Y["RegistrarFallo y borrar el parcial"]
+    G --&gt;|"error"| Y
+    I --&gt;|"error"| Y
+    J --&gt;|"error"| Y
+</pre>
+</figure>
+
+<ul>
+    <li><b>Probar la escritura antes de pedirle la copia al motor.</b> Si la carpeta no tiene permisos, SQL Server responde "Operating system error 5", que no le dice al operador qué revisar. Escribir y borrar un archivo de prueba permite un mensaje con la carpeta exacta.</li>
+    <li><b>Exigir espacio libre antes de empezar.</b> Un disco lleno a mitad de la copia daría una falla confusa.</li>
+    <li><b>La hora local en el nombre</b>, aunque el registro guarda UTC: es lo que lee una persona que busca la copia "de anoche" en el explorador de archivos.</li>
+</ul>
+
+<h3>Dos controles de integridad distintos</h3>
+<table>
+<tr><th></th><th>Sumas de control de página (<code>CHECKSUM</code> y <code>VERIFYONLY</code>)</th><th>Huella SHA-256 del archivo</th></tr>
+<tr><td>Quién la calcula</td><td>SQL Server, al copiar y al verificar</td><td>La aplicación, leyendo el <code>.bak</code> por streaming</td></tr>
+<tr><td>Dónde queda</td><td>Dentro del <code>.bak</code></td><td>En el registro y en el manifiesto</td></tr>
+<tr><td>Detecta</td><td>Una página de la base ya dañada al copiar, o una copia ilegible o truncada</td><td>Cualquier cambio posterior del archivo: deterioro del disco, una copia incompleta a un pendrive, un archivo reemplazado</td></tr>
+<tr><td>Cuándo se usa</td><td>Al terminar la copia</td><td>Al restaurar: se recalcula y se compara con la del manifiesto</td></tr>
+</table>
+<p>Se necesitan los dos: <code>VERIFYONLY</code> dice que la copia era buena cuando se hizo; el SHA-256 dice que el archivo que se quiere restaurar hoy es exactamente ese.</p>
+
+<h3>El manifiesto</h3>
+<pre class="codigo">{
+  "Referencia": "3f2b9c1e-...",
+  "Tipo": "Automatico",
+  "FechaInicioUtc": "2026-11-06T00:00:04Z",
+  "Operador": "Sistema",
+  "ArchivoBak": "Retail_20261105_210004_Automatico.bak",
+  "TamanoBytes": 48234496,
+  "HashSha256": "9a1c...e07f",
+  "UltimaMigracion": "20261105_AgregarClasificacion...",
+  "VersionApp": "1.4.0",
+  "RegistradaEnHistorial": true
+}</pre>
+<p>Datos ilustrativos. <code>UltimaMigracion</code> impide restaurar un esquema que la versión instalada no conoce. <code>ArchivoBak</code> y la huella atan el manifiesto a su archivo: un manifiesto copiado de otra copia nunca coincide.</p>
+
+<h3>La retención</h3>
+<figure>
+<figcaption>Diagrama 4.2 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["Copias con archivo:&lt;br/&gt;Exitoso o Verificado"] --&gt; B{"¿Es PreRestauracion?"}
+    B --&gt;|No| C["Ordenar de la más nueva a la más vieja&lt;br/&gt;y saltear las 14 primeras"]
+    B --&gt;|Sí| D["¿Tiene más de 30 días?"]
+    C --&gt; E["Excedentes"]
+    D --&gt;|Sí| E
+    D --&gt;|No| K["Se conserva"]
+    E --&gt; F{"¿Se pudo borrar el .bak y el .json?"}
+    F --&gt;|Sí| G["MarcarArchivoPurgado:&lt;br/&gt;el registro queda como historia"]
+    F --&gt;|No| H["Se informa el error&lt;br/&gt;y se reintenta en la próxima copia"]
+</pre>
+</figure>
+
+<p>Las copias previas a restaurar tienen su propia regla (D-24) porque un restore equivocado puede descubrirse tarde. Si compitieran con las copias diarias, en dos semanas la copia de los datos reales desaparecería. Los valores son configurables en <code>appsettings.json</code> (<code>BackupSettings</code>): directorio, cantidad máxima, días de las previas a restaurar y espacio libre mínimo.</p>
+
+<details><summary>Autoevaluación N4: ¿por qué se calcula el SHA-256 por streaming y no leyendo el archivo entero?</summary>
+<p>Porque una copia puede pesar cientos de megabytes o más, y cargarla en memoria rompería el límite de RNF-03 (300 MB para la aplicación). <code>SHA256.HashDataAsync</code> sobre un <code>FileStream</code> lee el archivo de a bloques: la memoria usada no depende del tamaño de la copia.</p>
+</details>
+
+<!-- ============================================================ DEFENSA A -->
+<h2 id="defensa-a">Defensa A · Seguridad y datos personales</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<p>Una copia es la base entera: nombres, documentos, domicilios y saldos de los clientes, y los hashes de las contraseñas de los usuarios. La Ley 25.326 de Protección de los Datos Personales obliga a cuidar esa información. La seguridad se arma en capas:</p>
+
+<table>
+<tr><th>Capa</th><th>Medida</th><th>Decisión</th></tr>
+<tr><td>Quién pide</td><td>Solo un Gerente o un Administrador generan copias manuales y ven el historial</td><td>D-32</td></tr>
+<tr><td>Cómo lo prueba</td><td>Vuelve a escribir su contraseña aunque tenga la sesión iniciada</td><td>D-8</td></tr>
+<tr><td>El archivo</td><td>Lo protegen los permisos de Windows del directorio: solo Administradores, SYSTEM, el servicio de SQL Server y la cuenta de la aplicación. Se corta la herencia y se quitan Usuarios, Usuarios autenticados y Todos</td><td>R-17, script de la tarea</td></tr>
+<tr><td>La tarea programada</td><td>Corre como SYSTEM, sin guardar contraseñas, con un login de SQL Server de permisos mínimos: puede copiar y registrar el historial, pero no leer ninguna tabla de negocio ni de usuarios</td><td>D-29</td></tr>
+<tr><td>El ejecutable de la tarea</td><td>El script se niega a registrarla si la carpeta de instalación, o cualquier carpeta superior, la puede modificar un usuario común: quien reemplazara <code>Retail.Cli.exe</code> ejecutaría código como SYSTEM</td><td>Script de la tarea</td></tr>
+<tr><td>Fuera de la PC</td><td>Si algún día las copias se envían a otro lugar, tienen que cifrarse antes</td><td>R-5, D-16</td></tr>
+</table>
+
+<details><summary>Pregunta probable: si la copia automática no pide contraseña, ¿cualquiera puede generar una copia y llevársela?</summary>
+<p>Generarla no le da nada: hacer una copia no abre ninguna cuenta ni modifica datos (D-13), y el archivo queda en una carpeta que solo pueden leer los administradores, SYSTEM y el servicio de SQL Server. Lo que importa proteger es el <b>contenido</b> del archivo, y eso lo hacen los permisos de Windows, no la aplicación. La contraseña de la copia manual protege otra cosa: que una sesión abierta en el mostrador no alcance para iniciar operaciones sobre la base completa.</p>
+</details>
+<details><summary>Pregunta probable: ¿por qué la tarea corre como SYSTEM y no con la cuenta del dueño del comercio?</summary>
+<p>Porque así corre sin que nadie haya iniciado sesión y sin guardar ninguna contraseña de Windows en la tarea. El riesgo de SYSTEM, que es una cuenta muy poderosa, se acota de dos lados: el login de SQL Server que usa tiene solo los permisos mínimos para copiar y registrar el historial, y el ejecutable vive en una carpeta que un usuario común no puede modificar.</p>
+</details>
+
+<!-- ============================================================ DEFENSA B -->
+<h2 id="defensa-b">Defensa B · Robustez ante fallas</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Escenario</th><th>Qué pasa</th><th>Mecanismo</th></tr>
+<tr><td>Se corta la luz mientras se copia</td><td>El registro queda <code>EnCurso</code>. La próxima copia lo cierra como fallido y borra el archivo parcial, que nunca fue restaurable</td><td>B-0</td></tr>
+<tr><td>Se apaga la PC antes de las 21:00</td><td>La tarea corre apenas se enciende la PC</td><td>"Iniciar si se perdió", D-28</td></tr>
+<tr><td>SQL Server todavía está arrancando</td><td><code>Retail.Cli backup</code> espera hasta 2 minutos, consultando cada 10 segundos</td><td><code>ComandoBackup</code></td></tr>
+<tr><td>Dos copias al mismo tiempo (la manual y la diaria)</td><td>Solo una registra su turno: la otra recibe "ya hay una copia en curso"</td><td>Índice único filtrado, R-12</td></tr>
+<tr><td>Una copia mientras se restaura</td><td>Se rechaza a los 10 segundos con un mensaje</td><td>Bloqueo de lectores y escritor, C-2</td></tr>
+<tr><td>Disco lleno o carpeta sin permisos</td><td>Se detecta antes de copiar, con un mensaje que nombra la carpeta o el disco</td><td><code>PrepararRutaNueva</code></td></tr>
+<tr><td>Una página de la base dañada</td><td>La copia falla al copiar o al verificar, y queda registrada como fallida</td><td><code>WITH CHECKSUM</code> y <code>VERIFYONLY</code></td></tr>
+<tr><td>El <code>.bak</code> se daña después de copiarlo</td><td>Se detecta al restaurar: la huella no coincide con la del manifiesto</td><td>SHA-256</td></tr>
+<tr><td>La retención no puede borrar un archivo</td><td>La copia nueva igual es válida; se informa y se reintenta la próxima vez</td><td><code>AplicarRetencionAsync</code></td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿por qué la copia diaria no se reintenta si falla?</summary>
+<p>Porque un reintento automático ocultaría el problema y, si la causa persiste (disco lleno, permisos), solo multiplicaría los fallos. La copia fallida queda en el historial con su motivo, visible para el Gerente, y la del día siguiente vuelve a intentar. Lo único que se espera es al motor, porque no responder durante el arranque no es una falla de la copia (D-28).</p>
+</details>
+<details><summary>Pregunta probable: ¿cómo saben que un registro <code>EnCurso</code> es huérfano y no una copia lenta?</summary>
+<p>Porque se intenta tomar el bloqueo exclusivo. Una copia real sostiene el compartido mientras corre, y el motor lo suelta si su proceso muere. Si se obtiene el exclusivo, ninguna copia está corriendo: es un hecho garantizado por el motor, no una suposición basada en cuánto tiempo pasó.</p>
+</details>
+
+<!-- ============================================================ DEFENSA C -->
+<h2 id="defensa-c">Defensa C · Decisiones y alternativas</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Decisión</th><th>Por qué</th><th>Frente a qué alternativa</th></tr>
+<tr><td>Copia <b>completa</b> diaria</td><td>Restaurarla reconstruye la base exactamente como estaba, con un solo archivo. SQL Server la hace con la base en uso: no hay que cerrar la aplicación</td><td>Copias diferenciales o del registro de transacciones. <i>Análisis propio, no evaluado en el track:</i> exigen una cadena de archivos que no puede cortarse, más difícil de operar sin personal técnico, y una base de comercio es chica</td></tr>
+<tr><td>Automatización con el <b>Programador de tareas</b>, una vez por día (D-28)</td><td>Corre aunque la aplicación esté cerrada y nadie haya iniciado sesión; "iniciar si se perdió" cubre la PC apagada</td><td>Un servicio en segundo plano dentro de la aplicación (D-14): solo copia si la aplicación está abierta</td></tr>
+<tr><td><b>Verificar</b> antes de dar la copia por buena</td><td>Una copia que no se puede leer es peor que no tenerla: da una falsa seguridad</td><td>Confiar en que <code>BACKUP</code> terminó sin error</td></tr>
+<tr><td>Directorio <b>dedicado</b> y configurable (D-15)</td><td>Fuera del repositorio y del perfil del usuario, con permisos propios para el servicio de SQL Server</td><td>La carpeta de la aplicación o el perfil del usuario</td></tr>
+<tr><td>El operador como <b>foto</b> (R-1)</td><td>El historial se reinserta al restaurar, en una base donde ese usuario puede no existir</td><td>Una clave foránea a <code>USUARIOS</code></td></tr>
+<tr><td>Retención por <b>cantidad</b>, con regla propia para las previas a restaurar (D-24)</td><td>Acota el espacio en disco sin perder la red de seguridad de una restauración</td><td>Retención solo por días, o una sola regla para todas</td></tr>
+<tr><td>Bloqueo con <b><code>sp_getapplock</code></b></td><td>Coordina procesos distintos (aplicación, consola, tarea) y se libera solo si un proceso muere</td><td>Un archivo de bloqueo o un <code>Mutex</code> de Windows. <i>Análisis propio, no evaluado en el track:</i> el bloqueo de <code>sp_getapplock</code> con dueño <code>Session</code> lo suelta el motor si el proceso muere, y en eso se apoya la detección de huérfanos</td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿no alcanzaba con <code>BACKUP DATABASE</code>, si ya tienen el SHA-256?</summary>
+<p>No. Son controles de cosas distintas. El SHA-256 se calcula sobre el archivo tal como quedó: si una página de la base ya estaba dañada al copiar, el SHA-256 de esa copia dañada es perfectamente válido. <code>WITH CHECKSUM</code> y <code>VERIFYONLY</code> controlan las páginas de la base; el SHA-256 controla que el archivo no cambie después.</p>
+</details>
+
+<p class="pie">Decisiones citadas: D-xx, R-xx, B-0 y C-2 en <code>docs/roadmap/etapa-6-track-6.3-backup-restore.md</code> y su ampliación del Track 6.3.1. La guía por capítulos, más extensa, está en <code>wiki/05-casos-de-uso-y-flujos/respaldo-y-restauracion/</code>. Requisitos: RF-22 (respaldo y restauración), RF-23 (administración por comandos), RNF-08 (respaldo diario verificado) y RF-03 (roles).</p>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+    if (window.mermaid) {
+        // Mermaid fija el tema al dibujar: si cambia el modo del sistema, se recarga para redibujar.
+        var consultaOscuro = window.matchMedia("(prefers-color-scheme: dark)");
+        if (consultaOscuro.matches) { document.documentElement.classList.add("modo-oscuro"); }
+        consultaOscuro.addEventListener("change", function () { location.reload(); });
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: consultaOscuro.matches ? "dark" : "neutral",
+            securityLevel: "strict",
+            fontFamily: "Segoe UI, system-ui, sans-serif",
+            flowchart: { htmlLabels: true, useMaxWidth: true },
+            sequence: { useMaxWidth: false, wrap: true, width: 160, actorMargin: 40, messageMargin: 28, noteMargin: 10, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12 },
+            state: { useMaxWidth: true },
+            er: { useMaxWidth: true }
+        });
+    }
+    // Chrome imprime cerradas las secciones plegadas: se abren antes de imprimir y se restauran después.
+    var plegadas = [];
+    window.addEventListener("beforeprint", function () {
+        plegadas = Array.prototype.filter.call(document.querySelectorAll("details"), function (d) { return !d.open; });
+        plegadas.forEach(function (d) { d.open = true; });
+    });
+    window.addEventListener("afterprint", function () {
+        plegadas.forEach(function (d) { d.open = false; });
+    });
+</script>
+</body>
+</html>

@@ -17,6 +17,21 @@
     --nota-borde: #d4a72c;
     --ok: #1a7f37;
     --ancho: 980px;
+    color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --texto: #e6edf3;
+        --texto-suave: #9da7b3;
+        --fondo: #0d1117;
+        --fondo-suave: #161b22;
+        --borde: #30363d;
+        --acento: #ff7b9c;
+        --acento-suave: #2d1620;
+        --nota: #2a2310;
+        --nota-borde: #9e7c1c;
+        --ok: #3fb950;
+    }
 }
 * { box-sizing: border-box; }
 html { font-size: 16px; }
@@ -84,6 +99,12 @@ details[open] > summary { margin-bottom: 8px; }
 @media print {
     @page { size: A4; margin: 16mm 14mm; }
     html { font-size: 11pt; }
+    :root {
+        --texto: #1f2328; --texto-suave: #57606a; --fondo: #ffffff; --fondo-suave: #f6f8fa; --borde: #d0d7de;
+        --acento: #9d0f33; --acento-suave: #fbeef1; --nota: #fff8e5; --nota-borde: #d4a72c; --ok: #1a7f37;
+    }
+    /* Los diagramas dibujados con el tema oscuro se invierten para salir claros sobre el papel. */
+    .modo-oscuro pre.mermaid svg { filter: invert(1) hue-rotate(180deg); }
     main { max-width: none; padding: 0; }
     h2 { break-before: page; margin-top: 0; }
     h2.sin-salto { break-before: auto; }
@@ -502,7 +523,9 @@ sequenceDiagram
     P--&gt;&gt;VM: IProgress cada 250 filas
     P--&gt;&gt;PS: Items y FilasDescartadas
     PS-&gt;&gt;R: 4. Q2: artículos cuya principal es de este proveedor
+    R-&gt;&gt;DB: SELECT con JOIN por la FK de la principal
     PS-&gt;&gt;R: 5. Q3: presentaciones de esos artículos
+    R-&gt;&gt;DB: SELECT con doble JOIN (presentación, origen, renglón)
     PS-&gt;&gt;PS: 6. FiltrarFilasValidas (largos, duplicados)
     PS-&gt;&gt;R: 7. Q1: renglones existentes por código
     R-&gt;&gt;DB: SELECT con OPENJSON
@@ -728,7 +751,7 @@ sequenceDiagram
 
 <p><code>Progress&lt;T&gt;</code> captura el contexto del hilo que lo crea; por eso se crea en el ViewModel y no en el servicio. Si se creara en el ThreadPool, el callback no podría tocar la pantalla.</p>
 
-<div class="nota"><b>Limitaciones conocidas.</b> (1) El servicio respeta el <code>CancellationToken</code> y descarta los cambios, pero el diálogo no tiene un botón que lo active: cerrar con la cruz o con Esc no cancela, la ventana se cierra y la importación sigue (E-20). (2) El progreso solo informa la lectura: durante las consultas y el guardado el texto queda fijo. (3) Salir del explorador mientras clasifica cancela la clasificación sin avisar: el scope de la pantalla se descarta con su DbContext. No se pierden datos, porque la clasificación es todo o nada, pero el usuario no se entera.</p>
+<div class="nota"><b>Limitaciones conocidas.</b> (1) El servicio respeta el <code>CancellationToken</code> y descarta los cambios, pero el diálogo no tiene un botón que lo active: cerrar con la cruz o con Esc no cancela, la ventana se cierra y la importación sigue (E-20). (2) El progreso solo informa la lectura: durante las consultas y el guardado el texto queda fijo. (3) Salir del explorador mientras clasifica cancela la clasificación sin avisar: el scope de la pantalla se descarta con su DbContext. No se pierden datos, porque la clasificación es todo o nada, pero el usuario no se entera.</div>
 
 <h3>Estado de una fila de la planilla</h3>
 <figure>
@@ -856,30 +879,54 @@ flowchart TD
 <figcaption>Diagrama 4.1 · flujo</figcaption>
 <pre class="mermaid">
 flowchart TD
-    A["ParsearCatalogoAsync"] --&gt; B["Task.Run"]
+    A["ParsearCatalogoAsync"] --&gt; V["Rechaza FilaEncabezado menor que 1"]
+    V --&gt; B["Task.Run"]
     B --&gt; C{"¿Extensión .csv?"}
     C --&gt;|Sí| D["ExcelType.CSV"]
     C --&gt;|No| E["ExcelType.XLSX"]
-    D --&gt; F["stream.Query, useHeaderRow false"]
+    D --&gt; F["stream.Query, useHeaderRow false&lt;br/&gt;un solo enumerador de filas"]
     E --&gt; F
-    F --&gt; G["Por cada fila: ThrowIfCancellationRequested,&lt;br/&gt;numeroFila++"]
-    G --&gt; H{"¿Antes del encabezado?"}
-    H --&gt;|Sí| G
-    H --&gt;|No| I{"¿Es la fila de encabezado?"}
-    I --&gt;|Sí| J["ResolverColumnas&lt;br/&gt;puede lanzar InvalidDataException"]
-    J --&gt; G
-    I --&gt;|No| K["InterpretarFila&lt;br/&gt;a Items o a FilasDescartadas"]
+    F --&gt; G["Tramos 1 y 2: avanzar hasta la fila de encabezado&lt;br/&gt;en cada paso: ThrowIfCancellationRequested, numeroFila++"]
+    G --&gt;|"las filas se acaban antes"| O["InvalidDataException&lt;br/&gt;la planilla no llega al encabezado"]
+    G --&gt; J["ResolverColumnas, una sola vez&lt;br/&gt;puede lanzar InvalidDataException"]
+    J --&gt; H{"Tramo 3: ¿hay otra fila?"}
+    H --&gt;|Sí| K["ThrowIfCancellationRequested, numeroFila++&lt;br/&gt;InterpretarFila: a Items o a FilasDescartadas"]
     K --&gt; L{"¿Múltiplo de 250?"}
     L --&gt;|Sí| M["progreso.Report"]
-    L --&gt;|No| G
-    M --&gt; G
-    G --&gt;|"fin del archivo"| N{"¿Se encontró el encabezado?"}
-    N --&gt;|No| O["InvalidDataException"]
-    N --&gt;|Sí| Q["Report final y return"]
+    L --&gt;|No| H
+    M --&gt; H
+    H --&gt;|No| Q["Report final y return"]
 </pre>
 </figure>
 
 <p>MiniExcel lee <b>fila por fila</b>, sin armar el libro completo en memoria como haría un modelo DOM. Lo que sí se acumula es la lista de renglones válidos. <code>useHeaderRow: false</code> permite que cada distribuidor tenga el encabezado en otra fila y con otros nombres.</p>
+
+<p><b>Tres tramos, cada uno una sola vez y en orden.</b> Se avanza con un único enumerador hasta la fila de encabezado (lo anterior se lee y se descarta), se resuelven las columnas con esa fila y recién entonces empieza el bucle de datos. Ese bucle ya no pregunta en qué tramo está cada fila, y las columnas son un dato conocido antes de entrar: no hay una variable "nula hasta que aparezca el encabezado". Si la planilla se acaba antes del encabezado, el error se lanza en ese momento y con el número de filas que se llegaron a leer. <code>numeroFila</code> sigue siendo el número real de la hoja, así que el "Fila N" de los mensajes no cambia.</p>
+
+<div class="nota"><b>Una versión anterior preguntaba por cada fila.</b> El bucle decidía en cada vuelta si la fila era anterior al encabezado, el encabezado o un dato, y comprobaba si las columnas ya estaban resueltas. Se reestructuró para que el código exprese el orden real del proceso y no por rendimiento: con 30.000 filas, las dos estructuras tardaron lo mismo (medianas de 137 y 142 ms en XLSX, 97 y 96 ms en CSV, con una dispersión mayor que esa diferencia). Esas son unas 60.000 comparaciones de enteros frente a unos 4 ms de lectura del archivo por cada mil filas.</div>
+
+<h3>Qué recorre MiniExcel, y qué cuesta</h3>
+<p>Medido con MiniExcel 1.34.2 sobre planillas generadas con la propia biblioteca, de 1.000 filas con datos. Son órdenes de magnitud, no valores exactos, y no son archivos creados con Excel.</p>
+<table>
+<tr><th>Planilla</th><th>Filas que entrega MiniExcel</th><th>Tiempo</th></tr>
+<tr><td>Solo las 1.000 filas</td><td>1.001 con el encabezado</td><td>16 ms</td></tr>
+<tr><td>Más 30.000 filas con celdas presentes pero vacías (formateadas o con el contenido borrado)</td><td><b>31.001</b>: se recorren todas</td><td>unos 400 ms</td></tr>
+<tr><td>Una sola celda con dato en la fila 31.001, sin filas intermedias en el XML</td><td>31.001: <b>rellena el hueco</b> con filas vacías</td><td>28 ms</td></tr>
+<tr><td>30.000 elementos <code>&lt;row/&gt;</code> sin ninguna celda</td><td>1.001: los omite</td><td>25 ms</td></tr>
+</table>
+<ul>
+    <li><b>Las filas vacías del final se recorren si tienen celdas</b> y <code>InterpretarFila</code> las ignora sin informarlas: cuesta unos 0,4 s por cada 30.000, frente a los 14 a 16 s de una importación completa.</li>
+    <li><b>El relleno de huecos sostiene el "Fila N".</b> Como MiniExcel entrega las filas intermedias ausentes como vacías, el contador coincide con el número real de la hoja.</li>
+    <li><b><code>startCell</code> no es una opción.</b> Permitiría empezar en el encabezado, pero con CSV lanza <code>NotImplementedException</code>, y el importador acepta CSV. Con XLSX solo ahorra construir los diccionarios de las filas que salta, y el encabezado suele estar entre las primeras diez.</li>
+    <li><b>Cortar al detectar muchas filas vacías seguidas no se hace.</b> Ahorraría menos de medio segundo y perdería lo que sigue a una fila en blanco usada como separador entre secciones.</li>
+</ul>
+
+<details><summary>Pregunta probable: ¿no es ineficiente preguntar en cada fila si es el encabezado?</summary>
+<p>Ya no se pregunta: el recorrido tiene tres tramos y el bucle de datos no consulta la posición. Pero tampoco era un problema de rendimiento: eran unas 60.000 comparaciones de enteros frente a unos 120 ms de lectura del archivo, y las dos estructuras tardaron lo mismo en la medición. Se cambió por claridad: las columnas se resuelven una vez y su valor es conocido antes de leer los datos.</p>
+</details>
+<details><summary>Pregunta probable: si el Excel trae 30.000 filas vacías al final, ¿el parser las procesa?</summary>
+<p>Si tienen celdas, sí: MiniExcel las entrega, <code>InterpretarFila</code> comprueba que código, descripción y precio están vacíos y las ignora sin avisar, por unos 0,4 s. Si no tienen celdas, MiniExcel directamente no las entrega. Ignorar una fila vacía no es un error del usuario, así que no se informa.</p>
+</details>
 
 <h3>Propagación del costo en una fila existente</h3>
 <figure>
@@ -1045,10 +1092,117 @@ var presentacionesPorOrigen =
 </table>
 <p>En el bucle, la fila <code>sob-100</code> hace tres búsquedas en memoria: <code>mapa["sob-100"]</code> devuelve el renglón 11, <code>articulosPorCatalogo[11]</code> devuelve el artículo 101 y <code>presentacionesPorOrigen[101]</code> devuelve el 102. La fila <code>RES-A4</code> actualiza el renglón 14 y termina: <code>articulosPorCatalogo[14]</code> está vacío, y la resma conserva el precio que fija su principal, la del proveedor 9.</p>
 
+<h3>Las dos claves foráneas: qué guarda cada columna</h3>
+<p>Entre el renglón y el artículo hay <b>dos claves foráneas en sentidos opuestos</b>, y conviene no confundirlas, porque el bucle usa una sola de ellas.</p>
+<table>
+<tr><th>Columna</th><th>Qué guarda</th><th>Significado</th><th>¿La usa la importación?</th></tr>
+<tr><td><code>CATALOGOS_PROVEEDORES.id_articulo</code></td><td><code>ARTICULOS.id</code></td><td><b>Todas</b> las fuentes del artículo: principal y adicionales</td><td>No. Se carga con el renglón pero el bucle no la consulta</td></tr>
+<tr><td><code>ARTICULOS.id_catalogo_proveedor</code></td><td><code>CATALOGOS_PROVEEDORES.id</code>: la <b>clave primaria</b> del renglón (un entero), <b>no</b> su <code>codigo_proveedor</code></td><td>Cuál de esas fuentes es la <b>principal</b></td><td>Sí. Es la clave del lookup <code>articulosPorCatalogo</code></td></tr>
+</table>
+<p>Por eso la búsqueda tiene dos pasos, cada uno con una clave distinta: el texto del código lleva al renglón, y el <code>Id</code> numérico del renglón lleva a los artículos.</p>
+<figure>
+<figcaption>Diagrama A.2 · de la fila de la planilla a las presentaciones</figcaption>
+<pre class="mermaid">
+flowchart LR
+    F["Fila de la planilla&lt;br/&gt;CodigoProveedor = SOB-100"] --&gt;|"mapCatalogos[SOB-100]&lt;br/&gt;clave: texto"| R["Renglón de Q1&lt;br/&gt;Id = 11"]
+    R --&gt;|"articulosPorCatalogo[11]&lt;br/&gt;clave: entero"| A["Artículo 101&lt;br/&gt;id_catalogo_proveedor = 11"]
+    A --&gt;|"presentacionesPorOrigen[101]&lt;br/&gt;clave: entero"| P["Presentación 102&lt;br/&gt;id_articulo_origen = 101"]
+</pre>
+</figure>
+<p>El lookup de Q2 <b>no se arma a partir de Q1</b>: Q2 corre aparte, solo con el id del proveedor, y deja el lookup listo. Consultarlo con <code>articulosPorCatalogo[renglón.Id]</code> no compara contra cada elemento: es una búsqueda por hash, O(1).</p>
+<p><b>¿Por qué no usar <code>renglón.IdArticulo</code> para llegar al artículo?</b> Por dos razones:</p>
+<ul>
+    <li><b>Mezcla principales con adicionales.</b> Como <code>id_articulo</code> lo tienen todas las fuentes, una planilla de un proveedor secundario terminaría cambiando el costo de un artículo cuyo precio lo fija otra fuente (A-2).</li>
+    <li><b>Obligaría a cargar el artículo fila por fila.</b> Q1 trae renglones y no sus artículos, así que leer <code>renglón.Articulo</code> dispararía una consulta por renglón (N+1). Q2 los trae a todos juntos antes del bucle.</li>
+</ul>
+
+<h3>Las estructuras en memoria y cómo se componen</h3>
+<table>
+<tr><th>Variable</th><th>Tipo</th><th>Qué contiene cada elemento</th><th>Clave</th></tr>
+<tr><td><code>parseo.Items</code></td><td><code>List&lt;ItemCatalogoImportadoDto&gt;</code></td><td>Una fila leída de la planilla, sin filtrar por el negocio</td><td>Se recorre en orden</td></tr>
+<tr><td><code>filasValidas</code></td><td><code>List&lt;ItemCatalogoImportadoDto&gt;</code></td><td>Las filas que superaron <code>FiltrarFilasValidas</code>, ya recortadas con <code>Trim</code></td><td>Se recorre en orden</td></tr>
+<tr><td><code>mapCatalogos</code> (Q1)</td><td><code>Dictionary&lt;string, CatalogoProveedor&gt;</code></td><td>La entidad completa de un renglón existente</td><td><code>CodigoProveedor</code>, sin distinguir mayúsculas</td></tr>
+<tr><td><code>articulosPorCatalogo</code> (Q2)</td><td><code>ILookup&lt;int, Articulo&gt;</code></td><td>La entidad completa de un artículo cuya principal es de este proveedor</td><td><code>IdCatalogoProveedor</code> (el <code>Id</code> del renglón)</td></tr>
+<tr><td><code>presentacionesPorOrigen</code> (Q3)</td><td><code>ILookup&lt;int?, Articulo&gt;</code></td><td>La entidad completa de una presentación derivada</td><td><code>IdArticuloOrigen</code></td></tr>
+</table>
+<ul>
+    <li><b><code>ItemCatalogoImportadoDto</code></b> es un <code>record</code> inmutable con <code>NumeroFila</code>, <code>CodigoProveedor</code>, <code>CodigoBarras?</code>, <code>Descripcion</code>, <code>PrecioCosto</code> y los tres textos opcionales del proveedor (rubro, categoría y marca). No toca la base. Como sus propiedades son <code>init</code>, el filtro no lo edita: construye uno nuevo con <code>with { ... }</code>.</li>
+    <li><b><code>CatalogoProveedor</code> es la fila entera de la tabla</b> hecha objeto: identidad (<code>Id</code>, <code>IdProveedor</code>, <code>CodigoProveedor</code>), datos de la planilla (<code>CodigoBarras</code>, <code>DescripcionProveedor</code>, <code>CostoReposicion</code>, <code>FechaActualizacion</code>), clasificación del proveedor (rubro, categoría y marca), clasificación sugerida (<code>IdCategoriaSugerida</code>, <code>IdMarcaSugerida</code>, <code>FechaClasificacion</code>) y <code>IdArticulo</code>.</li>
+    <li><b>Los objetos están rastreados por EF</b> (<i>tracking</i>): no son copias sino los mismos que el Change Tracker vigila. Por eso modificarlos en el bucle alcanza para que el <code>SaveChanges</code> final los guarde.</li>
+    <li><b>Las navegaciones no se cargan.</b> Q1 no usa <code>Include</code>, así que <code>renglón.Articulo</code> y <code>renglón.Proveedor</code> valen <code>null</code>; solo viene la columna <code>IdArticulo</code>. Es una de las razones de que exista Q2.</li>
+</ul>
+
+<h3><code>ILookup</code> frente a <code>Dictionary</code></h3>
+<p>Un <code>ILookup&lt;K, V&gt;</code> es un diccionario donde cada clave guarda <b>una colección</b> de valores. Se construye agrupando una lista con <code>ToLookup</code>.</p>
+<table>
+<tr><th></th><th><code>Dictionary&lt;K, V&gt;</code></th><th><code>ILookup&lt;K, V&gt;</code></th></tr>
+<tr><td>Valores por clave</td><td>Uno</td><td>Uno o varios</td></tr>
+<tr><td>Clave ausente</td><td>Lanza <code>KeyNotFoundException</code></td><td>Devuelve una secuencia <b>vacía</b></td></tr>
+<tr><td>Clave repetida al construir</td><td><code>ToDictionary</code> lanza una excepción</td><td><code>ToLookup</code> las agrupa</td></tr>
+<tr><td>Se puede modificar</td><td>Sí</td><td>No, es de solo lectura</td></tr>
+</table>
+<pre class="codigo">// Con los datos del proveedor 7 de arriba
+var porCatalogo = articulosLocales.ToLookup(a =&gt; a.IdCatalogoProveedor!.Value);
+
+porCatalogo[11]           // { Artículo 101 }
+porCatalogo[14]           // secuencia vacía: la clave no existe, y no falla
+porCatalogo.Contains(14)  // false
+porCatalogo.Count         // 3 claves reales: 10, 11 y 12</pre>
+<p>Un lookup <b>nunca almacena una clave con cero valores</b>: solo contiene las claves que aparecieron en la lista de origen. La secuencia vacía es la respuesta a una consulta por una clave ausente, y evita un <code>TryGetValue</code> o un <code>if</code> en cada vuelta del bucle.</p>
+
+<h3>Cuándo se pisan los datos: línea de tiempo</h3>
+<p>Un error frecuente es creer que Q1 devuelve los renglones ya actualizados con la planilla. <b>Q1 devuelve los valores viejos de la base</b>; el pisado ocurre en memoria, dentro del bucle, y la escritura real recién al final.</p>
+<table>
+<tr><th>#</th><th>Momento</th><th>Qué pasa</th><th>Estado de los datos</th></tr>
+<tr><td>1</td><td><code>ParsearCatalogoAsync</code></td><td>El parser crea <code>parseo.Items</code> y <code>FilasDescartadas</code></td><td>Los de la planilla</td></tr>
+<tr><td>2</td><td>Q2 y Q3</td><td>Se ejecutan <b>antes</b> de filtrar, porque solo dependen del proveedor</td><td>Artículos como están en la base</td></tr>
+<tr><td>3</td><td><code>FiltrarFilasValidas</code></td><td>Construye <code>filasValidas</code></td><td>Los de la planilla, recortados</td></tr>
+<tr><td>4</td><td>Q1</td><td>Los códigos de <code>filasValidas</code> viajan como JSON y vuelven los renglones</td><td>Valores <b>viejos</b> de la base</td></tr>
+<tr><td>5</td><td>Bucle, fila por fila</td><td><code>ActualizarPrecio</code> pisa los campos del objeto; <code>ActualizarAsync</code> solo marca las 10 columnas como modificadas</td><td>Objetos modificados, <b>sin guardar</b></td></tr>
+<tr><td>6</td><td><code>SaveChangesAsync</code></td><td>Una única transacción escribe todo</td><td>Guardados</td></tr>
+</table>
+<div class="nota"><b>La lista que "se descarta".</b> En el código no se destruye nada: <code>parseo</code> es una variable local y mantiene viva a <code>parseo.Items</code> hasta que termina el método. Lo correcto es decir que queda sin uso después del filtrado, y que liberarla es asunto del recolector de basura.</div>
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li><b>Dos claves, dos pasos.</b> El código (texto) lleva al renglón; el <code>Id</code> del renglón (entero) lleva a los artículos cuya principal es ese renglón.</li>
+    <li><b>Las presentaciones solo se tocan si el costo del artículo cambió.</b> El recorrido de Q3 está dentro del <code>if</code> de Q2.</li>
+    <li><b>Nada llega a la base hasta el final.</b> Si hay una excepción o una cancelación, <code>DescartarCambios</code> descarta lo que había en memoria.</li>
+</ul>
+</div>
+
 <div class="nota"><b>Precisión aceptada.</b> Q2 y Q3 dependen del proveedor y no de la planilla. Si un proveedor con 3.000 artículos vinculados manda una planilla de 10 renglones, se cargan igual los 3.000. Es un intercambio deliberado: una consulta simple con un parámetro, a cambio de traer de más en planillas chicas.</div>
 
 <details><summary>Pregunta probable: ¿por qué Q2 no usa todas las fuentes del artículo?</summary>
 <p>Porque la importación solo debe cambiar el costo de los artículos cuya principal es de este proveedor (A-2). Una fuente adicional es información para comparar y para pedir, no la referencia de precio. Si Q2 siguiera <code>CATALOGOS_PROVEEDORES.id_articulo</code>, importar la lista de un proveedor secundario cambiaría el precio de venta, y el precio dependería del orden en que se importan las listas.</p>
+</details>
+<details><summary>Pregunta probable: ¿por qué Q2 y Q3 no son una sola consulta?</summary>
+<p>Se podrían unir, y conviene admitirlo. Hay dos formas:</p>
+<table>
+<tr><th>Alternativa</th><th>Cómo sería</th><th>Por qué no se eligió</th></tr>
+<tr><td><code>Include(a =&gt; a.Presentaciones)</code> en Q2</td><td>Un <code>LEFT JOIN</code> de <code>ARTICULOS</code> consigo misma</td><td>El repositorio genérico no acepta <i>includes</i>: habría que ampliar su contrato o escribir un método nuevo</td></tr>
+<tr><td>Un solo <code>WHERE</code> con <code>OR</code></td><td><code>a.CatalogoProveedor.IdProveedor == X || a.ArticuloOrigen.CatalogoProveedor.IdProveedor == X</code></td><td>Hay que separar los dos conjuntos en memoria, y el <code>OR</code> mezcla dos caminos de acceso distintos</td></tr>
+</table>
+<p><b>Respuesta sugerida.</b> Son dos preguntas distintas: Q2 busca los artículos cuya principal es de este proveedor, y Q3 sus presentaciones, que no tienen fuente propia y solo se alcanzan por su origen. Cada una tiene un predicado simple, un único parámetro y su propio índice. El costo de separarlas es <b>un viaje más a la base, constante</b>: no crece con la cantidad de filas, porque cada consulta se hace una vez, así que no hay N+1. Las cuatro lecturas de una importación de 30.000 filas ejecutan en menos de 340 ms de 14 a 16 s, de modo que unirlas no cambiaría el tiempo de forma apreciable. Además reutilizan el <code>FindAsync</code> existente.</p>
+<table>
+<tr><th>Tema</th><th>Qué decir</th></tr>
+<tr><td>"El <code>OR</code> sería más lento"</td><td><b>No se midió.</b> Es una sospecha razonable, porque un <code>OR</code> entre dos caminos de <code>JOIN</code> dificulta usar los índices. Presentarla como hipótesis. El argumento sólido es el de los 340 ms</td></tr>
+<tr><td>Los 340 ms</td><td>Es el tiempo de <b>ejecución</b> de las lecturas en SQL Server. No incluye recorrer las filas ni armar las entidades</td></tr>
+<tr><td>Consistencia entre las dos</td><td>No corren en una misma transacción, y una consulta única tampoco evitaría que otra terminal cree una presentación justo después de leer</td></tr>
+<tr><td>"¿Y con miles de presentaciones?"</td><td>Q3 trae más filas, pero las mismas que traería una consulta unida: lo único que se ahorraría es el viaje</td></tr>
+</table>
+<p>Esta no fue una decisión registrada con una comparación medida: es la razón de diseño más el orden de magnitud de las lecturas.</p>
+</details>
+<details><summary>Pregunta probable: ¿qué es lo que apunta al otro, el renglón al artículo o el artículo al renglón?</summary>
+<p>Los dos, con claves distintas. El renglón apunta al artículo con <code>id_articulo</code> (todas las fuentes), y el artículo apunta de vuelta a su renglón <b>principal</b> con <code>id_catalogo_proveedor</code>, que guarda la clave primaria del renglón y no su código de proveedor. La importación usa la segunda para decidir a qué artículos propagar el costo.</p>
+</details>
+<details><summary>Pregunta probable: ¿un <code>ILookup</code> guarda claves con cero valores?</summary>
+<p>No. Solo contiene las claves que aparecieron en la lista de origen. Si se consulta una clave ausente devuelve una secuencia vacía en lugar de lanzar una excepción, y eso es lo que permite escribir <code>foreach (var a in articulosPorCatalogo[renglón.Id])</code> sin comprobar antes si la clave existe.</p>
+</details>
+<details><summary>Pregunta probable: ¿por qué <code>ToLookup</code> y no <code>ToDictionary</code> para las presentaciones?</summary>
+<p>Porque un artículo puede tener varias presentaciones (unidad, pack de 6, pack de 12) y <code>ToDictionary</code> lanzaría una excepción al repetirse la clave <code>IdArticuloOrigen</code>. Además, para un artículo sin presentaciones el lookup devuelve una secuencia vacía.</p>
+</details>
+<details><summary>Pregunta probable: si la planilla es de un proveedor secundario de un artículo, ¿se actualiza su costo?</summary>
+<p>No. Q2 solo carga artículos cuya principal es de este proveedor, así que el renglón se actualiza pero el artículo conserva el costo que fija su principal. El ejemplo de <code>RES-A4</code> más arriba lo ilustra: <code>articulosPorCatalogo[14]</code> está vacío.</p>
 </details>
 <details><summary>Pregunta probable: ¿por qué no partir Q1 en bloques de 1.000 códigos?</summary>
 <p>Porque el problema que se quería resolver no existe en EF Core 8: <code>Contains</code> envía la lista como un único parámetro JSON. Fue un falso positivo de una auditoría y quedó verificado con un test de 3.000 códigos contra SQL Server. Ese test controla el comportamiento y no la forma del SQL: si una versión futura de EF cambia la traducción, el test avisa.</p>
@@ -1167,6 +1321,23 @@ var presentacionesPorOrigen =
 <details><summary>Pregunta probable: ¿por qué el parser no usa FluentValidation para cada fila?</summary>
 <p>Porque un validador de frontera rechaza el pedido entero, y la regla del negocio es omitir la fila mala y seguir. Además, las reglas de la fila (celdas vacías, formato del precio) son del formato del archivo: pertenecen al adaptador de Infraestructura que conoce ese formato.</p>
 </details>
+<details><summary>Pregunta probable: ¿por qué hay dos listas de <code>ItemCatalogoImportadoDto</code> y no una sola etapa de validación?</summary>
+<p>Se podría hacer con una sola lista; las dos existen por <b>dónde vive cada regla</b>, no por una necesidad técnica.</p>
+<table>
+<tr><th></th><th>Parser (Infraestructura)</th><th><code>FiltrarFilasValidas</code> (Aplicación)</th></tr>
+<tr><td>Pregunta</td><td>¿Puedo <b>leer</b> esta fila?</td><td>¿Cumple las <b>reglas del negocio</b>?</td></tr>
+<tr><td>Descarta</td><td>Filas vacías (sin avisar), sin código o con precio ilegible</td><td>Código o descripción vacíos o largos, código de barras largo y <b>códigos duplicados</b></td></tr>
+<tr><td>Necesita conocer</td><td>El formato de la planilla (XLSX o CSV, letras de columna, celdas)</td><td>Los límites de las columnas de la base</td></tr>
+<tr><td>Además</td><td></td><td>Aplica <code>Trim</code> y normaliza el código de barras</td></tr>
+</table>
+<ul>
+    <li><b>Dependencia de capas.</b> Si el parser aplicara los límites de longitud, la capa de Excel tendría que conocer el modelo de datos.</li>
+    <li><b>El parser es reemplazable</b> detrás de <code>IExcelCatalogParser</code>: la regla de duplicados y largos debe valer para cualquier implementación.</li>
+    <li><b>El duplicado no es una regla de lectura.</b> Exige un <code>HashSet</code> con todos los códigos vistos y la política "se conserva la primera aparición", que es del negocio.</li>
+    <li><b>El filtro transforma, no solo descarta.</b> Por eso devuelve registros nuevos (<code>with { ... }</code>) y no la misma lista con filas quitadas.</li>
+</ul>
+<p>Fusionarlas ahorraría una lista intermedia, pero el ahorro es despreciable (con 30.000 filas son 30.000 referencias, frente a decenas de MB de entidades de EF) y se pagaría con responsabilidades mezcladas. La respuesta de defensa: se separó por responsabilidad, no por rendimiento.</p>
+</details>
 <details><summary>Pregunta probable: si el parser ya filtra los códigos vacíos, ¿por qué <code>FiltrarFilasValidas</code> los vuelve a mirar?</summary>
 <p>Porque Aplicación no confía en la implementación de su puerto <code>IExcelCatalogParser</code>: el parser se puede reemplazar, y en los tests se lo sustituye por un doble. La regla de Aplicación tiene que valer para cualquier implementación.</p>
 </details>
@@ -1177,9 +1348,13 @@ var presentacionesPorOrigen =
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
 <script>
     if (window.mermaid) {
+        // Mermaid fija el tema al dibujar: si cambia el modo del sistema, se recarga para redibujar.
+        var consultaOscuro = window.matchMedia("(prefers-color-scheme: dark)");
+        if (consultaOscuro.matches) { document.documentElement.classList.add("modo-oscuro"); }
+        consultaOscuro.addEventListener("change", function () { location.reload(); });
         mermaid.initialize({
             startOnLoad: true,
-            theme: "neutral",
+            theme: consultaOscuro.matches ? "dark" : "neutral",
             securityLevel: "strict",
             fontFamily: "Segoe UI, system-ui, sans-serif",
             flowchart: { htmlLabels: true, useMaxWidth: true },

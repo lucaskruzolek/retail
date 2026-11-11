@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Restauración de una copia</title>
+<style>
+:root {
+    --texto: #1f2328;
+    --texto-suave: #57606a;
+    --fondo: #ffffff;
+    --fondo-suave: #f6f8fa;
+    --borde: #d0d7de;
+    --acento: #9d0f33;
+    --acento-suave: #fbeef1;
+    --nota: #fff8e5;
+    --nota-borde: #d4a72c;
+    --ok: #1a7f37;
+    --ancho: 980px;
+    color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+    :root {
+        --texto: #e6edf3;
+        --texto-suave: #9da7b3;
+        --fondo: #0d1117;
+        --fondo-suave: #161b22;
+        --borde: #30363d;
+        --acento: #ff7b9c;
+        --acento-suave: #2d1620;
+        --nota: #2a2310;
+        --nota-borde: #9e7c1c;
+        --ok: #3fb950;
+    }
+}
+* { box-sizing: border-box; }
+html { font-size: 16px; }
+body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--texto);
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+}
+main { max-width: var(--ancho); margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 8px; }
+h2 {
+    font-size: 1.55rem; margin: 56px 0 8px; padding-top: 16px;
+    border-top: 3px solid var(--acento);
+}
+h3 { font-size: 1.15rem; margin: 32px 0 8px; }
+h4 { font-size: 1rem; margin: 20px 0 6px; }
+p, li { max-width: 78ch; }
+a { color: var(--acento); }
+code {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 0.88em;
+    background: var(--fondo-suave); border: 1px solid var(--borde); border-radius: 4px; padding: 0 4px;
+}
+pre.codigo {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 0.85rem; line-height: 1.5;
+    background: var(--fondo-suave); border: 1px solid var(--borde); border-radius: 6px;
+    padding: 12px 16px; overflow-x: auto; white-space: pre;
+}
+.subtitulo { color: var(--texto-suave); margin: 0 0 24px; }
+.etiqueta {
+    display: inline-block; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--acento); margin-bottom: 4px;
+}
+.niveles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin: 16px 0 24px; }
+.niveles div { border: 1px solid var(--borde); border-radius: 6px; padding: 8px 12px; background: var(--fondo-suave); }
+.niveles b { display: block; color: var(--acento); }
+nav.indice { border: 1px solid var(--borde); border-radius: 6px; padding: 12px 20px; background: var(--fondo-suave); }
+nav.indice ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; }
+nav.indice li { break-inside: avoid; }
+figure { margin: 20px 0; break-inside: avoid; }
+figcaption { font-size: 0.8rem; font-weight: 600; color: var(--texto-suave); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+pre.mermaid {
+    background: var(--fondo); border: 1px solid var(--borde); border-radius: 6px; padding: 12px;
+    margin: 0; text-align: center; overflow-x: auto; white-space: pre; font-size: 0.8rem;
+}
+pre.mermaid[data-processed="true"] { white-space: normal; }
+table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.9rem; break-inside: auto; }
+th, td { border: 1px solid var(--borde); padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: var(--fondo-suave); }
+tr { break-inside: avoid; }
+.llevarte { border-left: 4px solid var(--acento); background: var(--acento-suave); padding: 8px 16px; margin: 16px 0; break-inside: avoid; }
+.llevarte > b { display: block; margin-bottom: 4px; }
+.llevarte ul { margin: 4px 0; padding-left: 20px; }
+.nota { border-left: 4px solid var(--nota-borde); background: var(--nota); padding: 8px 16px; margin: 16px 0; break-inside: avoid; }
+details { border: 1px solid var(--borde); border-radius: 6px; padding: 8px 16px; margin: 12px 0; break-inside: avoid; }
+details > summary { cursor: pointer; font-weight: 600; }
+details > summary::marker { color: var(--acento); }
+details[open] > summary { margin-bottom: 8px; }
+.pie { margin-top: 48px; font-size: 0.85rem; color: var(--texto-suave); border-top: 1px solid var(--borde); padding-top: 12px; }
+@media (max-width: 640px) {
+    nav.indice ol { columns: 1; }
+    h1 { font-size: 1.6rem; }
+}
+@media print {
+    @page { size: A4; margin: 16mm 14mm; }
+    html { font-size: 11pt; }
+    :root {
+        --texto: #1f2328; --texto-suave: #57606a; --fondo: #ffffff; --fondo-suave: #f6f8fa; --borde: #d0d7de;
+        --acento: #9d0f33; --acento-suave: #fbeef1; --nota: #fff8e5; --nota-borde: #d4a72c; --ok: #1a7f37;
+    }
+    /* Los diagramas dibujados con el tema oscuro se invierten para salir claros sobre el papel. */
+    .modo-oscuro pre.mermaid svg { filter: invert(1) hue-rotate(180deg); }
+    main { max-width: none; padding: 0; }
+    h2 { break-before: page; margin-top: 0; }
+    h2.sin-salto { break-before: auto; }
+    h3, h4 { break-after: avoid; }
+    figure, pre.mermaid, .llevarte, .nota, details { break-inside: avoid; }
+    pre.mermaid { border: none; overflow: visible; }
+    pre.mermaid svg { max-width: 100% !important; max-height: 235mm; height: auto; width: auto; }
+    pre.codigo { white-space: pre-wrap; }
+    @page apaisada { size: A4 landscape; margin: 12mm; }
+    figure.ancho { page: apaisada; }
+    figure.ancho pre.mermaid svg { max-height: 175mm; }
+    a { color: inherit; text-decoration: none; }
+    details > summary::marker { content: ""; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<span class="etiqueta">Retail POS · Funcionalidades de lo general al detalle</span>
+<h1>Restauración de una copia</h1>
+<p class="subtitulo">Cómo se vuelve a una copia de seguridad sin poner en riesgo los datos actuales: quién la autoriza, cómo se restaura en una base aparte, qué se valida antes de reemplazar y qué red de seguridad queda. Contrastado con el código el 7 de noviembre de 2026.</p>
+
+<p>El documento recorre la funcionalidad en cinco niveles, del mapa general a los algoritmos, y cierra con tres secciones para la defensa. Las copias que se restauran se generan como se explica en el recorrido de la <a href="copia-de-seguridad.html"><b>copia de seguridad</b></a>; acá se dan por conocidos el historial de copias, el manifiesto y el bloqueo entre procesos.</p>
+
+<div class="niveles">
+    <div><b>Nivel 0</b>El mapa: las tres bases, casos de uso y quién autoriza.</div>
+    <div><b>Nivel 1</b>Caja negra: desde la aplicación, con control dual y por consola.</div>
+    <div><b>Nivel 2</b>Por capas: autorización, preparación y restauración.</div>
+    <div><b>Nivel 3</b>Mecanismos: base temporal, intercambio, punto de no retorno e historial.</div>
+    <div><b>Nivel 4</b>Los algoritmos: la restauración paso a paso y sus validaciones.</div>
+    <div><b>Defensa</b>A. Seguridad. B. Robustez. C. Decisiones.</div>
+</div>
+
+<nav class="indice" aria-label="Índice">
+<ol>
+    <li><a href="#nivel-0">Nivel 0 · El mapa</a></li>
+    <li><a href="#nivel-1">Nivel 1 · Lo que ve el usuario</a></li>
+    <li><a href="#nivel-2">Nivel 2 · Qué capa hace cada cosa</a></li>
+    <li><a href="#nivel-3">Nivel 3 · Los mecanismos</a></li>
+    <li><a href="#nivel-4">Nivel 4 · Los algoritmos</a></li>
+    <li><a href="#defensa-a">Defensa A · Seguridad y control dual</a></li>
+    <li><a href="#defensa-b">Defensa B · Robustez ante fallas</a></li>
+    <li><a href="#defensa-c">Defensa C · Decisiones y alternativas</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ NIVEL 0 -->
+<h2 id="nivel-0" class="sin-salto">Nivel 0 · El mapa</h2>
+<span class="etiqueta">Abstracción máxima</span>
+
+<p>Restaurar es <b>reemplazar la base completa</b> por la de una copia: todo lo que se registró después de la copia deja de estar en la base vigente. Es la operación más delicada del sistema, y su diseño parte de un principio: <b>la base vigente no se toca hasta el último momento</b>. La copia se restaura en una base aparte, se valida y se prepara ahí, y recién al final las dos bases intercambian sus nombres (D-17).</p>
+
+<h3>Las tres bases en juego</h3>
+<table>
+<tr><th>Base</th><th>Nombre</th><th>Qué es</th></tr>
+<tr><td><b>Vigente</b></td><td><code>RetailDb</code></td><td>La que usa la aplicación. Hasta el intercambio sigue intacta y en uso</td></tr>
+<tr><td><b>Temporal</b></td><td><code>RetailDb_Restaurando</code></td><td>Donde se restaura la copia. Si algo falla, se elimina y la vigente no cambió</td></tr>
+<tr><td><b>Anterior</b></td><td><code>RetailDb_Anterior_AAAAMMDD_HHMMSS</code></td><td>La vigente reemplazada, conservada tal cual estaba. Se guarda la de la última restauración; las anteriores se eliminan</td></tr>
+</table>
+
+<h3>El registro de cada restauración</h3>
+<figure>
+<figcaption>Diagrama 0.1 · entidad-relación</figcaption>
+<pre class="mermaid">
+erDiagram
+    REGISTROS_RESTAURACION }o--|| REGISTROS_BACKUP : "copia restaurada"
+    REGISTROS_RESTAURACION }o--o| REGISTROS_BACKUP : "copia previa"
+    REGISTROS_RESTAURACION {
+        int id_registro_restauracion PK
+        uniqueidentifier referencia UK "identidad estable entre bases"
+        nvarchar origen "Aplicacion o Consola"
+        int id_usuario "foto del Gerente que autorizó"
+        nvarchar nombre_usuario "foto del Gerente"
+        int id_operador "foto de quien ejecutó, si fue otro"
+        nvarchar nombre_operador "control dual"
+        datetime2 fecha
+        uniqueidentifier referencia_copia "copia restaurada"
+        nvarchar ruta_archivo
+        nvarchar migracion_copia "esquema que traía la copia"
+        uniqueidentifier referencia_copia_previa "nula si no hubo copia previa"
+        nvarchar base_anterior "nula si no había vigente"
+        datetime2 created_at
+        datetime2 deleted_at
+    }
+    REGISTROS_BACKUP {
+        uniqueidentifier referencia UK
+        nvarchar tipo
+        nvarchar estado
+    }
+</pre>
+</figure>
+
+<p>Las dos relaciones con las copias (<code>referencia_copia</code> y <code>referencia_copia_previa</code>) son <b>por referencia, sin clave foránea</b>: un GUID estable que identifica la copia en cualquier base. El registro se escribe <b>dentro de la base restaurada, antes del intercambio</b>, así que nace junto con la base que describe. Un intento fallido no deja registro acá: la base temporal se descarta y el motivo queda en el log. Por eso <code>RegistroRestauracion</code> es un hecho consumado e inmutable (D-22).</p>
+
+<h3>Quién hace qué</h3>
+<figure>
+<figcaption>Diagrama 0.2 · casos de uso</figcaption>
+<pre class="mermaid">
+flowchart LR
+    G(["Gerente"])
+    A(["Administrador"])
+    C(["Quien recupera la PC&lt;br/&gt;con un Gerente de la copia"])
+    subgraph APP["Aplicación"]
+        CU1["CU-01 Ver las restauraciones&lt;br/&gt;y la última"]
+        CU2["CU-02 Restaurar desde el historial&lt;br/&gt;con su contraseña"]
+        CU3["CU-03 Restaurar con control dual&lt;br/&gt;Administrador y Gerente"]
+    end
+    subgraph CLI["Retail.Cli"]
+        CU4["CU-04 Restaurar desde un archivo&lt;br/&gt;recuperación ante desastres"]
+    end
+    V[("Base vigente")]
+    R[("REGISTROS_RESTAURACION&lt;br/&gt;en la base restaurada")]
+    AU[("AUDITORIA_ACCESOS")]
+    G --&gt; CU1
+    A --&gt; CU1
+    G --&gt; CU2
+    A --&gt; CU3
+    C --&gt; CU4
+    CU1 --&gt;|"lee"| R
+    CU2 --&gt;|"reemplaza"| V
+    CU3 --&gt;|"reemplaza"| V
+    CU4 --&gt;|"reemplaza o crea"| V
+    CU2 --&gt;|"registra"| R
+    CU3 --&gt;|"registra"| R
+    CU4 --&gt;|"registra"| R
+    CU3 --&gt;|"cada intento de autorización"| AU
+</pre>
+</figure>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li><b>Tres entradas, un solo mecanismo.</b> Las tres restauraciones usan la misma base temporal y el mismo intercambio; difieren únicamente en <b>cómo se autorizan</b> (D-21).</li>
+    <li><b>Siempre autoriza un Gerente.</b> En CU-02 es él mismo; en CU-03 un Administrador ejecuta y un Gerente autoriza; en CU-04 el Gerente tiene que existir <b>dentro de la copia</b>.</li>
+    <li><b>Siempre queda una red.</b> Antes de reemplazar se toma una copia <code>PreRestauracion</code> de la vigente (D-20) y, además, la vigente reemplazada se conserva como base anterior.</li>
+</ul>
+</div>
+
+<h3>Ciclo de vida de las bases durante una restauración</h3>
+<figure>
+<figcaption>Diagrama 0.3 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    state "Temporal: restaurando" as Restaurando
+    state "Temporal: validada y preparada" as Preparada
+    state "Vigente nueva" as VigenteNueva
+    state "Temporal descartada" as Descartada
+    state "Vigente original" as Vigente
+    state "Base anterior" as Anterior
+    [*] --&gt; Restaurando: RESTORE en RetailDb_Restaurando
+    Restaurando --&gt; Preparada: huella, versión, Gerente, migraciones e historial
+    Restaurando --&gt; Descartada: cualquier falla o cancelación
+    Preparada --&gt; Descartada: falla antes del intercambio
+    Preparada --&gt; VigenteNueva: intercambio, toma el nombre RetailDb
+    [*] --&gt; Vigente
+    Vigente --&gt; Vigente: sin cambios mientras se prepara la temporal
+    Vigente --&gt; Anterior: intercambio, pasa a RetailDb_Anterior_fecha
+    Descartada --&gt; [*]
+</pre>
+</figure>
+
+<h3>Quién autoriza en cada caso</h3>
+<table>
+<tr><th>Caso</th><th>Ejecuta</th><th>Autoriza</th><th>Dónde se verifica la credencial</th><th>Decisión</th></tr>
+<tr><td>CU-02 Desde el historial</td><td>Un Gerente</td><td>El mismo Gerente, con su contraseña otra vez</td><td>Base vigente</td><td>D-3, D-8</td></tr>
+<tr><td>CU-03 Control dual</td><td>Un Administrador, con su contraseña otra vez</td><td>Un Gerente activo, con su usuario y contraseña</td><td>Base vigente. Máximo 3 intentos fallidos del Administrador; después su cuenta se bloquea</td><td>D-30, D-31, D-33</td></tr>
+<tr><td>CU-04 Por consola</td><td>Quien tenga acceso a la PC</td><td>Un Gerente que exista en la copia</td><td><b>Dentro de la copia</b>: la vigente puede no existir o estar dañada</td><td>D-18</td></tr>
+</table>
+<p>En los tres casos, la copia restaurada tiene que tener <b>al menos un Gerente activo</b>: si no, después de restaurarla nadie podría administrar el sistema.</p>
+
+<details><summary>Autoevaluación N0: ¿por qué la consola verifica la credencial dentro de la copia y no en la base vigente?</summary>
+<p>Porque la consola existe para la recuperación ante desastres: la base vigente puede no existir (PC nueva) o estar dañada justamente por eso se restaura. Verificar dentro de la copia sigue exigiendo que quien restaura sea un Gerente, pero un Gerente de los datos que va a recuperar. La consola no da acceso por sí misma (D-13): sin una credencial válida en la copia, no restaura.</p>
+</details>
+
+<!-- ============================================================ NIVEL 1 -->
+<h2 id="nivel-1">Nivel 1 · Lo que ve el usuario</h2>
+<span class="etiqueta">Caja negra</span>
+
+<h3>Restaurar desde el historial (CU-02)</h3>
+<figure>
+<figcaption>Diagrama 1.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor G as Gerente
+    participant S as Retail POS
+    participant SQL as SQL Server
+    G-&gt;&gt;S: Copias, elige una copia verificada, Restaurar
+    S--&gt;&gt;G: Fecha de la copia y aviso de conciliación con ARCA
+    G-&gt;&gt;S: Su contraseña
+    S-&gt;&gt;SQL: Restaura la copia en una base temporal
+    S--&gt;&gt;G: Barra de progreso
+    S-&gt;&gt;SQL: Valida y prepara la temporal
+    S-&gt;&gt;SQL: Copia previa de la base vigente
+    S-&gt;&gt;SQL: Intercambia las bases
+    S--&gt;&gt;G: Advertencias del resultado y "la aplicación se reiniciará"
+    S-&gt;&gt;S: Reinicio
+    Note over G,S: Si algo falla antes del intercambio: "No se pudo restaurar. La base de datos actual no fue modificada"
+</pre>
+</figure>
+
+<p>Solo se ofrecen copias <b>verificadas cuyo archivo se conserva</b>. Después de restaurar, las conexiones y las pantallas abiertas apuntan a la base reemplazada: la aplicación muestra el resultado completo y se reinicia. La pantalla de copias muestra la última restauración, para que una restauración no pase inadvertida (R-20).</p>
+
+<div class="nota"><b>El aviso de ARCA (R-3)</b> acompaña a toda restauración: "La base volvió al estado de la copia. Los comprobantes autorizados por ARCA después de esa fecha no figuran en el sistema: concilie la numeración con el último comprobante autorizado antes de volver a facturar. La restauración no anula ventas ante ARCA."</div>
+
+<h3>Restaurar con control dual (CU-03)</h3>
+<figure>
+<figcaption>Diagrama 1.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor A as Administrador
+    actor G as Gerente
+    participant S as Retail POS
+    A-&gt;&gt;S: Elige una copia verificada, Restaurar
+    S--&gt;&gt;A: Pide su contraseña y la autorización de un Gerente
+    A-&gt;&gt;S: Su contraseña
+    G-&gt;&gt;S: Su usuario y su contraseña
+    S-&gt;&gt;S: Cuenta el intento del Administrador antes de verificar
+    alt alguna credencial es incorrecta
+        S--&gt;&gt;A: Rechazo, y el intento queda en la auditoría
+        Note over A,S: Al tercer intento fallido, la cuenta del Administrador se bloquea y la aplicación se reinicia
+    else las dos son correctas
+        S-&gt;&gt;S: El contador vuelve a cero y se audita la autorización
+        S-&gt;&gt;S: Restauración, igual que en CU-02
+        S--&gt;&gt;A: Resultado y reinicio
+    end
+</pre>
+</figure>
+
+<p>El registro de la restauración guarda a los dos: el Gerente como quien <b>autorizó</b> y el Administrador como quien <b>ejecutó</b>. El dominio rechaza que sean la misma persona: el control dual exige dos.</p>
+
+<h3>Restaurar desde un archivo por consola (CU-04)</h3>
+<figure>
+<figcaption>Diagrama 1.3 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor O as Quien recupera
+    participant C as Retail.Cli restaurar
+    participant SQL as SQL Server
+    O-&gt;&gt;C: restaurar ruta\copia.bak
+    C-&gt;&gt;C: Trae la copia al directorio de respaldos y lee su manifiesto
+    C--&gt;&gt;O: Archivo, fecha, tipo, operador, tamaño, versión y SHA-256
+    C--&gt;&gt;O: Atención: la base se reemplaza, cierre Retail POS en todas las terminales
+    O-&gt;&gt;C: Usuario y contraseña de un Gerente de ESA copia
+    O-&gt;&gt;C: Escribe RESTAURAR para confirmar
+    C-&gt;&gt;SQL: Restaura, valida, copia previa si se puede, intercambio
+    C--&gt;&gt;O: Resultado, advertencias y aviso de ARCA
+</pre>
+</figure>
+
+<p>Es la única entrada que acepta un archivo cualquiera, por ejemplo uno traído de otra PC, y también funciona <b>sin base vigente</b>: en una PC nueva, la restauración crea la base. Por eso no puede confiar en el historial: todo lo que sabe de la copia lo lee de su manifiesto.</p>
+
+<details><summary>Autoevaluación N1: ¿por qué la aplicación se reinicia después de restaurar?</summary>
+<p>Porque el intercambio corta todas las conexiones a la base vigente (<code>SINGLE_USER WITH ROLLBACK IMMEDIATE</code>) y la reemplaza por otra. Las pantallas abiertas tienen datos en memoria de la base anterior y conexiones que ya no sirven. Reiniciar es la forma segura de que todo vuelva a leer la base restaurada desde cero.</p>
+</details>
+
+<!-- ============================================================ NIVEL 2 -->
+<h2 id="nivel-2">Nivel 2 · Qué capa hace cada cosa</h2>
+<span class="etiqueta">Por capas</span>
+
+<p>Las tres entradas de <code>IRestauracionService</code> se encargan de <b>autorizar</b> y de saber <b>qué copia</b> se restaura; después todas llaman a un único <code>EjecutarRestauracionAsync</code>, que recibe una función para verificar al Gerente dentro de la copia. Es el patrón <i>Template Method</i> resuelto con un delegado.</p>
+
+<figure>
+<figcaption>Diagrama 2.1 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    E1["RestaurarDesdeHistorialAsync&lt;br/&gt;Gerente + su contraseña"] --&gt; H["BuscarCopiaRestaurableAsync&lt;br/&gt;solo copias Verificado"]
+    E2["RestaurarConAutorizacionDeGerenteAsync&lt;br/&gt;Administrador + Gerente"] --&gt; H
+    E3["RestaurarDesdeArchivoAsync&lt;br/&gt;consola"] --&gt; P["PrepararParaRestaurarAsync&lt;br/&gt;y LeerManifiestoAsync"]
+    H --&gt; X["EjecutarRestauracionAsync&lt;br/&gt;(origen, copia, autorizarEnLaCopia, operador)"]
+    P --&gt; X
+    X --&gt; R["ResultadoRestauracionDto&lt;br/&gt;con advertencias"]
+</pre>
+</figure>
+
+<h3>La restauración por capas</h3>
+<figure class="ancho">
+<figcaption>Diagrama 2.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant RS as [Apl] RestauracionService
+    participant BL as [Inf] Bloqueo (sp_getapplock)
+    participant AR as [Inf] ArchivosBackup
+    participant RE as [Inf] SqlServerRestaurador
+    participant T as [Inf] BaseRestaurada (temporal)
+    participant BS as [Apl] BackupService
+    participant RR as [Dom] RegistroRestauracion
+    RS-&gt;&gt;BL: Bloqueo exclusivo, sin esperar
+    RS-&gt;&gt;AR: Huella SHA-256: ¿el archivo cambió?
+    RS-&gt;&gt;RE: ¿Existe la vigente? ¿Responde?
+    RS-&gt;&gt;RE: ¿Hay un turno de caja abierto?
+    RS-&gt;&gt;RS: Cerrar copias huérfanas de la vigente
+    RS-&gt;&gt;RE: RestaurarEnBaseTemporalAsync
+    RE--&gt;&gt;RS: BaseRestaurada
+    RS-&gt;&gt;T: ¿Migraciones desconocidas? Aplicar las pendientes
+    RS-&gt;&gt;T: ¿Usuario de la tarea programada? (aviso)
+    RS-&gt;&gt;T: Verificar al Gerente en la copia
+    RS-&gt;&gt;RE: ¿Turno de caja abierto? (otra vez)
+    RS-&gt;&gt;BS: CrearBackupPreRestauracionAsync
+    RS-&gt;&gt;T: Importar el historial de la vigente
+    RS-&gt;&gt;T: Cerrar copias en curso dentro de la copia
+    RS-&gt;&gt;RR: Registrar(origen, Gerente, copia, copia previa, base anterior, operador)
+    RS-&gt;&gt;T: Agregar el registro y guardar
+    RS-&gt;&gt;T: PromoverAVigenteAsync, punto de no retorno
+    RS-&gt;&gt;RE: Eliminar bases anteriores viejas
+</pre>
+</figure>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li><b>La base temporal tiene su propio <code>DbContext</code></b>, apuntado a ella. Así se valida y se prepara la copia con el modelo de la aplicación sin tocar la vigente.</li>
+    <li><b>Infraestructura no decide reglas.</b> El restaurador restaura, elimina y mide espacio; qué se valida y en qué orden lo decide Aplicación.</li>
+    <li><b>La copia previa la hace el mismo <code>BackupService</code></b> que hace todas las copias, sin tomar el bloqueo compartido: corre bajo el exclusivo de la restauración que la pide.</li>
+</ul>
+</div>
+
+<h3>El control dual, en detalle</h3>
+<figure>
+<figcaption>Diagrama 2.3 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["¿El actor es Administrador?"] --&gt;|No| X["OperacionNoAutorizadaException&lt;br/&gt;no se verifica ninguna contraseña"]
+    A --&gt;|Sí| B["RegistrarIntentoDeAutorizacion y guardar&lt;br/&gt;ANTES de verificar"]
+    B --&gt;|"ya estaba bloqueada"| Y["Auditar: Bloqueado&lt;br/&gt;CuentaBloqueadaException"]
+    B --&gt; C{"¿Su propia contraseña es correcta?"}
+    C --&gt;|No| F["Auditar el rechazo&lt;br/&gt;¿llegó a 3? bloqueo"]
+    C --&gt;|Sí| D{"¿El Gerente existe, es Gerente,&lt;br/&gt;no debe cambiar su contraseña&lt;br/&gt;y la contraseña es correcta?"}
+    D --&gt;|No| F
+    D --&gt;|Sí| E["RegistrarAutorizacionExitosa: contador a 0&lt;br/&gt;Auditar: Aceptado"]
+    E --&gt; R["Restaurar, verificando a ESE Gerente en la copia"]
+</pre>
+</figure>
+
+<ul>
+    <li><b>Conteo pesimista (D-31).</b> El intento se cuenta y se guarda antes de verificar: aunque el proceso se corte en el medio, el intento quedó contado.</li>
+    <li><b>Misma respuesta para todo.</b> Un Gerente inexistente, alguien que no es Gerente, una cuenta con cambio de contraseña pendiente o una contraseña incorrecta reciben el mismo mensaje: no se revela cuál fue el error.</li>
+    <li><b>Una cuenta con cambio de contraseña pendiente no autoriza</b>: su contraseña la eligió otra persona.</li>
+    <li>La auditoría se escribe en la vigente <b>antes de restaurar</b>, para que después se importe a la base restaurada.</li>
+</ul>
+
+<details><summary>Autoevaluación N2: ¿por qué no se usa <code>IAuthService.VerificarCredencialAsync</code> para la contraseña del Administrador?</summary>
+<p>Porque ese método lanza <code>CuentaBloqueadaException</code> si la cuenta está bloqueada, y el contador ya se incrementó antes de verificar: en el tercer intento valdría 3 antes de comprobar nada, y bloquearía la cuenta aunque las dos contraseñas fueran correctas. Por eso se verifica con el <code>IPasswordHasher</code> directamente, y el dominio decide el bloqueo con el resultado.</p>
+</details>
+
+<!-- ============================================================ NIVEL 3 -->
+<h2 id="nivel-3">Nivel 3 · Los mecanismos</h2>
+<span class="etiqueta">Mecanismos</span>
+
+<h3>Restaurar en una base temporal</h3>
+<pre class="codigo">-- Sobre una conexión a master: la vigente puede no existir o estar siendo reemplazada
+RESTORE FILELISTONLY FROM DISK = @ruta;          -- qué archivos trae la copia
+
+RESTORE DATABASE [RetailDb_Restaurando] FROM DISK = @ruta
+WITH MOVE @logico0 TO @fisico0,                    -- datos: RetailDb_20261107_143005_1.mdf
+     MOVE @logico1 TO @fisico1,                    -- registro: RetailDb_20261107_143005_1.ldf
+     CHECKSUM, RECOVERY, STATS = 10;</pre>
+<ul>
+    <li><b><code>MOVE</code> con nombres físicos únicos por restauración.</b> <code>ALTER DATABASE ... MODIFY NAME</code> renombra la base pero no sus archivos: la temporal que se vuelve vigente conserva los suyos. Con nombres fijos, la siguiente restauración chocaría con ellos. Si el archivo ya existe se sube el sufijo, porque <code>RESTORE</code> no sobrescribe.</li>
+    <li><b>Espacio antes de empezar.</b> Se exige lugar para los archivos de la copia más un margen y, si hay vigente, para la copia previa, estimada con lo que la vigente tiene asignado.</li>
+    <li><b>Una temporal que quedó de un corte anterior se descarta</b> al empezar: la restauración corre bajo el bloqueo exclusivo, así que nadie más puede estar usándola.</li>
+    <li>Si el <code>RESTORE</code> falla o se cancela, la temporal a medio restaurar se elimina.</li>
+</ul>
+
+<h3>El intercambio de bases</h3>
+<figure>
+<figcaption>Diagrama 3.1 · secuencia</figcaption>
+<pre class="mermaid">
+%%{init: {"sequence": {"actorMargin": 380}}}%%
+sequenceDiagram
+    participant RS as BaseRestaurada
+    participant M as SQL Server, master
+    Note over RS,M: Paso 1: apartar la vigente
+    RS-&gt;&gt;M: ALTER DATABASE [RetailDb] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+    RS-&gt;&gt;M: ALTER DATABASE [RetailDb] MODIFY NAME = [RetailDb_Anterior_fecha]
+    alt falla el paso 1
+        RS-&gt;&gt;M: SET MULTI_USER, la vigente queda sin cambios
+    end
+    RS-&gt;&gt;M: ALTER DATABASE [RetailDb_Anterior_fecha] SET MULTI_USER
+    Note over RS,M: Paso 2: la temporal ocupa el nombre
+    RS-&gt;&gt;M: SET SINGLE_USER y MODIFY NAME = [RetailDb] sobre la temporal
+    alt falla el paso 2
+        RS-&gt;&gt;M: Revertir: la anterior vuelve a llamarse RetailDb
+    end
+    RS-&gt;&gt;M: ALTER DATABASE [RetailDb] SET MULTI_USER
+</pre>
+</figure>
+
+<ul>
+    <li><b>Cada sentencia va por separado</b>: ante una falla hay que saber exactamente en qué estado quedó cada base.</li>
+    <li><b><code>ROLLBACK IMMEDIATE</code> corta a cualquier conexión</b> que use la vigente, incluidas las de otras terminales. Por eso hay que cerrar Retail POS en todas las PC antes de restaurar.</li>
+    <li><b>Reintentos del par completo.</b> Entre <code>SINGLE_USER</code> y <code>MODIFY NAME</code>, otra conexión (otra terminal, un pool que reconecta) puede ocupar la única plaza de la base: se reintenta el par unas pocas veces antes de darlo por fallido.</li>
+    <li><b>Si el paso 2 falla, se revierte el 1</b>: la anterior vuelve a llamarse <code>RetailDb</code>. Si ni siquiera eso se puede, el mensaje lo dice con el nombre exacto de la base y pide intervención técnica.</li>
+</ul>
+
+<h3>El punto de no retorno</h3>
+<figure>
+<figcaption>Diagrama 3.2 · flujo</figcaption>
+<pre class="mermaid">
+flowchart LR
+    subgraph ANTES["Antes del intercambio"]
+        A1["Huella, versión, Gerente,&lt;br/&gt;caja, migraciones"] --&gt; A2["Copia previa"] --&gt; A3["Historial y registro&lt;br/&gt;en la temporal"]
+    end
+    subgraph DESPUES["Después"]
+        D1["Acceso multiusuario"] --&gt; D2["Eliminar bases&lt;br/&gt;anteriores viejas"]
+    end
+    ANTES --&gt;|"PromoverAVigenteAsync&lt;br/&gt;sin token de cancelación"| DESPUES
+    ANTES -.-&gt;|"cualquier falla"| F["La temporal se elimina.&lt;br/&gt;La vigente no cambió"]
+</pre>
+</figure>
+
+<p>Todo lo que puede fallar ocurre <b>antes</b> de promover la temporal. Si algo falla, la temporal se libera sin promover, lo que la elimina, y la vigente queda como estaba. El intercambio se ejecuta <b>sin token de cancelación</b>: dejarlo a medias sería peor que terminarlo. Lo que falla después (devolver el modo multiusuario, eliminar bases anteriores viejas) ya no puede informarse como una restauración fallida, porque la restauración está hecha: se informa como advertencia.</p>
+
+<h3>El historial sobrevive a la restauración</h3>
+<p>La copia restaurada trae el historial de copias <b>tal como era en su momento</b>: sin las copias posteriores, que siguen en el disco y son restaurables. Por eso, antes del intercambio:</p>
+<ol>
+    <li><b>Se importa el historial de la vigente a la temporal</b> (R-1), incluida la copia previa recién tomada. Primero se borran de la temporal los registros cuya referencia también está en la vigente, porque la vigente tiene la versión más reciente de ese hecho, y después se insertan todos los de la vigente. Las restauraciones y la auditoría de accesos posterior a la copia viajan en la misma transacción.</li>
+    <li><b>Se cierran las copias en curso dentro de la copia</b> (R-18). El <code>.bak</code> contiene su propio registro todavía <code>EnCurso</code>, porque la copia se tomó mientras se registraba. Ese registro se completa como verificado, ya que su huella coincide, y cualquier otra copia en curso se cierra como interrumpida. Si no, el índice de una sola copia en curso bloquearía todas las copias siguientes.</li>
+</ol>
+<p>Si la vigente no tiene el esquema de esta versión, la copia previa se toma igual, pero su historial no se pasa: queda en la base anterior, y el resultado lo advierte.</p>
+
+<details><summary>Autoevaluación N3: el paso 1 del intercambio se completó y el paso 2 falló. ¿En qué estado queda el sistema?</summary>
+<p>Se intenta revertir el paso 1: la base anterior vuelve a llamarse <code>RetailDb</code> y el sistema queda como antes de empezar, con un mensaje que lo dice. Solo si la reversión también falla, la vigente queda con el nombre de base anterior; el mensaje nombra la base y pide intervención técnica, y el log tiene el detalle. En ningún caso se pierden datos: las dos bases siguen existiendo.</p>
+</details>
+
+<!-- ============================================================ NIVEL 4 -->
+<h2 id="nivel-4">Nivel 4 · Los algoritmos</h2>
+<span class="etiqueta">Algoritmo</span>
+
+<h3><code>EjecutarRestauracionAsync</code> paso a paso</h3>
+<figure>
+<figcaption>Diagrama 4.1 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    S1["1. Bloqueo exclusivo, sin esperar&lt;br/&gt;si hay copias o restauraciones: rechazo"] --&gt; S2["2. Huella SHA-256 y tamaño&lt;br/&gt;iguales a los registrados"]
+    S2 --&gt; S3{"3. ¿Existe la vigente?"}
+    S3 --&gt;|"Sí, pero no responde"| X1["Abortar: no se reemplaza a ciegas&lt;br/&gt;una base que puede tener los únicos datos"]
+    S3 --&gt;|"No: PC nueva"| S5
+    S3 --&gt;|"Sí y responde"| S4["4. Sin turno de caja abierto&lt;br/&gt;cerrar copias huérfanas"]
+    S4 --&gt; S5["5. RESTORE en la base temporal"]
+    S5 --&gt; S6{"6. ¿La copia trae migraciones&lt;br/&gt;que esta versión no conoce?"}
+    S6 --&gt;|Sí| X2["Abortar: actualice la aplicación"]
+    S6 --&gt;|No| S7["7. Aplicar las migraciones pendientes&lt;br/&gt;a la temporal"]
+    S7 --&gt; S8["8. Aviso si falta el usuario&lt;br/&gt;de la tarea programada"]
+    S8 --&gt; S9["9. Verificar al Gerente en la copia"]
+    S9 --&gt; S10["10. Otra vez: sin turno de caja abierto&lt;br/&gt;copia PreRestauracion de la vigente"]
+    S10 --&gt; S11["11. Importar el historial de la vigente&lt;br/&gt;cerrar copias en curso de la copia"]
+    S11 --&gt; S12["12. RegistroRestauracion en la temporal"]
+    S12 --&gt; S13["13. Intercambio: punto de no retorno"]
+    S13 --&gt; S14["14. Eliminar bases anteriores viejas"]
+</pre>
+</figure>
+
+<h3>Las validaciones y por qué están</h3>
+<table>
+<tr><th>Validación</th><th>Qué evita</th><th>Decisión</th></tr>
+<tr><td>Solo copias <code>Verificado</code> cuyo archivo se conserva</td><td>Restaurar una copia que nunca se comprobó legible</td><td>RF-22</td></tr>
+<tr><td>Huella SHA-256 y tamaño iguales a los registrados</td><td>Restaurar un archivo dañado o reemplazado después de la copia</td><td>Copia de seguridad</td></tr>
+<tr><td>La vigente existe pero no responde: se aborta</td><td>Reemplazar a ciegas una base que puede tener los únicos datos reales, sin poder copiarla antes</td><td>D-26</td></tr>
+<tr><td>Ningún turno de caja abierto, comprobado <b>dos veces</b></td><td>Perder los movimientos del turno y dejar el arqueo inconsistente. Se repite justo antes de la copia previa porque el <code>RESTORE</code> puede durar minutos (TOCTOU: el estado pudo cambiar entre que se comprobó y que se usa)</td><td>R-11</td></tr>
+<tr><td>Migraciones desconocidas en la copia</td><td>Restaurar con una aplicación vieja una copia tomada con una más nueva, que tiene tablas o columnas que no conoce</td><td>R-7</td></tr>
+<tr><td>Aplicar las migraciones pendientes a la temporal</td><td>Que el modelo actual no pueda leer una copia vieja</td><td>RF-22</td></tr>
+<tr><td>Un Gerente activo en la copia</td><td>Que, después de restaurar, nadie pueda administrar el sistema</td><td>D-18</td></tr>
+<tr><td>Aviso si la copia no tiene el usuario de la tarea programada</td><td>Que la copia automática de esa noche falle sin explicación: los permisos viven dentro de la base</td><td>D-29</td></tr>
+</table>
+
+<h3>Preparar un archivo que viene de afuera</h3>
+<p>En la consola, la copia puede estar en cualquier lugar, por ejemplo en la carpeta Descargas del Gerente. Pero <code>RESTORE</code> lo ejecuta <b>el servicio de SQL Server con su propia cuenta de Windows</b>, que no puede leer esa carpeta. Por eso <code>PrepararParaRestaurarAsync</code>:</p>
+<ol>
+    <li>Rechaza rutas de red (<code>\\servidor\...</code>) y de dispositivo (<code>\\?\</code>): harían que la cuenta del servicio se conecte a otra máquina o saltearían la normalización de Windows. Solo se aceptan archivos <code>.bak</code> locales.</li>
+    <li>Copia el archivo al directorio de respaldos, que el servicio sí puede leer, si no está ya ahí. Si ya hay un archivo con la misma huella, lo reutiliza; si no, suma un sufijo numérico al nombre.</li>
+    <li>Lee el manifiesto y valida cada campo: que exista, que no esté vacío ni dañado y que <b>pertenezca a ese archivo</b>.</li>
+</ol>
+
+<h3>Qué base anterior se conserva</h3>
+<p>Después del intercambio se buscan las bases <code>RetailDb_Anterior_%</code> y se eliminan todas <b>menos la recién creada</b>. Así siempre queda la base que acaba de reemplazarse, que es la red más inmediata si la restauración fue un error, sin acumular bases viejas en el disco. Si no se puede eliminar alguna, se advierte y se reintenta en la próxima restauración.</p>
+
+<details><summary>Autoevaluación N4: ¿por qué se aplican las migraciones a la temporal y no a la base ya restaurada, después del intercambio?</summary>
+<p>Porque cualquier falla de migración tiene que ocurrir antes del punto de no retorno. Si la copia vieja no se puede poner al día, la temporal se descarta y la vigente sigue intacta. Además, los pasos siguientes (verificar al Gerente, importar el historial, agregar el registro) usan el modelo actual de la aplicación, que no podría leer un esquema anterior.</p>
+</details>
+
+<!-- ============================================================ DEFENSA A -->
+<h2 id="defensa-a">Defensa A · Seguridad y control dual</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Medida</th><th>Qué protege</th><th>Decisión</th></tr>
+<tr><td>Restaurar lo autoriza siempre un Gerente</td><td>Reemplazar la base es la operación más destructiva del sistema: la decide su responsable</td><td>D-3, D-30</td></tr>
+<tr><td>Reautenticación, aunque la sesión esté abierta</td><td>Una sesión que quedó abierta en el mostrador no alcanza</td><td>D-8</td></tr>
+<tr><td>Control dual: un Administrador ejecuta y un Gerente autoriza; el dominio exige que sean dos personas</td><td>Que el soporte técnico pueda operar sin tener por sí solo el poder de reemplazar la base</td><td>D-30</td></tr>
+<tr><td>El Administrador también reingresa su contraseña</td><td>Que una sesión de Administrador abierta no alcance para intentar autorizaciones</td><td>D-33</td></tr>
+<tr><td>3 intentos fallidos bloquean la cuenta del Administrador; el intento se cuenta antes de verificar</td><td>Probar contraseñas de Gerentes por fuerza bruta desde la pantalla de restauración</td><td>D-31</td></tr>
+<tr><td>Cada intento queda en <code>AUDITORIA_ACCESOS</code>, sin contraseñas, y viaja a la base restaurada</td><td>Que un intento no deje rastro, o que el rastro se pierda justamente al restaurar</td><td>D-31</td></tr>
+<tr><td>La consola exige un Gerente que exista en la copia</td><td>Que la herramienta de recuperación sea una puerta trasera</td><td>D-13, D-18</td></tr>
+<tr><td>Misma respuesta ante cualquier credencial inválida</td><td>Averiguar qué usuarios existen o cuáles son Gerentes</td><td>D-18, D-30</td></tr>
+<tr><td>Una cuenta con cambio de contraseña pendiente no autoriza</td><td>Que autorice una contraseña que eligió otra persona (por ejemplo, la sembrada en bases viejas)</td><td>D-18</td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿para qué un Administrador, si el Gerente ya puede restaurar?</summary>
+<p>El Administrador es un rol opcional de soporte, típicamente técnico. Puede encargarse de la operación, que tiene pasos técnicos (cerrar terminales, interpretar advertencias), pero no tiene por sí solo el poder de reemplazar la base: necesita que un Gerente autorice con su credencial en el momento. Es el principio de separación de funciones, el mismo que exige dos firmas para una operación bancaria grande.</p>
+</details>
+<details><summary>Pregunta probable: ¿por qué el intento se cuenta antes de verificar las contraseñas?</summary>
+<p>Porque si se contara después, un corte justo entre la verificación y el guardado del contador dejaría un intento sin contar: alguien podría probar contraseñas forzando cortes. Contar primero (conteo pesimista) garantiza que todo intento cuenta. Si las dos credenciales son correctas, el contador vuelve a cero.</p>
+</details>
+
+<!-- ============================================================ DEFENSA B -->
+<h2 id="defensa-b">Defensa B · Robustez ante fallas</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Escenario</th><th>Qué pasa</th></tr>
+<tr><td>Se corta la luz durante el <code>RESTORE</code></td><td>La vigente no se tocó. La temporal que quedó se descarta al empezar la próxima restauración</td></tr>
+<tr><td>Falla el intercambio a mitad</td><td>Se revierte el primer paso; si no se puede, el mensaje nombra la base y pide intervención técnica. Las dos bases siguen existiendo</td></tr>
+<tr><td>El <code>.bak</code> se dañó o se reemplazó</td><td>La huella no coincide y se rechaza antes de restaurar</td></tr>
+<tr><td>El <code>.bak</code> está dañado por dentro</td><td><code>RESTORE ... WITH CHECKSUM</code> falla, la temporal se elimina y la vigente no cambia</td></tr>
+<tr><td>La copia es de una versión más nueva</td><td>Se rechaza con la lista de migraciones desconocidas: hay que actualizar la aplicación primero</td></tr>
+<tr><td>Hay un turno de caja abierto</td><td>Se rechaza: "Ciérrelo antes de restaurar"</td></tr>
+<tr><td>Otra terminal tiene Retail POS abierto</td><td>Sus conexiones se cortan en el intercambio. La aplicación de esa terminal debe reiniciarse</td></tr>
+<tr><td>Hay una copia de seguridad en curso</td><td>La restauración se rechaza al instante: el bloqueo exclusivo no espera</td></tr>
+<tr><td>La vigente existe pero no responde</td><td>Se aborta: no se reemplaza sin poder tomar antes la copia previa (D-26)</td></tr>
+<tr><td>PC nueva, sin base vigente</td><td>La consola restaura y crea la base, sin copia previa ni historial que conservar, y lo advierte</td></tr>
+<tr><td>La copia previa falla</td><td>Desde la aplicación se aborta: la vigente está sana y una copia que falla indica un problema real, como el disco. Desde la consola se continúa con una advertencia: en un desastre la vigente puede estar dañada justamente por eso, y la base anterior igual se conserva</td></tr>
+<tr><td>Disco sin espacio</td><td>Se detecta antes del <code>RESTORE</code>, contando los archivos de la copia y la copia previa</td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿por qué la copia previa que falla aborta en la aplicación y no en la consola?</summary>
+<p>Porque los dos casos son distintos. Desde la aplicación, la vigente está sana (la aplicación la estaba usando): si no se la puede copiar, algo anda mal, por ejemplo el disco, y reemplazarla sin red sería imprudente. Desde la consola, el escenario típico es un desastre: la vigente puede estar dañada y por eso no se puede copiar. Abortar dejaría al comercio sin poder recuperarse. La red que queda en ese caso es la base anterior, que se conserva intacta.</p>
+</details>
+
+<!-- ============================================================ DEFENSA C -->
+<h2 id="defensa-c">Defensa C · Decisiones y alternativas</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Decisión</th><th>Por qué</th><th>Frente a qué alternativa</th></tr>
+<tr><td><b>Base temporal e intercambio</b> (D-17)</td><td>Todo lo que puede fallar ocurre sin tocar la vigente; el reemplazo es un cambio de nombres de segundos</td><td>Restaurar directo sobre la base en uso: si falla a mitad, no queda ni la base vieja ni la nueva</td></tr>
+<tr><td><b>Doble red</b>: copia previa (D-20) y base anterior</td><td>La copia previa es portable y entra en la retención; la base anterior está lista para consultarse sin restaurar nada</td><td>Una sola de las dos</td></tr>
+<tr><td><b>El registro se escribe en la temporal</b> antes del intercambio (D-22)</td><td>Nace junto con la base que describe: no hay un momento en que la base esté restaurada y sin registro</td><td>Escribirlo después del intercambio, cuando una falla ya no se puede deshacer</td></tr>
+<tr><td><b>Un mecanismo, tres autorizaciones</b> (D-21)</td><td>La parte peligrosa se escribe y se prueba una sola vez</td><td>Un flujo por cada entrada</td></tr>
+<tr><td><b>Historial reinsertado</b> (R-1, R-18)</td><td>Las copias posteriores a la restaurada siguen existiendo en el disco y deben seguir siendo restaurables</td><td>Quedarse con el historial que traía la copia</td></tr>
+<tr><td><b>Aviso de conciliación con ARCA</b> (R-3)</td><td>La restauración vuelve atrás la base, pero no lo que ARCA ya autorizó: la numeración de comprobantes hay que conciliarla a mano</td><td>No avisar, y facturar con una numeración que ARCA rechaza</td></tr>
+<tr><td><b>Reiniciar la aplicación</b> después de restaurar</td><td>Las pantallas y conexiones apuntaban a la base reemplazada</td><td>Recargar pantalla por pantalla</td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿por qué no restaurar directamente sobre la base en uso, que es más simple?</summary>
+<p>Porque un <code>RESTORE</code> sobre la base en uso la destruye desde el primer instante. Si falla a mitad (archivo dañado, disco lleno, corte de luz), no queda ni la base vieja ni la nueva. Con la base temporal, todo lo que puede fallar ocurre aparte: el archivo, la versión, el Gerente, las migraciones y el historial se resuelven antes de tocar nada. El reemplazo final es un cambio de nombres que tarda segundos, y aun ese paso sabe revertirse.</p>
+</details>
+
+<p class="pie">Decisiones citadas: D-xx y R-xx en <code>docs/roadmap/etapa-6-track-6.3-backup-restore.md</code> y en <code>docs/roadmap/etapa-6-track-6.3.1-control-dual-restore.md</code> (D-30 a D-34). La guía por capítulos, más extensa, está en <code>wiki/05-casos-de-uso-y-flujos/respaldo-y-restauracion/</code>. Requisitos: RF-22 (respaldo y restauración), RF-23 (administración por comandos), RNF-08 y RF-03 (roles).</p>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+    if (window.mermaid) {
+        // Mermaid fija el tema al dibujar: si cambia el modo del sistema, se recarga para redibujar.
+        var consultaOscuro = window.matchMedia("(prefers-color-scheme: dark)");
+        if (consultaOscuro.matches) { document.documentElement.classList.add("modo-oscuro"); }
+        consultaOscuro.addEventListener("change", function () { location.reload(); });
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: consultaOscuro.matches ? "dark" : "neutral",
+            securityLevel: "strict",
+            fontFamily: "Segoe UI, system-ui, sans-serif",
+            flowchart: { htmlLabels: true, useMaxWidth: true },
+            sequence: { useMaxWidth: false, wrap: true, width: 160, actorMargin: 40, messageMargin: 28, noteMargin: 10, actorFontSize: 13, messageFontSize: 13, noteFontSize: 12 },
+            state: { useMaxWidth: true },
+            er: { useMaxWidth: true }
+        });
+    }
+    // Chrome imprime cerradas las secciones plegadas: se abren antes de imprimir y se restauran después.
+    var plegadas = [];
+    window.addEventListener("beforeprint", function () {
+        plegadas = Array.prototype.filter.call(document.querySelectorAll("details"), function (d) { return !d.open; });
+        plegadas.forEach(function (d) { d.open = true; });
+    });
+    window.addEventListener("afterprint", function () {
+        plegadas.forEach(function (d) { d.open = false; });
+    });
+</script>
+</body>
+</html>
