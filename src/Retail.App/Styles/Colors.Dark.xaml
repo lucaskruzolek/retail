@@ -53,6 +53,16 @@
     <SolidColorBrush x:Key="PrimarySoftBorderBrush" Color="#6B2438" />
     <SolidColorBrush x:Key="PrimaryForegroundBrush" Color="#FFFFFF" />
 
+    <!-- MARCA: símbolo de Retail (grilla de 48). Compensación óptica: sobre fondo oscuro las formas claras se ven más
+         grandes, así que los bloques se achican y la junta se abre a 4,8 (el total sigue en 48).
+         Mismas claves en Colors.xaml y Colors.Dark.xaml: al cambiar de tema, el logo toma su geometría. -->
+    <GeometryGroup x:Key="GeometryLogoBloques">
+        <RectangleGeometry Rect="0,0,21.6,21.6" RadiusX="5.4" RadiusY="5.4" />
+        <RectangleGeometry Rect="26.4,0,21.6,21.6" RadiusX="5.4" RadiusY="5.4" />
+        <RectangleGeometry Rect="0,26.4,21.6,21.6" RadiusX="5.4" RadiusY="5.4" />
+    </GeometryGroup>
+    <EllipseGeometry x:Key="GeometryLogoPunto" Center="37.2,37.2" RadiusX="10.6" RadiusY="10.6" />
+
     <!-- ================================================================= -->
     <!-- TOKENS DE SUPERFICIES Y FONDOS (ZINC NEUTRAL)                     -->
     <!-- ================================================================= -->

@@ -515,6 +515,15 @@ Definidos en [`src/Retail.App/Styles/Typography.xaml`](file:///c:/Users/lucas/Pr
 
 ---
 
+## 🏷️ Marca y Logo
+
+El logo de Retail son **cuatro módulos en grilla de 2 × 2**: tres bloques en `TextPrimaryBrush` y un punto en `PrimaryBrush`, más el nombre en DM Sans Display Bold convertido a curvas. La referencia completa (versiones en SVG, área de resguardo, usos incorrectos) es el sistema de marca *Retail*; acá va lo que se usa en la aplicación.
+
+* **Control `LogoRetail`** ([`Views/Components/LogoRetail.cs`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Views/Components/LogoRetail.cs), plantilla en `Controls.xaml`): `Variante="Horizontal"` (principal: la usa el inicio de sesión), `"Vertical"` (espacios centrados y cuadrados) o `"Simbolo"` (sin nombre). Se dimensiona **solo con `Height`**; el ancho sale de la proporción. Nunca se recolorea ni se dibuja con `TextBlock`.
+* **Geometrías:** `GeometryLogoBloques` y `GeometryLogoPunto` viven en **las dos paletas** con la misma clave. La oscura trae la **compensación óptica**: sobre fondo oscuro las formas claras parecen más grandes (irradiación) y la junta se ve más angosta, así que los bloques bajan de 22 a 21,6 y la junta sube de 4 a 4,8 (el total sigue en 48). Como `ServicioTema` reemplaza la paleta, el logo cambia de geometría sin código. `GeometryLogoWordmark` está en `Icons.xaml`.
+* **Íconos de la aplicación:** el ejecutable y la barra de tareas usan [`Assets/Retail.ico`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Assets/Retail.ico) (`ApplicationIcon`, 16 a 256 px). La barra de título usa `ImagenIconoApp` (`Icons.xaml`), un `DrawingImage` vectorial: el `.ico` trae mapas de bits fijos y se vería borroso con escalado de Windows. Ambos son el mismo diseño: fondo `#18181B`, módulos blancos y punto `#D63A62`, sin depender del tema.
+* **Tamaño mínimo:** símbolo de 16 px; logo horizontal de 80 px de ancho.
+
 ## 📐 Iconografía Oficial (MahApps.Metro.IconPacks.BoxIcons)
 
 La aplicación estandariza su iconografía mediante el paquete modular **`MahApps.Metro.IconPacks.BoxIcons`**, complementado con geometrías nativas `StreamGeometry` en [`src/Retail.App/Styles/Icons.xaml`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Styles/Icons.xaml).

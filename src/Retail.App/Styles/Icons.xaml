@@ -52,4 +52,40 @@
     <StreamGeometry x:Key="GeometryChevronsLeft">M11.9,3.8 L8,8 L11.9,12.2 M7.9,3.8 L4,8 L7.9,12.2</StreamGeometry>
     <StreamGeometry x:Key="GeometryChevronsRight">M4.1,3.8 L8,8 L4.1,12.2 M8.1,3.8 L12,8 L8.1,12.2</StreamGeometry>
 
+    <!-- ================================================================= -->
+    <!-- MARCA RETAIL                                                      -->
+    <!-- ================================================================= -->
+
+    <!-- Wordmark "Retail" en curvas (DM Sans Display Bold, interletrado -3,5 %). Altura de mayúscula 37,08 con el
+         borde superior en y = 0; ancho 123,52. Lo usa el control LogoRetail (Styles/Controls.xaml). -->
+    <StreamGeometry x:Key="GeometryLogoWordmark">F1 M2.38 37.08V0H16.26Q20.71 0 23.65 1.54Q26.59 3.07 28.02 5.64Q29.45 8.21 29.45 11.33Q29.45 14.3 28.05 16.87Q26.64 19.44 23.7 21Q20.76 22.56 16.15 22.56H9.53V37.08ZM21.61 37.08 13.98 20.76H21.72L29.77 37.08ZM9.53 17.37H15.78Q19.07 17.37 20.6 15.78Q22.14 14.19 22.14 11.6Q22.14 9 20.6 7.49Q19.07 5.99 15.78 5.99H9.53ZM43.75 37.71Q39.72 37.71 36.63 36.02Q33.53 34.32 31.78 31.25Q30.03 28.18 30.03 24.21Q30.03 20.07 31.75 16.92Q33.47 13.77 36.57 11.97Q39.67 10.17 43.75 10.17Q47.72 10.17 50.69 11.86Q53.65 13.56 55.35 16.5Q57.04 19.44 57.04 23.15Q57.04 23.68 57.02 24.34Q56.99 25 56.94 25.69H35.12V21.29H49.79Q49.63 18.8 47.96 17.32Q46.29 15.84 43.8 15.84Q41.95 15.84 40.41 16.66Q38.88 17.48 37.98 19.15Q37.08 20.82 37.08 23.36V24.89Q37.08 27.07 37.92 28.63Q38.77 30.19 40.28 31.04Q41.79 31.89 43.7 31.89Q45.66 31.89 46.98 31.01Q48.3 30.14 48.99 28.76H56.25Q55.51 31.25 53.76 33.29Q52.01 35.33 49.47 36.52Q46.93 37.71 43.75 37.71ZM70.34 37.08Q67.53 37.08 65.44 36.2Q63.35 35.33 62.18 33.29Q61.02 31.25 61.02 27.7V16.53H56.51V10.8H61.02L61.81 3.65H68.17V10.8H75.16V16.53H68.17V27.81Q68.17 29.71 68.96 30.43Q69.76 31.14 71.66 31.14H75V37.08ZM84.27 37.71Q81.14 37.71 79.1 36.65Q77.06 35.59 76.11 33.79Q75.16 31.99 75.16 29.82Q75.16 27.38 76.4 25.53Q77.65 23.68 80.19 22.64Q82.73 21.61 86.6 21.61H93.22Q93.22 19.65 92.66 18.38Q92.11 17.11 90.97 16.47Q89.83 15.84 88.08 15.84Q86.02 15.84 84.56 16.76Q83.1 17.69 82.73 19.65H75.79Q76.11 16.74 77.73 14.62Q79.34 12.5 82.02 11.33Q84.69 10.17 88.08 10.17Q91.9 10.17 94.65 11.41Q97.4 12.66 98.89 15.07Q100.37 17.48 100.37 20.92V37.08H94.44L93.7 33H93.48Q92.64 34.16 91.66 35.06Q90.68 35.96 89.51 36.55Q88.35 37.13 87.02 37.42Q85.7 37.71 84.27 37.71ZM86.6 32.2Q88.08 32.2 89.17 31.7Q90.25 31.2 91.05 30.35Q91.84 29.5 92.29 28.36Q92.74 27.22 92.9 26.01H87.39Q85.75 26.01 84.72 26.4Q83.69 26.8 83.21 27.52Q82.73 28.23 82.73 29.18Q82.73 30.14 83.21 30.83Q83.69 31.51 84.59 31.86Q85.49 32.2 86.6 32.2ZM103.34 37.08V10.8H110.49V37.08ZM106.94 7.47Q104.98 7.47 103.73 6.33Q102.49 5.19 102.49 3.44Q102.49 1.69 103.73 0.53Q104.98 -0.64 106.94 -0.64Q108.9 -0.64 110.12 0.53Q111.33 1.69 111.33 3.44Q111.33 5.14 110.12 6.3Q108.9 7.47 106.94 7.47ZM113.98 37.08V0H121.13V37.08Z</StreamGeometry>
+
+    <!-- Ícono de la aplicación como imagen vectorial: cuadrado #18181B, módulos blancos y punto carmín del tema oscuro
+         (con la geometría compensada). No depende del tema: es el mismo ícono que Assets/Retail.ico. -->
+    <DrawingImage x:Key="ImagenIconoApp">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#18181B">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="0,0,64,64" RadiusX="14" RadiusY="14" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#FFFFFF">
+                    <GeometryDrawing.Geometry>
+                        <GeometryGroup>
+                            <RectangleGeometry Rect="14,14,16.2,16.2" RadiusX="4.05" RadiusY="4.05" />
+                            <RectangleGeometry Rect="33.8,14,16.2,16.2" RadiusX="4.05" RadiusY="4.05" />
+                            <RectangleGeometry Rect="14,33.8,16.2,16.2" RadiusX="4.05" RadiusY="4.05" />
+                        </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#D63A62">
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="41.9,41.9" RadiusX="7.95" RadiusY="7.95" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
 </ResourceDictionary>

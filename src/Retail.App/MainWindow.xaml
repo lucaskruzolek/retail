@@ -427,7 +427,12 @@
                          FontFamily="{StaticResource FontFamilyText}"
                          FontSize="12"
                          FontWeight="SemiBold"
-                         Foreground="{DynamicResource TextSecondaryBrush}" />
+                         Foreground="{DynamicResource TextSecondaryBrush}">
+                <!-- Ícono vectorial (Icons.xaml): nítido con cualquier escalado de Windows, a diferencia del .ico. -->
+                <ui:TitleBar.Icon>
+                    <ui:ImageIcon Source="{StaticResource ImagenIconoApp}" Width="16" Height="16" />
+                </ui:TitleBar.Icon>
+            </ui:TitleBar>
 
             <!-- 2.2 AVISO NO BLOQUEANTE DE RESTAURACIÓN RECIENTE (Gerente / Administrador, R-20) -->
             <Border Grid.Row="1"

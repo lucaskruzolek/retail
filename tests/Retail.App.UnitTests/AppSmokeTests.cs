@@ -1238,6 +1238,37 @@ public class AppSmokeTests
         xamlException.Should().BeNull("el XAML de FiltroRangoFecha debe resolverse sin errores");
     }
 
+    [Theory]
+    [InlineData(VarianteLogo.Horizontal)]
+    [InlineData(VarianteLogo.Vertical)]
+    [InlineData(VarianteLogo.Simbolo)]
+    public void LogoRetail_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(VarianteLogo variante)
+    {
+        // Arrange: el logo resuelve sus geometrías de la paleta (Colors.xaml) y el wordmark de Icons.xaml.
+        Exception? xamlException = null;
+        double anchoDibujado = 0;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                var control = new LogoRetail { Variante = variante, Height = 48 };
+                control.Measure(new System.Windows.Size(double.PositiveInfinity, 48));
+                control.Arrange(new System.Windows.Rect(control.DesiredSize));
+                control.UpdateLayout();
+                anchoDibujado = control.ActualWidth;
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert: sin errores de recursos y con ancho propio (si una geometría no resolviera, el Viewbox mediría 0).
+        xamlException.Should().BeNull("el XAML de LogoRetail debe resolverse sin errores de recursos");
+        anchoDibujado.Should().BeGreaterThan(0, "el logo debe dibujarse con la proporción de su variante");
+    }
+
     [Fact]
     public void SelectorCantidad_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
