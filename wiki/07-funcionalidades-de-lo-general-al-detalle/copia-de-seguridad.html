@@ -619,14 +619,51 @@ flowchart TD
 <tr><th>Capa</th><th>Medida</th><th>Decisión</th></tr>
 <tr><td>Quién pide</td><td>Solo un Gerente o un Administrador generan copias manuales y ven el historial</td><td>D-32</td></tr>
 <tr><td>Cómo lo prueba</td><td>Vuelve a escribir su contraseña aunque tenga la sesión iniciada</td><td>D-8</td></tr>
-<tr><td>El archivo</td><td>Lo protegen los permisos de Windows del directorio: solo Administradores, SYSTEM, el servicio de SQL Server y la cuenta de la aplicación. Se corta la herencia y se quitan Usuarios, Usuarios autenticados y Todos</td><td>R-17, script de la tarea</td></tr>
+<tr><td>El archivo</td><td>Lo protegen los permisos de Windows del directorio, que fija el script de registro de la tarea (la aplicación no toca permisos): Administradores y SYSTEM con control total, y con permiso de modificación el servicio de SQL Server y la cuenta de la aplicación. Se corta la herencia y se quitan Usuarios, Usuarios autenticados y Todos</td><td>R-17, script de la tarea</td></tr>
 <tr><td>La tarea programada</td><td>Corre como SYSTEM, sin guardar contraseñas, con un login de SQL Server de permisos mínimos: puede copiar y registrar el historial, pero no leer ninguna tabla de negocio ni de usuarios</td><td>D-29</td></tr>
 <tr><td>El ejecutable de la tarea</td><td>El script se niega a registrarla si la carpeta de instalación, o cualquier carpeta superior, la puede modificar un usuario común: quien reemplazara <code>Retail.Cli.exe</code> ejecutaría código como SYSTEM</td><td>Script de la tarea</td></tr>
 <tr><td>Fuera de la PC</td><td>Si algún día las copias se envían a otro lugar, tienen que cifrarse antes</td><td>R-5, D-16</td></tr>
 </table>
 
 <details><summary>Pregunta probable: si la copia automática no pide contraseña, ¿cualquiera puede generar una copia y llevársela?</summary>
-<p>Generarla no le da nada: hacer una copia no abre ninguna cuenta ni modifica datos (D-13), y el archivo queda en una carpeta que solo pueden leer los administradores, SYSTEM y el servicio de SQL Server. Lo que importa proteger es el <b>contenido</b> del archivo, y eso lo hacen los permisos de Windows, no la aplicación. La contraseña de la copia manual protege otra cosa: que una sesión abierta en el mostrador no alcance para iniciar operaciones sobre la base completa.</p>
+<p>Generarla no le da nada: hacer una copia no abre ninguna cuenta ni modifica datos (D-13), y el archivo queda en una carpeta cuyos permisos fija el script de registro de la tarea (ver más abajo). Lo que importa proteger es el <b>contenido</b> del archivo, y eso lo hacen los permisos de Windows, no la aplicación. La contraseña de la copia manual protege otra cosa: que una sesión abierta en el mostrador no alcance para iniciar operaciones sobre la base completa.</p>
+</details>
+<details><summary>Pregunta probable: ¿quién puede entrar exactamente a la carpeta de las copias, y qué puede hacer?</summary>
+<table>
+<tr><th>Cuenta</th><th>Permiso</th><th>Para qué lo necesita</th></tr>
+<tr><td>Administradores</td><td>Control total</td><td>Administrar la carpeta y restaurar</td></tr>
+<tr><td>SYSTEM</td><td>Control total</td><td>La tarea programada escribe manifiestos y aplica la retención</td></tr>
+<tr><td>Servicio de SQL Server</td><td>Modificar</td><td>Escribe los archivos <code>.bak</code></td></tr>
+<tr><td>Cuenta con la que se usa Retail POS</td><td>Modificar</td><td>Las copias manuales calculan el SHA-256 y escriben el manifiesto</td></tr>
+<tr><td>Cualquier otra cuenta de Windows</td><td>Ninguno</td><td>Lo que no figura en la lista queda con el acceso denegado</td></tr>
+</table>
+<p><b>Modificar incluye leer y, por lo tanto, copiar</b>: copiar un archivo es leer el origen y crear el destino. Quien tiene ese permiso puede llevarse la copia (a un pendrive, por ejemplo) y además borrarla o reemplazarla. Contra la cuenta de la aplicación los permisos no protegen la integridad; para eso están la verificación con SHA-256 y la retención.</p>
+<p><b>Quién entra de todos modos:</b></p>
+<ul>
+<li>Cualquier miembro del grupo Administradores, porque tiene control total por pertenecer al grupo y no por su nombre. Si la cuenta de la aplicación es administradora, la regla propia es redundante: por eso conviene que el cajero use una cuenta estándar.</li>
+<li>Quien tenga el privilegio de copia de seguridad de Windows (<code>SeBackupPrivilege</code>, por ejemplo el grupo Operadores de copia), que lee saltándose los permisos.</li>
+<li>Quien tenga el disco físico o arranque otro sistema operativo: los permisos de NTFS <b>no cifran</b> el archivo. Cifrarlo (BitLocker o cifrado de la copia) queda como mejora (R-5, D-16).</li>
+</ul>
+<p>Estos permisos solo valen si la carpeta se preparó con el script. Si se creó a mano, o si se cambia <code>BackupSettings:Directorio</code> a otra ruta sin volver a ejecutarlo, la carpeta hereda los permisos de su padre; en <code>C:\RetailData</code> eso incluye a <i>Usuarios autenticados</i> con permiso de modificar, y la descripción de esta tabla deja de ser cierta.</p>
+</details>
+<details><summary>Pregunta probable: ¿qué script registra la tarea programada y qué hace?</summary>
+<p>El script es <code>scripts/registrar-tarea-backup.ps1</code>. En la instalación queda junto a <code>Retail.Cli.exe</code>, que es el ejecutable que la tarea va a correr. Se ejecuta una sola vez por instalación, en una consola de PowerShell abierta con <b>Ejecutar como administrador</b>:</p>
+<pre class="codigo"># Registra la copia diaria a las 21:00 con los valores del appsettings.json
+.\registrar-tarea-backup.ps1
+
+# Otra hora y otra cuenta de aplicación; con -WhatIf muestra qué haría sin cambiar nada
+.\registrar-tarea-backup.ps1 -Hora "22:30" -UsuarioApp "PC-CAJA\gerente" -WhatIf
+
+# Quita la tarea (no borra la carpeta ni las copias) y ofrece revocar un permiso de SQL Server
+.\registrar-tarea-backup.ps1 -Desregistrar -RevocarPermisos</pre>
+<table>
+<tr><th>Paso</th><th>Qué hace</th></tr>
+<tr><td>1</td><td>Verifica que la carpeta de instalación, su contenido y todas las carpetas superiores no puedan ser modificadas por usuarios comunes, y se niega a seguir si pueden</td></tr>
+<tr><td>2</td><td>Crea la carpeta de respaldos y fija los permisos de la tabla anterior (corta la herencia y quita Usuarios, Usuarios autenticados y Todos)</td></tr>
+<tr><td>3</td><td>Crea el login de SQL Server <code>NT AUTHORITY\SYSTEM</code> con los permisos mínimos para copiar y registrar el historial</td></tr>
+<tr><td>4</td><td>Registra la tarea <i>Retail POS - Copia de seguridad diaria</i>: ejecuta <code>Retail.Cli.exe backup</code> como SYSTEM, sin guardar contraseñas, y si la PC estaba apagada a esa hora la corre al encenderse</td></tr>
+</table>
+<p><b>Requisitos:</b> ejecutarlo como administrador de Windows, con un usuario que sea <i>sysadmin</i> de la instancia de SQL Server, y con la base ya creada y migrada (<code>Retail.Cli migrar</code>). Es idempotente: volver a ejecutarlo actualiza la tarea. Hay que repetirlo si se restaura una copia tomada antes de haberlo ejecutado, porque los permisos del login viven dentro de la base; la restauración avisa cuando faltan. Si se ejecuta con una cuenta de administrador distinta de la que usa la aplicación, hay que indicarla con <code>-UsuarioApp</code>; si no, las copias manuales fallarían por falta de permiso en la carpeta.</p>
 </details>
 <details><summary>Pregunta probable: ¿por qué la tarea corre como SYSTEM y no con la cuenta del dueño del comercio?</summary>
 <p>Porque así corre sin que nadie haya iniciado sesión y sin guardar ninguna contraseña de Windows en la tarea. El riesgo de SYSTEM, que es una cuenta muy poderosa, se acota de dos lados: el login de SQL Server que usa tiene solo los permisos mínimos para copiar y registrar el historial, y el ejecutable vive en una carpeta que un usuario común no puede modificar.</p>
