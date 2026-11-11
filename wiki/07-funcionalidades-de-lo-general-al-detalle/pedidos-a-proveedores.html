@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedidos a proveedores</title>
+<link rel="icon" type="image/svg+xml" href="../recursos/marca/logo.svg">
+<link rel="stylesheet" href="../recursos/comun.css">
+</head>
+<body class="recorrido">
+<main>
+
+<header class="barra">
+    <a class="marca" href="../index.html"><img src="../recursos/marca/logo.svg" alt="">Retail</a>
+    <span class="separador">/</span><a href="../index.html#recorridos">Recorridos</a>
+    <span class="separador">/</span><span>Pedidos a proveedores</span>
+</header>
+
+<span class="etiqueta">Funcionalidades de lo general al detalle</span>
+<h1>Pedidos a proveedores</h1>
+<p class="subtitulo">Cómo se arma, se emite y se cierra un pedido a un distribuidor: desde el catálogo de artículos o desde el importador, con un borrador por proveedor, hasta que Compras lo da por recibido. Contrastado con el código el 11 de noviembre de 2026.</p>
+
+<p>El documento recorre la funcionalidad en cinco niveles. Cada uno muestra el anterior con más detalle: primero qué es un pedido y cómo cambia su estado, después qué ve el usuario, después qué capa hace cada cosa, luego los mecanismos que lo hacen consistente cuando varias terminales trabajan a la vez y por último los algoritmos. Al final hay tres secciones para preparar la defensa.</p>
+
+<p>Un pedido es una <b>intención de compra</b>, no una compra: no toca el stock ni el costo de ningún artículo. Esos cambios ocurren cuando Compras registra la factura del distribuidor. El pedido existe para llenar el hueco entre dos cosas que ya existían, el catálogo mayorista (qué vende cada proveedor y a cuánto) y la compra (qué llegó de verdad).</p>
+
+<div class="niveles">
+    <div><b>Nivel 0</b>El mapa: modelo de datos, casos de uso y ciclo de vida.</div>
+    <div><b>Nivel 1</b>Caja negra: pedir desde Artículos y desde el importador, la bandeja y emitir.</div>
+    <div><b>Nivel 2</b>Por capas: App, Aplicación, Dominio, Infraestructura y el contrato con Compras.</div>
+    <div><b>Nivel 3</b>Mecanismos: un borrador por proveedor, la foto del renglón, concurrencia y cierre.</div>
+    <div><b>Nivel 4</b>Los algoritmos: el lote paso a paso, la vista previa y las transiciones.</div>
+    <div><b>Defensa</b>A. Roles. B. Robustez. C. Decisiones.</div>
+</div>
+
+<nav class="indice" aria-label="Índice">
+<ol>
+    <li><a href="#nivel-0">Nivel 0 · El mapa</a></li>
+    <li><a href="#nivel-1">Nivel 1 · Lo que ve el usuario</a></li>
+    <li><a href="#nivel-2">Nivel 2 · Qué capa hace cada cosa</a></li>
+    <li><a href="#nivel-3">Nivel 3 · Los mecanismos</a></li>
+    <li><a href="#nivel-4">Nivel 4 · Los algoritmos</a></li>
+    <li><a href="#defensa-a">Defensa A · Roles y autorización</a></li>
+    <li><a href="#defensa-b">Defensa B · Robustez ante concurrencia y fallas</a></li>
+    <li><a href="#defensa-c">Defensa C · Decisiones y alternativas</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ NIVEL 0 -->
+<h2 id="nivel-0" class="sin-salto">Nivel 0 · El mapa</h2>
+<span class="etiqueta">Abstracción máxima</span>
+
+<p>Un pedido es <b>de un solo proveedor</b>, igual que la factura que lo va a cerrar. Se compone de una cabecera y de renglones, y las tres reglas que definen el módulo se leen directamente del modelo:</p>
+
+<table>
+<tr><th>Regla</th><th>Cómo se ve en el modelo</th><th>Decisión</th></tr>
+<tr><td>Cada proveedor tiene <b>como máximo un borrador</b></td><td>Índice único filtrado sobre <code>PEDIDOS</code>: <code>(id_proveedor)</code> solo para filas en estado <code>Borrador</code> y no dadas de baja</td><td>A-7</td></tr>
+<tr><td>Cada renglón guarda una <b>foto</b> de lo que se acordó</td><td>Las columnas <code>codigo_proveedor</code>, <code>descripcion</code> y <code>costo_pactado</code> se copian del catálogo al agregar el renglón</td><td>A-8</td></tr>
+<tr><td>Un renglón <b>siempre tiene artículo</b></td><td><code>id_articulo</code> es obligatorio: un ítem de catálogo sin vincular se incorpora antes de poder pedirse</td><td>A-8</td></tr>
+</table>
+
+<h3>El modelo de datos</h3>
+<figure>
+<figcaption>Diagrama 0.1 · entidad-relación</figcaption>
+<pre class="mermaid">
+erDiagram
+    PROVEEDORES ||--o{ PEDIDOS : "recibe"
+    USUARIOS ||--o{ PEDIDOS : "arma"
+    PEDIDOS ||--|{ DETALLE_PEDIDOS : "contiene"
+    ARTICULOS ||--o{ DETALLE_PEDIDOS : "se pide en"
+    CATALOGOS_PROVEEDORES ||--o{ DETALLE_PEDIDOS : "se pide como"
+    PEDIDOS |o--o| COMPRAS : "se recibe con"
+    PEDIDOS {
+        int id_pedido PK
+        int id_proveedor "un Borrador por proveedor"
+        int id_usuario "quien creó el borrador"
+        nvarchar estado "Borrador, Emitido, Recibido, Cancelado"
+        datetime2 created_at
+        datetime2 fecha_emision "nulo hasta emitir"
+        datetime2 fecha_cierre "al recibir o cancelar"
+        nvarchar motivo_cancelacion "obligatorio al cancelar"
+        rowversion row_version "concurrencia"
+        datetime2 deleted_at "baja lógica"
+    }
+    DETALLE_PEDIDOS {
+        int id_detalle_pedido PK
+        int id_pedido
+        int id_articulo "obligatorio"
+        int id_catalogo_proveedor "el ítem y su fuente"
+        nvarchar codigo_proveedor "foto"
+        nvarchar descripcion "foto"
+        int cantidad "al menos 1"
+        decimal costo_pactado "foto, mayor a 0"
+    }
+    COMPRAS {
+        int id_pedido_origen "FK nula, única"
+    }
+</pre>
+</figure>
+
+<p>El total del pedido <b>no se guarda</b>: se calcula (la suma de cantidad por costo pactado, redondeada una sola vez). Guardarlo obligaría a mantenerlo sincronizado con los renglones cada vez que cambia una cantidad. Todas las claves foráneas son <code>Restrict</code> y el borrado es lógico, como en el resto del sistema.</p>
+
+<h3>Quién hace qué</h3>
+<figure>
+<figcaption>Diagrama 0.2 · casos de uso</figcaption>
+<pre class="mermaid">
+flowchart LR
+    U(["Gerente o Encargado"])
+    X(["Cajero"])
+    subgraph PED["Pedidos"]
+        CU1["CU-01 Pedir desde Artículos&lt;br/&gt;reposición, por fila o selección"]
+        CU2["CU-02 Pedir desde el importador&lt;br/&gt;novedades, por fila o selección"]
+        CU3["CU-03 Ajustar el borrador&lt;br/&gt;cantidades y renglones"]
+        CU4["CU-04 Emitir el pedido"]
+        CU5["CU-05 Cancelar con motivo"]
+    end
+    COM["Compras&lt;br/&gt;Importar pedido"]
+    CU6["CU-06 Recibir:&lt;br/&gt;la compra cierra el pedido"]
+    BD[("PEDIDOS y DETALLE_PEDIDOS")]
+    U --&gt; CU1
+    U --&gt; CU2
+    U --&gt; CU3
+    U --&gt; CU4
+    U --&gt; CU5
+    U --&gt; COM
+    COM --&gt; CU6
+    X -.-&gt;|"sin acceso"| PED
+    CU1 --&gt;|"agrega al borrador"| BD
+    CU2 --&gt;|"agrega al borrador"| BD
+    CU3 --&gt;|"modifica el borrador"| BD
+    CU4 --&gt;|"Borrador a Emitido"| BD
+    CU5 --&gt;|"a Cancelado"| BD
+    CU6 --&gt;|"Emitido a Recibido"| BD
+</pre>
+</figure>
+
+<h3>Ciclo de vida de un pedido</h3>
+<figure>
+<figcaption>Diagrama 0.3 · estado</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --&gt; Borrador: se agrega el primer renglón
+    Borrador --&gt; Borrador: agregar, cambiar cantidad o quitar un renglón
+    Borrador --&gt; Emitido: Emitir, con al menos un renglón
+    Borrador --&gt; Cancelado: Cancelar con motivo
+    Emitido --&gt; Recibido: la compra lo importa y se registra
+    Emitido --&gt; Cancelado: Cancelar con motivo
+    Recibido --&gt; [*]
+    Cancelado --&gt; [*]
+</pre>
+</figure>
+
+<p>Toda transición fuera de este diagrama lanza <code>TransicionPedidoInvalidaException</code>. No hay recepción parcial: es un pedido que se recibe completo o que, si llegó menos, se resuelve ajustando la compra a la factura (A-6, A-9).</p>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>El pedido es un <b>agregado propio</b> con su ciclo de vida. Lo escribe el catálogo (Artículos e importador) y lo cierra Compras, y por eso no vive dentro de ninguno de los dos (A-5).</li>
+    <li>El borrador reemplaza a la «canasta» en memoria: nada se pierde si se cierra la aplicación, y el destino de cada renglón nunca es ambiguo, porque es el borrador del proveedor de su fuente.</li>
+    <li>Solo en <b>Borrador</b> se modifican los renglones. Emitir es el punto en el que el pedido se congela.</li>
+</ul>
+</div>
+
+<details><summary>Autoevaluación N0: ¿por qué <code>Pedido</code> es una raíz de agregado propia y no una parte de <code>Compra</code>?</summary>
+<p>Porque tiene invariantes y un ciclo de vida propios, y existe antes y sin la compra: un pedido cancelado nunca tiene una. Además lo usan dos módulos: el catálogo escribe pedidos y Compras los cierra. Si viviera dentro de uno de los dos, el dueño del otro tendría que modificar código ajeno (Ley 10, aislamiento de épicas). Como raíz propia, cada uno toca solo lo suyo y se hablan por un contrato chico.</p>
+</details>
+
+<!-- ============================================================ NIVEL 1 -->
+<h2 id="nivel-1">Nivel 1 · Lo que ve el usuario</h2>
+<span class="etiqueta">Caja negra</span>
+
+<p>Hay <b>dos entradas para pedir</b> y un único modal de pedido. El Gerente y el Encargado ven las acciones de pedir y la entrada «Pedidos» del menú; el Cajero no las ve.</p>
+
+<h3>Pedir desde Artículos (reposición)</h3>
+<p>En el catálogo de artículos, el usuario pide una fila o varias marcadas. La pregunta de partida es <i>qué me falta</i> (RF-08), que se responde ahí: la grilla muestra el stock y el stock mínimo, y se puede filtrar por distribuidor y por estado de stock («Sin stock», «Stock bajo» o «Con stock»).</p>
+
+<figure>
+<figcaption>Diagrama 1.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Gerente o Encargado
+    participant A as ArticulosViewModel
+    participant F as FlujoPedirArticulos
+    participant S as PedidoService
+    participant M as Modal de pedido
+    U-&gt;&gt;A: Marca artículos y elige Pedir
+    A-&gt;&gt;A: Separa los que se pueden pedir de los que no, con su motivo
+    A-&gt;&gt;F: PedirAsync(ítems de catálogo, avisos)
+    F-&gt;&gt;S: ObtenerVistaPreviaAsync
+    S--&gt;&gt;F: Destinos, renglones y omitidos
+    F-&gt;&gt;M: Muestra la vista previa
+    U-&gt;&gt;M: Ajusta cantidades, cambia de fuente o quita renglones
+    M--&gt;&gt;F: Confirma los renglones
+    F-&gt;&gt;S: AgregarVariosAlPedidoAsync
+    S--&gt;&gt;F: Borradores tocados y omitidos
+    F--&gt;&gt;U: Se agregó al borrador #12 (Distribuidora Norte)
+</pre>
+</figure>
+
+<p>Un artículo se puede pedir si tiene alguna fuente, la principal o una adicional. Los que no, se excluyen con su motivo:</p>
+<table>
+<tr><th>Motivo</th><th>Dónde se detecta</th></tr>
+<tr><td>«es un servicio: no se pide a proveedores»</td><td>La fila del artículo, antes de abrir el modal</td></tr>
+<tr><td>«es una presentación derivada: se pide su artículo de origen»</td><td>La fila del artículo. Una presentación derivada se obtiene fraccionando su origen (RF-21)</td></tr>
+<tr><td>«no tiene fuentes»</td><td>La fila del artículo: sin ítem de catálogo no hay qué pedir</td></tr>
+<tr><td>El ítem ya no existe o fue dado de baja</td><td>La vista previa (motivo <code>ItemInexistente</code>)</td></tr>
+<tr><td>El ítem no está vinculado a un artículo</td><td>La vista previa (motivo <code>SinIncorporar</code>)</td></tr>
+</table>
+
+<h3>El modal de pedido</h3>
+<p>Antes de guardar, el modal le muestra al usuario lo que va a pasar:</p>
+<ul>
+    <li><b>Un grupo por proveedor</b>, con el destino informado: el borrador existente (con cuántos renglones ya tiene) o «se creará uno». El destino <b>no se elige</b>: es el borrador del proveedor de la fuente de cada renglón.</li>
+    <li>Por renglón: el código y la descripción del proveedor, el costo, el <b>stock actual y el mínimo</b> para decidir la cantidad, y la cantidad <b>que ya figura en el borrador</b>, a la que se sumará la nueva, para no pedir de más.</li>
+    <li>Si el artículo tiene varias fuentes, un <b>combo</b> permite elegir a cuál pedirle (proveedor, costo y fecha de la lista, la principal por defecto). Al cambiar de fuente, el renglón se mueve al grupo del otro proveedor.</li>
+    <li>Un texto de confirmación que dice cuántos borradores cambian: «Agregar al borrador» o «Agregar a 2 borradores».</li>
+    <li>La lista de lo que <b>no</b> se puede pedir, con su motivo.</li>
+</ul>
+
+<h3>Pedir desde el importador (novedades)</h3>
+<p>El importador muestra el catálogo de un proveedor, incluidas las novedades que todavía no son artículos de la tienda. Por eso es la única entrada que ofrece <b>incorporar primero</b>:</p>
+
+<figure>
+<figcaption>Diagrama 1.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Gerente o Encargado
+    participant I as ImportadorCatalogosViewModel
+    participant F as FlujoPedirArticulos
+    participant M as Modal de pedido
+    U-&gt;&gt;I: Selecciona ítems del catálogo y elige Pedir
+    I-&gt;&gt;F: PedirAsync con la oferta de incorporar
+    F-&gt;&gt;M: Muestra la vista previa
+    M--&gt;&gt;F: Hay ítems sin incorporar: elige Incorporar primero
+    F--&gt;&gt;I: IncorporarPrimero(ítems sin incorporar)
+    I-&gt;&gt;U: Abre el modal de incorporación de siempre
+    U-&gt;&gt;I: Incorpora los ítems
+    I-&gt;&gt;F: PedirAsync de nuevo, sin la oferta
+    F-&gt;&gt;M: Segunda vista previa
+    M--&gt;&gt;F: Confirma
+    F--&gt;&gt;I: Guardado
+</pre>
+</figure>
+
+<p>La segunda vez se abre sin la oferta, para que el recorrido termine: si algo sigue sin poder pedirse, se informa y no se vuelve a ofrecer. Incorporar y pedir son <b>dos transacciones</b> a propósito: incorporar tiene sentido por sí solo, y un pedido que falla se puede reintentar sin deshacer la incorporación. El importador además avisa cuando la <b>lista del proveedor tiene más de 30 días</b>: sus costos pueden no estar vigentes y conviene importar una planilla nueva antes de pedir.</p>
+
+<h3>La bandeja de pedidos</h3>
+<p>La pantalla <b>Pedidos</b> lista todos los pedidos, del más reciente al más antiguo. Se filtra por estado (los cuatro, de selección múltiple), por proveedor, por rango de fechas y por un texto que busca en la razón social o en el número de pedido. La grilla se pagina de a 10, 20 o 50. A la derecha, el panel de detalle muestra los renglones del pedido elegido, con sus fechas de creación, emisión y cierre, y el motivo si fue cancelado.</p>
+
+<table>
+<tr><th>Estado</th><th>Qué se puede hacer</th></tr>
+<tr><td><b>Borrador</b></td><td>Editar cantidades (con «Guardar cambios»), quitar renglones, emitir y cancelar con motivo</td></tr>
+<tr><td><b>Emitido</b></td><td>Solo cancelar, con motivo. Los renglones ya no se modifican</td></tr>
+<tr><td><b>Recibido</b></td><td>Solo lectura</td></tr>
+<tr><td><b>Cancelado</b></td><td>Solo lectura, con el motivo a la vista</td></tr>
+</table>
+
+<h3>Emitir</h3>
+<p>Emitir pide confirmación, porque es irreversible: «una vez emitido, sus renglones ya no se pueden modificar». Si había cantidades editadas sin guardar, el sistema las guarda primero (todas o ninguna) y recién después emite: no se puede emitir algo distinto de lo que el usuario está viendo. Si el guardado falla, no se emite.</p>
+
+<div class="nota"><b>Qué hace y qué no hace «Emitir».</b> Emitir cambia el estado a <i>Emitido</i>, registra la fecha de emisión y deja el pedido listo para que Compras lo reciba. <b>No imprime, no exporta ni envía nada al proveedor</b>: el sistema no genera un documento ni un correo con el pedido. Hacerle llegar el pedido al distribuidor es hoy un paso fuera del sistema.</div>
+
+<div class="nota"><b>Lo que la ERS prevé y todavía no existe.</b> Para un pedido recibido, la ERS (RF-29 e IU-12) prevé «volver a pedir los faltantes»: cargar en el borrador del proveedor la diferencia entre lo pedido y lo comprado, con el costo vigente. En el código no hay una acción así; está planificada como L2b y depende de que Compras entregue su parte. Hasta entonces, lo que no llegó se vuelve a pedir a mano.</div>
+
+<details><summary>Autoevaluación N1: ¿por qué el destino de cada renglón «se informa» y no se elige?</summary>
+<p>Porque elegir el pedido de destino reabriría la regla de un borrador por proveedor (A-7): el usuario podría querer armar dos borradores para el mismo distribuidor, y ya no habría un destino único por ítem. Con el destino determinado por la fuente, el usuario decide <b>qué</b> pedir y <b>a quién</b> (eligiendo la fuente), y el sistema resuelve <b>dónde</b> se guarda, mostrándolo antes de confirmar para que no haya sorpresas.</p>
+</details>
+
+<!-- ============================================================ NIVEL 2 -->
+<h2 id="nivel-2">Nivel 2 · Qué capa hace cada cosa</h2>
+<span class="etiqueta">Por capas</span>
+
+<p>Dos pantallas de origen y una bandeja comparten un solo caso de uso: no hay lógica de pedido duplicada en la interfaz. La pantalla solo conoce a Aplicación; las lecturas pasan por un servicio de consulta y las escrituras por la raíz <code>Pedido</code>.</p>
+
+<figure>
+<figcaption>Diagrama 2.1 · capas</figcaption>
+<pre class="mermaid">
+graph TD
+    subgraph App["Retail.App"]
+        ART["ArticulosViewModel"]
+        IMP["ImportadorCatalogosViewModel"]
+        FLU["FlujoPedirArticulos&lt;br/&gt;coordina la conversación"]
+        MOD["PedirArticulosViewModel&lt;br/&gt;modal de pedido"]
+        BAN["PedidosViewModel&lt;br/&gt;bandeja y detalle"]
+    end
+    subgraph Application["Retail.Application"]
+        SVC["PedidoService&lt;br/&gt;casos de uso del pedido"]
+        VAL["Validadores FluentValidation"]
+        QRY["IPedidoQueryService&lt;br/&gt;puerto de lectura"]
+    end
+    subgraph Domain["Retail.Domain"]
+        PED["Pedido y DetallePedido&lt;br/&gt;reglas y transiciones"]
+    end
+    subgraph Infra["Retail.Infrastructure"]
+        QIMP["PedidoQueryService&lt;br/&gt;AsNoTracking, proyecciones"]
+        CFG["PedidoConfiguration&lt;br/&gt;índices, CHECK, row_version"]
+    end
+    CMP["Compras: CompraService"]
+    DB[("SQL Server Express")]
+    ART --&gt; FLU
+    IMP --&gt; FLU
+    FLU --&gt; MOD
+    FLU --&gt; SVC
+    BAN --&gt; SVC
+    SVC --&gt; VAL
+    SVC --&gt; PED
+    SVC --&gt; QRY
+    QIMP -.implementa.-&gt; QRY
+    QIMP --&gt; DB
+    CFG --&gt; DB
+    CMP --&gt;|"MarcarRecibido"| PED
+</pre>
+</figure>
+
+<table>
+<tr><th>Capa</th><th>Pieza</th><th>Responsabilidad</th></tr>
+<tr><td>App</td><td><code>FlujoPedirArticulos</code></td><td>La conversación con el usuario, compartida por las dos entradas: pide la vista previa, abre el modal, guarda lo confirmado y traduce el resultado o el error a un mensaje. No decide qué se puede pedir: manda todos los ítems y la vista previa los clasifica</td></tr>
+<tr><td>App</td><td><code>PedirArticulosViewModel</code></td><td>El modal: grupos por proveedor, cantidades, combo de fuente y totales. No llama a ningún servicio: devuelve la respuesta a quien lo abrió</td></tr>
+<tr><td>App</td><td><code>PedidosViewModel</code></td><td>La bandeja: filtros, paginación en SQL, detalle y las acciones que permite cada estado. No navega a Compras (A-12)</td></tr>
+<tr><td>Aplicación</td><td><code>PedidoService</code></td><td>Valida en la frontera, carga la raíz, invoca su operación y guarda. Las lecturas las delega en el servicio de consulta</td></tr>
+<tr><td>Aplicación</td><td>Validadores de <code>Validators/Pedidos/</code></td><td>Lote no vacío y sin ítems repetidos, cantidad de al menos 1, motivo de cancelación, filtros de la bandeja</td></tr>
+<tr><td>Dominio</td><td><code>Pedido</code> y <code>DetallePedido</code></td><td>Todas las reglas: qué se puede hacer en cada estado, cantidades y costos válidos, suma de duplicados, total estimado</td></tr>
+<tr><td>Infraestructura</td><td><code>PedidoQueryService</code></td><td>Vista previa, listado paginado, detalle y las proyecciones para Compras, todo con <code>AsNoTracking</code> y resuelto en SQL</td></tr>
+<tr><td>Infraestructura</td><td><code>PedidoConfiguration</code> y <code>DetallePedidoConfiguration</code></td><td>El índice único del borrador, las restricciones de cantidad y costo, el <code>row_version</code> y el estado como texto</td></tr>
+</table>
+
+<h3>Agregar un lote: <code>AgregarVariosAlPedidoAsync</code></h3>
+<figure>
+<figcaption>Diagrama 2.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant F as FlujoPedirArticulos
+    participant S as PedidoService
+    participant C as Catálogo y consulta
+    participant R as Repositorio de Pedido
+    participant U as IUnitOfWork
+    F-&gt;&gt;S: AgregarVariosAlPedidoAsync(dto)
+    S-&gt;&gt;S: Valida el lote con FluentValidation
+    S-&gt;&gt;C: Trae los ítems de catálogo y sus artículos
+    S-&gt;&gt;S: Separa los renglones resueltos de los omitidos
+    loop Por cada proveedor del lote
+        S-&gt;&gt;C: ObtenerIdBorradorAsync
+        S-&gt;&gt;R: Carga el borrador, o crea uno
+        S-&gt;&gt;S: pedido.AgregarRenglon por cada ítem
+    end
+    S-&gt;&gt;U: Un solo SaveChangesAsync
+    S-&gt;&gt;U: DescartarCambios
+    S-&gt;&gt;C: Lee el resumen de cada pedido tocado
+    S--&gt;&gt;F: Pedidos y omitidos
+</pre>
+</figure>
+
+<p>El resto de las operaciones (cambiar cantidades, quitar un renglón, emitir y cancelar) siguen siempre el mismo patrón de cuatro pasos: <b>cargar la raíz con sus renglones</b>, invocar <b>una</b> operación del dominio, <b>actualizar la raíz</b> y <b>guardar</b>; y al final, éxito o fallo, descartar el contexto. El dominio decide si la operación es válida en el estado actual; el servicio no repite esa regla.</p>
+
+<h3>El contrato con Compras</h3>
+<p>Compras consume solo dos lecturas del servicio de pedidos, y una operación del dominio:</p>
+<table>
+<tr><th>Pieza</th><th>Qué entrega</th></tr>
+<tr><td><code>ListarEmitidosPorProveedorAsync</code> (y <code>ListarEmitidosAsync</code>)</td><td>Solo los pedidos <b>Emitidos</b>, del más reciente al más antiguo, con cantidad de renglones y total estimado. Es lo que el diálogo «Importar pedido» ofrece elegir</td></tr>
+<tr><td><code>ObtenerParaCompraAsync</code></td><td>Los renglones del pedido para precargar la compra, o <code>null</code> si el pedido no existe o <b>ya no está Emitido</b>. Los renglones de un artículo dado de baja se <b>omiten</b>: no se puede comprar</td></tr>
+<tr><td><code>Pedido.MarcarRecibido()</code></td><td>La transición Emitido a Recibido. La invoca <code>CompraService</code> al registrar la compra</td></tr>
+</table>
+
+<details><summary>Autoevaluación N2: ¿por qué Compras no le pide al servicio de pedidos «marcá este pedido como recibido»?</summary>
+<p>Porque eso serían dos transacciones: una para la compra y otra para el pedido, y podría quedar una compra registrada con su pedido todavía abierto, o al revés. <code>CompraService</code> carga el pedido por el repositorio, invoca <code>MarcarRecibido()</code> y guarda la compra, los artículos y el pedido en un <b>único</b> <code>SaveChanges</code>: o ocurre todo, o no ocurre nada (A-10). El contrato entre los dos módulos es chico a propósito: Compras solo usa esa operación del dominio y dos consultas.</p>
+</details>
+
+<!-- ============================================================ NIVEL 3 -->
+<h2 id="nivel-3">Nivel 3 · Los mecanismos</h2>
+<span class="etiqueta">Mecanismos</span>
+
+<h3>Un solo borrador por proveedor</h3>
+<p>La regla se hace cumplir en la base de datos, no solo en el código, con un índice único filtrado que, escrito en SQL, equivale a:</p>
+<pre class="codigo">CREATE UNIQUE INDEX UX_PEDIDOS_borrador_por_proveedor
+    ON PEDIDOS (id_proveedor)
+    WHERE estado = N'Borrador' AND deleted_at IS NULL;</pre>
+<p>El filtro es lo que lo hace correcto: un proveedor puede tener <b>muchos</b> pedidos emitidos, recibidos o cancelados, pero un solo borrador. Cuando el borrador se emite, deja de estar en el índice y el proveedor puede tener otro borrador nuevo. Un pedido dado de baja también libera su lugar. El estado se guarda como <b>texto</b> (no como un número), así una fila inspeccionada a mano dice <code>Emitido</code> y el filtro del índice se lee solo.</p>
+
+<h3>La foto del renglón</h3>
+<p>Cada renglón copia del catálogo el código, la descripción y el costo <b>en el momento de agregarlo</b>. Si el proveedor cambia su lista después, el pedido conserva lo que se acordó. Es el mismo criterio que el costo congelado de una venta. Hay una diferencia deliberada:</p>
+<table>
+<tr><th>Situación</th><th>Qué pasa</th><th>Por qué</th></tr>
+<tr><td>El ítem se agrega por primera vez</td><td>Se crea el renglón con la foto del catálogo</td><td>—</td></tr>
+<tr><td>El mismo ítem se agrega otra vez al borrador</td><td>Se <b>suma la cantidad</b> y la foto se <b>actualiza</b> con el costo del catálogo de ese momento</td><td>Un borrador es una estimación: el último costo conocido es el mejor. Una venta, en cambio, congela el costo para siempre</td></tr>
+<tr><td>Se agrega el mismo ítem para otro artículo</td><td>Se rechaza con <code>DomainException</code></td><td>Una línea no puede cambiar de artículo en silencio</td></tr>
+<tr><td>El pedido ya está emitido</td><td>No se puede modificar ningún renglón</td><td>Emitir congela lo acordado</td></tr>
+</table>
+<p>Por la misma razón el índice único de renglones es <code>(id_pedido, id_catalogo_proveedor)</code>: un ítem figura una sola vez por pedido. El filtro excluye los renglones quitados, que son una <b>baja lógica</b>: un ítem quitado del borrador se puede volver a agregar, y queda registro de lo que se quitó.</p>
+
+<h3>El lote es todo o nada</h3>
+<p>Un lote con ítems de dos proveedores toca dos borradores. Los dos se guardan en <b>un único <code>SaveChanges</code></b>, es decir, en una sola transacción de SQL Server: si falla el guardado de uno, no se guarda ninguno (hay una prueba de integración específica). N llamadas sueltas dejarían lotes a medias. Pedir una sola fila es un lote de uno, por eso no existe un método «agregar uno».</p>
+
+<h3>Dos terminales a la vez</h3>
+<p>Hay dos formas de chocar, y cada una tiene su defensa:</p>
+<table>
+<tr><th>Situación</th><th>Quién lo detecta</th><th>Excepción</th></tr>
+<tr><td>Dos terminales crean <b>a la vez el primer borrador</b> del mismo proveedor</td><td>El índice único filtrado: la segunda inserción viola la unicidad</td><td><code>RestriccionDeUnicidadException</code></td></tr>
+<tr><td>Dos terminales <b>agregan, emiten, cancelan o reciben</b> sobre el mismo pedido</td><td>El <code>row_version</code> de <code>PEDIDOS</code>: SQL Server lo cambia en cada <code>UPDATE</code> y EF Core lo agrega al <code>WHERE</code></td><td><code>ConflictoDeConcurrenciaException</code></td></tr>
+</table>
+
+<figure>
+<figcaption>Diagrama 3.1 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant T1 as Terminal 1
+    participant T2 as Terminal 2
+    participant DB as SQL Server
+    T1-&gt;&gt;DB: No hay borrador del proveedor: crea el primero
+    T2-&gt;&gt;DB: No hay borrador del proveedor: crea el primero
+    DB--&gt;&gt;T1: Guardado
+    DB--&gt;&gt;T2: Viola el índice único del borrador
+    Note over T2: RestriccionDeUnicidadException: reintenta el lote entero una vez
+    T2-&gt;&gt;DB: Ahora ve el borrador de la terminal 1
+    T2-&gt;&gt;DB: Suma sus renglones encima y guarda
+    DB--&gt;&gt;T2: Guardado
+</pre>
+</figure>
+
+<p>El servicio reintenta <b>una vez</b> el lote entero ante cualquiera de las dos excepciones: la segunda pasada relee los borradores y suma sobre lo que dejó la otra terminal. Si falla de nuevo, informa un mensaje legible («Otro usuario está modificando el pedido de este proveedor. Intente de nuevo.») en lugar de reintentar sin fin.</p>
+
+<div class="nota"><b>Un detalle fácil de pasar por alto.</b> El <code>row_version</code> vive en la tabla <code>PEDIDOS</code>. Si solo cambian filas de <code>DETALLE_PEDIDOS</code> (por ejemplo, una cantidad), EF Core no emitiría ningún <code>UPDATE</code> de la cabecera y la concurrencia nunca se controlaría. Por eso toda operación llama a <code>UpdateAsync</code> sobre la raíz: la marca como modificada y la versiona completa, aunque lo único que cambió sea un renglón.</div>
+
+<h3>El contexto vive lo que la pantalla</h3>
+<p>El <code>DbContext</code> de una pantalla vive mientras la pantalla está abierta. Si una entidad cargada y no guardada quedara retenida, la próxima lectura vería datos viejos. Por eso cada operación del servicio termina con <code>DescartarCambios()</code>, tenga éxito o falle, y el <code>UnitOfWork</code> también limpia el contexto cuando un guardado falla: sin eso, los cambios rechazados se guardarían con la próxima operación exitosa.</p>
+
+<h3>Cómo lo cierra Compras</h3>
+<figure>
+<figcaption>Diagrama 3.2 · secuencia</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant VM as ComprasViewModel
+    participant CS as CompraService
+    participant RP as Repositorio de Pedido
+    participant U as IUnitOfWork
+    VM-&gt;&gt;CS: RegistrarCompraAsync(dto con IdPedidoOrigen)
+    CS-&gt;&gt;CS: Valida proveedor, usuario y que el comprobante no esté repetido
+    CS-&gt;&gt;RP: Busca el pedido
+    CS-&gt;&gt;CS: Exige que el pedido sea del mismo proveedor
+    CS-&gt;&gt;CS: pedido.MarcarRecibido (lanza si no está Emitido)
+    CS-&gt;&gt;RP: UpdateAsync del pedido
+    CS-&gt;&gt;CS: Compra, stock y costos de los artículos
+    CS-&gt;&gt;U: Un solo SaveChangesAsync: compra, artículos y pedido
+    alt Otra terminal ya recibió o cambió el pedido
+        U--&gt;&gt;VM: ConflictoDeConcurrenciaException
+    end
+</pre>
+</figure>
+
+<p>Todo se valida <b>antes</b> de modificar un agregado y un solo <code>SaveChanges</code> guarda todo. Cada renglón de la compra arranca con la <b>cantidad pedida</b> y el <b>costo pactado</b> del pedido, y el usuario los ajusta a lo que dice la factura; la compra <b>no se compara</b> con el pedido: la factura manda (A-9). Una compra cierra como máximo un pedido y un pedido es cerrado por como máximo una compra: lo garantiza el índice único filtrado <code>UX_COMPRAS_PedidoOrigen</code>, además del <code>row_version</code>. Son dos defensas para el mismo riesgo.</p>
+
+<h3>Lo que muestra el detalle y lo que usa Compras</h3>
+<table>
+<tr><th>Consulta</th><th>Renglones de un artículo dado de baja</th><th>Por qué</th></tr>
+<tr><td>Detalle del pedido (la bandeja)</td><td>Se <b>muestran</b>, marcados como dados de baja</td><td>El pedido es un registro de lo que se acordó: ocultarlos falsearía el historial</td></tr>
+<tr><td>Pedido para compra</td><td>Se <b>omiten</b></td><td>No se puede comprar un artículo dado de baja</td></tr>
+</table>
+<p>Para mostrarlos, el detalle ignora los filtros globales y filtra a mano la baja lógica del pedido y de sus renglones. Es la misma trampa que en los reportes: <code>IgnoreQueryFilters()</code> desactiva los filtros de <b>toda</b> la consulta, así que lo que sí debe ocultarse se escribe explícitamente.</p>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>Las reglas que no pueden fallar viven en <b>dos lugares</b>: el dominio (que da un mensaje claro) y la base de datos (que es la última barrera): índice único del borrador, <code>CHECK</code> de cantidad y costo, <code>row_version</code>.</li>
+    <li>El lote es una sola transacción y se reintenta una vez ante un choque: ni se pierde trabajo ni se insiste sin fin.</li>
+    <li>Cerrar el pedido y registrar la compra son <b>un solo guardado</b>. Esa es la razón de que no exista una pantalla de recepción.</li>
+</ul>
+</div>
+
+<details><summary>Autoevaluación N3: dos terminales agregan al mismo borrador en el mismo instante. ¿Se pierde alguno de los dos renglones?</summary>
+<p>No. La primera que guarda cambia el <code>row_version</code> de la cabecera. La segunda intenta guardar con la versión vieja, y SQL Server no encuentra la fila con esa versión: EF Core lanza un conflicto, que el <code>UnitOfWork</code> traduce a <code>ConflictoDeConcurrenciaException</code>. El servicio descarta lo que había cargado y reintenta el lote entero: ahora lee el borrador ya con el renglón de la primera y le suma el suyo. Si el mismo ítem estaba en los dos, se suman las cantidades.</p>
+</details>
+
+<!-- ============================================================ NIVEL 4 -->
+<h2 id="nivel-4">Nivel 4 · Los algoritmos</h2>
+<span class="etiqueta">Algoritmo</span>
+
+<h3><code>AgregarVariosAlPedidoAsync</code> paso a paso</h3>
+<figure>
+<figcaption>Diagrama 4.1 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    S1["1 · Valida el lote: no vacío, sin ítems repetidos,&lt;br/&gt;cantidad de al menos 1"] --&gt; S2["2 · Trae los ítems de catálogo&lt;br/&gt;y el artículo de cada uno"]
+    S2 --&gt; S3{"3 · ¿Todos los ítems&lt;br/&gt;se pueden pedir?"}
+    S3 --&gt;|"Algunos no"| S4["4 · Los informa como omitidos&lt;br/&gt;y sigue con los demás"]
+    S3 --&gt;|Sí| S5
+    S4 --&gt; S5{"5 · ¿Queda al menos un renglón?"}
+    S5 --&gt;|No| X1["Descarta el contexto y devuelve solo los omitidos&lt;br/&gt;no se guarda ni se crea nada"]
+    S5 --&gt;|Sí| S6["6 · Agrupa los renglones por proveedor"]
+    S6 --&gt; S7["7 · Por cada proveedor: carga su borrador o crea uno,&lt;br/&gt;y agrega los renglones"]
+    S7 --&gt; S8["8 · Un solo SaveChanges para todos los borradores"]
+    S8 --&gt;|"Choque de unicidad o de row_version"| S9{"¿Es el primer intento?"}
+    S9 --&gt;|Sí| S7
+    S9 --&gt;|No| X2["DomainException legible"]
+    S8 --&gt;|Guardado| S10["9 · Lee el resumen de cada pedido tocado"]
+    S10 --&gt; S11["10 · Devuelve pedidos y omitidos"]
+</pre>
+</figure>
+
+<p>Que un ítem no se pueda pedir <b>no aborta el lote</b>: el modal ya le mostró al usuario cuáles eran antes de confirmar. Si entre la vista previa y el guardado dejaron de poderse pedir todos, no se guarda nada y la pantalla lo informa («No se agregó nada: los ítems dejaron de poderse pedir mientras revisaba el pedido»).</p>
+
+<h3>La vista previa: qué se consulta antes de abrir el modal</h3>
+<p><code>ObtenerVistaPreviaAsync</code> arma todo lo que el modal necesita con un número fijo de consultas, sin importar cuántos ítems haya en el lote. No hay una consulta por artículo:</p>
+<figure>
+<figcaption>Diagrama 4.2 · flujo</figcaption>
+<pre class="mermaid">
+flowchart TD
+    Q1["1 · Los ítems de catálogo pedidos"] --&gt; Q2["2 · El artículo de cada ítem,&lt;br/&gt;sin contar los dados de baja"]
+    Q2 --&gt; Q3["3 · Stock actual, mínimo y fuente principal&lt;br/&gt;de esos artículos"]
+    Q3 --&gt; Q4["4 · Todas las fuentes de esos artículos,&lt;br/&gt;con su proveedor"]
+    Q4 --&gt; Q5["5 · El borrador de cada proveedor involucrado"]
+    Q5 --&gt; Q6["6 · La cantidad que cada fuente ya tiene en su borrador"]
+    Q6 --&gt; C1{"7 · ¿El artículo tiene una fuente del&lt;br/&gt;proveedor preferido?"}
+    C1 --&gt;|Sí| C2["El renglón arranca en la más barata&lt;br/&gt;de ese proveedor"]
+    C1 --&gt;|No| C3["El renglón arranca en el ítem pedido"]
+    C2 --&gt; D["8 · Un destino por cada proveedor al que el combo&lt;br/&gt;puede mover un renglón"]
+    C3 --&gt; D
+</pre>
+</figure>
+
+<p>Las fuentes de cada artículo se devuelven <b>ordenadas por costo</b> (el id desempata para que el orden sea estable), y el combo del modal cambia de fuente sin volver a la base. El «proveedor preferido» sale de la pantalla de origen: si el usuario filtró Artículos por un único distribuidor, está eligiendo a quién reponer, y cada renglón arranca en su fuente. Con varios distribuidores elegidos, no hay uno preferido.</p>
+
+<h3>Un lote con dos proveedores, con números</h3>
+<p>Ejemplo: se marcan tres artículos y se confirma el modal. A y B se piden a Distribuidora Norte, que ya tiene un borrador; C se pide a Distribuidora Sur, que no tiene.</p>
+<table>
+<tr><th>Artículo</th><th>Proveedor</th><th>Cantidad</th><th>Costo</th><th>Subtotal</th><th>Nota</th></tr>
+<tr><td>A</td><td>Distribuidora Norte</td><td>10</td><td>$ 1.200,00</td><td>$ 12.000,00</td><td>Ya había 4 en el borrador: queda 14</td></tr>
+<tr><td>B</td><td>Distribuidora Norte</td><td>5</td><td>$ 800,00</td><td>$ 4.000,00</td><td>Renglón nuevo</td></tr>
+<tr><td>C</td><td>Distribuidora Sur</td><td>3</td><td>$ 2.500,00</td><td>$ 7.500,00</td><td>Se crea el borrador de Sur</td></tr>
+</table>
+<p>El resultado son <b>dos borradores en una sola transacción</b>: el de Norte, con A sumado y B nuevo, y el de Sur, nuevo. El modal lo anticipa con «Agregar a 2 borradores». Si el usuario cambia C a una fuente de Norte, el renglón se mueve de grupo y el lote pasa a tocar un solo borrador.</p>
+
+<h3>Cambiar de fuente en el modal</h3>
+<p>Cuando el combo de un renglón cambia de fuente, el modal <b>mueve el renglón al grupo del proveedor de esa fuente</b>: crea el grupo si no existe (insertándolo en el orden en que la vista previa entregó los destinos) y quita el grupo que queda vacío. Si la fuente es del mismo proveedor, solo cambia el subtotal. Al confirmar, <b>dos renglones que terminaron en la misma fuente se suman</b>, porque el lote no admite un ítem repetido: <code>GroupBy</code> por ítem de catálogo, sumando las cantidades, conserva el orden de la primera aparición.</p>
+
+<h3>Qué operación vale en cada estado</h3>
+<table>
+<tr><th>Operación del dominio</th><th>Borrador</th><th>Emitido</th><th>Recibido</th><th>Cancelado</th><th>Condición adicional</th></tr>
+<tr><td><code>AgregarRenglon</code>, <code>CambiarCantidad(es)</code>, <code>QuitarRenglon</code></td><td>Sí</td><td>No</td><td>No</td><td>No</td><td>Cantidad al menos 1; costo mayor a 0</td></tr>
+<tr><td><code>Emitir</code></td><td>Sí</td><td>No</td><td>No</td><td>No</td><td>Al menos un renglón</td></tr>
+<tr><td><code>MarcarRecibido</code></td><td>No</td><td>Sí</td><td>No</td><td>No</td><td>Lo invoca Compras</td></tr>
+<tr><td><code>Cancelar</code></td><td>Sí</td><td>Sí</td><td>No</td><td>No</td><td>Motivo obligatorio, hasta 250 caracteres</td></tr>
+</table>
+<p>Toda celda en «No» lanza <code>TransicionPedidoInvalidaException</code>. Un pedido en <i>Recibido</i> o <i>Cancelado</i> no admite ninguna operación: es un estado final.</p>
+
+<h3>Cambiar varias cantidades: todas o ninguna</h3>
+<p><code>CambiarCantidades</code> recibe un diccionario de renglón a cantidad y trabaja en <b>dos pasadas</b>: primero valida que cada renglón exista y que cada cantidad sea válida, y solo entonces las aplica todas. Un borrador con la mitad de los cambios sería un estado que el usuario nunca vio.</p>
+
+<h3>El total estimado</h3>
+<p>El total de un pedido es la suma de cantidad por costo pactado de sus renglones, <b>redondeada una sola vez</b> con el criterio monetario único del sistema. En la bandeja, la suma se hace en SQL Server y el redondeo en memoria, sobre la página ya traída, porque <code>Math.Round</code> con <code>AwayFromZero</code> no se traduce a SQL. Redondear cada renglón y después sumar acumularía error.</p>
+
+<details><summary>Autoevaluación N4: ¿por qué <code>CambiarCantidades</code> valida todo antes de aplicar nada?</summary>
+<p>Porque el dominio no puede deshacer una mitad. Si aplicara la primera cantidad y la tercera fuera inválida, el agregado quedaría modificado en memoria y alguien podría guardarlo así. Validar todo primero garantiza que el método <b>cambia todo o no cambia nada</b>. Es el mismo principio que el servicio aplica a nivel de base de datos con el único <code>SaveChanges</code> del lote.</p>
+</details>
+
+<!-- ============================================================ DEFENSA A -->
+<h2 id="defensa-a">Defensa A · Roles y autorización</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Capa</th><th>Medida</th><th>Estado</th></tr>
+<tr><td>Menú</td><td>La entrada «Pedidos» es de la política <code>Abastecimiento</code>: la ven el Gerente y el Encargado, no el Cajero ni el Administrador</td><td>Implementado</td></tr>
+<tr><td>Pantallas de origen</td><td>Las acciones «Pedir» y «Pedir seleccionados» se ocultan a quien no sea Gerente o Encargado</td><td>Implementado</td></tr>
+<tr><td>Servicio de Aplicación</td><td><code>PedidoService</code> <b>no verifica el rol</b> del usuario que pide la operación</td><td><b>Deuda registrada</b> en el Track 6.1 (A-14)</td></tr>
+<tr><td>Qué modifica un pedido</td><td>Nunca el stock, el costo ni el precio de un artículo</td><td>Por diseño</td></tr>
+</table>
+
+<details><summary>Pregunta probable: si el control está solo en la interfaz, ¿es seguro?</summary>
+<p>No del todo, y el documento rector lo dice sin rodeos: la restricción por rol es hoy <b>solo de interfaz</b>, y la verificación en el servicio es una deuda registrada para el Track 6.1, con el patrón de <code>ReporteService.AutorizarGerenteAsync</code>. Ocultar un botón no es control de acceso. Lo que acota el riesgo, mientras tanto, es lo que un pedido puede hacer: <b>no toca el stock, el dinero ni el costo</b>, así que un uso indebido produciría borradores de más, que se cancelan con motivo, pero no un dato de negocio corrupto. Es un riesgo aceptado y documentado, no desconocido.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿el sistema registra quién emitió o canceló un pedido?</summary>
+<p>No. El pedido guarda <b>quién lo creó</b> (<code>id_usuario</code>, el que armó el borrador) y las fechas de emisión y de cierre, pero no el usuario que lo emitió ni el que lo canceló; tampoco quién agregó cada renglón. Si la mesa pidiera trazabilidad por acción, habría que agregar esos datos al agregado o registrarlos en la auditoría de accesos. Hoy no es un requisito de la ERS.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué el pedido no modifica el stock?</summary>
+<p>Porque el stock representa <b>mercadería física respaldada por un comprobante</b>. Un pedido es una intención: puede cancelarse, llegar incompleto o no llegar. El stock sube cuando Compras registra la factura (RF-19), que es la evidencia de lo que de verdad entró.</p>
+</details>
+
+<!-- ============================================================ DEFENSA B -->
+<h2 id="defensa-b">Defensa B · Robustez ante concurrencia y fallas</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Escenario</th><th>Qué pasa</th></tr>
+<tr><td>Dos terminales crean a la vez el primer borrador de un proveedor</td><td>El índice único rechaza la segunda inserción; el servicio reintenta el lote una vez y suma sobre el borrador de la otra terminal</td></tr>
+<tr><td>Dos terminales agregan al mismo borrador</td><td>El <code>row_version</code> rechaza el segundo guardado; se reintenta una vez con el borrador actualizado</td></tr>
+<tr><td>El reintento también falla</td><td>Mensaje legible: «Otro usuario está modificando el pedido de este proveedor. Intente de nuevo.»</td></tr>
+<tr><td>Falla el guardado de uno de dos borradores del lote</td><td>No se guarda ninguno: es una sola transacción</td></tr>
+<tr><td>Un ítem deja de poderse pedir entre la vista previa y el guardado</td><td>Se omite y se informa. Si fueron todos, no se guarda nada</td></tr>
+<tr><td>Otra terminal emite o cancela el pedido que se estaba editando</td><td>Alerta («El pedido cambió de estado» o «Pedido modificado en otra terminal») y la pantalla se recarga con lo que hay en la base</td></tr>
+<tr><td>Se cambia de pedido con cantidades sin guardar</td><td>El sistema pregunta antes de descartarlas</td></tr>
+<tr><td>Un artículo se da de baja después de pedirse</td><td>El detalle sigue mostrando el renglón, marcado; Compras lo omite</td></tr>
+<tr><td>Se pide un ítem que ya está en el borrador</td><td>El modal muestra la cantidad que ya figura, y el servicio suma: no hay renglones duplicados</td></tr>
+<tr><td>La lista del proveedor tiene más de 30 días</td><td>El importador avisa que sus costos pueden no estar vigentes antes de pedir</td></tr>
+<tr><td>Un pedido emitido nunca llega</td><td>Su fecha de emisión está a la vista y se puede cancelar con motivo (R-4)</td></tr>
+<tr><td>Una factura cubre dos pedidos</td><td>Riesgo aceptado (R-5): un pedido se cierra con la compra y el otro se cancela con un motivo que lo indique</td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿qué pasa si dos terminales intentan recibir el mismo pedido?</summary>
+<p>La segunda compra falla, y por dos motivos independientes. Primero, el <code>row_version</code> del pedido: la primera compra lo cambió al marcarlo como recibido, y la segunda lo guarda con la versión vieja. Segundo, el índice único <code>UX_COMPRAS_PedidoOrigen</code>: ninguna otra compra puede apuntar al mismo pedido. Es defensa en profundidad. Y como todo está en un único <code>SaveChanges</code>, la compra que pierde no deja nada a medias: ni stock sumado ni compra registrada.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué se reintenta una sola vez y no hasta que funcione?</summary>
+<p>Porque un reintento ilimitado enmascararía un problema real, como dos usuarios editando el mismo pedido sin parar, o un bucle por un error de lógica. Una vez alcanza para el caso normal (la segunda pasada ve el borrador ajeno y le suma encima), y si falla de nuevo es mejor decírselo al usuario que seguir intentando a escondidas.</p>
+</details>
+
+<!-- ============================================================ DEFENSA C -->
+<h2 id="defensa-c">Defensa C · Decisiones y alternativas</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<table>
+<tr><th>Decisión</th><th>Por qué</th><th>Alternativa descartada</th></tr>
+<tr><td><b>Un borrador por proveedor</b> (A-7)</td><td>El pedido es de un solo proveedor, igual que su factura. El índice único lo hace cumplir en la base y el borrador sobrevive al cierre de la aplicación</td><td>Una «canasta» en memoria</td></tr>
+<tr><td><b>La compra es la recepción</b> (A-9)</td><td>El comprobante fiscal respalda el stock. Registrar la recepción en dos pantallas duplicaría el dato y permitiría que se contradigan</td><td>Un diálogo de recepción separado, con recepciones parciales</td></tr>
+<tr><td><b>Sin recepción parcial</b> (A-6)</td><td>El caso real (llegó menos) se resuelve ajustando la compra: la mitad de los estados</td><td>Estados «Parcialmente recibido»</td></tr>
+<tr><td><b>Renglón con artículo obligatorio y foto del catálogo</b> (A-8)</td><td>El renglón de una compra exige artículo; la foto conserva lo acordado aunque la planilla cambie</td><td>Renglones sin artículo, completados al recibir</td></tr>
+<tr><td><b>Cierre atómico</b> (A-10)</td><td>Una compra registrada con su pedido abierto sería un estado inconsistente</td><td>Marcar el pedido en una segunda transacción</td></tr>
+<tr><td><b>Lote con un solo <code>SaveChanges</code>, destino informado</b> (A-17)</td><td>N llamadas sueltas dejarían lotes a medias; elegir el pedido de destino reabriría A-7</td><td>Un método «agregar uno» llamado en bucle</td></tr>
+<tr><td><b>Un solo punto de entrada para comprar desde un pedido</b> (A-12)</td><td>Evita que Pedidos y Compras, de dueños distintos, dependan uno del otro (Ley 10)</td><td>Navegar de la bandeja a Compras pasando parámetros</td></tr>
+<tr><td><b>Pedido como raíz propia</b> (A-5)</td><td>Ciclo de vida propio y dos módulos que lo usan</td><td>Que viva dentro de <code>Compra</code> o del catálogo</td></tr>
+</table>
+
+<details><summary>Pregunta probable: ¿por qué un borrador por proveedor y no una canasta en memoria?</summary>
+<p>Una canasta en memoria se pierde si se cierra la aplicación, y no dice a qué proveedor va cada ítem hasta el final. Un borrador por proveedor persiste, el destino de cada renglón es claro desde que se agrega, y el índice único filtrado hace cumplir la regla en la base y no solo en el código. El costo es que un lote con varios proveedores toca varios borradores; por eso el modal lo anticipa y el guardado es una transacción única.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué una foto del costo, si el catálogo ya tiene el costo?</summary>
+<p>Porque el catálogo cambia con cada planilla que se importa. Si el pedido leyera el costo del catálogo, un pedido ya emitido cambiaría de valor sin que nadie lo toque, y no se podría saber qué se acordó con el proveedor. La foto conserva el código, la descripción y el costo del momento en que se agregó el renglón. Mientras es un borrador, se actualiza si el ítem se vuelve a agregar; al emitirse, queda congelada.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿qué le falta al circuito para estar completo?</summary>
+<p>Dos cosas que la ERS prevé o que un uso real pediría, y que hoy no existen. Primero, <b>volver a pedir los faltantes</b> de un pedido recibido (planificado como L2b, depende de Compras). Segundo, <b>hacerle llegar el pedido al proveedor</b>: emitir solo cambia el estado, no genera un documento, un archivo ni un correo. Ninguna de las dos rompe lo que existe: el ciclo de vida y los contratos admiten agregarlas sin cambios de modelo en el caso de un documento de salida, y los faltantes solo necesitan comparar el pedido con la compra que lo cerró.</p>
+</details>
+
+<p class="pie">Decisiones citadas: A-xx y R-xx en <code>docs/roadmap/etapa-4-track-4.3-abastecimiento.md</code>; las letras (E2, D4, K3, G1, H2) son decisiones de los paquetes de trabajo de ese track. Requisitos: RF-29 (pedidos a proveedores), RF-28 (fuentes y comparación de costos), RF-19 (la compra que cierra el pedido), RF-05 (incorporar ítems del catálogo) e IU-12 (bandeja de pedidos).</p>
+
+</main>
+<script src="../recursos/recorridos.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script src="../recursos/comun.js"></script>
+</body>
+</html>

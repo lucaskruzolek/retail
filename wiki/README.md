@@ -5,6 +5,8 @@
 **Equipo de Desarrollo:** Lucas Kruzolek & Pablo Fernandez  
 **Plataforma Tecnológica:** .NET 8 LTS | C# 12 | WPF (Windows) | Entity Framework Core 8 | SQL Server LocalDB  
 
+> **Portada del desarrollador:** [`index.html`](index.html) reúne en una sola página la puesta en marcha, la arquitectura, los requisitos, el diseño técnico, los recorridos HTML de cada funcionalidad y esta wiki. Se abre con doble clic en el navegador.
+
 ---
 
 ## 🎯 Manifiesto y Propósito Pedagógico (Anti-Vibecoding)
@@ -106,9 +108,12 @@ graph TD
 * [**Matriz de Trade-offs y Decisiones de Diseño:**](06-vademecum-defensa-tecnica/matriz-tradeoffs-arquitectura.md) Cuadros comparativos de alternativas consideradas y descartadas (WPF vs Web, EF Core vs Dapper, LocalDB vs SQLite).
 
 ### [07. 🔭 Funcionalidades de lo General al Detalle](07-funcionalidades-de-lo-general-al-detalle/README.md)
+* [**Anatomía de un CRUD:**](07-funcionalidades-de-lo-general-al-detalle/anatomia-de-un-crud.html) Fundamentos para estudiar: las piezas de un módulo (entidad, DTO, validador, servicio, repositorio, consulta, ViewModel) con el código real de Cliente, inyección de dependencias y Unit of Work.
 * [**Importador de Catálogos:**](07-funcionalidades-de-lo-general-al-detalle/importador-de-catalogos.html) Recorrido progresivo en cinco niveles, de los casos de uso a los algoritmos, más preparación para la defensa: importación, clasificación del catálogo, incorporación y fuentes múltiples. Documento HTML para leer en el navegador e imprimir.
 * [**Copia de Seguridad:**](07-funcionalidades-de-lo-general-al-detalle/copia-de-seguridad.html) Copia manual, diaria y previa a migrar o a restaurar: verificación con `CHECKSUM` y SHA-256, bloqueo entre procesos con `sp_getapplock`, autorreparación de copias huérfanas y retención.
 * [**Restauración de una Copia:**](07-funcionalidades-de-lo-general-al-detalle/restauracion.html) Restauración en una base temporal e intercambio de nombres, control dual Administrador y Gerente, credencial verificada dentro de la copia por consola, punto de no retorno, historial que sobrevive y doble red de seguridad.
+* [**Tablero y Reportes:**](07-funcionalidades-de-lo-general-al-detalle/tablero-y-reportes.html) Indicadores del período contra el anterior, reportes gerenciales resueltos en SQL Server, costo congelado al vender, prorrateo del descuento, bajas lógicas y exportación a Excel y PDF.
+* [**Pedidos a Proveedores:**](07-funcionalidades-de-lo-general-al-detalle/pedidos-a-proveedores.html) Pedir desde Artículos y desde el importador, un borrador por proveedor, foto del costo pactado, lote atómico, concurrencia con índice único y `row_version`, y cierre del pedido en la misma transacción que la compra.
 
 ---
 

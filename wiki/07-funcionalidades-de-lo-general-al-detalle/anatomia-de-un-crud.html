@@ -1,0 +1,1451 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anatomía de un CRUD</title>
+<link rel="icon" type="image/svg+xml" href="../recursos/marca/logo.svg">
+<link rel="stylesheet" href="../recursos/comun.css">
+</head>
+<body class="recorrido">
+<main>
+
+<header class="barra">
+    <a class="marca" href="../index.html"><img src="../recursos/marca/logo.svg" alt="">Retail</a>
+    <span class="separador">/</span><a href="../index.html#recorridos">Recorridos</a>
+    <span class="separador">/</span><span>Anatomía de un CRUD</span>
+</header>
+
+<span class="etiqueta">Fundamentos</span>
+<h1>Anatomía de un CRUD</h1>
+<p class="subtitulo">El esqueleto que repite casi todo módulo de Retail: quién es cada pieza, cómo se ve en código, cómo se conectan con la inyección de dependencias y cómo el Unit of Work hace que se guarde todo o nada. El ejemplo es el alta, la edición, la baja y el listado de clientes. Contrastado con el código el 11 de noviembre de 2026.</p>
+
+<p>Este documento no cuenta una funcionalidad: cuenta <b>la forma</b> que tienen todas. Si entendés cómo viaja un dato desde que el usuario aprieta «Guardar» en la pantalla de clientes hasta que queda en SQL Server, entendés el 80 % de cualquier otro módulo (artículos, proveedores, usuarios, pedidos). Lo que cambia de uno a otro son las reglas de negocio, no el camino.</p>
+
+<p>El ejemplo es <code>Cliente</code> (RF-20) porque tiene <b>todas las piezas</b> y reglas reales (documento válido, nombre de persona o razón social, baja lógica con restricciones). El servicio de clientes también registra cobranzas de cuenta corriente: ese tramo se deja afuera a propósito, porque agrega a la caja y al ticket y distraería del esqueleto. Los fragmentos de código son <b>reales y recortados</b> (los <code>...</code> marcan lo omitido) y cada uno dice de qué archivo sale.</p>
+
+<div class="niveles">
+    <div><b>1 · El mapa</b>Las capas, la regla de dependencia y el recorrido de un «Guardar».</div>
+    <div><b>2 · Los actores</b>Las 13 piezas, una por una, con su código real.</div>
+    <div><b>3 · Los cuatro verbos</b>Crear, leer, actualizar y dar de baja.</div>
+    <div><b>4 · Inyección de dependencias</b>Cómo se arma el grafo y por qué importan los ciclos de vida.</div>
+    <div><b>5 · Unit of Work</b>Repositorio frente a transacción, y qué hace realmente <code>SaveChanges</code>.</div>
+    <div><b>6 · Pruebas, receta y desvíos</b>Cómo se prueba cada capa, cómo agregar un CRUD y dónde el arquetipo cambia.</div>
+</div>
+
+<nav class="indice" aria-label="Índice">
+<ol>
+    <li><a href="#mapa">1 · El mapa</a></li>
+    <li><a href="#actores">2 · Los actores uno por uno</a></li>
+    <li><a href="#verbos">3 · Los cuatro verbos del CRUD</a></li>
+    <li><a href="#inyeccion">4 · Inyección de dependencias</a></li>
+    <li><a href="#unit-of-work">5 · Unit of Work</a></li>
+    <li><a href="#pruebas">6 · Cómo se prueba cada capa</a></li>
+    <li><a href="#receta">7 · Receta para un CRUD nuevo</a></li>
+    <li><a href="#desvios">8 · Dónde el arquetipo se desvía</a></li>
+    <li><a href="#defensa">Defensa · Preguntas probables</a></li>
+</ol>
+</nav>
+
+<!-- ============================================================ 1 · EL MAPA -->
+<h2 id="mapa" class="sin-salto">1 · El mapa</h2>
+<span class="etiqueta">Abstracción máxima</span>
+
+<p>Retail está dividido en cuatro proyectos con una regla que el compilador hace cumplir: <b>las dependencias solo apuntan hacia adentro</b>. El dominio no conoce a nadie; la aplicación conoce al dominio; la infraestructura y la pantalla conocen a la aplicación, pero nunca entre sí.</p>
+
+<figure>
+<figcaption>Diagrama 1.1 · capas y regla de dependencia</figcaption>
+<pre class="mermaid">
+graph TD
+    APP["Retail.App&lt;br/&gt;pantallas WPF y ViewModels"] --&gt; APL["Retail.Application&lt;br/&gt;casos de uso, DTO, validadores y contratos"]
+    INF["Retail.Infrastructure&lt;br/&gt;EF Core, repositorios, consultas y archivos"] --&gt; APL
+    APL --&gt; DOM["Retail.Domain&lt;br/&gt;entidades y reglas de negocio,&lt;br/&gt;sin dependencias externas"]
+    APP -.-&gt;|"solo al arrancar (DI)"| INF
+</pre>
+</figure>
+
+<p>La flecha punteada es la única excepción, y es de <b>arranque</b>: <code>App.xaml.cs</code> necesita conocer a Infraestructura para registrar sus clases en el contenedor. Una pantalla jamás usa el <code>DbContext</code>: toda operación pasa por un servicio de Aplicación (Ley 1).</p>
+
+<h3>El recorrido de un «Guardar»</h3>
+<p>Así viaja un alta de cliente, desde que el formulario avisa al ViewModel hasta el <code>INSERT</code>. Cada participante es una de las piezas que vas a ver con su código en la sección 2; el formulario, el validador y la entidad aparecen como pasos para que el diagrama entre en pantalla.</p>
+
+<figure>
+<figcaption>Diagrama 1.2 · secuencia del alta de un cliente</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant VM as ClientesViewModel
+    participant S as ClienteService
+    participant R as Repository
+    participant UoW as UnitOfWork
+    Note over VM: El usuario aprieta Guardar y el formulario llama a onGuardarAsync
+    VM-&gt;&gt;S: CrearClienteAsync(dto)
+    S-&gt;&gt;S: Valida con CrearClienteValidator
+    S-&gt;&gt;R: FindAsync: ¿ya existe ese documento?
+    S-&gt;&gt;S: Cliente.Crear(...) construye la entidad
+    S-&gt;&gt;R: AddAsync(cliente)
+    S-&gt;&gt;UoW: SaveChangesAsync
+    Note over UoW: INSERT dentro de una transacción
+    S--&gt;&gt;VM: ClienteDto
+    Note over VM: Recarga la lista y muestra el mensaje
+</pre>
+</figure>
+
+<h3>Quién es quién</h3>
+<table>
+<tr><th>#</th><th>Pieza</th><th>Proyecto y carpeta</th><th>Una frase</th></tr>
+<tr><td>1</td><td><code>BaseEntity</code> / <code>IAggregateRoot</code></td><td>Domain / <code>Common</code></td><td>La base de toda entidad: id, fechas y baja lógica; y la marca que dice «esta entidad es una raíz»</td></tr>
+<tr><td>2</td><td>Entidad (<code>Cliente</code>)</td><td>Domain / <code>Entities</code></td><td>Las reglas de negocio: qué es un cliente válido y qué se le puede hacer</td></tr>
+<tr><td>3</td><td>DTO (<code>CrearClienteDto</code>, <code>ClienteDto</code>)</td><td>Application / <code>DTOs</code></td><td>Los datos que viajan entre la pantalla y el servicio, sin lógica</td></tr>
+<tr><td>4</td><td>Validador</td><td>Application / <code>Validators</code></td><td>Revisa la entrada en la frontera y devuelve todos los errores juntos</td></tr>
+<tr><td>5</td><td>Contrato del servicio (<code>IClienteService</code>)</td><td>Application / <code>Interfaces/Services</code></td><td>Lo que la pantalla puede pedirle al módulo, escrito como interfaz</td></tr>
+<tr><td>6</td><td>Servicio (<code>ClienteService</code>)</td><td>Application / <code>Services</code></td><td>Orquesta el caso de uso: valida, carga, invoca al dominio y guarda</td></tr>
+<tr><td>7</td><td>Repositorio (<code>IRepository&lt;T&gt;</code>)</td><td>Application (contrato) e Infrastructure (implementación)</td><td>Cargar y agregar raíces de agregado, sin guardar</td></tr>
+<tr><td>8</td><td>Servicio de consulta (<code>IClienteQueryService</code>)</td><td>Application (contrato) e Infrastructure / <code>Persistence/Services</code></td><td>El lado lectura: listados y búsquedas resueltos en SQL</td></tr>
+<tr><td>9</td><td>Configuración de EF (<code>ClienteConfiguration</code>)</td><td>Infrastructure / <code>Persistence/Configurations</code></td><td>Cómo se guarda la entidad: tabla, columnas, índices y restricciones</td></tr>
+<tr><td>10</td><td><code>ClientesViewModel</code></td><td>App / <code>ViewModels</code></td><td>El estado y los comandos de la pantalla de lista</td></tr>
+<tr><td>11</td><td><code>ClienteFormViewModel</code></td><td>App / <code>ViewModels</code></td><td>El estado del formulario de alta y edición</td></tr>
+<tr><td>12</td><td>Vista (<code>ClientesView</code>)</td><td>App / <code>Views</code></td><td>XAML que solo enlaza propiedades y comandos</td></tr>
+<tr><td>13</td><td>Servicio de diálogo (<code>IClienteDialogService</code>)</td><td>App / <code>Services</code></td><td>Abre las ventanas por el ViewModel, sin que éste conozca WPF</td></tr>
+</table>
+
+<p>Además hay dos piezas que no son de «clientes» pero hacen que todo funcione y tienen su propia sección: el <b>contenedor de inyección de dependencias</b> (sección 4) y el <b>Unit of Work</b> (sección 5).</p>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>Cada pieza hace <b>una sola cosa</b> y vive en una carpeta predecible. Si no sabés dónde va algo, la tabla de arriba responde.</li>
+    <li>El dominio decide <b>qué es válido</b>; el servicio decide <b>en qué orden pasan las cosas</b>; la infraestructura decide <b>cómo se guarda</b>; la pantalla decide <b>cómo se ve</b>.</li>
+    <li>Todo se entrega por <b>interfaces</b> definidas en Aplicación. Por eso se puede cambiar o reemplazar una pieza (por ejemplo, en una prueba) sin tocar las demás.</li>
+</ul>
+</div>
+
+<!-- ============================================================ 2 · LOS ACTORES -->
+<h2 id="actores">2 · Los actores uno por uno</h2>
+<span class="etiqueta">Cada pieza con su código real</span>
+
+<h3>1 · La base: <code>BaseEntity</code> y <code>IAggregateRoot</code></h3>
+<p>Toda entidad hereda de <code>BaseEntity</code>. De ahí salen el id, la fecha de creación y, sobre todo, la <b>baja lógica</b>: en un sistema comercial nunca se borra una fila, se la marca como dada de baja (Ley 3).</p>
+
+<p class="archivo"><code>src/Retail.Domain/Common/BaseEntity.cs</code></p>
+<pre class="codigo">public abstract class BaseEntity
+{
+    public int Id { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? DeletedAt { get; set; }
+    public bool IsDeleted =&gt; DeletedAt.HasValue;
+
+    public virtual void MarkAsDeleted()
+    {
+        DeletedAt = DateTime.UtcNow;
+    }
+
+    public void Restore()
+    {
+        DeletedAt = null;
+    }
+}</pre>
+
+<p><code>IAggregateRoot</code> es una interfaz vacía que funciona como <b>etiqueta</b>: «esta entidad es la puerta de entrada de su grupo». Solo las raíces tienen repositorio (Ley 2). Por ejemplo, <code>Cliente</code> es raíz y sus <code>Cobranzas</code> se manipulan a través de <code>Cliente.RegistrarCobranza(...)</code>; no existe un «repositorio de cobranzas».</p>
+<ul>
+    <li><b>Qué NO hace:</b> no sabe nada de bases de datos. El borrado lógico es solo una fecha; quien la filtra es la infraestructura (ver pieza 9).</li>
+</ul>
+
+<h3>2 · La entidad: <code>Cliente</code></h3>
+<p>Es una <b>raíz de agregado</b>: el único lugar donde viven las reglas de negocio de un cliente. Tiene tres rasgos que se repiten en todas las entidades:</p>
+<ul>
+    <li><b>Propiedades con <code>private set</code>.</b> Nadie desde afuera puede asignar un nombre inválido: solo se cambia a través de métodos que validan.</li>
+    <li><b>Un constructor privado</b> que solo usa EF Core para reconstruir la entidad desde la base. El código de negocio usa el método fábrica <code>Crear</code>.</li>
+    <li><b>Métodos con nombre de negocio</b> (<code>ActualizarDatos</code>, <code>HabilitarCuentaCorriente</code>) en lugar de setters sueltos.</li>
+</ul>
+
+<p class="archivo"><code>src/Retail.Domain/Entities/Cliente.cs</code> (recortado)</p>
+<pre class="codigo">public class Cliente : BaseEntity, IAggregateRoot
+{
+    // Lo usa EF Core para materializar la entidad; el código de negocio usa Crear.
+    private Cliente()
+    {
+    }
+
+    public string RazonSocialONombre { get; private set; } = string.Empty;
+    public TipoDocumentoEnum TipoDocumento { get; private set; } = TipoDocumentoEnum.Dni;
+    public string NumeroDocumento { get; private set; } = string.Empty;
+    // ... condición de IVA, domicilio, teléfono, email, cuenta corriente ...
+
+    public static Cliente Crear(
+        string razonSocialONombre,
+        TipoDocumentoEnum tipoDocumento,
+        string numeroDocumento,
+        CondicionIvaEnum condicionIva,
+        string? domicilioFiscal = null,
+        string? telefono = null,
+        string? email = null)
+    {
+        var cliente = new Cliente();
+        cliente.ActualizarDatos(razonSocialONombre, tipoDocumento, numeroDocumento,
+            condicionIva, domicilioFiscal, telefono, email);
+        return cliente;
+    }
+
+    public void ActualizarDatos(/* los mismos parámetros */)
+    {
+        if (!Enum.IsDefined(tipoDocumento))
+        {
+            throw new DomainException($"El tipo de documento '{tipoDocumento}' no es válido.");
+        }
+
+        // Se validan todos los valores antes de asignar alguno:
+        // el agregado nunca queda a medio actualizar.
+        var documentoNormalizado = ReglasDocumento.Exigir(tipoDocumento, numeroDocumento);
+        // ... el resto de las reglas ...
+
+        NumeroDocumento = documentoNormalizado;
+        // ... se asignan todos juntos ...
+    }
+
+    public override void MarkAsDeleted()
+    {
+        if (SaldoCuentaCorriente &gt; 0m)
+        {
+            throw new InvalidOperationException("No se puede dar de baja al cliente porque mantiene un saldo deudor ...");
+        }
+
+        base.MarkAsDeleted();
+    }
+}</pre>
+
+<ul>
+    <li><b>Dos detalles para fijarse.</b> <code>Crear</code> reutiliza <code>ActualizarDatos</code>: la regla se escribe una sola vez. Y <code>ActualizarDatos</code> valida <b>todo antes de asignar nada</b>, así un error en el tercer campo no deja el cliente con el primero ya cambiado. La baja (<code>MarkAsDeleted</code>) también tiene regla: no se da de baja a quien debe plata.</li>
+    <li><b>Qué NO hace:</b> no consulta la base, no llama a otros servicios, no sabe que existe una pantalla. Es código puro de C#: se prueba sin base de datos (<code>Retail.Domain.UnitTests</code>).</li>
+</ul>
+
+<h3>3 · Los DTO</h3>
+<p>Un <b>DTO</b> (<i>Data Transfer Object</i>) es un objeto «tonto»: solo transporta datos entre capas. Hay uno por cada dirección y propósito: uno para pedir un alta, otro para pedir una edición, otro para devolver un cliente a la pantalla. Se escriben como <code>record</code> de C#, que son inmutables y comparan por valor.</p>
+
+<p class="archivo"><code>src/Retail.Application/DTOs/Clientes/CrearClienteDto.cs</code></p>
+<pre class="codigo">public record class CrearClienteDto
+{
+    public required string RazonSocialONombre { get; init; }
+    public required TipoDocumentoEnum TipoDocumento { get; init; }
+    public required string NumeroDocumento { get; init; }
+    public required CondicionIvaEnum CondicionIva { get; init; }
+    public string? DomicilioFiscal { get; init; }
+    public string? Telefono { get; init; }
+    public string? Email { get; init; }
+    public bool TieneCuentaCorriente { get; init; }
+    public decimal LimiteCredito { get; init; }
+}</pre>
+
+<p>El DTO de <b>salida</b>, <code>ClienteDto</code>, hereda de <code>BaseDto</code> y trae algunos campos calculados que la pantalla muestra (<code>CreditoDisponible</code>, <code>TieneDeuda</code>). <code>required</code> obliga al compilador a exigir los datos obligatorios al construirlo.</p>
+<ul>
+    <li><b>Por qué no usar la entidad directamente en la pantalla:</b> la entidad tiene reglas y relaciones (<code>Ventas</code>, <code>Cobranzas</code>) que la pantalla no debe tocar, y exponerla permitiría saltear sus validaciones. El DTO es el contrato mínimo.</li>
+    <li><b>Qué NO hace:</b> no valida ni calcula reglas de negocio.</li>
+</ul>
+
+<h3>4 · El validador</h3>
+<p>El validador revisa la <b>entrada</b> en la frontera, con la librería FluentValidation, y devuelve <b>todos</b> los errores juntos (no el primero). Se escribe de forma declarativa: «esta propiedad tiene que cumplir esta regla».</p>
+
+<p class="archivo"><code>src/Retail.Application/Validators/Clientes/CrearClienteValidator.cs</code> (recortado)</p>
+<pre class="codigo">public class CrearClienteValidator : AbstractValidator&lt;CrearClienteDto&gt;
+{
+    public CrearClienteValidator()
+    {
+        RuleLevelCascadeMode = CascadeMode.Stop;
+
+        RuleFor(x =&gt; x.TipoDocumento)
+            .IsInEnum().WithMessage("Debe especificar un tipo de documento válido.");
+
+        RuleFor(x =&gt; x.RazonSocialONombre)
+            .NombreDeCliente(x =&gt; x.TipoDocumento);
+
+        RuleFor(x =&gt; x.NumeroDocumento)
+            .DocumentoSegunTipo(x =&gt; x.TipoDocumento);
+
+        RuleFor(x =&gt; x.LimiteCredito)
+            .GreaterThanOrEqualTo(0m).WithMessage("El límite de crédito no puede ser negativo.");
+        // ... domicilio, teléfono y email opcionales ...
+    }
+}</pre>
+
+<ul>
+    <li><b>Validador y dominio no se repiten: se complementan.</b> El validador da <b>mensajes por campo</b> y los junta todos para que el usuario corrija de una vez. El dominio es la <b>última barrera</b>: garantiza que ninguna entidad inválida exista aunque alguien llame al método sin pasar por el validador. Para no duplicar reglas, el validador reutiliza las del dominio (por ejemplo, <code>Cliente.EsNombreValido</code>).</li>
+    <li><b>Qué NO hace:</b> no consulta la base (verificar que el documento no esté repetido lo hace el servicio) ni modifica nada.</li>
+</ul>
+
+<h3>5 · El contrato del servicio</h3>
+<p>Una interfaz que lista, en lenguaje del negocio, lo que se le puede pedir al módulo. La pantalla depende de <b>esta interfaz</b>, no de la clase que la implementa.</p>
+
+<p class="archivo"><code>src/Retail.Application/Interfaces/Services/IClienteService.cs</code> (recortado)</p>
+<pre class="codigo">public interface IClienteService
+{
+    Task&lt;ClientesPaginadosDto&gt; ListarClientesPaginadosAsync(ConsultaClientesDto consulta, CancellationToken cancellationToken = default);
+    Task&lt;ClienteDto?&gt; ObtenerClientePorIdAsync(int idCliente, CancellationToken cancellationToken = default);
+    Task&lt;ClienteDto&gt; CrearClienteAsync(CrearClienteDto dto, CancellationToken cancellationToken = default);
+    Task ActualizarClienteAsync(ActualizarClienteDto dto, CancellationToken cancellationToken = default);
+    Task BajaClienteAsync(int idCliente, CancellationToken cancellationToken = default);
+    // ... búsqueda rápida y cobranzas ...
+}</pre>
+
+<p>Fijate en los nombres: <b>Crear, Actualizar, Baja, Listar, Obtener</b>. Es el CRUD con el vocabulario del negocio: no hay «Delete», hay <code>Baja</code>, porque nunca se borra. Todos son <code>async</code> y reciben un <code>CancellationToken</code>, para que la pantalla pueda cancelar una consulta lenta (Ley 4).</p>
+
+<h3>6 · El servicio</h3>
+<p>El <b>servicio de aplicación</b> implementa un caso de uso. No contiene reglas de negocio (esas viven en la entidad): contiene el <b>orden</b> de los pasos. Sus dependencias llegan por el constructor.</p>
+
+<p class="archivo"><code>src/Retail.Application/Services/ClienteService.cs</code> (recortado)</p>
+<pre class="codigo">public class ClienteService : IClienteService
+{
+    private readonly IRepository&lt;Cliente&gt; _clienteRepository;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IValidator&lt;CrearClienteDto&gt; _crearClienteValidator;
+    // ... otros validadores, caja y ticket (para cobranzas) ...
+    private readonly IClienteQueryService? _clienteQueryService;
+
+    public ClienteService(
+        IRepository&lt;Cliente&gt; clienteRepository,
+        IUnitOfWork unitOfWork,
+        IValidator&lt;CrearClienteDto&gt; crearClienteValidator,
+        /* ... */
+        IClienteQueryService? clienteQueryService = null)
+    {
+        _clienteRepository = clienteRepository ?? throw new ArgumentNullException(nameof(clienteRepository));
+        _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
+        // ...
+    }
+
+    public async Task&lt;ClienteDto&gt; CrearClienteAsync(CrearClienteDto dto, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+        await _crearClienteValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        // Se compara la forma canónica: "12.345.678" y "12345678" son el mismo DNI.
+        string documentoNormalizado = ReglasDocumento.Normalizar(dto.TipoDocumento, dto.NumeroDocumento);
+
+        var existente = await _clienteRepository.FindAsync(c =&gt; c.NumeroDocumento == documentoNormalizado, cancellationToken);
+        if (existente.Count &gt; 0)
+        {
+            throw new InvalidOperationException($"Ya existe un cliente activo con el número de documento '{documentoNormalizado}'.");
+        }
+
+        var cliente = Cliente.Crear(dto.RazonSocialONombre, dto.TipoDocumento, dto.NumeroDocumento,
+            dto.CondicionIva, dto.DomicilioFiscal, dto.Telefono, dto.Email);
+
+        if (dto.TieneCuentaCorriente)
+        {
+            cliente.HabilitarCuentaCorriente(dto.LimiteCredito);
+        }
+
+        await _clienteRepository.AddAsync(cliente, cancellationToken);
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return MapToDto(cliente);
+    }
+}</pre>
+
+<p>Leé <code>CrearClienteAsync</code> como una receta de seis pasos, que es el <b>patrón de cualquier alta</b>:</p>
+<table>
+<tr><th>Paso</th><th>Línea</th><th>Quién resuelve el problema</th></tr>
+<tr><td>1</td><td><code>ValidateAndThrowAsync</code></td><td>El validador: ¿la entrada tiene forma correcta?</td></tr>
+<tr><td>2</td><td><code>FindAsync(... NumeroDocumento ...)</code></td><td>El repositorio: ¿ya existe? (regla que necesita la base, por eso vive en el servicio)</td></tr>
+<tr><td>3</td><td><code>Cliente.Crear(...)</code></td><td>El dominio: construye una entidad válida o falla</td></tr>
+<tr><td>4</td><td><code>HabilitarCuentaCorriente</code></td><td>El dominio: custodia su propia invariante</td></tr>
+<tr><td>5</td><td><code>AddAsync</code></td><td>El repositorio: «anotá este cliente para guardarlo»</td></tr>
+<tr><td>6</td><td><code>SaveChangesAsync</code></td><td>El Unit of Work: «guardá todo lo anotado, en una transacción»</td></tr>
+</table>
+<ul>
+    <li><b>Qué NO hace:</b> no escribe SQL, no sabe de WPF, y no decide si un nombre es válido (le pregunta al dominio).</li>
+</ul>
+
+<h3>7 · El repositorio</h3>
+<p>El repositorio es una <b>colección en memoria de raíces de agregado</b>: se le pide una entidad, se le agrega una. Es genérico: un único <code>Repository&lt;T&gt;</code> sirve para todas las raíces, y la restricción <code>where T : BaseEntity, IAggregateRoot</code> hace cumplir la Ley 2 en tiempo de compilación.</p>
+
+<p class="archivo"><code>src/Retail.Application/Interfaces/Persistence/IRepository.cs</code> (recortado) y la implementación en <code>src/Retail.Infrastructure/Persistence/Repositories/Repository.cs</code></p>
+<pre class="codigo">public interface IRepository&lt;T&gt; where T : BaseEntity, IAggregateRoot
+{
+    Task&lt;T?&gt; GetByIdAsync(int id, CancellationToken cancellationToken = default);
+    Task&lt;IReadOnlyList&lt;T&gt;&gt; FindAsync(Expression&lt;Func&lt;T, bool&gt;&gt; predicate, CancellationToken cancellationToken = default);
+    Task&lt;T&gt; AddAsync(T entity, CancellationToken cancellationToken = default);
+    Task UpdateAsync(T entity, CancellationToken cancellationToken = default);
+    Task DeleteAsync(T entity, CancellationToken cancellationToken = default);
+    // ... variantes con includeDeleted y con Include ...
+}
+
+// Implementación (Infraestructura)
+public class Repository&lt;T&gt; : IRepository&lt;T&gt; where T : BaseEntity, IAggregateRoot
+{
+    private readonly RetailDbContext _context;
+    private readonly DbSet&lt;T&gt; _dbSet;
+
+    public Repository(RetailDbContext context)
+    {
+        _context = context ?? throw new ArgumentNullException(nameof(context));
+        _dbSet = _context.Set&lt;T&gt;();
+    }
+
+    public virtual async Task&lt;T&gt; AddAsync(T entity, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(entity);
+        await _dbSet.AddAsync(entity, cancellationToken);   // solo lo anota: NO guarda
+        return entity;
+    }
+
+    public virtual Task DeleteAsync(T entity, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(entity);
+        entity.MarkAsDeleted();                            // baja lógica, nunca DELETE
+        _dbSet.Update(entity);
+        return Task.CompletedTask;
+    }
+}</pre>
+
+<div class="nota"><b>La idea que más cuesta ver.</b> <code>AddAsync</code> <b>no guarda nada</b>. Solo le avisa al <code>DbContext</code> «seguí a esta entidad: está nueva». Guardar es trabajo del Unit of Work (sección 5). Por eso un servicio puede llamar a varios repositorios y guardar todo junto al final.</div>
+
+<ul>
+    <li><b>Qué NO hace:</b> no hay un repositorio por entidad interna (<code>DetalleVenta</code> no tiene) ni consultas de listado con filtros y paginación (eso es la pieza 8).</li>
+</ul>
+
+<h3>8 · El servicio de consulta (el lado lectura)</h3>
+<p>Los listados con filtros, ordenamiento y paginación <b>no pasan por el repositorio</b>: tienen su propio servicio. La razón es la Ley 8: las búsquedas se resuelven <b>dentro de SQL Server</b>, sin traer miles de entidades a memoria, y proyectando directamente a DTO sin seguimiento de cambios (<code>AsNoTracking</code>). Es una versión liviana de CQRS: una vía para escribir (repositorio y entidad) y otra para leer (consulta y DTO).</p>
+
+<p class="archivo"><code>src/Retail.Infrastructure/Persistence/Services/ClienteQueryService.cs</code> (recortado)</p>
+<pre class="codigo">public async Task&lt;ClientesPaginadosDto&gt; ObtenerClientesPaginadosAsync(
+    ConsultaClientesDto consulta, CancellationToken cancellationToken = default)
+{
+    // Agregaciones nativas en el servidor
+    int totalClientes = await _context.Clientes.CountAsync(cancellationToken);
+
+    IQueryable&lt;Cliente&gt; query = _context.Clientes.AsNoTracking();
+
+    if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
+    {
+        var term = consulta.TerminoBusqueda.Trim();
+        query = query.Where(c =&gt;
+            EF.Functions.Like(c.RazonSocialONombre, $"%{term}%") ||
+            EF.Functions.Like(c.NumeroDocumento, $"%{term}%"));
+    }
+
+    // ... filtros por condición de IVA, deuda y cuenta corriente ...
+
+    var entidades = await query
+        .OrderBy(c =&gt; c.RazonSocialONombre)
+        .Skip((pagina - 1) * tamanoPagina)
+        .Take(tamanoPagina)
+        .ToListAsync(cancellationToken);
+
+    var items = entidades.Select(c =&gt; new ClienteDto { /* ... */ }).ToList();
+    // ...
+}</pre>
+
+<p>El filtro, el orden, el conteo y la página se componen sobre <code>IQueryable</code> y EF Core los traduce a <b>una sola consulta SQL</b>. Solo viaja a memoria la página que se va a mostrar (por ejemplo, 10 clientes), no la tabla entera.</p>
+<ul>
+    <li><b>Qué NO hace:</b> no modifica datos y no devuelve entidades (devuelve DTO). Su contrato <code>IClienteQueryService</code> vive en Aplicación y la clase en Infraestructura: es el ejemplo de puerto y adaptador.</li>
+</ul>
+
+<h3>9 · La configuración de EF</h3>
+<p>Le dice a Entity Framework Core <b>cómo se guarda</b> la entidad: nombre de tabla, nombres de columna, largos, índices y restricciones. Es la única pieza que conoce el esquema. Cada entidad tiene su archivo <code>XConfiguration</code>, y <code>ApplyConfigurationsFromAssembly</code> los encuentra solos: no hay que registrarlos.</p>
+
+<p class="archivo"><code>src/Retail.Infrastructure/Persistence/Configurations/ClienteConfiguration.cs</code> (recortado)</p>
+<pre class="codigo">public class ClienteConfiguration : IEntityTypeConfiguration&lt;Cliente&gt;
+{
+    public void Configure(EntityTypeBuilder&lt;Cliente&gt; builder)
+    {
+        builder.ToTable("CLIENTES", t =&gt;
+        {
+            t.HasCheckConstraint("CK_CLIENTES_LimiteCredito", "[limite_credito] &gt;= 0");
+            t.HasCheckConstraint("CK_CLIENTES_SaldoCuentaCorriente", "[saldo_cuenta_corriente] &gt;= 0");
+        });
+
+        builder.Property(c =&gt; c.NumeroDocumento)
+            .HasColumnName("numero_documento")
+            .HasMaxLength(20)
+            .IsRequired();
+
+        // Único entre los clientes vigentes: un dado de baja libera su documento
+        builder.HasIndex(c =&gt; c.NumeroDocumento)
+            .IsUnique()
+            .HasFilter("[deleted_at] IS NULL");
+
+        builder.Property(c =&gt; c.TipoDocumento)
+            .HasColumnName("tipo_documento")
+            .HasConversion&lt;string&gt;()      // se guarda como texto legible
+            .HasMaxLength(20);
+        // ... el resto de las columnas ...
+    }
+}</pre>
+
+<p>Dos ideas para llevarte. Primera: las reglas importantes están <b>dos veces</b>, una en el dominio y otra en la base (<code>CHECK</code> de saldo y límite, índice único). El dominio da un mensaje claro; la base es la última barrera si algo se escapa o si dos terminales actúan a la vez. Segunda: el filtro <code>deleted_at IS NULL</code> del índice permite dar de baja a un cliente y después volver a registrar el mismo documento.</p>
+<p>El <b>filtro global de baja lógica</b> no está en este archivo: está una sola vez en <code>RetailDbContext</code>, que lo agrega a todas las entidades que heredan de <code>BaseEntity</code>:</p>
+<p class="archivo"><code>src/Retail.Infrastructure/Persistence/Context/RetailDbContext.cs</code> (recortado)</p>
+<pre class="codigo">// Aplicar Global Query Filter para Soft Delete en todas las entidades derivadas de BaseEntity
+foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+{
+    if (typeof(BaseEntity).IsAssignableFrom(entityType.ClrType))
+    {
+        var parameter = Expression.Parameter(entityType.ClrType, "e");
+        var property = Expression.Property(parameter, nameof(BaseEntity.DeletedAt));
+        var condition = Expression.Equal(property, Expression.Constant(null, typeof(DateTime?)));
+        modelBuilder.Entity(entityType.ClrType).HasQueryFilter(Expression.Lambda(condition, parameter));
+    }
+}</pre>
+<p>Por eso <code>_context.Clientes</code> nunca devuelve los dados de baja, sin que nadie escriba <code>Where(c =&gt; c.DeletedAt == null)</code>.</p>
+
+<h3>10 · El ViewModel de la lista</h3>
+<p>El <b>ViewModel</b> (patrón MVVM) es el intermediario entre la vista y los servicios. Guarda el <b>estado</b> de la pantalla (la lista, la fila seleccionada, el texto de búsqueda, si está ocupado) y expone <b>comandos</b> (los botones). Usa CommunityToolkit.Mvvm: <code>[ObservableProperty]</code> y <code>[RelayCommand]</code> generan el código repetitivo por vos.</p>
+
+<p class="archivo"><code>src/Retail.App/ViewModels/Clientes/ClientesViewModel.cs</code> (recortado)</p>
+<pre class="codigo">public partial class ClientesViewModel : ObservableObject, IDisposable
+{
+    private readonly IClienteService _clienteService;
+    private readonly IClienteDialogService _dialogService;
+    private readonly CargaSerializada _cargaClientes = new();
+
+    public ObservableCollection&lt;ClienteDto&gt; Clientes { get; } = new();
+
+    [ObservableProperty]
+    private ClienteDto? _clienteSeleccionado;
+
+    [ObservableProperty]
+    private string _textoBusqueda = string.Empty;
+
+    public ClientesViewModel(IClienteService clienteService, IClienteDialogService dialogService,
+        ILogger&lt;ClientesViewModel&gt;? logger = null)
+    {
+        _clienteService = clienteService ?? throw new ArgumentNullException(nameof(clienteService));
+        _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
+        // ...
+    }
+
+    private async Task CargarClientesConEsperaAsync(TimeSpan espera, CancellationToken cancellationToken = default)
+    {
+        var consulta = new ConsultaClientesDto { TerminoBusqueda = TextoBusqueda, /* filtros y página */ };
+
+        IsBusy = true;
+        await _cargaClientes.EjecutarAsync(
+            token =&gt; Task.Run(() =&gt; _clienteService.ListarClientesPaginadosAsync(consulta, token), token),
+            MostrarClientes,                     // qué hacer con el resultado
+            ex =&gt; MensajeError = $"Error al cargar clientes: {ex.Message}",
+            espera, cancellationToken);
+        IsBusy = _cargaClientes.EnCurso;
+    }
+
+    [RelayCommand]
+    public void NuevoCliente()
+    {
+        _dialogService.MostrarDialogoCrear(async dto =&gt;
+        {
+            var nuevo = await _clienteService.CrearClienteAsync(dto);
+            await CargarClientesAsync();
+            ClienteSeleccionado = Clientes.FirstOrDefault(c =&gt; c.IdCliente == nuevo.IdCliente);
+        });
+    }
+}</pre>
+
+<ul>
+    <li><b>Mirá el constructor:</b> recibe <b>interfaces</b> (<code>IClienteService</code>, <code>IClienteDialogService</code>), no clases. Quien lo crea (el contenedor, o una prueba) decide qué implementación entrega.</li>
+    <li><b>Lo que hace la consulta:</b> corre con <code>Task.Run</code>, fuera del hilo de la interfaz, para que la pantalla no se congele (Ley 4). <code>CargaSerializada</code> ordena los accesos para que dos consultas no usen el mismo <code>DbContext</code> a la vez y descarta la respuesta de una consulta vieja si ya hay una más nueva.</li>
+    <li><b>Qué NO hace:</b> no toca el <code>DbContext</code>, no usa <code>MessageBox</code> ni abre ventanas por su cuenta (para eso está el servicio de diálogo) y no valida reglas de negocio.</li>
+</ul>
+
+<h3>11 · El ViewModel del formulario</h3>
+<p>El diálogo de alta y edición tiene su propio ViewModel, con una propiedad por campo del formulario. Sirve para <b>los dos casos</b>: <code>ConfigurarAlta()</code> lo deja vacío y <code>ConfigurarEdicion(cliente)</code> lo carga con un cliente existente. Al guardar, arma el DTO correspondiente.</p>
+
+<p class="archivo"><code>src/Retail.App/ViewModels/Clientes/ClienteFormViewModel.cs</code> (recortado)</p>
+<pre class="codigo">public partial class ClienteFormViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private string _razonSocialONombre = string.Empty;
+
+    [ObservableProperty]
+    private string _numeroDocumento = string.Empty;
+    // ...
+
+    public Func&lt;Task&gt;? OnGuardarAsync { get; set; }
+
+    public CrearClienteDto GenerarCrearDto() =&gt; new()
+    {
+        RazonSocialONombre = RazonSocialONombre.Trim(),
+        NumeroDocumento = NumeroDocumento.Trim(),
+        // ...
+    };
+
+    /// Las reglas de formato no se replican acá: las valida ClienteService.
+    public void InformarError(Exception ex)
+    {
+        MensajeError = ex is ValidationException validacion &amp;&amp; validacion.Errors.Any()
+            ? string.Join("\n", validacion.Errors.Select(e =&gt; e.ErrorMessage).Distinct())
+            : ex.Message;
+    }
+}</pre>
+
+<p>La decisión de diseño está en el comentario: <b>el formulario no vuelve a validar</b>. Si cada ViewModel replicara las reglas, habría tres copias (pantalla, validador y dominio) que se desincronizan. El formulario solo muestra lo que el servicio devuelve: si es una <code>ValidationException</code>, lista todos los campos inválidos, uno por línea.</p>
+
+<h3>12 · La vista</h3>
+<p>La vista es XAML más un <i>code-behind</i> mínimo. El XAML <b>solo enlaza</b> propiedades y comandos del ViewModel; el code-behind recibe el ViewModel por constructor y lo asigna como <code>DataContext</code>.</p>
+
+<p class="archivo"><code>src/Retail.App/Views/Pages/ClientesView.xaml.cs</code> (recortado) y fragmentos de <code>ClientesView.xaml</code></p>
+<pre class="codigo">public partial class ClientesView : UserControl
+{
+    public ClientesViewModel ViewModel { get; }
+
+    public ClientesView(ClientesViewModel viewModel)
+    {
+        ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
+        DataContext = ViewModel;
+        InitializeComponent();
+
+        Loaded += async (_, _) =&gt;
+        {
+            if (ViewModel.Clientes.Count == 0)
+            {
+                await ViewModel.CargarClientesCommand.ExecuteAsync(null);
+            }
+        };
+    }
+}</pre>
+<pre class="codigo">&lt;KeyBinding Key="F2" Command="{Binding NuevoClienteCommand}" /&gt;
+...
+&lt;DataGrid ItemsSource="{Binding Clientes}"
+          SelectedItem="{Binding ClienteSeleccionado, Mode=TwoWay}" ...&gt;
+...
+&lt;TextBlock Text="{Binding NumeroDocumento}" Style="{StaticResource TextBlockMonospaceCell}" /&gt;
+&lt;Button Command="{Binding DataContext.EditarClienteCommand,
+                         RelativeSource={RelativeSource AncestorType=UserControl}}" /&gt;</pre>
+
+<p><code>{Binding Clientes}</code> conecta la grilla con la colección del ViewModel: cuando el ViewModel agrega una fila, la grilla la muestra sin que nadie «actualice la pantalla». Eso es el enlace de datos.</p>
+<ul>
+    <li><b>Qué NO hace:</b> no tiene lógica. Una vista con un <code>if</code> de negocio es una señal de que algo está en el lugar equivocado. Además, el estilo se toma de los recursos del sistema de diseño (<code>StaticResource</code>), y cada vista nueva exige una prueba de humo en hilo STA.</li>
+</ul>
+
+<h3>13 · El servicio de diálogo</h3>
+<p>El ViewModel necesita abrir un formulario o preguntar «¿confirma la baja?», pero si llamara a <code>MessageBox.Show</code> o creara una ventana, <b>no se podría probar</b> sin abrir una ventana real. La solución es una interfaz: el ViewModel pide «mostrame el diálogo de crear» y alguien más se ocupa de las ventanas.</p>
+
+<p class="archivo"><code>src/Retail.App/Services/IClienteDialogService.cs</code> y <code>ClienteDialogService.cs</code> (recortado)</p>
+<pre class="codigo">public interface IClienteDialogService
+{
+    bool Confirmar(string titulo, string mensaje);
+    void MostrarError(string titulo, string mensaje);
+    CrearClienteDto? MostrarDialogoCrear(Func&lt;CrearClienteDto, Task&gt;? onGuardarAsync = null);
+    ActualizarClienteDto? MostrarDialogoModificar(ClienteDto cliente, Func&lt;ActualizarClienteDto, Task&gt;? onGuardarAsync = null);
+}
+
+public CrearClienteDto? MostrarDialogoCrear(Func&lt;CrearClienteDto, Task&gt;? onGuardarAsync = null)
+{
+    var vm = new ClienteFormViewModel();
+    vm.ConfigurarAlta();
+
+    if (onGuardarAsync != null)
+    {
+        vm.OnGuardarAsync = async () =&gt; await onGuardarAsync(vm.GenerarCrearDto());
+    }
+
+    var dialog = new ClienteFormDialog(vm);
+    var result = dialog.ShowDialog();
+    return result == true ? vm.GenerarCrearDto() : null;
+}</pre>
+
+<p>Fijate en el <b>truco del <i>callback</i></b> (<code>onGuardarAsync</code>). El ViewModel de la lista le pasa al diálogo «lo que hay que hacer cuando el usuario aprete Guardar». El diálogo lo ejecuta en su botón y, <b>si el servicio lanza un error</b>, el formulario lo muestra sin cerrarse, para que el usuario corrija:</p>
+
+<p class="archivo"><code>src/Retail.App/Views/Dialogs/ClienteFormDialog.xaml.cs</code> (recortado)</p>
+<pre class="codigo">private async void BtnGuardar_Click(object sender, RoutedEventArgs e)
+{
+    ViewModel.MensajeError = null;
+    try
+    {
+        ViewModel.IsBusy = true;
+        await ViewModel.OnGuardarAsync();   // llama al servicio vía el ViewModel de la lista
+        DialogResult = true;
+        Close();
+    }
+    catch (Exception ex)
+    {
+        ViewModel.InformarError(ex);        // el diálogo sigue abierto, con el error visible
+    }
+    finally
+    {
+        ViewModel.IsBusy = false;
+    }
+}</pre>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>Cada capa aporta <b>una</b> garantía: el dominio, que nada inválido exista; el validador, mensajes claros por campo; el servicio, el orden correcto y la transacción; la infraestructura, restricciones y consultas en SQL; la pantalla, que el usuario vea y pueda corregir.</li>
+    <li>Lo que une una pieza con otra es <b>siempre una interfaz</b> (o un DTO): <code>IClienteService</code>, <code>IRepository</code>, <code>IClienteDialogService</code>.</li>
+    <li>Las <b>reglas se escriben una vez</b> y se reutilizan; lo único que se duplica a propósito son las restricciones críticas, en el dominio y en la base.</li>
+</ul>
+</div>
+
+<details><summary>Autoevaluación 2: ¿por qué <code>ClienteService</code> pregunta «¿ya existe ese documento?» y no lo hace la entidad <code>Cliente</code>?</summary>
+<p>Porque la entidad solo conoce <b>sus propios datos</b>: no tiene acceso a los demás clientes. «Que no haya otro cliente con este documento» es una regla que necesita mirar la base, y por eso la comprueba el servicio, que sí tiene el repositorio. Aun así, no alcanza con esa comprobación: dos terminales pueden pasar la pregunta al mismo tiempo. Por eso <code>ClienteConfiguration</code> también define un índice único: es la última barrera (ver la sección 5).</p>
+</details>
+
+<!-- ============================================================ 3 · LOS VERBOS -->
+<h2 id="verbos">3 · Los cuatro verbos del CRUD</h2>
+<span class="etiqueta">Crear, leer, actualizar y dar de baja</span>
+
+<h3>Crear: dónde se rechaza cada cosa</h3>
+<p>Ya viste el camino feliz del alta. Lo interesante es qué pasa cuando algo está mal, porque cada tipo de error lo detecta una pieza distinta:</p>
+
+<figure>
+<figcaption>Diagrama 3.1 · dónde se rechaza cada error</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["El usuario aprieta Guardar"] --&gt; B{"¿La entrada tiene forma válida?&lt;br/&gt;formato, obligatorios, rangos"}
+    B --&gt;|No| X1["Validador: ValidationException&lt;br/&gt;con todos los campos inválidos"]
+    B --&gt;|Sí| C{"¿Ya existe un cliente&lt;br/&gt;con ese documento?"}
+    C --&gt;|Sí| X2["Servicio: InvalidOperationException"]
+    C --&gt;|No| D{"¿Cumple las reglas de negocio?&lt;br/&gt;documento según tipo, nombre válido"}
+    D --&gt;|No| X3["Dominio: DomainException"]
+    D --&gt;|Sí| E{"¿Otra terminal insertó el mismo&lt;br/&gt;documento un instante antes?"}
+    E --&gt;|Sí| X4["Base de datos: índice único&lt;br/&gt;RestriccionDeUnicidadException"]
+    E --&gt;|No| F["Se guarda"]
+</pre>
+</figure>
+
+<p>Los cuatro rechazos terminan igual en la pantalla: el servicio lanza, el ViewModel del diálogo captura y <code>InformarError</code> muestra el mensaje sin cerrar la ventana. Que sea una cadena de controles y no uno solo es <b>defensa en profundidad</b>: cada barrera atrapa lo que la anterior no puede ver.</p>
+
+<h3>Leer: dos caminos distintos</h3>
+<p>Hay dos formas de leer, con herramientas distintas, porque responden a necesidades distintas:</p>
+<table>
+<tr><th></th><th>Cargar una entidad para modificarla</th><th>Listar o buscar para mostrar</th></tr>
+<tr><td>Quién</td><td><code>IRepository&lt;Cliente&gt;</code></td><td><code>IClienteQueryService</code></td></tr>
+<tr><td>Qué devuelve</td><td>La entidad <b>rastreada</b> (<code>Cliente</code>)</td><td>Una lista de DTO <b>sin rastrear</b></td></tr>
+<tr><td>Dónde se filtra</td><td>Por id, o con un predicado simple</td><td>En SQL: <code>LIKE</code>, <code>COUNT</code>, <code>Skip</code>, <code>Take</code></td></tr>
+<tr><td>Para qué</td><td>Cambiarla y guardar los cambios</td><td>Mostrar una grilla de 10 filas</td></tr>
+</table>
+
+<figure>
+<figcaption>Diagrama 3.2 · el listado de la pantalla</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant VM as ClientesViewModel
+    participant S as ClienteService
+    participant Q as ClienteQueryService
+    participant DB as SQL Server
+    VM-&gt;&gt;S: ListarClientesPaginadosAsync(consulta)
+    S-&gt;&gt;Q: ObtenerClientesPaginadosAsync(consulta)
+    Q-&gt;&gt;DB: COUNT de la cartera
+    Q-&gt;&gt;DB: SELECT ... WHERE LIKE ... ORDER BY ... OFFSET ... FETCH
+    DB--&gt;&gt;Q: Solo las filas de la página
+    Q--&gt;&gt;S: ClientesPaginadosDto
+    S--&gt;&gt;VM: ClientesPaginadosDto
+    VM-&gt;&gt;VM: MostrarClientes: llena la colección
+</pre>
+</figure>
+
+<p>El servicio de aplicación hace de <b>fachada</b>: la pantalla le pide el listado a <code>IClienteService</code> y éste delega en el servicio de consulta. La pantalla nunca sabe cuál de las dos piezas respondió.</p>
+
+<h3>Actualizar: cargar, cambiar, guardar</h3>
+<p>El patrón de una edición es siempre el mismo: <b>cargar la entidad con seguimiento, pedirle al dominio que cambie, y guardar</b>. La entidad no se «reemplaza»: se la modifica y EF Core detecta qué cambió.</p>
+
+<figure>
+<figcaption>Diagrama 3.3 · la edición de un cliente</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant S as ClienteService
+    participant R as Repository
+    participant E as Cliente
+    participant U as UnitOfWork
+    S-&gt;&gt;S: Valida el ActualizarClienteDto
+    S-&gt;&gt;R: GetByIdAsync(idCliente)
+    R--&gt;&gt;S: El cliente, ya rastreado por el DbContext
+    S-&gt;&gt;R: FindAsync: ¿otro cliente con ese documento?
+    S-&gt;&gt;E: ActualizarDatos(...)
+    S-&gt;&gt;E: Habilitar, modificar o deshabilitar la cuenta corriente
+    alt El dominio rechaza un cambio a mitad de camino
+        S-&gt;&gt;U: DescartarCambios
+        S--&gt;&gt;S: relanza la excepción
+    else Todo bien
+        S-&gt;&gt;U: SaveChangesAsync
+    end
+</pre>
+</figure>
+
+<p class="archivo"><code>ClienteService.ActualizarClienteAsync</code> (recortado)</p>
+<pre class="codigo">var cliente = await _clienteRepository.GetByIdAsync(dto.IdCliente, cancellationToken)
+    ?? throw new KeyNotFoundException($"No se encontró el cliente activo con ID {dto.IdCliente}.");
+
+// ... se verifica que el documento no pertenezca a otro cliente ...
+
+try
+{
+    cliente.ActualizarDatos(dto.RazonSocialONombre, dto.TipoDocumento, dto.NumeroDocumento, /* ... */);
+
+    if (dto.TieneCuentaCorriente)
+    {
+        if (!cliente.TieneCuentaCorriente) { cliente.HabilitarCuentaCorriente(dto.LimiteCredito); }
+        else { cliente.ModificarLimiteCredito(dto.LimiteCredito); }
+    }
+    else if (cliente.TieneCuentaCorriente)
+    {
+        cliente.DeshabilitarCuentaCorriente();
+    }
+}
+catch
+{
+    // El Dominio puede rechazar la cuenta corriente DESPUÉS de que ActualizarDatos
+    // ya modificó el cliente: se descarta para que no se guarde con la próxima operación.
+    _unitOfWork.DescartarCambios();
+    throw;
+}
+
+await _unitOfWork.SaveChangesAsync(cancellationToken);</pre>
+
+<div class="nota"><b>¿Dónde está el <code>UpdateAsync</code>?</b> No se llama, y está bien. Como el cliente se cargó <b>con seguimiento</b>, el <code>DbContext</code> ya lo está vigilando: cuando se asigna una propiedad, lo sabe. <code>SaveChangesAsync</code> genera el <code>UPDATE</code> solo de las columnas que cambiaron. <code>UpdateAsync</code> se usa en otros módulos por una razón puntual (por ejemplo, <code>PedidoService</code> lo llama para que cambie la versión de concurrencia de la cabecera aunque solo se haya modificado un renglón).</div>
+
+<p>El bloque <code>try/catch</code> con <code>DescartarCambios</code> cubre un caso sutil: <code>ActualizarDatos</code> ya cambió el nombre en memoria, y recién después el dominio rechaza el límite de crédito. Sin el descarte, ese nombre «a medio cambiar» seguiría rastreado y se guardaría con la <b>próxima</b> operación exitosa de la misma pantalla. Hay una prueba específica para esto: <code>ActualizarClienteAsync_LimiteMenorALaDeuda_DescartaLosCambiosYNoGuarda</code>.</p>
+
+<h3>Dar de baja: nunca un DELETE</h3>
+<p>«Borrar» un cliente es, en realidad, <b>marcarlo</b>. Intervienen cuatro piezas, cada una con su parte:</p>
+
+<figure>
+<figcaption>Diagrama 3.4 · la baja lógica</figcaption>
+<pre class="mermaid">
+flowchart TD
+    A["ClientesViewModel.DarDeBajaClienteAsync&lt;br/&gt;confirma con el usuario"] --&gt; B["ClienteService.BajaClienteAsync&lt;br/&gt;carga el cliente"]
+    B --&gt; C["Cliente.MarkAsDeleted&lt;br/&gt;rechaza si hay saldo deudor"]
+    C --&gt;|"sin deuda"| D["BaseEntity.MarkAsDeleted&lt;br/&gt;DeletedAt = ahora"]
+    D --&gt; E["UnitOfWork.SaveChangesAsync&lt;br/&gt;UPDATE, no DELETE"]
+    E --&gt; F["El filtro global oculta la fila&lt;br/&gt;en todas las consultas"]
+    C --&gt;|"con deuda"| X["InvalidOperationException"]
+</pre>
+</figure>
+
+<p class="archivo"><code>ClienteService.BajaClienteAsync</code></p>
+<pre class="codigo">public async Task BajaClienteAsync(int idCliente, CancellationToken cancellationToken = default)
+{
+    var cliente = await _clienteRepository.GetByIdAsync(idCliente, cancellationToken)
+        ?? throw new KeyNotFoundException($"No se encontró el cliente activo con ID {idCliente}.");
+
+    cliente.MarkAsDeleted();
+    await _unitOfWork.SaveChangesAsync(cancellationToken);
+}</pre>
+
+<p>Hay una red de seguridad más. Si alguien llamara a <code>DeleteAsync</code> sobre un repositorio, o si EF marcara una entidad como <code>Deleted</code>, el <code>SaveChangesAsync</code> de <code>RetailDbContext</code> la <b>convierte en una baja lógica</b> antes de guardar:</p>
+<p class="archivo"><code>RetailDbContext.SaveChangesAsync</code> (recortado)</p>
+<pre class="codigo">foreach (var entry in ChangeTracker.Entries&lt;BaseEntity&gt;())
+{
+    if (entry.State == EntityState.Deleted)
+    {
+        entry.State = EntityState.Modified;   // en lugar de DELETE, un UPDATE
+        entry.Entity.MarkAsDeleted();
+    }
+    else if (entry.State == EntityState.Added &amp;&amp; entry.Entity.CreatedAt == default)
+    {
+        entry.Entity.CreatedAt = DateTime.UtcNow;
+    }
+}</pre>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>Los cuatro verbos siguen un mismo ritmo: <b>validar, cargar o construir, pedirle al dominio, guardar</b>.</li>
+    <li>Para <b>escribir</b> se usa el repositorio y la entidad; para <b>mostrar</b> se usa la consulta y el DTO. Mezclarlos es el error más común (cargar entidades para pintar una grilla).</li>
+    <li>Un error en cualquier punto antes de <code>SaveChangesAsync</code> no deja nada a medio guardar, siempre que se descarten los cambios rastreados.</li>
+</ul>
+</div>
+
+<details><summary>Autoevaluación 3: si el repositorio <code>AddAsync</code> no guarda, ¿cuándo exactamente se escribe en la base?</summary>
+<p>Recién en <code>_unitOfWork.SaveChangesAsync</code>. <code>AddAsync</code> solo anota la entidad en el seguimiento de cambios del <code>DbContext</code> con el estado <i>Added</i>. Todo lo anotado hasta ese momento (de uno o de varios repositorios) se envía a SQL Server junto, dentro de una transacción. Si algo falla, no se guarda nada.</p>
+</details>
+
+<!-- ============================================================ 4 · INYECCIÓN DE DEPENDENCIAS -->
+<h2 id="inyeccion">4 · Inyección de dependencias</h2>
+<span class="etiqueta">Cómo se arma el grafo y por qué importan los ciclos de vida</span>
+
+<h3>El problema que resuelve</h3>
+<p>Mirá lo que necesita <code>ClienteService</code> para existir: un repositorio, un Unit of Work, tres validadores, un servicio de caja, un servicio de ticket y un servicio de consulta. Cada uno de ellos necesita, a su vez, un <code>DbContext</code> compartido. Si cada clase creara sus propias dependencias con <code>new</code>, sería algo así (<b>ejemplo ilustrativo: esto no existe en el repositorio</b>):</p>
+
+<pre class="codigo">// SIN inyección de dependencias (ilustrativo)
+var contexto = new RetailDbContext(opciones);
+var servicio = new ClienteService(
+    new Repository&lt;Cliente&gt;(contexto),
+    new UnitOfWork(contexto),
+    new CrearClienteValidator(),
+    new ActualizarClienteValidator(),
+    new RegistrarCobranzaValidator(),
+    new CajaService(/* ...y sus propias dependencias... */),
+    new FileDebugTicketPrinterService(),
+    new ClienteQueryService(contexto));</pre>
+
+<p>Esto tiene tres problemas serios: cada pantalla repetiría esta construcción; <b>una distracción</b> (olvidarse de pasar el mismo <code>contexto</code> a todos) rompe la transacción en silencio; y la clase queda <b>atada a implementaciones concretas</b>, así que para probarla habría que usar una base de datos real.</p>
+
+<p>La <b>inyección de dependencias</b> invierte el control. Una clase declara <b>qué necesita</b> en su constructor (como interfaces) y <b>alguien más</b>, el contenedor, se ocupa de construir el grafo completo. Es el principio de inversión de dependencias de SOLID: las clases dependen de abstracciones, no de detalles.</p>
+
+<h3>Las tres raíces de composición</h3>
+<p>El contenedor se configura en tres lugares, uno por proyecto. Cada capa registra <b>sus propias</b> clases, sin conocer las de las demás:</p>
+
+<p class="archivo"><code>src/Retail.Application/DependencyInjection.cs</code> (recortado)</p>
+<pre class="codigo">public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+{
+    services.AddValidatorsFromAssemblyContaining&lt;UsuarioService&gt;();   // todos los validadores, de una vez
+    services.AddScoped&lt;IClienteService, ClienteService&gt;();
+    services.AddScoped&lt;IVentaService, VentaService&gt;();
+    services.AddScoped&lt;IPedidoService, PedidoService&gt;();
+    // ...
+    return services;
+}</pre>
+<p class="archivo"><code>src/Retail.Infrastructure/DependencyInjection.cs</code> (recortado)</p>
+<pre class="codigo">services.AddDbContext&lt;RetailDbContext&gt;(options =&gt; options.UseSqlServer(connectionString));
+
+services.AddScoped(typeof(IRepository&lt;&gt;), typeof(Repository&lt;&gt;));   // un repositorio para CUALQUIER raíz
+services.AddScoped&lt;IUnitOfWork, UnitOfWork&gt;();
+services.AddScoped&lt;IClienteQueryService, ClienteQueryService&gt;();</pre>
+<p class="archivo"><code>src/Retail.App/App.xaml.cs</code> (recortado)</p>
+<pre class="codigo">services.AddApplicationServices();
+services.AddInfrastructureServices(configuration);
+// ...
+services.AddScoped&lt;IClienteDialogService, ClienteDialogService&gt;();
+services.AddTransient&lt;ClientesViewModel&gt;();
+services.AddTransient&lt;ClienteFormViewModel&gt;();
+services.AddTransient&lt;ClientesView&gt;();</pre>
+
+<p>Una línea merece atención: <code>AddScoped(typeof(IRepository&lt;&gt;), typeof(Repository&lt;&gt;))</code> es un <b>genérico abierto</b>. Con esa única línea, cuando alguien pide <code>IRepository&lt;Cliente&gt;</code> el contenedor entrega <code>Repository&lt;Cliente&gt;</code>; si pide <code>IRepository&lt;Pedido&gt;</code>, entrega <code>Repository&lt;Pedido&gt;</code>. No hay que registrar un repositorio por entidad.</p>
+
+<h3>El grafo de <code>ClientesView</code></h3>
+<p>Cuando se navega a la pantalla de clientes, el contenedor resuelve la vista y construye hacia adentro todo lo que haga falta. Vos no escribís esto en ningún lado: sale de los constructores.</p>
+
+<figure>
+<figcaption>Diagrama 4.1 · lo que el contenedor construye al abrir Clientes</figcaption>
+<pre class="mermaid">
+graph TD
+    V["ClientesView"] --&gt; VM["ClientesViewModel"]
+    VM --&gt; S["IClienteService&lt;br/&gt;ClienteService"]
+    VM --&gt; DLG["IClienteDialogService&lt;br/&gt;ClienteDialogService"]
+    S --&gt; R["IRepository de Cliente&lt;br/&gt;Repository"]
+    S --&gt; U["IUnitOfWork&lt;br/&gt;UnitOfWork"]
+    S --&gt; VAL["IValidator de cada DTO"]
+    S --&gt; Q["IClienteQueryService&lt;br/&gt;ClienteQueryService"]
+    S --&gt; CAJA["ICajaService y&lt;br/&gt;ITicketPrinterService"]
+    R --&gt; CTX["RetailDbContext&lt;br/&gt;UNA sola instancia"]
+    U --&gt; CTX
+    Q --&gt; CTX
+    CAJA --&gt; CTX
+</pre>
+</figure>
+
+<p>Mirá el fondo del diagrama: <b>cuatro piezas distintas reciben la misma instancia</b> de <code>RetailDbContext</code>. No es casualidad: es lo que hace posible el Unit of Work (sección 5), y depende por completo del ciclo de vida elegido.</p>
+
+<h3>Los tres ciclos de vida</h3>
+<p>Cuando el contenedor entrega una instancia, hay que decidir <b>cuánto vive</b>. Son tres opciones, y elegir mal rompe cosas:</p>
+<table>
+<tr><th>Ciclo de vida</th><th>Qué significa</th><th>En Retail</th></tr>
+<tr><td><b>Singleton</b></td><td>Una sola instancia para toda la aplicación</td><td>La ventana principal (<code>MainWindow</code>), <code>MainViewModel</code>, <code>NavigationService</code>, la sesión del usuario, el hasheador de contraseñas, el exportador de reportes</td></tr>
+<tr><td><b>Scoped</b></td><td>Una instancia por «alcance» (<i>scope</i>); dentro del mismo alcance todos comparten la misma</td><td><code>RetailDbContext</code>, repositorios, <code>UnitOfWork</code>, servicios de aplicación, servicios de consulta, servicios de diálogo y los validadores</td></tr>
+<tr><td><b>Transient</b></td><td>Una instancia nueva cada vez que se pide</td><td>Los ViewModels y las vistas de cada pantalla</td></tr>
+</table>
+
+<p>¿Y qué es un <i>alcance</i>? En Retail, <b>un alcance por pantalla</b>. <code>NavigationService</code> crea uno nuevo cada vez que se navega y descarta el anterior:</p>
+
+<p class="archivo"><code>src/Retail.App/Services/NavigationService.cs</code> (recortado)</p>
+<pre class="codigo">private void Navegar(Type viewType, Action&lt;object&gt;? configure)
+{
+    var scopeNuevo = _scopeFactory.CreateScope();
+    object view = scopeNuevo.ServiceProvider.GetRequiredService(viewType);   // construye el grafo completo
+    _frame.Navigate(view);
+
+    // Se descarta la pantalla anterior: su DbContext y sus ViewModels descartables
+    var scopeAnterior = _scopePantallaActual;
+    _scopePantallaActual = scopeNuevo;
+    scopeAnterior?.Dispose();
+}</pre>
+
+<figure>
+<figcaption>Diagrama 4.2 · alcances y ciclos de vida</figcaption>
+<pre class="mermaid">
+flowchart TD
+    subgraph RAIZ["Proveedor raíz: vive toda la aplicación"]
+        M["Singleton:&lt;br/&gt;MainWindow, MainViewModel,&lt;br/&gt;NavigationService, sesión"]
+    end
+    subgraph SC1["Alcance de la pantalla Clientes"]
+        C1["RetailDbContext (A)"]
+        C2["Repository, UnitOfWork,&lt;br/&gt;ClienteService, consultas"]
+        C3["ClientesViewModel (Transient)"]
+    end
+    subgraph SC2["Alcance de la pantalla Artículos"]
+        D1["RetailDbContext (B)"]
+        D2["Repository, UnitOfWork,&lt;br/&gt;InventarioService, consultas"]
+        D3["ArticulosViewModel (Transient)"]
+    end
+    M --&gt;|"IServiceScopeFactory:&lt;br/&gt;crea un alcance por pantalla"| SC1
+    M --&gt;|"al navegar, descarta el anterior"| SC2
+</pre>
+</figure>
+
+<p>Esto tiene consecuencias concretas y deseables:</p>
+<ul>
+    <li><b>Dos pantallas nunca comparten <code>DbContext</code></b> ni, por lo tanto, entidades rastreadas. Lo que una modifique sin guardar no contamina a la otra. Hay una prueba que lo verifica (<code>RegistrarServicios_DosScopes_ResuelvenDbContextDistintos</code>).</li>
+    <li><b>Al salir de una pantalla se libera todo</b>: el contexto y sus entidades (importa para el límite de memoria, RNF-03) y los ViewModels que implementan <code>IDisposable</code>, que cancelan sus cargas pendientes.</li>
+    <li><b>Los servicios de diálogo son Scoped a propósito:</b> un modal usa el mismo <code>DbContext</code> que la pantalla que lo abre.</li>
+</ul>
+
+<h3>La trampa: un Singleton que depende de algo Scoped</h3>
+<p>Un Singleton vive toda la aplicación; un Scoped vive una pantalla. Si un Singleton recibiera un <code>DbContext</code> por constructor, ese contexto quedaría <b>capturado para siempre</b> (se lo llama <i>captive dependency</i>): viviría más que la pantalla, acumularía entidades y compartiría estado entre pantallas.</p>
+<p>La solución del proyecto es doble. Primero, el Singleton que necesita servicios Scoped <b>no los recibe</b>: recibe una <code>IServiceScopeFactory</code> y crea un alcance cuando lo necesita (así lo hacen <code>NavigationService</code> y <code>MainViewModel</code>). Segundo, el arranque está configurado para <b>fallar ruidosamente</b> ante el error:</p>
+
+<p class="archivo"><code>src/Retail.App/App.xaml.cs</code> (recortado)</p>
+<pre class="codigo">.UseDefaultServiceProvider(options =&gt;
+{
+    // Si un servicio Scoped se resuelve desde el proveedor raíz, la app falla al arrancar
+    // en lugar de compartir el contexto en silencio.
+    options.ValidateScopes = true;
+    options.ValidateOnBuild = true;
+})</pre>
+
+<p>Y esa configuración se prueba con la <b>configuración real</b> de la aplicación, sin abrir ninguna ventana:</p>
+<p class="archivo"><code>tests/Retail.App.UnitTests/InyeccionDependenciasTests.cs</code></p>
+<pre class="codigo">[Fact]
+public void RegistrarServicios_ConValidacionDeCiclosDeVida_ConstruyeElProveedorSinErrores()
+{
+    var construir = () =&gt; ConstruirProveedor();
+
+    // ValidateOnBuild falla si un Singleton depende de un servicio Scoped o falta un registro
+    construir.Should().NotThrow();
+}</pre>
+
+<div class="nota"><b>Por qué <code>MainWindow</code> es Singleton y no se puede cambiar.</b> La ventana principal y los orquestadores globales son <i>Singleton</i> (Ley 10). Si alguien lo cambiara a <i>Scoped</i> o <i>Transient</i> «para que compile» una dependencia, estaría ocultando el problema real: el Shell no debe depender de servicios de una pantalla.</div>
+
+<h3>Inyección de dependencias y pruebas</h3>
+<p>Que las clases pidan interfaces por constructor no es solo orden: es lo que permite <b>probarlas en aislamiento</b>. La prueba de <code>ClienteService</code> no necesita SQL Server: construye el servicio con dobles de prueba (NSubstitute) en lugar del repositorio y el Unit of Work.</p>
+
+<p class="archivo"><code>tests/Retail.Application.UnitTests/Services/ClienteServiceTests.cs</code> (recortado)</p>
+<pre class="codigo">public ClienteServiceTests()
+{
+    _clienteRepository = Substitute.For&lt;IRepository&lt;Cliente&gt;&gt;();
+    _unitOfWork = Substitute.For&lt;IUnitOfWork&gt;();
+    _crearValidator = new CrearClienteValidator();      // el validador es real: es código puro
+    // ...
+
+    _sut = new ClienteService(_clienteRepository, _unitOfWork, _crearValidator, /* ... */);
+}</pre>
+<p>Es el mismo constructor que usa el contenedor, pero con otras piezas. Eso es la inyección de dependencias en la práctica: <b>el servicio no sabe, ni le importa, si el repositorio es real o de mentira</b>.</p>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>Una clase declara <b>qué necesita</b> (interfaces en el constructor); el contenedor <b>construye el grafo</b>. Vos escribís el constructor, no la construcción.</li>
+    <li>El ciclo de vida importa: <b>Scoped por pantalla</b> es lo que hace que todas las piezas de una pantalla compartan <i>un</i> contexto y que dos pantallas no lo compartan.</li>
+    <li>Un Singleton no puede recibir un Scoped. Se resuelve con <code>IServiceScopeFactory</code>, y <code>ValidateOnBuild</code> avisa si alguien se equivoca.</li>
+</ul>
+</div>
+
+<details><summary>Autoevaluación 4: ¿por qué <code>ClientesViewModel</code> es Transient y no Singleton?</summary>
+<p>Porque guarda <b>estado de una pantalla</b> (la lista cargada, la fila seleccionada, el texto de búsqueda) y depende de servicios Scoped (<code>IClienteService</code> usa el <code>DbContext</code> de la pantalla). Si fuera Singleton, viviría más que su contexto (captive dependency) y mostraría datos de una visita anterior. Como Transient, se crea cuando se abre la pantalla dentro de su alcance y desaparece con él. Por la misma razón, las vistas también son Transient.</p>
+</details>
+
+<!-- ============================================================ 5 · UNIT OF WORK -->
+<h2 id="unit-of-work">5 · Unit of Work</h2>
+<span class="etiqueta">Repositorio frente a transacción</span>
+
+<h3>El problema: guardar varias cosas como una sola</h3>
+<p>Muchas operaciones modifican más de una entidad: una venta descuenta stock de varios artículos y registra pagos; una compra suma stock y cierra un pedido. Si el sistema se cae a mitad de camino, no puede quedar la compra registrada y el stock sin sumar. Hace falta una <b>unidad de trabajo</b>: un conjunto de cambios que se confirman <b>todos o ninguno</b> (la «A» de ACID, atomicidad).</p>
+
+<h3>Repositorio y Unit of Work no son lo mismo</h3>
+<table>
+<tr><th></th><th>Repositorio</th><th>Unit of Work</th></tr>
+<tr><td>Pregunta que responde</td><td>«Dame / agregá esta entidad»</td><td>«Confirmá todos los cambios pendientes»</td></tr>
+<tr><td>Cuántos hay por operación</td><td>Uno por tipo de raíz que se toque</td><td>Uno solo, compartido</td></tr>
+<tr><td>¿Escribe en la base?</td><td>No: solo carga y anota</td><td>Sí: en <code>SaveChangesAsync</code></td></tr>
+<tr><td>Contrato</td><td><code>IRepository&lt;T&gt;</code></td><td><code>IUnitOfWork</code></td></tr>
+</table>
+
+<p class="archivo"><code>src/Retail.Application/Interfaces/Persistence/IUnitOfWork.cs</code> (recortado)</p>
+<pre class="codigo">public interface IUnitOfWork : IDisposable
+{
+    /// Confirma los cambios pendientes en una única transacción.
+    /// Lanza ConflictoDeConcurrenciaException si otro usuario modificó los mismos datos.
+    /// Lanza RestriccionDeUnicidadException si otro proceso insertó antes un dato que viola un índice único.
+    Task&lt;int&gt; SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    Task BeginTransactionAsync(CancellationToken cancellationToken = default);
+    Task CommitTransactionAsync(CancellationToken cancellationToken = default);
+    Task RollbackTransactionAsync(CancellationToken cancellationToken = default);
+
+    /// Descarta todos los cambios pendientes en memoria y deja de seguir las entidades cargadas.
+    void DescartarCambios();
+}</pre>
+
+<h3>Por qué existe, si EF Core ya es un Unit of Work</h3>
+<p>Es una pregunta legítima: <code>DbContext</code> ya rastrea cambios y los guarda en una transacción. La respuesta está en la regla de dependencia: <b>Aplicación no puede conocer a Entity Framework</b>. Necesita un contrato propio (<code>IUnitOfWork</code>) para pedir «guardá», y la infraestructura lo implementa con el <code>DbContext</code>. Además, la implementación agrega cosas que el contexto no hace solo:</p>
+
+<p class="archivo"><code>src/Retail.Infrastructure/Persistence/Repositories/UnitOfWork.cs</code> (recortado)</p>
+<pre class="codigo">public async Task&lt;int&gt; SaveChangesAsync(CancellationToken cancellationToken = default)
+{
+    try
+    {
+        return await _context.SaveChangesAsync(cancellationToken);
+    }
+    catch (DbUpdateConcurrencyException ex)
+    {
+        DescartarCambios();
+        throw new ConflictoDeConcurrenciaException("Otro usuario modificó los mismos datos ...", ex);
+    }
+    catch (DbUpdateException ex) when (EsViolacionDeUnicidad(ex))
+    {
+        DescartarCambios();
+        throw new RestriccionDeUnicidadException("El guardado chocó con otra operación ...", ex);
+    }
+    catch
+    {
+        // La base revirtió la transacción, pero el contexto vive mientras dura la pantalla:
+        // sin limpiarlo, los cambios rechazados se guardarían con la próxima operación exitosa.
+        DescartarCambios();
+        throw;
+    }
+}
+
+public void DescartarCambios() =&gt; _context.ChangeTracker.Clear();</pre>
+
+<ul>
+    <li><b>Traduce errores técnicos a errores de Aplicación.</b> Un <code>DbUpdateConcurrencyException</code> de EF se convierte en <code>ConflictoDeConcurrenciaException</code>: la pantalla lo entiende sin saber qué es EF Core.</li>
+    <li><b>Limpia el contexto cuando algo falla.</b> Es la pieza que impide que un cambio rechazado «sobreviva» en memoria.</li>
+</ul>
+
+<h3>La clave: una sola instancia de <code>DbContext</code></h3>
+<p>El repositorio y el Unit of Work <b>no se hablan entre sí</b>. Funcionan juntos porque ambos reciben, por inyección, <b>la misma instancia</b> de <code>RetailDbContext</code> (Scoped por pantalla). Ahí está la conexión entre las secciones 4 y 5:</p>
+
+<figure>
+<figcaption>Diagrama 5.1 · todos comparten el mismo contexto</figcaption>
+<pre class="mermaid">
+graph LR
+    subgraph ALC["Un alcance (una pantalla)"]
+        R1["Repository de Cliente"] --&gt; CTX["RetailDbContext&lt;br/&gt;seguimiento de cambios"]
+        R2["Repository de Pedido"] --&gt; CTX
+        U["UnitOfWork"] --&gt; CTX
+        Q["ClienteQueryService"] --&gt; CTX
+    end
+    CTX --&gt;|"SaveChanges: una transacción"| DB[("SQL Server")]
+</pre>
+</figure>
+
+<p>Por eso <code>_clienteRepository.AddAsync(cliente)</code> y <code>_unitOfWork.SaveChangesAsync()</code> «se encuentran»: el primero anotó el cliente en el seguimiento del contexto; el segundo envía lo anotado. Si cada uno tuviera su propio contexto, <code>SaveChangesAsync</code> no vería nada para guardar.</p>
+
+<h3>Qué pasa dentro: el seguimiento de cambios</h3>
+<p>El <code>DbContext</code> lleva una libreta con el <b>estado</b> de cada entidad que cargó o agregó. <code>SaveChanges</code> recorre esa libreta y genera el SQL que corresponda a cada estado:</p>
+
+<figure>
+<figcaption>Diagrama 5.2 · estados de una entidad rastreada</figcaption>
+<pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    [*] --&gt; Added: AddAsync
+    [*] --&gt; Unchanged: GetByIdAsync
+    Added --&gt; Unchanged: SaveChanges (INSERT)
+    Unchanged --&gt; Modified: se asigna una propiedad
+    Modified --&gt; Unchanged: SaveChanges (UPDATE)
+    Added --&gt; Detached: DescartarCambios
+    Unchanged --&gt; Detached: DescartarCambios
+    Modified --&gt; Detached: DescartarCambios
+</pre>
+</figure>
+
+<p>Las dos transiciones que más enseñan: <b>Modified</b> sucede sola, por el solo hecho de asignar una propiedad de una entidad cargada (por eso no hace falta <code>UpdateAsync</code>); y <b>Detached</b> es lo que provoca <code>DescartarCambios</code>: la entidad deja de estar vigilada y sus cambios pendientes se olvidan. Hay un cuarto estado, <b>Deleted</b>, para una entidad marcada para borrar: en Retail nunca llega a un <code>DELETE</code>, porque <code>SaveChangesAsync</code> la convierte en una baja lógica (<code>Modified</code> con <code>DeletedAt</code> completo).</p>
+
+<figure>
+<figcaption>Diagrama 5.3 · lo que ocurre dentro de SaveChangesAsync</figcaption>
+<pre class="mermaid">
+sequenceDiagram
+    participant S as ClienteService
+    participant U as UnitOfWork
+    participant C as RetailDbContext
+    participant DB as SQL Server
+    S-&gt;&gt;U: SaveChangesAsync
+    U-&gt;&gt;C: SaveChangesAsync
+    C-&gt;&gt;C: Recorre las entidades rastreadas&lt;br/&gt;Deleted a baja lógica, completa CreatedAt
+    C-&gt;&gt;DB: BEGIN TRANSACTION
+    C-&gt;&gt;DB: INSERT, UPDATE ...
+    alt Todo bien
+        C-&gt;&gt;DB: COMMIT
+        DB--&gt;&gt;U: filas afectadas
+    else Falla (concurrencia, unicidad u otra)
+        C-&gt;&gt;DB: ROLLBACK
+        U-&gt;&gt;C: DescartarCambios
+        U--&gt;&gt;S: excepción de Aplicación
+    end
+</pre>
+</figure>
+
+<h3>Un guardado, varios agregados</h3>
+<p>El ejemplo más claro de por qué existe el Unit of Work es el registro de una compra que cierra un pedido. Cambia <b>tres tipos de entidad</b>: la compra, los artículos (stock y costo) y el pedido (pasa a «recibido»). Se guardan en un único <code>SaveChangesAsync</code>:</p>
+
+<p class="archivo"><code>src/Retail.Application/Services/CompraService.cs</code> (recortado)</p>
+<pre class="codigo">// Se valida y se modifica el pedido en memoria (nada se guarda todavía)
+var pedido = await _pedidoRepository.GetByIdAsync(dto.IdPedidoOrigen.Value, cancellationToken)
+    ?? throw new DomainException("El pedido ... no existe o fue dado de baja.");
+
+pedido.MarcarRecibido();                              // lanza si no está Emitido
+await _pedidoRepository.UpdateAsync(pedido, cancellationToken);
+
+// ... por cada renglón: compra.AgregarDetalle(...), articulo.IncrementarStock(...) ...
+
+// Persistencia atómica ACID en un único SaveChanges
+await _compraRepository.AddAsync(compra, cancellationToken);
+await _unitOfWork.SaveChangesAsync(cancellationToken);</pre>
+
+<p>Mientras no se llama a <code>SaveChangesAsync</code>, <b>nada de esto existe en la base</b>: el pedido, la compra y los artículos son cambios en el seguimiento del contexto. En el instante del guardado, SQL Server los confirma o los revierte juntos. Una compra registrada con su pedido todavía abierto es un estado que no puede ocurrir (A-10).</p>
+
+<h3>Cuando un solo guardado no alcanza: la transacción explícita</h3>
+<p>Casi todos los casos de uso hacen <b>un</b> <code>SaveChangesAsync</code>. A veces hacen falta dos, y entonces la atomicidad se logra con una <b>transacción explícita</b>. El ejemplo real: registrar un término de clasificación junto con una categoría nueva. El término guarda el <i>id</i> de la categoría, y ese id no existe hasta que la categoría se guarda por primera vez.</p>
+
+<p class="archivo"><code>src/Retail.Application/Services/TerminoClasificacionService.cs</code> (recortado)</p>
+<pre class="codigo">// T-1: el término guarda el Id de su categoría y la categoría nueva recién lo tiene
+// después de guardarse. Son dos guardados, así que la atomicidad la da una transacción
+// explícita: si el término falla, la categoría tampoco queda.
+await _unitOfWork.BeginTransactionAsync(cancellationToken);
+try
+{
+    var (categoria, rubro) = await AltaCategoria.PrepararAsync(_categorias, _rubros, dto.NombreCategoria, dto.IdRubro, cancellationToken);
+    await PersistenciaDiccionarios.GuardarAsync(_unitOfWork, "...", cancellationToken);   // 1er guardado: la categoría
+
+    string termino = await RegistrarEnMemoriaAsync(dto.Termino, categoria.Id, cancellationToken);
+    await PersistenciaDiccionarios.GuardarAsync(_unitOfWork, "...", cancellationToken);   // 2do guardado: el término
+    await _unitOfWork.CommitTransactionAsync(cancellationToken);                           // recién acá se confirma todo
+    // ...
+}
+catch
+{
+    // ... se revierte la transacción ...
+}
+</pre>
+
+<p>Es la excepción, no la regla. Si podés resolver el caso con un solo <code>SaveChangesAsync</code>, hacelo así: es más simple y ya es atómico.</p>
+
+<h3>Qué puede salir mal al guardar</h3>
+<p>El Unit of Work traduce tres situaciones, y cada una significa algo distinto:</p>
+<table>
+<tr><th>Situación</th><th>Excepción de Aplicación</th><th>Qué la dispara</th><th>Ejemplo</th></tr>
+<tr><td>Otro usuario modificó <b>la misma fila</b> mientras vos la tenías cargada</td><td><code>ConflictoDeConcurrenciaException</code></td><td>Una columna <code>row_version</code>: SQL Server la cambia en cada <code>UPDATE</code> y EF Core la agrega al <code>WHERE</code></td><td>Dos terminales emiten el mismo pedido. <code>Articulo</code> y <code>Pedido</code> tienen <code>row_version</code>; <code>Cliente</code> no</td></tr>
+<tr><td>Otro proceso insertó <b>un dato que viola un índice único</b> un instante antes</td><td><code>RestriccionDeUnicidadException</code></td><td>Un índice único (códigos 2601 o 2627 de SQL Server)</td><td>Dos terminales dan de alta el mismo documento de cliente a la vez</td></tr>
+<tr><td>Cualquier otra falla</td><td>La excepción original</td><td>Una caída de la base, una restricción <code>CHECK</code>, etc.</td><td>—</td></tr>
+</table>
+<p>En los tres casos el Unit of Work <b>descarta los cambios pendientes</b> antes de relanzar, así que el llamador no tiene que hacerlo. Y la comprobación previa del servicio (<code>FindAsync</code> por documento) y el índice único no son redundantes: la primera da un mensaje claro en el caso común; el segundo cubre la carrera entre dos terminales, que la primera no puede ver.</p>
+
+<h3><code>DescartarCambios</code>: por qué hace falta</h3>
+<p>Un <code>DbContext</code> de Retail vive <b>lo que dura la pantalla</b>, no lo que dura una operación. Eso es cómodo (las entidades cargadas siguen disponibles) pero tiene un riesgo: un cambio que se modificó en memoria y nunca se guardó <b>sigue rastreado</b> y se guardaría con la próxima operación exitosa de esa misma pantalla.</p>
+<p>Por eso hay dos reglas de oro:</p>
+<ul>
+    <li><b>Si tu caso de uso modifica una entidad y después falla antes de guardar, llamá a <code>DescartarCambios()</code></b> antes de relanzar. <code>ClienteService.ActualizarClienteAsync</code> lo hace en su <code>catch</code>.</li>
+    <li><b>Si el guardado falla, no hace falta:</b> <code>UnitOfWork.SaveChangesAsync</code> ya descartó.</li>
+</ul>
+<p>Además, tras un guardado <b>exitoso</b> se libera el seguimiento, para que la próxima lectura traiga datos frescos y no choque con un conflicto falso (por ejemplo, <code>CompraService</code> lo hace tras guardar).</p>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>El <b>repositorio anota</b> y el <b>Unit of Work confirma</b>. Se encuentran porque comparten <b>la misma instancia de <code>DbContext</code></b> (Scoped por pantalla).</li>
+    <li>Un <code>SaveChangesAsync</code> es <b>una transacción</b>: todo lo anotado (de uno o de varios repositorios) se guarda junto o no se guarda nada. Usá la transacción explícita solo cuando necesitás dos guardados.</li>
+    <li>Un conflicto de concurrencia y una violación de unicidad llegan como excepciones de Aplicación, ya con el contexto limpio. Si fallás vos antes de guardar, limpiá con <code>DescartarCambios()</code>.</li>
+</ul>
+</div>
+
+<details><summary>Autoevaluación 5: si el repositorio y el Unit of Work recibieran cada uno su propio <code>DbContext</code>, ¿qué pasaría?</summary>
+<p>El repositorio anotaría el cliente en el seguimiento de <b>su</b> contexto, y el Unit of Work llamaría a <code>SaveChanges</code> sobre <b>otro</b> contexto que no sabe nada de ese cliente: guardaría cero filas y no daría error. Es una falla silenciosa. Por eso el <code>DbContext</code> es <i>Scoped</i> (uno por pantalla, compartido por todas las piezas de esa pantalla) y por eso <code>ValidateScopes</code> está activado: para que el contenedor impida resolverlo con un ciclo de vida equivocado.</p>
+</details>
+
+<!-- ============================================================ 6 · PRUEBAS -->
+<h2 id="pruebas">6 · Cómo se prueba cada capa</h2>
+<span class="etiqueta">Una suite por capa</span>
+
+<p>Cada capa tiene su proyecto de pruebas y reemplaza por dobles <b>solo lo que queda afuera de la capa</b>. Por eso hay pruebas muy rápidas (dominio y validadores, que son código puro) y otras más lentas (las que usan SQL Server de verdad). El nombre de cada prueba sigue la convención <code>Metodo_Condicion_ResultadoEsperado</code>, y el cuerpo, <i>Arrange, Act, Assert</i> (preparar, ejecutar, verificar).</p>
+
+<table>
+<tr><th>Capa</th><th>Proyecto</th><th>Qué se reemplaza</th><th>Una prueba real de <code>Cliente</code></th></tr>
+<tr><td>Dominio</td><td><code>Retail.Domain.UnitTests</code></td><td>Nada: es código puro</td><td><code>Crear_PersonaFisicaConDni_NormalizaNombreYDocumento</code></td></tr>
+<tr><td>Validador</td><td><code>Retail.Application.UnitTests/Validators</code></td><td>Nada: el validador es real</td><td><code>CrearClienteValidator_RazonSocialVacia_DebeFallar</code></td></tr>
+<tr><td>Servicio</td><td><code>Retail.Application.UnitTests/Services</code></td><td>El repositorio y el Unit of Work (NSubstitute)</td><td><code>CrearClienteAsync_DatosValidos_AgregaPersisteYRetornaDto</code></td></tr>
+<tr><td>Consulta y persistencia</td><td><code>Retail.Infrastructure.IntegrationTests</code></td><td>Nada: SQL Server Express real</td><td><code>ObtenerClientesPaginadosAsync_ConPaginacionYMetricasDeuda_CalculaEnServidor</code></td></tr>
+<tr><td>ViewModel</td><td><code>Retail.App.UnitTests/ViewModels</code></td><td>El servicio y el diálogo</td><td><code>CargarClientesAsync_DebeCargarClientesYCalcularMetricas</code></td></tr>
+<tr><td>Vista</td><td><code>Retail.App.UnitTests</code></td><td>El servicio (la vista se instancia de verdad)</td><td><code>ClientesView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones</code></td></tr>
+<tr><td>Contenedor</td><td><code>Retail.App.UnitTests</code></td><td>Nada: usa el registro real</td><td><code>RegistrarServicios_DosScopes_ResuelvenDbContextDistintos</code></td></tr>
+</table>
+
+<p>Tres ejemplos reales, uno por capa, para que veas la forma:</p>
+
+<p class="archivo"><code>tests/Retail.Domain.UnitTests/Entities/ClienteTests.cs</code></p>
+<pre class="codigo">[Fact]
+public void Crear_PersonaFisicaConDni_NormalizaNombreYDocumento()
+{
+    // Act
+    var cliente = Cliente.Crear("  PÉREZ   juan ", TipoDocumentoEnum.Dni, "12.345.678", CondicionIvaEnum.ConsumidorFinal);
+
+    // Assert
+    cliente.RazonSocialONombre.Should().Be("Pérez Juan");
+    cliente.NumeroDocumento.Should().Be("12345678");
+    cliente.TieneCuentaCorriente.Should().BeFalse();
+}</pre>
+
+<p class="archivo"><code>tests/Retail.Application.UnitTests/Services/ClienteServiceTests.cs</code></p>
+<pre class="codigo">[Fact]
+public async Task CrearClienteAsync_DatosValidos_AgregaPersisteYRetornaDto()
+{
+    // Arrange
+    var dto = new CrearClienteDto
+    {
+        RazonSocialONombre = "Distribuidora Norte",
+        TipoDocumento = TipoDocumentoEnum.Cuit,
+        NumeroDocumento = "30-33445566-8",
+        CondicionIva = CondicionIvaEnum.ResponsableInscripto,
+        TieneCuentaCorriente = true,
+        LimiteCredito = 60000m
+    };
+
+    _clienteRepository.FindAsync(Arg.Any&lt;Expression&lt;Func&lt;Cliente, bool&gt;&gt;&gt;(), Arg.Any&lt;CancellationToken&gt;())
+        .Returns(new List&lt;Cliente&gt;());                     // el doble de prueba dice: "no hay duplicados"
+
+    // Act
+    var result = await _sut.CrearClienteAsync(dto);
+
+    // Assert
+    result.RazonSocialONombre.Should().Be("Distribuidora Norte");
+    await _clienteRepository.Received(1).AddAsync(Arg.Any&lt;Cliente&gt;(), Arg.Any&lt;CancellationToken&gt;());
+    await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any&lt;CancellationToken&gt;());
+}</pre>
+
+<p class="archivo"><code>tests/Retail.App.UnitTests/ViewModels/ClientesViewModelTests.cs</code></p>
+<pre class="codigo">[Fact]
+public async Task CargarClientesAsync_DebeCargarClientesYCalcularMetricas()
+{
+    // Act
+    await _sut.CargarClientesCommand.ExecuteAsync(null);
+
+    // Assert
+    _sut.Clientes.Should().HaveCount(3);
+    _sut.TotalClientes.Should().Be(3);
+    _sut.TotalClientesConDeuda.Should().Be(1);
+    _sut.IsBusy.Should().BeFalse();
+}</pre>
+
+<p>Fijate en la prueba del servicio. No hay base de datos ni ventana: se verifica que el servicio <b>le pidió al repositorio que agregara</b> el cliente (<code>Received(1).AddAsync</code>) y <b>le pidió al Unit of Work que guardara</b> (<code>Received(1).SaveChangesAsync</code>). Eso es probar el <i>orquestado</i>, que es justamente lo que hace un servicio. Lo que no se prueba ahí (si el SQL es correcto, si el índice único funciona) se prueba en la suite de integración, con SQL Server real.</p>
+
+<div class="nota"><b>Una regla para decidir dónde va cada prueba.</b> Preguntate <i>qué capa tiene la responsabilidad</i> que querés verificar. Que un nombre se normalice es del <b>dominio</b>; que un campo vacío dé error por campo es del <b>validador</b>; que se llame al repositorio y se guarde es del <b>servicio</b>; que el filtro llegue a SQL es de la <b>consulta</b> (integración); que un botón habilite o deshabilite es del <b>ViewModel</b>. Una regla probada en la capa equivocada obliga a armar mucho escenario para verificar poco.</div>
+
+<!-- ============================================================ 7 · RECETA -->
+<h2 id="receta">7 · Receta para un CRUD nuevo</h2>
+<span class="etiqueta">De adentro hacia afuera</span>
+
+<p>Cuando tengas que agregar un módulo nuevo, el orden es el de las capas, <b>de adentro hacia afuera</b>: dominio, aplicación, infraestructura y pantalla. Cada capa termina con sus pruebas antes de pasar a la siguiente, así un problema se detecta donde nace.</p>
+
+<figure>
+<figcaption>Diagrama 7.1 · el orden de trabajo</figcaption>
+<pre class="mermaid">
+flowchart LR
+    P0["0 · Leer el mapa&lt;br/&gt;y planificar"] --&gt; P1["1 · Dominio&lt;br/&gt;entidad y reglas"]
+    P1 --&gt; P2["2 · Aplicación&lt;br/&gt;DTO, validador,&lt;br/&gt;servicio, contratos"]
+    P2 --&gt; P3["3 · Infraestructura&lt;br/&gt;configuración, consulta,&lt;br/&gt;migración"]
+    P3 --&gt; P4["4 · Pantalla&lt;br/&gt;ViewModels, vista,&lt;br/&gt;diálogo, navegación"]
+    P4 --&gt; P5["5 · Cierre&lt;br/&gt;verificación y mapa"]
+</pre>
+</figure>
+
+<table>
+<tr><th>Paso</th><th>Qué hacer</th><th>Archivos (ejemplo con una entidad <code>X</code>)</th></tr>
+<tr><td><b>0</b></td><td>Leer <code>docs/MAPA_DEL_PROYECTO.md</code> y <code>docs/SISTEMA_DE_PERSISTENCIA.md</code> (y el sistema de diseño si hay vistas). Escribir el plan y esperar la aprobación</td><td>—</td></tr>
+<tr><td><b>1</b></td><td><b>Dominio.</b> Entidad que hereda de <code>BaseEntity</code> e implementa <code>IAggregateRoot</code>; propiedades con <code>private set</code>, constructor privado, método fábrica <code>Crear</code> y métodos de negocio; enumeraciones y excepciones propias si hacen falta. Pruebas de dominio</td><td><code>Retail.Domain/Entities/X.cs</code><br><code>Retail.Domain.UnitTests/Entities/XTests.cs</code></td></tr>
+<tr><td><b>2</b></td><td><b>Aplicación.</b> DTO de crear, de actualizar, de salida y de consulta paginada; un validador por DTO de entrada; el contrato <code>IXService</code>, el contrato <code>IXQueryService</code> y la clase <code>XService</code>. Registrar el servicio en <code>AddApplicationServices</code> (los validadores se registran solos). Pruebas de validador y de servicio</td><td><code>Application/DTOs/X/</code><br><code>Application/Validators/X/</code><br><code>Application/Interfaces/Services/IXService.cs</code><br><code>Application/Interfaces/Persistence/IXQueryService.cs</code><br><code>Application/Services/XService.cs</code></td></tr>
+<tr><td><b>3</b></td><td><b>Infraestructura.</b> Agregar el <code>DbSet</code> al <code>RetailDbContext</code>; escribir <code>XConfiguration</code> (tabla, columnas, índices, restricciones); implementar <code>XQueryService</code> con <code>AsNoTracking</code> y proyección a DTO; registrarlo en <code>AddInfrastructureServices</code>; generar la migración de EF Core y actualizar el DER. Pruebas de integración</td><td><code>Infrastructure/Persistence/Configurations/XConfiguration.cs</code><br><code>Infrastructure/Persistence/Services/XQueryService.cs</code><br><code>Infrastructure/Persistence/Migrations/</code></td></tr>
+<tr><td><b>4</b></td><td><b>Pantalla.</b> ViewModel de la lista y del formulario; vista y diálogo en XAML con los recursos del sistema de diseño; <code>IXDialogService</code> y su implementación; registrar en <code>App.xaml.cs</code> (diálogo Scoped, ViewModels y vistas Transient) y agregar la entrada en <code>RegistroNavegacion</code> con su política de acceso. Pruebas de ViewModel, de humo STA y de captura</td><td><code>App/ViewModels/X/</code><br><code>App/Views/Pages/XView.xaml</code><br><code>App/Views/Dialogs/XFormDialog.xaml</code><br><code>App/Services/IXDialogService.cs</code></td></tr>
+<tr><td><b>5</b></td><td><b>Cierre.</b> Auditoría de recursos XAML, compilación en Release sin advertencias, pruebas, verificación de formato y actualización del mapa semántico</td><td><code>scripts/audit-xaml.ps1</code><br><code>docs/MAPA_DEL_PROYECTO.md</code></td></tr>
+</table>
+
+<p>Algunas precauciones que ahorran problemas:</p>
+<ul>
+    <li><b>No crees un repositorio para una entidad interna.</b> Si tu módulo tiene renglones (como <code>DetallePedido</code>), se agregan y se quitan a través de la raíz.</li>
+    <li><b>Las zonas compartidas (<code>App.xaml.cs</code>, los archivos de inyección, <code>MainWindow</code>) solo se tocan para <i>agregar</i> tus registros.</b> Nunca cambies el constructor de <code>MainWindow</code> ni el ciclo de vida de lo que ya existe (Ley 10).</li>
+    <li><b>Toda vista o diálogo nuevo necesita una prueba de humo STA</b> y, si es una página de listado o un diálogo, su captura de pantalla (Ley 9).</li>
+    <li><b>Una migración abierta por vez.</b> Si dos ramas generan migraciones, la que se integra segunda las regenera sobre la instantánea nueva.</li>
+    <li>Los archivos usan finales de línea CRLF, estilo Allman y sin advertencias del compilador.</li>
+</ul>
+
+<div class="llevarte"><b>Qué tenés que llevarte</b>
+<ul>
+    <li>El orden es <b>dominio, aplicación, infraestructura, pantalla</b>. Si empezás por la pantalla, vas a inventar reglas en el lugar equivocado.</li>
+    <li>Cada capa se entrega con <b>sus pruebas</b>. Si el servicio no se puede probar sin una base real, algo está mal ubicado.</li>
+    <li>Un CRUD nuevo toca unos <b>veinte archivos</b>, pero ninguno es difícil: todos copian la forma de los de <code>Cliente</code>.</li>
+</ul>
+</div>
+
+<!-- ============================================================ 8 · DESVÍOS -->
+<h2 id="desvios">8 · Dónde el arquetipo se desvía</h2>
+<span class="etiqueta">El esqueleto no es un molde rígido</span>
+
+<p>Lo que viste es la <b>forma común</b>, no una regla sin excepciones. Al recorrer el código vas a encontrar módulos que se apartan, casi siempre por una razón. Conviene reconocerlas para no confundirlas con errores, y también para distinguir cuáles son decisiones y cuáles son simplemente restos del camino:</p>
+
+<table>
+<tr><th>Dónde</th><th>Qué se desvía</th><th>Por qué (o qué conviene saber)</th></tr>
+<tr><td><code>PedidoService</code></td><td>Un lote que modifica <b>varios agregados</b> con un solo guardado, y llama a <code>UpdateAsync</code> aunque la entidad ya esté rastreada</td><td>El lote tiene que ser atómico. Y el <code>row_version</code> vive en la cabecera: sin <code>UpdateAsync</code>, un cambio solo en los renglones no versionaría el pedido y la concurrencia no se controlaría</td></tr>
+<tr><td><code>TerminoClasificacionService</code></td><td>Una <b>transacción explícita</b> con dos guardados</td><td>El segundo guardado necesita un id que recién existe tras el primero</td></tr>
+<tr><td>Reportes (<code>ReporteService</code>)</td><td>No hay entidad ni repositorio propios: solo un servicio de consulta</td><td>Es solo lectura. El servicio, además, <b>autoriza al Gerente</b> por sí mismo</td></tr>
+<tr><td>Operaciones de administración de la base</td><td>Se registran en un método aparte (<code>AddAdministracionSistema</code>) que solo invoca <code>Retail.Cli</code></td><td>La aplicación de escritorio no debe poder ejecutarlas: no están en su contenedor</td></tr>
+<tr><td>Modales de pedido</td><td>El modal <b>devuelve un resultado</b> y quien lo abrió guarda, en lugar del <i>callback</i> que usa el formulario de cliente</td><td>El modal no llama a servicios: el coordinador decide qué hacer con la respuesta</td></tr>
+</table>
+
+<p>Y algunas cosas de <code>Cliente</code> mismo que, a mi juicio, vale la pena que conozcas antes de copiarlas como modelo:</p>
+<ul>
+    <li><b>El servicio de clientes tiene un respaldo en memoria para el listado.</b> Recibe <code>IClienteQueryService?</code> como dependencia <i>opcional</i> y, si no llega, filtra y pagina en memoria con LINQ. En producción el contenedor siempre lo entrega, así que ese camino no corre, pero mantiene <b>dos implementaciones de la misma consulta</b> (la de SQL y la de memoria), y la de memoria contradice la Ley 8. Las pruebas del servicio ejercitan ese respaldo. Para un módulo nuevo, conviene que el servicio de consulta sea obligatorio.</li>
+    <li><b>Usa excepciones estándar de .NET</b> (<code>InvalidOperationException</code>, <code>KeyNotFoundException</code>), mientras que módulos más nuevos como pedidos usan <code>DomainException</code>. Funcionan igual de cara a la pantalla (que muestra el mensaje), pero un tipo propio permite distinguir un error de negocio de uno técnico.</li>
+    <li><b>El servicio de diálogo crea el formulario con <code>new</code></b> (<code>new ClienteFormViewModel()</code>, <code>new ClienteFormDialog(vm)</code>) en lugar de pedírselo al contenedor. Funciona porque ese ViewModel no tiene dependencias; si las tuviera, habría que resolverlo por el contenedor, como hace el mismo servicio para el modal de cobranza.</li>
+    <li><b>No hay verificación de rol en el servicio.</b> La restricción de quién puede ver la pantalla de clientes está en la navegación (política <code>Operadores</code>), pero <code>ClienteService</code> no recibe el usuario que pide la operación. <code>ReporteService</code> sí lo hace. Es una deuda conocida del proyecto para los servicios operativos.</li>
+    <li><b>El mismo servicio mezcla el CRUD con las cobranzas</b> (por eso tiene siete dependencias). Es el motivo por el que este documento recorta ese tramo.</li>
+</ul>
+
+<!-- ============================================================ DEFENSA -->
+<h2 id="defensa">Defensa · Preguntas probables</h2>
+<span class="etiqueta">Preparación para la defensa</span>
+
+<details><summary>Pregunta probable: ¿por qué <code>ClienteService</code> recibe interfaces y no crea el repositorio con <code>new</code>?</summary>
+<p>Por el principio de inversión de dependencias (la «D» de SOLID): las clases de alto nivel no deben depender de detalles de bajo nivel. Si <code>ClienteService</code> creara un <code>Repository&lt;Cliente&gt;</code>, quedaría atado a Entity Framework y a una base real, y no se podría probar en aislamiento. Con la interfaz en el constructor, el contenedor entrega la implementación real y una prueba entrega un doble. Además, la interfaz vive en Aplicación y la implementación en Infraestructura: es lo que hace cumplir la regla de dependencia.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué se valida en el validador y también en el dominio? ¿No es duplicar?</summary>
+<p>Cumplen funciones distintas. El validador está en la frontera y da <b>mensajes por campo, todos juntos</b>, para que el usuario corrija de una vez. El dominio es la <b>última barrera</b>: garantiza que ninguna entidad inválida exista aunque otro código lo llame sin pasar por el validador. No se duplican las reglas: el validador reutiliza las del dominio (por ejemplo, <code>Cliente.EsNombreValido</code>). Lo único que se repite a propósito son las restricciones críticas en la base de datos (<code>CHECK</code>, índices únicos), porque son la defensa contra dos terminales actuando a la vez.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué hay un repositorio y, además, un servicio de consulta?</summary>
+<p>Porque escribir y leer tienen necesidades opuestas. Para <b>escribir</b> se carga una entidad completa con seguimiento, se la modifica a través de su dominio y se guarda. Para <b>mostrar</b> un listado basta con una proyección a DTO, filtrada, ordenada y paginada <b>dentro de SQL Server</b>, sin seguimiento. Usar el repositorio para listar obligaría a traer entidades completas a memoria (RNF-03) y a filtrar fuera del motor (Ley 8). Es una versión liviana de CQRS: una vía para el comando y otra para la consulta.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué solo las raíces de agregado tienen repositorio?</summary>
+<p>Porque una raíz es la <b>única puerta de entrada</b> a su grupo de entidades, y es la que protege sus invariantes. Si <code>DetalleVenta</code> tuviera su propio repositorio, alguien podría modificar un renglón sin pasar por <code>Venta</code> y romper la regla de que el total coincida con los pagos. El tipo genérico <code>IRepository&lt;T&gt; where T : BaseEntity, IAggregateRoot</code> hace que ese error ni compile.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué el <code>DbContext</code> es Scoped, y por qué un alcance por pantalla?</summary>
+<p>Scoped hace que todas las piezas de una operación compartan <b>un</b> contexto, que es lo que permite que el repositorio y el Unit of Work se encuentren. Un alcance por pantalla hace que dos pantallas nunca compartan entidades rastreadas (lo que una modifique sin guardar no contamina a la otra) y que al salir de una se libere su contexto y la memoria que usaba (RNF-03). Si fuera Singleton viviría para siempre y acumularía entidades; si fuera Transient, cada pieza tendría el suyo y el Unit of Work no vería lo que anotó el repositorio.</p>
+</details>
+
+<details><summary>Pregunta probable: si EF Core ya es un Unit of Work, ¿para qué tienen <code>IUnitOfWork</code>?</summary>
+<p>Porque Aplicación no puede depender de Entity Framework (Ley 1) y necesita un contrato propio para pedir «guardá». Además, la implementación agrega comportamiento: traduce los errores de EF a excepciones de Aplicación (<code>ConflictoDeConcurrenciaException</code>, <code>RestriccionDeUnicidadException</code>) y <b>limpia el contexto cuando el guardado falla</b>, para que un cambio rechazado no se guarde con la próxima operación.</p>
+</details>
+
+<details><summary>Pregunta probable: dos terminales dan de alta el mismo cliente a la vez. ¿Qué pasa?</summary>
+<p>Ambas pasan la comprobación previa (<code>FindAsync</code> no encuentra nada) porque todavía no hay nadie guardado. La primera guarda y la segunda choca con el <b>índice único</b> del documento (filtrado por <code>deleted_at IS NULL</code>). SQL Server rechaza la inserción, el Unit of Work lo traduce a <code>RestriccionDeUnicidadException</code>, descarta los cambios pendientes y el formulario muestra el error sin perder lo escrito. La comprobación previa da el mensaje amable en el caso común; el índice es la garantía real.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué el borrado es lógico, y cómo no choca con el índice único del documento?</summary>
+<p>En un sistema comercial no se pierde el historial: las ventas y cobranzas de un cliente deben seguir existiendo aunque el cliente se dé de baja (Ley 3). Se marca <code>DeletedAt</code> y un filtro global oculta esa fila en todas las consultas. El índice único del documento se declara <b>solo para las filas vigentes</b> (<code>WHERE deleted_at IS NULL</code>), así que un cliente dado de baja libera su documento y se puede volver a registrar.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué <code>ClienteService</code> llama a <code>DescartarCambios</code> en un caso y no en otro?</summary>
+<p>Si el <b>guardado</b> falla, el Unit of Work ya descarta. Pero si el <b>dominio rechaza</b> una operación después de que otra parte del caso de uso ya modificó la entidad (por ejemplo, <code>ActualizarDatos</code> cambió el nombre y luego se rechaza el límite de crédito), el guardado nunca se intenta y nada limpia el seguimiento. Como el contexto vive lo que la pantalla, ese cambio «a medio hacer» se guardaría con la próxima operación exitosa. Por eso el servicio descarta explícitamente en su <code>catch</code>, y hay una prueba que lo exige.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿qué pasa si un Singleton recibe un servicio Scoped?</summary>
+<p>El servicio Scoped queda capturado para siempre (<i>captive dependency</i>): un <code>DbContext</code> viviría más que su pantalla y compartiría estado entre pantallas. El proyecto lo previene con <code>ValidateScopes</code> y <code>ValidateOnBuild</code>, que hacen fallar el arranque, y con una prueba que construye el proveedor con la configuración real. Cuando un Singleton necesita algo Scoped, no lo recibe: recibe <code>IServiceScopeFactory</code> y crea un alcance cuando lo necesita.</p>
+</details>
+
+<details><summary>Pregunta probable: ¿por qué el ViewModel no usa directamente el <code>DbContext</code>?</summary>
+<p>Porque rompería la regla de dependencia (Ley 1): la pantalla pasaría a conocer el esquema y a saltearse las validaciones y reglas del dominio. Y haría imposible probar el ViewModel sin una base. Con el servicio por interfaz, la prueba del ViewModel reemplaza al servicio y verifica solo lo suyo: que cargue la lista, que cambie el estado de «ocupado» y que habilite o deshabilite los botones.</p>
+</details>
+
+<div class="llevarte"><b>Resumen de lo aprendido</b>
+<ul>
+    <li><b>Una pieza, una responsabilidad:</b> entidad (reglas), DTO (datos), validador (entrada), servicio (orden), repositorio (cargar y anotar), consulta (leer en SQL), configuración (esquema), ViewModel (estado), vista (enlace), diálogo (ventanas).</li>
+    <li><b>Las dependencias apuntan hacia adentro</b> y se entregan por interfaces. Esa es la regla que sostiene todo lo demás.</li>
+    <li><b>El contenedor construye el grafo.</b> El <b>ciclo de vida</b> decide quién comparte qué: Scoped por pantalla hace que el repositorio y el Unit of Work compartan un contexto.</li>
+    <li><b>El repositorio anota, el Unit of Work confirma.</b> Un <code>SaveChangesAsync</code> es una transacción: todo o nada. Los errores de guardado llegan traducidos y con el contexto limpio.</li>
+    <li><b>Escribir y leer van por caminos distintos:</b> entidad y repositorio para escribir; DTO y consulta en SQL para mostrar.</li>
+    <li><b>Nunca se borra:</b> se marca. Un filtro global y un índice filtrado hacen que la baja lógica sea invisible y no estorbe.</li>
+    <li><b>Cada capa se prueba en su proyecto</b> y reemplaza solo lo que queda afuera de ella.</li>
+</ul>
+</div>
+
+<p class="pie">El ejemplo es el módulo de clientes (RF-20); los criterios de lectura en SQL responden a RNF-03. Reglas citadas: Leyes 1 (dependencia), 2 (raíces y repositorios), 3 (borrado lógico), 4 (hilo de la interfaz), 8 (consultas en el servidor), 9 (diseño y pruebas de vistas) y 10 (Shell) de <code>AGENTS.md</code>. Decisiones citadas (H-19, D-15, A-10, T-1) en los documentos de cada track bajo <code>docs/roadmap/</code>. El mapa de carpetas completo está en <code>docs/MAPA_DEL_PROYECTO.md</code> y las reglas de persistencia en <code>docs/SISTEMA_DE_PERSISTENCIA.md</code>.</p>
+
+</main>
+<script src="../recursos/recorridos.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script src="../recursos/comun.js"></script>
+</body>
+</html>
