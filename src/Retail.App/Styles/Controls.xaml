@@ -836,6 +836,60 @@
         </Setter>
     </Style>
 
+    <!-- Logo de Retail (Views/Components/LogoRetail.cs). Tres lienzos de proporciones fijas, uno por variante, dentro de
+         un Viewbox: el control se dimensiona con Height y el ancho sale de la proporción. Las medidas reproducen los SVG
+         del sistema de marca: símbolo de 48, separación de 15 y wordmark con la altura de mayúscula a 0,77 del símbolo.
+         Colores y geometrías del símbolo son DynamicResource: al cambiar de tema, el logo toma la paleta y la
+         compensación óptica de Colors.Dark.xaml sin código extra. -->
+    <Style TargetType="components:LogoRetail">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="SnapsToDevicePixels" Value="False" />
+        <Setter Property="AutomationProperties.Name" Value="Retail" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="components:LogoRetail">
+                    <Grid>
+                        <Viewbox x:Name="PART_Horizontal" Stretch="Uniform">
+                            <Canvas Width="186.52" Height="48">
+                                <Path Data="{DynamicResource GeometryLogoBloques}" Fill="{DynamicResource TextPrimaryBrush}" />
+                                <Path Data="{DynamicResource GeometryLogoPunto}" Fill="{DynamicResource PrimaryBrush}" />
+                                <Path Canvas.Left="63" Canvas.Top="5.46" Data="{StaticResource GeometryLogoWordmark}" Fill="{DynamicResource TextPrimaryBrush}" />
+                            </Canvas>
+                        </Viewbox>
+                        <Viewbox x:Name="PART_Vertical" Stretch="Uniform" Visibility="Collapsed">
+                            <Canvas Width="69.96" Height="82.8">
+                                <Path Canvas.Left="10.98" Data="{DynamicResource GeometryLogoBloques}" Fill="{DynamicResource TextPrimaryBrush}" />
+                                <Path Canvas.Left="10.98" Data="{DynamicResource GeometryLogoPunto}" Fill="{DynamicResource PrimaryBrush}" />
+                                <Path Canvas.Top="60" Data="{StaticResource GeometryLogoWordmark}" Fill="{DynamicResource TextPrimaryBrush}">
+                                    <Path.RenderTransform>
+                                        <ScaleTransform ScaleX="0.5664" ScaleY="0.5664" />
+                                    </Path.RenderTransform>
+                                </Path>
+                            </Canvas>
+                        </Viewbox>
+                        <Viewbox x:Name="PART_Simbolo" Stretch="Uniform" Visibility="Collapsed">
+                            <Canvas Width="48" Height="48">
+                                <Path Data="{DynamicResource GeometryLogoBloques}" Fill="{DynamicResource TextPrimaryBrush}" />
+                                <Path Data="{DynamicResource GeometryLogoPunto}" Fill="{DynamicResource PrimaryBrush}" />
+                            </Canvas>
+                        </Viewbox>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Variante" Value="Vertical">
+                            <Setter TargetName="PART_Horizontal" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="PART_Vertical" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="Variante" Value="Simbolo">
+                            <Setter TargetName="PART_Horizontal" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="PART_Simbolo" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Barra de título de los diálogos: una banda de 56 px sobre el mismo fondo gris del diálogo (sin franja propia), con
          el título de 20 SemiBold (DM Sans Display) a 28 px del borde -la vertical del contenido de las secciones- y, a la
          derecha, minimizar / maximizar / cerrar dibujados como íconos (DialogWindowButtonStyle). La banda es transparente

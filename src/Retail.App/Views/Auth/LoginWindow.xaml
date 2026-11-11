@@ -4,6 +4,7 @@
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   xmlns:helpers="clr-namespace:Retail.App.Helpers"
+                  xmlns:components="clr-namespace:Retail.App.Views.Components"
                   Title="Retail POS - Inicio de Sesión"
                   Width="440"
                   Height="540"
@@ -51,24 +52,11 @@
             <StackPanel>
                 <!-- Logotipo e Identidad Visual -->
                 <StackPanel HorizontalAlignment="Center" Margin="{StaticResource StackXl}">
-                    <Border Background="{DynamicResource PrimaryLightBrush}"
-                            CornerRadius="24"
-                            Width="48"
-                            Height="48"
-                            HorizontalAlignment="Center"
-                            Margin="{StaticResource StackMd}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularLock"
-                                                    Width="24"
-                                                    Height="24"
-                                                    Foreground="{DynamicResource PrimaryBrush}"
-                                                    HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center" />
-                    </Border>
-
-                    <TextBlock Text="Retail POS"
-                               Style="{StaticResource TextBlockHeader1}"
-                               Foreground="{DynamicResource PrimaryBrush}"
-                               HorizontalAlignment="Center" />
+                    <!-- Logo horizontal de Retail, la versión principal de la marca (Views/Components/LogoRetail.cs). -->
+                    <components:LogoRetail Variante="Horizontal"
+                                           Height="34"
+                                           HorizontalAlignment="Center"
+                                           Margin="{StaticResource StackMd}" />
 
                     <TextBlock Text="Acceso a Mostrador y Gestión"
                                Style="{StaticResource TextBlockBodySecondary}"

@@ -241,6 +241,37 @@
                 <StackPanel><iconPacks:PackIconBoxIcons Kind="RegularAlertTriangle" Foreground="{DynamicResource WarningBrush}" /><TextBlock Text="Alerta · AlertTriangle" Style="{StaticResource TextBlockBody}" /></StackPanel>
             </WrapPanel>
 
+            <!-- A.5 Marca -->
+            <TextBlock Text="Marca" Style="{StaticResource GaleriaSeccionStyle}" />
+            <TextBlock Text="Logo de Retail (LogoRetail): se dimensiona con Height. Horizontal es la versión principal (inicio de sesión); Vertical, para espacios centrados y cuadrados; Símbolo, cuando el nombre ya está escrito al lado. En oscuro toma solo la compensación óptica (juntas de 4,8). Nunca se recolorea."
+                       Style="{StaticResource GaleriaNotaStyle}" />
+            <WrapPanel>
+                <StackPanel Margin="0,0,48,12" VerticalAlignment="Bottom">
+                    <TextBlock Text="Horizontal" Style="{StaticResource GaleriaRotuloStyle}" />
+                    <components:LogoRetail Variante="Horizontal" Height="40" HorizontalAlignment="Left" />
+                </StackPanel>
+                <StackPanel Margin="0,0,48,12" VerticalAlignment="Bottom">
+                    <TextBlock Text="Vertical" Style="{StaticResource GaleriaRotuloStyle}" />
+                    <components:LogoRetail Variante="Vertical" Height="72" HorizontalAlignment="Left" />
+                </StackPanel>
+                <StackPanel Margin="0,0,48,12" VerticalAlignment="Bottom">
+                    <TextBlock Text="Símbolo · 16 · 24 · 32" Style="{StaticResource GaleriaRotuloStyle}" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                        <components:LogoRetail Variante="Simbolo" Height="16" Margin="0,0,12,0" VerticalAlignment="Bottom" />
+                        <components:LogoRetail Variante="Simbolo" Height="24" Margin="0,0,12,0" VerticalAlignment="Bottom" />
+                        <components:LogoRetail Variante="Simbolo" Height="32" VerticalAlignment="Bottom" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Margin="0,0,0,12" VerticalAlignment="Bottom">
+                    <TextBlock Text="Ícono de la app · ImagenIconoApp" Style="{StaticResource GaleriaRotuloStyle}" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                        <Image Source="{StaticResource ImagenIconoApp}" Width="16" Height="16" Margin="0,0,12,0" VerticalAlignment="Bottom" />
+                        <Image Source="{StaticResource ImagenIconoApp}" Width="32" Height="32" Margin="0,0,12,0" VerticalAlignment="Bottom" />
+                        <Image Source="{StaticResource ImagenIconoApp}" Width="48" Height="48" VerticalAlignment="Bottom" />
+                    </StackPanel>
+                </StackPanel>
+            </WrapPanel>
+
             <!-- ============================================================================================ -->
             <!-- B. COMPONENTES                                                                               -->
             <!-- ============================================================================================ -->

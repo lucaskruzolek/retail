@@ -9,6 +9,8 @@
          activos .NET Framework: NuGet los restaura igual (NU1701) y funcionan en net8.0-windows. Se silencia ese único
          aviso para no relajar TreatWarningsAsErrors en el resto del proyecto. -->
     <NoWarn>$(NoWarn);NU1701</NoWarn>
+    <!-- Ícono del ejecutable, el acceso directo y la barra de tareas (8 tamaños, de 16 a 256 px). -->
+    <ApplicationIcon>Assets\Retail.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
