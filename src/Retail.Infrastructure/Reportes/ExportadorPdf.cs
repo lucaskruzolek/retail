@@ -3,6 +3,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using Retail.Application.DTOs.Reportes.Exportacion;
+using Retail.Infrastructure.Pdf;
 
 namespace Retail.Infrastructure.Reportes;
 
@@ -19,30 +20,8 @@ internal static class ExportadorPdf
     // Desde esta cantidad de columnas el documento sale apaisado y la tabla usa letra chica (D-34).
     private const int ColumnasParaApaisar = 8;
 
-    /// <summary>
-    /// Fuente del documento: la misma que la interfaz (sistema de diseño), instalada en Windows 10 y 11. R-12: la fuente
-    /// por defecto de QuestPDF (Lato) se distribuye como un archivo suelto que el ejecutable único no embebe, y desde
-    /// QuestPDF 2026.9.0 una fuente faltante detiene la generación del PDF en lugar de reemplazarse.
-    /// </summary>
-    internal const string FuenteDelDocumento = "Segoe UI";
-
-    static ExportadorPdf()
-    {
-        // Licencia Community de QuestPDF (MIT): gratuita para uso educativo y para empresas con facturación anual
-        // bruta menor a USD 1 M. Sin esta línea, QuestPDF lanza una excepción al generar el primer documento.
-        QuestPDF.Settings.License = LicenseType.Community;
-
-        // R-12: se usan las fuentes instaladas en Windows (Segoe UI) en lugar de depender de un archivo junto al .exe.
-        QuestPDF.Settings.UseSystemFonts = true;
-
-        // QuestPDF agrega Lato como familia de respaldo después de la elegida ("Segoe UI", "Lato"), y con este control
-        // habilitado (valor por defecto desde 2026.9.0) detiene el PDF si falta CUALQUIER familia de la lista, aunque la
-        // primera esté disponible: el .exe copiado sin QuestPDF.Fonts.Lato.br fallaba siempre (verificado en la prueba
-        // R-5). Deshabilitado, usa la primera familia disponible; Segoe UI viene con Windows y Lato viaja en el ZIP de la
-        // release. ThrowOnMissingTextGlyphs queda habilitado: un carácter que ninguna fuente puede dibujar sigue
-        // deteniendo la generación en lugar de imprimirse mal.
-        QuestPDF.Settings.ThrowOnMissingFontFamilies = false;
-    }
+    /// <summary>Fuente del documento (ver <see cref="ConfiguracionQuestPdf.FuenteDelDocumento"/>).</summary>
+    internal const string FuenteDelDocumento = ConfiguracionQuestPdf.FuenteDelDocumento;
 
     public static void Exportar(DocumentoReporte documento, Stream destino)
     {
@@ -52,6 +31,8 @@ internal static class ExportadorPdf
     /// <summary>Arma el documento QuestPDF sin escribirlo; los tests lo usan para inspeccionar las páginas como imágenes.</summary>
     internal static Document CrearDocumento(DocumentoReporte documento)
     {
+        ConfiguracionQuestPdf.Inicializar();
+
         // Los gráficos se renderizan antes de armar el documento: QuestPDF puede componer el contenido más de una vez.
         var imagenes = documento.Graficos.Select(g => (Grafico: g, Png: RenderizadorGraficos.RenderizarPng(g))).ToList();
 

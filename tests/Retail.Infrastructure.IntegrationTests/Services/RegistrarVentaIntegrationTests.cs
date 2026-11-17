@@ -235,7 +235,7 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
             new CrearVentaValidator(),
             Substitute.For<ITicketPrinterService>(),
             new Repository<Presupuesto>(context),
-            Substitute.For<IPresupuestoQueryService>(),
+            new PresupuestoQueryService(context),
             TimeProvider.System);
     }
 

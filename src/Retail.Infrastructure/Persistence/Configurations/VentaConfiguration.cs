@@ -89,6 +89,13 @@ public class VentaConfiguration : IEntityTypeConfiguration<Venta>
             .HasForeignKey(v => v.IdCliente)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // PS-13: un presupuesto genera como máximo una venta. Es la última barrera si dos terminales lo convierten a la
+        // vez y el rowversion no alcanzara; las ventas sin presupuesto (NULL) no compiten por el índice.
+        builder.HasIndex(v => v.IdPresupuestoOrigen)
+            .IsUnique()
+            .HasFilter("[id_presupuesto_origen] IS NOT NULL")
+            .HasDatabaseName("IX_VENTAS_IdPresupuestoOrigen");
+
         builder.HasOne(v => v.PresupuestoOrigen)
             .WithMany()
             .HasForeignKey(v => v.IdPresupuestoOrigen)

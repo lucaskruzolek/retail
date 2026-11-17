@@ -238,7 +238,7 @@ erDiagram
         int id_turno FK
         int id_usuario FK
         int id_cliente "FK nullable (NULL = Consumidor Final)"
-        int id_presupuesto_origen FK
+        int id_presupuesto_origen FK "UK (filtered): un presupuesto, a lo sumo una venta (PS-13)"
         datetime fecha_hora
         decimal subtotal
         decimal descuento
@@ -268,13 +268,16 @@ erDiagram
     PRESUPUESTOS {
         int id_presupuesto PK
         int id_usuario FK
-        int id_cliente FK
+        int id_cliente FK "nullable (NULL = Consumidor Final)"
+        string titulo "nullable; nota interna (PS-20), nunca se imprime"
         datetime fecha_emision
-        datetime fecha_vencimiento
+        date fecha_vencimiento "fecha local, inclusiva (PS-09)"
         decimal subtotal
         decimal descuento
         decimal total
-        string estado
+        string estado "Pendiente, Convertido, Anulado"
+        datetime fecha_cierre "nullable"
+        rowversion row_version "concurrencia optimista (PS-13)"
         datetime deleted_at
     }
 
@@ -282,6 +285,7 @@ erDiagram
         int id_detalle_presupuesto PK
         int id_presupuesto FK
         int id_articulo FK
+        string descripcion "foto de la descripcion al emitir (PS-11)"
         int cantidad
         decimal precio_unitario_pactado
         decimal subtotal_item

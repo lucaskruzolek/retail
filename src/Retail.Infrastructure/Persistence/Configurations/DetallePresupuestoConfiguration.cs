@@ -26,6 +26,12 @@ public class DetallePresupuestoConfiguration : IEntityTypeConfiguration<DetalleP
             .HasColumnName("id_articulo")
             .IsRequired();
 
+        // Foto de la descripción del artículo al emitir (PS-11).
+        builder.Property(dp => dp.Descripcion)
+            .HasColumnName("descripcion")
+            .HasMaxLength(DetallePresupuesto.LongitudMaximaDescripcion)
+            .IsRequired();
+
         builder.Property(dp => dp.Cantidad)
             .HasColumnName("cantidad")
             .IsRequired();
@@ -52,6 +58,8 @@ public class DetallePresupuestoConfiguration : IEntityTypeConfiguration<DetalleP
         builder.HasOne(dp => dp.Presupuesto)
             .WithMany(p => p.Detalles)
             .HasForeignKey(dp => dp.IdPresupuesto)
+            // Ley 3: no hay borrado físico. La cascada es solo la regla del motor: un presupuesto se anula (cambia de
+            // estado) y sus renglones no se quitan, así que no se ejercita.
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne(dp => dp.Articulo)
