@@ -13,12 +13,12 @@
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
 | P0 | Documentación: ERS 3.4 (Módulo III, rol Cajero, IU-02, IU-13 nueva, IS-05, RF-11, RF-12, trazabilidad), roadmap 5.1, mapa | ✅ Hecha |
-| P1 | Dominio: agregado `Presupuesto` rico, estados, excepción de transición | ⏳ Pendiente |
-| P2 | Aplicación: `PresupuestoService`, validador, DTOs, integración en `VentaService` | ⏳ Pendiente |
-| P3 | Infraestructura: configuración, migración, `PresupuestoQueryService`, `ExportadorPresupuestoPdf` | ⏳ Pendiente |
-| P4 | UI: `PresupuestosView` (consulta) | ⏳ Pendiente |
-| P5 | UI del POS: guardar como presupuesto, recuperar y alerta de conciliación | ⏳ Pendiente |
-| P6 | Cierre: verificación Release, mapa, nota para la wiki | ⏳ Pendiente |
+| P1 | Dominio: agregado `Presupuesto` rico, estados, excepción de transición | ✅ `fcc46c2` |
+| P2 | Aplicación: `PresupuestoService`, validador, DTOs, integración en `VentaService` | ✅ `4fd2226` |
+| P3 | Infraestructura: configuración, migración, `PresupuestoQueryService`, `ExportadorPresupuestoPdf` | ✅ `69a7817` (corrección del orquestador: nombre del cliente dado de baja y fecha local del ticket) |
+| P4 | UI: `PresupuestosView` (consulta) | ✅ `c6498d9` |
+| P5 | UI del POS: guardar como presupuesto, recuperar y alerta de conciliación | ✅ `107fcd2` (PS-18 corregida: guardar pasa de F9 a F3) |
+| P6 | Cierre: verificación Release, mapa, nota para la wiki | ✅ Verificación Release: auditoría XAML, build Release sin advertencias, 4259 tests (Domain 916, Application 1130, App 1564, Integración 649) y `dotnet format` sin cambios. Mapa actualizado. Pendiente: prueba manual en la app real (sección 9) |
 
 **Forma de trabajo:** una fase por vez, capa por capa, con cada diff revisado por el estudiante antes de pasar a la siguiente (CLAUDE.md §3). Commits, ramas y PR los pide el estudiante (§4). Tests: los de la capa al cerrar cada fase; la verificación completa, en P6.
 
@@ -411,7 +411,24 @@ Lectura obligatoria antes de empezar: [`SISTEMA_DE_DISENO.md`](file:///c:/Users/
 
 ---
 
-## 8. Preguntas de Defensa Anticipadas
+## 8. Hallazgos Fuera de Alcance (para tareas aparte)
+
+| ID | Hallazgo | Dónde |
+| :--- | :--- | :--- |
+| H-1 | El F4 local del POS ("seleccionar cliente") nunca se dispara: los atajos globales de `RegistroNavegacion` se atienden en `MainWindow.PreviewKeyDown` antes que los de la página, y F4 global abre Clientes | `MainWindow.xaml.cs`, `PosView.xaml` |
+| H-2 | Los tickets de venta y de cobranza imprimen `FechaHora` en UTC: entre las 21:00 y las 24:00 (UTC−3) salen con la fecha del día siguiente. El de presupuesto ya se corrigió en P3 | `FileDebugTicketPrinterService.cs` |
+| H-3 | Si el presupuesto vence entre la carga y el cobro, el servidor cobra a catálogo (correcto), pero la etiqueta y los topes del POS siguen diciendo "vigente" hasta limpiar el ticket | `PosViewModel.cs` |
+
+## 9. Prueba Manual Pendiente
+
+1. `dotnet run --project src/Retail.Cli -- migrar` (aplica `PresupuestosConversionYVigencia`).
+2. Con la caja **cerrada**, cargar un ticket, F3, con título y 30 días → imprimir y exportar PDF: verificar que el **título no aparece** en ninguno de los dos.
+3. F6 → buscar por título y por número; ver el detalle.
+4. Abrir la caja, F7 con el número → cobrar → volver a F7 con el mismo número: debe rechazarlo como convertido.
+5. Recuperar un presupuesto vencido (con vigencia de 1 día emitido ayer, o cambiando el precio de un artículo) → la alerta muestra las diferencias.
+6. Probar el `NumberBox` de vigencia: escribir un valor y confirmar con Enter.
+
+## 10. Preguntas de Defensa Anticipadas
 
 * **¿Por qué la conversión no es un método aparte del servicio de presupuestos?** Venta y conversión son un único hecho de negocio. Separarlos permitía cobrar sin convertir (corte entre llamadas) y reutilizar el presupuesto. Un solo `SaveChanges` es una transacción ACID.
 * **¿Por qué "Vencido" no es un estado?** Es una función del tiempo. Guardarlo duplica información que se desactualiza sola y exige un proceso programado. Se calcula en el dominio (`EstaVigente(hoy)`) y se filtra en SQL para el listado.
