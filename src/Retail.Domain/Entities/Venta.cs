@@ -69,7 +69,7 @@ public class Venta : BaseEntity, IAggregateRoot
 
     protected Venta() { }
 
-    public static Venta Registrar(int idTurno, int idUsuario, int? idCliente)
+    public static Venta Registrar(int idTurno, int idUsuario, int? idCliente, int? idPresupuestoOrigen = null)
     {
         if (idTurno <= 0)
         {
@@ -86,11 +86,17 @@ public class Venta : BaseEntity, IAggregateRoot
             throw new ArgumentOutOfRangeException(nameof(idCliente), "El identificador del cliente no es válido.");
         }
 
+        if (idPresupuestoOrigen is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idPresupuestoOrigen), "El identificador del presupuesto de origen no es válido.");
+        }
+
         return new Venta
         {
             IdTurno = idTurno,
             IdUsuario = idUsuario,
             IdCliente = idCliente,
+            IdPresupuestoOrigen = idPresupuestoOrigen,
             FechaHora = DateTime.UtcNow
         };
     }

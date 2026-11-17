@@ -90,7 +90,7 @@ public class VentaConfiguration : IEntityTypeConfiguration<Venta>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(v => v.PresupuestoOrigen)
-            .WithMany(p => p.VentasOriginadas)
+            .WithMany()
             .HasForeignKey(v => v.IdPresupuestoOrigen)
             .OnDelete(DeleteBehavior.Restrict);
     }
