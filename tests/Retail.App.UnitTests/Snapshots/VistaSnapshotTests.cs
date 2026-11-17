@@ -14,6 +14,7 @@ using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Pedidos;
+using Retail.App.ViewModels.Presupuestos;
 using Retail.App.ViewModels.Ventas;
 using Retail.App.Views.Components;
 using Retail.App.Views.Dev;
@@ -23,6 +24,7 @@ using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.DTOs.Pedidos;
+using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
 using Xunit;
@@ -389,6 +391,85 @@ public class VistaSnapshotTests
 
             var dialogo = new SeleccionarPedidoModalDialog(viewModel);
             return SnapshotRenderer.Guardar(dialogo, SeleccionarPedidoModalDialog.AnchoConProveedor, 620, carpeta + "/SeleccionarPedidoModalDialog_TodosLosProveedores");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void PresupuestosView_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var presupuestos = DatosDeMuestra.Presupuestos();
+            var servicio = Substitute.For<IPresupuestoService>();
+            servicio.ListarAsync(Arg.Any<ConsultaPresupuestosDto>(), Arg.Any<CancellationToken>())
+                .Returns(new PresupuestosPaginadosDto
+                {
+                    Items = presupuestos,
+                    TotalRegistros = 52,
+                    PaginaActual = 1,
+                    TamanoPagina = 15
+                });
+
+            var viewModel = new PresupuestosViewModel(
+                servicio,
+                Substitute.For<IPresupuestoDialogService>(),
+                new RelojDePrueba(DatosDeMuestra.AhoraPresupuestos),
+                Substitute.For<ILogger<PresupuestosViewModel>>());
+
+            var vista = new PresupuestosView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PresupuestosView", () => viewModel.Presupuestos.Count > 0);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void PresupuestosView_SinPresupuestos_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var servicio = Substitute.For<IPresupuestoService>();
+            servicio.ListarAsync(Arg.Any<ConsultaPresupuestosDto>(), Arg.Any<CancellationToken>())
+                .Returns(new PresupuestosPaginadosDto { Items = [], TotalRegistros = 0, PaginaActual = 1, TamanoPagina = 15 });
+
+            var viewModel = new PresupuestosViewModel(
+                servicio,
+                Substitute.For<IPresupuestoDialogService>(),
+                new RelojDePrueba(DatosDeMuestra.AhoraPresupuestos),
+                Substitute.For<ILogger<PresupuestosViewModel>>());
+
+            var vista = new PresupuestosView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PresupuestosView_Vacio", () => viewModel.EstaVacio);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void DetallePresupuestoDialog_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var servicio = Substitute.For<IPresupuestoService>();
+            servicio.ObtenerAsync(123, Arg.Any<CancellationToken>()).Returns(DatosDeMuestra.PresupuestoDetalle());
+
+            var viewModel = new DetallePresupuestoViewModel(
+                123,
+                servicio,
+                Substitute.For<IPresupuestoDialogService>(),
+                new RelojDePrueba(DatosDeMuestra.AhoraPresupuestos),
+                Substitute.For<ILogger<DetallePresupuestoViewModel>>());
+
+            var dialogo = new DetallePresupuestoDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 540, 680, carpeta + "/DetallePresupuestoDialog", () => viewModel.Cargado);
         });
 
         VerificarCaptura(ruta, error);

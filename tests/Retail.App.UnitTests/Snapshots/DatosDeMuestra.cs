@@ -1,5 +1,6 @@
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Presupuestos;
 using Retail.Domain.Enums;
 
 namespace Retail.App.UnitTests.Snapshots;
@@ -142,6 +143,82 @@ internal static class DatosDeMuestra
             TieneCuentaCorriente = tieneCuentaCorriente,
             LimiteCredito = limiteCredito,
             SaldoCuentaCorriente = saldo
+        };
+    }
+
+    /// <summary>Día de las capturas de presupuestos: los vencimientos de la muestra se leen respecto de esta fecha.</summary>
+    public static readonly DateTimeOffset AhoraPresupuestos = new(2026, 11, 17, 15, 0, 0, TimeSpan.Zero);
+
+    /// <summary>
+    /// Mezcla de estados para la grilla de presupuestos: vigente con título, vencido, convertido, anulado, consumidor
+    /// final y un título largo que se recorta.
+    /// </summary>
+    public static IReadOnlyList<PresupuestoResumenDto> Presupuestos()
+    {
+        return
+        [
+            Presupuesto(123, "Lista escolar 3.º grado — Escuela N.º 12", new DateTime(2026, 11, 14, 13, 20, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 29), "Escuela N.º 12 Domingo F. Sarmiento", 184110m, EstadoPresupuestoEnum.Pendiente, true, 5),
+            Presupuesto(122, null, new DateTime(2026, 11, 2, 16, 45, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 10), null, 12900m, EstadoPresupuestoEnum.Pendiente, false, 2),
+            Presupuesto(121, "Pedido de la oficina", new DateTime(2026, 11, 9, 12, 5, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 24), "Papelera San Martín S.R.L.", 96750m, EstadoPresupuestoEnum.Convertido, true, 4),
+            Presupuesto(120, "Quería comparar con la competencia", new DateTime(2026, 11, 6, 19, 30, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 21), "Marcela Benítez", 5400m, EstadoPresupuestoEnum.Anulado, true, 1),
+            Presupuesto(119, null, new DateTime(2026, 11, 16, 14, 10, 0, DateTimeKind.Utc), new DateOnly(2026, 12, 1), null, 38200m, EstadoPresupuestoEnum.Pendiente, true, 3),
+            Presupuesto(118, "Útiles para el taller de arte y manualidades del turno tarde, segundo cuatrimestre", new DateTime(2026, 10, 20, 11, 0, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 4), "Instituto Superior de Formación Docente N.º 9", 412300m, EstadoPresupuestoEnum.Pendiente, false, 18),
+            Presupuesto(117, null, new DateTime(2026, 10, 15, 15, 20, 0, DateTimeKind.Utc), new DateOnly(2026, 10, 30), "Distribuidora Sur S.R.L.", 27800m, EstadoPresupuestoEnum.Convertido, false, 2)
+        ];
+    }
+
+    /// <summary>El detalle del primer presupuesto de <see cref="Presupuestos"/> (123): con título, descuento y cinco renglones.</summary>
+    public static PresupuestoDto PresupuestoDetalle()
+    {
+        return new PresupuestoDto
+        {
+            IdPresupuesto = 123,
+            IdUsuario = 2,
+            UsuarioNombre = "Lucía Fernández",
+            IdCliente = 7,
+            ClienteNombre = "Escuela N.º 12 Domingo F. Sarmiento",
+            Titulo = "Lista escolar 3.º grado — Escuela N.º 12",
+            FechaEmision = new DateTime(2026, 11, 14, 13, 20, 0, DateTimeKind.Utc),
+            FechaVencimiento = new DateOnly(2026, 11, 29),
+            Subtotal = 193800m,
+            Descuento = 9690m,
+            Total = 184110m,
+            Estado = EstadoPresupuestoEnum.Pendiente,
+            EstaVigente = true,
+            Items =
+            [
+                new DetallePresupuestoDto { IdArticulo = 1, Descripcion = "Cuaderno tapa dura 48 hojas rayado", Cantidad = 30, PrecioUnitarioPactado = 2450m },
+                new DetallePresupuestoDto { IdArticulo = 2, Descripcion = "Lapicera azul Cristal", Cantidad = 50, PrecioUnitarioPactado = 480m },
+                new DetallePresupuestoDto { IdArticulo = 3, Descripcion = "Block de dibujo N.º 5 de 24 hojas blancas", Cantidad = 20, PrecioUnitarioPactado = 1950m },
+                new DetallePresupuestoDto { IdArticulo = 4, Descripcion = "Resma A4 75 g x 500 hojas", Cantidad = 6, PrecioUnitarioPactado = 8900m },
+                new DetallePresupuestoDto { IdArticulo = 5, Descripcion = "Tijera escolar punta redonda", Cantidad = 3, PrecioUnitarioPactado = 1300m }
+            ]
+        };
+    }
+
+    private static PresupuestoResumenDto Presupuesto(
+        int id,
+        string? titulo,
+        DateTime emisionUtc,
+        DateOnly vence,
+        string? cliente,
+        decimal total,
+        EstadoPresupuestoEnum estado,
+        bool vigente,
+        int renglones)
+    {
+        return new PresupuestoResumenDto
+        {
+            IdPresupuesto = id,
+            Titulo = titulo,
+            FechaEmision = emisionUtc,
+            FechaVencimiento = vence,
+            ClienteNombre = cliente,
+            UsuarioNombre = "Lucía Fernández",
+            Total = total,
+            Estado = estado,
+            EstaVigente = vigente,
+            CantidadRenglones = renglones
         };
     }
 }

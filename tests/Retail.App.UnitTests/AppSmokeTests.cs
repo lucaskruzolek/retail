@@ -2570,6 +2570,85 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void PresupuestosView_InstanciacionEnHiloSTAConPresupuestosDeTodosLosEstados_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PresupuestosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var reloj = new RelojDePrueba(Snapshots.DatosDeMuestra.AhoraPresupuestos);
+            var viewModel = new Retail.App.ViewModels.Presupuestos.PresupuestosViewModel(
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                reloj,
+                Substitute.For<ILogger<Retail.App.ViewModels.Presupuestos.PresupuestosViewModel>>());
+
+            try
+            {
+                view = new PresupuestosView(viewModel);
+
+                // Una fila por estado visual (vigente con título, vencido, convertido y anulado, más consumidor final),
+                // para que la plantilla del badge y los botones de la fila resuelvan todos sus recursos.
+                foreach (var resumen in Snapshots.DatosDeMuestra.Presupuestos())
+                {
+                    viewModel.Presupuestos.Add(new Retail.App.ViewModels.Presupuestos.PresupuestoFila(resumen, reloj));
+                }
+
+                view.Measure(new System.Windows.Size(1280, 800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1280, 800));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PresupuestosView debe resolver todos sus recursos (badges, acciones de fila, selector de estado y paginación)");
+        view.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void DetallePresupuestoDialog_InstanciacionEnHiloSTAConDetalleCargado_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        DetallePresupuestoDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var servicio = Substitute.For<IPresupuestoService>();
+            servicio.ObtenerAsync(123, Arg.Any<CancellationToken>()).Returns(Snapshots.DatosDeMuestra.PresupuestoDetalle());
+            var viewModel = new Retail.App.ViewModels.Presupuestos.DetallePresupuestoViewModel(
+                123,
+                servicio,
+                Substitute.For<IPresupuestoDialogService>(),
+                new RelojDePrueba(Snapshots.DatosDeMuestra.AhoraPresupuestos),
+                Substitute.For<ILogger<Retail.App.ViewModels.Presupuestos.DetallePresupuestoViewModel>>());
+            Task.Run(() => viewModel.InicializarAsync()).GetAwaiter().GetResult();
+
+            try
+            {
+                dialog = new DetallePresupuestoDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(540, 680));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 540, 680));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de DetallePresupuestoDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
     public void PedirArticulosDialog_InstanciacionEnHiloSTAConGruposYOmitidos_DebeCargarXAMLSinExcepciones()
     {
         // Arrange

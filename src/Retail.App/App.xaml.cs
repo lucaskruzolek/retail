@@ -183,6 +183,11 @@ public partial class App : System.Windows.Application
         services.AddTransient<Retail.App.ViewModels.Pedidos.PedidosViewModel>();
         services.AddTransient<Retail.App.Views.Pages.PedidosView>();
 
+        // Presupuestos (Módulo 5.1, P4): mismos tiempos de vida que Pedidos
+        services.AddScoped<Retail.App.Services.IPresupuestoDialogService, Retail.App.Services.PresupuestoDialogService>();
+        services.AddTransient<Retail.App.ViewModels.Presupuestos.PresupuestosViewModel>();
+        services.AddTransient<Retail.App.Views.Pages.PresupuestosView>();
+
         // Módulos en Construcción (Cortesía informativa de Roadmap)
 
         services.AddTransient<Retail.App.Views.Pages.ModuloEnConstruccionView>();

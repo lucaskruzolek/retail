@@ -1,0 +1,289 @@
+<UserControl x:Class="Retail.App.Views.Pages.PresupuestosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
+             xmlns:converters="clr-namespace:Retail.App.Converters"
+             xmlns:presupuestos="clr-namespace:Retail.Application.DTOs.Presupuestos;assembly=Retail.Application"
+             mc:Ignorable="d"
+             Focusable="True"
+             Background="{DynamicResource SurfaceBackgroundBrush}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        <converters:IgualAParametroConverter x:Key="IgualAParametroConverter" />
+
+        <!-- Badge del estado del presupuesto (IU-13): vigente éxito, vencido advertencia, convertido neutro (ya es una venta)
+             y anulado peligro. Vigente y vencido son dos caras del estado Pendiente: la vista las toma de EstadoVisual. -->
+        <DataTemplate x:Key="PlantillaEstadoPresupuesto">
+            <Grid VerticalAlignment="Center" HorizontalAlignment="Left">
+                <Border x:Name="BadgeVigente" Style="{StaticResource BadgeSuccessStyle}">
+                    <TextBlock Text="{Binding EstadoTexto}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                </Border>
+                <Border x:Name="BadgeVencido" Style="{StaticResource BadgeWarningStyle}" Visibility="Collapsed">
+                    <TextBlock Text="{Binding EstadoTexto}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
+                </Border>
+                <Border x:Name="BadgeConvertido" Style="{StaticResource BadgeNeutralStyle}" Visibility="Collapsed">
+                    <TextBlock Text="{Binding EstadoTexto}" Style="{StaticResource BadgeNeutralTextStyle}" FontWeight="SemiBold" />
+                </Border>
+                <Border x:Name="BadgeAnulado" Style="{StaticResource BadgeDangerStyle}" Visibility="Collapsed">
+                    <TextBlock Text="{Binding EstadoTexto}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" />
+                </Border>
+            </Grid>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding EstadoVisual}" Value="Vencido">
+                    <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="BadgeVencido" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding EstadoVisual}" Value="Convertido">
+                    <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="BadgeConvertido" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding EstadoVisual}" Value="Anulado">
+                    <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="BadgeAnulado" Property="Visibility" Value="Visible" />
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <Grid Margin="{StaticResource PageMargin}">
+        <Grid.RowDefinitions>
+            <!-- Encabezado -->
+            <RowDefinition Height="Auto" />
+            <!-- Búsqueda y filtro de estado, directo sobre el fondo -->
+            <RowDefinition Height="Auto" />
+            <!-- Tabla + paginación: la única superficie de la página -->
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================= -->
+        <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta). Solo consulta: sin   -->
+        <!--    acciones propias, los presupuestos nacen en el POS.        -->
+        <!-- ============================================================= -->
+        <components:PageHeader Grid.Row="0"
+                               Margin="{StaticResource SectionSpacing}"
+                               Titulo="Ventas"
+                               Descripcion="Presupuestos · Cotizaciones con el precio congelado hasta su vencimiento. Se crean desde el Punto de venta (F9) y se recuperan allí con F7."
+                               EstaCargando="{Binding IsBusy}">
+            <components:PageHeader.Navegacion>
+                <components:NavegadorSeccion SeccionId="ventas" />
+            </components:PageHeader.Navegacion>
+        </components:PageHeader>
+
+        <!-- ============================================================= -->
+        <!-- 2. BÚSQUEDA Y FILTRO DE ESTADO (sin tarjeta)                  -->
+        <!-- ============================================================= -->
+        <components:ListToolbar Grid.Row="1"
+                                Margin="0,0,0,12"
+                                Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="Buscar por número, título o cliente..."
+                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}">
+            <components:ListToolbar.AccionesDeSeleccion>
+                <components:SelectorSegmentado HorizontalAlignment="Right">
+                    <UniformGrid Rows="1">
+                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Todos}}"
+                                     AutomationProperties.Name="Todos"
+                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                            <TextBlock Text="Todos" VerticalAlignment="Center" />
+                        </RadioButton>
+                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Vigentes}}"
+                                     AutomationProperties.Name="Vigentes"
+                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                            <TextBlock Text="Vigentes" VerticalAlignment="Center" />
+                        </RadioButton>
+                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Vencidos}}"
+                                     AutomationProperties.Name="Vencidos"
+                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                            <TextBlock Text="Vencidos" VerticalAlignment="Center" />
+                        </RadioButton>
+                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Convertidos}}"
+                                     AutomationProperties.Name="Convertidos"
+                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                            <TextBlock Text="Convertidos" VerticalAlignment="Center" />
+                        </RadioButton>
+                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Anulados}}"
+                                     AutomationProperties.Name="Anulados"
+                                     Style="{StaticResource SegmentedRadioButtonStyle}">
+                            <TextBlock Text="Anulados" VerticalAlignment="Center" />
+                        </RadioButton>
+                    </UniformGrid>
+                </components:SelectorSegmentado>
+            </components:ListToolbar.AccionesDeSeleccion>
+        </components:ListToolbar>
+
+        <!-- ============================================================= -->
+        <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->
+        <!-- ============================================================= -->
+        <Border Grid.Row="2" Style="{StaticResource TablaListadoStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <!-- Doble clic y Enter abren el detalle (code-behind: la grilla se queda con Enter si no se lo intercepta) -->
+                    <DataGrid x:Name="Grilla"
+                              ItemsSource="{Binding Presupuestos}"
+                              SelectedItem="{Binding PresupuestoSeleccionado, Mode=TwoWay}"
+                              Style="{StaticResource DataGridListadoStyle}"
+                              AutoGenerateColumns="False"
+                              SelectionMode="Single"
+                              BorderThickness="0"
+                              helpers:EsquinasHelper.Esquinas="7,7,0,0"
+                              MouseDoubleClick="OnGrillaMouseDoubleClick"
+                              PreviewKeyDown="OnGrillaPreviewKeyDown">
+                        <DataGrid.Columns>
+                            <!-- N.º: es un código (ocho dígitos), va en monoespaciada -->
+                            <DataGridTextColumn Header="N.º"
+                                                Binding="{Binding Numero}"
+                                                ElementStyle="{StaticResource TextBlockMonospaceCell}"
+                                                Width="96" />
+
+                            <!-- Título interno (PS-20): recorte con tooltip; vacío si no tiene -->
+                            <DataGridTemplateColumn Header="Título" Width="*" MinWidth="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Titulo}"
+                                                   Style="{StaticResource TextBlockTextCell}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding TituloTooltip}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="Emisión"
+                                                Binding="{Binding EmisionLocal, StringFormat={}{0:dd/MM/yyyy}}"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}"
+                                                Width="104" />
+
+                            <DataGridTextColumn Header="Vence"
+                                                Binding="{Binding Vencimiento, StringFormat={}{0:dd/MM/yyyy}}"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}"
+                                                Width="104" />
+
+                            <DataGridTemplateColumn Header="Cliente" Width="*" MinWidth="160">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding ClienteTexto}"
+                                                   Style="{StaticResource TextBlockTextCell}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding ClienteTexto}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="Total"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                                Binding="{Binding Total, StringFormat=C0}"
+                                                ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                Width="112" />
+
+                            <DataGridTemplateColumn Header="Estado" Width="112" CanUserSort="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ContentControl Content="{Binding}"
+                                                        ContentTemplate="{StaticResource PlantillaEstadoPresupuesto}"
+                                                        Margin="8,0"
+                                                        Focusable="False" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <!-- Acciones de la fila: solo íconos (R4), sin título. Anular se oculta si no está pendiente; las demás
+                                 conservan su lugar porque la fila se alinea a la izquierda. -->
+                            <DataGridTemplateColumn Header=""
+                                                    Width="148"
+                                                    CanUserResize="False"
+                                                    CanUserSort="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                            <Button Command="{Binding DataContext.VerDetalleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource RowActionButtonStyle}"
+                                                    ToolTip="Ver el detalle del presupuesto"
+                                                    AutomationProperties.Name="Ver detalle">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularEye" Width="14" Height="14" />
+                                            </Button>
+
+                                            <Button Command="{Binding DataContext.ImprimirCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource RowActionButtonStyle}"
+                                                    ToolTip="Imprimir el ticket del presupuesto"
+                                                    AutomationProperties.Name="Imprimir ticket">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularPrinter" Width="14" Height="14" />
+                                            </Button>
+
+                                            <Button Command="{Binding DataContext.ExportarPdfCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource RowActionButtonStyle}"
+                                                    ToolTip="Exportar el presupuesto a PDF"
+                                                    AutomationProperties.Name="Exportar PDF">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14" />
+                                            </Button>
+
+                                            <Button Command="{Binding DataContext.AnularCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource IconDangerButtonStyle}"
+                                                    ToolTip="Anular el presupuesto"
+                                                    AutomationProperties.Name="Anular presupuesto"
+                                                    Visibility="{Binding PuedeAnular, Converter={StaticResource BoolToVisConverter}}">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularXCircle" Width="14" Height="14" />
+                                            </Button>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Estado vacío: orienta al usuario hacia el Punto de venta -->
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                Margin="0,36,0,0"
+                                Visibility="{Binding EstaVacio, Converter={StaticResource BoolToVisConverter}}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Width="40" Height="40" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Text="{Binding TextoVacio}"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   TextAlignment="Center"
+                                   Margin="0,12,0,0" />
+                    </StackPanel>
+
+                    <!-- Error de carga, con la salida de volver a intentar -->
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                Margin="0,36,0,0"
+                                Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                        <Border Style="{StaticResource BadgeDangerStyle}">
+                            <TextBlock Text="{Binding MensajeError}"
+                                       FontSize="{StaticResource FontSizeSm}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DangerForegroundBrush}"
+                                       TextWrapping="Wrap" />
+                        </Border>
+                        <Button Command="{Binding RecargarCommand}"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                HorizontalAlignment="Center"
+                                Margin="0,12,0,0"
+                                ToolTip="Volver a consultar los presupuestos">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                                <TextBlock Text="Reintentar" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Paginación pegada a la grilla, separada por una línea -->
+                <Border Grid.Row="1" BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0">
+                    <components:PaginationBar />
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

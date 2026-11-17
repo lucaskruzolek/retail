@@ -27,7 +27,7 @@ public static class RegistroNavegacion
         [
             new("clientes", "Clientes", typeof(ClientesView), AccesoPagina.Operadores, "F4"),
             new("caja", "Caja y turnos", typeof(CajaView), AccesoPagina.Operadores, "F5"),
-            new("presupuestos", "Presupuestos", typeof(ModuloEnConstruccionView), AccesoPagina.Operadores, "F6", ConfigurarPresupuestos)
+            new("presupuestos", "Presupuestos", typeof(PresupuestosView), AccesoPagina.Operadores, "F6")
         ]),
 
         new("inventario", "Inventario", PackIconBoxIconsKind.RegularPackage,
@@ -129,17 +129,6 @@ public static class RegistroNavegacion
     }
 
     private static IEnumerable<SeccionNavegacion> TodasLasSecciones => Secciones.Append(Ajustes);
-
-    private static void ConfigurarPresupuestos(object vista)
-    {
-        ((ModuloEnConstruccionView)vista).SeccionId = "ventas";
-        ((ModuloEnConstruccionView)vista).Configurar(
-            titulo: "Presupuestador Independiente y Conversión",
-            etapa: "Etapa 5: Épica 5 - Módulo 5.1",
-            responsable: "Pablo Fernandez",
-            requisitos: "RF-11, RF-12",
-            descripcion: "Emisión de cotizaciones independientes con congelamiento de precios por 15 días y conversión adaptativa a venta con control de stock.");
-    }
 
     private static void ConfigurarConsolaFiscal(object vista)
     {

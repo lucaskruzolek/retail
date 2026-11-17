@@ -1,0 +1,256 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.DetallePresupuestoDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:components="clr-namespace:Retail.App.Views.Components"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 xmlns:helpers="clr-namespace:Retail.App.Helpers"
+                 Title="Detalle del presupuesto"
+                 Language="es-AR"
+                 Width="540"
+                 Height="680"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 Background="{DynamicResource DialogBackgroundBrush}"
+                 ResizeMode="NoResize">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+
+            <!-- Cantidades alineadas a la derecha, con su título sobre los dígitos -->
+            <Style x:Key="CeldaNumericaDerecha" TargetType="TextBlock" BasedOn="{StaticResource TextBlockNumericCell}">
+                <Setter Property="TextAlignment" Value="Right" />
+            </Style>
+
+            <!-- Rótulo de un dato de la cabecera: gris secundario, a la izquierda del valor -->
+            <Style x:Key="RotuloDatoStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockBodySecondary}">
+                <Setter Property="VerticalAlignment" Value="Center" />
+            </Style>
+
+            <!-- Valor de un dato de la cabecera: texto primario -->
+            <Style x:Key="ValorDatoStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockBody}">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+
+            <!-- Badge del estado (mismos tonos que la grilla de presupuestos) -->
+            <DataTemplate x:Key="PlantillaEstadoPresupuesto">
+                <Grid VerticalAlignment="Center" HorizontalAlignment="Left">
+                    <Border x:Name="BadgeVigente" Style="{StaticResource BadgeSuccessStyle}">
+                        <TextBlock Text="{Binding EstadoTexto}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                    </Border>
+                    <Border x:Name="BadgeVencido" Style="{StaticResource BadgeWarningStyle}" Visibility="Collapsed">
+                        <TextBlock Text="{Binding EstadoTexto}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
+                    </Border>
+                    <Border x:Name="BadgeConvertido" Style="{StaticResource BadgeNeutralStyle}" Visibility="Collapsed">
+                        <TextBlock Text="{Binding EstadoTexto}" Style="{StaticResource BadgeNeutralTextStyle}" FontWeight="SemiBold" />
+                    </Border>
+                    <Border x:Name="BadgeAnulado" Style="{StaticResource BadgeDangerStyle}" Visibility="Collapsed">
+                        <TextBlock Text="{Binding EstadoTexto}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource DangerForegroundBrush}" />
+                    </Border>
+                </Grid>
+                <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding EstadoVisual}" Value="Vencido">
+                        <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                        <Setter TargetName="BadgeVencido" Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding EstadoVisual}" Value="Convertido">
+                        <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                        <Setter TargetName="BadgeConvertido" Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                    <DataTrigger Binding="{Binding EstadoVisual}" Value="Anulado">
+                        <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                        <Setter TargetName="BadgeAnulado" Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+            </DataTemplate>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Barra de título estandarizada del sistema de diseño -->
+        <components:EncabezadoDialogo Grid.Row="0" Titulo="{Binding TituloVentana}" />
+
+        <!-- Sección: datos del presupuesto. El número va en el título de la ventana y el estado en el encabezado de la sección. -->
+        <Border Grid.Row="1" Style="{StaticResource DialogSectionStyle}" Margin="12,0,12,12">
+            <StackPanel>
+                <DockPanel Margin="{StaticResource StackMd}">
+                    <ContentControl DockPanel.Dock="Right"
+                                    Content="{Binding}"
+                                    ContentTemplate="{StaticResource PlantillaEstadoPresupuesto}"
+                                    Visibility="{Binding Cargado, Converter={StaticResource BoolToVisConverter}}"
+                                    Focusable="False" />
+                    <components:IndicadorCarga DockPanel.Dock="Right" EstaCargando="{Binding IsBusy}" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                    <TextBlock Text="Datos del presupuesto" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <Border Style="{StaticResource BadgeDangerStyle}"
+                        HorizontalAlignment="Left"
+                        Margin="{StaticResource StackMd}"
+                        Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{Binding MensajeError}"
+                               FontSize="{StaticResource FontSizeSm}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource DangerForegroundBrush}"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="112" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="88" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Título interno (PS-20): rotulado, porque solo se ve dentro del sistema -->
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Título interno" Style="{StaticResource RotuloDatoStyle}" Margin="{StaticResource StackSm}"
+                               Visibility="{Binding TieneTitulo, Converter={StaticResource BoolToVisConverter}}" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Titulo}" Style="{StaticResource ValorDatoStyle}" Margin="{StaticResource StackSm}"
+                               ToolTip="{Binding Titulo}"
+                               Visibility="{Binding TieneTitulo, Converter={StaticResource BoolToVisConverter}}" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Cliente" Style="{StaticResource RotuloDatoStyle}" Margin="{StaticResource StackSm}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding ClienteTexto}" Style="{StaticResource ValorDatoStyle}" Margin="{StaticResource StackSm}" ToolTip="{Binding ClienteTexto}" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Emitido por" Style="{StaticResource RotuloDatoStyle}" Margin="{StaticResource StackSm}" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding UsuarioNombre}" Style="{StaticResource ValorDatoStyle}" Margin="{StaticResource StackSm}" />
+
+                    <!-- Emisión y vencimiento comparten fila: son dos fechas del mismo documento -->
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Emisión" Style="{StaticResource RotuloDatoStyle}" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource ValorDatoStyle}"
+                               FontFamily="{StaticResource FontFamilyNumeric}"
+                               Visibility="{Binding Cargado, Converter={StaticResource BoolToVisConverter}}"
+                               Text="{Binding EmisionLocal, StringFormat={}{0:dd/MM/yyyy HH:mm}}" />
+                    <TextBlock Grid.Row="3" Grid.Column="2" Text="Vence" Style="{StaticResource RotuloDatoStyle}" Margin="{StaticResource InlineMd}" />
+                    <TextBlock Grid.Row="3" Grid.Column="3" Style="{StaticResource ValorDatoStyle}"
+                               FontFamily="{StaticResource FontFamilyNumeric}"
+                               Visibility="{Binding Cargado, Converter={StaticResource BoolToVisConverter}}"
+                               Text="{Binding Vencimiento, StringFormat={}{0:dd/MM/yyyy}}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Sección: renglones y totales -->
+        <Border Grid.Row="2" Style="{StaticResource DialogSectionStyle}" Margin="12,0,12,12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Renglones" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
+
+                <!-- La sección ya es la superficie: la grilla va sin borde propio ni esquinas -->
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Renglones}"
+                          Style="{StaticResource DataGridRetailStyle}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          BorderThickness="0"
+                          helpers:EsquinasHelper.Esquinas="0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Cant."
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            Binding="{Binding Cantidad}"
+                                            ElementStyle="{StaticResource CeldaNumericaDerecha}"
+                                            Width="64" />
+                        <DataGridTemplateColumn Header="Descripción" Width="*" MinWidth="140">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Descripcion}"
+                                               Style="{StaticResource TextBlockTextCell}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Descripcion}" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTextColumn Header="P. unitario"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            Binding="{Binding PrecioUnitarioPactado, StringFormat=C0}"
+                                            ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                            Width="96" />
+                        <DataGridTextColumn Header="Subtotal"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            Binding="{Binding SubtotalItem, StringFormat=C0}"
+                                            ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                            Width="104" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- Totales: subtotal, descuento (solo si hay) y total -->
+                <StackPanel Grid.Row="2" Margin="0,12,0,0">
+                    <DockPanel LastChildFill="False" Margin="0,0,0,4">
+                        <TextBlock DockPanel.Dock="Left" Text="Subtotal" Style="{StaticResource TextBlockBodySecondary}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Subtotal, StringFormat=C0}" Style="{StaticResource TextBlockCurrencyCell}" />
+                    </DockPanel>
+                    <DockPanel LastChildFill="False" Margin="0,0,0,4" Visibility="{Binding TieneDescuento, Converter={StaticResource BoolToVisConverter}}">
+                        <TextBlock DockPanel.Dock="Left" Text="Descuento" Style="{StaticResource TextBlockBodySecondary}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Descuento, StringFormat=-{0:C0}}" Style="{StaticResource TextBlockCurrencyCell}" />
+                    </DockPanel>
+                    <Border BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0" Padding="0,8,0,0">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" Text="Total" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding Total, StringFormat=C0}"
+                                       Style="{StaticResource TextBlockCurrencyLarge}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Pie: las acciones sobre el documento a la izquierda y Cerrar (Enter) a la derecha -->
+        <Border Grid.Row="3" Style="{StaticResource DialogFooterStyle}">
+            <DockPanel LastChildFill="False">
+                <Button DockPanel.Dock="Right"
+                        IsDefault="True"
+                        Click="OnCerrarClick"
+                        Style="{StaticResource KeycapButtonStyle}">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                        <TextBlock Text="Cerrar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button DockPanel.Dock="Left"
+                        Command="{Binding ImprimirCommand}"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        Margin="{StaticResource InlineSm}"
+                        ToolTip="Imprimir el ticket del presupuesto">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularPrinter" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                        <TextBlock Text="Imprimir ticket" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button DockPanel.Dock="Left"
+                        Command="{Binding ExportarPdfCommand}"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        ToolTip="Exportar el presupuesto a PDF">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                        <TextBlock Text="Exportar PDF" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
