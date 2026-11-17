@@ -6,6 +6,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels;
@@ -221,7 +222,10 @@ public class VistaSnapshotTests
                 Substitute.For<IInventarioService>(),
                 Substitute.For<ICurrentUserSession>(),
                 Substitute.For<IVentaDialogService>(),
-                Substitute.For<ICajaDialogService>());
+                Substitute.For<ICajaDialogService>(),
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<IClienteService>());
 
             if (conItems)
             {
@@ -470,6 +474,157 @@ public class VistaSnapshotTests
 
             var dialogo = new DetallePresupuestoDialog(viewModel);
             return SnapshotRenderer.Guardar(dialogo, 540, 680, carpeta + "/DetallePresupuestoDialog", () => viewModel.Cargado);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void PosView_ConPresupuestoVigenteCargado_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        // Etiqueta del presupuesto en lugar de "Guardar presupuesto" y candados en las líneas con tope (PS-04)
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var caja = Substitute.For<ICajaService>();
+            caja.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(new TurnoCajaDto
+            {
+                IdTurno = 12,
+                IdUsuario = 1,
+                NombreUsuario = "admin",
+                FechaApertura = DateTime.UtcNow,
+                SaldoInicial = 5000m,
+                SaldoTeoricoEfectivo = 5000m,
+                Estado = EstadoTurnoEnum.Abierto
+            });
+
+            var viewModel = new PosViewModel(
+                Substitute.For<IVentaService>(),
+                caja,
+                Substitute.For<IInventarioService>(),
+                Substitute.For<ICurrentUserSession>(),
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<ICajaDialogService>(),
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<IClienteService>());
+
+            var presupuesto = DatosDeMuestra.PresupuestoParaVenta(vigente: true);
+            foreach (var renglon in presupuesto.Renglones)
+            {
+                viewModel.Items.Add(new ItemVentaPosViewModel
+                {
+                    NumeroItem = viewModel.Items.Count + 1,
+                    IdArticulo = renglon.IdArticulo,
+                    CodigoBarras = renglon.CodigoBarras,
+                    Descripcion = renglon.Descripcion,
+                    PrecioUnitario = renglon.PrecioACobrar,
+                    Cantidad = renglon.Cantidad,
+                    StockActual = renglon.StockActual,
+                    EsDePresupuesto = true,
+                    CantidadMaxima = renglon.Cantidad
+                });
+            }
+
+            // Una línea nueva, agregada a precio de catálogo y sin tope
+            viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
+            {
+                IdArticulo = 3,
+                CodigoBarras = "7790001000035",
+                Descripcion = "Regla de plástico 30 cm",
+                PrecioVenta = 700m,
+                StockActual = 25,
+                EsServicio = false
+            });
+            viewModel.Descuento = presupuesto.Descuento;
+            viewModel.PresupuestoCargado = new PresupuestoCargado(
+                presupuesto.IdPresupuesto,
+                presupuesto.Titulo,
+                presupuesto.EstaVigente,
+                presupuesto.FechaVencimiento);
+
+            var vista = new PosView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PosView_Presupuesto", () => viewModel.EstadoCajaVerificado);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro, false, "GuardarPresupuestoDialog_Datos")]
+    [InlineData(TemaPrueba.Oscuro, false, "GuardarPresupuestoDialog_Datos")]
+    [InlineData(TemaPrueba.Claro, true, "GuardarPresupuestoDialog_Guardado")]
+    [InlineData(TemaPrueba.Oscuro, true, "GuardarPresupuestoDialog_Guardado")]
+    public void GuardarPresupuestoDialog_PorTema_GeneraCaptura(TemaPrueba tema, bool guardado, string nombre)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var servicio = Substitute.For<IPresupuestoService>();
+            servicio.EmitirAsync(Arg.Any<CrearPresupuestoDto>(), Arg.Any<CancellationToken>()).Returns(DatosDeMuestra.PresupuestoDetalle());
+
+            var viewModel = new GuardarPresupuestoViewModel(
+                2,
+                7,
+                "Escuela N.º 12 Domingo F. Sarmiento",
+                9690m,
+                184110m,
+                [new DetallePresupuestoDto { IdArticulo = 1, Descripcion = "Cuaderno", Cantidad = 3, PrecioUnitarioPactado = 2450m }],
+                servicio,
+                Substitute.For<IPresupuestoDialogService>(),
+                new CargaSerializada(),
+                Substitute.For<ILogger>());
+
+            if (guardado)
+            {
+                Task.Run(() => viewModel.GuardarCommand.ExecuteAsync(null)).GetAwaiter().GetResult();
+            }
+            else
+            {
+                viewModel.Titulo = "Lista escolar 3.º grado";
+            }
+
+            var dialogo = new GuardarPresupuestoDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 460, 520, carpeta + "/" + nombre);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void RecuperarPresupuestoDialog_ConError_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var viewModel = new RecuperarPresupuestoViewModel(
+                Substitute.For<IPresupuestoService>(),
+                new CargaSerializada(),
+                Substitute.For<ILogger>())
+            {
+                Numero = "121",
+                MensajeError = "El presupuesto N.º 00000121 ya se convirtió en una venta: no se puede recuperar."
+            };
+
+            var dialogo = new RecuperarPresupuestoDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 420, 400, carpeta + "/RecuperarPresupuestoDialog_Error");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void AlertaPreciosPresupuestoDialog_ConDiscrepanciasFaltantesYBajas_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var viewModel = new AlertaPreciosPresupuestoViewModel(DatosDeMuestra.PresupuestoParaVenta(vigente: false, conNovedades: true));
+
+            var dialogo = new AlertaPreciosPresupuestoDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 580, 700, carpeta + "/AlertaPreciosPresupuestoDialog");
         });
 
         VerificarCaptura(ruta, error);

@@ -11,6 +11,7 @@ using Retail.App.ViewModels.Backups;
 using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Pedidos;
+using Retail.App.ViewModels.Presupuestos;
 using Retail.App.ViewModels.Proveedores;
 using Retail.App.ViewModels.Reportes;
 using Retail.App.ViewModels.Usuarios;
@@ -925,7 +926,7 @@ public class AppSmokeTests
             var inventarioServiceMock = Substitute.For<IInventarioService>();
 
             sessionMock.NombreCompleto.Returns("Administrador General");
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>());
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>(), Substitute.For<IPresupuestoService>(), Substitute.For<IPresupuestoDialogService>(), Substitute.For<IClienteService>());
 
             // Con un ítem, la grilla genera la fila: cantidad editable y botón de eliminar con sus estilos
             viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
@@ -972,7 +973,7 @@ public class AppSmokeTests
             var sessionMock = Substitute.For<ICurrentUserSession>();
             var dialogServiceMock = Substitute.For<IVentaDialogService>();
             var inventarioServiceMock = Substitute.For<IInventarioService>();
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>());
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>(), Substitute.For<IPresupuestoService>(), Substitute.For<IPresupuestoDialogService>(), Substitute.For<IClienteService>());
             viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto
             {
                 IdArticulo = 1,
@@ -2646,6 +2647,181 @@ public class AppSmokeTests
         // Assert
         xamlException.Should().BeNull("el XAML de DetallePresupuestoDialog debe resolverse sin errores");
         dialog.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GuardarPresupuestoDialog_InstanciacionEnHiloSTAEnCadaEstado_DebeCargarXAMLSinExcepciones(bool guardado)
+    {
+        // Arrange: el estado 1 (datos) y el 2 (guardado) comparten ventana: los dos se miden para resolver todos los recursos
+        Exception? xamlException = null;
+        GuardarPresupuestoDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var servicio = Substitute.For<IPresupuestoService>();
+            servicio.EmitirAsync(Arg.Any<Retail.Application.DTOs.Presupuestos.CrearPresupuestoDto>(), Arg.Any<CancellationToken>())
+                .Returns(Snapshots.DatosDeMuestra.PresupuestoDetalle());
+            var viewModel = new GuardarPresupuestoViewModel(
+                2,
+                7,
+                "Escuela N.º 12 Domingo F. Sarmiento",
+                500m,
+                184110m,
+                [new Retail.Application.DTOs.Presupuestos.DetallePresupuestoDto { IdArticulo = 1, Descripcion = "Cuaderno", Cantidad = 3, PrecioUnitarioPactado = 2450m }],
+                servicio,
+                Substitute.For<IPresupuestoDialogService>(),
+                new Retail.App.Helpers.CargaSerializada(),
+                Substitute.For<ILogger>());
+
+            if (guardado)
+            {
+                Task.Run(() => viewModel.GuardarCommand.ExecuteAsync(null)).GetAwaiter().GetResult();
+            }
+
+            try
+            {
+                dialog = new GuardarPresupuestoDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(460, 600));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 460, 600));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de GuardarPresupuestoDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+        dialog!.ViewModel.Guardado.Should().Be(guardado);
+    }
+
+    [Fact]
+    public void RecuperarPresupuestoDialog_InstanciacionEnHiloSTAConError_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange: con el mensaje de error visible, para resolver también el estilo de su badge
+        Exception? xamlException = null;
+        RecuperarPresupuestoDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new RecuperarPresupuestoViewModel(
+                Substitute.For<IPresupuestoService>(),
+                new Retail.App.Helpers.CargaSerializada(),
+                Substitute.For<ILogger>())
+            {
+                Numero = "999",
+                MensajeError = "No se encontró el presupuesto 999."
+            };
+
+            try
+            {
+                dialog = new RecuperarPresupuestoDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(420, 400));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 420, 400));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de RecuperarPresupuestoDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AlertaPreciosPresupuestoDialog_InstanciacionEnHiloSTAConNovedades_DebeCargarXAMLSinExcepciones(bool vencido)
+    {
+        // Arrange: vencido, con diferencias, faltantes y un artículo dado de baja (las tres secciones)
+        Exception? xamlException = null;
+        AlertaPreciosPresupuestoDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new AlertaPreciosPresupuestoViewModel(Snapshots.DatosDeMuestra.PresupuestoParaVenta(vigente: !vencido, conNovedades: true));
+
+            try
+            {
+                dialog = new AlertaPreciosPresupuestoDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(580, 800));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 580, 800));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de AlertaPreciosPresupuestoDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PosView_InstanciacionEnHiloSTAConUnPresupuestoCargado_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange: con un presupuesto vigente cargado, la etiqueta ocupa el lugar del botón y las líneas llevan el candado
+        Exception? xamlException = null;
+        PosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var sessionMock = Substitute.For<ICurrentUserSession>();
+            sessionMock.NombreCompleto.Returns("Administrador General");
+            var viewModel = new PosViewModel(
+                Substitute.For<IVentaService>(),
+                Substitute.For<ICajaService>(),
+                Substitute.For<IInventarioService>(),
+                sessionMock,
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<ICajaDialogService>(),
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<IClienteService>());
+
+            foreach (var renglon in Snapshots.DatosDeMuestra.PresupuestoParaVenta(vigente: true).Renglones)
+            {
+                viewModel.Items.Add(new ItemVentaPosViewModel
+                {
+                    NumeroItem = viewModel.Items.Count + 1,
+                    IdArticulo = renglon.IdArticulo,
+                    CodigoBarras = renglon.CodigoBarras,
+                    Descripcion = renglon.Descripcion,
+                    PrecioUnitario = renglon.PrecioACobrar,
+                    Cantidad = renglon.Cantidad,
+                    StockActual = renglon.StockActual,
+                    EsDePresupuesto = true,
+                    CantidadMaxima = renglon.Cantidad
+                });
+            }
+
+            viewModel.PresupuestoCargado = new PresupuestoCargado(123, "Lista escolar", true, new DateOnly(2026, 11, 29));
+
+            try
+            {
+                view = new PosView(viewModel);
+                view.Measure(new System.Windows.Size(1280, 800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1280, 800));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PosView con un presupuesto cargado (etiqueta y candados) debe resolverse sin errores");
+        view.Should().NotBeNull();
     }
 
     [Fact]

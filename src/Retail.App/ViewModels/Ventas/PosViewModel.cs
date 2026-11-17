@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Globalization;
-using System.Runtime.ExceptionServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FluentValidation;
@@ -10,9 +9,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Presupuestos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
@@ -36,6 +37,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
     private readonly ICurrentUserSession _session;
     private readonly IVentaDialogService _dialogService;
     private readonly ICajaDialogService _cajaDialogService;
+    private readonly IPresupuestoService _presupuestoService;
+    private readonly IPresupuestoDialogService _presupuestoDialogService;
+    private readonly IClienteService _clienteService;
     private readonly ILogger<PosViewModel> _logger;
 
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(180);
@@ -84,6 +88,16 @@ public partial class PosViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isBusy;
 
+    /// <summary>
+    /// Presupuesto del que viene el ticket (RF-12), o <c>null</c> si es una venta común. Con un presupuesto cargado el cobro
+    /// manda su número al servidor y "Guardar como presupuesto" se deshabilita: un presupuesto no se vuelve a presupuestar.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TienePresupuestoCargado))]
+    [NotifyPropertyChangedFor(nameof(PuedeLimpiar))]
+    [NotifyCanExecuteChangedFor(nameof(GuardarComoPresupuestoCommand))]
+    private PresupuestoCargado? _presupuestoCargado;
+
     public ObservableCollection<ArticuloVentaDto> ResultadosBusqueda { get; } = new();
 
     public ObservableCollection<ItemVentaPosViewModel> Items { get; } = new();
@@ -118,6 +132,17 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
     public bool TieneItems => Items.Count > 0;
 
+    public bool TienePresupuestoCargado => PresupuestoCargado is not null;
+
+    /// <summary>
+    /// F8 y su botón: hay algo que vaciar. Un presupuesto cargado cuyas líneas se quitaron todas también cuenta, así el
+    /// cajero puede desvincularlo sin tener que agregar un artículo.
+    /// </summary>
+    public bool PuedeLimpiar => TieneItems || TienePresupuestoCargado;
+
+    /// <summary>F3: hay un ticket para presupuestar y no viene de un presupuesto. No exige turno de caja (PS-17).</summary>
+    public bool PuedeGuardarComoPresupuesto => TieneItems && !TienePresupuestoCargado;
+
     /// <summary>
     /// La caja está cerrada (RF-13): la vista muestra el aviso con "Abrir caja" y bloquea el buscador, así no se arma un
     /// ticket que después no se puede cobrar.
@@ -131,6 +156,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
         ICurrentUserSession session,
         IVentaDialogService dialogService,
         ICajaDialogService cajaDialogService,
+        IPresupuestoService presupuestoService,
+        IPresupuestoDialogService presupuestoDialogService,
+        IClienteService clienteService,
         ILogger<PosViewModel>? logger = null)
     {
         _ventaService = ventaService ?? throw new ArgumentNullException(nameof(ventaService));
@@ -139,6 +167,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
         _session = session ?? throw new ArgumentNullException(nameof(session));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _cajaDialogService = cajaDialogService ?? throw new ArgumentNullException(nameof(cajaDialogService));
+        _presupuestoService = presupuestoService ?? throw new ArgumentNullException(nameof(presupuestoService));
+        _presupuestoDialogService = presupuestoDialogService ?? throw new ArgumentNullException(nameof(presupuestoDialogService));
+        _clienteService = clienteService ?? throw new ArgumentNullException(nameof(clienteService));
         _logger = logger ?? NullLogger<PosViewModel>.Instance;
 
         // Se crea antes de CargarEstadoCajaAsync, que ya la usa. Con el logger, una búsqueda lenta que se descarta
@@ -373,7 +404,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public void LimpiarVenta()
     {
-        if (Items.Count == 0)
+        if (!PuedeLimpiar)
         {
             return;
         }
@@ -434,12 +465,13 @@ public partial class PosViewModel : ObservableObject, IDisposable
                 IdTurno = turno.IdTurno,
                 IdUsuario = idUsuario,
                 IdCliente = Cliente?.IdCliente,
+                IdPresupuestoOrigen = PresupuestoCargado?.Id,
                 Descuento = Descuento,
                 Items = CrearDetallesDelTicket(),
                 Pagos = pagos
             };
 
-            var (completado, _) = await EjecutarEnFilaAsync(token => _ventaService.RegistrarVentaAsync(crearVentaDto, token));
+            var (completado, _) = await _accesoDatos.EjecutarEnFilaAsync(token => _ventaService.RegistrarVentaAsync(crearVentaDto, token));
             if (completado)
             {
                 VaciarTicket();
@@ -480,7 +512,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
     private async Task<bool> PrepararTicketParaCobroAsync()
     {
         var detalles = CrearDetallesDelTicket();
-        var (completado, verificacion) = await EjecutarEnFilaAsync(token => _ventaService.VerificarTicketAsync(detalles, cancellationToken: token));
+        int? idPresupuestoOrigen = PresupuestoCargado?.Id;
+        var (completado, verificacion) = await _accesoDatos.EjecutarEnFilaAsync(
+            token => _ventaService.VerificarTicketAsync(detalles, idPresupuestoOrigen, token));
         if (!completado)
         {
             return false;
@@ -565,7 +599,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
             IdArticuloDerivado = faltante.IdArticulo,
             CantidadOrigen = faltante.OrigenesAFraccionar
         };
-        var (completado, unidadesObtenidas) = await EjecutarEnFilaAsync(token => _inventarioService.FraccionarAsync(fraccionar, token));
+        var (completado, unidadesObtenidas) = await _accesoDatos.EjecutarEnFilaAsync(token => _inventarioService.FraccionarAsync(fraccionar, token));
         if (!completado)
         {
             return false;
@@ -604,37 +638,170 @@ public partial class PosViewModel : ObservableObject, IDisposable
         }).ToList();
     }
 
+    /// <summary>Vacía el ticket y lo desvincula del presupuesto del que venía, si lo había (F8 y fin de la venta).</summary>
     private void VaciarTicket()
     {
         Items.Clear();
         Descuento = 0m;
         Cliente = null;
+        PresupuestoCargado = null;
         RecalcularTotales();
     }
 
+    // ------------------------------------------------------------------ //
+    // Presupuestos (RF-11, RF-12)                                         //
+    // ------------------------------------------------------------------ //
+
     /// <summary>
-    /// Ejecuta un acceso a datos del cobro en la fila de la pantalla, para no usar el DbContext al mismo tiempo que
-    /// una búsqueda (H-19), y fuera del hilo de la UI (Ley 4). Convierte los callbacks de <see cref="CargaSerializada"/>
-    /// en un flujo secuencial: relanza el error para que lo trate quien llama.
+    /// F3: guarda el ticket como presupuesto. No exige turno de caja abierto (PS-17): solo hace falta el usuario de la
+    /// sesión, que figura como quien lo emite. Si el presupuesto queda guardado, el ticket se limpia sin pedir confirmación
+    /// (su contenido ya está a salvo); si se cancela, el ticket queda como estaba.
     /// </summary>
-    /// <returns><c>Completado = false</c> si la pantalla se descartó y el acceso se canceló.</returns>
-    private async Task<(bool Completado, T Resultado)> EjecutarEnFilaAsync<T>(Func<CancellationToken, Task<T>> acceso)
+    [RelayCommand(CanExecute = nameof(PuedeGuardarComoPresupuesto))]
+    public void GuardarComoPresupuesto()
     {
-        bool completado = false;
-        T resultado = default!;
-        ExceptionDispatchInfo? error = null;
+        if (_session.IdUsuario is not int idUsuario)
+        {
+            _dialogService.MostrarAlerta(
+                "Sesión incompleta",
+                "No se pudo identificar el usuario de la sesión. Vuelva a iniciar sesión para guardar el presupuesto.");
+            return;
+        }
 
-        await _accesoDatos.EjecutarOperacionAsync(
-            token => Task.Run(() => acceso(token), token),
-            valor =>
+        // El precio pactado es el que muestra el ticket; el servidor lo compara con el catálogo y nunca lo usa (D-11).
+        var renglones = Items.Select(i => new DetallePresupuestoDto
+        {
+            IdArticulo = i.IdArticulo,
+            CodigoBarras = i.CodigoBarras,
+            Descripcion = i.Descripcion,
+            Cantidad = i.Cantidad,
+            PrecioUnitarioPactado = i.PrecioUnitario
+        }).ToList();
+
+        var viewModel = new GuardarPresupuestoViewModel(
+            idUsuario,
+            Cliente?.IdCliente,
+            Cliente?.RazonSocialONombre,
+            Descuento,
+            Total,
+            renglones,
+            _presupuestoService,
+            _presupuestoDialogService,
+            _accesoDatos,
+            _logger);
+
+        if (_presupuestoDialogService.MostrarGuardarPresupuesto(viewModel))
+        {
+            VaciarTicket();
+        }
+    }
+
+    /// <summary>
+    /// F7: recupera un presupuesto por su número y lo carga en el ticket. Si el ticket actual tiene artículos pide
+    /// confirmación antes de reemplazarlo, y si el presupuesto cambió desde que se emitió (venció, faltan unidades o hay
+    /// artículos dados de baja) muestra primero la alerta; cancelarla deja el ticket como estaba.
+    /// </summary>
+    [RelayCommand]
+    public async Task RecuperarPresupuestoAsync()
+    {
+        var viewModel = new RecuperarPresupuestoViewModel(
+            _presupuestoService,
+            _accesoDatos,
+            _logger);
+
+        var presupuesto = _presupuestoDialogService.MostrarRecuperarPresupuesto(viewModel);
+        if (presupuesto is null)
+        {
+            return;
+        }
+
+        if (Items.Count > 0 && !_dialogService.Confirmar(
+                "Recuperar presupuesto",
+                "El ticket actual se reemplazará por el presupuesto. ¿Desea continuar?"))
+        {
+            return;
+        }
+
+        if (presupuesto.RequiereConfirmacion
+            && !_presupuestoDialogService.MostrarAlertaPreciosPresupuesto(new AlertaPreciosPresupuestoViewModel(presupuesto)))
+        {
+            return;
+        }
+
+        if (presupuesto.Renglones.Count == 0)
+        {
+            _dialogService.MostrarAlerta(
+                "Presupuesto sin artículos disponibles",
+                "Todos los artículos del presupuesto fueron dados de baja: no hay nada para cargar en el ticket.");
+            return;
+        }
+
+        await CargarPresupuestoAsync(presupuesto);
+    }
+
+    /// <summary>
+    /// Arma el ticket con los renglones del presupuesto: precio a cobrar (el pactado si está vigente, el de catálogo si venció,
+    /// PS-02 y PS-03) y, solo si está vigente, la cantidad presupuestada como tope (PS-04). El descuento se precarga (PS-15).
+    /// </summary>
+    private async Task CargarPresupuestoAsync(PresupuestoParaVentaDto presupuesto)
+    {
+        // El cliente se busca antes de tocar el ticket: si la búsqueda falla, el ticket queda como estaba.
+        ClienteDto? cliente = null;
+        bool clienteNoEncontrado = false;
+
+        if (presupuesto.IdCliente is int idCliente)
+        {
+            try
             {
-                resultado = valor;
-                completado = true;
-            },
-            ex => error = ExceptionDispatchInfo.Capture(ex));
+                var (_, encontrado) = await _accesoDatos.EjecutarEnFilaAsync(token => _clienteService.ObtenerClientePorIdAsync(idCliente, token));
+                cliente = encontrado;
+                clienteNoEncontrado = encontrado is null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "No se pudo buscar el cliente {IdCliente} del presupuesto {IdPresupuesto}", idCliente, presupuesto.IdPresupuesto);
+                clienteNoEncontrado = true;
+            }
+        }
 
-        error?.Throw();
-        return (completado, resultado);
+        VaciarTicket();
+        LimpiarBuscador();
+
+        foreach (var renglon in presupuesto.Renglones)
+        {
+            Items.Add(new ItemVentaPosViewModel
+            {
+                NumeroItem = Items.Count + 1,
+                IdArticulo = renglon.IdArticulo,
+                CodigoBarras = renglon.CodigoBarras,
+                Descripcion = renglon.Descripcion,
+                PrecioUnitario = renglon.PrecioACobrar,
+                Cantidad = renglon.Cantidad,
+                StockActual = renglon.StockActual,
+                EsServicio = renglon.EsServicio,
+                EsDePresupuesto = true,
+                CantidadMaxima = presupuesto.EstaVigente ? renglon.Cantidad : null
+            });
+        }
+
+        Cliente = cliente;
+
+        // Puede ser mayor que el subtotal si se omitieron artículos dados de baja: el total nunca queda negativo.
+        Descuento = Math.Min(presupuesto.Descuento, Subtotal);
+        PresupuestoCargado = new PresupuestoCargado(
+            presupuesto.IdPresupuesto,
+            presupuesto.Titulo,
+            presupuesto.EstaVigente,
+            presupuesto.FechaVencimiento);
+        ItemSeleccionado = Items.FirstOrDefault();
+        RecalcularTotales();
+
+        if (clienteNoEncontrado)
+        {
+            _dialogService.MostrarAlerta(
+                "Cliente no disponible",
+                "No se pudo cargar el cliente del presupuesto: el ticket quedó como Consumidor Final. Puede elegirlo con F4.");
+        }
     }
 
     [RelayCommand]
@@ -719,6 +886,18 @@ public partial class PosViewModel : ObservableObject, IDisposable
         var existente = Items.FirstOrDefault(i => i.IdArticulo == articulo.IdArticulo);
         if (existente != null)
         {
+            // PS-04: una línea de un presupuesto vigente no pasa de lo presupuestado; sumar un artículo más sería cobrarlo al
+            // precio pactado sin que figure en el presupuesto.
+            if (existente.CantidadMaxima is { } maxima && existente.Cantidad + 1 > maxima)
+            {
+                ItemSeleccionado = existente;
+                _dialogService.MostrarAlerta(
+                    "Cantidad presupuestada",
+                    $"'{existente.Descripcion}' ya está en la cantidad presupuestada ({maxima}) y no se puede superar. " +
+                    "Para vender más unidades, cobre este presupuesto y haga otra venta.");
+                return;
+            }
+
             existente.Cantidad++;
             RecalcularTotales();
             ItemSeleccionado = existente;
@@ -767,6 +946,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(TotalFormateado));
         OnPropertyChanged(nameof(PuedeCobrar));
         OnPropertyChanged(nameof(TieneItems));
+        OnPropertyChanged(nameof(PuedeLimpiar));
+        OnPropertyChanged(nameof(PuedeGuardarComoPresupuesto));
+        GuardarComoPresupuestoCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>

@@ -196,6 +196,82 @@ internal static class DatosDeMuestra
         };
     }
 
+    /// <summary>
+    /// Presupuesto 123 recuperado para cobrarlo en el POS. Vigente: precios pactados y cantidades como tope. Vencido: precios de
+    /// catálogo, con dos diferencias (un aumento y una baja). Con <paramref name="conNovedades"/> suma un faltante de stock
+    /// (con sugerencia de fraccionar) y un artículo dado de baja, para la alerta.
+    /// </summary>
+    public static PresupuestoParaVentaDto PresupuestoParaVenta(bool vigente, bool conNovedades = false)
+    {
+        var renglones = new List<RenglonPresupuestoParaVentaDto>
+        {
+            new()
+            {
+                IdArticulo = 1,
+                CodigoBarras = "7790001000011",
+                Descripcion = "Cuaderno tapa dura 48 hojas rayado",
+                Cantidad = 3,
+                PrecioPactado = 2450m,
+                PrecioActual = 2700m,
+                PrecioACobrar = vigente ? 2450m : 2700m,
+                EsServicio = false,
+                StockActual = 40
+            },
+            new()
+            {
+                IdArticulo = 2,
+                CodigoBarras = "7790001000028",
+                Descripcion = "Lapicera azul Cristal",
+                Cantidad = 5,
+                PrecioPactado = 480m,
+                PrecioActual = 450m,
+                PrecioACobrar = vigente ? 480m : 450m,
+                EsServicio = false,
+                StockActual = conNovedades ? 2 : 80
+            }
+        };
+
+        var discrepancias = vigente
+            ? new List<DiscrepanciaPrecioPresupuestoDto>()
+            : new List<DiscrepanciaPrecioPresupuestoDto>
+            {
+                new() { IdArticulo = 1, Descripcion = "Cuaderno tapa dura 48 hojas rayado", PrecioPactado = 2450m, PrecioActualCatalogo = 2700m },
+                new() { IdArticulo = 2, Descripcion = "Lapicera azul Cristal", PrecioPactado = 480m, PrecioActualCatalogo = 450m }
+            };
+
+        var faltantes = conNovedades
+            ? new List<Retail.Application.DTOs.Ventas.FaltanteStockDto>
+            {
+                new()
+                {
+                    IdArticulo = 2,
+                    Descripcion = "Lapicera azul Cristal",
+                    CantidadSolicitada = 5,
+                    StockActual = 2,
+                    DescripcionOrigen = "Lapicera azul Cristal x 12",
+                    UnidadesPorOrigen = 12,
+                    StockOrigen = 4,
+                    OrigenesAFraccionar = 1
+                }
+            }
+            : new List<Retail.Application.DTOs.Ventas.FaltanteStockDto>();
+
+        return new PresupuestoParaVentaDto
+        {
+            IdPresupuesto = 123,
+            Titulo = "Lista escolar 3.º grado — Escuela N.º 12",
+            IdCliente = null,
+            ClienteNombre = null,
+            EstaVigente = vigente,
+            FechaVencimiento = new DateOnly(2026, 11, 29),
+            Descuento = 500m,
+            Renglones = renglones,
+            Discrepancias = discrepancias,
+            Faltantes = faltantes,
+            ArticulosNoDisponibles = conNovedades ? ["Block de dibujo N.º 5 de 24 hojas blancas"] : []
+        };
+    }
+
     private static PresupuestoResumenDto Presupuesto(
         int id,
         string? titulo,

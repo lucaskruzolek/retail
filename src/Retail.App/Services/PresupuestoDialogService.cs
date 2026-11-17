@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using Retail.App.ViewModels.Presupuestos;
 using Retail.App.Views.Dialogs;
+using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.Interfaces.Services;
 
 namespace Retail.App.Services;
@@ -43,6 +44,42 @@ public class PresupuestoDialogService : IPresupuestoDialogService
         };
 
         dialog.ShowDialog();
+    }
+
+    public bool MostrarGuardarPresupuesto(GuardarPresupuestoViewModel viewModel)
+    {
+        var dialog = new GuardarPresupuestoDialog(viewModel)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        return viewModel.Guardado;
+    }
+
+    public PresupuestoParaVentaDto? MostrarRecuperarPresupuesto(RecuperarPresupuestoViewModel viewModel)
+    {
+        var dialog = new RecuperarPresupuestoDialog(viewModel)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        return viewModel.Resultado;
+    }
+
+    public bool MostrarAlertaPreciosPresupuesto(AlertaPreciosPresupuestoViewModel viewModel)
+    {
+        var dialog = new AlertaPreciosPresupuestoDialog(viewModel)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        return viewModel.Confirmado;
     }
 
     public bool Confirmar(string titulo, string mensaje)
