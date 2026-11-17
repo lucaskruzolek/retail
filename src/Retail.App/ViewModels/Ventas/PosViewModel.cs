@@ -480,7 +480,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
     private async Task<bool> PrepararTicketParaCobroAsync()
     {
         var detalles = CrearDetallesDelTicket();
-        var (completado, verificacion) = await EjecutarEnFilaAsync(token => _ventaService.VerificarTicketAsync(detalles, token));
+        var (completado, verificacion) = await EjecutarEnFilaAsync(token => _ventaService.VerificarTicketAsync(detalles, cancellationToken: token));
         if (!completado)
         {
             return false;

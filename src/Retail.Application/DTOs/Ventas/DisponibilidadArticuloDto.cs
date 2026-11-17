@@ -7,6 +7,7 @@ namespace Retail.Application.DTOs.Ventas;
 public record class DisponibilidadArticuloDto
 {
     public required int IdArticulo { get; init; }
+    public string? CodigoBarras { get; init; }
     public required string Descripcion { get; init; }
     public required decimal PrecioVenta { get; init; }
     public required int StockActual { get; init; }

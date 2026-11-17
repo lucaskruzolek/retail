@@ -22,7 +22,7 @@ public class CrearVentaValidator : AbstractValidator<CrearVentaDto>
             .GreaterThan(0).When(x => x.IdCliente.HasValue).WithMessage("El cliente seleccionado no es válido.");
 
         RuleFor(x => x.IdPresupuestoOrigen)
-            .Null().WithMessage("La conversión de presupuestos a venta todavía no está disponible (RF-12).");
+            .GreaterThan(0).When(x => x.IdPresupuestoOrigen.HasValue).WithMessage("El presupuesto de origen no es válido.");
 
         RuleFor(x => x.Descuento)
             .GreaterThanOrEqualTo(0m).WithMessage("El descuento no puede ser negativo.");

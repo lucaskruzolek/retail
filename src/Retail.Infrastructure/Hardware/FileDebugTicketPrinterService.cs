@@ -189,7 +189,7 @@ public partial class FileDebugTicketPrinterService : ITicketPrinterService
         sb.AppendLine(CulturaArgentina, $"{Separador('-', ancho)}");
         sb.AppendLine(CulturaArgentina, $"Presupuesto: #{presupuesto.IdPresupuesto:D8}");
         sb.AppendLine(CulturaArgentina, $"Fecha Emisión:     {presupuesto.FechaEmision:dd/MM/yyyy}");
-        sb.AppendLine(CulturaArgentina, $"Fecha Vencimiento: {presupuesto.FechaVencimiento:dd/MM/yyyy} (15 días)");
+        sb.AppendLine(CulturaArgentina, $"Fecha Vencimiento: {presupuesto.FechaVencimiento:dd/MM/yyyy}");
         sb.AppendLine(CulturaArgentina, $"Operador:          {presupuesto.UsuarioNombre ?? $"ID #{presupuesto.IdUsuario}"}");
         sb.AppendLine(CulturaArgentina, $"Cliente:           {presupuesto.ClienteNombre ?? "Consumidor Final"}");
         sb.AppendLine(CulturaArgentina, $"Estado:            {presupuesto.Estado}");
@@ -216,7 +216,7 @@ public partial class FileDebugTicketPrinterService : ITicketPrinterService
         sb.AppendLine(CulturaArgentina, $"{AlinearDosExtremos("TOTAL PRESUPUESTADO:", FormatearMoneda(presupuesto.Total), ancho)}");
         sb.AppendLine(CulturaArgentina, $"{Separador('=', ancho)}");
         sb.AppendLine(CulturaArgentina, $"{CentrarTexto("* DOCUMENTO NO VÁLIDO COMO FACTURA *", ancho)}");
-        sb.AppendLine(CulturaArgentina, $"{CentrarTexto("Precios pactados válidos por 15 días.", ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{CentrarTexto($"Precios pactados válidos hasta el {presupuesto.FechaVencimiento:dd/MM/yyyy}.", ancho)}");
         sb.AppendLine(CulturaArgentina, $"{CentrarTexto("No reserva ni garantiza stock físico.", ancho)}");
         sb.AppendLine(CulturaArgentina, $"{Separador('=', ancho)}");
 

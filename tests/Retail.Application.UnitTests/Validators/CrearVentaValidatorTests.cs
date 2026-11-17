@@ -105,7 +105,7 @@ public class CrearVentaValidatorTests
     }
 
     [Fact]
-    public void Validate_ConPresupuestoDeOrigen_FallaPorqueRf12NoEstaImplementado()
+    public void Validate_ConPresupuestoDeOrigenPositivo_EsValido()
     {
         // Arrange
         var dto = CrearDtoValido() with { IdPresupuestoOrigen = 7 };
@@ -114,8 +114,36 @@ public class CrearVentaValidatorTests
         var result = _validator.Validate(dto);
 
         // Assert
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void Validate_ConPresupuestoDeOrigenNoPositivo_Falla(int idPresupuesto)
+    {
+        // Arrange
+        var dto = CrearDtoValido() with { IdPresupuestoOrigen = idPresupuesto };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("RF-12"));
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("presupuesto"));
+    }
+
+    [Fact]
+    public void Validate_SinPresupuestoDeOrigen_EsValido()
+    {
+        // Arrange
+        var dto = CrearDtoValido() with { IdPresupuestoOrigen = null };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
     }
 
     private static DetalleVentaDto Item()

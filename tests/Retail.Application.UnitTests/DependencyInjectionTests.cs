@@ -23,6 +23,21 @@ public class DependencyInjectionTests
     }
 
     [Fact]
+    public void AddApplicationServices_RegistraElServicioDePresupuestosYSusValidadores()
+    {
+        // Arrange
+        var services = new ServiceCollection();
+
+        // Act
+        services.AddApplicationServices();
+
+        // Assert: el resto de las dependencias (consulta, exportador, impresora) las aporta Infrastructure.
+        services.Should().Contain(d => d.ServiceType == typeof(Retail.Application.Interfaces.Services.IPresupuestoService));
+        services.Should().Contain(d => d.ServiceType == typeof(FluentValidation.IValidator<Retail.Application.DTOs.Presupuestos.CrearPresupuestoDto>));
+        services.Should().Contain(d => d.ServiceType == typeof(FluentValidation.IValidator<Retail.Application.DTOs.Presupuestos.ConsultaPresupuestosDto>));
+    }
+
+    [Fact]
     public void AddApplicationServices_NoRegistraLasOperacionesPrivilegiadasDeAdministracion()
     {
         // Arrange

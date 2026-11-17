@@ -807,7 +807,7 @@ public class PosViewModelTests
     private void ConfigurarVerificacion(VerificacionTicketDto verificacion)
     {
         _ventaServiceMock
-            .VerificarTicketAsync(Arg.Any<IReadOnlyList<DetalleVentaDto>>(), Arg.Any<CancellationToken>())
+            .VerificarTicketAsync(Arg.Any<IReadOnlyList<DetalleVentaDto>>(), Arg.Any<int?>(), Arg.Any<CancellationToken>())
             .Returns(verificacion);
     }
 }

@@ -205,7 +205,9 @@ public class FileDebugTicketPrinterServiceTests : IDisposable
             IdCliente = 3,
             ClienteNombre = "Instituto Rivadavia",
             FechaEmision = new DateTime(2026, 9, 8, 10, 0, 0, DateTimeKind.Utc),
-            FechaVencimiento = new DateTime(2026, 9, 23, 10, 0, 0, DateTimeKind.Utc),
+            FechaVencimiento = new DateOnly(2026, 9, 23),
+            EstaVigente = true,
+            Titulo = "Nota interna del comercio",
             Subtotal = 15000.00m,
             Descuento = 0.00m,
             Total = 15000.00m,
@@ -236,7 +238,8 @@ public class FileDebugTicketPrinterServiceTests : IDisposable
         contenido.Should().Contain("pfernandez");
         contenido.Should().Contain("Caja Marcadores al Agua x12");
         contenido.Should().Contain("DOCUMENTO NO VÁLIDO COMO FACTURA");
-        contenido.Should().Contain("Precios pactados válidos por 15 días");
+        contenido.Should().Contain("Precios pactados válidos hasta el 23/09/2026");
+        contenido.Should().NotContain("Nota interna del comercio", "el título es de uso interno (PS-20)");
         contenido.Should().Contain("No reserva ni garantiza stock físico");
     }
 }

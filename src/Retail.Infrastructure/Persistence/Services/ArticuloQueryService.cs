@@ -211,6 +211,7 @@ public class ArticuloQueryService : IArticuloQueryService
             .Select(a => new DisponibilidadArticuloDto
             {
                 IdArticulo = a.Id,
+                CodigoBarras = a.CodigoBarras,
                 Descripcion = a.Descripcion,
                 PrecioVenta = a.PrecioVenta,
                 StockActual = a.StockActual,
