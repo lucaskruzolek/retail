@@ -11,17 +11,20 @@
 ## Módulos e Interfaces Asignados
 
 ### Módulo 5.1: Presupuestador Independiente y Conversión a Venta
-**Responsable:** Pablo Fernandez
+**Responsable:** Lucas Kruzolek (reasignado desde Pablo Fernandez el 2026-11-17)  
+**Plan de diseño detallado:** [`etapa-5-modulo-5.1-presupuestos.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-5-modulo-5.1-presupuestos.md) (decisiones PS-01 a PS-20, fases P0 a P6)
 
-* **Interfaz Visual:** `PresupuestosView.xaml` (confección, listado e impresión de cotizaciones independientes) y `AlertaPreciosPresupuestoDialog.xaml` (modal de alerta que advierte al cajero si los precios del catálogo aumentaron o si falta stock en góndola al intentar convertir un presupuesto en mostrador).
-* **ViewModels:** `PresupuestosViewModel.cs` y `AlertaPreciosPresupuestoViewModel.cs`.
+* **Interfaz Visual:** el presupuesto se **confecciona en el POS** (`PosView.xaml`): "Guardar como presupuesto" (F9) abre `GuardarPresupuestoDialog.xaml` (título opcional, vigencia, impresión y PDF) y "Recuperar presupuesto" (F7) abre `RecuperarPresupuestoDialog.xaml`. `AlertaPreciosPresupuestoDialog.xaml` advierte las diferencias de precio de un presupuesto vencido, los faltantes de stock y los artículos dados de baja. `PresupuestosView.xaml` (IU-13) es de **consulta**: listado con filtros, detalle (`DetallePresupuestoDialog.xaml`), reimpresión, PDF y anulación.
+* **ViewModels:** `PresupuestosViewModel.cs`, `DetallePresupuestoViewModel.cs`, `GuardarPresupuestoViewModel.cs`, `RecuperarPresupuestoViewModel.cs`, `AlertaPreciosPresupuestoViewModel.cs` y cambios en `PosViewModel.cs`.
 * **Lógica y Casos de Uso:** `IPresupuestoService`:
-  - `CrearPresupuestoAsync`: cotización temporal sin afectar stock ni caja, con validez configurable (15 días por defecto, editable).
-  - `RecuperarPresupuestoParaVentaAsync`: valida vigencia temporal y disponibilidad de stock. Si está vigente, respeta los precios pactados congelados; si expiró, no bloquea destructivamente sino que detecta discrepancias de catálogo y habilita la conciliación adaptativa vía `AlertaPreciosPresupuestoDialog`.
-  - `MarcarPresupuestoComoConvertidoAsync` al confirmarse la venta.
-* **Dominio:** Agregado `Presupuesto` (`IAggregateRoot`), `DetallePresupuesto`, `EstadoPresupuesto`, propiedad calculada `EstaVencido` e invariante de congelamiento de `precio_unitario_pactado` durante la vigencia.
-* **Persistencia:** `PresupuestoConfiguration.cs` y `DetallePresupuestoConfiguration.cs`.
-* **Testing:** Pruebas unitarias de cálculo de vigencia y expiración; pruebas de conciliación de precios en `AlertaPreciosPresupuestoDialog`; pruebas de bloqueo por stock insuficiente en conversión y tests de `PresupuestosViewModel`.
+  - `EmitirAsync`: cotización a precios de catálogo, sin afectar stock ni caja (no requiere turno abierto), con título opcional y vigencia de 1 a 90 días (15 por defecto).
+  - `RecuperarParaVentaAsync`: precios pactados si está vigente; si venció, informa las diferencias con el catálogo para la conciliación vía `AlertaPreciosPresupuestoDialog`. En ambos casos audita stock y artículos dados de baja.
+  - `ListarAsync` (paginado), `ObtenerAsync`, `AnularAsync`, `ImprimirAsync` y `ExportarPdfAsync`.
+  - La **conversión** ocurre dentro de `IVentaService.RegistrarVentaAsync` (venta con `IdPresupuestoOrigen`), en el mismo `SaveChanges` que la venta: no existe un método aparte para marcarlo como convertido.
+* **Dominio:** Agregado `Presupuesto` (`IAggregateRoot`) con estados persistidos `Pendiente`, `Convertido` y `Anulado`; la vigencia es derivada (`EstaVigente(hoy)`) y la regla de precio de la conversión vive en el agregado (`ObtenerPrecioPactado`). `DetallePresupuesto` guarda la foto de la descripción y el precio pactado.
+* **Persistencia:** `PresupuestoConfiguration.cs`, `DetallePresupuestoConfiguration.cs`, `PresupuestoQueryService.cs`, `rowversion` en `PRESUPUESTOS` e índice único filtrado en `VENTAS.id_presupuesto_origen`.
+* **Exportación:** `ExportadorPresupuestoPdf.cs` (QuestPDF, A4) detrás de `IExportadorPresupuestoPdf`.
+* **Testing:** Dominio (vigencia en el límite del día, invariantes, transiciones); servicio (emisión, recuperación, conversión con precio pactado o de catálogo); integración (conversión atómica y concurrente, filtros, PDF); ViewModels, humo STA y capturas de las vistas y diálogos.
 
 ---
 
@@ -40,5 +43,5 @@
 ---
 
 ## Prevención de Sobreescritura y Criterio de Aceptación
-* **Prevención de Sobreescritura:** Lucas es el autor del POS y de la Facturación Fiscal, por lo que la conexión entre el checkout y la emisión fiscal la realiza el mismo desarrollador sin riesgos de colisión. Pablo entrega el módulo de presupuestos completo con su propio modal de alerta de discrepancias `AlertaPreciosPresupuestoDialog.xaml`, listo para ser consumido mediante la interfaz `IPresupuestoService`.
-* **Criterio de Aceptación Integrado:** Un presupuesto dentro de término respeta estrictamente los precios cotizados; si se encuentra vencido, el sistema advierte al cajero mediante `AlertaPreciosPresupuestoDialog` mostrando los aumentos de catálogo y permitiendo actualizar importes para cerrar la venta sin fricción; ante cortes de red o caídas del servicio fiscal, la venta concluye normalmente en contingencia, y el Gerente autoriza los comprobantes en lote con un clic desde su consola fiscal.
+* **Prevención de Sobreescritura:** Lucas es el autor del POS, de los presupuestos y de la Facturación Fiscal, por lo que las conexiones del checkout con la conversión de presupuestos y con la emisión fiscal las realiza el mismo desarrollador sin riesgos de colisión.
+* **Criterio de Aceptación Integrado:** Un presupuesto se guarda desde el POS aun con la caja cerrada y se entrega impreso o en PDF; dentro de término respeta estrictamente los precios cotizados; si se encuentra vencido, el sistema advierte al cajero mediante `AlertaPreciosPresupuestoDialog` mostrando las diferencias con el catálogo y actualiza los importes para cerrar la venta sin fricción; un presupuesto cobrado no puede volver a cobrarse; ante cortes de red o caídas del servicio fiscal, la venta concluye normalmente en contingencia, y el Gerente autoriza los comprobantes en lote con un clic desde su consola fiscal.
