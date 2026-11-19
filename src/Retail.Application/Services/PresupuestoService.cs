@@ -1,6 +1,7 @@
 using FluentValidation;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
@@ -65,49 +66,7 @@ public class PresupuestoService : IPresupuestoService
 
         try
         {
-            // 1. Cargar los artículos activos y el cliente. No se consulta la caja ni el turno: emitir no mueve
-            //    plata ni stock (PS-17).
-            var idsArticulos = dto.Items.Select(i => i.IdArticulo).Distinct().ToList();
-            var articulos = await _articuloRepository.FindAsync(
-                a => idsArticulos.Contains(a.Id),
-                includeDeleted: false,
-                cancellationToken);
-            var articulosPorId = articulos.ToDictionary(a => a.Id);
-
-            if (dto.IdCliente is int idCliente)
-            {
-                _ = await _clienteRepository.GetByIdAsync(idCliente, includeDeleted: false, cancellationToken)
-                    ?? throw new DomainException($"No se encontró ningún cliente activo con el identificador {idCliente}.");
-            }
-
-            // 2. El precio y la descripción salen del artículo, no del DTO (D-11, PS-11). El precio que vio el
-            //    cajero solo sirve para detectar que el ticket quedó desactualizado.
-            var renglones = new List<RenglonAPresupuestar>();
-            foreach (var item in dto.Items)
-            {
-                if (!articulosPorId.TryGetValue(item.IdArticulo, out var articulo))
-                {
-                    throw new DomainException($"El artículo '{item.Descripcion}' ya no está disponible: fue dado de baja.");
-                }
-
-                if (articulo.PrecioVenta != item.PrecioUnitarioPactado)
-                {
-                    throw new DomainException(
-                        $"El precio de '{articulo.Descripcion}' cambió de {item.PrecioUnitarioPactado:C} a {articulo.PrecioVenta:C}. Vuelva a cargar el artículo en el ticket.");
-                }
-
-                renglones.Add(new RenglonAPresupuestar(articulo.Id, articulo.Descripcion, item.Cantidad, articulo.PrecioVenta));
-            }
-
-            // 3. El agregado valida sus invariantes y calcula los totales.
-            var presupuesto = Presupuesto.Emitir(
-                dto.IdUsuario,
-                dto.IdCliente,
-                dto.Titulo,
-                renglones,
-                dto.Descuento,
-                dto.VigenciaDias,
-                hoy);
+            var presupuesto = await ConstruirPresupuestoAsync(dto, hoy, idPresupuestoReemplazado: null, cancellationToken);
 
             await _presupuestoRepository.AddAsync(presupuesto, cancellationToken);
             await _unitOfWork.SaveChangesAsync(cancellationToken);
@@ -122,6 +81,74 @@ public class PresupuestoService : IPresupuestoService
 
         return await _consultas.ObtenerAsync(idPresupuesto, hoy, cancellationToken)
             ?? throw new InvalidOperationException($"El presupuesto {idPresupuesto} recién guardado no se pudo leer.");
+    }
+
+    public async Task<PresupuestoDto> ReemplazarAsync(
+        int idPresupuestoOriginal,
+        CrearPresupuestoDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(dto);
+        await _crearValidator.ValidateAndThrowAsync(dto, cancellationToken);
+
+        var hoy = ObtenerHoy();
+        int idNuevo;
+
+        try
+        {
+            var original = await _presupuestoRepository.GetByIdAsync(idPresupuestoOriginal, cancellationToken)
+                ?? throw new DomainException($"No se encontró el presupuesto {idPresupuestoOriginal}.");
+
+            // El corregido es una cotización nueva: vigencia desde hoy (PE-05) y precios del catálogo de hoy (PE-06).
+            var nuevo = await ConstruirPresupuestoAsync(dto, hoy, original.Id, cancellationToken);
+
+            // Si el original no está pendiente lanza TransicionPresupuestoInvalidaException antes de tocar la base.
+            original.Reemplazar();
+
+            // Un solo SaveChanges (PE-02): cerrar el original y emitir el nuevo son todo o nada. El row_version del
+            // original detecta que otra terminal lo cobró o lo anuló, y el índice único impide un segundo reemplazo (PE-07).
+            await _presupuestoRepository.UpdateAsync(original, cancellationToken);
+            await _presupuestoRepository.AddAsync(nuevo, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+            idNuevo = nuevo.Id;
+        }
+        catch (Exception ex) when (ex is ConflictoDeConcurrenciaException or RestriccionDeUnicidadException)
+        {
+            throw new DomainException(
+                $"El presupuesto N.º {idPresupuestoOriginal} cambió mientras lo corregía (por ejemplo, se cobró). Vuelva a abrirlo.",
+                ex);
+        }
+        finally
+        {
+            _unitOfWork.DescartarCambios();
+        }
+
+        return await _consultas.ObtenerAsync(idNuevo, hoy, cancellationToken)
+            ?? throw new InvalidOperationException($"El presupuesto {idNuevo} recién guardado no se pudo leer.");
+    }
+
+    public async Task CambiarTituloAsync(int idPresupuesto, string? titulo, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var presupuesto = await _presupuestoRepository.GetByIdAsync(idPresupuesto, cancellationToken)
+                ?? throw new DomainException($"No se encontró el presupuesto {idPresupuesto}.");
+
+            // El agregado normaliza y valida la longitud (PE-08).
+            presupuesto.CambiarTitulo(titulo);
+
+            await _presupuestoRepository.UpdateAsync(presupuesto, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictoDeConcurrenciaException ex)
+        {
+            throw new DomainException($"Otro usuario modificó el presupuesto N.º {idPresupuesto}. Vuelva a abrirlo.", ex);
+        }
+        finally
+        {
+            _unitOfWork.DescartarCambios();
+        }
     }
 
     public async Task<PresupuestosPaginadosDto> ListarAsync(ConsultaPresupuestosDto consulta, CancellationToken cancellationToken = default)
@@ -254,6 +281,62 @@ public class PresupuestoService : IPresupuestoService
         var presupuesto = await ObtenerExistenteAsync(idPresupuesto, cancellationToken);
 
         await _exportadorPdf.ExportarAsync(presupuesto, destino, cancellationToken);
+    }
+
+    /// <summary>
+    /// Arma un presupuesto nuevo a partir del DTO: carga los artículos activos y el cliente, toma precio y descripción
+    /// del catálogo y deja que el agregado valide sus invariantes. Lo comparten la emisión y la corrección.
+    /// </summary>
+    private async Task<Presupuesto> ConstruirPresupuestoAsync(
+        CrearPresupuestoDto dto,
+        DateOnly hoy,
+        int? idPresupuestoReemplazado,
+        CancellationToken cancellationToken)
+    {
+        // 1. Cargar los artículos activos y el cliente. No se consulta la caja ni el turno: emitir no mueve
+        //    plata ni stock (PS-17).
+        var idsArticulos = dto.Items.Select(i => i.IdArticulo).Distinct().ToList();
+        var articulos = await _articuloRepository.FindAsync(
+            a => idsArticulos.Contains(a.Id),
+            includeDeleted: false,
+            cancellationToken);
+        var articulosPorId = articulos.ToDictionary(a => a.Id);
+
+        if (dto.IdCliente is int idCliente)
+        {
+            _ = await _clienteRepository.GetByIdAsync(idCliente, includeDeleted: false, cancellationToken)
+                ?? throw new DomainException($"No se encontró ningún cliente activo con el identificador {idCliente}.");
+        }
+
+        // 2. El precio y la descripción salen del artículo, no del DTO (D-11, PS-11). El precio que vio el
+        //    cajero solo sirve para detectar que el ticket quedó desactualizado.
+        var renglones = new List<RenglonAPresupuestar>();
+        foreach (var item in dto.Items)
+        {
+            if (!articulosPorId.TryGetValue(item.IdArticulo, out var articulo))
+            {
+                throw new DomainException($"El artículo '{item.Descripcion}' ya no está disponible: fue dado de baja.");
+            }
+
+            if (articulo.PrecioVenta != item.PrecioUnitarioPactado)
+            {
+                throw new DomainException(
+                    $"El precio de '{articulo.Descripcion}' cambió de {item.PrecioUnitarioPactado:C} a {articulo.PrecioVenta:C}. Vuelva a cargar el artículo en el ticket.");
+            }
+
+            renglones.Add(new RenglonAPresupuestar(articulo.Id, articulo.Descripcion, item.Cantidad, articulo.PrecioVenta));
+        }
+
+        // 3. El agregado valida sus invariantes y calcula los totales.
+        return Presupuesto.Emitir(
+            dto.IdUsuario,
+            dto.IdCliente,
+            dto.Titulo,
+            renglones,
+            dto.Descuento,
+            dto.VigenciaDias,
+            hoy,
+            idPresupuestoReemplazado);
     }
 
     private async Task<PresupuestoDto> ObtenerExistenteAsync(int idPresupuesto, CancellationToken cancellationToken)

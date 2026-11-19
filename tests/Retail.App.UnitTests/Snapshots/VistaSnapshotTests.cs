@@ -506,7 +506,7 @@ public class VistaSnapshotTests
                 Substitute.For<ILogger>());
 
             var dialogo = new ListaFormDialog(viewModel);
-            return SnapshotRenderer.Guardar(dialogo, 800, 700, carpeta + "/ListaFormDialog", () => viewModel.Renglones.Count > 0);
+            return SnapshotRenderer.Guardar(dialogo, 800, 700, carpeta + "/ListaFormDialog", () => viewModel.Editor.Renglones.Count > 0);
         });
 
         VerificarCaptura(ruta, error);
@@ -656,7 +656,74 @@ public class VistaSnapshotTests
                 Substitute.For<ILogger<DetallePresupuestoViewModel>>());
 
             var dialogo = new DetallePresupuestoDialog(viewModel);
-            return SnapshotRenderer.Guardar(dialogo, 540, 680, carpeta + "/DetallePresupuestoDialog", () => viewModel.Cargado);
+            return SnapshotRenderer.Guardar(dialogo, 540, 720, carpeta + "/DetallePresupuestoDialog", () => viewModel.Cargado);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    private static PresupuestoFormViewModel CrearFormularioPresupuesto(PresupuestoParaVentaDto? aCorregir, CargaSerializada acceso)
+    {
+        var sesion = Substitute.For<ICurrentUserSession>();
+        sesion.IdUsuario.Returns(2);
+
+        return new PresupuestoFormViewModel(
+            aCorregir,
+            Substitute.For<IPresupuestoService>(),
+            Substitute.For<IVentaService>(),
+            Substitute.For<IClienteService>(),
+            Substitute.For<IVentaDialogService>(),
+            Substitute.For<IPresupuestoDialogService>(),
+            sesion,
+            acceso,
+            new RelojDePrueba(DatosDeMuestra.AhoraPresupuestos),
+            Substitute.For<ILogger>());
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void PresupuestoFormDialog_Nuevo_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            using var acceso = new CargaSerializada();
+            var viewModel = CrearFormularioPresupuesto(null, acceso);
+
+            // Tres artículos como los dejaría el buscador, con cantidades distintas, un título, un cliente y un descuento
+            foreach (var articulo in DatosDeMuestra.ArticulosParaPresupuestoNuevo())
+            {
+                viewModel.Editor.AgregarArticuloCommand.Execute(articulo);
+            }
+
+            viewModel.Editor.Renglones[0].Cantidad = 3;
+            viewModel.Editor.Renglones[1].Cantidad = 12;
+            viewModel.Editor.Renglones[2].Cantidad = 2;
+            viewModel.Titulo = "Útiles de 3.º grado";
+            viewModel.Cliente = DatosDeMuestra.Clientes()[0];
+            viewModel.Descuento = 1500d;
+
+            var dialogo = new PresupuestoFormDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 960, 760, carpeta + "/PresupuestoFormDialog_Nuevo", () => viewModel.Editor.Renglones.Count == 3);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void PresupuestoFormDialog_Correccion_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            using var acceso = new CargaSerializada();
+
+            // Con novedades: dos precios cambiaron y un artículo se dio de baja, como los avisos de la corrección
+            var viewModel = CrearFormularioPresupuesto(DatosDeMuestra.PresupuestoParaVenta(vigente: true, conNovedades: true), acceso);
+
+            var dialogo = new PresupuestoFormDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 960, 760, carpeta + "/PresupuestoFormDialog_Correccion", () => viewModel.Editor.Renglones.Count > 0);
         });
 
         VerificarCaptura(ruta, error);
@@ -771,6 +838,35 @@ public class VistaSnapshotTests
 
             var dialogo = new GuardarPresupuestoDialog(viewModel);
             return SnapshotRenderer.Guardar(dialogo, 460, 520, carpeta + "/" + nombre);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void GuardarPresupuestoDialog_DesdeBase_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var viewModel = new GuardarPresupuestoViewModel(
+                2,
+                7,
+                "Escuela N.º 12 Domingo F. Sarmiento",
+                500m,
+                184110m,
+                [new DetallePresupuestoDto { IdArticulo = 1, Descripcion = "Cuaderno", Cantidad = 3, PrecioUnitarioPactado = 2700m }],
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                new CargaSerializada(),
+                Substitute.For<ILogger>(),
+                numeroBase: 123,
+                tituloBase: "Lista escolar 3.º grado",
+                preciosActualizados: 2);
+
+            var dialogo = new GuardarPresupuestoDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 460, 620, carpeta + "/GuardarPresupuestoDialog_DesdeBase");
         });
 
         VerificarCaptura(ruta, error);

@@ -1,0 +1,282 @@
+<UserControl x:Class="Retail.App.Views.Components.EditorRenglones"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:components="clr-namespace:Retail.App.Views.Components"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
+             xmlns:converters="clr-namespace:Retail.App.Converters">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+            <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
+            <converters:AMayusculasConverter x:Key="AMayusculasConverter" />
+
+            <!-- Texto de una celda: se apaga cuando el artículo está dado de baja (L-13) -->
+            <Style x:Key="CeldaDescripcionStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockTextCell}">
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding EstaDadoDeBaja}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <Style x:Key="CeldaCodigoStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockMonospaceCell}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding EstaDadoDeBaja}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- Importe (ya alineado a la derecha por TextBlockCurrencyCell), apagado si el artículo está dado de baja -->
+            <Style x:Key="CeldaImporteStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding EstaDadoDeBaja}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- Precio anterior (PE-13): chico, apagado y tachado, alineado a la derecha sobre el precio nuevo -->
+            <Style x:Key="CeldaPrecioAnteriorStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
+                <Setter Property="FontSize" Value="{StaticResource FontSizeXs}" />
+                <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                <Setter Property="TextDecorations" Value="Strikethrough" />
+                <Setter Property="LineHeight" Value="13" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <!-- El DataContext es el EditorRenglonesViewModel (lo enlaza el anfitrión: DataContext="{Binding Editor}") -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Buscador de artículos vendibles (el mismo servicio que el del POS) -->
+        <Grid Grid.Row="0" Margin="{StaticResource StackMd}">
+            <ui:TextBox x:Name="CuadroBusqueda"
+                        Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                        PlaceholderText="Buscar artículo por nombre o código de barras…"
+                        Height="{StaticResource ControlHeight}"
+                        FontSize="{StaticResource FontSizeMd}"
+                        AutomationProperties.Name="Buscar artículo">
+                <ui:TextBox.Icon>
+                    <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
+                </ui:TextBox.Icon>
+            </ui:TextBox>
+
+            <!-- Desplegable de resultados: mismo patrón que el buscador del POS y el de Ingresos -->
+            <Popup x:Name="PopupResultados"
+                   IsOpen="{Binding MostrarResultados, Mode=TwoWay}"
+                   PlacementTarget="{Binding ElementName=CuadroBusqueda}"
+                   Placement="Bottom"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   HorizontalOffset="-8"
+                   PopupAnimation="Slide">
+                <Border Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource SurfaceBorderBrush}"
+                        BorderThickness="1"
+                        UseLayoutRounding="True"
+                        SnapsToDevicePixels="True"
+                        CornerRadius="{StaticResource RadiusMd}"
+                        Padding="0,4"
+                        Margin="8,4,8,12"
+                        Width="{Binding ActualWidth, ElementName=CuadroBusqueda}"
+                        MaxHeight="300">
+                    <Border.Effect>
+                        <DropShadowEffect Color="{StaticResource ElevationShadowColor}"
+                                          Opacity="0.18"
+                                          BlurRadius="16"
+                                          ShadowDepth="4"
+                                          Direction="270" />
+                    </Border.Effect>
+                    <Grid>
+                        <TextBlock Text="Ningún artículo coincide con la búsqueda."
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   Margin="12,8"
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding SinResultados, Converter={StaticResource BoolToVisConverter}}" />
+
+                        <ListBox x:Name="ListaResultados"
+                                 ItemsSource="{Binding ResultadosBusqueda}"
+                                 SelectedItem="{Binding ResultadoSeleccionado, Mode=TwoWay}"
+                                 SelectionMode="Single"
+                                 ItemContainerStyle="{StaticResource SearchResultListBoxItemStyle}"
+                                 MouseMove="OnResultadosMouseMove"
+                                 PreviewMouseLeftButtonDown="OnResultadosPreviewMouseLeftButtonDown"
+                                 PreviewMouseLeftButtonUp="OnResultadosPreviewMouseLeftButtonUp"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Visibility="{Binding SinResultados, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel LastChildFill="True">
+                                        <TextBlock DockPanel.Dock="Right"
+                                                   Text="{Binding PrecioVenta, StringFormat=C0}"
+                                                   Style="{StaticResource SearchResultAmountTextStyle}"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Center" />
+
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Descripcion, Converter={StaticResource AMayusculasConverter}}"
+                                                       Style="{StaticResource SearchResultTitleTextStyle}" />
+                                            <TextBlock Text="{Binding CodigoBarras, FallbackValue='(Sin código)', TargetNullValue='(Sin código)'}"
+                                                       Style="{StaticResource SearchResultMetaTextStyle}"
+                                                       FontFamily="{StaticResource FontFamilyMonospace}" />
+                                        </StackPanel>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+            </Popup>
+        </Grid>
+
+        <!-- Renglones: componente de grilla de la galería (TablaListadoStyle + DataGridListadoStyle). Es de solo
+             lectura salvo la cantidad (SelectorCantidad, que confirma su valor solo) -->
+        <Border Grid.Row="1" Style="{StaticResource TablaListadoStyle}">
+            <Grid>
+                <DataGrid x:Name="GrillaRenglones"
+                          ItemsSource="{Binding Renglones}"
+                          SelectedItem="{Binding RenglonSeleccionado, Mode=TwoWay}"
+                          Style="{StaticResource DataGridListadoStyle}"
+                          AutoGenerateColumns="False"
+                          SelectionMode="Single"
+                          BorderThickness="0"
+                          helpers:EsquinasHelper.Esquinas="7">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Código"
+                                            Binding="{Binding CodigoBarras}"
+                                            ElementStyle="{StaticResource CeldaCodigoStyle}"
+                                            Width="136" />
+
+                        <!-- Descripción, con la marca "Dado de baja" cuando el artículo ya no está disponible (L-13) -->
+                        <DataGridTemplateColumn Header="Descripción" Width="*" MinWidth="140">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <DockPanel LastChildFill="True" VerticalAlignment="Center">
+                                        <Border DockPanel.Dock="Right"
+                                                Style="{StaticResource BadgeWarningStyle}"
+                                                Margin="8,0,0,0"
+                                                ToolTip="El artículo fue dado de baja: no se vende ni se imprime, y no suma al total"
+                                                Visibility="{Binding EstaDadoDeBaja, Converter={StaticResource BoolToVisConverter}}">
+                                            <TextBlock Text="Dado de baja"
+                                                       FontSize="{StaticResource FontSizeXs}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource WarningForegroundBrush}" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Descripcion}"
+                                                   Style="{StaticResource CeldaDescripcionStyle}"
+                                                   ToolTip="{Binding Descripcion}" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Cantidad con pasos: nunca menos de 1; un artículo dado de baja no se edita, se quita -->
+                        <DataGridTemplateColumn Header="Cantidad"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderCenterListadoStyle}"
+                                                Width="136">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Minimo="1"
+                                                                 NombreAutomatizacion="Cantidad"
+                                                                 IsEnabled="{Binding EstaDisponible}"
+                                                                 HorizontalAlignment="Center"
+                                                                 VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- El encabezado lo pone EncabezadoPrecio desde el code-behind (una columna no hereda enlaces) -->
+                        <!-- Si el precio cambió (PE-13), el anterior va tachado y apagado sobre el nuevo; si no, solo el precio -->
+                        <DataGridTemplateColumn x:Name="ColumnaPrecio"
+                                                Header="Precio de hoy"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                                Width="112">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding PrecioAnterior, StringFormat=C0}"
+                                                   Style="{StaticResource CeldaPrecioAnteriorStyle}"
+                                                   Visibility="{Binding PrecioCambio, Converter={StaticResource BoolToVisConverter}}" />
+                                        <TextBlock Text="{Binding PrecioUnitario, StringFormat=C0}"
+                                                   Style="{StaticResource CeldaImporteStyle}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <DataGridTextColumn Header="Subtotal"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                            Binding="{Binding Subtotal, StringFormat=C0}"
+                                            ElementStyle="{StaticResource CeldaImporteStyle}"
+                                            Width="112" />
+
+                        <!-- Quitar: si el anfitrión exige al menos un renglón, el tooltip explica también el botón deshabilitado -->
+                        <DataGridTemplateColumn Header=""
+                                                Width="36"
+                                                CanUserResize="False"
+                                                CanUserSort="False">
+                            <!-- Columna de acción de la galería: angosta y sin relleno -->
+                            <DataGridTemplateColumn.CellStyle>
+                                <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                    <Setter Property="Padding" Value="0" />
+                                </Style>
+                            </DataGridTemplateColumn.CellStyle>
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Button Command="{Binding DataContext.QuitarRenglonCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource IconDangerButtonStyle}"
+                                            ToolTip="{Binding DataContext.TextoQuitarRenglon, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            ToolTipService.ShowOnDisabled="True"
+                                            AutomationProperties.Name="Quitar artículo"
+                                            HorizontalAlignment="Center">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                    </Button>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- Estado vacío: dice qué hacer a continuación. No intercepta clics. -->
+                <StackPanel VerticalAlignment="Center"
+                            HorizontalAlignment="Center"
+                            IsHitTestVisible="False"
+                            Margin="0,24,0,0"
+                            Visibility="{Binding SinRenglones, Converter={StaticResource BoolToVisConverter}}">
+                    <iconPacks:PackIconBoxIcons Kind="RegularListUl" Width="32" Height="32" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                    <TextBlock x:Name="TextoVacio"
+                               Text="Busque un artículo para agregarlo a la lista."
+                               Style="{StaticResource TextBlockBodySecondary}"
+                               TextAlignment="Center"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Aviso de artículos dados de baja. Reserva siempre el espacio superior para que el total del anfitrión quede igual. -->
+        <StackPanel Grid.Row="2" Margin="0,12,0,0">
+            <TextBlock Text="{Binding TextoNoDisponibles}"
+                       Style="{StaticResource TextBlockCaptionSecondary}"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,8"
+                       Visibility="{Binding HayNoDisponibles, Converter={StaticResource BoolToVisConverter}}" />
+        </StackPanel>
+    </Grid>
+</UserControl>

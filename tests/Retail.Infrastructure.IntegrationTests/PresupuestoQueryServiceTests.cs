@@ -97,6 +97,70 @@ public class PresupuestoQueryServiceTests : PedidosPruebaBase
     }
 
     [Fact]
+    public async Task ListarAsync_FiltroReemplazados_DevuelveSoloLosReemplazadosYLosVigentesLosExcluyen()
+    {
+        // Arrange
+        var original = await EmitirAsync(venceEn: 5);
+        original.Reemplazar();
+        var nuevo = await EmitirReemplazoAsync(original.Id);
+        await Contexto.SaveChangesAsync();
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var reemplazados = await servicio.ListarAsync(new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Reemplazados] }, Hoy);
+        var pendientes = await servicio.ListarAsync(new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Vigentes, FiltroEstadoPresupuestoEnum.Vencidos] }, Hoy);
+
+        // Assert: Vigentes y Vencidos solo miran los pendientes
+        reemplazados.Items.Select(p => p.IdPresupuesto).Should().Equal(original.Id);
+        pendientes.Items.Select(p => p.IdPresupuesto).Should().Equal(nuevo.Id);
+    }
+
+    [Fact]
+    public async Task ListarAsync_PresupuestoReemplazado_ResuelveElReemplazanteYElReemplazado()
+    {
+        // Arrange
+        var original = await EmitirAsync(venceEn: 5);
+        original.Reemplazar();
+        var nuevo = await EmitirReemplazoAsync(original.Id);
+        var sinRelacion = await EmitirAsync(venceEn: 5);
+        await Contexto.SaveChangesAsync();
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var pagina = await servicio.ListarAsync(new ConsultaPresupuestosDto(), Hoy);
+
+        // Assert
+        var filaOriginal = pagina.Items.Single(p => p.IdPresupuesto == original.Id);
+        filaOriginal.IdPresupuestoReemplazante.Should().Be(nuevo.Id);
+        filaOriginal.IdPresupuestoReemplazado.Should().BeNull();
+        var filaNueva = pagina.Items.Single(p => p.IdPresupuesto == nuevo.Id);
+        filaNueva.IdPresupuestoReemplazado.Should().Be(original.Id);
+        filaNueva.IdPresupuestoReemplazante.Should().BeNull();
+        pagina.Items.Single(p => p.IdPresupuesto == sinRelacion.Id).IdPresupuestoReemplazante.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ObtenerAsync_PresupuestoReemplazado_ResuelveElReemplazante()
+    {
+        // Arrange
+        var original = await EmitirAsync(venceEn: 5);
+        original.Reemplazar();
+        var nuevo = await EmitirReemplazoAsync(original.Id);
+        await Contexto.SaveChangesAsync();
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var dtoOriginal = await servicio.ObtenerAsync(original.Id, Hoy);
+        var dtoNuevo = await servicio.ObtenerAsync(nuevo.Id, Hoy);
+
+        // Assert
+        dtoOriginal!.Estado.Should().Be(EstadoPresupuestoEnum.Reemplazado);
+        dtoOriginal.IdPresupuestoReemplazante.Should().Be(nuevo.Id);
+        dtoNuevo!.IdPresupuestoReemplazado.Should().Be(original.Id);
+        dtoNuevo.IdPresupuestoReemplazante.Should().BeNull();
+    }
+
+    [Fact]
     public async Task ListarAsync_VigentesYVencidosJuntos_CombinaLosEstadosConO()
     {
         // Arrange
@@ -475,6 +539,23 @@ public class PresupuestoQueryServiceTests : PedidosPruebaBase
             descuento: 0m,
             vigenciaDias: Presupuesto.VigenciaMinimaDias,
             hoy: Hoy.AddDays(venceEn - Presupuesto.VigenciaMinimaDias));
+        Contexto.Presupuestos.Add(presupuesto);
+        await Contexto.SaveChangesAsync();
+        return presupuesto;
+    }
+
+    private async Task<Presupuesto> EmitirReemplazoAsync(int idReemplazado)
+    {
+        var articulo = await ObtenerArticuloAsync();
+        var presupuesto = Presupuesto.Emitir(
+            IdUsuario,
+            idCliente: null,
+            titulo: null,
+            [new RenglonAPresupuestar(articulo.Id, articulo.Descripcion, 2, 1200m)],
+            descuento: 0m,
+            vigenciaDias: 15,
+            hoy: Hoy,
+            idPresupuestoReemplazado: idReemplazado);
         Contexto.Presupuestos.Add(presupuesto);
         await Contexto.SaveChangesAsync();
         return presupuesto;

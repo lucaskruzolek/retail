@@ -868,12 +868,123 @@ public class PosViewModelTests
     }
 
     [Fact]
-    public async Task GuardarComoPresupuesto_ConUnPresupuestoCargado_EstaDeshabilitado()
+    public async Task GuardarComoPresupuesto_ConUnPresupuestoCargado_EstaHabilitado()
     {
         var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: true);
 
         viewModel.Items.Should().NotBeEmpty();
-        viewModel.GuardarComoPresupuestoCommand.CanExecute(null).Should().BeFalse();
+        viewModel.GuardarComoPresupuestoCommand.CanExecute(null).Should().BeTrue("PE-15: emite uno nuevo e independiente");
+    }
+
+    [Fact]
+    public async Task GuardarComoPresupuesto_ConUnPresupuestoCargado_EmiteUnoNuevoConPreciosDeCatalogoYElTituloDelBase()
+    {
+        // Arrange: el base vigente trae los precios pactados (2450 y 480); el catálogo de hoy tiene 2700 y 450
+        var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: true);
+        ConfigurarVerificacion(new VerificacionTicketDto
+        {
+            PreciosActualizados =
+            [
+                new PrecioActualizadoDto { IdArticulo = 1, Descripcion = "Cuaderno", PrecioAnterior = 2450m, PrecioActual = 2700m },
+                new PrecioActualizadoDto { IdArticulo = 2, Descripcion = "Lapicera", PrecioAnterior = 480m, PrecioActual = 450m }
+            ],
+            Faltantes = [],
+            ArticulosNoDisponibles = []
+        });
+        _presupuestoServiceMock.EmitirAsync(Arg.Any<CrearPresupuestoDto>(), Arg.Any<CancellationToken>()).Returns(PresupuestoEmitido());
+
+        GuardarPresupuestoViewModel? recibido = null;
+        _presupuestoDialogMock.MostrarGuardarPresupuesto(Arg.Any<GuardarPresupuestoViewModel>())
+            .Returns(llamada =>
+            {
+                recibido = llamada.Arg<GuardarPresupuestoViewModel>();
+                recibido.GuardarCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+                return recibido.Guardado;
+            });
+
+        // Act
+        await viewModel.GuardarComoPresupuestoCommand.ExecuteAsync(null);
+
+        // Assert: precios de hoy, título del base precargado, aviso con el número del base y la cantidad de precios
+        recibido.Should().NotBeNull();
+        recibido!.Titulo.Should().Be("Lista escolar 3.º grado — Escuela N.º 12");
+        recibido.AvisoBase.Should().Contain("00000123").And.Contain("no cambia");
+        recibido.AvisoPrecios.Should().Be("2 precios pasan al catálogo de hoy.");
+        recibido.TotalFormateado.Should().Contain("9.850");
+
+        await _presupuestoServiceMock.Received(1).EmitirAsync(
+            Arg.Is<CrearPresupuestoDto>(dto =>
+                dto.Items.Count == 2
+                && dto.Items[0].PrecioUnitarioPactado == 2700m
+                && dto.Items[1].PrecioUnitarioPactado == 450m
+                && dto.Descuento == 500m
+                && dto.Titulo == "Lista escolar 3.º grado — Escuela N.º 12"),
+            Arg.Any<CancellationToken>());
+        await _presupuestoServiceMock.DidNotReceiveWithAnyArgs().ReemplazarAsync(default, default!, default);
+        viewModel.Items.Should().BeEmpty("PE-17: el ticket se vacía como en cualquier presupuesto");
+        viewModel.PresupuestoCargado.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GuardarComoPresupuesto_ConUnPresupuestoCargadoYSinCambiosDePrecio_UsaLosPreciosDelTicketYNoAvisaDePrecios()
+    {
+        var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: false);
+        ConfigurarVerificacion(VerificacionSinNovedades());
+        GuardarPresupuestoViewModel? recibido = null;
+        _presupuestoDialogMock.MostrarGuardarPresupuesto(Arg.Any<GuardarPresupuestoViewModel>())
+            .Returns(llamada =>
+            {
+                recibido = llamada.Arg<GuardarPresupuestoViewModel>();
+                return false;
+            });
+
+        await viewModel.GuardarComoPresupuestoCommand.ExecuteAsync(null);
+
+        recibido.Should().NotBeNull();
+        recibido!.AvisoBase.Should().NotBeNull();
+        recibido.AvisoPrecios.Should().BeNull();
+        recibido.TotalFormateado.Should().Contain("9.850", "el ticket vencido ya estaba a precios de catálogo (2700 y 450)");
+        viewModel.Items.Should().HaveCount(2, "cancelar deja el ticket como estaba");
+        viewModel.PresupuestoCargado.Should().NotBeNull();
+        await _presupuestoServiceMock.DidNotReceiveWithAnyArgs().EmitirAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task GuardarComoPresupuesto_ConUnPresupuestoCargadoYArticulosDadosDeBaja_MuestraAlertaYNoAbreElDialogo()
+    {
+        var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: true);
+        ConfigurarVerificacion(new VerificacionTicketDto
+        {
+            PreciosActualizados = [],
+            Faltantes = [],
+            ArticulosNoDisponibles = ["Lapicera azul Cristal"]
+        });
+
+        await viewModel.GuardarComoPresupuestoCommand.ExecuteAsync(null);
+
+        _dialogServiceMock.Received(1).MostrarAlerta("Artículos dados de baja", Arg.Is<string>(m => m.Contains("Lapicera azul Cristal")));
+        _presupuestoDialogMock.DidNotReceiveWithAnyArgs().MostrarGuardarPresupuesto(default!);
+        viewModel.Items.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task GuardarComoPresupuesto_SinPresupuestoCargado_NoVerificaPreciosNiMuestraAvisoDeBase()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Libro", 5000m));
+        GuardarPresupuestoViewModel? recibido = null;
+        _presupuestoDialogMock.MostrarGuardarPresupuesto(Arg.Any<GuardarPresupuestoViewModel>())
+            .Returns(llamada =>
+            {
+                recibido = llamada.Arg<GuardarPresupuestoViewModel>();
+                return false;
+            });
+
+        await viewModel.GuardarComoPresupuestoCommand.ExecuteAsync(null);
+
+        recibido.Should().NotBeNull();
+        recibido!.AvisoBase.Should().BeNull();
+        recibido.Titulo.Should().BeEmpty();
+        await _ventaServiceMock.DidNotReceiveWithAnyArgs().VerificarTicketAsync(default!, default, default);
     }
 
     [Fact]
@@ -1207,6 +1318,89 @@ public class PosViewModelTests
             Arg.Any<CancellationToken>());
         viewModel.Items.Should().BeEmpty();
         viewModel.PresupuestoCargado.Should().BeNull("al registrarse la venta, el ticket y el presupuesto vinculado se limpian juntos");
+    }
+
+    // ------------------------------------------------------------------ //
+    // PE-18: cobrar un presupuesto vigente a otro cliente pide confirmación //
+    // ------------------------------------------------------------------ //
+
+    private async Task<PosViewModel> CrearViewModelConPresupuestoDeClienteAsync(bool vigente, int? idCliente)
+    {
+        var viewModel = await CrearViewModelAsync();
+        if (idCliente is int id)
+        {
+            _clienteServiceMock.ObtenerClientePorIdAsync(id, Arg.Any<CancellationToken>()).Returns(ClienteDeMostrador(id, "Escuela N.º 12"));
+        }
+
+        _presupuestoDialogMock.MostrarRecuperarPresupuesto(Arg.Any<RecuperarPresupuestoViewModel>())
+            .Returns(DatosDeMuestra.PresupuestoParaVenta(vigente) with
+            {
+                IdCliente = idCliente,
+                ClienteNombre = idCliente is null ? null : "Escuela N.º 12"
+            });
+
+        // Un presupuesto vencido pide conciliar los precios antes de cargarse (PS-03): se acepta
+        _presupuestoDialogMock.MostrarAlertaPreciosPresupuesto(Arg.Any<AlertaPreciosPresupuestoViewModel>()).Returns(true);
+
+        await viewModel.RecuperarPresupuestoCommand.ExecuteAsync(null);
+        return viewModel;
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_PresupuestoVigenteDeOtroCliente_PideConfirmacionYSinElla_NoAbreElCobro()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConPresupuestoDeClienteAsync(vigente: true, idCliente: 7);
+        viewModel.Cliente = ClienteDeMostrador(9, "Marcela Benítez");
+        _dialogServiceMock.Confirmar("Presupuesto de otro cliente", Arg.Any<string>()).Returns(false);
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).Confirmar(
+            "Presupuesto de otro cliente",
+            Arg.Is<string>(m => m.Contains("Escuela N.º 12") && m.Contains("Marcela Benítez") && m.Contains("precios pactados")));
+        await _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarCobroModalAsync(default, default);
+        viewModel.Items.Should().HaveCount(2, "cancelar la confirmación no toca el ticket");
+        viewModel.PresupuestoCargado.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_PresupuestoVigenteDeOtroCliente_ConfirmadoAbreElCobro()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConPresupuestoDeClienteAsync(vigente: true, idCliente: 7);
+        viewModel.Cliente = null;
+        _dialogServiceMock.Confirmar("Presupuesto de otro cliente", Arg.Any<string>()).Returns(true);
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert: también pregunta al pasar a Consumidor Final (sigue siendo cobrarle a otro el precio pactado)
+        _dialogServiceMock.Received(1).Confirmar("Presupuesto de otro cliente", Arg.Is<string>(m => m.Contains("Consumidor Final")));
+        await _dialogServiceMock.ReceivedWithAnyArgs(1).MostrarCobroModalAsync(default, default);
+    }
+
+    [Theory]
+    [InlineData(true, 7, 7)]
+    [InlineData(true, null, 9)]
+    [InlineData(false, 7, 9)]
+    public async Task CobrarVentaAsync_MismoClientePresupuestoAConsumidorFinalOVencido_NoPideConfirmacion(
+        bool vigente,
+        int? idClientePresupuesto,
+        int idClienteTicket)
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConPresupuestoDeClienteAsync(vigente, idClientePresupuesto);
+        viewModel.Cliente = ClienteDeMostrador(idClienteTicket, "Cliente del ticket");
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.DidNotReceive().Confirmar("Presupuesto de otro cliente", Arg.Any<string>());
+        await _dialogServiceMock.ReceivedWithAnyArgs(1).MostrarCobroModalAsync(default, default);
     }
 
     [Fact]

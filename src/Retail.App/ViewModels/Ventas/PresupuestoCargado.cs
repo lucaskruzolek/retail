@@ -11,7 +11,15 @@ namespace Retail.App.ViewModels.Ventas;
 /// <param name="Titulo">Nota interna (PS-20); solo se ve dentro del sistema, en el tooltip de la etiqueta.</param>
 /// <param name="Vigente">Si venció al recuperarlo, el ticket quedó a precios de catálogo y sin topes (PS-03).</param>
 /// <param name="FechaVencimiento">Último día de validez, inclusive.</param>
-public sealed record PresupuestoCargado(int Id, string? Titulo, bool Vigente, DateOnly FechaVencimiento)
+/// <param name="IdCliente">Cliente para el que se emitió, o <c>null</c> si fue a Consumidor Final (PE-18).</param>
+/// <param name="ClienteNombre">Nombre de ese cliente, para la confirmación al cobrarlo a otro.</param>
+public sealed record PresupuestoCargado(
+    int Id,
+    string? Titulo,
+    bool Vigente,
+    DateOnly FechaVencimiento,
+    int? IdCliente = null,
+    string? ClienteNombre = null)
 {
     public string Numero => PresentacionPresupuesto.FormatearNumero(Id);
 

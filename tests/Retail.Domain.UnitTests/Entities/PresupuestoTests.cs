@@ -398,4 +398,122 @@ public class PresupuestoTests
 
         act.Should().Throw<TransicionPresupuestoInvalidaException>();
     }
+
+    // ───────────────────── Corrección (Módulo 5.4) ─────────────────────
+
+    [Fact]
+    public void Reemplazar_Pendiente_PasaAReemplazadoYFijaFechaCierre()
+    {
+        var presupuesto = Emitir();
+
+        presupuesto.Reemplazar();
+
+        presupuesto.Estado.Should().Be(EstadoPresupuestoEnum.Reemplazado);
+        presupuesto.FechaCierre.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Reemplazar_Convertido_LanzaTransicionPresupuestoInvalidaException()
+    {
+        var presupuesto = Emitir();
+        presupuesto.RegistrarConversion();
+
+        var act = presupuesto.Reemplazar;
+
+        act.Should().Throw<TransicionPresupuestoInvalidaException>()
+            .Which.EstadoActual.Should().Be(EstadoPresupuestoEnum.Convertido);
+    }
+
+    [Fact]
+    public void Reemplazar_Anulado_LanzaTransicionPresupuestoInvalidaException()
+    {
+        var presupuesto = Emitir();
+        presupuesto.Anular();
+
+        var act = presupuesto.Reemplazar;
+
+        act.Should().Throw<TransicionPresupuestoInvalidaException>();
+    }
+
+    [Fact]
+    public void Reemplazar_Reemplazado_LanzaTransicionPresupuestoInvalidaException()
+    {
+        var presupuesto = Emitir();
+        presupuesto.Reemplazar();
+
+        var act = presupuesto.Reemplazar;
+
+        act.Should().Throw<TransicionPresupuestoInvalidaException>()
+            .Which.EstadoActual.Should().Be(EstadoPresupuestoEnum.Reemplazado);
+    }
+
+    [Fact]
+    public void Emitir_ConIdPresupuestoReemplazado_LoGuarda()
+    {
+        var presupuesto = Presupuesto.Emitir(1, 5, null, [Renglon()], 0m, Presupuesto.VigenciaPorDefectoDias, Hoy, idPresupuestoReemplazado: 41);
+
+        presupuesto.IdPresupuestoReemplazado.Should().Be(41);
+    }
+
+    [Fact]
+    public void Emitir_SinIdPresupuestoReemplazado_LoDejaNulo()
+    {
+        Emitir().IdPresupuestoReemplazado.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void Emitir_ConIdPresupuestoReemplazadoInvalido_LanzaArgumentOutOfRangeException(int idReemplazado)
+    {
+        var act = () => Presupuesto.Emitir(1, 5, null, [Renglon()], 0m, Presupuesto.VigenciaPorDefectoDias, Hoy, idReemplazado);
+
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void CambiarTitulo_ConEspaciosDeMas_LoNormaliza()
+    {
+        var presupuesto = Emitir();
+
+        presupuesto.CambiarTitulo("  Lista   escolar ");
+
+        presupuesto.Titulo.Should().Be("Lista escolar");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void CambiarTitulo_VacioONulo_QuitaElTitulo(string? titulo)
+    {
+        var presupuesto = Emitir(titulo: "Con título");
+
+        presupuesto.CambiarTitulo(titulo);
+
+        presupuesto.Titulo.Should().BeNull();
+    }
+
+    [Fact]
+    public void CambiarTitulo_ConMasDe100Caracteres_LanzaDomainException()
+    {
+        var presupuesto = Emitir(titulo: "Original");
+
+        var act = () => presupuesto.CambiarTitulo(new string('a', Presupuesto.LongitudMaximaTitulo + 1));
+
+        act.Should().Throw<DomainException>();
+        presupuesto.Titulo.Should().Be("Original");
+    }
+
+    [Fact]
+    public void CambiarTitulo_Convertido_LoCambia()
+    {
+        var presupuesto = Emitir();
+        presupuesto.RegistrarConversion();
+
+        presupuesto.CambiarTitulo("Cobrado a la docente");
+
+        presupuesto.Titulo.Should().Be("Cobrado a la docente");
+        presupuesto.Estado.Should().Be(EstadoPresupuestoEnum.Convertido);
+    }
 }

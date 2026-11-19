@@ -5,10 +5,11 @@
                  xmlns:components="clr-namespace:Retail.App.Views.Components"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:helpers="clr-namespace:Retail.App.Helpers"
+                 xmlns:vm="clr-namespace:Retail.App.ViewModels.Presupuestos"
                  Title="Detalle del presupuesto"
                  Language="es-AR"
                  Width="540"
-                 Height="680"
+                 Height="720"
                  WindowStartupLocation="CenterOwner"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica"
@@ -64,6 +65,10 @@
                         <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
                         <Setter TargetName="BadgeAnulado" Property="Visibility" Value="Visible" />
                     </DataTrigger>
+                    <DataTrigger Binding="{Binding EstadoVisual}" Value="Reemplazado">
+                        <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                        <Setter TargetName="BadgeConvertido" Property="Visibility" Value="Visible" />
+                    </DataTrigger>
                 </DataTemplate.Triggers>
             </DataTemplate>
         </ResourceDictionary>
@@ -116,14 +121,28 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <!-- Título interno (PS-20): rotulado, porque solo se ve dentro del sistema -->
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Título interno" Style="{StaticResource RotuloDatoStyle}" Margin="{StaticResource StackSm}"
-                               Visibility="{Binding TieneTitulo, Converter={StaticResource BoolToVisConverter}}" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding Titulo}" Style="{StaticResource ValorDatoStyle}" Margin="{StaticResource StackSm}"
-                               ToolTip="{Binding Titulo}"
-                               Visibility="{Binding TieneTitulo, Converter={StaticResource BoolToVisConverter}}" />
+                    <!-- Título interno (PS-20, PE-08): editable en cualquier estado porque nunca se imprime ni se exporta -->
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Título interno" Style="{StaticResource RotuloDatoStyle}" Margin="{StaticResource StackSm}" />
+                    <DockPanel Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="3" Margin="{StaticResource StackSm}">
+                        <Button DockPanel.Dock="Right"
+                                Command="{Binding GuardarTituloCommand}"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                Margin="8,0,0,0"
+                                ToolTip="Guardar el título interno del presupuesto">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                                <TextBlock Text="Guardar título" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <ui:TextBox Text="{Binding Titulo, UpdateSourceTrigger=PropertyChanged}"
+                                    MaxLength="{x:Static vm:DetallePresupuestoViewModel.LongitudMaximaTitulo}"
+                                    PlaceholderText="Uso interno: no se imprime"
+                                    AutomationProperties.Name="Título interno del presupuesto" />
+                    </DockPanel>
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Cliente" Style="{StaticResource RotuloDatoStyle}" Margin="{StaticResource StackSm}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding ClienteTexto}" Style="{StaticResource ValorDatoStyle}" Margin="{StaticResource StackSm}" ToolTip="{Binding ClienteTexto}" />
@@ -142,6 +161,13 @@
                                FontFamily="{StaticResource FontFamilyNumeric}"
                                Visibility="{Binding Cargado, Converter={StaticResource BoolToVisConverter}}"
                                Text="{Binding Vencimiento, StringFormat={}{0:dd/MM/yyyy}}" />
+
+                    <!-- Cadena de correcciones (PE-03): "Reemplaza al N.º X" / "Reemplazado por N.º Y" -->
+                    <TextBlock Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="4"
+                               Text="{Binding TextoReemplazo}"
+                               Style="{StaticResource TextBlockCaptionSecondary}"
+                               Margin="0,8,0,0"
+                               Visibility="{Binding TieneReemplazo, Converter={StaticResource BoolToVisConverter}}" />
                 </Grid>
             </StackPanel>
         </Border>

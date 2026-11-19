@@ -1,12 +1,10 @@
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FluentValidation;
 using Microsoft.Extensions.Logging;
 using Retail.App.Helpers;
 using Retail.App.Services;
-using Retail.Application.DTOs.Articulos;
+using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Listas;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Services;
@@ -23,14 +21,8 @@ namespace Retail.App.ViewModels.Listas;
 /// </summary>
 public partial class ListaFormViewModel : ObservableObject
 {
-    private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
-
-    private const int LongitudMinimaBusqueda = 2;
-    private const int CantidadMaxima = 99999;
-
     private readonly ListaDto? _lista;
     private readonly IListaService _listaService;
-    private readonly IVentaService _ventaService;
     private readonly ICurrentUserSession _sesion;
     private readonly CargaSerializada _acceso;
     private readonly ILogger _logger;
@@ -49,21 +41,32 @@ public partial class ListaFormViewModel : ObservableObject
     {
         _lista = lista;
         _listaService = listaService ?? throw new ArgumentNullException(nameof(listaService));
-        _ventaService = ventaService ?? throw new ArgumentNullException(nameof(ventaService));
         _sesion = sesion ?? throw new ArgumentNullException(nameof(sesion));
         _acceso = acceso ?? throw new ArgumentNullException(nameof(acceso));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
+        Editor = new EditorRenglonesViewModel(
+            ventaService ?? throw new ArgumentNullException(nameof(ventaService)),
+            acceso,
+            logger,
+            exigirAlMenosUnRenglon: true,
+            textoQuitar: "Quitar el artículo de la lista",
+            textoUltimoRenglon: "La lista debe tener al menos un artículo");
+        Editor.ContenidoCambiado += (_, _) => ActualizarTotales();
+        Editor.MensajeEmitido += (_, mensaje) => MensajeError = mensaje;
+
         if (lista is not null)
         {
             _nombre = lista.Nombre;
-            foreach (var renglon in lista.Renglones)
-            {
-                AgregarFila(RenglonListaFila.Desde(renglon));
-            }
+            Editor.CargarRenglones(lista.Renglones.Select(r => new RenglonEditableFila(
+                r.IdArticulo,
+                r.CodigoBarras,
+                r.Descripcion,
+                r.PrecioActual,
+                r.Cantidad,
+                r.EstaDisponible)));
         }
 
-        Renglones.CollectionChanged += AlCambiarRenglones;
         ActualizarTotales();
     }
 
@@ -86,28 +89,11 @@ public partial class ListaFormViewModel : ObservableObject
     /// <summary>El nombre es obligatorio: el aviso aparece recién cuando el usuario lo tocó, no al abrir una lista nueva.</summary>
     public bool TieneErrorNombre => _nombreTocado && string.IsNullOrWhiteSpace(Nombre);
 
-    public ObservableCollection<RenglonListaFila> Renglones { get; } = new();
-
-    [ObservableProperty]
-    private RenglonListaFila? _renglonSeleccionado;
-
-    public bool SinRenglones => Renglones.Count == 0;
-
-    /// <summary>La última fila no se puede quitar: una lista tiene al menos un artículo.</summary>
-    public string TextoQuitarRenglon => PuedeQuitarRenglon()
-        ? "Quitar el artículo de la lista"
-        : "La lista debe tener al menos un artículo";
+    /// <summary>Buscador, renglones y aviso de artículos dados de baja (componente compartido con el editor de presupuestos).</summary>
+    public EditorRenglonesViewModel Editor { get; }
 
     /// <summary>Suma de los subtotales de los renglones disponibles, a los precios de hoy.</summary>
-    public decimal TotalDeHoy => Renglones.Sum(r => r.SubtotalQueSuma);
-
-    public int CantidadNoDisponibles => Renglones.Count(r => r.EstaDadoDeBaja);
-
-    public bool HayNoDisponibles => CantidadNoDisponibles > 0;
-
-    public string TextoNoDisponibles => CantidadNoDisponibles == 1
-        ? "1 artículo dado de baja no suma al total. Quítelo o déjelo: no se vende ni se imprime."
-        : $"{CantidadNoDisponibles} artículos dados de baja no suman al total. Quítelos o déjelos: no se venden ni se imprimen.";
+    public decimal TotalDeHoy => Editor.Subtotal;
 
     // ------------------------------------------------------------------ //
     // Estado                                                              //
@@ -129,256 +115,10 @@ public partial class ListaFormViewModel : ObservableObject
     /// <summary>Pide al diálogo que se cierre (lo atiende su code-behind).</summary>
     public event EventHandler? CierreSolicitado;
 
-    // ------------------------------------------------------------------ //
-    // Buscador de artículos                                               //
-    // ------------------------------------------------------------------ //
-
-    public ObservableCollection<ArticuloVentaDto> ResultadosBusqueda { get; } = new();
-
-    [ObservableProperty]
-    private string _textoBusqueda = string.Empty;
-
-    [ObservableProperty]
-    private ArticuloVentaDto? _resultadoSeleccionado;
-
-    [ObservableProperty]
-    private bool _mostrarResultados;
-
-    [ObservableProperty]
-    private bool _sinResultados;
-
-    partial void OnTextoBusquedaChanged(string value)
-    {
-        var texto = value.Trim();
-
-        if (texto.Length < LongitudMinimaBusqueda)
-        {
-            // Una carga vacía reemplaza a la búsqueda en curso, cuyos resultados ya no corresponden al texto.
-            _ = _acceso.EjecutarAsync(
-                _ => Task.FromResult<IReadOnlyList<ArticuloVentaDto>>(Array.Empty<ArticuloVentaDto>()),
-                _ => { },
-                _ => { });
-            OcultarResultados();
-            return;
-        }
-
-        _ = _acceso.EjecutarAsync(
-            token => Task.Run(() => BuscarSugerenciasAsync(texto, token), token),
-            MostrarResultadosBusqueda,
-            ex =>
-            {
-                _logger.LogError(ex, "Error al buscar artículos para la lista");
-                MensajeError = "No se pudo buscar en el catálogo de artículos.";
-            },
-            EsperaBusqueda);
-    }
-
-    private async Task<IReadOnlyList<ArticuloVentaDto>> BuscarSugerenciasAsync(string texto, CancellationToken token)
-    {
-        var lista = new List<ArticuloVentaDto>();
-
-        // Si son dígitos, primero el código de barras exacto (el lector escribe el código completo)
-        if (texto.All(char.IsDigit))
-        {
-            var porCodigo = await _ventaService.BuscarPorCodigoBarrasAsync(texto, token);
-            if (porCodigo is not null)
-            {
-                lista.Add(porCodigo);
-            }
-        }
-
-        var coincidencias = await _ventaService.BuscarPorTextoAsync(texto, 10, token);
-        foreach (var articulo in coincidencias)
-        {
-            if (lista.All(a => a.IdArticulo != articulo.IdArticulo))
-            {
-                lista.Add(articulo);
-            }
-        }
-
-        return lista;
-    }
-
-    private void MostrarResultadosBusqueda(IReadOnlyList<ArticuloVentaDto> resultados)
-    {
-        ResultadosBusqueda.Clear();
-        foreach (var articulo in resultados)
-        {
-            ResultadosBusqueda.Add(articulo);
-        }
-
-        ResultadoSeleccionado = ResultadosBusqueda.FirstOrDefault();
-        SinResultados = ResultadosBusqueda.Count == 0;
-        MostrarResultados = true;
-    }
-
-    private void OcultarResultados()
-    {
-        ResultadosBusqueda.Clear();
-        ResultadoSeleccionado = null;
-        SinResultados = false;
-        MostrarResultados = false;
-    }
-
-    /// <summary>
-    /// Enter en el buscador: agrega el resultado resaltado. Si todavía no hay resultados (el lector termina cada código
-    /// con Enter antes de que venza la espera) resuelve el texto como el POS: código de barras o mejor coincidencia.
-    /// </summary>
-    [RelayCommand]
-    private async Task AgregarResultadoSeleccionadoAsync()
-    {
-        if (MostrarResultados && ResultadoSeleccionado is { } seleccionado)
-        {
-            AgregarArticulo(seleccionado);
-            return;
-        }
-
-        var entrada = TextoBusqueda.Trim();
-        if (entrada.Length == 0)
-        {
-            return;
-        }
-
-        // Limpiar el buscador reemplaza la búsqueda predictiva en curso: la consulta del artículo espera su turno.
-        TextoBusqueda = string.Empty;
-
-        try
-        {
-            var (completado, articulo) = await _acceso.EjecutarEnFilaAsync(token => _ventaService.BuscarArticuloParaVentaAsync(entrada, token));
-            if (!completado)
-            {
-                return;
-            }
-
-            if (articulo is null)
-            {
-                MensajeError = $"No se encontró ningún artículo que coincida con «{entrada}».";
-                return;
-            }
-
-            AgregarArticulo(articulo);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error al buscar el artículo ingresado para la lista: {Entrada}", entrada);
-            MensajeError = "No se pudo buscar en el catálogo de artículos.";
-        }
-    }
-
-    /// <summary>Agrega el artículo con cantidad 1; si ya está en la lista, suma 1 a su cantidad en lugar de repetir el renglón.</summary>
-    [RelayCommand]
-    private void AgregarArticulo(ArticuloVentaDto? articulo)
-    {
-        if (articulo is null)
-        {
-            return;
-        }
-
-        MensajeError = null;
-
-        var existente = Renglones.FirstOrDefault(r => r.IdArticulo == articulo.IdArticulo);
-        if (existente is not null)
-        {
-            existente.Cantidad = Math.Min(existente.Cantidad + 1, CantidadMaxima);
-            RenglonSeleccionado = existente;
-        }
-        else
-        {
-            var renglon = RenglonListaFila.Desde(articulo);
-            AgregarFila(renglon);
-            RenglonSeleccionado = renglon;
-        }
-
-        TextoBusqueda = string.Empty;
-    }
-
-    [RelayCommand]
-    private void MoverSeleccionBusquedaAbajo()
-    {
-        MoverSeleccionBusqueda(1);
-    }
-
-    [RelayCommand]
-    private void MoverSeleccionBusquedaArriba()
-    {
-        MoverSeleccionBusqueda(-1);
-    }
-
-    /// <summary>Esc: cierra el desplegable; si ya estaba cerrado, borra el texto.</summary>
-    [RelayCommand]
-    private void CerrarBusqueda()
-    {
-        if (MostrarResultados)
-        {
-            MostrarResultados = false;
-        }
-        else
-        {
-            TextoBusqueda = string.Empty;
-        }
-    }
-
-    private void MoverSeleccionBusqueda(int paso)
-    {
-        if (ResultadosBusqueda.Count == 0)
-        {
-            return;
-        }
-
-        var indice = ResultadoSeleccionado is null ? -1 : ResultadosBusqueda.IndexOf(ResultadoSeleccionado);
-        ResultadoSeleccionado = ResultadosBusqueda[Math.Clamp(indice + paso, 0, ResultadosBusqueda.Count - 1)];
-    }
-
-    // ------------------------------------------------------------------ //
-    // Renglones                                                           //
-    // ------------------------------------------------------------------ //
-
-    [RelayCommand(CanExecute = nameof(PuedeQuitarRenglon))]
-    private void QuitarRenglon(RenglonListaFila? renglon)
-    {
-        if (renglon is null || !PuedeQuitarRenglon())
-        {
-            return;
-        }
-
-        renglon.PropertyChanged -= AlCambiarRenglon;
-        Renglones.Remove(renglon);
-    }
-
-    private bool PuedeQuitarRenglon()
-    {
-        return Renglones.Count > 1;
-    }
-
-    private void AgregarFila(RenglonListaFila fila)
-    {
-        fila.PropertyChanged += AlCambiarRenglon;
-        Renglones.Add(fila);
-    }
-
-    private void AlCambiarRenglon(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(RenglonListaFila.Cantidad))
-        {
-            OnPropertyChanged(nameof(TotalDeHoy));
-        }
-    }
-
-    private void AlCambiarRenglones(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        ActualizarTotales();
-    }
-
     private void ActualizarTotales()
     {
         OnPropertyChanged(nameof(TotalDeHoy));
-        OnPropertyChanged(nameof(SinRenglones));
-        OnPropertyChanged(nameof(CantidadNoDisponibles));
-        OnPropertyChanged(nameof(HayNoDisponibles));
-        OnPropertyChanged(nameof(TextoNoDisponibles));
-        OnPropertyChanged(nameof(TextoQuitarRenglon));
         GuardarCommand.NotifyCanExecuteChanged();
-        QuitarRenglonCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnNombreChanged(string value)
@@ -392,14 +132,14 @@ public partial class ListaFormViewModel : ObservableObject
 
     private bool PuedeGuardar()
     {
-        return !IsBusy && !string.IsNullOrWhiteSpace(Nombre) && Renglones.Count > 0;
+        return !IsBusy && !string.IsNullOrWhiteSpace(Nombre) && Editor.Renglones.Count > 0;
     }
 
     [RelayCommand(CanExecute = nameof(PuedeGuardar))]
     private async Task GuardarAsync()
     {
         var nombre = Nombre.Trim();
-        var renglones = Renglones
+        var renglones = Editor.Renglones
             .Select(r => new RenglonListaEntradaDto { IdArticulo = r.IdArticulo, Cantidad = r.Cantidad })
             .ToList();
 

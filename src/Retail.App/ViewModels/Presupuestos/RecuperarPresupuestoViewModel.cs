@@ -249,7 +249,12 @@ public partial class RecuperarPresupuestoViewModel : ObservableObject
         catch (TransicionPresupuestoInvalidaException ex)
         {
             // Convertido o anulado (por ejemplo, desde otra terminal) mientras el diálogo estaba abierto: es información.
-            var motivo = ex.EstadoActual == EstadoPresupuestoEnum.Convertido ? "ya se convirtió en una venta" : "está anulado";
+            var motivo = ex.EstadoActual switch
+            {
+                EstadoPresupuestoEnum.Convertido => "ya se convirtió en una venta",
+                EstadoPresupuestoEnum.Reemplazado => "fue reemplazado por otro presupuesto",
+                _ => "está anulado"
+            };
             MensajeError = $"El presupuesto N.º {fila.Numero} {motivo}: no se puede recuperar.";
             recargar = true;
         }

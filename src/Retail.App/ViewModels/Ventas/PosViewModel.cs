@@ -156,8 +156,8 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
     public bool TieneListaCargada => ListaCargada is not null;
 
-    /// <summary>F3 → Presupuesto: hay un ticket para presupuestar y no viene de un presupuesto. No exige turno de caja (PS-17).</summary>
-    public bool PuedeGuardarComoPresupuesto => TieneItems && !TienePresupuestoCargado;
+    /// <summary>F3 → Presupuesto: hay un ticket para presupuestar (venga o no de un presupuesto, PE-15). No exige turno de caja (PS-17).</summary>
+    public bool PuedeGuardarComoPresupuesto => TieneItems;
 
     /// <summary>F3 → Lista: hay artículos para guardar. Sirve también con un presupuesto cargado y sin turno de caja.</summary>
     public bool PuedeGuardarComoLista => TieneItems;
@@ -486,6 +486,11 @@ public partial class PosViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (!ConfirmarCobroAOtroCliente())
+        {
+            return;
+        }
+
         try
         {
             IsBusy = true;
@@ -546,6 +551,31 @@ public partial class PosViewModel : ObservableObject, IDisposable
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// PE-18: cobrar un presupuesto <b>vigente</b> a un cliente distinto de aquel para el que se emitió pide confirmación,
+    /// porque le da al otro cliente los precios pactados y consume el presupuesto del primero. Es una decisión del
+    /// cajero (paga otra persona, o el cliente se identifica al pagar), no una regla de negocio: el servidor la sigue
+    /// permitiendo, como el descuento (PS-15). No pregunta si el presupuesto fue a Consumidor Final (nadie tenía el
+    /// compromiso de precio) ni si venció (el ticket ya está a precios de catálogo, PS-03).
+    /// </summary>
+    /// <returns><c>false</c> si el cajero no confirma.</returns>
+    private bool ConfirmarCobroAOtroCliente()
+    {
+        if (PresupuestoCargado is not { Vigente: true, IdCliente: int idClientePresupuesto } presupuesto
+            || idClientePresupuesto == Cliente?.IdCliente)
+        {
+            return true;
+        }
+
+        var paraQuien = string.IsNullOrWhiteSpace(presupuesto.ClienteNombre) ? "otro cliente" : presupuesto.ClienteNombre;
+
+        return _dialogService.Confirmar(
+            "Presupuesto de otro cliente",
+            $"El presupuesto N.º {presupuesto.Numero} fue emitido para {paraQuien}.\n\n" +
+            $"¿Cobrarlo a {ClienteNombre} con los precios pactados? El presupuesto quedará convertido y {paraQuien} ya no podrá usarlo.\n\n" +
+            "Para darle el mismo presupuesto a otro cliente sin consumirlo, use Guardar como → Presupuesto (F3).");
     }
 
     /// <summary>
@@ -944,9 +974,11 @@ public partial class PosViewModel : ObservableObject, IDisposable
     /// F3: guarda el ticket como presupuesto. No exige turno de caja abierto (PS-17): solo hace falta el usuario de la
     /// sesión, que figura como quien lo emite. Si el presupuesto queda guardado, el ticket se limpia sin pedir confirmación
     /// (su contenido ya está a salvo); si se cancela, el ticket queda como estaba.
+    /// Con un presupuesto cargado emite uno NUEVO e independiente (PE-15): el cargado no se toca y sigue pendiente (no es
+    /// "Corregir"). Los precios salen del catálogo de hoy (PE-16, RF-11, D-11) y el título se precarga con el del cargado (PE-17).
     /// </summary>
     [RelayCommand(CanExecute = nameof(PuedeGuardarComoPresupuesto))]
-    public void GuardarComoPresupuesto()
+    public async Task GuardarComoPresupuestoAsync()
     {
         if (_session.IdUsuario is not int idUsuario)
         {
@@ -956,27 +988,76 @@ public partial class PosViewModel : ObservableObject, IDisposable
             return;
         }
 
-        // El precio pactado es el que muestra el ticket; el servidor lo compara con el catálogo y nunca lo usa (D-11).
+        // Sin presupuesto cargado el precio pactado es el que muestra el ticket (que ya es el de catálogo); con uno cargado
+        // el ticket puede traer el precio pactado, así que se pasa a los precios de hoy. El servidor igual los compara con
+        // el catálogo y nunca usa el que le llega (D-11).
+        var precios = new Dictionary<int, decimal>();
+        PresupuestoCargado? baseCargado = PresupuestoCargado;
+
+        if (baseCargado is not null)
+        {
+            VerificacionTicketDto? verificacion;
+            try
+            {
+                var detalles = CrearDetallesDelTicket();
+                var (completado, resultado) = await _accesoDatos.EjecutarEnFilaAsync(
+                    token => _ventaService.VerificarTicketAsync(detalles, null, token));
+                verificacion = completado ? resultado : null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "No se pudo verificar los precios del ticket contra el catálogo para el presupuesto nuevo");
+                _dialogService.MostrarError(
+                    "Error inesperado",
+                    "No se pudieron verificar los precios del catálogo. El detalle quedó registrado en el log.");
+                return;
+            }
+
+            if (verificacion is null)
+            {
+                return;
+            }
+
+            if (verificacion.ArticulosNoDisponibles.Count > 0)
+            {
+                _dialogService.MostrarAlerta(
+                    "Artículos dados de baja",
+                    "Quite del ticket los siguientes artículos, que ya no están disponibles, para guardar el presupuesto:\n" +
+                    string.Join("\n", verificacion.ArticulosNoDisponibles.Select(d => $"• {d}")));
+                return;
+            }
+
+            precios = verificacion.PreciosActualizados.ToDictionary(p => p.IdArticulo, p => p.PrecioActual);
+        }
+
         var renglones = Items.Select(i => new DetallePresupuestoDto
         {
             IdArticulo = i.IdArticulo,
             CodigoBarras = i.CodigoBarras,
             Descripcion = i.Descripcion,
             Cantidad = i.Cantidad,
-            PrecioUnitarioPactado = i.PrecioUnitario
+            PrecioUnitarioPactado = precios.TryGetValue(i.IdArticulo, out var precioActual) ? precioActual : i.PrecioUnitario
         }).ToList();
+
+        // Mismo cálculo que el ticket: el total nunca queda negativo.
+        decimal subtotalAPreciosDeHoy = renglones.Sum(r => r.Cantidad * r.PrecioUnitarioPactado);
+        decimal descuento = Math.Min(Descuento, subtotalAPreciosDeHoy);
+        decimal total = Math.Max(0m, subtotalAPreciosDeHoy - descuento);
 
         var viewModel = new GuardarPresupuestoViewModel(
             idUsuario,
             Cliente?.IdCliente,
             Cliente?.RazonSocialONombre,
-            Descuento,
-            Total,
+            descuento,
+            total,
             renglones,
             _presupuestoService,
             _presupuestoDialogService,
             _accesoDatos,
-            _logger);
+            _logger,
+            baseCargado?.Id,
+            baseCargado?.Titulo,
+            precios.Count);
 
         if (_presupuestoDialogService.MostrarGuardarPresupuesto(viewModel))
         {
@@ -1082,7 +1163,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
             presupuesto.IdPresupuesto,
             presupuesto.Titulo,
             presupuesto.EstaVigente,
-            presupuesto.FechaVencimiento);
+            presupuesto.FechaVencimiento,
+            presupuesto.IdCliente,
+            presupuesto.ClienteNombre);
         ItemSeleccionado = Items.FirstOrDefault();
         RecalcularTotales();
 

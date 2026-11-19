@@ -41,6 +41,7 @@ erDiagram
     PRESUPUESTOS ||--|{ DETALLE_PRESUPUESTOS : "contiene"
     ARTICULOS ||--o{ DETALLE_PRESUPUESTOS : "se_cotiza"
     PRESUPUESTOS ||--o| VENTAS : "origina"
+    PRESUPUESTOS |o--o| PRESUPUESTOS : "reemplaza"
 
     COMPRAS ||--|{ DETALLE_COMPRAS : "posee"
     ARTICULOS ||--o{ DETALLE_COMPRAS : "es_adquirido"
@@ -281,8 +282,9 @@ erDiagram
         decimal subtotal
         decimal descuento
         decimal total
-        string estado "Pendiente, Convertido, Anulado"
+        string estado "Pendiente, Convertido, Anulado, Reemplazado"
         datetime fecha_cierre "nullable"
+        int id_presupuesto_reemplazado FK "nullable; presupuesto que este corrige (PE-03), unico (PE-07)"
         rowversion row_version "concurrencia optimista (PS-13)"
         datetime deleted_at
     }

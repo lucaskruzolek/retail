@@ -40,6 +40,18 @@
 
 ---
 
+### Módulo 5.4: Nuevo Presupuesto y Corrección
+**Responsable:** Lucas Kruzolek  
+**Plan de diseño detallado:** [`etapa-5-modulo-5.4-editor-presupuestos.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-5-modulo-5.4-editor-presupuestos.md) (decisiones PE-01 a PE-12, fases P0 a P5) | **Requisitos:** RF-11, IU-13
+
+* **Problema:** un presupuesto solo podía nacer en el POS y no había forma de corregirlo sin anularlo y retipearlo.
+* **Dominio:** estado `Reemplazado`, `Presupuesto.Reemplazar()`, `IdPresupuestoReemplazado` y `CambiarTitulo` (el título es interno).
+* **Lógica:** `IPresupuestoService.ReemplazarAsync` (anular y emitir en un solo `SaveChanges`, con los precios y la vigencia de hoy) y `CambiarTituloAsync`.
+* **Interfaz Visual:** `PresupuestoFormDialog.xaml` ("Nuevo presupuesto" y "Corregir"), con el componente `EditorRenglones` extraído del editor de listas.
+* **Persistencia:** `PRESUPUESTOS.id_presupuesto_reemplazado`, con un índice único filtrado.
+
+---
+
 ### Módulo 5.2: Facturación Fiscal ARCA y Consola Gerencial
 **Responsable:** Lucas Kruzolek
 

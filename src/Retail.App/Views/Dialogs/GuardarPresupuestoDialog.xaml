@@ -5,6 +5,7 @@
                  xmlns:components="clr-namespace:Retail.App.Views.Components"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:vm="clr-namespace:Retail.App.ViewModels.Presupuestos"
+                 xmlns:helpers="clr-namespace:Retail.App.Helpers"
                  Title="Guardar como presupuesto"
                  Language="es-AR"
                  Width="460"
@@ -47,6 +48,35 @@
                     <TextBlock Text="Datos del presupuesto" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
                 </DockPanel>
 
+                <!-- Presupuesto cargado en el ticket (PE-15 a PE-17): el nuevo es independiente y a precios de hoy -->
+                <Border Style="{StaticResource BadgeNeutralStyle}"
+                        HorizontalAlignment="Stretch"
+                        Margin="{StaticResource StackMd}"
+                        Visibility="{Binding TieneAvisoBase, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="SolidInfoCircle"
+                                                        Width="14"
+                                                        Height="14"
+                                                        Margin="{StaticResource InlineSm}"
+                                                        VerticalAlignment="Top"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{Binding AvisoBase}"
+                                       FontSize="{StaticResource FontSizeSm}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextWrapping="Wrap"
+                                       MaxWidth="360" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding AvisoPrecios}"
+                                   FontSize="{StaticResource FontSizeSm}"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   TextWrapping="Wrap"
+                                   Margin="22,4,0,0"
+                                   Visibility="{Binding TieneAvisoPrecios, Converter={StaticResource BoolToVisConverter}}" />
+                    </StackPanel>
+                </Border>
+
                 <Grid Margin="{StaticResource StackMd}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="72" />
@@ -85,7 +115,9 @@
                            Margin="0,4,0,12" />
 
                 <TextBlock Text="Vigencia (días)" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                <!-- Solo dígitos: el NumberBox acepta letras y recién las descarta al perder el foco -->
                 <ui:NumberBox Value="{Binding VigenciaDias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              helpers:EntradaTextoHelper.Tipo="Entero"
                               Minimum="{x:Static vm:GuardarPresupuestoViewModel.VigenciaMinimaDias}"
                               Maximum="{x:Static vm:GuardarPresupuestoViewModel.VigenciaMaximaDias}"
                               MaxDecimalPlaces="0"

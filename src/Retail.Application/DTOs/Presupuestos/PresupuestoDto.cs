@@ -33,4 +33,10 @@ public record class PresupuestoDto
     public required bool EstaVigente { get; init; }
 
     public required IReadOnlyList<DetallePresupuestoDto> Items { get; init; }
+
+    /// <summary>Presupuesto que este corrige (PE-03), o <c>null</c> si no nació de una corrección.</summary>
+    public int? IdPresupuestoReemplazado { get; init; }
+
+    /// <summary>Presupuesto que reemplazó a este (PE-03), o <c>null</c> si no fue reemplazado.</summary>
+    public int? IdPresupuestoReemplazante { get; init; }
 }

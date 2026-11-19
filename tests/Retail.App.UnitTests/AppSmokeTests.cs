@@ -1302,6 +1302,43 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void EditorRenglones_InstanciacionEnHiloSTAConRenglones_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            using var acceso = new Retail.App.Helpers.CargaSerializada();
+            var viewModel = new Retail.App.ViewModels.Comun.EditorRenglonesViewModel(
+                Substitute.For<IVentaService>(),
+                acceso,
+                Substitute.For<ILogger>(),
+                exigirAlMenosUnRenglon: true);
+            viewModel.CargarRenglones(
+            [
+                new Retail.App.ViewModels.Comun.RenglonEditableFila(1, "7790001", "Cuaderno tapa dura", 2700m, 2, true),
+                new Retail.App.ViewModels.Comun.RenglonEditableFila(2, null, "Lapicera descontinuada", 450m, 1, false)
+            ]);
+
+            try
+            {
+                var control = new EditorRenglones { DataContext = viewModel, EncabezadoPrecio = "Precio" };
+                control.Measure(new System.Windows.Size(800, 400));
+                control.Arrange(new System.Windows.Rect(0, 0, 800, 400));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de EditorRenglones debe resolverse sin errores (buscador, grilla, selector de cantidad y aviso)");
+    }
+
+    [Fact]
     public void SelectorFechaUnica_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
@@ -2687,6 +2724,48 @@ public class AppSmokeTests
 
         // Assert
         xamlException.Should().BeNull("el XAML de ListaFormDialog debe resolverse sin errores (grilla de renglones, selector de cantidad, badge de baja y desplegable)");
+        dialog.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PresupuestoFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool enModoCorreccion)
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PresupuestoFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            using var acceso = new Retail.App.Helpers.CargaSerializada();
+            var viewModel = new PresupuestoFormViewModel(
+                enModoCorreccion ? Snapshots.DatosDeMuestra.PresupuestoParaVenta(vigente: true, conNovedades: true) : null,
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IVentaService>(),
+                Substitute.For<IClienteService>(),
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<Retail.App.Services.ICurrentUserSession>(),
+                acceso,
+                TimeProvider.System,
+                Substitute.For<ILogger>());
+
+            try
+            {
+                dialog = new PresupuestoFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(960, 760));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 960, 760));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PresupuestoFormDialog debe resolverse sin errores (datos, avisos, editor de renglones, totales y estado guardado)");
         dialog.Should().NotBeNull();
     }
 

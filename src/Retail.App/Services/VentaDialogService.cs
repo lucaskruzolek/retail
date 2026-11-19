@@ -45,9 +45,12 @@ public class VentaDialogService : IVentaDialogService
 
         // Al cerrarse el modal se descarta su ViewModel, que cancela la búsqueda pendiente (H-19).
         using var viewModel = new SeleccionarClienteModalViewModel(clienteService, logger);
+        // Si se abre desde otro modal (el editor de presupuestos), el dueño es ese modal: con la ventana principal de dueña
+        // quedaría detrás de él.
         var dialog = new SeleccionarClienteModalDialog(viewModel)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = System.Windows.Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive)
+                ?? System.Windows.Application.Current?.MainWindow
         };
 
         bool? resultado = dialog.ShowDialog();

@@ -11,5 +11,6 @@ public enum FiltroEstadoPresupuestoEnum
     Vigentes = 1,
     Vencidos = 2,
     Convertidos = 3,
-    Anulados = 4
+    Anulados = 4,
+    Reemplazados = 5
 }

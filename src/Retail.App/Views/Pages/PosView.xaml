@@ -95,8 +95,8 @@
                         </ToggleButton.ContextMenu>
                     </ToggleButton>
 
-                    <!-- "Guardar como ▾" (F3): Lista o Presupuesto. Siempre visible: con un presupuesto cargado, su ítem
-                         Presupuesto queda deshabilitado (un presupuesto no se vuelve a presupuestar), pero Lista sigue disponible. -->
+                    <!-- "Guardar como ▾" (F3): Lista o Presupuesto. Siempre visible: con un presupuesto cargado, el ítem
+                         Presupuesto emite uno nuevo e independiente a precios de hoy (PE-15) y no modifica el cargado. -->
                     <ToggleButton x:Name="BtnGuardarComo"
                                   Style="{StaticResource KeycapToggleButtonStyle}"
                                   Margin="8,0,0,0"
