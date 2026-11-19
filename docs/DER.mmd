@@ -90,6 +90,7 @@ erDiagram
         bool tiene_cuenta_corriente
         decimal limite_credito
         decimal saldo_cuenta_corriente
+        rowversion row_version "concurrencia optimista (Track 6.7)"
         datetime deleted_at
         datetime created_at
     }
@@ -119,7 +120,9 @@ erDiagram
         decimal diferencia_efectivo
         decimal total_ventas_electronicas
         decimal monto_retenido_en_caja
+        int cantidad_ventas "contador que materializa el conflicto (H18)"
         string estado
+        rowversion row_version "concurrencia optimista (Track 6.7)"
     }
 
     MOVIMIENTOS_CAJA {
