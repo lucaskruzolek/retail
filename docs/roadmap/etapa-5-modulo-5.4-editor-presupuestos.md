@@ -17,7 +17,7 @@
 | P2 | UI: `PresupuestoFormDialog` y "Nuevo presupuesto" en la pestaña | ✅ Hecha |
 | P3 | Dominio, Aplicación e Infraestructura: título editable y corrección (reemplazo atómico) | ✅ Hecha |
 | P4 | UI: acción *Corregir*, estado *Reemplazado* y título editable en el detalle | ✅ Hecha |
-| P5 | Cierre: verificación Release, mapa y PR | 🟡 Release en verde (4579 tests, 2026-11-19); faltan el PR y la prueba manual |
+| P5 | Cierre: verificación Release, mapa y PR | ✅ Release en verde con P6 a P8 incluidas (4603 tests, 2026-11-19) y PR abierto; falta la prueba manual |
 | P6 | UI: precio y total anteriores tachados (PE-13, PE-14) | ✅ Hecha |
 | P7 | UI del POS: guardar como presupuesto nuevo con un presupuesto cargado (PE-15 a PE-17) | ✅ Hecha |
 | P8 | UI del POS: confirmar el cobro de un presupuesto vigente a otro cliente (PE-18) | ✅ Hecha |
