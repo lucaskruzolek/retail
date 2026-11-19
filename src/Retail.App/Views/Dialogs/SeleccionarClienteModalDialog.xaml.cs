@@ -20,6 +20,14 @@ public partial class SeleccionarClienteModalDialog : FluentWindow
         MaxWidth = SystemParameters.WorkArea.Width;
 
         InitializeComponent();
+
+        Loaded += OnLoaded;
+    }
+
+    // La carga inicial se dispara al mostrarse la ventana, igual que en SeleccionarPedidoModalDialog.
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        _ = ViewModel.CargarInicialAsync();
     }
 
     private void OnSeleccionarClick(object sender, RoutedEventArgs e)
