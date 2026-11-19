@@ -20,6 +20,7 @@
 | P5 | Cierre: verificación Release, mapa y PR | 🟡 Release en verde (4579 tests, 2026-11-19); faltan el PR y la prueba manual |
 | P6 | UI: precio y total anteriores tachados (PE-13, PE-14) | ✅ Hecha |
 | P7 | UI del POS: guardar como presupuesto nuevo con un presupuesto cargado (PE-15 a PE-17) | ✅ Hecha |
+| P8 | UI del POS: confirmar el cobro de un presupuesto vigente a otro cliente (PE-18) | ✅ Hecha |
 
 ---
 
@@ -57,6 +58,7 @@
 | PE-15 | **Guardar como → Presupuesto con un presupuesto cargado en el POS = emitir uno nuevo e independiente.** El presupuesto base **no se modifica**: sigue pendiente. Sirve para dar el mismo presupuesto a otro cliente o para usar uno como base de otro | Cerrada | Pedido del estudiante. No es una corrección (PE-02): el base sigue siendo válido para su cliente. Revisa el "un presupuesto no se vuelve a presupuestar" del 5.1/5.3 |
 | PE-16 | El presupuesto nuevo sale con los **precios del catálogo de hoy**, aunque el base esté vigente. El diálogo avisa cuántos precios cambian y muestra el total nuevo | Cerrada | Lo exige RF-11 ("precios vigentes del catálogo al emitir") y `EmitirAsync` lo controla (D-11). Copiar los pactados a otro cliente extendería un compromiso de precio más allá de su vigencia (mismo argumento que PE-06) |
 | PE-17 | Después de guardar, el ticket **se vacía**, como cualquier "Guardar como presupuesto". El título interno se precarga con el del base (editable) | Cerrada | Mismo comportamiento que hoy. Precargar el título ahorra tipeo, que es el objetivo de "usarlo como base" |
+| PE-18 | **Cobrar un presupuesto vigente a otro cliente pide confirmación** en el POS, al cobrar (F12), no al cambiar el cliente. Pregunta solo si el presupuesto se emitió para un cliente concreto y el del ticket es otro, incluido Consumidor Final. No pregunta si el presupuesto fue a Consumidor Final ni si venció. El servidor lo sigue permitiendo | Cerrada (opción B) | Hasta ahora se permitía sin aviso (5.1: "el cliente de la venta es el que manda el POS"), con dos efectos: el otro cliente recibe los precios pactados y el presupuesto del primero se consume. Hay casos legítimos (paga otra persona, o el cliente se identifica al pagar), así que es una **decisión del cajero**, como el descuento (PS-15), y no una regla de dominio. Por eso es una confirmación en la UI y no una validación en el servidor. Un presupuesto vencido ya está a precios de catálogo (PS-03) y uno a Consumidor Final no tenía dueño del precio. Para dar el mismo presupuesto a otro cliente sin consumirlo existe P7 |
 
 ---
 

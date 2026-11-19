@@ -486,6 +486,11 @@ public partial class PosViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (!ConfirmarCobroAOtroCliente())
+        {
+            return;
+        }
+
         try
         {
             IsBusy = true;
@@ -546,6 +551,31 @@ public partial class PosViewModel : ObservableObject, IDisposable
         {
             IsBusy = false;
         }
+    }
+
+    /// <summary>
+    /// PE-18: cobrar un presupuesto <b>vigente</b> a un cliente distinto de aquel para el que se emitió pide confirmación,
+    /// porque le da al otro cliente los precios pactados y consume el presupuesto del primero. Es una decisión del
+    /// cajero (paga otra persona, o el cliente se identifica al pagar), no una regla de negocio: el servidor la sigue
+    /// permitiendo, como el descuento (PS-15). No pregunta si el presupuesto fue a Consumidor Final (nadie tenía el
+    /// compromiso de precio) ni si venció (el ticket ya está a precios de catálogo, PS-03).
+    /// </summary>
+    /// <returns><c>false</c> si el cajero no confirma.</returns>
+    private bool ConfirmarCobroAOtroCliente()
+    {
+        if (PresupuestoCargado is not { Vigente: true, IdCliente: int idClientePresupuesto } presupuesto
+            || idClientePresupuesto == Cliente?.IdCliente)
+        {
+            return true;
+        }
+
+        var paraQuien = string.IsNullOrWhiteSpace(presupuesto.ClienteNombre) ? "otro cliente" : presupuesto.ClienteNombre;
+
+        return _dialogService.Confirmar(
+            "Presupuesto de otro cliente",
+            $"El presupuesto N.º {presupuesto.Numero} fue emitido para {paraQuien}.\n\n" +
+            $"¿Cobrarlo a {ClienteNombre} con los precios pactados? El presupuesto quedará convertido y {paraQuien} ya no podrá usarlo.\n\n" +
+            "Para darle el mismo presupuesto a otro cliente sin consumirlo, use Guardar como → Presupuesto (F3).");
     }
 
     /// <summary>
@@ -1133,7 +1163,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
             presupuesto.IdPresupuesto,
             presupuesto.Titulo,
             presupuesto.EstaVigente,
-            presupuesto.FechaVencimiento);
+            presupuesto.FechaVencimiento,
+            presupuesto.IdCliente,
+            presupuesto.ClienteNombre);
         ItemSeleccionado = Items.FirstOrDefault();
         RecalcularTotales();
 

@@ -1320,6 +1320,89 @@ public class PosViewModelTests
         viewModel.PresupuestoCargado.Should().BeNull("al registrarse la venta, el ticket y el presupuesto vinculado se limpian juntos");
     }
 
+    // ------------------------------------------------------------------ //
+    // PE-18: cobrar un presupuesto vigente a otro cliente pide confirmación //
+    // ------------------------------------------------------------------ //
+
+    private async Task<PosViewModel> CrearViewModelConPresupuestoDeClienteAsync(bool vigente, int? idCliente)
+    {
+        var viewModel = await CrearViewModelAsync();
+        if (idCliente is int id)
+        {
+            _clienteServiceMock.ObtenerClientePorIdAsync(id, Arg.Any<CancellationToken>()).Returns(ClienteDeMostrador(id, "Escuela N.º 12"));
+        }
+
+        _presupuestoDialogMock.MostrarRecuperarPresupuesto(Arg.Any<RecuperarPresupuestoViewModel>())
+            .Returns(DatosDeMuestra.PresupuestoParaVenta(vigente) with
+            {
+                IdCliente = idCliente,
+                ClienteNombre = idCliente is null ? null : "Escuela N.º 12"
+            });
+
+        // Un presupuesto vencido pide conciliar los precios antes de cargarse (PS-03): se acepta
+        _presupuestoDialogMock.MostrarAlertaPreciosPresupuesto(Arg.Any<AlertaPreciosPresupuestoViewModel>()).Returns(true);
+
+        await viewModel.RecuperarPresupuestoCommand.ExecuteAsync(null);
+        return viewModel;
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_PresupuestoVigenteDeOtroCliente_PideConfirmacionYSinElla_NoAbreElCobro()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConPresupuestoDeClienteAsync(vigente: true, idCliente: 7);
+        viewModel.Cliente = ClienteDeMostrador(9, "Marcela Benítez");
+        _dialogServiceMock.Confirmar("Presupuesto de otro cliente", Arg.Any<string>()).Returns(false);
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.Received(1).Confirmar(
+            "Presupuesto de otro cliente",
+            Arg.Is<string>(m => m.Contains("Escuela N.º 12") && m.Contains("Marcela Benítez") && m.Contains("precios pactados")));
+        await _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarCobroModalAsync(default, default);
+        viewModel.Items.Should().HaveCount(2, "cancelar la confirmación no toca el ticket");
+        viewModel.PresupuestoCargado.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_PresupuestoVigenteDeOtroCliente_ConfirmadoAbreElCobro()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConPresupuestoDeClienteAsync(vigente: true, idCliente: 7);
+        viewModel.Cliente = null;
+        _dialogServiceMock.Confirmar("Presupuesto de otro cliente", Arg.Any<string>()).Returns(true);
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert: también pregunta al pasar a Consumidor Final (sigue siendo cobrarle a otro el precio pactado)
+        _dialogServiceMock.Received(1).Confirmar("Presupuesto de otro cliente", Arg.Is<string>(m => m.Contains("Consumidor Final")));
+        await _dialogServiceMock.ReceivedWithAnyArgs(1).MostrarCobroModalAsync(default, default);
+    }
+
+    [Theory]
+    [InlineData(true, 7, 7)]
+    [InlineData(true, null, 9)]
+    [InlineData(false, 7, 9)]
+    public async Task CobrarVentaAsync_MismoClientePresupuestoAConsumidorFinalOVencido_NoPideConfirmacion(
+        bool vigente,
+        int? idClientePresupuesto,
+        int idClienteTicket)
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConPresupuestoDeClienteAsync(vigente, idClientePresupuesto);
+        viewModel.Cliente = ClienteDeMostrador(idClienteTicket, "Cliente del ticket");
+
+        // Act
+        await viewModel.CobrarVentaAsync();
+
+        // Assert
+        _dialogServiceMock.DidNotReceive().Confirmar("Presupuesto de otro cliente", Arg.Any<string>());
+        await _dialogServiceMock.ReceivedWithAnyArgs(1).MostrarCobroModalAsync(default, default);
+    }
+
     [Fact]
     public async Task CobrarVentaAsync_SinPresupuestoCargado_NoEnviaIdPresupuestoOrigen()
     {
