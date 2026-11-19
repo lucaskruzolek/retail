@@ -66,12 +66,24 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeCobrar))]
+    [NotifyPropertyChangedFor(nameof(TituloAvisoCaja))]
+    [NotifyPropertyChangedFor(nameof(DetalleAvisoCaja))]
     private TurnoCajaDto? _turnoActivo;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeCobrar))]
     [NotifyPropertyChangedFor(nameof(MostrarAvisoCajaCerrada))]
     private bool _cajaAbierta;
+
+    /// <summary>
+    /// La terminal tiene un turno abierto que pertenece a otro cajero (turno "pausado"). Solo el dueño del turno puede
+    /// vender y cobrar con él, así que el mostrador queda bloqueado hasta que lo cierre su dueño o un Gerente (MT-14).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PuedeAbrirCaja))]
+    [NotifyPropertyChangedFor(nameof(TituloAvisoCaja))]
+    [NotifyPropertyChangedFor(nameof(DetalleAvisoCaja))]
+    private bool _turnoAjeno;
 
     /// <summary>
     /// Ya se consultó el estado de la caja. Hasta entonces CajaAbierta vale false sin que se sepa si está cerrada: el
@@ -167,6 +179,17 @@ public partial class PosViewModel : ObservableObject, IDisposable
     /// ticket que después no se puede cobrar.
     /// </summary>
     public bool MostrarAvisoCajaCerrada => EstadoCajaVerificado && !CajaAbierta;
+
+    /// <summary>"Abrir caja" solo se ofrece si la terminal no tiene un turno ajeno: abrir otro fallaría (un turno por terminal).</summary>
+    public bool PuedeAbrirCaja => !TurnoAjeno;
+
+    public string TituloAvisoCaja => TurnoAjeno
+        ? $"La caja tiene un turno de {TurnoActivo?.NombreUsuario ?? "otro cajero"} sin cerrar"
+        : "La caja está cerrada";
+
+    public string DetalleAvisoCaja => TurnoAjeno
+        ? "Solo esa persona puede vender; un Gerente puede cerrarlo desde Caja."
+        : "Abra la caja para buscar artículos y cobrar.";
 
     public PosViewModel(
         IVentaService ventaService,
@@ -468,7 +491,11 @@ public partial class PosViewModel : ObservableObject, IDisposable
     {
         if (!PuedeCobrar)
         {
-            if (!CajaAbierta)
+            if (TurnoAjeno)
+            {
+                _dialogService.MostrarAlerta("Turno de otro cajero", $"{TituloAvisoCaja}. {DetalleAvisoCaja}");
+            }
+            else if (!CajaAbierta)
             {
                 _dialogService.MostrarAlerta(
                     "Caja Cerrada",
@@ -1177,6 +1204,20 @@ public partial class PosViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Fija el turno de la terminal y deriva de él quién puede vender: la caja está "abierta" para este mostrador solo si
+    /// el turno abierto es del usuario de la sesión. Si es de otro cajero queda <see cref="TurnoAjeno"/>: el servicio
+    /// rechazaría la venta (MT-14), y es mejor decirlo antes de armar un ticket que no se podrá cobrar.
+    /// </summary>
+    private void AplicarTurno(TurnoCajaDto? turno)
+    {
+        var abierto = turno?.Estado == EstadoTurnoEnum.Abierto;
+
+        TurnoActivo = turno;
+        TurnoAjeno = abierto && _session.IdUsuario is int idSesion && turno!.IdUsuario != idSesion;
+        CajaAbierta = abierto && !TurnoAjeno;
+    }
+
     [RelayCommand]
     public Task CargarEstadoCajaAsync()
     {
@@ -1184,8 +1225,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
             token => Task.Run(() => _cajaService.ObtenerTurnoActivoAsync(token), token),
             turno =>
             {
-                TurnoActivo = turno;
-                CajaAbierta = TurnoActivo?.Estado == EstadoTurnoEnum.Abierto;
+                AplicarTurno(turno);
                 EstadoCajaVerificado = true;
             },
             ex =>
@@ -1203,7 +1243,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task AbrirCajaAsync()
     {
-        if (CajaAbierta)
+        if (CajaAbierta || TurnoAjeno)
         {
             return;
         }
@@ -1229,11 +1269,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
 
         await _accesoDatos.EjecutarOperacionAsync(
             token => Task.Run(() => _cajaService.AbrirTurnoAsync(dto, token), token),
-            turno =>
-            {
-                TurnoActivo = turno;
-                CajaAbierta = turno.Estado == EstadoTurnoEnum.Abierto;
-            },
+            AplicarTurno,
             ex =>
             {
                 if (ex is ValidationException validacion)

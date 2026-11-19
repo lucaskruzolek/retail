@@ -115,7 +115,9 @@ public class ClienteDialogService : IClienteDialogService
         var clienteService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<IClienteService>(_serviceProvider);
         var cajaService = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ICajaService>(_serviceProvider);
 
-        var vm = new CobranzaModalViewModel(clienteService, cajaService, cliente);
+        var sesion = Microsoft.Extensions.DependencyInjection.ServiceProviderServiceExtensions.GetRequiredService<ICurrentUserSession>(_serviceProvider);
+
+        var vm = new CobranzaModalViewModel(clienteService, cajaService, sesion, cliente);
         var dialog = new CobranzaModalDialog(vm);
 
         if (System.Windows.Application.Current?.MainWindow is { IsVisible: true } owner)

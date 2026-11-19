@@ -405,12 +405,59 @@ public class DialogosSnapshotTests
             var viewModel = new CobranzaModalViewModel(
                 Substitute.For<IClienteService>(),
                 Substitute.For<ICajaService>(),
+                Substitute.For<ICurrentUserSession>(),
                 ClienteConCuentaCorriente());
             viewModel.MontoCobro = 8000m;
             viewModel.EfectivoRecibido = 10000m;
 
             var dialogo = new CobranzaModalDialog(viewModel);
             return SnapshotRenderer.Guardar(dialogo, 520, 644, carpeta + "/CobranzaModalDialog");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    // ---------- Terminales ----------
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro, "TerminalNueva")]
+    [InlineData(TemaPrueba.Oscuro, "TerminalNueva")]
+    [InlineData(TemaPrueba.Claro, "Reemplazo")]
+    [InlineData(TemaPrueba.Oscuro, "Reemplazo")]
+    [InlineData(TemaPrueba.Claro, "TerminalInexistente")]
+    [InlineData(TemaPrueba.Oscuro, "TerminalInexistente")]
+    public void ActivarTerminalDialog_PorTema_GeneraCaptura(TemaPrueba tema, string variante)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var reemplazo = variante == "Reemplazo";
+            var viewModel = DatosDeMuestra.ViewModelActivarTerminal(reemplazo, terminalInexistente: variante == "TerminalInexistente");
+            var dialogo = new ActivarTerminalDialog(viewModel);
+
+            // Al abrir, el diálogo lee las terminales activas; en "Reemplazo" se elige una vez cargadas (el combo se queda
+            // con la lista que llega del servicio) y se espera un ciclo más para que la selección se dibuje.
+            var seleccionada = false;
+            return SnapshotRenderer.Guardar(
+                dialogo,
+                520,
+                520,
+                carpeta + "/ActivarTerminalDialog_" + variante,
+                () =>
+                {
+                    if (!viewModel.TerminalesCargadas)
+                    {
+                        return false;
+                    }
+
+                    if (reemplazo && !seleccionada)
+                    {
+                        viewModel.TerminalElegida = viewModel.Terminales[1];
+                        seleccionada = true;
+                        return false;
+                    }
+
+                    return true;
+                });
         });
 
         VerificarCaptura(ruta, error);

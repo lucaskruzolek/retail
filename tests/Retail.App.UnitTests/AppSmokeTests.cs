@@ -190,7 +190,7 @@ public class AppSmokeTests
         {
             var cajaServiceMock = Substitute.For<ICajaService>();
             var dialogServiceMock = Substitute.For<ICajaDialogService>();
-            var viewModel = new Retail.App.ViewModels.Caja.CajaViewModel(cajaServiceMock, dialogServiceMock);
+            var viewModel = new Retail.App.ViewModels.Caja.CajaViewModel(cajaServiceMock, dialogServiceMock, Substitute.For<ICurrentUserSession>());
 
             try
             {
@@ -209,6 +209,75 @@ public class AppSmokeTests
         xamlException.Should().BeNull("el XAML de CajaView debe compilarse y resolverse sin errores de recursos o controles");
         view.Should().NotBeNull();
         view!.ViewModel.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void CajaView_ConTurnoAjenoVistoPorGerente_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange: la franja de turno ajeno y la sección de otras terminales solo se dibujan con este estado
+        Exception? xamlException = null;
+        CajaView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var cajaServiceMock = Substitute.For<ICajaService>();
+            cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(Snapshots.DatosDeMuestraPaginas.TurnoAjeno());
+            cajaServiceMock.ListarTurnosAbiertosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(Snapshots.DatosDeMuestraPaginas.TurnosEnOtrasTerminales());
+            var sesion = Substitute.For<ICurrentUserSession>();
+            sesion.IdUsuario.Returns(1);
+            sesion.EsGerente.Returns(true);
+            var viewModel = new Retail.App.ViewModels.Caja.CajaViewModel(cajaServiceMock, Substitute.For<ICajaDialogService>(), sesion);
+
+            try
+            {
+                view = new CajaView(viewModel);
+                view.Measure(new System.Windows.Size(1024, 768));
+                view.Arrange(new System.Windows.Rect(0, 0, 1024, 768));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de CajaView con turno ajeno y la sección de Gerente debe resolverse sin errores");
+        view.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void ActivarTerminalDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool reemplazo, bool terminalInexistente)
+    {
+        // Arrange: terminal nueva, reemplazo (con y sin mensaje de error) y el texto de "terminal inexistente"
+        Exception? xamlException = null;
+        ActivarTerminalDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = Snapshots.DatosDeMuestra.ViewModelActivarTerminal(reemplazo, terminalInexistente);
+            viewModel.MensajeError = reemplazo ? "La terminal elegida ya tiene otra PC asignada." : null;
+
+            try
+            {
+                dialog = new ActivarTerminalDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(520, 600));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 520, 600));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ActivarTerminalDialog debe resolverse sin errores (selector, nombre, combo y aviso)");
+        dialog.Should().NotBeNull();
     }
     [Fact]
     public void ClientesView_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
@@ -276,7 +345,7 @@ public class AppSmokeTests
                 SaldoCuentaCorriente = 12000m
             };
 
-            var viewModel = new Retail.App.ViewModels.Clientes.CobranzaModalViewModel(clienteServiceMock, cajaServiceMock, clienteEjemplo);
+            var viewModel = new Retail.App.ViewModels.Clientes.CobranzaModalViewModel(clienteServiceMock, cajaServiceMock, Substitute.For<ICurrentUserSession>(), clienteEjemplo);
 
             try
             {

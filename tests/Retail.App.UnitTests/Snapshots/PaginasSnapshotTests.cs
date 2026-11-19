@@ -14,6 +14,7 @@ using Retail.App.ViewModels.Reportes;
 using Retail.App.ViewModels.Usuarios;
 using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
@@ -389,12 +390,55 @@ public class PaginasSnapshotTests
         var (ruta, error) = Capturar(tema, carpeta =>
         {
             // El ViewModel consulta el turno activo en su constructor: el doble se configura antes de crearlo.
+            // La sesión es la del dueño del turno (id 4): es su propio turno.
             var servicio = Substitute.For<ICajaService>();
             servicio.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(DatosDeMuestraPaginas.TurnoAbierto());
 
-            var viewModel = new CajaViewModel(servicio, Substitute.For<ICajaDialogService>());
+            var viewModel = new CajaViewModel(servicio, Substitute.For<ICajaDialogService>(), DatosDeMuestraPaginas.Sesion(4, false));
             var vista = new CajaView(viewModel);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/CajaView", () => viewModel.TieneTurnoActivo);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    // Escenarios nuevos del turno por cajero y terminal (MT-14): sin turno, turno ajeno visto por un cajero y turno ajeno
+    // visto por un Gerente con la sección "Turnos abiertos en otras terminales" poblada.
+    [Theory]
+    [InlineData(TemaPrueba.Claro, "SinTurno")]
+    [InlineData(TemaPrueba.Oscuro, "SinTurno")]
+    [InlineData(TemaPrueba.Claro, "TurnoAjenoCajero")]
+    [InlineData(TemaPrueba.Oscuro, "TurnoAjenoCajero")]
+    [InlineData(TemaPrueba.Claro, "TurnoAjenoGerente")]
+    [InlineData(TemaPrueba.Oscuro, "TurnoAjenoGerente")]
+    [InlineData(TemaPrueba.Claro, "GerenteSinOtrosTurnos")]
+    [InlineData(TemaPrueba.Oscuro, "GerenteSinOtrosTurnos")]
+    public void CajaView_Escenarios_PorTema_GeneraCaptura(TemaPrueba tema, string escenario)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var servicio = Substitute.For<ICajaService>();
+            var esGerente = escenario is "TurnoAjenoGerente" or "GerenteSinOtrosTurnos";
+
+            servicio.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>())
+                .Returns(escenario.StartsWith("TurnoAjeno", StringComparison.Ordinal) ? DatosDeMuestraPaginas.TurnoAjeno() : null);
+            servicio.ListarTurnosAbiertosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(escenario == "TurnoAjenoGerente" ? DatosDeMuestraPaginas.TurnosEnOtrasTerminales() : Array.Empty<TurnoAbiertoDto>());
+
+            var sesion = DatosDeMuestraPaginas.Sesion(esGerente ? 1 : 3, esGerente);
+            var viewModel = new CajaViewModel(servicio, Substitute.For<ICajaDialogService>(), sesion);
+            var vista = new CajaView(viewModel);
+            return SnapshotRenderer.Guardar(
+                vista,
+                1366,
+                768,
+                carpeta + "/CajaView_" + escenario,
+                () => escenario switch
+                {
+                    "SinTurno" => true,
+                    "TurnoAjenoCajero" => viewModel.TieneTurnoActivo,
+                    _ => viewModel.TurnosEnOtrasTerminalesCargados
+                });
         });
 
         VerificarCaptura(ruta, error);
