@@ -1216,6 +1216,56 @@ public class PosViewModelTests
         viewModel.PresupuestoCargado.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task QuitarPresupuesto_ConArticuloAgregadoAparte_QuitaSoloLosRenglonesDelPresupuestoYSuDescuento()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: true);
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 90, Descripcion = "Regla 30 cm", PrecioVenta = 700m, StockActual = 10, EsServicio = false });
+
+        // Act
+        viewModel.QuitarPresupuestoCommand.Execute(null);
+
+        // Assert
+        viewModel.PresupuestoCargado.Should().BeNull();
+        var restante = viewModel.Items.Should().ContainSingle().Subject;
+        restante.IdArticulo.Should().Be(90, "lo agregado aparte no venía del presupuesto");
+        restante.NumeroItem.Should().Be(1);
+        viewModel.Descuento.Should().Be(0m, "el descuento era parte de lo pactado (PS-15)");
+        viewModel.Total.Should().Be(700m);
+        viewModel.GuardarComoPresupuestoCommand.CanExecute(null).Should().BeTrue("el ticket ya no viene de un presupuesto");
+    }
+
+    [Fact]
+    public async Task QuitarPresupuesto_ConClienteDelPresupuesto_ConservaElCliente()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: true);
+        var cliente = ClienteDeMostrador(7, "Escuela N.º 12");
+        viewModel.Cliente = cliente;
+
+        // Act
+        viewModel.QuitarPresupuestoCommand.Execute(null);
+
+        // Assert
+        viewModel.Cliente.Should().Be(cliente);
+        viewModel.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task QuitarPresupuesto_SinPresupuestoCargado_NoCambiaElTicket()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelAsync();
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Hoja A4", PrecioVenta = 50m, StockActual = 500, EsServicio = false });
+
+        // Act
+        viewModel.QuitarPresupuestoCommand.Execute(null);
+
+        // Assert
+        viewModel.Items.Should().ContainSingle();
+    }
+
     private async Task<PosViewModel> CrearViewModelConPresupuestoRecuperadoAsync(bool vigente)
     {
         var viewModel = await CrearViewModelAsync();

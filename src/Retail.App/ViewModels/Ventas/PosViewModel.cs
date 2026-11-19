@@ -648,6 +648,31 @@ public partial class PosViewModel : ObservableObject, IDisposable
         RecalcularTotales();
     }
 
+    /// <summary>
+    /// ✕ de la etiqueta del presupuesto: quita el presupuesto y los renglones que trajo, junto con su descuento, que
+    /// era parte de lo pactado (PS-15). Los artículos que el cajero agregó aparte quedan en el ticket a precio de
+    /// catálogo, y el cliente se conserva. Un artículo del presupuesto al que se le sumaron unidades sale entero, porque
+    /// es una sola línea. No pide confirmación, igual que la ✕ del pedido en Compras.
+    /// </summary>
+    [RelayCommand]
+    public void QuitarPresupuesto()
+    {
+        if (PresupuestoCargado is null)
+        {
+            return;
+        }
+
+        foreach (var item in Items.Where(i => i.EsDePresupuesto).ToList())
+        {
+            Items.Remove(item);
+        }
+
+        Descuento = 0m;
+        PresupuestoCargado = null;
+        ReenumerarItems();
+        RecalcularTotales();
+    }
+
     // ------------------------------------------------------------------ //
     // Presupuestos (RF-11, RF-12)                                         //
     // ------------------------------------------------------------------ //

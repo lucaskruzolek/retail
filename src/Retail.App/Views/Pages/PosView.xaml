@@ -189,17 +189,36 @@
                             Margin="8,0,0,0"
                             ToolTip="{Binding PresupuestoCargado.Detalle}"
                             Visibility="{Binding TienePresupuestoCargado, Converter={StaticResource BoolToVisConverter}}">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Grid y no StackPanel: el texto necesita un ancho acotado para recortarse sin empujar la ✕
+                             fuera de la etiqueta -->
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
                             <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14"
                                                         Foreground="{DynamicResource TextSecondaryBrush}"
                                                         Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding PresupuestoCargado.Etiqueta}"
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding PresupuestoCargado.Etiqueta}"
                                        FontSize="{StaticResource FontSizeMd}"
                                        FontWeight="Medium"
                                        Foreground="{DynamicResource TextPrimaryBrush}"
                                        TextTrimming="CharacterEllipsis"
                                        VerticalAlignment="Center" />
-                        </StackPanel>
+                            <!-- Mismo control que la ✕ del "Pedido #N" de Compras -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding QuitarPresupuestoCommand}"
+                                    Style="{StaticResource BadgeCancelButtonStyle}"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Focusable="False"
+                                    ToolTip="Quitar el presupuesto y sus artículos del ticket"
+                                    AutomationProperties.Name="Quitar presupuesto">
+                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="9" Height="9" />
+                            </Button>
+                        </Grid>
                     </Border>
 
                     <!-- POPUP FLOTANTE DE RESULTADOS PREDICTIVOS -->
