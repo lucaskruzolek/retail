@@ -82,6 +82,75 @@ public class GuardarPresupuestoViewModelTests : IDisposable
         sut.ExportarPdfCommand.CanExecute(null).Should().BeFalse();
     }
 
+    private GuardarPresupuestoViewModel CrearViewModelDesdeBase(int? numeroBase, string? tituloBase, int preciosActualizados)
+    {
+        return new GuardarPresupuestoViewModel(
+            idUsuario: 2,
+            idCliente: null,
+            clienteNombre: null,
+            descuento: 0m,
+            total: 6000m,
+            items: [new DetallePresupuestoDto { IdArticulo = 1, Descripcion = "Libro", Cantidad = 2, PrecioUnitarioPactado = 3000m }],
+            _presupuestoService,
+            _dialogService,
+            _acceso,
+            NullLogger.Instance,
+            numeroBase,
+            tituloBase,
+            preciosActualizados);
+    }
+
+    [Fact]
+    public void Constructor_SinBase_NoMuestraAvisos()
+    {
+        var sut = CrearViewModel();
+
+        sut.AvisoBase.Should().BeNull();
+        sut.AvisoPrecios.Should().BeNull();
+        sut.TieneAvisoBase.Should().BeFalse();
+        sut.TieneAvisoPrecios.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Constructor_ConBaseYPreciosCambiados_AvisaElNumeroDelBaseLaCantidadYPrecargaElTitulo()
+    {
+        var sut = CrearViewModelDesdeBase(123, "Lista escolar", 3);
+
+        sut.AvisoBase.Should().Be("Se emite un presupuesto nuevo; el N.º 00000123 no cambia.");
+        sut.AvisoPrecios.Should().Be("3 precios pasan al catálogo de hoy.");
+        sut.TieneAvisoBase.Should().BeTrue();
+        sut.TieneAvisoPrecios.Should().BeTrue();
+        sut.Titulo.Should().Be("Lista escolar");
+    }
+
+    [Fact]
+    public void Constructor_ConBaseYUnSoloPrecioCambiado_UsaElSingular()
+    {
+        CrearViewModelDesdeBase(5, null, 1).AvisoPrecios.Should().Be("1 precio pasa al catálogo de hoy.");
+    }
+
+    [Fact]
+    public void Constructor_ConBaseSinPreciosCambiados_NoMuestraElAvisoDePrecios()
+    {
+        var sut = CrearViewModelDesdeBase(5, null, 0);
+
+        sut.TieneAvisoBase.Should().BeTrue();
+        sut.TieneAvisoPrecios.Should().BeFalse();
+        sut.Titulo.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Guardar_ConBase_EmiteUnoNuevoYNoUsaReemplazar()
+    {
+        var sut = CrearViewModelDesdeBase(123, "Base", 0);
+        _presupuestoService.EmitirAsync(Arg.Any<CrearPresupuestoDto>(), Arg.Any<CancellationToken>()).Returns(Emitido(124));
+
+        await sut.GuardarCommand.ExecuteAsync(null);
+
+        sut.Guardado.Should().BeTrue();
+        await _presupuestoService.DidNotReceiveWithAnyArgs().ReemplazarAsync(default, default!, default);
+    }
+
     [Fact]
     public void Constructor_ConCliente_MuestraSuNombre()
     {

@@ -38,6 +38,9 @@ public partial class GuardarPresupuestoViewModel : ObservableObject
     /// <param name="total">Total del ticket, solo para mostrarlo.</param>
     /// <param name="items">Líneas del ticket con el precio que muestra el POS como precio pactado.</param>
     /// <param name="acceso">Fila de accesos a datos del POS, para no usar su DbContext en paralelo (H-19).</param>
+    /// <param name="numeroBase">Número del presupuesto cargado en el ticket, si lo hay (PE-15): el nuevo es independiente y ese no cambia.</param>
+    /// <param name="tituloBase">Título del presupuesto base, que se precarga y puede editarse (PE-17).</param>
+    /// <param name="preciosActualizados">Cantidad de precios que pasaron al catálogo de hoy respecto del base (PE-16).</param>
     public GuardarPresupuestoViewModel(
         int idUsuario,
         int? idCliente,
@@ -48,7 +51,10 @@ public partial class GuardarPresupuestoViewModel : ObservableObject
         IPresupuestoService presupuestoService,
         IPresupuestoDialogService dialogService,
         CargaSerializada acceso,
-        ILogger logger)
+        ILogger logger,
+        int? numeroBase = null,
+        string? tituloBase = null,
+        int preciosActualizados = 0)
     {
         _idUsuario = idUsuario;
         _idCliente = idCliente;
@@ -61,7 +67,20 @@ public partial class GuardarPresupuestoViewModel : ObservableObject
         _flujoPdf = new FlujoExportarPdfPresupuesto(_dialogService, _logger);
 
         ClienteNombre = string.IsNullOrWhiteSpace(clienteNombre) ? "Consumidor Final" : clienteNombre;
-        TotalFormateado = total.ToString("C2", CulturaArgentina);
+        // C0: los importes de la app van sin centavos, como en el resto de los diálogos de presupuesto
+        TotalFormateado = total.ToString("C0", CulturaArgentina);
+
+        if (numeroBase is int numero)
+        {
+            AvisoBase = $"Se emite un presupuesto nuevo; el N.º {PresentacionPresupuesto.FormatearNumero(numero)} no cambia.";
+            AvisoPrecios = preciosActualizados switch
+            {
+                <= 0 => null,
+                1 => "1 precio pasa al catálogo de hoy.",
+                _ => $"{preciosActualizados} precios pasan al catálogo de hoy."
+            };
+            Titulo = tituloBase ?? string.Empty;
+        }
     }
 
     // ------------------------------------------------------------------ //
@@ -71,6 +90,16 @@ public partial class GuardarPresupuestoViewModel : ObservableObject
     public string ClienteNombre { get; }
 
     public string TotalFormateado { get; }
+
+    /// <summary>Aviso de "basado en" (PE-15); <c>null</c> si el ticket no viene de un presupuesto.</summary>
+    public string? AvisoBase { get; }
+
+    /// <summary>Cuántos precios pasan al catálogo de hoy (PE-16); <c>null</c> si ninguno cambia o no hay base.</summary>
+    public string? AvisoPrecios { get; }
+
+    public bool TieneAvisoBase => AvisoBase is not null;
+
+    public bool TieneAvisoPrecios => AvisoPrecios is not null;
 
     // Límites del dominio, publicados para que la vista los tome con x:Static: una sola fuente de verdad (Presupuesto).
     public static int LongitudMaximaTitulo => Presupuesto.LongitudMaximaTitulo;

@@ -846,6 +846,35 @@ public class VistaSnapshotTests
     [Theory]
     [InlineData(TemaPrueba.Claro)]
     [InlineData(TemaPrueba.Oscuro)]
+    public void GuardarPresupuestoDialog_DesdeBase_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var viewModel = new GuardarPresupuestoViewModel(
+                2,
+                7,
+                "Escuela N.º 12 Domingo F. Sarmiento",
+                500m,
+                184110m,
+                [new DetallePresupuestoDto { IdArticulo = 1, Descripcion = "Cuaderno", Cantidad = 3, PrecioUnitarioPactado = 2700m }],
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                new CargaSerializada(),
+                Substitute.For<ILogger>(),
+                numeroBase: 123,
+                tituloBase: "Lista escolar 3.º grado",
+                preciosActualizados: 2);
+
+            var dialogo = new GuardarPresupuestoDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 460, 620, carpeta + "/GuardarPresupuestoDialog_DesdeBase");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
     public void RecuperarPresupuestoDialog_ConClientePrefiltrado_PorTema_GeneraCaptura(TemaPrueba tema)
     {
         var (ruta, error) = Capturar(tema, carpeta =>
