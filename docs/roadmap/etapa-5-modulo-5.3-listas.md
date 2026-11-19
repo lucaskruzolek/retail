@@ -14,7 +14,7 @@
 | :--- | :--- | :---: |
 | L0 | Documentación: ERS (RF-30, IU-14, IU-02, trazabilidad), roadmap de la etapa, mapa | ✅ Hecha |
 | L1 | Dominio: agregado `ListaArticulos` | ✅ Hecha |
-| L2 | Aplicación: `IListaService`, DTOs, validadores; venta con lista de origen | ⏳ Pendiente |
+| L2 | Aplicación: `IListaService`, DTOs, validadores; venta con lista de origen | ✅ Hecha |
 | L3 | Infraestructura: configuración EF, migración, `ListaQueryService`, PDF de la lista | ⏳ Pendiente |
 | L4 | UI: pestaña **Listas** en Ventas (listado y editor) | ⏳ Pendiente |
 | L5 | UI del POS: desplegables **Cargar ▾** y **Guardar como ▾** y selector de listas | ⏳ Pendiente |
@@ -154,7 +154,7 @@ flowchart LR
 
 ### L2 — Aplicación (`Retail.Application`)
 - `Interfaces/Services/IListaService.cs`:
-  - `CrearAsync`, `ActualizarRenglonesAsync` (L-16), `RenombrarAsync`, `AgregarRenglonAsync`, `CambiarCantidadAsync`, `QuitarRenglonAsync`, `EliminarAsync`;
+  - `CrearAsync`, `ActualizarAsync` (nombre + renglones), `EliminarAsync`. **Cambio respecto del diseño original:** en lugar de un método por cada edición, hay un único `ActualizarAsync`, porque el editor de L4 es un diálogo con *Guardar*/*Cancelar* y el "Actualizar «X»" del POS (L-16) también reemplaza todo. Lleva `FechaModificacionLeida`: si otra terminal guardó en el medio, se rechaza en lugar de pisar los cambios;
   - `ListarAsync` (paginado), `ObtenerAsync`, `ObtenerParaVentaAsync` (renglones con el precio y el stock de hoy, más los artículos no disponibles);
   - `ImprimirAsync`, `ExportarPdfAsync`.
 - `Interfaces/Persistence/IListaQueryService.cs` e `Interfaces/Infrastructure/IExportadorListaPdf.cs`.

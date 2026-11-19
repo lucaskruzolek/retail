@@ -24,6 +24,13 @@ public class CrearVentaValidator : AbstractValidator<CrearVentaDto>
         RuleFor(x => x.IdPresupuestoOrigen)
             .GreaterThan(0).When(x => x.IdPresupuestoOrigen.HasValue).WithMessage("El presupuesto de origen no es válido.");
 
+        RuleFor(x => x.IdListaOrigen)
+            .GreaterThan(0).When(x => x.IdListaOrigen.HasValue).WithMessage("La lista de origen no es válida.");
+
+        RuleFor(x => x)
+            .Must(x => !(x.IdPresupuestoOrigen.HasValue && x.IdListaOrigen.HasValue))
+            .WithMessage("Una venta no puede originarse a la vez en un presupuesto y en una lista.");
+
         RuleFor(x => x.Descuento)
             .GreaterThanOrEqualTo(0m).WithMessage("El descuento no puede ser negativo.");
 

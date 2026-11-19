@@ -1,5 +1,6 @@
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
 
@@ -17,4 +18,10 @@ public interface ITicketPrinterService
     Task ImprimirActaArqueoAsync(ResultadoArqueoDto arqueo, CancellationToken cancellationToken = default);
 
     Task ImprimirPresupuestoAsync(PresupuestoDto presupuesto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Imprime una lista de artículos con los precios de <paramref name="fechaPrecios"/>. Solo se imprimen los
+    /// renglones disponibles (L-13).
+    /// </summary>
+    Task ImprimirListaAsync(ListaDto lista, DateOnly fechaPrecios, CancellationToken cancellationToken = default);
 }
