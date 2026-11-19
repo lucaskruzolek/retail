@@ -214,7 +214,7 @@ public class VentaService : IVentaService
         // 2. Armar la venta con los precios del servidor (D-11), no con los que envía la UI: el de catálogo o, si el
         //    ticket viene de un presupuesto vigente, el pactado (PS-02, PS-14). La regla vive en el agregado
         //    Presupuesto; si la cantidad supera la presupuestada lanza DomainException antes de modificar nada.
-        var venta = Venta.Registrar(dto.IdTurno, dto.IdUsuario, dto.IdCliente, dto.IdPresupuestoOrigen);
+        var venta = Venta.Registrar(dto.IdTurno, dto.IdUsuario, dto.IdCliente, dto.IdPresupuestoOrigen, dto.IdListaOrigen);
 
         // Un artículo repetido en el ticket se compara contra la cantidad total.
         var cantidadesPorArticulo = dto.Items
@@ -308,6 +308,7 @@ public class VentaService : IVentaService
             IdCliente = venta.IdCliente,
             ClienteNombre = cliente?.RazonSocialONombre ?? "Consumidor Final",
             IdPresupuestoOrigen = venta.IdPresupuestoOrigen,
+            IdListaOrigen = venta.IdListaOrigen,
             FechaHora = venta.FechaHora,
             Subtotal = venta.Subtotal,
             Descuento = venta.Descuento,

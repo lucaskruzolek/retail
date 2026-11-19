@@ -106,7 +106,7 @@ public class MainViewModelTests
 
         pos.Atajo.Should().Be("F1");
         pos.TieneDetalle.Should().BeFalse();
-        ventas.Detalle.Should().Be("Clientes · Caja y turnos · Presupuestos");
+        ventas.Detalle.Should().Be("Clientes · Caja y turnos · Presupuestos · Listas");
         ventas.TieneAtajo.Should().BeFalse();
     }
 

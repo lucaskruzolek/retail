@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Domain.Enums;
@@ -241,6 +242,52 @@ public class FileDebugTicketPrinterServiceTests : IDisposable
         contenido.Should().Contain("Precios pactados válidos hasta el 23/09/2026");
         contenido.Should().NotContain("Nota interna del comercio", "el título es de uso interno (PS-20)");
         contenido.Should().Contain("No reserva ni garantiza stock físico");
+    }
+
+    [Fact]
+    public async Task ImprimirListaAsync_ConArticuloNoDisponible_ImprimeNombreLeyendaYSoloLosDisponibles()
+    {
+        // Arrange
+        var lista = new ListaDto
+        {
+            IdLista = 4,
+            Nombre = "3.º Grado Colegio N",
+            FechaModificacion = new DateTime(2026, 11, 18, 12, 0, 0, DateTimeKind.Utc),
+            TotalEstimado = 3600.00m,
+            Renglones = new List<RenglonListaDto>
+            {
+                new()
+                {
+                    IdArticulo = 1,
+                    Descripcion = "Cuaderno rayado",
+                    Cantidad = 3,
+                    PrecioActual = 1200.00m,
+                    Subtotal = 3600.00m,
+                    EstaDisponible = true
+                },
+                new()
+                {
+                    IdArticulo = 2,
+                    Descripcion = "Lápiz descatalogado",
+                    Cantidad = 5,
+                    PrecioActual = 100.00m,
+                    Subtotal = 500.00m,
+                    EstaDisponible = false
+                }
+            }
+        };
+
+        // Act
+        await _sut.ImprimirListaAsync(lista, new DateOnly(2026, 11, 19));
+
+        // Assert
+        _sut.UltimoArchivoGenerado.Should().NotBeNullOrWhiteSpace();
+        string contenido = await File.ReadAllTextAsync(_sut.UltimoArchivoGenerado!);
+        contenido.Should().Contain("3.º Grado Colegio N");
+        contenido.Should().Contain("Precios al 19/11/2026, sujetos a modificación");
+        contenido.Should().Contain("Cuaderno rayado");
+        contenido.Should().NotContain("Lápiz descatalogado", "los artículos dados de baja no se imprimen (L-13)");
+        contenido.Should().Contain("DOCUMENTO NO VÁLIDO COMO FACTURA");
     }
 
     [Fact]

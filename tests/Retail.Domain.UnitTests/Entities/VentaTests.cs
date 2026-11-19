@@ -64,6 +64,39 @@ public class VentaTests
     }
 
     [Fact]
+    public void Registrar_ConListaDeOrigen_LaAsigna()
+    {
+        // Act
+        var venta = Venta.Registrar(IdTurno, IdUsuario, IdCliente, idListaOrigen: 9);
+
+        // Assert
+        venta.IdListaOrigen.Should().Be(9);
+        venta.IdPresupuestoOrigen.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void Registrar_ConListaDeOrigenNoPositiva_LanzaArgumentOutOfRangeException(int idListaOrigen)
+    {
+        // Act
+        var act = () => Venta.Registrar(IdTurno, IdUsuario, IdCliente, idListaOrigen: idListaOrigen);
+
+        // Assert
+        act.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    [Fact]
+    public void Registrar_ConPresupuestoYListaDeOrigen_LanzaDomainException()
+    {
+        // Act
+        var act = () => Venta.Registrar(IdTurno, IdUsuario, IdCliente, idPresupuestoOrigen: 7, idListaOrigen: 9);
+
+        // Assert
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
     public void AgregarItem_VariosArticulos_CalculaSubtotalYTotal()
     {
         // Arrange

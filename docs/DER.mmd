@@ -52,6 +52,11 @@ erDiagram
     CATALOGOS_PROVEEDORES ||--o{ DETALLE_PEDIDOS : "se_pide_como"
     PEDIDOS |o--o| COMPRAS : "se_recibe_con"
 
+    USUARIOS ||--o{ LISTAS_ARTICULOS : "crea"
+    LISTAS_ARTICULOS ||--|{ RENGLONES_LISTA : "contiene"
+    ARTICULOS ||--o{ RENGLONES_LISTA : "figura_en"
+    LISTAS_ARTICULOS |o--o{ VENTAS : "origina"
+
     USUARIOS {
         int id_usuario PK
         string nombre_usuario UK
@@ -239,6 +244,7 @@ erDiagram
         int id_usuario FK
         int id_cliente "FK nullable (NULL = Consumidor Final)"
         int id_presupuesto_origen FK "UK (filtered): un presupuesto, a lo sumo una venta (PS-13)"
+        int id_lista_origen "FK nullable, NO unico: una lista se vende ilimitadas veces (L-09)"
         datetime fecha_hora
         decimal subtotal
         decimal descuento
@@ -349,6 +355,24 @@ erDiagram
         string descripcion "foto al agregar"
         int cantidad ">= 1"
         decimal costo_pactado "foto al agregar, > 0"
+    }
+
+    LISTAS_ARTICULOS {
+        int id_lista PK
+        string nombre "UK (filtered, collation CI_AI): L-10"
+        int id_usuario_creador FK
+        datetime fecha_modificacion "control optimista del servicio"
+        datetime created_at
+        rowversion row_version "concurrencia optimista"
+        datetime deleted_at
+    }
+
+    RENGLONES_LISTA {
+        int id_renglon_lista PK
+        int id_lista FK "UK composite con id_articulo (filtered)"
+        int id_articulo FK
+        int cantidad ">= 1"
+        datetime deleted_at
     }
 
     REGISTROS_BACKUP {

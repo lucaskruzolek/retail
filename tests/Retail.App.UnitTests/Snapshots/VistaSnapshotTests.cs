@@ -14,6 +14,7 @@ using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Comun;
+using Retail.App.ViewModels.Listas;
 using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Presupuestos;
 using Retail.App.ViewModels.Ventas;
@@ -24,6 +25,7 @@ using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.Interfaces.Services;
@@ -225,7 +227,9 @@ public class VistaSnapshotTests
                 Substitute.For<ICajaDialogService>(),
                 Substitute.For<IPresupuestoService>(),
                 Substitute.For<IPresupuestoDialogService>(),
-                Substitute.For<IClienteService>());
+                Substitute.For<IClienteService>(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IListaDialogService>());
 
             if (conItems)
             {
@@ -458,6 +462,185 @@ public class VistaSnapshotTests
     [Theory]
     [InlineData(TemaPrueba.Claro)]
     [InlineData(TemaPrueba.Oscuro)]
+    public void ListasView_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var servicio = Substitute.For<IListaService>();
+            servicio.ListarAsync(Arg.Any<ConsultaListasDto>(), Arg.Any<CancellationToken>())
+                .Returns(new ListasPaginadosDto
+                {
+                    Items = DatosDeMuestra.Listas(),
+                    TotalRegistros = 31,
+                    PaginaActual = 1,
+                    TamanoPagina = 15
+                });
+
+            var viewModel = new ListasViewModel(
+                servicio,
+                Substitute.For<IListaDialogService>(),
+                new RelojDePrueba(DatosDeMuestra.AhoraListas),
+                Substitute.For<ILogger<ListasViewModel>>());
+
+            var vista = new ListasView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/ListasView", () => viewModel.Listas.Count > 0);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void ListaFormDialog_ConUnArticuloDadoDeBaja_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            using var acceso = new CargaSerializada();
+            var viewModel = new ListaFormViewModel(
+                DatosDeMuestra.ListaDetalle(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IVentaService>(),
+                Substitute.For<ICurrentUserSession>(),
+                acceso,
+                Substitute.For<ILogger>());
+
+            var dialogo = new ListaFormDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 800, 700, carpeta + "/ListaFormDialog", () => viewModel.Renglones.Count > 0);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void SeleccionarListaDialog_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var servicio = Substitute.For<IListaService>();
+            servicio.ListarAsync(Arg.Any<ConsultaListasDto>(), Arg.Any<CancellationToken>())
+                .Returns(new ListasPaginadosDto
+                {
+                    Items = DatosDeMuestra.Listas(),
+                    TotalRegistros = 5,
+                    PaginaActual = 1,
+                    TamanoPagina = 50
+                });
+
+            var viewModel = new SeleccionarListaViewModel(
+                servicio,
+                new CargaSerializada(),
+                Substitute.For<ILogger>(),
+                new RelojDePrueba(DatosDeMuestra.AhoraListas));
+
+            var dialogo = new SeleccionarListaDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 760, 600, carpeta + "/SeleccionarListaDialog", () => viewModel.Listas.Count > 0);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro, true, "GuardarListaDialog_Actualizar")]
+    [InlineData(TemaPrueba.Oscuro, true, "GuardarListaDialog_Actualizar")]
+    [InlineData(TemaPrueba.Claro, false, "GuardarListaDialog_Nueva")]
+    [InlineData(TemaPrueba.Oscuro, false, "GuardarListaDialog_Nueva")]
+    public void GuardarListaDialog_PorTema_GeneraCaptura(TemaPrueba tema, bool conListaCargada, string nombre)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var viewModel = new GuardarListaViewModel(
+                2,
+                [new RenglonListaEntradaDto { IdArticulo = 1, Cantidad = 3 }, new RenglonListaEntradaDto { IdArticulo = 2, Cantidad = 12 }],
+                conListaCargada ? new ListaCargada(12, "3.º grado — Colegio San Martín", DateTime.UtcNow) : null,
+                Substitute.For<IListaService>(),
+                new CargaSerializada(),
+                Substitute.For<ILogger>());
+
+            var dialogo = new GuardarListaDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 460, 420, carpeta + "/" + nombre);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro, true, "PreguntaCargaListaDialog")]
+    [InlineData(TemaPrueba.Oscuro, true, "PreguntaCargaListaDialog")]
+    [InlineData(TemaPrueba.Claro, false, "PreguntaCargaListaDialog_ConPresupuesto")]
+    public void PreguntaCargaListaDialog_PorTema_GeneraCaptura(TemaPrueba tema, bool permitirAgregar, string nombre)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var dialogo = new PreguntaCargaListaDialog("3.º grado — Colegio San Martín", permitirAgregar);
+            return SnapshotRenderer.Guardar(dialogo, 500, 300, carpeta + "/" + nombre);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void PosView_ConListaCargada_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        // Ficha «Lista «nombre»» con su ✕ junto a los desplegables Cargar ▾ y Guardar como ▾
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var caja = Substitute.For<ICajaService>();
+            caja.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(new TurnoCajaDto
+            {
+                IdTurno = 12,
+                IdUsuario = 1,
+                NombreUsuario = "admin",
+                FechaApertura = DateTime.UtcNow,
+                SaldoInicial = 5000m,
+                SaldoTeoricoEfectivo = 5000m,
+                Estado = EstadoTurnoEnum.Abierto
+            });
+
+            var viewModel = new PosViewModel(
+                Substitute.For<IVentaService>(),
+                caja,
+                Substitute.For<IInventarioService>(),
+                Substitute.For<ICurrentUserSession>(),
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<ICajaDialogService>(),
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<IClienteService>(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IListaDialogService>());
+
+            var lista = DatosDeMuestra.ListaParaVenta();
+            foreach (var renglon in lista.Renglones)
+            {
+                viewModel.Items.Add(new ItemVentaPosViewModel
+                {
+                    NumeroItem = viewModel.Items.Count + 1,
+                    IdArticulo = renglon.IdArticulo,
+                    CodigoBarras = renglon.CodigoBarras,
+                    Descripcion = renglon.Descripcion,
+                    PrecioUnitario = renglon.PrecioActual,
+                    Cantidad = renglon.Cantidad,
+                    StockActual = renglon.StockActual
+                });
+            }
+
+            viewModel.ListaCargada = new ListaCargada(lista.IdLista, lista.Nombre, lista.FechaModificacion);
+
+            var vista = new PosView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PosView_Lista", () => viewModel.EstadoCajaVerificado);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
     public void DetallePresupuestoDialog_PorTema_GeneraCaptura(TemaPrueba tema)
     {
         var (ruta, error) = Capturar(tema, carpeta =>
@@ -508,7 +691,9 @@ public class VistaSnapshotTests
                 Substitute.For<ICajaDialogService>(),
                 Substitute.For<IPresupuestoService>(),
                 Substitute.For<IPresupuestoDialogService>(),
-                Substitute.For<IClienteService>());
+                Substitute.For<IClienteService>(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IListaDialogService>());
 
             var presupuesto = DatosDeMuestra.PresupuestoParaVenta(vigente: true);
             foreach (var renglon in presupuesto.Renglones)

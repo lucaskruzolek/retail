@@ -63,6 +63,34 @@ public class CrearVentaValidatorTests
         result.Errors.Should().Contain(e => e.ErrorMessage.Contains("cantidad"));
     }
 
+    [Fact]
+    public void Validate_ListaDeOrigenInvalida_Falla()
+    {
+        // Arrange
+        var dto = CrearDtoValido() with { IdListaOrigen = 0 };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "La lista de origen no es válida.");
+    }
+
+    [Fact]
+    public void Validate_PresupuestoYListaDeOrigenJuntos_Falla()
+    {
+        // Arrange
+        var dto = CrearDtoValido() with { IdPresupuestoOrigen = 3, IdListaOrigen = 4 };
+
+        // Act
+        var result = _validator.Validate(dto);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("presupuesto y en una lista"));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(-50)]

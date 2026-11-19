@@ -3,11 +3,13 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.App.UnitTests.Snapshots;
+using Retail.App.ViewModels.Listas;
 using Retail.App.ViewModels.Presupuestos;
 using Retail.App.ViewModels.Ventas;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Exceptions;
@@ -29,9 +31,13 @@ public class PosViewModelTests
     private readonly IPresupuestoService _presupuestoServiceMock;
     private readonly IPresupuestoDialogService _presupuestoDialogMock;
     private readonly IClienteService _clienteServiceMock;
+    private readonly IListaService _listaServiceMock;
+    private readonly IListaDialogService _listaDialogMock;
 
     public PosViewModelTests()
     {
+        _listaServiceMock = Substitute.For<IListaService>();
+        _listaDialogMock = Substitute.For<IListaDialogService>();
         _presupuestoServiceMock = Substitute.For<IPresupuestoService>();
         _presupuestoDialogMock = Substitute.For<IPresupuestoDialogService>();
         _clienteServiceMock = Substitute.For<IClienteService>();
@@ -85,7 +91,9 @@ public class PosViewModelTests
             _cajaDialogServiceMock,
             _presupuestoServiceMock,
             _presupuestoDialogMock,
-            _clienteServiceMock);
+            _clienteServiceMock,
+            _listaServiceMock,
+            _listaDialogMock);
     }
 
     [Fact]
@@ -1331,6 +1339,427 @@ public class PosViewModelTests
 
         // Assert
         viewModel.Items.Should().ContainSingle();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Listas de artículos (RF-30, L-05 a L-21)                            //
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task CargarLista_ConTicketVacio_CargaLosRenglonesAPrecioDeCatalogoYVinculaLaLista()
+    {
+        var viewModel = await CrearViewModelAsync();
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        viewModel.Items.Should().HaveCount(3);
+        viewModel.Items[0].IdArticulo.Should().Be(1);
+        viewModel.Items[0].Cantidad.Should().Be(3);
+        viewModel.Items[0].PrecioUnitario.Should().Be(4900m, "la lista siempre se vende al precio de catálogo (L-08)");
+        viewModel.Items[0].EsDePresupuesto.Should().BeFalse();
+        viewModel.Items[0].CantidadMaxima.Should().BeNull();
+        viewModel.Items[1].StockActual.Should().Be(8);
+        viewModel.Total.Should().Be((3 * 4900m) + (12 * 450m) + 7200m);
+        viewModel.ListaCargada.Should().Be(new ListaCargada(12, "3.º grado — Colegio San Martín", DatosDeMuestra.ListaParaVenta().FechaModificacion));
+        viewModel.ListaCargada!.Etiqueta.Should().Be("Lista «3.º grado — Colegio San Martín»");
+        viewModel.TieneListaCargada.Should().BeTrue();
+        _listaDialogMock.DidNotReceiveWithAnyArgs().PreguntarReemplazarOAgregar(default!, default);
+    }
+
+    [Fact]
+    public async Task CargarLista_ConTicketNoVacioYReemplazar_VaciaLosArticulosPrevios()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(99, "Regla", 700m));
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        _listaDialogMock.PreguntarReemplazarOAgregar(Arg.Any<string>(), true).Returns(RespuestaCargaLista.Reemplazar);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        viewModel.Items.Select(i => i.IdArticulo).Should().Equal(1, 2, 3);
+        viewModel.ListaCargada.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task CargarLista_ConAgregar_SumaLaCantidadDelArticuloExistenteYAgregaLosNuevos()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Cuaderno ABC", 4900m), Articulo(99, "Regla", 700m));
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        _listaDialogMock.PreguntarReemplazarOAgregar(Arg.Any<string>(), true).Returns(RespuestaCargaLista.Agregar);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        viewModel.Items.Select(i => i.IdArticulo).Should().Equal(1, 99, 2, 3);
+        viewModel.Items[0].Cantidad.Should().Be(4, "1 unidad del ticket + 3 de la lista");
+        viewModel.Items[1].Cantidad.Should().Be(1);
+        viewModel.Items.Select(i => i.NumeroItem).Should().Equal(1, 2, 3, 4);
+        viewModel.ListaCargada.Should().NotBeNull("agregar una lista a un ticket armado a mano la establece (L-20)");
+        viewModel.ListaCargada!.Id.Should().Be(12);
+    }
+
+    [Fact]
+    public async Task CargarLista_AgregarConOtraListaYaCargada_ConservaLaPrimera()
+    {
+        var viewModel = await CrearViewModelAsync();
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        var otra = DatosDeMuestra.ListaParaVenta() with { IdLista = 15, Nombre = "Jardín sala de 5", ArticulosNoDisponibles = [], Faltantes = [] };
+        ConfigurarListaElegida(otra, confirmaAviso: true);
+        _listaDialogMock.PreguntarReemplazarOAgregar(Arg.Any<string>(), true).Returns(RespuestaCargaLista.Agregar);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        viewModel.ListaCargada!.Id.Should().Be(12, "la venta conserva la primera lista cargada (L-20)");
+        viewModel.Items[0].Cantidad.Should().Be(6);
+    }
+
+    [Fact]
+    public async Task CargarLista_ConUnPresupuestoCargado_NoOfreceAgregarYReemplazarLoDesvincula()
+    {
+        var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: true);
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        _listaDialogMock.PreguntarReemplazarOAgregar(Arg.Any<string>(), false).Returns(RespuestaCargaLista.Reemplazar);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        _listaDialogMock.Received(1).PreguntarReemplazarOAgregar("3.º grado — Colegio San Martín", false);
+        viewModel.PresupuestoCargado.Should().BeNull("la lista reemplaza el ticket y lo desvincula del presupuesto (L-15)");
+        viewModel.Descuento.Should().Be(0m);
+        viewModel.Items.Should().HaveCount(3);
+        viewModel.Items.Should().OnlyContain(i => !i.EsDePresupuesto && i.CantidadMaxima == null);
+        viewModel.ListaCargada.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task CargarLista_ConUnPresupuestoCargadoYRespuestaCancelar_NoCambiaNada()
+    {
+        var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: true);
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        _listaDialogMock.PreguntarReemplazarOAgregar(Arg.Any<string>(), false).Returns(RespuestaCargaLista.Cancelar);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        viewModel.PresupuestoCargado.Should().NotBeNull();
+        viewModel.ListaCargada.Should().BeNull();
+        viewModel.Items.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task CargarLista_ConArticulosNoDisponiblesYFaltantes_PideConfirmacionConElDetalleYLosOmite()
+    {
+        var viewModel = await CrearViewModelAsync();
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        _listaDialogMock.Received(1).Confirmar(
+            "Cargar lista",
+            Arg.Is<string>(m => m.Contains("Se omitirán") && m.Contains("Block de dibujo") && m.Contains("Stock insuficiente") && m.Contains("Lápiz negro HB Faber")));
+        viewModel.Items.Should().NotContain(i => i.Descripcion.Contains("Block de dibujo"));
+        viewModel.Items.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task CargarLista_ConAvisoRechazado_NoCambiaNada()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(99, "Regla", 700m));
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: false);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        viewModel.Items.Should().ContainSingle().Which.IdArticulo.Should().Be(99);
+        viewModel.ListaCargada.Should().BeNull();
+        _listaDialogMock.DidNotReceiveWithAnyArgs().PreguntarReemplazarOAgregar(default!, default);
+    }
+
+    [Fact]
+    public async Task CargarLista_ConPreguntaCancelada_NoCambiaNada()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(99, "Regla", 700m));
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        _listaDialogMock.PreguntarReemplazarOAgregar(Arg.Any<string>(), true).Returns(RespuestaCargaLista.Cancelar);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        viewModel.Items.Should().ContainSingle().Which.IdArticulo.Should().Be(99);
+        viewModel.ListaCargada.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CargarLista_CanceladaEnElSelector_NoConsultaNiCambiaNada()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(99, "Regla", 700m));
+        _listaDialogMock.MostrarSeleccionarLista(Arg.Any<SeleccionarListaViewModel>()).Returns((int?)null);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        await _listaServiceMock.DidNotReceiveWithAnyArgs().ObtenerParaVentaAsync(default, default);
+        viewModel.Items.Should().ContainSingle();
+        viewModel.ListaCargada.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CargarLista_ConTodosLosArticulosDadosDeBaja_InformaYNoCarga()
+    {
+        var viewModel = await CrearViewModelAsync();
+        var sinDisponibles = DatosDeMuestra.ListaParaVenta() with { Renglones = [], Faltantes = [] };
+        ConfigurarListaElegida(sinDisponibles, confirmaAviso: true);
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        _listaDialogMock.Received(1).MostrarInformacion(
+            "Lista sin artículos disponibles",
+            Arg.Is<string>(m => m.Contains("Block de dibujo")));
+        viewModel.Items.Should().BeEmpty();
+        viewModel.ListaCargada.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CargarLista_QueYaNoExiste_MuestraAlertaYNoCambiaElTicket()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(99, "Regla", 700m));
+        _listaDialogMock.MostrarSeleccionarLista(Arg.Any<SeleccionarListaViewModel>()).Returns(12);
+        _listaServiceMock.ObtenerParaVentaAsync(12, Arg.Any<CancellationToken>()).Throws(new DomainException("No se encontró la lista 12."));
+
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        _listaDialogMock.Received(1).MostrarAlerta("Lista no disponible", "No se encontró la lista 12.");
+        viewModel.Items.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task RecuperarPresupuesto_ConUnaListaCargada_LaDesvincula()
+    {
+        var viewModel = await CrearViewModelAsync();
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+        viewModel.ListaCargada.Should().NotBeNull();
+
+        _presupuestoDialogMock.MostrarRecuperarPresupuesto(Arg.Any<RecuperarPresupuestoViewModel>())
+            .Returns(DatosDeMuestra.PresupuestoParaVenta(vigente: true));
+        _presupuestoDialogMock.MostrarAlertaPreciosPresupuesto(Arg.Any<AlertaPreciosPresupuestoViewModel>()).Returns(true);
+        _dialogServiceMock.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        await viewModel.RecuperarPresupuestoCommand.ExecuteAsync(null);
+
+        viewModel.PresupuestoCargado.Should().NotBeNull();
+        viewModel.ListaCargada.Should().BeNull("un ticket nunca queda vinculado a la vez a un presupuesto y a una lista (L-21)");
+    }
+
+    [Fact]
+    public async Task LimpiarVenta_ConUnaListaCargada_LaDesvincula()
+    {
+        var viewModel = await CrearViewModelAsync();
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+        _dialogServiceMock.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+
+        viewModel.LimpiarVenta();
+
+        viewModel.Items.Should().BeEmpty();
+        viewModel.ListaCargada.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_ConUnaListaCargada_EnviaIdListaOrigenYLaDesvinculaAlCobrar()
+    {
+        var viewModel = await CrearViewModelAsync();
+        viewModel.CajaAbierta = true;
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+        decimal total = viewModel.Total;
+        _dialogServiceMock.MostrarCobroModalAsync(total, Arg.Any<ClienteDto?>())
+            .Returns(new List<PagoVentaDto> { new() { MedioPago = MedioPagoEnum.Efectivo, Monto = total } });
+        _ventaServiceMock.RegistrarVentaAsync(Arg.Any<CrearVentaDto>(), Arg.Any<CancellationToken>())
+            .Returns(new VentaResponseDto
+            {
+                IdVenta = 1,
+                IdTurno = 1,
+                IdUsuario = 2,
+                FechaHora = DateTime.UtcNow,
+                Subtotal = total,
+                Descuento = 0m,
+                Total = total,
+                EstadoFiscal = EstadoFiscalEnum.NoAplica,
+                Items = new List<DetalleVentaDto>(),
+                Pagos = new List<PagoVentaDto>()
+            });
+
+        await viewModel.CobrarVentaAsync();
+
+        await _ventaServiceMock.Received(1).RegistrarVentaAsync(
+            Arg.Is<CrearVentaDto>(dto => dto.IdListaOrigen == 12 && dto.IdPresupuestoOrigen == null && dto.Items.Count == 3),
+            Arg.Any<CancellationToken>());
+        viewModel.ListaCargada.Should().BeNull();
+        viewModel.Items.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_SinListaCargada_NoEnviaIdListaOrigen()
+    {
+        var viewModel = await CrearViewModelConTicketYPagoAsync();
+        _ventaServiceMock.RegistrarVentaAsync(Arg.Any<CrearVentaDto>(), Arg.Any<CancellationToken>())
+            .Returns(new VentaResponseDto
+            {
+                IdVenta = 1,
+                IdTurno = 1,
+                IdUsuario = 2,
+                FechaHora = DateTime.UtcNow,
+                Subtotal = 5000m,
+                Descuento = 0m,
+                Total = 5000m,
+                EstadoFiscal = EstadoFiscalEnum.NoAplica,
+                Items = new List<DetalleVentaDto>(),
+                Pagos = new List<PagoVentaDto>()
+            });
+
+        await viewModel.CobrarVentaAsync();
+
+        await _ventaServiceMock.Received(1).RegistrarVentaAsync(Arg.Is<CrearVentaDto>(dto => dto.IdListaOrigen == null), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task QuitarLista_DesvinculaElTicketPeroConservaLosArticulos()
+    {
+        var viewModel = await CrearViewModelAsync();
+        ConfigurarListaElegida(DatosDeMuestra.ListaParaVenta(), confirmaAviso: true);
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+
+        viewModel.QuitarListaCommand.Execute(null);
+
+        viewModel.ListaCargada.Should().BeNull();
+        viewModel.Items.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task GuardarComoLista_ConTicketVacio_EstaDeshabilitado()
+    {
+        var viewModel = await CrearViewModelAsync();
+
+        viewModel.GuardarComoListaCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GuardarComoLista_ConUnPresupuestoCargado_EstaHabilitadoYNoVinculaElTicketALaLista()
+    {
+        var viewModel = await CrearViewModelConPresupuestoRecuperadoAsync(vigente: true);
+        ConfigurarGuardadoDeLista(nombre: "Útiles", resultado: ListaGuardada(30, "Útiles"));
+
+        viewModel.GuardarComoListaCommand.CanExecute(null).Should().BeTrue();
+        viewModel.GuardarComoListaCommand.Execute(null);
+
+        viewModel.ListaCargada.Should().BeNull("un ticket con presupuesto cargado no se vincula también a una lista");
+        viewModel.PresupuestoCargado.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GuardarComoLista_ListaNueva_LlamaACrearConLosRenglonesYVinculaElTicket()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Cuaderno", 4900m), Articulo(2, "Lápiz", 450m));
+        viewModel.Items[1].Cantidad = 4;
+        ConfigurarGuardadoDeLista(nombre: "  3.º grado  ", resultado: ListaGuardada(30, "3.º grado"));
+
+        viewModel.GuardarComoListaCommand.Execute(null);
+
+        await _listaServiceMock.Received(1).CrearAsync(
+            Arg.Is<CrearListaDto>(dto => dto.IdUsuario == 2
+                && dto.Nombre == "3.º grado"
+                && dto.Renglones.Count == 2
+                && dto.Renglones[1].IdArticulo == 2
+                && dto.Renglones[1].Cantidad == 4),
+            Arg.Any<CancellationToken>());
+        viewModel.ListaCargada.Should().Be(new ListaCargada(30, "3.º grado", ListaGuardada(30, "3.º grado").FechaModificacion));
+        viewModel.Items.Should().HaveCount(2, "el ticket no se limpia al guardar la lista");
+        _listaDialogMock.Received(1).MostrarInformacion("Lista guardada", Arg.Is<string>(m => m.Contains("3.º grado")));
+    }
+
+    [Fact]
+    public async Task GuardarComoLista_ActualizarLaCargada_LlamaAActualizarConLaFechaLeidaAlCargarlaYRefrescaLaFicha()
+    {
+        var viewModel = await CrearViewModelAsync();
+        var lista = DatosDeMuestra.ListaParaVenta();
+        ConfigurarListaElegida(lista, confirmaAviso: true);
+        await viewModel.CargarListaCommand.ExecuteAsync(null);
+        var nuevaFecha = new DateTime(2026, 11, 19, 16, 0, 0, DateTimeKind.Utc);
+        _listaServiceMock.ActualizarAsync(12, Arg.Any<ActualizarListaDto>(), Arg.Any<CancellationToken>())
+            .Returns(ListaGuardada(12, lista.Nombre) with { FechaModificacion = nuevaFecha });
+        _listaDialogMock.MostrarGuardarLista(Arg.Any<GuardarListaViewModel>()).Returns(ci =>
+        {
+            var vm = ci.Arg<GuardarListaViewModel>();
+            vm.ActualizarVinculada.Should().BeTrue("con una lista cargada, Actualizar es la opción por defecto (L-16)");
+            vm.GuardarCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+            return vm.Guardada;
+        });
+
+        viewModel.GuardarComoListaCommand.Execute(null);
+
+        await _listaServiceMock.Received(1).ActualizarAsync(
+            12,
+            Arg.Is<ActualizarListaDto>(dto => dto.Nombre == lista.Nombre
+                && dto.FechaModificacionLeida == lista.FechaModificacion
+                && dto.Renglones.Count == 3),
+            Arg.Any<CancellationToken>());
+        await _listaServiceMock.DidNotReceiveWithAnyArgs().CrearAsync(default!, default);
+        viewModel.ListaCargada!.FechaModificacion.Should().Be(nuevaFecha, "el siguiente 'Actualizar' debe mandar la fecha nueva");
+    }
+
+    [Fact]
+    public async Task GuardarComoLista_CanceladoEnElDialogo_NoCambiaNada()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Cuaderno", 4900m));
+        _listaDialogMock.MostrarGuardarLista(Arg.Any<GuardarListaViewModel>()).Returns(false);
+
+        viewModel.GuardarComoListaCommand.Execute(null);
+
+        viewModel.ListaCargada.Should().BeNull();
+        _listaDialogMock.DidNotReceiveWithAnyArgs().MostrarInformacion(default!, default!);
+    }
+
+    [Fact]
+    public async Task GuardarComoLista_SinUsuarioEnSesion_MuestraAlertaYNoAbreElDialogo()
+    {
+        var viewModel = await CrearViewModelConTicketAsync(Articulo(1, "Cuaderno", 4900m));
+        _sessionMock.IdUsuario.Returns((int?)null);
+
+        viewModel.GuardarComoListaCommand.Execute(null);
+
+        _listaDialogMock.Received(1).MostrarAlerta("Sesión incompleta", Arg.Any<string>());
+        _listaDialogMock.DidNotReceiveWithAnyArgs().MostrarGuardarLista(default!);
+    }
+
+    private void ConfigurarListaElegida(ListaParaVentaDto lista, bool confirmaAviso)
+    {
+        _listaDialogMock.MostrarSeleccionarLista(Arg.Any<SeleccionarListaViewModel>()).Returns(lista.IdLista);
+        _listaServiceMock.ObtenerParaVentaAsync(lista.IdLista, Arg.Any<CancellationToken>()).Returns(lista);
+        _listaDialogMock.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(confirmaAviso);
+    }
+
+    /// <summary>
+    /// Simula el diálogo de guardado: escribe el nombre y ejecuta el comando Guardar del ViewModel del diálogo, que es
+    /// el que llama al servicio, igual que lo haría el botón.
+    /// </summary>
+    private void ConfigurarGuardadoDeLista(string nombre, ListaDto resultado)
+    {
+        _listaServiceMock.CrearAsync(Arg.Any<CrearListaDto>(), Arg.Any<CancellationToken>()).Returns(resultado);
+        _listaDialogMock.MostrarGuardarLista(Arg.Any<GuardarListaViewModel>()).Returns(ci =>
+        {
+            var vm = ci.Arg<GuardarListaViewModel>();
+            vm.Nombre = nombre;
+            vm.GuardarCommand.ExecuteAsync(null).GetAwaiter().GetResult();
+            return vm.Guardada;
+        });
+    }
+
+    private static ListaDto ListaGuardada(int id, string nombre)
+    {
+        return new ListaDto
+        {
+            IdLista = id,
+            Nombre = nombre,
+            FechaModificacion = new DateTime(2026, 11, 19, 15, 0, 0, DateTimeKind.Utc),
+            Renglones = [],
+            TotalEstimado = 0m
+        };
     }
 
     private async Task<PosViewModel> CrearViewModelConPresupuestoRecuperadoAsync(bool vigente)

@@ -13,6 +13,7 @@ public record class VentaResponseDto
     public int? IdCliente { get; init; }
     public string? ClienteNombre { get; init; }
     public int? IdPresupuestoOrigen { get; init; }
+    public int? IdListaOrigen { get; init; }
     public required DateTime FechaHora { get; init; }
     public required decimal Subtotal { get; init; }
     public required decimal Descuento { get; init; }

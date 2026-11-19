@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Interfaces.Infrastructure;
@@ -224,6 +225,38 @@ public partial class FileDebugTicketPrinterService : ITicketPrinterService
         sb.AppendLine(CulturaArgentina, $"{Separador('=', ancho)}");
 
         string nombreArchivo = $"presupuesto_{presupuesto.IdPresupuesto}_{DateTime.Now:yyyyMMdd_HHmmssfff}.txt";
+        await GuardarYEmitirAsync(nombreArchivo, sb.ToString(), cancellationToken);
+    }
+
+    public async Task ImprimirListaAsync(ListaDto lista, DateOnly fechaPrecios, CancellationToken cancellationToken = default)
+    {
+        var sb = new StringBuilder();
+        int ancho = _options.AnchoCaracteres;
+
+        AgregarEncabezadoComercio(sb, ancho);
+        // A diferencia del título del presupuesto (nota interna), el nombre de la lista sí se imprime (L-11).
+        sb.AppendLine(CulturaArgentina, $"{CentrarTexto(lista.Nombre, ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{CentrarTexto($"Precios al {fechaPrecios:dd/MM/yyyy}, sujetos a modificación", ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{Separador('-', ancho)}");
+
+        sb.AppendLine(CulturaArgentina, $"{AlinearTresColumnas("CANT", "DESCRIPCIÓN", "SUBTOTAL", ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{Separador('-', ancho)}");
+
+        // Los renglones de artículos dados de baja no se imprimen ni suman al total (L-13).
+        foreach (var renglon in lista.Renglones.Where(r => r.EstaDisponible))
+        {
+            string lineaRenglon = $"{renglon.Cantidad} x {FormatearMoneda(renglon.PrecioActual)}";
+            sb.AppendLine(CulturaArgentina, $"{TruncarTexto(renglon.Descripcion, ancho)}");
+            sb.AppendLine(CulturaArgentina, $"{AlinearDosExtremos($"  {lineaRenglon}", FormatearMoneda(renglon.Subtotal), ancho)}");
+        }
+
+        sb.AppendLine(CulturaArgentina, $"{Separador('-', ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{AlinearDosExtremos("TOTAL ESTIMADO:", FormatearMoneda(lista.TotalEstimado), ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{Separador('=', ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{CentrarTexto("* DOCUMENTO NO VÁLIDO COMO FACTURA *", ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{Separador('=', ancho)}");
+
+        string nombreArchivo = $"lista_{lista.IdLista}_{DateTime.Now:yyyyMMdd_HHmmssfff}.txt";
         await GuardarYEmitirAsync(nombreArchivo, sb.ToString(), cancellationToken);
     }
 

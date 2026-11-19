@@ -99,6 +99,29 @@ public class VentaServiceTests
     }
 
     [Fact]
+    public async Task RegistrarVentaAsync_ConListaDeOrigen_GuardaLaListaYCobraPrecioDeCatalogo()
+    {
+        // Arrange
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+
+        Venta? ventaPersistida = null;
+        await _ventaRepository.AddAsync(Arg.Do<Venta>(v => ventaPersistida = v), Arg.Any<CancellationToken>());
+
+        var dto = CrearDto([Item(cuaderno, 2)], [Pago(MedioPagoEnum.Efectivo, 3000m)]) with { IdListaOrigen = 4 };
+
+        // Act
+        var resultado = await _sut.RegistrarVentaAsync(dto);
+
+        // Assert: la lista solo queda como origen; el precio es el de catálogo (L-08, L-09).
+        ventaPersistida.Should().NotBeNull();
+        ventaPersistida!.IdListaOrigen.Should().Be(4);
+        ventaPersistida.IdPresupuestoOrigen.Should().BeNull();
+        ventaPersistida.Total.Should().Be(3000m);
+        resultado.IdListaOrigen.Should().Be(4);
+    }
+
+    [Fact]
     public async Task RegistrarVentaAsync_ArticuloConCosto_ConservaCostoDeReposicionEnElDetalle()
     {
         // Arrange

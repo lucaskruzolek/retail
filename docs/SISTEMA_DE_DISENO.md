@@ -359,7 +359,7 @@ ListToolbar (sin tarjeta)                                  búsqueda · limpiar 
 | Grilla de mostrador / modales | `DataGridRetailStyle` | Fila de 42 (`RowHeightPos`); la selección sí lleva marca (`PrimaryLightBrush` con borde `PrimaryBrush`). |
 
 ### 2. Menú desplegable (`MenuDesplegableHelper`)
-Botón "⋮" de las filas (`RowMenuButtonStyle`) y "Más ▾" de las acciones masivas (`GhostNeutralToggleButtonStyle`). Ambos estilos son **`ToggleButton`**, y el helper adjunto `AbrirAlHacerClic` los une a su `ContextMenu`:
+Botón "⋮" de las filas (`RowMenuButtonStyle`) y "Más ▾" de las acciones masivas (`GhostNeutralToggleButtonStyle`). Ambos estilos son **`ToggleButton`**, y el helper adjunto `AbrirAlHacerClic` los une a su `ContextMenu`. **Alineación:** el menú se abre debajo del botón con los **bordes derechos** alineados, que es lo que corresponde a un botón ubicado a la derecha. Un desplegable ubicado a la izquierda, como "Cargar ▾" y "Guardar como ▾" del POS, declara además `AlinearALaIzquierda="True"` para alinear los **bordes izquierdos**: el menú crece hacia el contenido.
 
 ```mermaid
 stateDiagram-v2

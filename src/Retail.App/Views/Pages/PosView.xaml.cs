@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Threading;
 using Retail.App.ViewModels.Ventas;
 
 namespace Retail.App.Views.Pages;
@@ -19,10 +21,112 @@ public partial class PosView : UserControl
 
         InitializeComponent();
 
+        foreach (var boton in new[] { BtnCargar, BtnGuardarComo })
+        {
+            boton.ContextMenu!.Opened += OnMenuDesplegableOpened;
+            boton.ContextMenu.Closed += OnMenuDesplegableClosed;
+        }
+
         Loaded += (_, _) =>
         {
             TxtBuscador.Focus();
         };
+    }
+
+    // Cargar ▾ y Guardar como ▾ (L-07): F7 y F3 abren el menú del botón correspondiente. Son lógica de la vista (abrir un
+    // ContextMenu y darle el foco), no un comando del ViewModel, que no conoce controles.
+    private bool _abiertoPorTeclado;
+
+    // El menú se cerró y el foco debe volver al buscador apenas la ventana esté activa (no mientras un diálogo modal la tapa).
+    private bool _devolverFocoAlBuscador;
+
+    private Window? _ventanaEscuchada;
+
+    /// <summary>
+    /// F7 abre "Cargar ▾" y F3 abre "Guardar como ▾". Con un menú ya abierto la tecla se descarta: los eventos del menú
+    /// también suben hasta acá por el árbol lógico, y alternar el botón lo cerraría y volvería a abrir.
+    /// </summary>
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+
+        ToggleButton? boton = e.Key switch
+        {
+            Key.F7 => BtnCargar,
+            Key.F3 => BtnGuardarComo,
+            _ => null
+        };
+
+        if (boton is null || e.Handled)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        if (e.IsRepeat || BtnCargar.IsChecked == true || BtnGuardarComo.IsChecked == true)
+        {
+            return;
+        }
+
+        // IsChecked = true lo abre MenuDesplegableHelper; la bandera hace que OnMenuDesplegableOpened enfoque el primer ítem
+        _abiertoPorTeclado = true;
+        boton.IsChecked = true;
+    }
+
+    /// <summary>
+    /// Abierto con el teclado, el menú enfoca su primer ítem habilitado: así ↑, ↓, Enter y las letras de acceso (L, P)
+    /// funcionan sin mouse. Abierto con el mouse no se enfoca nada (el hover resalta). El enfoque se pide una vez que el
+    /// popup terminó de armarse (prioridad Input, posterior al layout).
+    /// </summary>
+    private void OnMenuDesplegableOpened(object sender, RoutedEventArgs e)
+    {
+        bool porTeclado = _abiertoPorTeclado;
+        _abiertoPorTeclado = false;
+
+        if (!porTeclado || sender is not ContextMenu menu)
+        {
+            return;
+        }
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, () =>
+        {
+            menu.Items.OfType<MenuItem>().FirstOrDefault(item => item.IsEnabled)?.Focus();
+        });
+    }
+
+    /// <summary>
+    /// Cerrado el menú (Esc, clic afuera o ítem elegido) el foco vuelve al buscador, como después de cualquier diálogo. Si
+    /// el ítem abrió un diálogo modal la ventana no está activa todavía: se espera a que vuelva a estarlo.
+    /// </summary>
+    private void OnMenuDesplegableClosed(object sender, RoutedEventArgs e)
+    {
+        _devolverFocoAlBuscador = true;
+
+        if (_ventanaEscuchada is null && Window.GetWindow(this) is { } ventana)
+        {
+            _ventanaEscuchada = ventana;
+            ventana.Activated += OnVentanaActivated;
+            Unloaded += (_, _) => ventana.Activated -= OnVentanaActivated;
+        }
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, DevolverFocoAlBuscadorSiCorresponde);
+    }
+
+    private void OnVentanaActivated(object? sender, EventArgs e)
+    {
+        DevolverFocoAlBuscadorSiCorresponde();
+    }
+
+    private void DevolverFocoAlBuscadorSiCorresponde()
+    {
+        if (!_devolverFocoAlBuscador || Window.GetWindow(this) is not { IsActive: true })
+        {
+            return;
+        }
+
+        _devolverFocoAlBuscador = false;
+        TxtBuscador.Focus();
     }
 
     /// <summary>

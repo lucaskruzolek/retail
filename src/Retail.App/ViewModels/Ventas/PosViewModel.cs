@@ -9,10 +9,12 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
 using Retail.App.Services;
+using Retail.App.ViewModels.Listas;
 using Retail.App.ViewModels.Presupuestos;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Exceptions;
@@ -40,6 +42,8 @@ public partial class PosViewModel : ObservableObject, IDisposable
     private readonly IPresupuestoService _presupuestoService;
     private readonly IPresupuestoDialogService _presupuestoDialogService;
     private readonly IClienteService _clienteService;
+    private readonly IListaService _listaService;
+    private readonly IListaDialogService _listaDialogService;
     private readonly ILogger<PosViewModel> _logger;
 
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(180);
@@ -98,6 +102,16 @@ public partial class PosViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(GuardarComoPresupuestoCommand))]
     private PresupuestoCargado? _presupuestoCargado;
 
+    /// <summary>
+    /// Lista de artículos de la que viene el ticket (RF-30), o <c>null</c>. Es solo trazabilidad: el cobro manda su número
+    /// como <c>IdListaOrigen</c> (L-09) y la venta es común, a precio de catálogo (L-08). Nunca coexiste con un presupuesto
+    /// cargado (L-15, L-21).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneListaCargada))]
+    [NotifyPropertyChangedFor(nameof(PuedeLimpiar))]
+    private ListaCargada? _listaCargada;
+
     public ObservableCollection<ArticuloVentaDto> ResultadosBusqueda { get; } = new();
 
     public ObservableCollection<ItemVentaPosViewModel> Items { get; } = new();
@@ -138,10 +152,15 @@ public partial class PosViewModel : ObservableObject, IDisposable
     /// F8 y su botón: hay algo que vaciar. Un presupuesto cargado cuyas líneas se quitaron todas también cuenta, así el
     /// cajero puede desvincularlo sin tener que agregar un artículo.
     /// </summary>
-    public bool PuedeLimpiar => TieneItems || TienePresupuestoCargado;
+    public bool PuedeLimpiar => TieneItems || TienePresupuestoCargado || TieneListaCargada;
 
-    /// <summary>F3: hay un ticket para presupuestar y no viene de un presupuesto. No exige turno de caja (PS-17).</summary>
+    public bool TieneListaCargada => ListaCargada is not null;
+
+    /// <summary>F3 → Presupuesto: hay un ticket para presupuestar y no viene de un presupuesto. No exige turno de caja (PS-17).</summary>
     public bool PuedeGuardarComoPresupuesto => TieneItems && !TienePresupuestoCargado;
+
+    /// <summary>F3 → Lista: hay artículos para guardar. Sirve también con un presupuesto cargado y sin turno de caja.</summary>
+    public bool PuedeGuardarComoLista => TieneItems;
 
     /// <summary>
     /// La caja está cerrada (RF-13): la vista muestra el aviso con "Abrir caja" y bloquea el buscador, así no se arma un
@@ -159,6 +178,8 @@ public partial class PosViewModel : ObservableObject, IDisposable
         IPresupuestoService presupuestoService,
         IPresupuestoDialogService presupuestoDialogService,
         IClienteService clienteService,
+        IListaService listaService,
+        IListaDialogService listaDialogService,
         ILogger<PosViewModel>? logger = null)
     {
         _ventaService = ventaService ?? throw new ArgumentNullException(nameof(ventaService));
@@ -170,6 +191,8 @@ public partial class PosViewModel : ObservableObject, IDisposable
         _presupuestoService = presupuestoService ?? throw new ArgumentNullException(nameof(presupuestoService));
         _presupuestoDialogService = presupuestoDialogService ?? throw new ArgumentNullException(nameof(presupuestoDialogService));
         _clienteService = clienteService ?? throw new ArgumentNullException(nameof(clienteService));
+        _listaService = listaService ?? throw new ArgumentNullException(nameof(listaService));
+        _listaDialogService = listaDialogService ?? throw new ArgumentNullException(nameof(listaDialogService));
         _logger = logger ?? NullLogger<PosViewModel>.Instance;
 
         // Se crea antes de CargarEstadoCajaAsync, que ya la usa. Con el logger, una búsqueda lenta que se descarta
@@ -487,6 +510,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
                 IdUsuario = idUsuario,
                 IdCliente = Cliente?.IdCliente,
                 IdPresupuestoOrigen = PresupuestoCargado?.Id,
+                IdListaOrigen = ListaCargada?.Id,
                 Descuento = Descuento,
                 Items = CrearDetallesDelTicket(),
                 Pagos = pagos
@@ -659,13 +683,17 @@ public partial class PosViewModel : ObservableObject, IDisposable
         }).ToList();
     }
 
-    /// <summary>Vacía el ticket y lo desvincula del presupuesto del que venía, si lo había (F8 y fin de la venta).</summary>
+    /// <summary>
+    /// Vacía el ticket y lo desvincula del presupuesto o de la lista de los que venía, si los había (F8 y fin de la venta).
+    /// También lo usa cargar un presupuesto, que reemplaza el ticket entero y por eso desvincula la lista (L-21).
+    /// </summary>
     private void VaciarTicket()
     {
         Items.Clear();
         Descuento = 0m;
         Cliente = null;
         PresupuestoCargado = null;
+        ListaCargada = null;
         RecalcularTotales();
     }
 
@@ -692,6 +720,220 @@ public partial class PosViewModel : ObservableObject, IDisposable
         PresupuestoCargado = null;
         ReenumerarItems();
         RecalcularTotales();
+    }
+
+    // ------------------------------------------------------------------ //
+    // Listas de artículos (RF-30)                                         //
+    // ------------------------------------------------------------------ //
+
+    /// <summary>
+    /// F7 → Lista: elige una lista y la carga en el ticket a precio de catálogo (L-08). Avisa antes de omitir artículos
+    /// dados de baja o de cargar renglones sin stock suficiente (L-13). Con el ticket vacío carga directo; con artículos
+    /// pregunta Reemplazar o Agregar (L-14); con un presupuesto cargado solo ofrece Reemplazar, que además lo desvincula
+    /// (L-15). Cancelar en cualquier paso deja el ticket como estaba.
+    /// </summary>
+    [RelayCommand]
+    public async Task CargarListaAsync()
+    {
+        var selector = new SeleccionarListaViewModel(_listaService, _accesoDatos, _logger);
+
+        if (_listaDialogService.MostrarSeleccionarLista(selector) is not int idLista)
+        {
+            return;
+        }
+
+        var lista = await ObtenerListaParaVentaAsync(idLista);
+        if (lista is null)
+        {
+            return;
+        }
+
+        if (lista.Renglones.Count == 0)
+        {
+            _listaDialogService.MostrarInformacion(
+                "Lista sin artículos disponibles",
+                $"Todos los artículos de la lista «{lista.Nombre}» están dados de baja: no hay nada para cargar en el ticket.\n" +
+                string.Join("\n", lista.ArticulosNoDisponibles.Select(d => $"• {d}")));
+            return;
+        }
+
+        if (lista.RequiereConfirmacion && !_listaDialogService.Confirmar("Cargar lista", ArmarAvisoDeLista(lista)))
+        {
+            return;
+        }
+
+        var respuesta = RespuestaCargaLista.Reemplazar;
+        if (Items.Count > 0)
+        {
+            respuesta = _listaDialogService.PreguntarReemplazarOAgregar(lista.Nombre, permitirAgregar: !TienePresupuestoCargado);
+            if (respuesta == RespuestaCargaLista.Cancelar)
+            {
+                return;
+            }
+        }
+
+        LimpiarBuscador();
+
+        if (respuesta == RespuestaCargaLista.Agregar && !TienePresupuestoCargado)
+        {
+            AgregarRenglonesDeLista(lista);
+        }
+        else
+        {
+            ReemplazarTicketPorLista(lista);
+        }
+
+        RecalcularTotales();
+    }
+
+    private async Task<ListaParaVentaDto?> ObtenerListaParaVentaAsync(int idLista)
+    {
+        try
+        {
+            var (completado, lista) = await _accesoDatos.EjecutarEnFilaAsync(token => _listaService.ObtenerParaVentaAsync(idLista, token));
+            return completado ? lista : null;
+        }
+        catch (DomainException ex)
+        {
+            // Entre otros, "No se encontró la lista N" (dada de baja desde otra terminal con el selector abierto).
+            _listaDialogService.MostrarAlerta("Lista no disponible", ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al recuperar la lista {IdLista} para venderla en el Punto de venta", idLista);
+            _listaDialogService.MostrarError("Error al cargar la lista", ex.Message);
+        }
+
+        return null;
+    }
+
+    private static string ArmarAvisoDeLista(ListaParaVentaDto lista)
+    {
+        var partes = new List<string>();
+
+        if (lista.ArticulosNoDisponibles.Count > 0)
+        {
+            partes.Add("Se omitirán (dados de baja):\n" + string.Join("\n", lista.ArticulosNoDisponibles.Select(d => $"• {d}")));
+        }
+
+        if (lista.Faltantes.Count > 0)
+        {
+            partes.Add("Stock insuficiente:\n" + string.Join("\n", lista.Faltantes.Select(DescribirFaltante)));
+        }
+
+        return string.Join("\n\n", partes) + "\n\n¿Desea continuar?";
+    }
+
+    /// <summary>
+    /// Reemplazar: el ticket queda con los renglones de la lista y vinculado a ella. Se conserva el cliente (la lista no
+    /// trae uno); el descuento y el presupuesto, si lo había, se sueltan porque eran parte del ticket que se reemplaza.
+    /// </summary>
+    private void ReemplazarTicketPorLista(ListaParaVentaDto lista)
+    {
+        Items.Clear();
+        Descuento = 0m;
+        PresupuestoCargado = null;
+
+        foreach (var renglon in lista.Renglones)
+        {
+            Items.Add(CrearItemDeLista(renglon));
+        }
+
+        ListaCargada = new ListaCargada(lista.IdLista, lista.Nombre, lista.FechaModificacion);
+        ItemSeleccionado = Items.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Agregar: suma la cantidad de la lista a la línea del artículo si ya estaba en el ticket, o agrega una línea nueva.
+    /// La venta conserva la primera lista cargada (L-20): si el ticket ya tenía una, no cambia; si era un ticket armado a
+    /// mano, la establece.
+    /// </summary>
+    private void AgregarRenglonesDeLista(ListaParaVentaDto lista)
+    {
+        foreach (var renglon in lista.Renglones)
+        {
+            var existente = Items.FirstOrDefault(i => i.IdArticulo == renglon.IdArticulo);
+            if (existente is not null)
+            {
+                existente.Cantidad += renglon.Cantidad;
+            }
+            else
+            {
+                Items.Add(CrearItemDeLista(renglon));
+            }
+        }
+
+        ListaCargada ??= new ListaCargada(lista.IdLista, lista.Nombre, lista.FechaModificacion);
+        ItemSeleccionado ??= Items.FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Una línea de lista es una línea común del POS (igual que <see cref="AgregarArticuloAlTicket"/>): precio de catálogo,
+    /// sin tope de cantidad y sin marca de presupuesto.
+    /// </summary>
+    private ItemVentaPosViewModel CrearItemDeLista(RenglonListaParaVentaDto renglon)
+    {
+        return new ItemVentaPosViewModel
+        {
+            NumeroItem = Items.Count + 1,
+            IdArticulo = renglon.IdArticulo,
+            CodigoBarras = renglon.CodigoBarras,
+            Descripcion = renglon.Descripcion,
+            PrecioUnitario = renglon.PrecioActual,
+            Cantidad = renglon.Cantidad,
+            StockActual = renglon.StockActual,
+            EsServicio = renglon.EsServicio
+        };
+    }
+
+    /// <summary>
+    /// F3 → Lista: guarda los artículos y cantidades del ticket como lista (la lista no guarda precios). Si el ticket
+    /// vino de una lista, el diálogo ofrece actualizarla (L-16). El ticket no se limpia: queda vinculado a la lista
+    /// guardada, así un segundo "Guardar como → Lista" ofrece Actualizar. Con un presupuesto cargado la lista se guarda
+    /// pero el ticket no se vincula a ella: un ticket nunca queda vinculado a las dos cosas (L-15, L-21).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(PuedeGuardarComoLista))]
+    public void GuardarComoLista()
+    {
+        if (_session.IdUsuario is not int idUsuario)
+        {
+            _listaDialogService.MostrarAlerta(
+                "Sesión incompleta",
+                "No se pudo identificar el usuario de la sesión. Vuelva a iniciar sesión para guardar la lista.");
+            return;
+        }
+
+        var renglones = Items
+            .Select(i => new RenglonListaEntradaDto { IdArticulo = i.IdArticulo, Cantidad = i.Cantidad })
+            .ToList();
+
+        var viewModel = new GuardarListaViewModel(idUsuario, renglones, ListaCargada, _listaService, _accesoDatos, _logger);
+
+        if (!_listaDialogService.MostrarGuardarLista(viewModel) || viewModel.ListaGuardada is not { } guardada)
+        {
+            return;
+        }
+
+        if (!TienePresupuestoCargado)
+        {
+            ListaCargada = new ListaCargada(guardada.IdLista, guardada.Nombre, guardada.FechaModificacion);
+        }
+
+        _listaDialogService.MostrarInformacion(
+            "Lista guardada",
+            $"La lista «{guardada.Nombre}» quedó guardada con {renglones.Count} " +
+            (renglones.Count == 1 ? "artículo." : "artículos."));
+    }
+
+    /// <summary>
+    /// ✕ de la ficha de la lista: solo desvincula el ticket de la lista (la venta deja de llevar <c>IdListaOrigen</c>). No
+    /// quita artículos: con "Agregar" la cantidad de una línea puede mezclar unidades de la lista y manuales, así que no
+    /// hay un "los artículos de la lista" que quitar sin ambigüedad. Para vaciar el ticket está F8.
+    /// </summary>
+    [RelayCommand]
+    public void QuitarLista()
+    {
+        ListaCargada = null;
     }
 
     // ------------------------------------------------------------------ //
@@ -996,7 +1238,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(TieneItems));
         OnPropertyChanged(nameof(PuedeLimpiar));
         OnPropertyChanged(nameof(PuedeGuardarComoPresupuesto));
+        OnPropertyChanged(nameof(PuedeGuardarComoLista));
         GuardarComoPresupuestoCommand.NotifyCanExecuteChanged();
+        GuardarComoListaCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>

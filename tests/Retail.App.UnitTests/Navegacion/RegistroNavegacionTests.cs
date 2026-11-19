@@ -41,9 +41,9 @@ public class RegistroNavegacionTests
     }
 
     [Theory]
-    [InlineData(RolUsuarioEnum.Gerente, "tablero,pos,clientes,caja,presupuestos,articulos,catalogos,pedidos,ingresos,proveedores,usuarios,copias,restauraciones,fiscal")]
-    [InlineData(RolUsuarioEnum.Encargado, "pos,clientes,caja,presupuestos,articulos,catalogos,pedidos,ingresos,proveedores")]
-    [InlineData(RolUsuarioEnum.Cajero, "pos,clientes,caja,presupuestos,articulos,catalogos,ingresos,proveedores")]
+    [InlineData(RolUsuarioEnum.Gerente, "tablero,pos,clientes,caja,presupuestos,listas,articulos,catalogos,pedidos,ingresos,proveedores,usuarios,copias,restauraciones,fiscal")]
+    [InlineData(RolUsuarioEnum.Encargado, "pos,clientes,caja,presupuestos,listas,articulos,catalogos,pedidos,ingresos,proveedores")]
+    [InlineData(RolUsuarioEnum.Cajero, "pos,clientes,caja,presupuestos,listas,articulos,catalogos,ingresos,proveedores")]
     [InlineData(RolUsuarioEnum.Administrador, "usuarios,copias,restauraciones")]
     public void PaginasVisibles_PorRol_ComoDefineLaPolitica(RolUsuarioEnum rol, string esperadas)
     {

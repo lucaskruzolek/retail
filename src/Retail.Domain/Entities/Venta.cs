@@ -34,6 +34,16 @@ public class Venta : BaseEntity, IAggregateRoot
 
     public Presupuesto? PresupuestoOrigen { get; private set; }
 
+    /// <summary>
+    /// Lista de artículos desde la que se armó el ticket (trazabilidad, decisiones L-09/L-20). A diferencia de
+    /// <see cref="IdPresupuestoOrigen"/> no tiene índice único: una lista se puede vender infinitas veces. La
+    /// cantidad de ventas se calcula en SQL y no se guarda en la lista, así dos cajas que venden la misma lista
+    /// nunca chocan por <c>RowVersion</c>.
+    /// </summary>
+    public int? IdListaOrigen { get; private set; }
+
+    public ListaArticulos? ListaOrigen { get; private set; }
+
     public DateTime FechaHora { get; private set; } = DateTime.UtcNow;
 
     public decimal Subtotal { get; private set; }
@@ -69,7 +79,7 @@ public class Venta : BaseEntity, IAggregateRoot
 
     protected Venta() { }
 
-    public static Venta Registrar(int idTurno, int idUsuario, int? idCliente, int? idPresupuestoOrigen = null)
+    public static Venta Registrar(int idTurno, int idUsuario, int? idCliente, int? idPresupuestoOrigen = null, int? idListaOrigen = null)
     {
         if (idTurno <= 0)
         {
@@ -91,12 +101,24 @@ public class Venta : BaseEntity, IAggregateRoot
             throw new ArgumentOutOfRangeException(nameof(idPresupuestoOrigen), "El identificador del presupuesto de origen no es válido.");
         }
 
+        if (idListaOrigen is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idListaOrigen), "El identificador de la lista de origen no es válido.");
+        }
+
+        // Decisiones L-15/L-21: un ticket nunca queda vinculado a un presupuesto y a una lista a la vez.
+        if (idPresupuestoOrigen.HasValue && idListaOrigen.HasValue)
+        {
+            throw new DomainException("Una venta no puede originarse a la vez en un presupuesto y en una lista.");
+        }
+
         return new Venta
         {
             IdTurno = idTurno,
             IdUsuario = idUsuario,
             IdCliente = idCliente,
             IdPresupuestoOrigen = idPresupuestoOrigen,
+            IdListaOrigen = idListaOrigen,
             FechaHora = DateTime.UtcNow
         };
     }

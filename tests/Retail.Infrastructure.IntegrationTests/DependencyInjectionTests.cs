@@ -7,6 +7,7 @@ using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Infrastructure.ExternalServices.ArcaSdk;
 using Retail.Infrastructure.Hardware;
+using Retail.Infrastructure.Listas;
 using Retail.Infrastructure.Persistence.Services;
 using Retail.Infrastructure.Presupuestos;
 using Xunit;
@@ -141,11 +142,15 @@ public class DependencyInjectionTests
         // Act
         var presupuestos = alcance.ServiceProvider.GetService<IPresupuestoService>();
         var ventas = alcance.ServiceProvider.GetService<IVentaService>();
+        var listas = alcance.ServiceProvider.GetService<IListaService>();
 
         // Assert
         presupuestos.Should().NotBeNull();
         ventas.Should().NotBeNull();
+        listas.Should().NotBeNull();
         alcance.ServiceProvider.GetService<IPresupuestoQueryService>().Should().BeOfType<PresupuestoQueryService>();
         proveedor.GetService<IExportadorPresupuestoPdf>().Should().BeOfType<ExportadorPresupuestoPdf>();
+        alcance.ServiceProvider.GetService<IListaQueryService>().Should().BeOfType<ListaQueryService>();
+        proveedor.GetService<IExportadorListaPdf>().Should().BeOfType<ExportadorListaPdf>();
     }
 }
