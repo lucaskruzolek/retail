@@ -18,6 +18,8 @@
 | P3 | Dominio, Aplicación e Infraestructura: título editable y corrección (reemplazo atómico) | ✅ Hecha |
 | P4 | UI: acción *Corregir*, estado *Reemplazado* y título editable en el detalle | ✅ Hecha |
 | P5 | Cierre: verificación Release, mapa y PR | 🟡 Release en verde (4579 tests, 2026-11-19); faltan el PR y la prueba manual |
+| P6 | UI: precio y total anteriores tachados (PE-13, PE-14) | ⏳ Pendiente |
+| P7 | UI del POS: guardar como presupuesto nuevo con un presupuesto cargado (PE-15 a PE-17) | ⏳ Pendiente |
 
 ---
 
@@ -50,6 +52,11 @@
 | PE-10 | El modal **no pierde lo cargado si un precio cambió** mientras estaba abierto: `EmitirAsync` lo rechaza (D-11) y el modal ofrece **Actualizar precios** | Cerrada | Un modal puede quedar abierto mucho más que un ticket del POS |
 | PE-11 | Al **corregir**, los artículos dados de baja del original **no se precargan** y se avisa cuáles se omitieron | Cerrada | Mismo criterio que la recuperación en el POS (PS-03) y que las listas (L-13) |
 | PE-12 | Acceso: **operadores**, como el resto de Presupuestos | Cerrada | Sin cambios respecto del 5.1 |
+| PE-13 | **Precio que cambió, señalado en la grilla:** el precio anterior aparece tachado sobre el nuevo, solo en las filas donde difieren (al corregir y después de "Actualizar precios") | Cerrada | Pedido del estudiante (2026-11-19). Completa el mensaje "N precios cambiaron": muestra **cuáles** y cuánto |
+| PE-14 | **Total anterior tachado = Σ cantidad actual × precio anterior** (un artículo nuevo suma su precio de hoy a los dos lados), rotulado "por cambios de precio" | Cerrada | Si se tachara el total del original, la diferencia mezclaría el cambio de precios con el de cantidades o artículos. Así se aísla el efecto del precio |
+| PE-15 | **Guardar como → Presupuesto con un presupuesto cargado en el POS = emitir uno nuevo e independiente.** El presupuesto base **no se modifica**: sigue pendiente. Sirve para dar el mismo presupuesto a otro cliente o para usar uno como base de otro | Cerrada | Pedido del estudiante. No es una corrección (PE-02): el base sigue siendo válido para su cliente. Revisa el "un presupuesto no se vuelve a presupuestar" del 5.1/5.3 |
+| PE-16 | El presupuesto nuevo sale con los **precios del catálogo de hoy**, aunque el base esté vigente. El diálogo avisa cuántos precios cambian y muestra el total nuevo | Cerrada | Lo exige RF-11 ("precios vigentes del catálogo al emitir") y `EmitirAsync` lo controla (D-11). Copiar los pactados a otro cliente extendería un compromiso de precio más allá de su vigencia (mismo argumento que PE-06) |
+| PE-17 | Después de guardar, el ticket **se vacía**, como cualquier "Guardar como presupuesto". El título interno se precarga con el del base (editable) | Cerrada | Mismo comportamiento que hoy. Precargar el título ahorra tipeo, que es el objetivo de "usarlo como base" |
 
 ---
 
@@ -137,6 +144,24 @@ sequenceDiagram
 Verificación Release completa (AGENTS.md), mapa y PR.
 
 ---
+
+### P6 — Precio y total anteriores tachados (UI)
+- `RenglonEditableFila` suma `PrecioAnterior` (`decimal?`) y `PrecioCambio`. `EditorRenglonesViewModel` suma `SubtotalAPreciosAnteriores` (Σ cantidad × precio anterior, o el actual si no hay anterior) y `HayPreciosCambiados`. `ActualizarPrecios` conserva el precio anterior la primera vez que un precio cambia.
+- `EditorRenglones.xaml`: en la columna Precio, el anterior tachado y apagado sobre el nuevo cuando `PrecioCambio`.
+- `PresupuestoFormDialog`: el subtotal anterior tachado y rotulado "por cambios de precio" cuando `HayPreciosCambiados`. En modo corrección, el precio anterior es el pactado del original.
+- El editor de listas no cambia (`PrecioAnterior` queda en `null`).
+- Tests del ViewModel y capturas.
+
+### P7 — Guardar como presupuesto nuevo desde el POS (UI)
+- `PosViewModel.PuedeGuardarComoPresupuesto` deja de exigir que no haya un presupuesto cargado.
+- Con un presupuesto base cargado, antes de abrir `GuardarPresupuestoDialog`:
+  - el POS obtiene los precios de hoy con `IVentaService.VerificarTicketAsync`;
+  - arma los renglones a esos precios (PE-16);
+  - pasa el título del base (PE-17) y la cantidad de precios que cambian.
+- El diálogo avisa "Se emite un presupuesto nuevo; el N.º X no cambia. N precios pasan al catálogo de hoy" y muestra el total nuevo.
+- Guarda con `EmitirAsync`, nunca con `ReemplazarAsync` (PE-15). Al guardar, el ticket se vacía.
+- ERS: IU-02.
+- Tests en `PosViewModelTests` y en el ViewModel del diálogo, más capturas.
 
 ## 7. Riesgos
 

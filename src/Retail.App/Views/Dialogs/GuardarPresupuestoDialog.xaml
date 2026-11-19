@@ -5,6 +5,7 @@
                  xmlns:components="clr-namespace:Retail.App.Views.Components"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  xmlns:vm="clr-namespace:Retail.App.ViewModels.Presupuestos"
+                 xmlns:helpers="clr-namespace:Retail.App.Helpers"
                  Title="Guardar como presupuesto"
                  Language="es-AR"
                  Width="460"
@@ -85,7 +86,9 @@
                            Margin="0,4,0,12" />
 
                 <TextBlock Text="Vigencia (días)" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                <!-- Solo dígitos: el NumberBox acepta letras y recién las descarta al perder el foco -->
                 <ui:NumberBox Value="{Binding VigenciaDias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                              helpers:EntradaTextoHelper.Tipo="Entero"
                               Minimum="{x:Static vm:GuardarPresupuestoViewModel.VigenciaMinimaDias}"
                               Maximum="{x:Static vm:GuardarPresupuestoViewModel.VigenciaMaximaDias}"
                               MaxDecimalPlaces="0"
