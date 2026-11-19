@@ -160,10 +160,7 @@
                                     FontFamily="{StaticResource FontFamilyNumeric}"
                                     Typography.NumeralAlignment="Tabular"
                                     PlaceholderText="0.00" />
-                        <TextBlock Text="Monto máximo que el cliente puede adeudar por ventas a crédito."
-                                   Style="{StaticResource TextBlockBodyMuted}"
-                                   FontSize="{StaticResource FontSizeXs}"
-                                   Margin="0,4,0,0" />
+                        
                     </StackPanel>
                 </Border>
             </StackPanel>
