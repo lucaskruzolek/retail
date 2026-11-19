@@ -2,7 +2,9 @@ using System.Linq.Expressions;
 using FluentAssertions;
 using FluentValidation;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
@@ -1031,5 +1033,41 @@ public class ProveedorServiceTests
         await _catalogoQueryMock.DidNotReceive().ObtenerCatalogoPaginadoAsync(
             Arg.Any<ConsultaCatalogoProveedorDto>(),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CrearProveedorAsync_ConflictoDeUnicidadConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        // Arrange
+        var dto = new CrearProveedorDto { RazonSocial = "Papelera Nueva", Cuit = "30-11223344-6" };
+        _proveedorRepoMock.FindAsync(Arg.Any<Expression<Func<Proveedor, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(new List<Proveedor>());
+        _unitOfWorkMock.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice único")));
+
+        // Act
+        var act = async () => await _service.CrearProveedorAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*registrado con el CUIT 30112233446*");
+    }
+
+    [Fact]
+    public async Task ActualizarProveedorAsync_ConflictoDeUnicidadConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        // Arrange
+        var existente = ProveedoresDePrueba.ConId(5, Proveedor.Crear("Nombre Anterior", "30-99999999-5"));
+        _proveedorRepoMock.GetByIdAsync(5, false, Arg.Any<CancellationToken>()).Returns(existente);
+        _proveedorRepoMock.FindAsync(Arg.Any<Expression<Func<Proveedor, bool>>>(), false, Arg.Any<CancellationToken>())
+            .Returns(new List<Proveedor>());
+        _unitOfWorkMock.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice único")));
+        var dto = new ActualizarProveedorDto { IdProveedor = 5, RazonSocial = "Nombre Nuevo", Cuit = "30-88888888-4" };
+
+        // Act
+        var act = async () => await _service.ActualizarProveedorAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*otro proveedor activo registrado con el CUIT 30888888884*");
     }
 }

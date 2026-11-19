@@ -89,9 +89,12 @@ public class ArticuloConfiguration : IEntityTypeConfiguration<Articulo>
 
         // Filtered Unique Index: cada ítem del proveedor se vincula, como máximo, a un artículo de compra activo (RF-05).
         // Las presentaciones derivadas no tienen catálogo propio, así que la regla vale con fraccionamiento (RF-21).
+        // El nombre es explícito (el mismo que EF generaba por defecto, así que no cambia el esquema) porque
+        // InventarioService lo usa para distinguir esta violación de la del código de barras (Track 6.7, P2).
         builder.HasIndex(a => a.IdCatalogoProveedor)
             .IsUnique()
-            .HasFilter("[id_catalogo_proveedor] IS NOT NULL AND [deleted_at] IS NULL");
+            .HasFilter("[id_catalogo_proveedor] IS NOT NULL AND [deleted_at] IS NULL")
+            .HasDatabaseName("IX_ARTICULOS_id_catalogo_proveedor");
 
         builder.Property(a => a.IdArticuloOrigen)
             .HasColumnName("id_articulo_origen")

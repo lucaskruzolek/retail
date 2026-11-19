@@ -1170,4 +1170,58 @@ public class InventarioServiceTests
         marca.Id = id;
         return marca;
     }
+
+    [Fact]
+    public async Task CrearArticuloAsync_ConflictoDeUnicidadDeCodigoConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        // Arrange
+        var dto = new CrearArticuloDto
+        {
+            CodigoBarras = "7791234567890",
+            Descripcion = "Carrera",
+            IdCategoria = 1,
+            IdMarca = 1,
+            CostoReposicion = 100m,
+            PorcentajeGanancia = 20m,
+            StockActual = 10,
+            StockMinimo = 2,
+            EsServicio = false
+        };
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice IX_ARTICULOS_CodigoBarras")));
+
+        // Act
+        var act = () => _sut.CrearArticuloAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*Ya existe un artículo activo con el código de barras '7791234567890'*");
+    }
+
+    [Fact]
+    public async Task CrearArticuloAsync_ConflictoDeUnicidadDeFuenteConOtraTerminal_LanzaMensajeDeFuenteVinculada()
+    {
+        // Arrange
+        var dto = new CrearArticuloDto
+        {
+            CodigoBarras = null,
+            Descripcion = "Carrera",
+            IdCategoria = 1,
+            IdMarca = 1,
+            CostoReposicion = 100m,
+            PorcentajeGanancia = 20m,
+            StockActual = 10,
+            StockMinimo = 2,
+            EsServicio = false
+        };
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice IX_ARTICULOS_id_catalogo_proveedor")));
+
+        // Act
+        var act = () => _sut.CrearArticuloAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*ítem de catálogo*vinculado a otro artículo*");
+    }
 }

@@ -2,7 +2,9 @@ using System.Linq.Expressions;
 using FluentAssertions;
 using FluentValidation;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.Validators.Articulos;
@@ -454,5 +456,15 @@ public class CategoriaServiceTests
                 IReadOnlyList<TerminoClasificacion> filtrados = terminos.Where(predicado).ToList();
                 return filtrados;
             });
+    }
+
+    [Fact]
+    public async Task Crear_ConflictoDeUnicidadConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice único")));
+
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearCategoriaDto { Nombre = "Repetido", IdRubro = IdRubroExistente });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("Ya existe una categoría activa con el nombre 'Repetido'.");
     }
 }

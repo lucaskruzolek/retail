@@ -1,5 +1,6 @@
 using FluentValidation;
 using Retail.Application.DTOs.Compras;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
@@ -184,7 +185,23 @@ public class CompraService : ICompraService
 
         // ── FASE 6: Persistencia atómica ACID en un único SaveChanges ─────────
         await _compraRepository.AddAsync(compra, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex) when (ex.CorrespondeAIndice("UX_COMPRAS_PedidoOrigen"))
+        {
+            // Otra terminal recibió el mismo pedido entre la comprobación de su estado y el guardado.
+            throw new DomainException("El pedido seleccionado ya fue recibido con otra compra.", ex);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            // Otra terminal registró el mismo comprobante entre la comprobación (C-1) y el guardado.
+            throw new DomainException(
+                $"El comprobante {dto.TipoComprobante.Trim()} Nro. {dto.NumeroComprobante.Trim()} " +
+                $"ya fue registrado para este proveedor.",
+                ex);
+        }
 
         // C-4 (D-15): Liberar entidades tras guardar. La siguiente compra desde esta pantalla cargará
         // stock y row_version frescos y no chocará con un conflicto falso (mismo patrón que VentaService).

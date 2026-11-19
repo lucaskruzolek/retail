@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using FluentValidation;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
@@ -111,7 +112,16 @@ public class ProveedorService : IProveedorService
         var proveedor = Proveedor.Crear(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
 
         await _proveedorRepository.AddAsync(proveedor, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            // Otra terminal dio de alta el mismo CUIT entre la comprobación y el guardado: el índice único es la
+            // garantía final.
+            throw new DomainException($"Ya existe un proveedor activo registrado con el CUIT {cuitNormalizado}.", ex);
+        }
 
         return new ProveedorDto
         {
@@ -147,7 +157,14 @@ public class ProveedorService : IProveedorService
         proveedor.ActualizarDatos(dto.RazonSocial, dto.Cuit, dto.Telefono, dto.Email);
 
         await _proveedorRepository.UpdateAsync(proveedor, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            throw new DomainException($"Ya existe otro proveedor activo registrado con el CUIT {cuitNormalizado}.", ex);
+        }
     }
 
     public async Task BajaProveedorAsync(int idProveedor, CancellationToken cancellationToken = default)
@@ -495,7 +512,7 @@ public class ProveedorService : IProveedorService
         // quién le fije el costo, así que su primera fuente lo es sin preguntar (J4).
         if (!comoPrincipal && articulo.IdCatalogoProveedor.HasValue)
         {
-            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await GuardarVinculoAsync(catalogo, cancellationToken);
             return;
         }
 
@@ -514,7 +531,26 @@ public class ProveedorService : IProveedorService
             await _articuloRepository.UpdateAsync(presentacion, cancellationToken);
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await GuardarVinculoAsync(catalogo, cancellationToken);
+    }
+
+    /// <summary>
+    /// Guarda el vínculo traduciendo el choque del índice único de fuente (RF-05): si otra terminal vinculó el mismo
+    /// ítem a otro artículo entre la comprobación y el guardado, se informa igual que la comprobación previa.
+    /// </summary>
+    private async Task GuardarVinculoAsync(CatalogoProveedor catalogo, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            throw new DomainException(
+                $"El ítem '{catalogo.CodigoProveedor}' ya está vinculado a otro artículo. " +
+                "Desvincúlelo antes de vincularlo a otro artículo.",
+                ex);
+        }
     }
 
     public async Task DesvincularFuenteAsync(int idCatalogoProveedor, CancellationToken cancellationToken = default)

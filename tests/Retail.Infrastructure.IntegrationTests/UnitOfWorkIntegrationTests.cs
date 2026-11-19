@@ -87,6 +87,26 @@ public class UnitOfWorkIntegrationTests : IAsyncLifetime, IDisposable
         nombres.Should().ContainSingle().Which.Should().Be("Cliente Válido");
     }
 
+    [Fact]
+    public async Task SaveChangesAsync_ViolacionDeIndiceUnico_LaExcepcionNombraElIndiceReal()
+    {
+        // Arrange: los servicios que protegen más de un índice en un mismo guardado (CompraService, InventarioService)
+        // eligen el mensaje con CorrespondeAIndice, que depende de que el mensaje real de SQL Server nombre el índice.
+        // Los tests unitarios simulan ese texto; este lo verifica contra el motor (Track 6.7, P2).
+        var uow = new UnitOfWork(_context);
+        await _context.Clientes.AddAsync(CrearCliente("Primer Cliente", "20333333", limiteCredito: 0m));
+        await uow.SaveChangesAsync();
+        await _context.Clientes.AddAsync(CrearCliente("Cliente Duplicado", "20333333", limiteCredito: 0m));
+
+        // Act
+        var guardar = () => uow.SaveChangesAsync();
+
+        // Assert
+        var excepcion = (await guardar.Should().ThrowAsync<Retail.Application.Exceptions.RestriccionDeUnicidadException>()).Which;
+        excepcion.CorrespondeAIndice("IX_CLIENTES_numero_documento").Should().BeTrue();
+        excepcion.CorrespondeAIndice("UX_COMPRAS_PedidoOrigen").Should().BeFalse();
+    }
+
     private static Cliente CrearCliente(string nombre, string documento, decimal limiteCredito)
     {
         return ClientesDePrueba.Crear(razonSocialONombre: nombre, tipoDocumento: TipoDocumentoEnum.Dni, numeroDocumento: documento, condicionIva: CondicionIvaEnum.ConsumidorFinal, tieneCuentaCorriente: limiteCredito != 0m, limiteCredito: limiteCredito);

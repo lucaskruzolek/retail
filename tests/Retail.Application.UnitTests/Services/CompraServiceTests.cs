@@ -2,7 +2,9 @@ using System.Linq.Expressions;
 using FluentAssertions;
 using FluentValidation;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Compras;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Application.Services;
@@ -581,4 +583,38 @@ public class CompraServiceTests
             FechaEmision = DateTime.UtcNow.AddDays(-1),
             Items = items,
         };
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConflictoDeComprobanteConOtraTerminal_LanzaMensajeDeComprobanteRegistrado()
+    {
+        // Arrange
+        var lapiz = CrearArticulo(IdArticulo, "Lapicera", costo: 100m, precio: 150m, stock: 5);
+        ConfigurarArticulos(lapiz);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice UX_COMPRAS_Comprobante")));
+
+        // Act
+        var act = () => _sut.RegistrarCompraAsync(CrearDtoValido([Item(lapiz, 3, costoUnitario: 100m)]));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*ya fue registrado para este proveedor*");
+    }
+
+    [Fact]
+    public async Task RegistrarCompraAsync_ConflictoDePedidoOrigenConOtraTerminal_LanzaMensajeDePedidoYaRecibido()
+    {
+        // Arrange
+        var lapiz = CrearArticulo(IdArticulo, "Lapicera", costo: 100m, precio: 150m, stock: 5);
+        ConfigurarArticulos(lapiz);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice UX_COMPRAS_PedidoOrigen")));
+
+        // Act
+        var act = () => _sut.RegistrarCompraAsync(CrearDtoValido([Item(lapiz, 3, costoUnitario: 100m)]));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*pedido*ya fue recibido*");
+    }
 }

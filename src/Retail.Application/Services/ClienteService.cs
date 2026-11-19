@@ -164,7 +164,16 @@ public class ClienteService : IClienteService
         }
 
         await _clienteRepository.AddAsync(cliente, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            // Otra terminal dio de alta el mismo documento entre la comprobación y el guardado: el índice único es la
+            // garantía final.
+            throw new InvalidOperationException($"Ya existe un cliente activo registrado con el número de documento '{documentoNormalizado}'.", ex);
+        }
 
         return MapToDto(cliente);
     }
@@ -226,6 +235,10 @@ public class ClienteService : IClienteService
         try
         {
             await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            throw new InvalidOperationException($"Ya existe otro cliente activo registrado con el número de documento '{documentoNormalizado}'.", ex);
         }
         catch (ConflictoDeConcurrenciaException ex)
         {

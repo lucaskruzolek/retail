@@ -23,4 +23,22 @@ public class RestriccionDeUnicidadException : Exception
         : base(message, innerException)
     {
     }
+
+    /// <summary>
+    /// Indica si algún mensaje de la cadena de excepciones internas (el de SQL Server nombra el índice violado) contiene
+    /// <paramref name="nombreDeIndice"/>. Sirve a los servicios que protegen más de un índice único en un mismo guardado
+    /// para elegir el mensaje correcto.
+    /// </summary>
+    public bool CorrespondeAIndice(string nombreDeIndice)
+    {
+        for (Exception? actual = this; actual is not null; actual = actual.InnerException)
+        {
+            if (actual.Message.Contains(nombreDeIndice, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

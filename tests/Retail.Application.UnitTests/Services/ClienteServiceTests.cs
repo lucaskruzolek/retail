@@ -757,4 +757,55 @@ public class ClienteServiceTests
         resultado.LimiteCredito.Should().Be(80000m);
         resultado.SaldoCuentaCorriente.Should().Be(0m);
     }
+
+    [Fact]
+    public async Task CrearClienteAsync_ConflictoDeUnicidadConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        // Arrange
+        var dto = new CrearClienteDto
+        {
+            RazonSocialONombre = "Distribuidora Norte",
+            TipoDocumento = TipoDocumentoEnum.Cuit,
+            NumeroDocumento = "30-33445566-8",
+            CondicionIva = CondicionIvaEnum.ResponsableInscripto
+        };
+        _clienteRepository.FindAsync(Arg.Any<Expression<Func<Cliente, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Cliente>());
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice único")));
+
+        // Act
+        var act = async () => await _sut.CrearClienteAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Ya existe un cliente activo*30334455668*");
+    }
+
+    [Fact]
+    public async Task ActualizarClienteAsync_ConflictoDeUnicidadConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        // Arrange
+        var cliente = ClientesDePrueba.Crear(id: 3, razonSocialONombre: "Original", numeroDocumento: "30111111118", tipoDocumento: TipoDocumentoEnum.Cuit);
+        var dto = new ActualizarClienteDto
+        {
+            IdCliente = 3,
+            RazonSocialONombre = "Modificado",
+            TipoDocumento = TipoDocumentoEnum.Cuit,
+            NumeroDocumento = "30-33445566-8",
+            CondicionIva = CondicionIvaEnum.ResponsableInscripto,
+            TieneCuentaCorriente = false,
+            LimiteCredito = 0m
+        };
+        _clienteRepository.GetByIdAsync(3, Arg.Any<CancellationToken>()).Returns(cliente);
+        _clienteRepository.FindAsync(Arg.Any<Expression<Func<Cliente, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Cliente>());
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice único")));
+
+        // Act
+        var act = async () => await _sut.ActualizarClienteAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*Ya existe otro cliente activo*30334455668*");
+    }
 }
