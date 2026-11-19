@@ -66,7 +66,7 @@
                             ToolTip="Recuperar un presupuesto pendiente [F7]">
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                            <TextBlock Text="Recuperar" VerticalAlignment="Center" />
+                            <TextBlock Text="Cargar presupuesto" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
 
@@ -238,7 +238,7 @@
                                 Padding="0,4"
                                 Margin="8,4,8,12"
                                 Width="{Binding ActualWidth, ElementName=TxtBuscador}"
-                                MaxHeight="300">
+                                MaxHeight="500">
                             <Border.Effect>
                                 <DropShadowEffect Color="{StaticResource ElevationShadowColor}"
                                                   Opacity="0.18"
