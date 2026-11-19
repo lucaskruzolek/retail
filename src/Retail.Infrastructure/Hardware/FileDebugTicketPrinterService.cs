@@ -188,8 +188,11 @@ public partial class FileDebugTicketPrinterService : ITicketPrinterService
         sb.AppendLine(CulturaArgentina, $"{CentrarTexto("PRESUPUESTO COMERCIAL", ancho)}");
         sb.AppendLine(CulturaArgentina, $"{Separador('-', ancho)}");
         sb.AppendLine(CulturaArgentina, $"Presupuesto: #{presupuesto.IdPresupuesto:D8}");
-        sb.AppendLine(CulturaArgentina, $"Fecha Emisión:     {presupuesto.FechaEmision:dd/MM/yyyy}");
-        sb.AppendLine(CulturaArgentina, $"Fecha Vencimiento: {presupuesto.FechaVencimiento:dd/MM/yyyy} (15 días)");
+        // FechaEmision es un instante UTC: se pasa a hora local para que un presupuesto emitido después de las 21:00
+        // (UTC-3) no salga con la fecha del día siguiente (PS-09).
+        var fechaEmisionLocal = DateTime.SpecifyKind(presupuesto.FechaEmision, DateTimeKind.Utc).ToLocalTime();
+        sb.AppendLine(CulturaArgentina, $"Fecha Emisión:     {fechaEmisionLocal:dd/MM/yyyy}");
+        sb.AppendLine(CulturaArgentina, $"Fecha Vencimiento: {presupuesto.FechaVencimiento:dd/MM/yyyy}");
         sb.AppendLine(CulturaArgentina, $"Operador:          {presupuesto.UsuarioNombre ?? $"ID #{presupuesto.IdUsuario}"}");
         sb.AppendLine(CulturaArgentina, $"Cliente:           {presupuesto.ClienteNombre ?? "Consumidor Final"}");
         sb.AppendLine(CulturaArgentina, $"Estado:            {presupuesto.Estado}");
@@ -216,7 +219,7 @@ public partial class FileDebugTicketPrinterService : ITicketPrinterService
         sb.AppendLine(CulturaArgentina, $"{AlinearDosExtremos("TOTAL PRESUPUESTADO:", FormatearMoneda(presupuesto.Total), ancho)}");
         sb.AppendLine(CulturaArgentina, $"{Separador('=', ancho)}");
         sb.AppendLine(CulturaArgentina, $"{CentrarTexto("* DOCUMENTO NO VÁLIDO COMO FACTURA *", ancho)}");
-        sb.AppendLine(CulturaArgentina, $"{CentrarTexto("Precios pactados válidos por 15 días.", ancho)}");
+        sb.AppendLine(CulturaArgentina, $"{CentrarTexto($"Precios pactados válidos hasta el {presupuesto.FechaVencimiento:dd/MM/yyyy}.", ancho)}");
         sb.AppendLine(CulturaArgentina, $"{CentrarTexto("No reserva ni garantiza stock físico.", ancho)}");
         sb.AppendLine(CulturaArgentina, $"{Separador('=', ancho)}");
 

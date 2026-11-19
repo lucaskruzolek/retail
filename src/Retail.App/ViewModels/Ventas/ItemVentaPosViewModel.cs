@@ -40,13 +40,39 @@ public partial class ItemVentaPosViewModel : ObservableObject
     /// D-25: la cantidad se puede tipear en la grilla. Un valor menor a 1 se descarta y vuelve el anterior: quitar un
     /// artículo es una acción explícita (papelera o Supr), no el efecto de un 0 tipeado por error.
     /// </summary>
+    /// <remarks>
+    /// PS-04: si la línea viene de un presupuesto vigente, la cantidad presupuestada es un tope (solo se puede bajar):
+    /// un valor mayor se descarta igual que uno menor a 1.
+    /// </remarks>
     partial void OnCantidadChanged(int oldValue, int newValue)
     {
-        if (newValue < 1)
+        if (newValue < 1 || (CantidadMaxima is { } maxima && newValue > maxima))
         {
             Cantidad = oldValue;
         }
     }
+
+    /// <summary>
+    /// Tope de la cantidad (PS-04, I7): lo presupuestado, mientras el presupuesto está vigente. <c>null</c> = sin tope.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneTope))]
+    [NotifyPropertyChangedFor(nameof(LimiteCantidad))]
+    [NotifyPropertyChangedFor(nameof(TextoTope))]
+    private int? _cantidadMaxima;
+
+    /// <summary>La línea viene de un presupuesto recuperado (vigente o vencido).</summary>
+    [ObservableProperty]
+    private bool _esDePresupuesto;
+
+    public bool TieneTope => CantidadMaxima.HasValue;
+
+    /// <summary>Máximo que admite el selector de cantidad de la grilla (el límite habitual si no hay tope).</summary>
+    public int LimiteCantidad => CantidadMaxima ?? LimiteCantidadSinTope;
+
+    public string TextoTope => $"Cantidad presupuestada: {CantidadMaxima}; se puede bajar";
+
+    private const int LimiteCantidadSinTope = 99999;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneAlertaStockBajo))]

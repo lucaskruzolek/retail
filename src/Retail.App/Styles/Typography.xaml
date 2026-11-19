@@ -30,6 +30,7 @@
     <sys:Double x:Key="FontSizeSm">12</sys:Double>       <!-- Leyendas y celdas de código -->
     <sys:Double x:Key="FontSizeBase">13</sys:Double>     <!-- Cuerpo y celdas de grilla -->
     <sys:Double x:Key="FontSizeMd">14</sys:Double>
+    <sys:Double x:Key="FontSizeImporteResultado">15</sys:Double>  <!-- Precio del desplegable de búsqueda: un punto sobre su descripción -->
     <sys:Double x:Key="FontSizeLg">16</sys:Double>       <!-- Cabecera de sección o modal -->
     <sys:Double x:Key="FontSizeXl">20</sys:Double>       <!-- Título de pantalla -->
     <sys:Double x:Key="FontSize2Xl">24</sys:Double>      <!-- Título de página, importe destacado -->

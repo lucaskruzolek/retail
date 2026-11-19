@@ -138,7 +138,8 @@ public class MainViewModelTests
     {
         var vm = CrearConRol(RolUsuarioEnum.Gerente);
 
-        vm.IrAPaginaCommand.Execute("presupuestos");
+        // La consola fiscal sigue siendo un módulo en construcción: su vista se configura al navegar
+        vm.IrAPaginaCommand.Execute("fiscal");
 
         Type vista = typeof(ModuloEnConstruccionView);
         _navigationMock.Received(1).NavigateTo(vista, Arg.Is<Action<object>?>(configurar => configurar != null));

@@ -18,7 +18,16 @@ public interface IVentaService
     /// Compara el ticket con el catálogo antes de cobrar: precios que cambiaron, stock que no alcanza (con la
     /// cantidad a fraccionar si es una presentación) y artículos dados de baja. No modifica nada.
     /// </summary>
-    Task<VerificacionTicketDto> VerificarTicketAsync(IReadOnlyList<DetalleVentaDto> items, CancellationToken cancellationToken = default);
+    /// <param name="items">Renglones del ticket.</param>
+    /// <param name="idPresupuestoOrigen">
+    /// Presupuesto del que viene el ticket, si lo hay: con uno vigente, el precio esperado de sus artículos es el
+    /// pactado y no se informa como "precio actualizado".
+    /// </param>
+    /// <param name="cancellationToken">Token de cancelación.</param>
+    Task<VerificacionTicketDto> VerificarTicketAsync(
+        IReadOnlyList<DetalleVentaDto> items,
+        int? idPresupuestoOrigen = null,
+        CancellationToken cancellationToken = default);
 
     Task<VentaResponseDto> RegistrarVentaAsync(CrearVentaDto dto, CancellationToken cancellationToken = default);
 

@@ -246,10 +246,13 @@
                    AllowsTransparency="True"
                    HorizontalOffset="-8"
                    PopupAnimation="Slide">
-                <!-- El margen deja lugar a la sombra, que despega el desplegable de la página -->
+                <!-- El margen deja lugar a la sombra, que despega el desplegable de la página. El Popup es otra ventana:
+                     no hereda el redondeo de layout, así que se activa acá para alinear sus bordes con los del buscador. -->
                 <Border Background="{DynamicResource SurfaceCardBrush}"
                         BorderBrush="{DynamicResource SurfaceBorderBrush}"
                         BorderThickness="1"
+                        UseLayoutRounding="True"
+                        SnapsToDevicePixels="True"
                         CornerRadius="{StaticResource RadiusMd}"
                         Padding="0,4"
                         Margin="8,4,8,12"

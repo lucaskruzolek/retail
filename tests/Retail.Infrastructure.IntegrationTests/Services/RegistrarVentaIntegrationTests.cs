@@ -5,6 +5,7 @@ using NSubstitute;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
+using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.Validators.Ventas;
 using Retail.Domain.Entities;
@@ -232,7 +233,10 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
             new Repository<Cliente>(context),
             new UnitOfWork(context),
             new CrearVentaValidator(),
-            Substitute.For<ITicketPrinterService>());
+            Substitute.For<ITicketPrinterService>(),
+            new Repository<Presupuesto>(context),
+            new PresupuestoQueryService(context),
+            TimeProvider.System);
     }
 
     private async Task<Articulo> GuardarArticuloAsync(string descripcion, decimal precio, int stock)

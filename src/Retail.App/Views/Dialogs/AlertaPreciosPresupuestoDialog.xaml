@@ -1,0 +1,171 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.AlertaPreciosPresupuestoDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:components="clr-namespace:Retail.App.Views.Components"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 xmlns:helpers="clr-namespace:Retail.App.Helpers"
+                 Title="Revisar presupuesto"
+                 Language="es-AR"
+                 Width="580"
+                 MinHeight="0"
+                 SizeToContent="Height"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 Background="{DynamicResource DialogBackgroundBrush}"
+                 ResizeMode="NoResize">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+
+            <!-- Diferencia por unidad: los aumentos se resaltan con el token de advertencia; las bajas, en un tono neutro -->
+            <Style x:Key="CeldaDiferenciaStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
+                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding HuboAumento}" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource WarningForegroundBrush}" />
+                        <Setter Property="FontWeight" Value="Bold" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <components:EncabezadoDialogo Grid.Row="0" Titulo="{Binding TituloVentana}" />
+
+        <ScrollViewer Grid.Row="1" MaxHeight="560" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12,0,12,0">
+                <TextBlock Text="{Binding TextoIntroduccion}"
+                           Style="{StaticResource TextBlockBodySecondary}"
+                           TextWrapping="Wrap"
+                           Margin="4,0,4,12" />
+
+                <!-- Diferencias de precio: solo si el presupuesto venció -->
+                <Border Style="{StaticResource DialogSectionStyle}"
+                        Margin="{StaticResource StackMd}"
+                        Visibility="{Binding TieneDiscrepancias, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Precios que cambiaron" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackXs}" />
+                        <TextBlock Text="Precio por unidad: lo pactado y el de catálogo de hoy, que es el que se cobra."
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   TextWrapping="Wrap"
+                                   Margin="{StaticResource StackMd}" />
+                        <DataGrid ItemsSource="{Binding Discrepancias}"
+                                  Style="{StaticResource DataGridRetailStyle}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  BorderThickness="0"
+                                  MaxHeight="220"
+                                  helpers:EsquinasHelper.Esquinas="0">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Artículo" Width="*" MinWidth="140">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Descripcion}"
+                                                       Style="{StaticResource TextBlockTextCell}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding Descripcion}" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Pactado"
+                                                    HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                                    Binding="{Binding Pactado}"
+                                                    ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                    Width="100" />
+                                <DataGridTextColumn Header="Actual"
+                                                    HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                                    Binding="{Binding Actual}"
+                                                    ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                    Width="100" />
+                                <DataGridTextColumn Header="Diferencia"
+                                                    HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                                    Binding="{Binding Diferencia}"
+                                                    ElementStyle="{StaticResource CeldaDiferenciaStyle}"
+                                                    Width="100" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Faltantes de stock, con la sugerencia de fraccionar (RF-21) -->
+                <Border Style="{StaticResource DialogSectionStyle}"
+                        Margin="{StaticResource StackMd}"
+                        Visibility="{Binding TieneFaltantes, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Stock insuficiente" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackXs}" />
+                        <TextBlock Text="Se cargan igual; al cobrar hará falta cubrir lo que falte."
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   TextWrapping="Wrap"
+                                   Margin="{StaticResource StackMd}" />
+                        <ItemsControl ItemsSource="{Binding Faltantes}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="{StaticResource StackSm}">
+                                        <TextBlock Text="{Binding Texto}" Style="{StaticResource TextBlockBody}" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding Sugerencia}"
+                                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                                   TextWrapping="Wrap"
+                                                   Visibility="{Binding TieneSugerencia, Converter={StaticResource BoolToVisConverter}}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Artículos dados de baja: no se cargan -->
+                <Border Style="{StaticResource DialogSectionStyle}"
+                        Margin="{StaticResource StackMd}"
+                        Visibility="{Binding TieneArticulosNoDisponibles, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel>
+                        <TextBlock Text="Artículos dados de baja" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackXs}" />
+                        <TextBlock Text="No se cargan en el ticket."
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   Margin="{StaticResource StackMd}" />
+                        <ItemsControl ItemsSource="{Binding ArticulosNoDisponibles}" Focusable="False">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"
+                                               Style="{StaticResource TextBlockBody}"
+                                               TextWrapping="Wrap"
+                                               Margin="{StaticResource StackXs}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
+            <DockPanel LastChildFill="False">
+                <Button DockPanel.Dock="Left"
+                        Content="Cancelar"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        MinWidth="100"
+                        IsCancel="True"
+                        Click="OnCancelarClick" />
+
+                <Button DockPanel.Dock="Right"
+                        IsDefault="True"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        Click="OnContinuarClick">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Continuar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

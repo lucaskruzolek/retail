@@ -1091,7 +1091,7 @@
     <!-- Textos de la fila: cambian a tonos claros sobre el carmín de la fila seleccionada -->
     <Style x:Key="SearchResultTitleTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyText}" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeBase}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -1105,7 +1105,7 @@
     <Style x:Key="SearchResultAmountTextStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FontFamilyNumeric}" />
         <Setter Property="Typography.NumeralAlignment" Value="Tabular" />
-        <Setter Property="FontSize" Value="{StaticResource FontSizeMd}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeImporteResultado}" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
         <Style.Triggers>
@@ -1116,7 +1116,7 @@
     </Style>
 
     <Style x:Key="SearchResultMetaTextStyle" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="{StaticResource FontSizeXs}" />
+        <Setter Property="FontSize" Value="{StaticResource FontSizeSm}" />
         <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">

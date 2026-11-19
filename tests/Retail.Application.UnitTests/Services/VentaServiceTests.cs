@@ -3,6 +3,7 @@ using FluentAssertions;
 using FluentValidation;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
@@ -30,6 +31,8 @@ public class VentaServiceTests
     private readonly IRepository<Cliente> _clienteRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ITicketPrinterService _ticketPrinterService;
+    private readonly IRepository<Presupuesto> _presupuestoRepository;
+    private readonly IPresupuestoQueryService _presupuestoQueryService;
     private readonly VentaService _sut;
     private readonly TurnoCaja _turno;
 
@@ -42,6 +45,8 @@ public class VentaServiceTests
         _clienteRepository = Substitute.For<IRepository<Cliente>>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
         _ticketPrinterService = Substitute.For<ITicketPrinterService>();
+        _presupuestoRepository = Substitute.For<IRepository<Presupuesto>>();
+        _presupuestoQueryService = Substitute.For<IPresupuestoQueryService>();
 
         _turno = TurnoCaja.Abrir(IdUsuario, saldoInicial: 5000m);
         _turno.Id = IdTurno;
@@ -55,7 +60,10 @@ public class VentaServiceTests
             _clienteRepository,
             _unitOfWork,
             new CrearVentaValidator(),
-            _ticketPrinterService);
+            _ticketPrinterService,
+            _presupuestoRepository,
+            _presupuestoQueryService,
+            RelojDePrueba.EnQuinceDeOctubre());
     }
 
     [Fact]
@@ -543,6 +551,270 @@ public class VentaServiceTests
         await AssertNoSeGuardoNadaAsync();
     }
 
+    // ── Presupuesto de origen (RF-12, PS-12, PS-14) ──
+
+    private static readonly DateOnly Hoy = new(2026, 10, 15);
+
+    [Fact]
+    public async Task RegistrarVentaAsync_PresupuestoVigente_CobraElPrecioPactadoYLoConvierteEnUnSoloGuardado()
+    {
+        // Arrange: el catálogo subió a 1800 después de pactar 1500.
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1800m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+        var presupuesto = ConfigurarPresupuesto(Hoy, (10, 3, 1500m));
+
+        Venta? ventaPersistida = null;
+        await _ventaRepository.AddAsync(Arg.Do<Venta>(v => ventaPersistida = v), Arg.Any<CancellationToken>());
+
+        var dto = CrearDto(
+            [Item(cuaderno, 2) with { PrecioUnitario = 1500m }],
+            [Pago(MedioPagoEnum.Efectivo, 3000m)],
+            idPresupuestoOrigen: presupuesto.Id);
+
+        // Act
+        var resultado = await _sut.RegistrarVentaAsync(dto);
+
+        // Assert
+        resultado.Total.Should().Be(3000m);
+        resultado.IdPresupuestoOrigen.Should().Be(presupuesto.Id);
+        ventaPersistida!.IdPresupuestoOrigen.Should().Be(presupuesto.Id);
+        presupuesto.Estado.Should().Be(EstadoPresupuestoEnum.Convertido);
+        await _presupuestoRepository.Received(1).UpdateAsync(presupuesto, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegistrarVentaAsync_PresupuestoVencido_ExigeElPrecioDeCatalogo()
+    {
+        // Arrange: venció hace un día; el cajero todavía manda el precio pactado.
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1800m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+        var presupuesto = ConfigurarPresupuesto(Hoy.AddDays(-16), (10, 3, 1500m));
+
+        var conPrecioPactado = CrearDto(
+            [Item(cuaderno, 2) with { PrecioUnitario = 1500m }],
+            [Pago(MedioPagoEnum.Efectivo, 3000m)],
+            idPresupuestoOrigen: presupuesto.Id);
+
+        // Act
+        var act = () => _sut.RegistrarVentaAsync(conPrecioPactado);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*precio*cambió*");
+        presupuesto.Estado.Should().Be(EstadoPresupuestoEnum.Pendiente);
+        await AssertNoSeGuardoNadaAsync();
+
+        // Con el precio de catálogo, el vencido se cobra y se convierte.
+        var resultado = await _sut.RegistrarVentaAsync(CrearDto(
+            [Item(cuaderno, 2)],
+            [Pago(MedioPagoEnum.Efectivo, 3600m)],
+            idPresupuestoOrigen: presupuesto.Id));
+
+        resultado.Total.Should().Be(3600m);
+        presupuesto.Estado.Should().Be(EstadoPresupuestoEnum.Convertido);
+    }
+
+    [Fact]
+    public async Task RegistrarVentaAsync_PresupuestoVigenteConCantidadMayorALaPresupuestada_LanzaDomainExceptionSinGuardar()
+    {
+        // Arrange
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1800m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+        var presupuesto = ConfigurarPresupuesto(Hoy, (10, 2, 1500m));
+
+        var dto = CrearDto(
+            [Item(cuaderno, 3) with { PrecioUnitario = 1500m }],
+            [Pago(MedioPagoEnum.Efectivo, 4500m)],
+            idPresupuestoOrigen: presupuesto.Id);
+
+        // Act
+        var act = () => _sut.RegistrarVentaAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*2 unidades*3*");
+        presupuesto.Estado.Should().Be(EstadoPresupuestoEnum.Pendiente);
+        cuaderno.StockActual.Should().Be(8);
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Fact]
+    public async Task RegistrarVentaAsync_PresupuestoVigenteConArticuloRepetido_ComparaLaCantidadTotal()
+    {
+        // Arrange: dos líneas de 2 suman 4, y se presupuestaron 3.
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1800m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+        var presupuesto = ConfigurarPresupuesto(Hoy, (10, 3, 1500m));
+        var linea = Item(cuaderno, 2) with { PrecioUnitario = 1500m };
+
+        // Act
+        var act = () => _sut.RegistrarVentaAsync(CrearDto(
+            [linea, linea],
+            [Pago(MedioPagoEnum.Efectivo, 6000m)],
+            idPresupuestoOrigen: presupuesto.Id));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>();
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Fact]
+    public async Task RegistrarVentaAsync_PresupuestoYaConvertido_LanzaTransicionInvalidaSinGuardarNiModificarlo()
+    {
+        // Arrange
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+        var presupuesto = ConfigurarPresupuesto(Hoy, (10, 3, 1500m));
+        presupuesto.RegistrarConversion();
+        var cierreOriginal = presupuesto.FechaCierre;
+
+        // Act
+        var act = () => _sut.RegistrarVentaAsync(CrearDto(
+            [Item(cuaderno, 1)],
+            [Pago(MedioPagoEnum.Efectivo, 1500m)],
+            idPresupuestoOrigen: presupuesto.Id));
+
+        // Assert
+        await act.Should().ThrowAsync<TransicionPresupuestoInvalidaException>();
+        presupuesto.FechaCierre.Should().Be(cierreOriginal);
+        await _presupuestoRepository.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default);
+        cuaderno.StockActual.Should().Be(8);
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Fact]
+    public async Task RegistrarVentaAsync_PresupuestoInexistente_LanzaDomainExceptionSinGuardar()
+    {
+        // Arrange
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+
+        // Act
+        var act = () => _sut.RegistrarVentaAsync(CrearDto(
+            [Item(cuaderno, 1)],
+            [Pago(MedioPagoEnum.Efectivo, 1500m)],
+            idPresupuestoOrigen: 99));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*presupuesto*");
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Fact]
+    public async Task RegistrarVentaAsync_PresupuestoPendienteYStockInsuficiente_NoLoDejaConvertidoEnElContexto()
+    {
+        // Arrange: la venta falla en el paso del stock, después de haber validado el presupuesto.
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 1);
+        ConfigurarArticulos(cuaderno);
+        var presupuesto = ConfigurarPresupuesto(Hoy, (10, 3, 1500m));
+
+        // Act
+        var act = () => _sut.RegistrarVentaAsync(CrearDto(
+            [Item(cuaderno, 3)],
+            [Pago(MedioPagoEnum.Efectivo, 4500m)],
+            idPresupuestoOrigen: presupuesto.Id));
+
+        // Assert
+        await act.Should().ThrowAsync<StockInsuficienteException>();
+        presupuesto.Estado.Should().Be(EstadoPresupuestoEnum.Pendiente, "el presupuesto solo se convierte con todo validado");
+        await _presupuestoRepository.DidNotReceiveWithAnyArgs().UpdateAsync(default!, default);
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_PresupuestoVigente_NoInformaComoDesactualizadoElPrecioPactado()
+    {
+        // Arrange: catálogo en 1800, pactado en 1500.
+        ConfigurarDisponibilidad(Disponibilidad(10, "Cuaderno", precio: 1800m, stock: 8));
+        ConfigurarPresupuestoDto(vigente: true, (10, 3, 1500m));
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(10, "Cuaderno", cantidad: 2, precio: 1500m)], idPresupuestoOrigen: 5);
+
+        // Assert
+        resultado.PreciosActualizados.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_PresupuestoVencido_InformaElPrecioDeCatalogo()
+    {
+        // Arrange
+        ConfigurarDisponibilidad(Disponibilidad(10, "Cuaderno", precio: 1800m, stock: 8));
+        ConfigurarPresupuestoDto(vigente: false, (10, 3, 1500m));
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync([ItemDto(10, "Cuaderno", cantidad: 2, precio: 1500m)], idPresupuestoOrigen: 5);
+
+        // Assert
+        resultado.PreciosActualizados.Should().ContainSingle()
+            .Which.PrecioActual.Should().Be(1800m);
+    }
+
+    [Fact]
+    public async Task VerificarTicketAsync_PresupuestoVigenteConArticuloAgregadoAparte_UsaElCatalogoParaEse()
+    {
+        // Arrange: el artículo 11 no figura en el presupuesto (PS-04).
+        ConfigurarDisponibilidad(
+            Disponibilidad(10, "Cuaderno", precio: 1800m, stock: 8),
+            Disponibilidad(11, "Lápiz", precio: 300m, stock: 8));
+        ConfigurarPresupuestoDto(vigente: true, (10, 3, 1500m));
+
+        // Act
+        var resultado = await _sut.VerificarTicketAsync(
+            [ItemDto(10, "Cuaderno", 1, 1500m), ItemDto(11, "Lápiz", 1, 250m)],
+            idPresupuestoOrigen: 5);
+
+        // Assert
+        resultado.PreciosActualizados.Should().ContainSingle().Which.IdArticulo.Should().Be(11);
+    }
+
+    private Presupuesto ConfigurarPresupuesto(DateOnly fechaEmision, params (int IdArticulo, int Cantidad, decimal Precio)[] renglones)
+    {
+        var presupuesto = Presupuesto.Emitir(
+            IdUsuario,
+            idCliente: null,
+            titulo: null,
+            renglones.Select(r => new RenglonAPresupuestar(r.IdArticulo, $"Artículo {r.IdArticulo}", r.Cantidad, r.Precio)).ToList(),
+            descuento: 0m,
+            Presupuesto.VigenciaPorDefectoDias,
+            fechaEmision);
+        presupuesto.Id = 5;
+
+        _presupuestoRepository
+            .GetByIdWithIncludesAsync(5, Arg.Any<CancellationToken>(), Arg.Any<Expression<Func<Presupuesto, object>>[]>())
+            .Returns(presupuesto);
+
+        return presupuesto;
+    }
+
+    private void ConfigurarPresupuestoDto(bool vigente, params (int IdArticulo, int Cantidad, decimal Precio)[] renglones)
+    {
+        var items = renglones
+            .Select(r => new DetallePresupuestoDto
+            {
+                IdArticulo = r.IdArticulo,
+                Descripcion = $"Artículo {r.IdArticulo}",
+                Cantidad = r.Cantidad,
+                PrecioUnitarioPactado = r.Precio
+            })
+            .ToList();
+
+        _presupuestoQueryService
+            .ObtenerAsync(5, Hoy, Arg.Any<CancellationToken>())
+            .Returns(new PresupuestoDto
+            {
+                IdPresupuesto = 5,
+                IdUsuario = IdUsuario,
+                FechaEmision = DateTime.UtcNow,
+                FechaVencimiento = vigente ? Hoy.AddDays(5) : Hoy.AddDays(-1),
+                Subtotal = items.Sum(i => i.SubtotalItem),
+                Descuento = 0m,
+                Total = items.Sum(i => i.SubtotalItem),
+                Estado = EstadoPresupuestoEnum.Pendiente,
+                EstaVigente = vigente,
+                Items = items
+            });
+    }
+
     private static Articulo CrearArticulo(int id, string descripcion, decimal precio, int stock)
     {
         return new Articulo
@@ -618,13 +890,15 @@ public class VentaServiceTests
     private static CrearVentaDto CrearDto(
         IReadOnlyList<DetalleVentaDto> items,
         IReadOnlyList<PagoVentaDto> pagos,
-        int? idCliente = null)
+        int? idCliente = null,
+        int? idPresupuestoOrigen = null)
     {
         return new CrearVentaDto
         {
             IdTurno = IdTurno,
             IdUsuario = IdUsuario,
             IdCliente = idCliente,
+            IdPresupuestoOrigen = idPresupuestoOrigen,
             Items = items,
             Pagos = pagos
         };

@@ -28,7 +28,11 @@
 
     <!-- Los atajos se anuncian solo en los tooltips; la descripción del encabezado los resume -->
     <UserControl.InputBindings>
+        <!-- F3 y F7 están libres también como atajos globales (RegistroNavegacion), que tienen prioridad sobre los de
+             la página: F9 ya es la Consola fiscal del Gerente (corrección de PS-18). -->
+        <KeyBinding Key="F3" Command="{Binding GuardarComoPresupuestoCommand}" />
         <KeyBinding Key="F4" Command="{Binding SeleccionarClienteCommand}" />
+        <KeyBinding Key="F7" Command="{Binding RecuperarPresupuestoCommand}" />
         <KeyBinding Key="F8" Command="{Binding LimpiarVentaCommand}" />
         <KeyBinding Key="F12" Command="{Binding CobrarVentaCommand}" />
         <KeyBinding Key="Delete" Command="{Binding EliminarItemCommand}" />
@@ -48,8 +52,81 @@
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
                                Titulo="Punto de venta"
-                               Descripcion="Punto de venta · Escanee o busque artículos, ajuste cantidades y cobre. Atajos: F4 cliente, F8 cancelar, F12 cobrar, Supr quitar la línea seleccionada."
+                               Descripcion="Punto de venta · Escanee o busque artículos, ajuste cantidades y cobre. Atajos: F3 guardar como presupuesto, F4 cliente, F7 recuperar presupuesto, F8 cancelar, F12 cobrar, Supr quitar la línea seleccionada."
                                EstaCargando="{Binding IsBusy}">
+            <!-- Presupuestos (RF-11, RF-12) en el lugar de las pestañas de las demás páginas (slot izquierdo de la fila de
+                 acciones): así el POS hereda las mismas distancias entre título, esta fila y el buscador, y el buscador
+                 ocupa todo el ancho del ticket. Con un presupuesto cargado, su ficha ocupa el lugar de "Guardar
+                 presupuesto" (un presupuesto no se vuelve a presupuestar). -->
+            <components:PageHeader.Navegacion>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Command="{Binding RecuperarPresupuestoCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Focusable="False"
+                            ToolTip="Recuperar un presupuesto pendiente [F7]">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Cargar presupuesto" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{Binding GuardarComoPresupuestoCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="8,0,0,0"
+                            Focusable="False"
+                            ToolTip="Guardar el ticket como presupuesto [F3]: no hace falta tener la caja abierta"
+                            ToolTipService.ShowOnDisabled="True"
+                            Visibility="{Binding TienePresupuestoCargado, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Guardar presupuesto" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Border Background="{DynamicResource SurfaceSelectedBrush}"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            MinHeight="{StaticResource ControlHeight}"
+                            MaxWidth="380"
+                            Padding="12,0"
+                            Margin="8,0,0,0"
+                            ToolTip="{Binding PresupuestoCargado.Detalle}"
+                            Visibility="{Binding TienePresupuestoCargado, Converter={StaticResource BoolToVisConverter}}">
+                        <!-- Grid y no StackPanel: el texto necesita un ancho acotado para recortarse sin empujar la ✕
+                             fuera de la etiqueta -->
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding PresupuestoCargado.Etiqueta}"
+                                       FontSize="{StaticResource FontSizeMd}"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <!-- Mismo control que la ✕ del "Pedido #N" de Compras -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding QuitarPresupuestoCommand}"
+                                    Style="{StaticResource BadgeCancelButtonStyle}"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Focusable="False"
+                                    ToolTip="Quitar el presupuesto y sus artículos del ticket"
+                                    AutomationProperties.Name="Quitar presupuesto">
+                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="9" Height="9" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                </StackPanel>
+            </components:PageHeader.Navegacion>
+
+            <!-- A la derecha, donde las páginas ponen sus acciones: el turno abierto -->
             <Border Style="{StaticResource BadgeSuccessStyle}"
                     Visibility="{Binding CajaAbierta, Converter={StaticResource BoolToVisConverter}}">
                 <StackPanel Orientation="Horizontal">
@@ -149,15 +226,19 @@
                            AllowsTransparency="True"
                            HorizontalOffset="-8"
                            PopupAnimation="Slide">
-                        <!-- El margen deja lugar a la sombra, que despega el desplegable de la página y del ticket -->
+                        <!-- El margen deja lugar a la sombra, que despega el desplegable de la página y del ticket. El
+                             Popup es otra ventana con su propio árbol visual: no hereda el redondeo de layout, así que se
+                             activa acá para que sus bordes caigan en los mismos píxeles que los del buscador. -->
                         <Border Background="{DynamicResource SurfaceCardBrush}"
                                 BorderBrush="{DynamicResource SurfaceBorderBrush}"
                                 BorderThickness="1"
+                                UseLayoutRounding="True"
+                                SnapsToDevicePixels="True"
                                 CornerRadius="{StaticResource RadiusMd}"
                                 Padding="0,4"
                                 Margin="8,4,8,12"
                                 Width="{Binding ActualWidth, ElementName=TxtBuscador}"
-                                MaxHeight="300">
+                                MaxHeight="500">
                             <Border.Effect>
                                 <DropShadowEffect Color="{StaticResource ElevationShadowColor}"
                                                   Opacity="0.18"
@@ -207,16 +288,22 @@
                 </Grid>
 
                 <!-- GRILLA DEL TICKET DE MOSTRADOR (cada fila tiene su botón de eliminar; Supr elimina la seleccionada) -->
-                <DataGrid Grid.Row="1"
+                <!-- Grilla de la galería (DataGridListadoStyle): fila seleccionada en gris neutro, hover suave y línea
+                     inferior. La fila conserva el alto del POS (RowHeightPos) porque lleva el selector de cantidad. -->
+                <DataGrid x:Name="GrillaTicket"
+                          Grid.Row="1"
                           ItemsSource="{Binding Items}"
                           SelectedItem="{Binding ItemSeleccionado, Mode=TwoWay}"
-                          Style="{StaticResource DataGridRetailStyle}"
-                          RowStyle="{StaticResource DataGridRowRetailStyle}"
-                          CellStyle="{StaticResource DataGridCellRetailStyle}"
+                          Style="{StaticResource DataGridListadoStyle}"
                           AutoGenerateColumns="False"
                           IsReadOnly="False"
                           SelectionMode="Single"
                           CanUserAddRows="False">
+                    <DataGrid.RowStyle>
+                        <Style TargetType="DataGridRow" BasedOn="{StaticResource DataGridRowListadoStyle}">
+                            <Setter Property="Height" Value="{StaticResource RowHeightPos}" />
+                        </Style>
+                    </DataGrid.RowStyle>
                     <DataGrid.Columns>
                         <DataGridTextColumn Header="#"
                                             Binding="{Binding NumeroItem}"
@@ -240,28 +327,42 @@
                              − y +, que no toman el foco, así el buscador lo conserva para seguir escaneando. Nunca baja de 1:
                              quitar un artículo es una acción explícita (papelera o Supr, D-25). Enter o Esc devuelven el foco
                              al buscador; Esc deshace lo escrito. -->
-                        <DataGridTemplateColumn Header="Cantidad" HeaderStyle="{StaticResource DataGridColumnHeaderCenterStyle}" Width="140">
+                        <DataGridTemplateColumn Header="Cantidad" HeaderStyle="{StaticResource DataGridColumnHeaderCenterListadoStyle}" Width="164">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay}"
-                                                                 Minimo="1"
-                                                                 NombreAutomatizacion="Cantidad"
-                                                                 HorizontalAlignment="Center"
-                                                                 VerticalAlignment="Center"
-                                                                 KeyDown="OnCantidadKeyDown" />
+                                    <!-- Con un presupuesto vigente, la cantidad presupuestada es un tope (PS-04): el candado lo indica
+                                         y el selector no pasa de ahí; sí se puede bajar. -->
+                                    <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay}"
+                                                                     Minimo="1"
+                                                                     Maximo="{Binding LimiteCantidad}"
+                                                                     NombreAutomatizacion="Cantidad"
+                                                                     VerticalAlignment="Center"
+                                                                     KeyDown="OnCantidadKeyDown" />
+                                        <!-- A la izquierda del selector y fuera de su espacio: todos los selectores quedan alineados -->
+                                        <iconPacks:PackIconBoxIcons Kind="RegularLock"
+                                                                    Width="14"
+                                                                    Height="14"
+                                                                    Margin="-22,0,0,0"
+                                                                    HorizontalAlignment="Left"
+                                                                    VerticalAlignment="Center"
+                                                                    Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                    ToolTip="{Binding TextoTope}"
+                                                                    Visibility="{Binding TieneTope, Converter={StaticResource BoolToVisConverter}}" />
+                                    </Grid>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
 
                         <DataGridTextColumn Header="Precio unit."
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding PrecioUnitarioFormateado}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="112"
                                             IsReadOnly="True" />
 
                         <DataGridTextColumn Header="Subtotal"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
+                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
                                             Binding="{Binding SubtotalItemFormateado}"
                                             ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                             Width="112"
@@ -410,7 +511,7 @@
 
                         <Button Grid.Column="1"
                                 Command="{Binding LimpiarVentaCommand}"
-                                IsEnabled="{Binding TieneItems}"
+                                IsEnabled="{Binding PuedeLimpiar}"
                                 Style="{StaticResource KeycapButtonStyle}"
                                 MinHeight="{StaticResource RowHeightPos}"
                                 Margin="8,0,0,0"

@@ -94,6 +94,46 @@ public class DtoCalculatedPropertiesTests
     }
 
     [Fact]
+    public void PresupuestoParaVentaDto_RequiereConfirmacion_SoloSiVencidoConDiferenciasFaltantesONoDisponibles()
+    {
+        var diferencia = new DiscrepanciaPrecioPresupuestoDto
+        {
+            IdArticulo = 1,
+            Descripcion = "Resma A4",
+            PrecioPactado = 4000m,
+            PrecioActualCatalogo = 4500m
+        };
+
+        CrearPresupuestoParaVenta(vigente: true, discrepancias: [diferencia]).RequiereConfirmacion.Should().BeFalse();
+        CrearPresupuestoParaVenta(vigente: false, discrepancias: []).RequiereConfirmacion.Should().BeFalse();
+        CrearPresupuestoParaVenta(vigente: false, discrepancias: [diferencia]).RequiereConfirmacion.Should().BeTrue();
+        CrearPresupuestoParaVenta(vigente: true, noDisponibles: ["Resma A4"]).RequiereConfirmacion.Should().BeTrue();
+        CrearPresupuestoParaVenta(
+            vigente: true,
+            faltantes: [new FaltanteStockDto { IdArticulo = 1, Descripcion = "Resma A4", CantidadSolicitada = 5, StockActual = 2 }])
+            .RequiereConfirmacion.Should().BeTrue();
+    }
+
+    private static PresupuestoParaVentaDto CrearPresupuestoParaVenta(
+        bool vigente,
+        IReadOnlyList<DiscrepanciaPrecioPresupuestoDto>? discrepancias = null,
+        IReadOnlyList<FaltanteStockDto>? faltantes = null,
+        IReadOnlyList<string>? noDisponibles = null)
+    {
+        return new PresupuestoParaVentaDto
+        {
+            IdPresupuesto = 1,
+            EstaVigente = vigente,
+            FechaVencimiento = new DateOnly(2026, 12, 1),
+            Descuento = 0m,
+            Renglones = [],
+            Discrepancias = discrepancias ?? [],
+            Faltantes = faltantes ?? [],
+            ArticulosNoDisponibles = noDisponibles ?? []
+        };
+    }
+
+    [Fact]
     public void DetalleCompraDto_SubtotalItem_DebeCalcularCantidadPorCostoUnitario()
     {
         // Arrange

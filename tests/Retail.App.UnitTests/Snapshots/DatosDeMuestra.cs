@@ -1,5 +1,6 @@
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Presupuestos;
 using Retail.Domain.Enums;
 
 namespace Retail.App.UnitTests.Snapshots;
@@ -142,6 +143,175 @@ internal static class DatosDeMuestra
             TieneCuentaCorriente = tieneCuentaCorriente,
             LimiteCredito = limiteCredito,
             SaldoCuentaCorriente = saldo
+        };
+    }
+
+    /// <summary>Día de las capturas de presupuestos: los vencimientos de la muestra se leen respecto de esta fecha.</summary>
+    public static readonly DateTimeOffset AhoraPresupuestos = new(2026, 11, 17, 15, 0, 0, TimeSpan.Zero);
+
+    /// <summary>
+    /// Mezcla de estados para la grilla de presupuestos: vigente con título, vencido, convertido, anulado, consumidor
+    /// final y un título largo que se recorta.
+    /// </summary>
+    public static IReadOnlyList<PresupuestoResumenDto> Presupuestos()
+    {
+        return
+        [
+            Presupuesto(123, "Lista escolar 3.º grado — Escuela N.º 12", new DateTime(2026, 11, 14, 13, 20, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 29), "Escuela N.º 12 Domingo F. Sarmiento", 184110m, EstadoPresupuestoEnum.Pendiente, true, 5),
+            Presupuesto(122, null, new DateTime(2026, 11, 2, 16, 45, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 10), null, 12900m, EstadoPresupuestoEnum.Pendiente, false, 2),
+            Presupuesto(121, "Pedido de la oficina", new DateTime(2026, 11, 9, 12, 5, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 24), "Papelera San Martín S.R.L.", 96750m, EstadoPresupuestoEnum.Convertido, true, 4),
+            Presupuesto(120, "Quería comparar con la competencia", new DateTime(2026, 11, 6, 19, 30, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 21), "Marcela Benítez", 5400m, EstadoPresupuestoEnum.Anulado, true, 1),
+            Presupuesto(119, null, new DateTime(2026, 11, 16, 14, 10, 0, DateTimeKind.Utc), new DateOnly(2026, 12, 1), null, 38200m, EstadoPresupuestoEnum.Pendiente, true, 3),
+            Presupuesto(118, "Útiles para el taller de arte y manualidades del turno tarde, segundo cuatrimestre", new DateTime(2026, 10, 20, 11, 0, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 4), "Instituto Superior de Formación Docente N.º 9", 412300m, EstadoPresupuestoEnum.Pendiente, false, 18),
+            Presupuesto(117, null, new DateTime(2026, 10, 15, 15, 20, 0, DateTimeKind.Utc), new DateOnly(2026, 10, 30), "Distribuidora Sur S.R.L.", 27800m, EstadoPresupuestoEnum.Convertido, false, 2)
+        ];
+    }
+
+    /// <summary>Nombre del cliente del ticket en las capturas del selector "Recuperar presupuesto".</summary>
+    public const string ClienteDeLosPresupuestosPendientes = "Escuela N.º 12 Domingo F. Sarmiento";
+
+    /// <summary>
+    /// Presupuestos pendientes (vigentes y vencidos) de un mismo cliente, como los devuelve el selector "Recuperar
+    /// presupuesto" prefiltrado por el cliente del ticket: uno con título largo que se recorta y uno sin título.
+    /// </summary>
+    public static IReadOnlyList<PresupuestoResumenDto> PresupuestosPendientesDeUnCliente()
+    {
+        return
+        [
+            Presupuesto(123, "Lista escolar 3.º grado — Escuela N.º 12", new DateTime(2026, 11, 14, 13, 20, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 29), ClienteDeLosPresupuestosPendientes, 184110m, EstadoPresupuestoEnum.Pendiente, true, 5),
+            Presupuesto(112, null, new DateTime(2026, 11, 3, 12, 0, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 18), ClienteDeLosPresupuestosPendientes, 42650m, EstadoPresupuestoEnum.Pendiente, true, 4),
+            Presupuesto(104, "Útiles para el taller de arte y manualidades del turno tarde, segundo cuatrimestre", new DateTime(2026, 10, 20, 11, 0, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 4), ClienteDeLosPresupuestosPendientes, 412300m, EstadoPresupuestoEnum.Pendiente, false, 18)
+        ];
+    }
+
+    /// <summary>El detalle del primer presupuesto de <see cref="Presupuestos"/> (123): con título, descuento y cinco renglones.</summary>
+    public static PresupuestoDto PresupuestoDetalle()
+    {
+        return new PresupuestoDto
+        {
+            IdPresupuesto = 123,
+            IdUsuario = 2,
+            UsuarioNombre = "Lucía Fernández",
+            IdCliente = 7,
+            ClienteNombre = "Escuela N.º 12 Domingo F. Sarmiento",
+            Titulo = "Lista escolar 3.º grado — Escuela N.º 12",
+            FechaEmision = new DateTime(2026, 11, 14, 13, 20, 0, DateTimeKind.Utc),
+            FechaVencimiento = new DateOnly(2026, 11, 29),
+            Subtotal = 193800m,
+            Descuento = 9690m,
+            Total = 184110m,
+            Estado = EstadoPresupuestoEnum.Pendiente,
+            EstaVigente = true,
+            Items =
+            [
+                new DetallePresupuestoDto { IdArticulo = 1, Descripcion = "Cuaderno tapa dura 48 hojas rayado", Cantidad = 30, PrecioUnitarioPactado = 2450m },
+                new DetallePresupuestoDto { IdArticulo = 2, Descripcion = "Lapicera azul Cristal", Cantidad = 50, PrecioUnitarioPactado = 480m },
+                new DetallePresupuestoDto { IdArticulo = 3, Descripcion = "Block de dibujo N.º 5 de 24 hojas blancas", Cantidad = 20, PrecioUnitarioPactado = 1950m },
+                new DetallePresupuestoDto { IdArticulo = 4, Descripcion = "Resma A4 75 g x 500 hojas", Cantidad = 6, PrecioUnitarioPactado = 8900m },
+                new DetallePresupuestoDto { IdArticulo = 5, Descripcion = "Tijera escolar punta redonda", Cantidad = 3, PrecioUnitarioPactado = 1300m }
+            ]
+        };
+    }
+
+    /// <summary>
+    /// Presupuesto 123 recuperado para cobrarlo en el POS. Vigente: precios pactados y cantidades como tope. Vencido: precios de
+    /// catálogo, con dos diferencias (un aumento y una baja). Con <paramref name="conNovedades"/> suma un faltante de stock
+    /// (con sugerencia de fraccionar) y un artículo dado de baja, para la alerta.
+    /// </summary>
+    public static PresupuestoParaVentaDto PresupuestoParaVenta(bool vigente, bool conNovedades = false)
+    {
+        var renglones = new List<RenglonPresupuestoParaVentaDto>
+        {
+            new()
+            {
+                IdArticulo = 1,
+                CodigoBarras = "7790001000011",
+                Descripcion = "Cuaderno tapa dura 48 hojas rayado",
+                Cantidad = 3,
+                PrecioPactado = 2450m,
+                PrecioActual = 2700m,
+                PrecioACobrar = vigente ? 2450m : 2700m,
+                EsServicio = false,
+                StockActual = 40
+            },
+            new()
+            {
+                IdArticulo = 2,
+                CodigoBarras = "7790001000028",
+                Descripcion = "Lapicera azul Cristal",
+                Cantidad = 5,
+                PrecioPactado = 480m,
+                PrecioActual = 450m,
+                PrecioACobrar = vigente ? 480m : 450m,
+                EsServicio = false,
+                StockActual = conNovedades ? 2 : 80
+            }
+        };
+
+        var discrepancias = vigente
+            ? new List<DiscrepanciaPrecioPresupuestoDto>()
+            : new List<DiscrepanciaPrecioPresupuestoDto>
+            {
+                new() { IdArticulo = 1, Descripcion = "Cuaderno tapa dura 48 hojas rayado", PrecioPactado = 2450m, PrecioActualCatalogo = 2700m },
+                new() { IdArticulo = 2, Descripcion = "Lapicera azul Cristal", PrecioPactado = 480m, PrecioActualCatalogo = 450m }
+            };
+
+        var faltantes = conNovedades
+            ? new List<Retail.Application.DTOs.Ventas.FaltanteStockDto>
+            {
+                new()
+                {
+                    IdArticulo = 2,
+                    Descripcion = "Lapicera azul Cristal",
+                    CantidadSolicitada = 5,
+                    StockActual = 2,
+                    DescripcionOrigen = "Lapicera azul Cristal x 12",
+                    UnidadesPorOrigen = 12,
+                    StockOrigen = 4,
+                    OrigenesAFraccionar = 1
+                }
+            }
+            : new List<Retail.Application.DTOs.Ventas.FaltanteStockDto>();
+
+        return new PresupuestoParaVentaDto
+        {
+            IdPresupuesto = 123,
+            Titulo = "Lista escolar 3.º grado — Escuela N.º 12",
+            IdCliente = null,
+            ClienteNombre = null,
+            EstaVigente = vigente,
+            FechaVencimiento = new DateOnly(2026, 11, 29),
+            Descuento = 500m,
+            Renglones = renglones,
+            Discrepancias = discrepancias,
+            Faltantes = faltantes,
+            ArticulosNoDisponibles = conNovedades ? ["Block de dibujo N.º 5 de 24 hojas blancas"] : []
+        };
+    }
+
+    private static PresupuestoResumenDto Presupuesto(
+        int id,
+        string? titulo,
+        DateTime emisionUtc,
+        DateOnly vence,
+        string? cliente,
+        decimal total,
+        EstadoPresupuestoEnum estado,
+        bool vigente,
+        int renglones)
+    {
+        return new PresupuestoResumenDto
+        {
+            IdPresupuesto = id,
+            Titulo = titulo,
+            FechaEmision = emisionUtc,
+            FechaVencimiento = vence,
+            ClienteNombre = cliente,
+            UsuarioNombre = "Lucía Fernández",
+            Total = total,
+            Estado = estado,
+            EstaVigente = vigente,
+            CantidadRenglones = renglones
         };
     }
 }

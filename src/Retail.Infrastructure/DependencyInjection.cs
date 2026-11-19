@@ -73,6 +73,7 @@ public static class DependencyInjection
         services.AddScoped<IDiccionariosClasificacionQueryService, Retail.Infrastructure.Persistence.Services.DiccionariosClasificacionQueryService>();
         services.AddScoped<IClienteQueryService, Retail.Infrastructure.Persistence.Services.ClienteQueryService>();
         services.AddScoped<IPedidoQueryService, Retail.Infrastructure.Persistence.Services.PedidoQueryService>();
+        services.AddScoped<IPresupuestoQueryService, Retail.Infrastructure.Persistence.Services.PresupuestoQueryService>();
         services.AddScoped<IReporteQueryService, Retail.Infrastructure.Persistence.Services.ReporteQueryService>();
         services.AddScoped<IEsquemaBaseDatos, Retail.Infrastructure.Persistence.Services.EsquemaBaseDatos>();
 
@@ -107,6 +108,10 @@ public static class DependencyInjection
 
         // 7. Exportación de reportes (RF-26): no tiene estado, así que una única instancia sirve a toda la aplicación.
         services.AddSingleton<IExportadorReportes, Retail.Infrastructure.Reportes.ExportadorReportes>();
+
+        // Exportación del presupuesto a PDF (PS-07): sin estado, igual que el exportador de reportes. Toma el membrete de
+        // TicketPrinterSettings, que ya está registrado como opciones.
+        services.AddSingleton<IExportadorPresupuestoPdf, Retail.Infrastructure.Presupuestos.ExportadorPresupuestoPdf>();
 
         // 8. Reemplazamos el doble de prueba por la implementación real de CajaService.
         services.AddScoped<Retail.Application.Interfaces.Services.ICajaService, Retail.Application.Services.CajaService>();

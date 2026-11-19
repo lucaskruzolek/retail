@@ -29,19 +29,6 @@ public class DomainExceptionsTests
     }
 
     [Fact]
-    public void PresupuestoVencidoException_DebeRetenerIdYFechaVencimiento()
-    {
-        var fechaVencimiento = DateTime.UtcNow.AddDays(-1);
-
-        var ex = new PresupuestoVencidoException(presupuestoId: 101, fechaVencimiento: fechaVencimiento);
-
-        ex.PresupuestoId.Should().Be(101);
-        ex.FechaVencimiento.Should().Be(fechaVencimiento);
-        ex.Message.Should().Contain("101");
-        ex.Should().BeAssignableTo<DomainException>();
-    }
-
-    [Fact]
     public void LimiteCreditoExcedidoException_DebeRetenerDatosDeCuentaCorriente()
     {
         var ex = new LimiteCreditoExcedidoException(
@@ -110,12 +97,12 @@ public class DomainExceptionsTests
     }
 
     [Fact]
-    public void PresupuestoYaConvertidoException_DebeRetenerIdPresupuesto()
+    public void TransicionPresupuestoInvalidaException_DebeRetenerEstadoActualYOperacion()
     {
-        var ex = new PresupuestoYaConvertidoException(presupuestoId: 205);
+        var ex = new TransicionPresupuestoInvalidaException(EstadoPresupuestoEnum.Convertido, "anular");
 
-        ex.PresupuestoId.Should().Be(205);
-        ex.Message.Should().Contain("205");
+        ex.EstadoActual.Should().Be(EstadoPresupuestoEnum.Convertido);
+        ex.Message.Should().Contain("anular").And.Contain("Convertido");
         ex.Should().BeAssignableTo<DomainException>();
     }
 

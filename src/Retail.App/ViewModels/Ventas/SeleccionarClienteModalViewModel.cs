@@ -52,6 +52,21 @@ public partial class SeleccionarClienteModalViewModel : ObservableObject, IDispo
         _ = BuscarClientesConEsperaAsync(value, EsperaBusqueda);
     }
 
+    /// <summary>
+    /// Primera carga al abrir el diálogo: los primeros clientes por nombre, igual que con el buscador vacío. Hace falta
+    /// porque <see cref="OnTextoBusquedaChanged"/> solo se dispara cuando el texto cambia, y al abrir ya vale "".
+    /// Si ya hay resultados o una búsqueda en curso, no hace nada.
+    /// </summary>
+    public Task CargarInicialAsync()
+    {
+        if (Clientes.Count > 0 || IsBusy)
+        {
+            return Task.CompletedTask;
+        }
+
+        return BuscarClientesConEsperaAsync(TextoBusqueda, TimeSpan.Zero);
+    }
+
     [RelayCommand]
     public Task BuscarClientesAsync(string? query = null)
     {

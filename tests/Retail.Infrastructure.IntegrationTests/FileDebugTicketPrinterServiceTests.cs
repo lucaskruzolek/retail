@@ -205,7 +205,9 @@ public class FileDebugTicketPrinterServiceTests : IDisposable
             IdCliente = 3,
             ClienteNombre = "Instituto Rivadavia",
             FechaEmision = new DateTime(2026, 9, 8, 10, 0, 0, DateTimeKind.Utc),
-            FechaVencimiento = new DateTime(2026, 9, 23, 10, 0, 0, DateTimeKind.Utc),
+            FechaVencimiento = new DateOnly(2026, 9, 23),
+            EstaVigente = true,
+            Titulo = "Nota interna del comercio",
             Subtotal = 15000.00m,
             Descuento = 0.00m,
             Total = 15000.00m,
@@ -236,7 +238,42 @@ public class FileDebugTicketPrinterServiceTests : IDisposable
         contenido.Should().Contain("pfernandez");
         contenido.Should().Contain("Caja Marcadores al Agua x12");
         contenido.Should().Contain("DOCUMENTO NO VÁLIDO COMO FACTURA");
-        contenido.Should().Contain("Precios pactados válidos por 15 días");
+        contenido.Should().Contain("Precios pactados válidos hasta el 23/09/2026");
+        contenido.Should().NotContain("Nota interna del comercio", "el título es de uso interno (PS-20)");
         contenido.Should().Contain("No reserva ni garantiza stock físico");
+    }
+
+    [Fact]
+    public async Task ImprimirPresupuestoAsync_VigenciaDeTreintaDias_ImprimeLaFechaRealDeVencimientoYNoUnPlazoFijo()
+    {
+        // Arrange: con vigencia editable (PS-10), un plazo fijo de "15 días" sería falso
+        var presupuesto = new PresupuestoDto
+        {
+            IdPresupuesto = 9,
+            IdUsuario = 2,
+            FechaEmision = new DateTime(2026, 11, 2, 15, 0, 0, DateTimeKind.Utc),
+            FechaVencimiento = new DateOnly(2026, 12, 2),
+            EstaVigente = true,
+            Titulo = "Lista escolar reservada",
+            Subtotal = 1000m,
+            Descuento = 0m,
+            Total = 1000m,
+            Estado = EstadoPresupuestoEnum.Pendiente,
+            Items = new List<DetallePresupuestoDto>
+            {
+                new() { IdArticulo = 1, Descripcion = "Cuaderno", Cantidad = 1, PrecioUnitarioPactado = 1000m }
+            }
+        };
+
+        // Act
+        await _sut.ImprimirPresupuestoAsync(presupuesto);
+
+        // Assert
+        string contenido = await File.ReadAllTextAsync(_sut.UltimoArchivoGenerado!);
+        contenido.Should().Contain("Fecha Vencimiento: 02/12/2026");
+        contenido.Should().Contain("Precios pactados válidos hasta el 02/12/2026");
+        contenido.Should().NotContain("15 días");
+        contenido.Should().Contain("DOCUMENTO NO VÁLIDO COMO FACTURA");
+        contenido.Should().NotContain("Lista escolar reservada", "el título es de uso interno (PS-20)");
     }
 }
