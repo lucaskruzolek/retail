@@ -559,6 +559,39 @@ public class PresupuestoFormViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Correccion_PrecioCambio_MarcaElPrecioPactadoComoAnteriorSoloEnLasFilasQueCambiaron()
+    {
+        var original = Original(
+        [
+            RenglonOriginal(1, pactado: 2500m, actual: 2700m, cantidad: 2),
+            RenglonOriginal(2, pactado: 500m, actual: 500m, cantidad: 1)
+        ]);
+
+        var sut = Crear(original);
+
+        sut.Editor.Renglones[0].PrecioAnterior.Should().Be(2500m);
+        sut.Editor.Renglones[0].PrecioCambio.Should().BeTrue();
+        sut.Editor.Renglones[1].PrecioAnterior.Should().BeNull();
+        sut.Editor.HayPreciosCambiados.Should().BeTrue();
+        sut.HayPreciosCambiados.Should().BeTrue();
+        sut.Subtotal.Should().Be(2 * 2700m + 500m);
+        sut.SubtotalAPreciosAnteriores.Should().Be(2 * 2500m + 500m);
+
+        // El mismo descuento se resta a los dos totales: la diferencia es solo el cambio de precios.
+        sut.Descuento = 1000d;
+        sut.Total.Should().Be(2 * 2700m + 500m - 1000m);
+        sut.TotalAPreciosAnteriores.Should().Be(2 * 2500m + 500m - 1000m);
+    }
+
+    [Fact]
+    public void Correccion_SinCambiosDePrecio_NoMuestraTotalAnterior()
+    {
+        var sut = Crear(Original([RenglonOriginal(1, 2500m, 2500m, 2)]));
+
+        sut.HayPreciosCambiados.Should().BeFalse();
+    }
+
+    [Fact]
     public void Correccion_ArticulosNoDisponibles_NoSePrecarganYSeAvisa()
     {
         var original = Original([RenglonOriginal(1, 2500m, 2500m, 3)], noDisponibles: ["Tijera escolar", "Regla 30 cm"]);

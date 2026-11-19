@@ -10,8 +10,10 @@ namespace Retail.App.ViewModels.Comun;
 /// </summary>
 public partial class RenglonEditableFila : ObservableObject
 {
-    public RenglonEditableFila(int idArticulo, string? codigoBarras, string descripcion, decimal precioUnitario, int cantidad, bool estaDisponible)
+    /// <param name="precioAnterior">Precio que tenía el renglón antes de cambiar (PE-13), o <c>null</c> si no cambió.</param>
+    public RenglonEditableFila(int idArticulo, string? codigoBarras, string descripcion, decimal precioUnitario, int cantidad, bool estaDisponible, decimal? precioAnterior = null)
     {
+        _precioAnterior = precioAnterior;
         IdArticulo = idArticulo;
         CodigoBarras = codigoBarras;
         Descripcion = descripcion ?? throw new ArgumentNullException(nameof(descripcion));
@@ -34,14 +36,35 @@ public partial class RenglonEditableFila : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Subtotal))]
     [NotifyPropertyChangedFor(nameof(SubtotalQueSuma))]
+    [NotifyPropertyChangedFor(nameof(SubtotalAnterior))]
+    [NotifyPropertyChangedFor(nameof(SubtotalAnteriorQueSuma))]
     private int _cantidad;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Subtotal))]
     [NotifyPropertyChangedFor(nameof(SubtotalQueSuma))]
+    [NotifyPropertyChangedFor(nameof(PrecioCambio))]
+    [NotifyPropertyChangedFor(nameof(SubtotalAnterior))]
+    [NotifyPropertyChangedFor(nameof(SubtotalAnteriorQueSuma))]
     private decimal _precioUnitario;
 
+    /// <summary>Precio que tenía el renglón antes de cambiar (el pactado del original o el anterior a "Actualizar precios"); <c>null</c> si no cambió.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PrecioCambio))]
+    [NotifyPropertyChangedFor(nameof(SubtotalAnterior))]
+    [NotifyPropertyChangedFor(nameof(SubtotalAnteriorQueSuma))]
+    private decimal? _precioAnterior;
+
+    /// <summary>El precio de hoy difiere del anterior: la grilla muestra el anterior tachado (PE-13).</summary>
+    public bool PrecioCambio => PrecioAnterior is { } anterior && anterior != PrecioUnitario;
+
     public decimal Subtotal => Cantidad * PrecioUnitario;
+
+    /// <summary>Cantidad actual por el precio anterior (el actual si no cambió).</summary>
+    public decimal SubtotalAnterior => Cantidad * (PrecioAnterior ?? PrecioUnitario);
+
+    /// <summary>Lo que el renglón aportaría al subtotal a los precios anteriores: cero si el artículo no está disponible.</summary>
+    public decimal SubtotalAnteriorQueSuma => EstaDisponible ? SubtotalAnterior : 0m;
 
     /// <summary>Lo que el renglón aporta al subtotal: cero si el artículo no está disponible.</summary>
     public decimal SubtotalQueSuma => EstaDisponible ? Subtotal : 0m;

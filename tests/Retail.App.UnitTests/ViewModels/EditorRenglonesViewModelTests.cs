@@ -187,8 +187,81 @@ public class EditorRenglonesViewModelTests : IDisposable
         sut.Subtotal.Should().Be(900m);
     }
 
+    [Fact]
+    public void ActualizarPrecios_PrecioCambia_ConservaElPrimerPrecioComoAnterior()
+    {
+        var sut = Crear(true, Fila(1, "Cuaderno", 2, 900m));
+
+        sut.ActualizarPrecios(new Dictionary<int, decimal> { [1] = 1000m });
+        sut.ActualizarPrecios(new Dictionary<int, decimal> { [1] = 1100m });
+
+        var renglon = sut.Renglones[0];
+        renglon.PrecioAnterior.Should().Be(900m, "se conserva el primer precio, no el intermedio");
+        renglon.PrecioCambio.Should().BeTrue();
+        sut.HayPreciosCambiados.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ActualizarPrecios_PrecioIgualAlActual_NoMarcaCambio()
+    {
+        var sut = Crear(true, Fila(1, "Cuaderno", 2, 900m));
+
+        sut.ActualizarPrecios(new Dictionary<int, decimal> { [1] = 900m });
+
+        sut.Renglones[0].PrecioAnterior.Should().BeNull();
+        sut.Renglones[0].PrecioCambio.Should().BeFalse();
+        sut.HayPreciosCambiados.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ActualizarPrecios_VuelveAlPrecioAnterior_YaNoMuestraCambio()
+    {
+        var sut = Crear(true, Fila(1, "Cuaderno", 2, 900m));
+
+        sut.ActualizarPrecios(new Dictionary<int, decimal> { [1] = 1000m });
+        sut.ActualizarPrecios(new Dictionary<int, decimal> { [1] = 900m });
+
+        sut.Renglones[0].PrecioCambio.Should().BeFalse();
+        sut.HayPreciosCambiados.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SubtotalAPreciosAnteriores_RenglonNuevoSinPrecioAnterior_SumaSuPrecioActual()
+    {
+        var sut = Crear(true, Fila(1, "Cuaderno", 2, 900m));
+        sut.ActualizarPrecios(new Dictionary<int, decimal> { [1] = 1000m });
+
+        sut.AgregarArticuloCommand.Execute(Articulo(2, "Lápiz", 300m));
+
+        sut.Subtotal.Should().Be(2000m + 300m);
+        sut.SubtotalAPreciosAnteriores.Should().Be(1800m + 300m);
+    }
+
+    [Fact]
+    public void Cantidad_Cambia_ActualizaAmbosSubtotales()
+    {
+        var sut = Crear(true, Fila(1, "Cuaderno", 2, 900m));
+        sut.ActualizarPrecios(new Dictionary<int, decimal> { [1] = 1000m });
+
+        sut.Renglones[0].Cantidad = 5;
+
+        sut.Subtotal.Should().Be(5000m);
+        sut.SubtotalAPreciosAnteriores.Should().Be(4500m);
+    }
+
+    [Fact]
+    public void SubtotalAPreciosAnteriores_ArticuloDadoDeBaja_NoSuma()
+    {
+        var sut = Crear(true, Fila(1, "Cuaderno", 1, 900m), Fila(2, "Lápiz descontinuado", 5, 300m, disponible: false));
+
+        sut.ActualizarPrecios(new Dictionary<int, decimal> { [2] = 400m });
+
+        sut.SubtotalAPreciosAnteriores.Should().Be(900m);
+        sut.HayPreciosCambiados.Should().BeFalse("el renglón dado de baja no cuenta");
+    }
+
     // ------------------------------------------------------------------ //
-    // Buscador                                                            //
+    // Buscador                                                           //
     // ------------------------------------------------------------------ //
 
     [Fact]

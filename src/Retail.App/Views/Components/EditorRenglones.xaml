@@ -39,6 +39,16 @@
                     </DataTrigger>
                 </Style.Triggers>
             </Style>
+
+            <!-- Precio anterior (PE-13): chico, apagado y tachado, alineado a la derecha sobre el precio nuevo -->
+            <Style x:Key="CeldaPrecioAnteriorStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
+                <Setter Property="FontSize" Value="{StaticResource FontSizeXs}" />
+                <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+                <Setter Property="TextDecorations" Value="Strikethrough" />
+                <Setter Property="LineHeight" Value="13" />
+                <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -192,12 +202,23 @@
                         </DataGridTemplateColumn>
 
                         <!-- El encabezado lo pone EncabezadoPrecio desde el code-behind (una columna no hereda enlaces) -->
-                        <DataGridTextColumn x:Name="ColumnaPrecio"
-                                            Header="Precio de hoy"
-                                            HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
-                                            Binding="{Binding PrecioUnitario, StringFormat=C0}"
-                                            ElementStyle="{StaticResource CeldaImporteStyle}"
-                                            Width="112" />
+                        <!-- Si el precio cambió (PE-13), el anterior va tachado y apagado sobre el nuevo; si no, solo el precio -->
+                        <DataGridTemplateColumn x:Name="ColumnaPrecio"
+                                                Header="Precio de hoy"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                                Width="112">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding PrecioAnterior, StringFormat=C0}"
+                                                   Style="{StaticResource CeldaPrecioAnteriorStyle}"
+                                                   Visibility="{Binding PrecioCambio, Converter={StaticResource BoolToVisConverter}}" />
+                                        <TextBlock Text="{Binding PrecioUnitario, StringFormat=C0}"
+                                                   Style="{StaticResource CeldaImporteStyle}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
 
                         <DataGridTextColumn Header="Subtotal"
                                             HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"

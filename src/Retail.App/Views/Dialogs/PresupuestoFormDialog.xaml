@@ -203,6 +203,22 @@
                     <DockPanel LastChildFill="False" Margin="0,0,0,4">
                         <TextBlock DockPanel.Dock="Left" Text="Subtotal" Style="{StaticResource TextBlockBodySecondary}" />
                         <TextBlock DockPanel.Dock="Right" Text="{Binding Subtotal, StringFormat=C0}" Style="{StaticResource TextBlockCurrencyCell}" />
+
+                        <!-- PE-14: el subtotal a los precios anteriores, tachado, junto al actual -->
+                        <StackPanel DockPanel.Dock="Right"
+                                    Orientation="Horizontal"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,12,0"
+                                    Visibility="{Binding HayPreciosCambiados, Converter={StaticResource BoolToVisConverter}}">
+                            <TextBlock Text="por cambios de precio"
+                                       Style="{StaticResource TextBlockCaptionSecondary}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0" />
+                            <TextBlock Text="{Binding SubtotalAPreciosAnteriores, StringFormat=C0}"
+                                       Style="{StaticResource TextBlockCurrencyCell}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextDecorations="Strikethrough" />
+                        </StackPanel>
                     </DockPanel>
                     <DockPanel LastChildFill="False" Margin="0,0,0,4">
                         <TextBlock DockPanel.Dock="Left" Text="Descuento" Style="{StaticResource TextBlockBodySecondary}" />
@@ -215,6 +231,16 @@
                                        Text="{Binding Total, StringFormat=C0}"
                                        Style="{StaticResource TextBlockCurrencyLarge}"
                                        Foreground="{DynamicResource TextPrimaryBrush}" />
+
+                            <!-- PE-14: el total a los precios anteriores, tachado, junto al actual -->
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding TotalAPreciosAnteriores, StringFormat=C0}"
+                                       Style="{StaticResource TextBlockCurrencyCell}"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextDecorations="Strikethrough"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"
+                                       Visibility="{Binding HayPreciosCambiados, Converter={StaticResource BoolToVisConverter}}" />
                         </DockPanel>
                     </Border>
                 </StackPanel>

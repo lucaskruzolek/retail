@@ -78,6 +78,12 @@ public partial class EditorRenglonesViewModel : ObservableObject
     /// <summary>Suma de los subtotales de los renglones disponibles.</summary>
     public decimal Subtotal => Renglones.Sum(r => r.SubtotalQueSuma);
 
+    /// <summary>Σ cantidad actual × precio anterior de los renglones disponibles (PE-14); un renglón sin precio anterior suma su precio de hoy.</summary>
+    public decimal SubtotalAPreciosAnteriores => Renglones.Sum(r => r.SubtotalAnteriorQueSuma);
+
+    /// <summary>Algún renglón disponible tiene un precio distinto del anterior: se muestra el subtotal anterior tachado.</summary>
+    public bool HayPreciosCambiados => Renglones.Any(r => r.EstaDisponible && r.PrecioCambio);
+
     public int CantidadNoDisponibles => Renglones.Count(r => r.EstaDadoDeBaja);
 
     public bool HayNoDisponibles => CantidadNoDisponibles > 0;
@@ -105,15 +111,19 @@ public partial class EditorRenglonesViewModel : ObservableObject
         }
     }
 
-    /// <summary>Pone el precio unitario de los renglones cuyo artículo figura en <paramref name="preciosPorArticulo"/> (los demás no cambian).</summary>
+    /// <summary>
+    /// Pone el precio unitario de los renglones cuyo artículo figura en <paramref name="preciosPorArticulo"/> (los demás no cambian).
+    /// Si el precio cambia y el renglón aún no tenía precio anterior, conserva el que tenía (PE-13): se muestra tachado.
+    /// </summary>
     public void ActualizarPrecios(IReadOnlyDictionary<int, decimal> preciosPorArticulo)
     {
         ArgumentNullException.ThrowIfNull(preciosPorArticulo);
 
         foreach (var renglon in Renglones)
         {
-            if (preciosPorArticulo.TryGetValue(renglon.IdArticulo, out var precio))
+            if (preciosPorArticulo.TryGetValue(renglon.IdArticulo, out var precio) && precio != renglon.PrecioUnitario)
             {
+                renglon.PrecioAnterior ??= renglon.PrecioUnitario;
                 renglon.PrecioUnitario = precio;
             }
         }
@@ -171,9 +181,11 @@ public partial class EditorRenglonesViewModel : ObservableObject
 
     private void AlCambiarRenglon(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(RenglonEditableFila.Cantidad) or nameof(RenglonEditableFila.PrecioUnitario))
+        if (e.PropertyName is nameof(RenglonEditableFila.Cantidad) or nameof(RenglonEditableFila.PrecioUnitario) or nameof(RenglonEditableFila.PrecioAnterior))
         {
             OnPropertyChanged(nameof(Subtotal));
+            OnPropertyChanged(nameof(SubtotalAPreciosAnteriores));
+            OnPropertyChanged(nameof(HayPreciosCambiados));
             ContenidoCambiado?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -181,6 +193,8 @@ public partial class EditorRenglonesViewModel : ObservableObject
     private void AlCambiarRenglones(object? sender, NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(Subtotal));
+        OnPropertyChanged(nameof(SubtotalAPreciosAnteriores));
+        OnPropertyChanged(nameof(HayPreciosCambiados));
         OnPropertyChanged(nameof(SinRenglones));
         OnPropertyChanged(nameof(CantidadNoDisponibles));
         OnPropertyChanged(nameof(HayNoDisponibles));

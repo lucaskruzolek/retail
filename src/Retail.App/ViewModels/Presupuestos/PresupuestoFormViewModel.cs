@@ -116,7 +116,8 @@ public partial class PresupuestoFormViewModel : ObservableObject
             r.Descripcion,
             r.PrecioActual,
             r.Cantidad,
-            estaDisponible: true)));
+            estaDisponible: true,
+            precioAnterior: r.PrecioPactado != r.PrecioActual ? r.PrecioPactado : null)));
 
         if (original.ArticulosNoDisponibles.Count > 0)
         {
@@ -231,6 +232,7 @@ public partial class PresupuestoFormViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(TextoErrorDescuento))]
     [NotifyPropertyChangedFor(nameof(DescuentoAplicado))]
     [NotifyPropertyChangedFor(nameof(Total))]
+    [NotifyPropertyChangedFor(nameof(TotalAPreciosAnteriores))]
     [NotifyCanExecuteChangedFor(nameof(GuardarCommand))]
     private double? _descuento = 0d;
 
@@ -247,16 +249,30 @@ public partial class PresupuestoFormViewModel : ObservableObject
 
     public decimal Subtotal => Editor.Subtotal;
 
+    /// <summary>Subtotal a los precios anteriores, tachado junto al actual cuando hubo cambios de precio (PE-14).</summary>
+    public decimal SubtotalAPreciosAnteriores => Editor.SubtotalAPreciosAnteriores;
+
+    public bool HayPreciosCambiados => Editor.HayPreciosCambiados;
+
     public decimal Total => Math.Max(0m, Subtotal - DescuentoAplicado);
+
+    /// <summary>
+    /// Total a los precios anteriores, tachado junto al total actual (PE-14): el mismo descuento sobre
+    /// <see cref="SubtotalAPreciosAnteriores"/>, así la diferencia entre los dos totales es solo el cambio de precios.
+    /// </summary>
+    public decimal TotalAPreciosAnteriores => Math.Max(0m, SubtotalAPreciosAnteriores - DescuentoAplicado);
 
     private void ActualizarTotales()
     {
         OnPropertyChanged(nameof(Subtotal));
+        OnPropertyChanged(nameof(SubtotalAPreciosAnteriores));
+        OnPropertyChanged(nameof(HayPreciosCambiados));
         OnPropertyChanged(nameof(DescuentoEsValido));
         OnPropertyChanged(nameof(TieneErrorDescuento));
         OnPropertyChanged(nameof(TextoErrorDescuento));
         OnPropertyChanged(nameof(DescuentoAplicado));
         OnPropertyChanged(nameof(Total));
+        OnPropertyChanged(nameof(TotalAPreciosAnteriores));
         GuardarCommand.NotifyCanExecuteChanged();
     }
 
