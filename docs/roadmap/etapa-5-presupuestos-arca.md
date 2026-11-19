@@ -28,6 +28,18 @@
 
 ---
 
+### Módulo 5.3: Listas de Artículos Reutilizables
+**Responsable:** Lucas Kruzolek  
+**Plan de diseño detallado:** [`etapa-5-modulo-5.3-listas.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-5-modulo-5.3-listas.md) (decisiones L-01 a L-21, fases L0 a L6) | **Requisitos:** RF-30, IU-14, IU-02
+
+* **Problema:** la lista de útiles de un colegio la compran muchos padres y debe seguir los precios del proveedor; un presupuesto se consume al cobrarse y congela el precio.
+* **Dominio:** agregado `ListaArticulos` (nombre y renglones de artículo y cantidad, **sin precio ni vencimiento**); `Venta` conserva `IdListaOrigen` como trazabilidad.
+* **Lógica:** `IListaService` (crear, editar, actualizar renglones desde el POS, baja lógica, listar, cargar para venta, imprimir y exportar a PDF). La venta desde una lista es una venta común a precio de catálogo.
+* **Interfaz Visual:** pestaña **Listas** en Ventas (`ListasView.xaml`, `ListaFormDialog.xaml`) y, en el POS, los desplegables **Cargar ▾** (F7) y **Guardar como ▾** (F3) con `SeleccionarListaDialog.xaml` y `GuardarListaDialog.xaml`.
+* **Persistencia:** `LISTAS_ARTICULOS`, `RENGLONES_LISTA` y `VENTAS.id_lista_origen`; total del día y cantidad de ventas calculados en SQL.
+
+---
+
 ### Módulo 5.2: Facturación Fiscal ARCA y Consola Gerencial
 **Responsable:** Lucas Kruzolek
 
