@@ -16,7 +16,7 @@
 | L1 | Dominio: agregado `ListaArticulos` | ✅ Hecha |
 | L2 | Aplicación: `IListaService`, DTOs, validadores; venta con lista de origen | ✅ Hecha |
 | L3 | Infraestructura: configuración EF, migración, `ListaQueryService`, PDF de la lista | ✅ Hecha |
-| L4 | UI: pestaña **Listas** en Ventas (listado y editor) | ⏳ Pendiente |
+| L4 | UI: pestaña **Listas** en Ventas (listado y editor) | ✅ Hecha |
 | L5 | UI del POS: desplegables **Cargar ▾** y **Guardar como ▾** y selector de listas | ⏳ Pendiente |
 | L6 | Cierre: verificación Release, mapa, prueba manual | ⏳ Pendiente |
 
@@ -183,7 +183,7 @@ flowchart LR
 
 ### L4 — UI: pestaña Listas
 - `Navegacion/RegistroNavegacion.cs`: entrada `listas` en la sección `ventas`, sin atajo (L-04).
-- `Views/Pages/ListasView.xaml` + `ViewModels/Listas/ListasViewModel.cs`: el mismo patrón que `PresupuestosView` (encabezado con `NavegadorSeccion`, `ListToolbar`, `DataGridListadoStyle`, paginación, filtros de columna si corresponden). Acciones por fila: editar, imprimir, PDF, eliminar.
+- `Views/Pages/ListasView.xaml` + `ViewModels/Listas/ListasViewModel.cs`: el mismo patrón que `PresupuestosView` (encabezado con `NavegadorSeccion`, `ListToolbar`, `DataGridListadoStyle`, paginación, filtros de columna si corresponden). Acciones por fila: editar, imprimir, PDF, eliminar. Además, **"Nueva lista"** en la barra (agregado al implementar: el editor y `CrearAsync` ya existían, y permite cargar una lista de útiles antes de que llegue el primer comprador).
 - `Views/Dialogs/ListaFormDialog.xaml` + VM: editor con nombre, buscador de artículos (`IVentaService.BuscarPorTextoAsync`) y grilla editable de cantidades con `SelectorCantidad`. Total de hoy en vivo.
 - `Services/IListaDialogService.cs` + implementación.
 - Tests: ViewModels, prueba de humo STA, capturas Light/Dark con `DatosDeMuestra`, y `audit-xaml.ps1`.

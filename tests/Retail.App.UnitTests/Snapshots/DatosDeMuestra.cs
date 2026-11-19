@@ -1,5 +1,6 @@
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Domain.Enums;
 
@@ -286,6 +287,68 @@ internal static class DatosDeMuestra
             Discrepancias = discrepancias,
             Faltantes = faltantes,
             ArticulosNoDisponibles = conNovedades ? ["Block de dibujo N.º 5 de 24 hojas blancas"] : []
+        };
+    }
+
+    /// <summary>Día de las capturas de listas: las fechas de modificación se leen en hora local (UTC-3).</summary>
+    public static readonly DateTimeOffset AhoraListas = new(2026, 11, 19, 15, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Grilla de listas: un nombre largo que se recorta, una lista sin ventas y otra muy usada.</summary>
+    public static IReadOnlyList<ListaResumenDto> Listas()
+    {
+        return
+        [
+            Lista(12, "3.º grado — Colegio San Martín", 14, 86450m, 9, new DateTime(2026, 11, 18, 13, 20, 0, DateTimeKind.Utc)),
+            Lista(11, "Jardín sala de 5", 8, 32900m, 4, new DateTime(2026, 11, 12, 16, 45, 0, DateTimeKind.Utc)),
+            Lista(10, "1.º año — Escuela Técnica N.º 3", 22, 154300m, 0, new DateTime(2026, 11, 5, 12, 5, 0, DateTimeKind.Utc)),
+            Lista(9, "Taller de arte y manualidades del turno tarde, segundo cuatrimestre — Instituto Superior de Formación Docente N.º 9", 18, 98700m, 2, new DateTime(2026, 10, 28, 19, 30, 0, DateTimeKind.Utc)),
+            Lista(8, "Oficina — Papelera San Martín", 5, 12800m, 31, new DateTime(2026, 10, 15, 14, 10, 0, DateTimeKind.Utc))
+        ];
+    }
+
+    /// <summary>Lista abierta en el editor: tres artículos disponibles y uno dado de baja (L-13) que no suma al total.</summary>
+    public static ListaDto ListaDetalle()
+    {
+        return new ListaDto
+        {
+            IdLista = 12,
+            Nombre = "3.º grado — Colegio San Martín",
+            FechaModificacion = new DateTime(2026, 11, 18, 13, 20, 0, DateTimeKind.Utc),
+            Renglones =
+            [
+                RenglonLista(1, "7790001000011", "Cuaderno ABC tapa dura x 48 hojas rayado", 3, 4900m, true),
+                RenglonLista(2, "7790001000028", "Lápiz negro HB Faber", 12, 450m, true),
+                RenglonLista(3, "7790001000035", "Carpeta N.º 3 oficio con lomo ancho", 1, 7200m, true),
+                RenglonLista(4, "7790001000042", "Block de dibujo N.º 5 de 24 hojas blancas", 2, 2600m, false)
+            ],
+            TotalEstimado = 27300m
+        };
+    }
+
+    private static ListaResumenDto Lista(int id, string nombre, int articulos, decimal total, int ventas, DateTime modificadaUtc)
+    {
+        return new ListaResumenDto
+        {
+            IdLista = id,
+            Nombre = nombre,
+            CantidadArticulos = articulos,
+            TotalEstimado = total,
+            CantidadVentas = ventas,
+            FechaModificacion = modificadaUtc
+        };
+    }
+
+    private static RenglonListaDto RenglonLista(int idArticulo, string codigo, string descripcion, int cantidad, decimal precio, bool disponible)
+    {
+        return new RenglonListaDto
+        {
+            IdArticulo = idArticulo,
+            CodigoBarras = codigo,
+            Descripcion = descripcion,
+            Cantidad = cantidad,
+            PrecioActual = precio,
+            Subtotal = cantidad * precio,
+            EstaDisponible = disponible
         };
     }
 

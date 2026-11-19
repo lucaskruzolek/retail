@@ -2613,6 +2613,84 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void ListasView_InstanciacionEnHiloSTAConListas_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ListasView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var reloj = new RelojDePrueba(Snapshots.DatosDeMuestra.AhoraListas);
+            var viewModel = new Retail.App.ViewModels.Listas.ListasViewModel(
+                Substitute.For<IListaService>(),
+                Substitute.For<IListaDialogService>(),
+                reloj,
+                Substitute.For<ILogger<Retail.App.ViewModels.Listas.ListasViewModel>>());
+
+            try
+            {
+                view = new ListasView(viewModel);
+
+                foreach (var resumen in Snapshots.DatosDeMuestra.Listas())
+                {
+                    viewModel.Listas.Add(new Retail.App.ViewModels.Listas.ListaFila(resumen, reloj));
+                }
+
+                view.Measure(new System.Windows.Size(1280, 800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1280, 800));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ListasView debe resolver todos sus recursos (acciones de fila, estado vacío y paginación)");
+        view.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ListaFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool conListaConArticuloDadoDeBaja)
+    {
+        // Arrange
+        Exception? xamlException = null;
+        ListaFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            using var acceso = new Retail.App.Helpers.CargaSerializada();
+            var viewModel = new Retail.App.ViewModels.Listas.ListaFormViewModel(
+                conListaConArticuloDadoDeBaja ? Snapshots.DatosDeMuestra.ListaDetalle() : null,
+                Substitute.For<IListaService>(),
+                Substitute.For<IVentaService>(),
+                Substitute.For<Retail.App.Services.ICurrentUserSession>(),
+                acceso,
+                Substitute.For<ILogger>());
+
+            try
+            {
+                dialog = new ListaFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(800, 700));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 800, 700));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ListaFormDialog debe resolverse sin errores (grilla de renglones, selector de cantidad, badge de baja y desplegable)");
+        dialog.Should().NotBeNull();
+    }
+
+    [Fact]
     public void DetallePresupuestoDialog_InstanciacionEnHiloSTAConDetalleCargado_DebeCargarXAMLSinExcepciones()
     {
         // Arrange

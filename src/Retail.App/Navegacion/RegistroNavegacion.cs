@@ -27,7 +27,9 @@ public static class RegistroNavegacion
         [
             new("clientes", "Clientes", typeof(ClientesView), AccesoPagina.Operadores, "F4"),
             new("caja", "Caja y turnos", typeof(CajaView), AccesoPagina.Operadores, "F5"),
-            new("presupuestos", "Presupuestos", typeof(PresupuestosView), AccesoPagina.Operadores, "F6")
+            new("presupuestos", "Presupuestos", typeof(PresupuestosView), AccesoPagina.Operadores, "F6"),
+            // Sin atajo global (L-04): las teclas globales tienen prioridad sobre las del POS (F3, F7 y F8)
+            new("listas", "Listas", typeof(ListasView), AccesoPagina.Operadores)
         ]),
 
         new("inventario", "Inventario", PackIconBoxIconsKind.RegularPackage,

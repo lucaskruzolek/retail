@@ -14,6 +14,7 @@ using Retail.App.ViewModels.Articulos;
 using Retail.App.ViewModels.Clientes;
 using Retail.App.ViewModels.Compras;
 using Retail.App.ViewModels.Comun;
+using Retail.App.ViewModels.Listas;
 using Retail.App.ViewModels.Pedidos;
 using Retail.App.ViewModels.Presupuestos;
 using Retail.App.ViewModels.Ventas;
@@ -24,6 +25,7 @@ using Retail.App.Views.Pages;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.Interfaces.Services;
@@ -450,6 +452,59 @@ public class VistaSnapshotTests
 
             var vista = new PresupuestosView(viewModel);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PresupuestosView_Vacio", () => viewModel.EstaVacio);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void ListasView_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var servicio = Substitute.For<IListaService>();
+            servicio.ListarAsync(Arg.Any<ConsultaListasDto>(), Arg.Any<CancellationToken>())
+                .Returns(new ListasPaginadosDto
+                {
+                    Items = DatosDeMuestra.Listas(),
+                    TotalRegistros = 31,
+                    PaginaActual = 1,
+                    TamanoPagina = 15
+                });
+
+            var viewModel = new ListasViewModel(
+                servicio,
+                Substitute.For<IListaDialogService>(),
+                new RelojDePrueba(DatosDeMuestra.AhoraListas),
+                Substitute.For<ILogger<ListasViewModel>>());
+
+            var vista = new ListasView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/ListasView", () => viewModel.Listas.Count > 0);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void ListaFormDialog_ConUnArticuloDadoDeBaja_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            using var acceso = new CargaSerializada();
+            var viewModel = new ListaFormViewModel(
+                DatosDeMuestra.ListaDetalle(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IVentaService>(),
+                Substitute.For<ICurrentUserSession>(),
+                acceso,
+                Substitute.For<ILogger>());
+
+            var dialogo = new ListaFormDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 800, 700, carpeta + "/ListaFormDialog", () => viewModel.Renglones.Count > 0);
         });
 
         VerificarCaptura(ruta, error);
