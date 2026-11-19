@@ -23,11 +23,6 @@
             <converters:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisConverter" />
             <converters:AMayusculasConverter x:Key="AMayusculasConverter" />
 
-            <!-- Cantidades e importes alineados a la derecha, con su título sobre los dígitos -->
-            <Style x:Key="CeldaMonedaDerecha" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
-                <Setter Property="TextAlignment" Value="Right" />
-            </Style>
-
             <!-- Texto de una celda: se apaga cuando el artículo está dado de baja (L-13) -->
             <Style x:Key="CeldaDescripcionStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockTextCell}">
                 <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -46,7 +41,8 @@
                 </Style.Triggers>
             </Style>
 
-            <Style x:Key="CeldaImporteStyle" TargetType="TextBlock" BasedOn="{StaticResource CeldaMonedaDerecha}">
+            <!-- Importe (ya alineado a la derecha por TextBlockCurrencyCell), apagado si el artículo está dado de baja -->
+            <Style x:Key="CeldaImporteStyle" TargetType="TextBlock" BasedOn="{StaticResource TextBlockCurrencyCell}">
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding EstaDadoDeBaja}" Value="True">
                         <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
@@ -195,108 +191,117 @@
                     </Popup>
                 </Grid>
 
-                <!-- Renglones: la grilla es de solo lectura salvo la cantidad (SelectorCantidad, que confirma su valor solo) -->
-                <Grid Grid.Row="2">
-                    <DataGrid x:Name="GrillaRenglones"
-                              ItemsSource="{Binding Renglones}"
-                              SelectedItem="{Binding RenglonSeleccionado, Mode=TwoWay}"
-                              Style="{StaticResource DataGridRetailStyle}"
-                              AutoGenerateColumns="False"
-                              SelectionMode="Single"
-                              BorderThickness="0"
-                              helpers:EsquinasHelper.Esquinas="0">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Código"
-                                                Binding="{Binding CodigoBarras}"
-                                                ElementStyle="{StaticResource CeldaCodigoStyle}"
-                                                Width="136" />
+                <!-- Renglones: componente de grilla de la galería (TablaListadoStyle + DataGridListadoStyle). Es de solo
+                     lectura salvo la cantidad (SelectorCantidad, que confirma su valor solo) -->
+                <Border Grid.Row="2" Style="{StaticResource TablaListadoStyle}">
+                    <Grid>
+                        <DataGrid x:Name="GrillaRenglones"
+                                  ItemsSource="{Binding Renglones}"
+                                  SelectedItem="{Binding RenglonSeleccionado, Mode=TwoWay}"
+                                  Style="{StaticResource DataGridListadoStyle}"
+                                  AutoGenerateColumns="False"
+                                  SelectionMode="Single"
+                                  BorderThickness="0"
+                                  helpers:EsquinasHelper.Esquinas="7">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Código"
+                                                    Binding="{Binding CodigoBarras}"
+                                                    ElementStyle="{StaticResource CeldaCodigoStyle}"
+                                                    Width="136" />
 
-                            <!-- Descripción, con la marca "Dado de baja" cuando el artículo ya no está disponible (L-13) -->
-                            <DataGridTemplateColumn Header="Descripción" Width="*" MinWidth="140">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <DockPanel LastChildFill="True" VerticalAlignment="Center">
-                                            <Border DockPanel.Dock="Right"
-                                                    Style="{StaticResource BadgeWarningStyle}"
-                                                    Margin="8,0,0,0"
-                                                    ToolTip="El artículo fue dado de baja: no se vende ni se imprime, y no suma al total"
-                                                    Visibility="{Binding EstaDadoDeBaja, Converter={StaticResource BoolToVisConverter}}">
-                                                <TextBlock Text="Dado de baja"
-                                                           FontSize="{StaticResource FontSizeXs}"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="{DynamicResource WarningForegroundBrush}" />
-                                            </Border>
-                                            <TextBlock Text="{Binding Descripcion}"
-                                                       Style="{StaticResource CeldaDescripcionStyle}"
-                                                       ToolTip="{Binding Descripcion}" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
+                                <!-- Descripción, con la marca "Dado de baja" cuando el artículo ya no está disponible (L-13) -->
+                                <DataGridTemplateColumn Header="Descripción" Width="*" MinWidth="140">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <DockPanel LastChildFill="True" VerticalAlignment="Center">
+                                                <Border DockPanel.Dock="Right"
+                                                        Style="{StaticResource BadgeWarningStyle}"
+                                                        Margin="8,0,0,0"
+                                                        ToolTip="El artículo fue dado de baja: no se vende ni se imprime, y no suma al total"
+                                                        Visibility="{Binding EstaDadoDeBaja, Converter={StaticResource BoolToVisConverter}}">
+                                                    <TextBlock Text="Dado de baja"
+                                                               FontSize="{StaticResource FontSizeXs}"
+                                                               FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource WarningForegroundBrush}" />
+                                                </Border>
+                                                <TextBlock Text="{Binding Descripcion}"
+                                                           Style="{StaticResource CeldaDescripcionStyle}"
+                                                           ToolTip="{Binding Descripcion}" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
 
-                            <!-- Cantidad con pasos: nunca menos de 1; un artículo dado de baja no se edita, se quita -->
-                            <DataGridTemplateColumn Header="Cantidad"
-                                                    HeaderStyle="{StaticResource DataGridColumnHeaderCenterStyle}"
-                                                    Width="136">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                                     Minimo="1"
-                                                                     NombreAutomatizacion="Cantidad"
-                                                                     IsEnabled="{Binding EstaDisponible}"
-                                                                     HorizontalAlignment="Center"
-                                                                     VerticalAlignment="Center" />
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
+                                <!-- Cantidad con pasos: nunca menos de 1; un artículo dado de baja no se edita, se quita -->
+                                <DataGridTemplateColumn Header="Cantidad"
+                                                        HeaderStyle="{StaticResource DataGridColumnHeaderCenterListadoStyle}"
+                                                        Width="136">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <components:SelectorCantidad Valor="{Binding Cantidad, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                                         Minimo="1"
+                                                                         NombreAutomatizacion="Cantidad"
+                                                                         IsEnabled="{Binding EstaDisponible}"
+                                                                         HorizontalAlignment="Center"
+                                                                         VerticalAlignment="Center" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
 
-                            <DataGridTextColumn Header="Precio de hoy"
-                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                Binding="{Binding PrecioActual, StringFormat=C0}"
-                                                ElementStyle="{StaticResource CeldaImporteStyle}"
-                                                Width="112" />
+                                <DataGridTextColumn Header="Precio de hoy"
+                                                    HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                                    Binding="{Binding PrecioActual, StringFormat=C0}"
+                                                    ElementStyle="{StaticResource CeldaImporteStyle}"
+                                                    Width="112" />
 
-                            <DataGridTextColumn Header="Subtotal"
-                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightStyle}"
-                                                Binding="{Binding Subtotal, StringFormat=C0}"
-                                                ElementStyle="{StaticResource CeldaImporteStyle}"
-                                                Width="112" />
+                                <DataGridTextColumn Header="Subtotal"
+                                                    HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                                    Binding="{Binding Subtotal, StringFormat=C0}"
+                                                    ElementStyle="{StaticResource CeldaImporteStyle}"
+                                                    Width="112" />
 
-                            <!-- Quitar: la última fila no se puede quitar (el tooltip lo explica también deshabilitado) -->
-                            <DataGridTemplateColumn Header=""
-                                                    Width="56"
-                                                    CanUserResize="False"
-                                                    CanUserSort="False">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Command="{Binding DataContext.QuitarRenglonCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource IconDangerButtonStyle}"
-                                                ToolTip="{Binding DataContext.TextoQuitarRenglon, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                ToolTipService.ShowOnDisabled="True"
-                                                AutomationProperties.Name="Quitar artículo"
-                                                HorizontalAlignment="Center">
-                                            <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
-                                        </Button>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                                <!-- Quitar: la última fila no se puede quitar (el tooltip lo explica también deshabilitado) -->
+                                <DataGridTemplateColumn Header=""
+                                                        Width="36"
+                                                        CanUserResize="False"
+                                                        CanUserSort="False">
+                                    <!-- Columna de acción de la galería: angosta y sin relleno -->
+                                    <DataGridTemplateColumn.CellStyle>
+                                        <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
+                                            <Setter Property="Padding" Value="0" />
+                                        </Style>
+                                    </DataGridTemplateColumn.CellStyle>
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Button Command="{Binding DataContext.QuitarRenglonCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource IconDangerButtonStyle}"
+                                                    ToolTip="{Binding DataContext.TextoQuitarRenglon, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                    ToolTipService.ShowOnDisabled="True"
+                                                    AutomationProperties.Name="Quitar artículo"
+                                                    HorizontalAlignment="Center">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularTrash" Width="14" Height="14" />
+                                            </Button>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
 
-                    <!-- Estado vacío: dice qué hacer a continuación. No intercepta clics. -->
-                    <StackPanel VerticalAlignment="Center"
-                                HorizontalAlignment="Center"
-                                IsHitTestVisible="False"
-                                Margin="0,24,0,0"
-                                Visibility="{Binding SinRenglones, Converter={StaticResource BoolToVisConverter}}">
-                        <iconPacks:PackIconBoxIcons Kind="RegularListUl" Width="32" Height="32" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
-                        <TextBlock Text="Busque un artículo para agregarlo a la lista."
-                                   Style="{StaticResource TextBlockBodySecondary}"
-                                   TextAlignment="Center"
-                                   Margin="0,8,0,0" />
-                    </StackPanel>
-                </Grid>
+                        <!-- Estado vacío: dice qué hacer a continuación. No intercepta clics. -->
+                        <StackPanel VerticalAlignment="Center"
+                                    HorizontalAlignment="Center"
+                                    IsHitTestVisible="False"
+                                    Margin="0,24,0,0"
+                                    Visibility="{Binding SinRenglones, Converter={StaticResource BoolToVisConverter}}">
+                            <iconPacks:PackIconBoxIcons Kind="RegularListUl" Width="32" Height="32" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Text="Busque un artículo para agregarlo a la lista."
+                                       Style="{StaticResource TextBlockBodySecondary}"
+                                       TextAlignment="Center"
+                                       Margin="0,8,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
                 <!-- Aviso de artículos dados de baja y total de hoy (informativo: el servidor es la autoridad, L-08) -->
                 <StackPanel Grid.Row="3" Margin="0,12,0,0">

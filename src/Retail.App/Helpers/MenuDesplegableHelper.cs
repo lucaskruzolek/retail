@@ -35,6 +35,18 @@ public static class MenuDesplegableHelper
             typeof(MenuDesplegableHelper),
             new PropertyMetadata(false, AlCambiarAbrirAlHacerClic));
 
+    /// <summary>
+    /// Alinea el menú por el borde izquierdo del botón en lugar del derecho. Es para los desplegables que están a la
+    /// izquierda de la pantalla (los "Cargar ▾" y "Guardar como ▾" del POS): el menú crece hacia el contenido y no hacia
+    /// afuera. El "⋮" de las filas y el "Más" de las acciones masivas, que están a la derecha, no lo usan.
+    /// </summary>
+    public static readonly DependencyProperty AlinearALaIzquierdaProperty =
+        DependencyProperty.RegisterAttached(
+            "AlinearALaIzquierda",
+            typeof(bool),
+            typeof(MenuDesplegableHelper),
+            new PropertyMetadata(false));
+
     private static readonly DependencyPropertyDescriptor s_estadoDelMenu =
         DependencyPropertyDescriptor.FromProperty(ContextMenu.IsOpenProperty, typeof(ContextMenu));
 
@@ -48,6 +60,28 @@ public static class MenuDesplegableHelper
     {
         ArgumentNullException.ThrowIfNull(element);
         return (bool)element.GetValue(AbrirAlHacerClicProperty);
+    }
+
+    public static void SetAlinearALaIzquierda(DependencyObject element, bool value)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetValue(AlinearALaIzquierdaProperty, value);
+    }
+
+    public static bool GetAlinearALaIzquierda(DependencyObject element)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        return (bool)element.GetValue(AlinearALaIzquierdaProperty);
+    }
+
+    /// <summary>
+    /// Ubicación del menú con <see cref="AlinearALaIzquierdaProperty"/>: debajo del botón y con los bordes izquierdos
+    /// alineados. Es pública para poder probarla sin abrir un menú real.
+    /// </summary>
+    public static CustomPopupPlacement[] UbicarDebajoAlineadoALaIzquierda(Size tamanoDelMenu, Size tamanoDelBoton, Point desplazamiento)
+    {
+        var punto = new Point(desplazamiento.X, tamanoDelBoton.Height + desplazamiento.Y);
+        return [new CustomPopupPlacement(punto, PopupPrimaryAxis.None)];
     }
 
     /// <summary>
@@ -93,7 +127,9 @@ public static class MenuDesplegableHelper
 
         menu.PlacementTarget = boton;
         menu.Placement = PlacementMode.Custom;
-        menu.CustomPopupPlacementCallback = UbicarDebajoAlineadoALaDerecha;
+        menu.CustomPopupPlacementCallback = GetAlinearALaIzquierda(boton)
+            ? UbicarDebajoAlineadoALaIzquierda
+            : UbicarDebajoAlineadoALaDerecha;
         menu.StaysOpen = false;
 
         // Restar antes de sumar evita duplicar la suscripción cuando el botón se marca varias veces

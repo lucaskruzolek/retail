@@ -67,6 +67,7 @@
                                   Style="{StaticResource KeycapToggleButtonStyle}"
                                   Focusable="False"
                                   helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
+                                  helpers:MenuDesplegableHelper.AlinearALaIzquierda="True"
                                   ToolTip="Cargar una lista o un presupuesto en el ticket [F7]"
                                   AutomationProperties.Name="Cargar">
                         <StackPanel Orientation="Horizontal">
@@ -101,6 +102,7 @@
                                   Margin="8,0,0,0"
                                   Focusable="False"
                                   helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
+                                  helpers:MenuDesplegableHelper.AlinearALaIzquierda="True"
                                   ToolTip="Guardar el ticket como lista o como presupuesto [F3]: no hace falta tener la caja abierta"
                                   AutomationProperties.Name="Guardar como">
                         <StackPanel Orientation="Horizontal">
