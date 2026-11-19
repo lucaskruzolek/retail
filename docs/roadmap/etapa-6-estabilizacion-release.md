@@ -105,6 +105,14 @@ El Administrador ejecuta el backup manual con su propia contraseña y la restaur
 * **Fase 6 — UI y `Retail.Cli`:** sugerencias por artículo, cola de revisión, carga de diccionarios y "Actualizar modelo".
 * **Fase 7 — Cierre:** evaluación final sobre el conjunto de oro, verificación Release, mapa y wiki.
 
+### Track 6.7: Concurrencia Multiterminal
+**Responsable:** Lucas Kruzolek | **Rama:** una por paquete (ver el plan) | **Requisitos:** `RF-15`, `RF-20`, `RF-22`, `RF-23`, `RNF-01`, `RNF-05`, `RNF-06`, `RNF-08`  
+**Auditoría:** [`auditoria-concurrencia-multiterminal.md`](file:///c:/Users/lucas/Proyectos/retail/docs/auditorias/auditoria-concurrencia-multiterminal.md) · **Plan de implementación:** [`etapa-6-track-6.7-concurrencia-multiterminal.md`](file:///c:/Users/lucas/Proyectos/retail/docs/roadmap/etapa-6-track-6.7-concurrencia-multiterminal.md)
+
+Que el sistema funcione en forma correcta y segura con varias terminales sobre una única base SQL Server: identidad de la terminal, turno por cajero y terminal, sesión única, concurrencia optimista de caja y clientes, y mantenimiento (respaldo y restauración) solo en la PC servidor.
+
+**Estado:** Auditoría (Fases 0 y 1) cerrada; plan de 8 paquetes propuesto, sin implementar (2026-11-19).
+
 ---
 
 ## Criterio de Aceptación Final
