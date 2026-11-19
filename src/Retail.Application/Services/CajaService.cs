@@ -1,5 +1,6 @@
 using FluentValidation;
 using Retail.Application.DTOs.Caja;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
@@ -69,7 +70,7 @@ public class CajaService : ICajaService
         turno.RegistrarMovimiento(dto.TipoMovimiento, dto.Monto, dto.Concepto);
 
         await _turnoRepository.UpdateAsync(turno, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await GuardarDiagnosticandoTurnoCerradoAsync(dto.IdTurno, cancellationToken);
 
         return MapearATurnoDto(turno);
     }
@@ -84,7 +85,19 @@ public class CajaService : ICajaService
         turno.CerrarConArqueoCiego(dto.SaldoDeclaradoEfectivo, dto.MontoRetenidoEnCaja);
 
         await _turnoRepository.UpdateAsync(turno, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictoDeConcurrenciaException ex)
+        {
+            // Otra terminal registró una venta, un movimiento o una cobranza después de que se cargó el turno: el
+            // saldo teórico que vio el encargado ya no es el real, y un arqueo ciego contra un saldo viejo mentiría.
+            throw new ConflictoDeConcurrenciaException(
+                "Se registró una operación en el turno mientras se hacía el arqueo. Vuelva a abrir el cierre para ver el saldo actualizado.",
+                ex);
+        }
 
         return new ResultadoArqueoDto
         {
@@ -110,7 +123,7 @@ public class CajaService : ICajaService
         turno.ImputarCobranza(monto, medioPago);
 
         await _turnoRepository.UpdateAsync(turno, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await GuardarDiagnosticandoTurnoCerradoAsync(idTurno, cancellationToken);
     }
 
     public async Task RegistrarVentaEnCajaAsync(int idTurno, decimal totalEfectivo, decimal totalElectronico, CancellationToken cancellationToken = default)
@@ -121,7 +134,32 @@ public class CajaService : ICajaService
         turno.ImputarVenta(totalEfectivo, totalElectronico);
 
         await _turnoRepository.UpdateAsync(turno, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await GuardarDiagnosticandoTurnoCerradoAsync(idTurno, cancellationToken);
+    }
+
+    /// <summary>
+    /// Guarda los cambios y, si hay un conflicto de concurrencia, diagnostica si la causa es que otra terminal cerró
+    /// el turno. La Unit of Work solo sabe que "algo" cambió, así que el servicio relee el turno (el ChangeTracker ya
+    /// fue descartado) para dar un mensaje claro; si el turno sigue abierto, relanza el conflicto original.
+    /// </summary>
+    private async Task GuardarDiagnosticandoTurnoCerradoAsync(int idTurno, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictoDeConcurrenciaException ex)
+        {
+            var turnoActual = await _turnoRepository.GetByIdAsync(idTurno, cancellationToken);
+            if (turnoActual == null || turnoActual.Estado != EstadoTurnoEnum.Abierto)
+            {
+                throw new CajaCerradaException(
+                    "El turno de caja fue cerrado desde otra terminal. La operación no se registró.",
+                    ex);
+            }
+
+            throw;
+        }
     }
 
     private static TurnoCajaDto MapearATurnoDto(TurnoCaja turno)

@@ -10,6 +10,7 @@ public class TurnoCajaConfiguration : IEntityTypeConfiguration<TurnoCaja>
     {
         builder.ToTable("TURNOS_CAJA", t =>
         {
+            t.HasCheckConstraint("CK_TURNOS_CAJA_CantidadVentas", "[cantidad_ventas] >= 0");
             t.HasCheckConstraint("CK_TURNOS_CAJA_Saldos", "[saldo_inicial] >= 0 AND [total_ventas_efectivo] >= 0 AND [total_ingresos_efectivo] >= 0 AND [total_egresos_efectivo] >= 0 AND [total_ventas_electronicas] >= 0 AND [monto_retenido_en_caja] >= 0");
         });
 
@@ -72,6 +73,10 @@ public class TurnoCajaConfiguration : IEntityTypeConfiguration<TurnoCaja>
             .HasPrecision(18, 2)
             .IsRequired();
 
+        builder.Property(tc => tc.CantidadVentas)
+            .HasColumnName("cantidad_ventas")
+            .IsRequired();
+
         builder.Property(tc => tc.Estado)
             .HasColumnName("estado")
             .HasConversion<string>()
@@ -86,6 +91,14 @@ public class TurnoCajaConfiguration : IEntityTypeConfiguration<TurnoCaja>
             .HasColumnName("deleted_at");
 
         builder.Ignore(tc => tc.IsDeleted);
+
+        // Control de concurrencia optimista (MT-11, H3): un encargado puede cerrar el turno desde otra terminal
+        // mientras el cajero está cobrando una venta. SQL Server cambia el rowversion en cada UPDATE y EF Core lo
+        // agrega al WHERE, así que el segundo guardado falla con DbUpdateConcurrencyException en lugar de imputar
+        // la venta a un turno ya cerrado. Shadow property: el Dominio no necesita conocer este detalle.
+        builder.Property<byte[]>("RowVersion")
+            .HasColumnName("row_version")
+            .IsRowVersion();
 
         builder.HasOne(tc => tc.Usuario)
             .WithMany(u => u.TurnosCaja)

@@ -80,5 +80,13 @@ public class ClienteConfiguration : IEntityTypeConfiguration<Cliente>
             .HasColumnName("deleted_at");
 
         builder.Ignore(c => c.IsDeleted);
+
+        // Control de concurrencia optimista (H2): dos ventas a crédito al mismo cliente, o una edición del límite
+        // concurrente con una venta, se pisarían entre sí. La regla "límite >= deuda" de
+        // Cliente.ModificarLimiteCredito vincula dos columnas de la misma fila, así que solo un token a nivel de
+        // fila detecta el conflicto. Shadow property: el Dominio no necesita conocer este detalle.
+        builder.Property<byte[]>("RowVersion")
+            .HasColumnName("row_version")
+            .IsRowVersion();
     }
 }
