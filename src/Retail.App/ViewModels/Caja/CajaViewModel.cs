@@ -84,7 +84,7 @@ public partial class CajaViewModel : ObservableObject, IDisposable
         {
             try
             {
-                TurnoActivo = await _cajaService.RegistrarMovimientoAsync(dto);
+                TurnoActivo = await _cajaService.RegistrarMovimientoAsync(dto with { IdUsuario = TurnoActivo.IdUsuario });
                 _dialogService.MostrarInformacion("Caja", "Movimiento registrado correctamente.");
             }
             catch (Exception ex)
@@ -106,6 +106,10 @@ public partial class CajaViewModel : ObservableObject, IDisposable
                 var dto = new ArqueoCiegoDto
                 {
                     IdTurno = TurnoActivo.IdTurno,
+                    IdUsuarioActor = TurnoActivo.IdUsuario,
+                    SaldoTeoricoLeido = TurnoActivo.SaldoTeoricoEfectivo,
+                    TotalElectronicoLeido = TurnoActivo.TotalVentasElectronicas,
+                    CantidadVentasLeida = TurnoActivo.CantidadVentas,
                     SaldoDeclaradoEfectivo = saldoDeclarado,
                     MontoRetenidoEnCaja = montoRetenido
                 };

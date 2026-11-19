@@ -17,6 +17,13 @@ public class TurnoCaja : BaseEntity, IAggregateRoot
 
     public Usuario? Usuario { get; private set; }
 
+    /// <summary>
+    /// Terminal (PC de mostrador) donde se abrió el turno. Un turno pertenece a una cajera Y a una terminal (MT-1).
+    /// </summary>
+    public int IdTerminal { get; private set; }
+
+    public Terminal? Terminal { get; private set; }
+
     public DateTime FechaApertura { get; private set; } = DateTime.UtcNow;
 
     public decimal SaldoInicial { get; private set; }
@@ -58,21 +65,52 @@ public class TurnoCaja : BaseEntity, IAggregateRoot
 
     protected TurnoCaja() { }
 
-    public TurnoCaja(int idUsuario, decimal saldoInicial)
+    public TurnoCaja(int idUsuario, int idTerminal, decimal saldoInicial)
     {
+        if (idUsuario <= 0)
+            throw new DomainException("El turno debe pertenecer a un usuario válido.");
+
+        if (idTerminal <= 0)
+            throw new DomainException("El turno debe abrirse en una terminal válida.");
+
         if (saldoInicial < 0)
             throw new DomainException("El saldo inicial de caja no puede ser negativo.");
 
         IdUsuario = idUsuario;
+        IdTerminal = idTerminal;
         SaldoInicial = saldoInicial;
         SaldoTeoricoEfectivo = saldoInicial;
         Estado = EstadoTurnoEnum.Abierto;
         FechaApertura = DateTime.UtcNow;
     }
 
-    public static TurnoCaja Abrir(int idUsuario, decimal saldoInicial)
+    public static TurnoCaja Abrir(int idUsuario, int idTerminal, decimal saldoInicial)
     {
-        return new TurnoCaja(idUsuario, saldoInicial);
+        return new TurnoCaja(idUsuario, idTerminal, saldoInicial);
+    }
+
+    /// <summary>
+    /// Indica si el turno es del usuario dado. Solo el dueño de un turno abierto puede operarlo (MT-14).
+    /// </summary>
+    public bool EsDe(int idUsuario)
+    {
+        return IdUsuario == idUsuario;
+    }
+
+    /// <summary>
+    /// Control optimista "fuera de línea" para el cierre: quien cierra (por ejemplo, un Gerente desde otra terminal)
+    /// decide con importes que leyó minutos antes. Si el saldo teórico, el total electrónico o la cantidad de ventas
+    /// cambiaron desde entonces, el cierre se rechaza: toda venta, cobranza o movimiento de efectivo altera al menos
+    /// uno de los tres valores.
+    /// </summary>
+    public void ExigirSinCambiosDesde(decimal saldoTeoricoLeido, decimal totalElectronicoLeido, int cantidadVentasLeida)
+    {
+        if (SaldoTeoricoEfectivo != saldoTeoricoLeido
+            || TotalVentasElectronicas != totalElectronicoLeido
+            || CantidadVentas != cantidadVentasLeida)
+        {
+            throw new TurnoModificadoException();
+        }
     }
 
     public void RegistrarMovimiento(TipoMovimientoCajaEnum tipo, decimal monto, string concepto)

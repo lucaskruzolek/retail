@@ -317,7 +317,7 @@ public class RestauracionServiceTests
     {
         // Arrange (R-11)
         var copia = CopiaEnHistorial();
-        _turnosAbiertos.Add(TurnoCaja.Abrir(IdGerente, 1000m));
+        _turnosAbiertos.Add(TurnoCaja.Abrir(IdGerente, 1, 1000m));
 
         // Act
         var act = async () => await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
@@ -373,7 +373,7 @@ public class RestauracionServiceTests
         _restaurador.RestaurarEnBaseTemporalAsync(RutaBak, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
             .Returns(_ =>
             {
-                _turnosAbiertos.Add(TurnoCaja.Abrir(IdCajero, 500m));
+                _turnosAbiertos.Add(TurnoCaja.Abrir(IdCajero, 1, 500m));
                 return _temporal;
             });
 

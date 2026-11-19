@@ -51,7 +51,8 @@ public class ReporteQueryServiceTests : IAsyncLifetime, IDisposable
         await _context.SaveChangesAsync();
 
         // Solo puede haber un turno abierto (índice único): las ventas de ambos cajeros comparten el turno.
-        var turno = TurnoCaja.Abrir(cajero1.Id, 0m);
+        var idTerminal = await TerminalesDePrueba.SembrarAsync(_context);
+        var turno = TurnoCaja.Abrir(cajero1.Id, idTerminal, 0m);
         _context.TurnosCaja.Add(turno);
         await _context.SaveChangesAsync();
 

@@ -400,6 +400,29 @@ public class ClienteServiceTests
         _unitOfWork.Received(1).DescartarCambios();
     }
 
+    [Fact]
+    public async Task RegistrarCobranzaAsync_TurnoDeOtroCajero_LanzaTurnoAjenoSinImputarEnCaja()
+    {
+        // Arrange: el turno activo de la terminal es del usuario 1; cobra el usuario 2 (MT-14).
+        _cajaService.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>())
+            .Returns(new Retail.Application.DTOs.Caja.TurnoCajaDto
+            {
+                IdTurno = 1,
+                IdUsuario = 1,
+                NombreUsuario = "Ana Pérez",
+                FechaApertura = DateTime.UtcNow.Date,
+                SaldoInicial = 5000m,
+                Estado = EstadoTurnoEnum.Abierto
+            });
+
+        // Act
+        var act = async () => await _sut.RegistrarCobranzaAsync(NuevaCobranza() with { IdUsuario = 2 });
+
+        // Assert
+        await act.Should().ThrowAsync<TurnoAjenoException>().WithMessage("*Ana Pérez*");
+        await _cajaService.DidNotReceiveWithAnyArgs().RegistrarIngresoCobranzaAsync(default, default, default, default);
+    }
+
     private void ConfigurarCobranzaConFalloEnCaja(Exception fallo)
     {
         var cliente = ClientesDePrueba.Crear(id: 10, razonSocialONombre: "Papelería Central", tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 20000m);

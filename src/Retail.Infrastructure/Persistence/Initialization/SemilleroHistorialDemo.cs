@@ -66,6 +66,7 @@ public static class SemilleroHistorialDemo
         var idProveedorEscolar = await CrearProveedorAsync(context, "Mayorista Escolar Demo S.A.", CatalogoHistorialDemo.CuitProveedorEscolar, alta, cancellationToken);
         var idProveedorBazar = await CrearProveedorAsync(context, "Bazar y Juguetes Demo S.R.L.", CatalogoHistorialDemo.CuitProveedorBazar, alta, cancellationToken);
         var idsCajeros = await CrearCajerosAsync(context, hasher, alta, cancellationToken);
+        var idsTerminales = await ObtenerTerminalesAsync(context, alta, cancellationToken);
         var clientes = await CrearClientesAsync(context, alta, cancellationToken);
 
         // Política global de redondeo del precio (D-38): se lee una vez por corrida y se usa en todo el historial.
@@ -82,6 +83,7 @@ public static class SemilleroHistorialDemo
             zona,
             idGerente,
             idsCajeros,
+            idsTerminales,
             idProveedorEscolar,
             idProveedorBazar,
             articulos,
@@ -188,6 +190,35 @@ public static class SemilleroHistorialDemo
         context.Proveedores.Add(proveedor);
         await context.SaveChangesAsync(cancellationToken);
         return proveedor.Id;
+    }
+
+    /// <summary>
+    /// Terminales del local demostrativo: reutiliza las que ya existan y completa hasta dos ("Mostrador 1" y "Mostrador 2"),
+    /// para que el historial muestre turnos en más de una caja (MT-1). Los equipos son ficticios: no son esta PC.
+    /// </summary>
+    private static async Task<IReadOnlyList<int>> ObtenerTerminalesAsync(
+        RetailDbContext context,
+        DateTime alta,
+        CancellationToken cancellationToken)
+    {
+        const int CantidadDeTerminalesDemo = 2;
+
+        var ids = await context.Terminales
+            .AsNoTracking()
+            .OrderBy(t => t.Id)
+            .Select(t => t.Id)
+            .ToListAsync(cancellationToken);
+
+        for (var numero = ids.Count + 1; numero <= CantidadDeTerminalesDemo; numero++)
+        {
+            var terminal = Terminal.Crear($"Mostrador {numero}", $"EQUIPO-DEMO-{numero}");
+            terminal.CreatedAt = alta;
+            context.Terminales.Add(terminal);
+            await context.SaveChangesAsync(cancellationToken);
+            ids.Add(terminal.Id);
+        }
+
+        return ids;
     }
 
     private static async Task<IReadOnlyList<int>> CrearCajerosAsync(

@@ -8,6 +8,12 @@ namespace Retail.Application.DTOs.Caja;
 public record class MovimientoCajaDto
 {
     public required int IdTurno { get; init; }
+
+    /// <summary>
+    /// Quien registra el movimiento. Solo el dueño del turno puede operarlo.
+    /// </summary>
+    public required int IdUsuario { get; init; }
+
     public required TipoMovimientoCajaEnum TipoMovimiento { get; init; }
     public required decimal Monto { get; init; }
     public required string Concepto { get; init; }

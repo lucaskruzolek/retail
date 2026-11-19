@@ -4,6 +4,7 @@ using Retail.Application.DTOs.Reportes;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Initialization;
 using Retail.Infrastructure.Persistence.Services;
@@ -255,7 +256,8 @@ public class SemilleroHistorialDemoTests : IAsyncLifetime, IDisposable
         _context.Usuarios.Add(cajero);
         await _context.SaveChangesAsync();
 
-        var turno = TurnoCaja.Abrir(cajero.Id, 1000m);
+        var idTerminal = await TerminalesDePrueba.SembrarAsync(_context);
+        var turno = TurnoCaja.Abrir(cajero.Id, idTerminal, 1000m);
         _context.TurnosCaja.Add(turno);
         await _context.SaveChangesAsync();
         return turno;

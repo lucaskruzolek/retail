@@ -37,6 +37,7 @@ public class CajaDialogService : ICajaDialogService
             return new MovimientoCajaDto
             {
                 IdTurno = idTurno,
+                IdUsuario = 0, // Lo completa el ViewModel con el dueño del turno (el diálogo no conoce la sesión).
                 TipoMovimiento = vm.TipoMovimiento,
                 Monto = vm.Monto,
                 Concepto = vm.Concepto.Trim()

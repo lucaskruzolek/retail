@@ -14,6 +14,7 @@ using Retail.Domain.Entities;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
 using Retail.Infrastructure.Backups;
+using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Xunit;
 
@@ -658,7 +659,8 @@ public class RestauracionIntegracionTests : IAsyncLifetime
         var copia = await PrepararCopiaConDatosAYCambiarABAsync();
         await using (var contexto = ContextoDe(CadenaVigente))
         {
-            contexto.TurnosCaja.Add(TurnoCaja.Abrir(_idGerente, 1000m));
+            var idTerminal = await TerminalesDePrueba.SembrarAsync(contexto);
+            contexto.TurnosCaja.Add(TurnoCaja.Abrir(_idGerente, idTerminal, 1000m));
             await contexto.SaveChangesAsync();
         }
 

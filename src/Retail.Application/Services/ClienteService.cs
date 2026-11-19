@@ -7,6 +7,7 @@ using Retail.Application.Interfaces.Services;
 using Retail.Domain.Common;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 
 namespace Retail.Application.Services;
 
@@ -307,6 +308,12 @@ public class ClienteService : IClienteService
         if (turnoActivo.IdTurno != dto.IdTurno)
         {
             throw new InvalidOperationException($"El turno especificado (#{dto.IdTurno}) no coincide con el turno activo actual (#{turnoActivo.IdTurno}).");
+        }
+
+        // Solo el dueño del turno cobra sobre él (MT-14).
+        if (turnoActivo.IdUsuario != dto.IdUsuario)
+        {
+            throw new TurnoAjenoException(MensajesDeTurno.TurnoAjeno(turnoActivo.NombreUsuario));
         }
 
         var cliente = await _clienteRepository.GetByIdWithIncludesAsync(dto.IdCliente, cancellationToken, c => c.Cobranzas)

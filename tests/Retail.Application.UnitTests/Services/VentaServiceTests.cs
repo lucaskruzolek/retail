@@ -48,7 +48,7 @@ public class VentaServiceTests
         _presupuestoRepository = Substitute.For<IRepository<Presupuesto>>();
         _presupuestoQueryService = Substitute.For<IPresupuestoQueryService>();
 
-        _turno = TurnoCaja.Abrir(IdUsuario, saldoInicial: 5000m);
+        _turno = TurnoCaja.Abrir(IdUsuario, idTerminal: 1, saldoInicial: 5000m);
         _turno.Id = IdTurno;
         _turnoRepository.GetByIdAsync(IdTurno, Arg.Any<CancellationToken>()).Returns(_turno);
 
@@ -330,6 +330,23 @@ public class VentaServiceTests
 
         // Assert
         await act.Should().ThrowAsync<CajaCerradaException>();
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Fact]
+    public async Task RegistrarVentaAsync_TurnoDeOtroCajero_LanzaTurnoAjenoSinGuardar()
+    {
+        // Arrange: el turno es de IdUsuario; otro cajero intenta venderle (MT-14).
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+        var dto = CrearDto([Item(cuaderno, 1)], [Pago(MedioPagoEnum.Efectivo, 1500m)]) with { IdUsuario = IdUsuario + 1 };
+
+        // Act
+        var act = () => _sut.RegistrarVentaAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<TurnoAjenoException>().WithMessage("*Solo esa persona puede operarlo*");
+        cuaderno.StockActual.Should().Be(8);
         await AssertNoSeGuardoNadaAsync();
     }
 
@@ -900,7 +917,7 @@ public class VentaServiceTests
         // Arrange: la primera lectura ve el turno abierto; tras el conflicto, la relectura lo encuentra cerrado.
         var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
         ConfigurarArticulos(cuaderno);
-        var turnoCerrado = TurnoCaja.Abrir(IdUsuario, saldoInicial: 5000m);
+        var turnoCerrado = TurnoCaja.Abrir(IdUsuario, idTerminal: 1, saldoInicial: 5000m);
         turnoCerrado.Id = IdTurno;
         turnoCerrado.CerrarConArqueoCiego(5000m, 0m);
         _turnoRepository.GetByIdAsync(IdTurno, Arg.Any<CancellationToken>()).Returns(_turno, turnoCerrado);

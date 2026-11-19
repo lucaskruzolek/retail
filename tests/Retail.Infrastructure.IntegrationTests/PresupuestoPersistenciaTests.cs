@@ -325,7 +325,8 @@ public class PresupuestoPersistenciaTests : PedidosPruebaBase
 
     private async Task SembrarTurnoAsync()
     {
-        var turno = TurnoCaja.Abrir(IdUsuario, saldoInicial: 5000m);
+        var idTerminal = await TerminalesDePrueba.SembrarAsync(Contexto);
+        var turno = TurnoCaja.Abrir(IdUsuario, idTerminal, saldoInicial: 5000m);
         Contexto.TurnosCaja.Add(turno);
         await Contexto.SaveChangesAsync();
         _idTurno = turno.Id;
