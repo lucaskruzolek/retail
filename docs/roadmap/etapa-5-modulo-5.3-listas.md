@@ -18,7 +18,7 @@
 | L3 | Infraestructura: configuración EF, migración, `ListaQueryService`, PDF de la lista | ✅ Hecha |
 | L4 | UI: pestaña **Listas** en Ventas (listado y editor) | ✅ Hecha |
 | L5 | UI del POS: desplegables **Cargar ▾** y **Guardar como ▾** y selector de listas | ✅ Hecha |
-| L6 | Cierre: verificación Release, mapa, prueba manual | ⏳ Pendiente |
+| L6 | Cierre: verificación Release, mapa, prueba manual | 🟡 Release en verde (4470 tests, 2026-11-19); falta la prueba manual (sección 8) |
 
 ---
 
