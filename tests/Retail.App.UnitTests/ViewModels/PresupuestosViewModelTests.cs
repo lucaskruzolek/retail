@@ -5,6 +5,7 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
+using Retail.App.ViewModels.Comun;
 using Retail.App.ViewModels.Presupuestos;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.Exceptions;
@@ -108,27 +109,148 @@ public class PresupuestosViewModelTests : IDisposable
         _sut.IsBusy.Should().BeFalse();
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c =>
-                c.Pagina == 1 && c.TamanoPagina == 15 && c.Filtro == FiltroEstadoPresupuestoEnum.Todos && string.IsNullOrEmpty(c.TerminoBusqueda)),
+                c.Pagina == 1 && c.TamanoPagina == 15 && c.Estados.Count == 0 && c.IdsCliente.Count == 0 &&
+                !c.IncluirConsumidorFinal && c.EmisionDesdeUtc == null && c.EmisionHastaUtc == null &&
+                c.VenceDesde == null && c.VenceHasta == null && string.IsNullOrEmpty(c.TerminoBusqueda)),
             Arg.Any<CancellationToken>());
     }
 
-    [Theory]
-    [InlineData(FiltroEstadoPresupuestoEnum.Vigentes)]
-    [InlineData(FiltroEstadoPresupuestoEnum.Vencidos)]
-    [InlineData(FiltroEstadoPresupuestoEnum.Convertidos)]
-    [InlineData(FiltroEstadoPresupuestoEnum.Anulados)]
-    public async Task FiltroEstado_Cambia_ConsultaConEseFiltroDesdeLaPrimeraPagina(FiltroEstadoPresupuestoEnum filtro)
+    [Fact]
+    public async Task InicializarAsync_CargaLosClientesDelFiltro_ConsumidorFinalPrimeroYLuegoLosClientes()
+    {
+        _presupuestoService.ListarClientesConPresupuestosAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new ClienteConPresupuestosDto { IdCliente = 7, Nombre = "Escuela Nº 5" },
+            new ClienteConPresupuestosDto { IdCliente = 3, Nombre = "Ana Pérez" }
+        ]);
+
+        await _sut.InicializarAsync();
+
+        var opciones = _sut.FiltroCliente.Grupos.SelectMany(g => g.Opciones).ToList();
+        opciones.Select(o => o.Nombre).Should().Equal("Consumidor Final", "Ana Pérez", "Escuela Nº 5");
+        opciones.Select(o => o.Id).Should().Equal(0, 3, 7);
+        LlamadasAlListado.Should().Be(1, "cargar las opciones no dispara una consulta propia");
+    }
+
+    [Fact]
+    public async Task InicializarAsync_SinClientesConPresupuestos_ConsumidorFinalSigueDisponible()
+    {
+        await _sut.InicializarAsync();
+
+        _sut.FiltroCliente.Grupos.SelectMany(g => g.Opciones).Should().ContainSingle().Which.Nombre.Should().Be("Consumidor Final");
+    }
+
+    [Fact]
+    public async Task FiltroEstado_ConVariosEstados_ConsultaConEllosDesdeLaPrimeraPagina()
     {
         await _sut.InicializarAsync();
         _sut.PaginaActual = 3;
 
-        _sut.FiltroEstado = filtro;
+        AplicarOpciones(_sut.FiltroEstado, (int)FiltroEstadoPresupuestoEnum.Vigentes, (int)FiltroEstadoPresupuestoEnum.Anulados);
 
         await EsperarAsync(() => LlamadasAlListado == 2);
         _sut.PaginaActual.Should().Be(1);
         await _presupuestoService.Received(1).ListarAsync(
-            Arg.Is<ConsultaPresupuestosDto>(c => c.Filtro == filtro && c.Pagina == 1),
+            Arg.Is<ConsultaPresupuestosDto>(c =>
+                c.Pagina == 1 &&
+                c.Estados.SequenceEqual(new[] { FiltroEstadoPresupuestoEnum.Vigentes, FiltroEstadoPresupuestoEnum.Anulados })),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltroCliente_ConUnClienteReal_ConsultaPorSuIdSinConsumidorFinal()
+    {
+        PrepararClientes();
+        await _sut.InicializarAsync();
+
+        AplicarOpciones(_sut.FiltroCliente, 7);
+
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        await _presupuestoService.Received(1).ListarAsync(
+            Arg.Is<ConsultaPresupuestosDto>(c => c.IdsCliente.Count == 1 && c.IdsCliente[0] == 7 && !c.IncluirConsumidorFinal),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltroCliente_ConConsumidorFinal_SeTraduceALaBanderaYNoEnviaElIdLocal()
+    {
+        PrepararClientes();
+        await _sut.InicializarAsync();
+
+        AplicarOpciones(_sut.FiltroCliente, 0);
+
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        await _presupuestoService.Received(1).ListarAsync(
+            Arg.Is<ConsultaPresupuestosDto>(c => c.IdsCliente.Count == 0 && c.IncluirConsumidorFinal),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltroCliente_ConConsumidorFinalYUnCliente_EnviaAmbos()
+    {
+        PrepararClientes();
+        await _sut.InicializarAsync();
+
+        AplicarOpciones(_sut.FiltroCliente, 0, 7);
+
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        await _presupuestoService.Received(1).ListarAsync(
+            Arg.Is<ConsultaPresupuestosDto>(c => c.IdsCliente.Count == 1 && c.IdsCliente[0] == 7 && c.IncluirConsumidorFinal),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltroEmision_ConUnRango_ConsultaElIntervaloUtcSemiabierto()
+    {
+        await _sut.InicializarAsync();
+
+        _sut.FiltroEmision.BorradorDesde = new DateTime(2026, 11, 10);
+        _sut.FiltroEmision.BorradorHasta = new DateTime(2026, 11, 12);
+        _sut.FiltroEmision.AplicarCommand.Execute(null);
+
+        var (desdeEsperado, hastaEsperado) = _sut.FiltroEmision.RangoUtc();
+        desdeEsperado.Should().NotBeNull();
+        hastaEsperado.Should().Be(desdeEsperado!.Value.AddDays(3));
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        await _presupuestoService.Received(1).ListarAsync(
+            Arg.Is<ConsultaPresupuestosDto>(c => c.EmisionDesdeUtc == desdeEsperado && c.EmisionHastaUtc == hastaEsperado && c.Pagina == 1),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FiltroVencimiento_ConUnRango_ConsultaFechasCalendarioInclusivas()
+    {
+        await _sut.InicializarAsync();
+
+        _sut.FiltroVencimiento.BorradorDesde = new DateTime(2026, 11, 20, 18, 30, 0);
+        _sut.FiltroVencimiento.BorradorHasta = new DateTime(2026, 11, 29);
+        _sut.FiltroVencimiento.AplicarCommand.Execute(null);
+
+        await EsperarAsync(() => LlamadasAlListado == 2);
+        await _presupuestoService.Received(1).ListarAsync(
+            Arg.Is<ConsultaPresupuestosDto>(c =>
+                c.VenceDesde == new DateOnly(2026, 11, 20) && c.VenceHasta == new DateOnly(2026, 11, 29) && c.Pagina == 1),
+            Arg.Any<CancellationToken>());
+    }
+
+    private void PrepararClientes()
+    {
+        _presupuestoService.ListarClientesConPresupuestosAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new ClienteConPresupuestosDto { IdCliente = 7, Nombre = "Escuela Nº 5" },
+            new ClienteConPresupuestosDto { IdCliente = 3, Nombre = "Ana Pérez" }
+        ]);
+    }
+
+    // Marca solo estas casillas y aplica, como lo hace el usuario con el panel del filtro de columna
+    private static void AplicarOpciones(FiltroColumnaViewModel filtro, params int[] ids)
+    {
+        foreach (var opcion in filtro.Grupos.SelectMany(g => g.Opciones))
+        {
+            opcion.Seleccionada = ids.Contains(opcion.Id);
+        }
+
+        filtro.AplicarCommand.Execute(null);
     }
 
     [Fact]
@@ -164,19 +286,31 @@ public class PresupuestosViewModelTests : IDisposable
     }
 
     [Fact]
-    public async Task LimpiarFiltros_ConBusquedaYFiltro_VuelveAlListadoCompletoConUnaSolaConsulta()
+    public async Task LimpiarFiltros_ConTodosLosFiltrosActivos_VuelveAlListadoCompletoConUnaSolaConsulta()
     {
+        PrepararClientes();
         await _sut.InicializarAsync();
-        _sut.FiltroEstado = FiltroEstadoPresupuestoEnum.Vencidos;
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        AplicarOpciones(_sut.FiltroEstado, (int)FiltroEstadoPresupuestoEnum.Vencidos);
+        AplicarOpciones(_sut.FiltroCliente, 7);
+        _sut.FiltroEmision.BorradorDesde = new DateTime(2026, 11, 1);
+        _sut.FiltroEmision.AplicarCommand.Execute(null);
+        _sut.FiltroVencimiento.BorradorHasta = new DateTime(2026, 11, 30);
+        _sut.FiltroVencimiento.AplicarCommand.Execute(null);
+
+        // Una consulta nueva cancela la anterior: se espera a que las cuatro de arriba se asienten antes de contar
+        await Task.Delay(300);
+        var antesDeLimpiar = LlamadasAlListado;
         _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeTrue();
 
         _sut.LimpiarFiltrosCommand.Execute(null);
 
-        await EsperarAsync(() => LlamadasAlListado == 3);
+        await EsperarAsync(() => LlamadasAlListado == antesDeLimpiar + 1);
         await Task.Delay(100);
-        LlamadasAlListado.Should().Be(3);
-        _sut.FiltroEstado.Should().Be(FiltroEstadoPresupuestoEnum.Todos);
+        LlamadasAlListado.Should().Be(antesDeLimpiar + 1);
+        _sut.FiltroEstado.HayFiltroActivo.Should().BeFalse();
+        _sut.FiltroCliente.HayFiltroActivo.Should().BeFalse();
+        _sut.FiltroEmision.HayFiltroActivo.Should().BeFalse();
+        _sut.FiltroVencimiento.HayFiltroActivo.Should().BeFalse();
         _sut.TextoBusqueda.Should().BeEmpty();
         _sut.LimpiarFiltrosCommand.CanExecute(null).Should().BeFalse();
     }
@@ -259,7 +393,7 @@ public class PresupuestosViewModelTests : IDisposable
         PrepararListado();
         await _sut.InicializarAsync();
 
-        _sut.FiltroEstado = FiltroEstadoPresupuestoEnum.Anulados;
+        AplicarOpciones(_sut.FiltroEstado, (int)FiltroEstadoPresupuestoEnum.Anulados);
         await EsperarAsync(() => LlamadasAlListado == 2);
 
         _sut.EstaVacio.Should().BeTrue();

@@ -57,8 +57,8 @@ public class PresupuestoQueryServiceTests : PedidosPruebaBase
         var servicio = new PresupuestoQueryService(NuevoContexto());
 
         // Act
-        var vigentes = await servicio.ListarAsync(new ConsultaPresupuestosDto { Filtro = FiltroEstadoPresupuestoEnum.Vigentes }, Hoy);
-        var vencidos = await servicio.ListarAsync(new ConsultaPresupuestosDto { Filtro = FiltroEstadoPresupuestoEnum.Vencidos }, Hoy);
+        var vigentes = await servicio.ListarAsync(new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Vigentes] }, Hoy);
+        var vencidos = await servicio.ListarAsync(new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Vencidos] }, Hoy);
 
         // Assert
         vigentes.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([venceHoy.Id, venceManana.Id]);
@@ -68,7 +68,7 @@ public class PresupuestoQueryServiceTests : PedidosPruebaBase
     }
 
     [Fact]
-    public async Task ListarAsync_FiltrosPorEstado_SeparanConvertidosAnuladosYTodos()
+    public async Task ListarAsync_FiltrosPorEstado_SeparanConvertidosAnuladosYSinFiltro()
     {
         // Arrange
         var pendiente = await EmitirAsync(venceEn: 5);
@@ -82,11 +82,11 @@ public class PresupuestoQueryServiceTests : PedidosPruebaBase
         var servicio = new PresupuestoQueryService(NuevoContexto());
 
         // Act
-        var convertidos = await servicio.ListarAsync(new ConsultaPresupuestosDto { Filtro = FiltroEstadoPresupuestoEnum.Convertidos }, Hoy);
-        var anulados = await servicio.ListarAsync(new ConsultaPresupuestosDto { Filtro = FiltroEstadoPresupuestoEnum.Anulados }, Hoy);
-        var vigentes = await servicio.ListarAsync(new ConsultaPresupuestosDto { Filtro = FiltroEstadoPresupuestoEnum.Vigentes }, Hoy);
-        var vencidos = await servicio.ListarAsync(new ConsultaPresupuestosDto { Filtro = FiltroEstadoPresupuestoEnum.Vencidos }, Hoy);
-        var todos = await servicio.ListarAsync(new ConsultaPresupuestosDto { Filtro = FiltroEstadoPresupuestoEnum.Todos }, Hoy);
+        var convertidos = await servicio.ListarAsync(new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Convertidos] }, Hoy);
+        var anulados = await servicio.ListarAsync(new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Anulados] }, Hoy);
+        var vigentes = await servicio.ListarAsync(new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Vigentes] }, Hoy);
+        var vencidos = await servicio.ListarAsync(new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Vencidos] }, Hoy);
+        var todos = await servicio.ListarAsync(new ConsultaPresupuestosDto(), Hoy);
 
         // Assert: Vigentes y Vencidos solo miran los pendientes
         convertidos.Items.Select(p => p.IdPresupuesto).Should().Equal(convertido.Id);
@@ -94,6 +94,234 @@ public class PresupuestoQueryServiceTests : PedidosPruebaBase
         vigentes.Items.Select(p => p.IdPresupuesto).Should().Equal(pendiente.Id);
         vencidos.Items.Should().BeEmpty();
         todos.TotalRegistros.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task ListarAsync_VigentesYVencidosJuntos_CombinaLosEstadosConO()
+    {
+        // Arrange
+        var vigente = await EmitirAsync(venceEn: 3);
+        var vencido = await EmitirAsync(venceEn: -2);
+        var convertido = await EmitirAsync(venceEn: 3);
+        convertido.RegistrarConversion();
+        await Contexto.SaveChangesAsync();
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ListarAsync(
+            new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Vigentes, FiltroEstadoPresupuestoEnum.Vencidos] },
+            Hoy);
+
+        // Assert
+        resultado.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([vigente.Id, vencido.Id]);
+        resultado.TotalRegistros.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ListarAsync_ConvertidosYAnuladosJuntos_ExcluyeLosPendientes()
+    {
+        // Arrange
+        await EmitirAsync(venceEn: 3);
+        await EmitirAsync(venceEn: -2);
+        var convertido = await EmitirAsync(venceEn: 3);
+        convertido.RegistrarConversion();
+        var anulado = await EmitirAsync(venceEn: 3);
+        anulado.Anular();
+        await Contexto.SaveChangesAsync();
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ListarAsync(
+            new ConsultaPresupuestosDto { Estados = [FiltroEstadoPresupuestoEnum.Convertidos, FiltroEstadoPresupuestoEnum.Anulados] },
+            Hoy);
+
+        // Assert
+        resultado.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([convertido.Id, anulado.Id]);
+    }
+
+    [Fact]
+    public async Task ListarAsync_FiltroPorClientePorId_DevuelveSoloLosDeEseCliente()
+    {
+        // Arrange
+        var ana = await CrearClienteAsync("Ana Pérez");
+        var beto = await CrearClienteAsync("Beto Gómez");
+        var deAna = await EmitirAsync(venceEn: 5, idCliente: ana.Id);
+        await EmitirAsync(venceEn: 5, idCliente: beto.Id);
+        await EmitirAsync(venceEn: 5);
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ListarAsync(new ConsultaPresupuestosDto { IdsCliente = [ana.Id] }, Hoy);
+
+        // Assert
+        resultado.Items.Select(p => p.IdPresupuesto).Should().Equal(deAna.Id);
+    }
+
+    [Fact]
+    public async Task ListarAsync_SoloConsumidorFinal_DevuelveLosPresupuestosSinCliente()
+    {
+        // Arrange
+        var ana = await CrearClienteAsync("Ana Pérez");
+        await EmitirAsync(venceEn: 5, idCliente: ana.Id);
+        var sinCliente = await EmitirAsync(venceEn: 5);
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ListarAsync(new ConsultaPresupuestosDto { IncluirConsumidorFinal = true }, Hoy);
+
+        // Assert
+        resultado.Items.Select(p => p.IdPresupuesto).Should().Equal(sinCliente.Id);
+    }
+
+    [Fact]
+    public async Task ListarAsync_ClienteMasConsumidorFinal_CombinaAmbosConO()
+    {
+        // Arrange
+        var ana = await CrearClienteAsync("Ana Pérez");
+        var beto = await CrearClienteAsync("Beto Gómez");
+        var deAna = await EmitirAsync(venceEn: 5, idCliente: ana.Id);
+        await EmitirAsync(venceEn: 5, idCliente: beto.Id);
+        var sinCliente = await EmitirAsync(venceEn: 5);
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ListarAsync(
+            new ConsultaPresupuestosDto { IdsCliente = [ana.Id], IncluirConsumidorFinal = true },
+            Hoy);
+
+        // Assert
+        resultado.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([deAna.Id, sinCliente.Id]);
+    }
+
+    [Fact]
+    public async Task ListarAsync_RangoDeEmision_RespetaLosLimitesDelIntervaloSemiabierto()
+    {
+        // Arrange: la emisión es "ahora"; se fija a mano para probar los bordes
+        var desde = new DateTime(2026, 11, 10, 3, 0, 0, DateTimeKind.Utc);
+        var hasta = new DateTime(2026, 11, 12, 3, 0, 0, DateTimeKind.Utc);
+        var antes = await EmitirConEmisionAsync(desde.AddMinutes(-1));
+        var enElInicio = await EmitirConEmisionAsync(desde);
+        var enElMedio = await EmitirConEmisionAsync(desde.AddDays(1));
+        var enElFinExclusivo = await EmitirConEmisionAsync(hasta);
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var rango = await servicio.ListarAsync(new ConsultaPresupuestosDto { EmisionDesdeUtc = desde, EmisionHastaUtc = hasta }, Hoy);
+        var soloDesde = await servicio.ListarAsync(new ConsultaPresupuestosDto { EmisionDesdeUtc = desde }, Hoy);
+        var soloHasta = await servicio.ListarAsync(new ConsultaPresupuestosDto { EmisionHastaUtc = hasta }, Hoy);
+
+        // Assert: el inicio entra y el fin no
+        rango.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([enElInicio.Id, enElMedio.Id]);
+        soloDesde.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([enElInicio.Id, enElMedio.Id, enElFinExclusivo.Id]);
+        soloHasta.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([antes.Id, enElInicio.Id, enElMedio.Id]);
+    }
+
+    [Fact]
+    public async Task ListarAsync_RangoDeVencimiento_IncluyeAmbosExtremos()
+    {
+        // Arrange
+        var antes = await EmitirAsync(venceEn: 4);
+        var enElInicio = await EmitirAsync(venceEn: 5);
+        var enElMedio = await EmitirAsync(venceEn: 6);
+        var enElFin = await EmitirAsync(venceEn: 7);
+        var despues = await EmitirAsync(venceEn: 8);
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var rango = await servicio.ListarAsync(new ConsultaPresupuestosDto { VenceDesde = Hoy.AddDays(5), VenceHasta = Hoy.AddDays(7) }, Hoy);
+        var soloDesde = await servicio.ListarAsync(new ConsultaPresupuestosDto { VenceDesde = Hoy.AddDays(7) }, Hoy);
+        var soloHasta = await servicio.ListarAsync(new ConsultaPresupuestosDto { VenceHasta = Hoy.AddDays(4) }, Hoy);
+
+        // Assert
+        rango.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([enElInicio.Id, enElMedio.Id, enElFin.Id]);
+        soloDesde.Items.Select(p => p.IdPresupuesto).Should().BeEquivalentTo([enElFin.Id, despues.Id]);
+        soloHasta.Items.Select(p => p.IdPresupuesto).Should().Equal(antes.Id);
+    }
+
+    [Fact]
+    public async Task ListarAsync_EstadoClienteYFechaCombinados_CombinaLosFiltrosConY()
+    {
+        // Arrange
+        var ana = await CrearClienteAsync("Ana Pérez");
+        var beto = await CrearClienteAsync("Beto Gómez");
+        var buscado = await EmitirAsync(venceEn: 6, idCliente: ana.Id);
+        await EmitirAsync(venceEn: 6, idCliente: beto.Id);               // otro cliente
+        await EmitirAsync(venceEn: -6, idCliente: ana.Id);               // vencido
+        await EmitirAsync(venceEn: 20, idCliente: ana.Id);               // vence fuera del rango
+        var anulado = await EmitirAsync(venceEn: 6, idCliente: ana.Id);  // no es vigente
+        anulado.Anular();
+        await Contexto.SaveChangesAsync();
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var resultado = await servicio.ListarAsync(
+            new ConsultaPresupuestosDto
+            {
+                Estados = [FiltroEstadoPresupuestoEnum.Vigentes],
+                IdsCliente = [ana.Id],
+                VenceDesde = Hoy.AddDays(5),
+                VenceHasta = Hoy.AddDays(10)
+            },
+            Hoy);
+
+        // Assert
+        resultado.Items.Select(p => p.IdPresupuesto).Should().Equal(buscado.Id);
+        resultado.TotalRegistros.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ListarClientesConPresupuestosAsync_ConVariosPresupuestos_DevuelveClientesDistintosOrdenadosYSinConsumidorFinal()
+    {
+        // Arrange
+        var zulema = await CrearClienteAsync("Zulema Díaz");
+        var ana = await CrearClienteAsync("Ana Pérez");
+        var sinPresupuestos = await CrearClienteAsync("Carlos Sin Presupuestos");
+        await EmitirAsync(venceEn: 5, idCliente: zulema.Id);
+        await EmitirAsync(venceEn: 5, idCliente: ana.Id);
+        await EmitirAsync(venceEn: 5, idCliente: ana.Id);
+        await EmitirAsync(venceEn: 5);
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var clientes = await servicio.ListarClientesConPresupuestosAsync();
+
+        // Assert
+        clientes.Select(c => c.Nombre).Should().Equal("Ana Pérez", "Zulema Díaz");
+        clientes.Select(c => c.IdCliente).Should().Equal(ana.Id, zulema.Id);
+        clientes.Should().NotContain(c => c.IdCliente == sinPresupuestos.Id);
+    }
+
+    [Fact]
+    public async Task ListarClientesConPresupuestosAsync_ConClienteDadoDeBaja_LoIncluye()
+    {
+        // Arrange
+        var ana = await CrearClienteAsync("Ana Pérez");
+        var baja = await CrearClienteAsync("Beto Gómez");
+        await EmitirAsync(venceEn: 5, idCliente: ana.Id);
+        await EmitirAsync(venceEn: 5, idCliente: baja.Id);
+        baja.MarkAsDeleted();
+        await Contexto.SaveChangesAsync();
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var clientes = await servicio.ListarClientesConPresupuestosAsync();
+
+        // Assert: su presupuesto sigue mostrando su nombre, así que sigue siendo una opción
+        clientes.Select(c => c.Nombre).Should().Equal("Ana Pérez", "Beto Gómez");
+    }
+
+    [Fact]
+    public async Task ListarClientesConPresupuestosAsync_SinPresupuestos_DevuelveListaVacia()
+    {
+        // Arrange
+        await CrearClienteAsync("Ana Pérez");
+        var servicio = new PresupuestoQueryService(NuevoContexto());
+
+        // Act
+        var clientes = await servicio.ListarClientesConPresupuestosAsync();
+
+        // Assert
+        clientes.Should().BeEmpty();
     }
 
     [Fact]
@@ -248,6 +476,23 @@ public class PresupuestoQueryServiceTests : PedidosPruebaBase
             vigenciaDias: Presupuesto.VigenciaMinimaDias,
             hoy: Hoy.AddDays(venceEn - Presupuesto.VigenciaMinimaDias));
         Contexto.Presupuestos.Add(presupuesto);
+        await Contexto.SaveChangesAsync();
+        return presupuesto;
+    }
+
+    private async Task<Cliente> CrearClienteAsync(string nombre)
+    {
+        var cliente = ClientesDePrueba.Crear(razonSocialONombre: nombre);
+        Contexto.Clientes.Add(cliente);
+        await Contexto.SaveChangesAsync();
+        return cliente;
+    }
+
+    // La fecha de emisión la fija el dominio con "ahora": para probar el rango se reescribe antes de consultar
+    private async Task<Presupuesto> EmitirConEmisionAsync(DateTime emisionUtc)
+    {
+        var presupuesto = await EmitirAsync(venceEn: 5);
+        Contexto.Entry(presupuesto).Property(p => p.FechaEmision).CurrentValue = emisionUtc;
         await Contexto.SaveChangesAsync();
         return presupuesto;
     }

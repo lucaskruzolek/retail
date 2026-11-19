@@ -16,4 +16,10 @@ public interface IPresupuestoQueryService
 
     /// <summary><c>null</c> si el presupuesto no existe. <paramref name="hoy"/> alimenta <c>EstaVigente</c>.</summary>
     Task<PresupuestoDto?> ObtenerAsync(int idPresupuesto, DateOnly hoy, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Clientes que tienen algún presupuesto (incluso dados de baja después de emitirlo), ordenados por nombre: las opciones
+    /// del filtro de la columna Cliente. No incluye Consumidor Final, que no es un cliente.
+    /// </summary>
+    Task<IReadOnlyList<ClienteConPresupuestosDto>> ListarClientesConPresupuestosAsync(CancellationToken cancellationToken = default);
 }

@@ -14,13 +14,17 @@ using Retail.Domain.Exceptions;
 namespace Retail.App.ViewModels.Presupuestos;
 
 /// <summary>
-/// Consulta de presupuestos (IU-13, RF-11 y RF-12): grilla paginada en SQL con búsqueda y filtro de estado, y las
+/// Consulta de presupuestos (IU-13, RF-11 y RF-12): grilla paginada en SQL con búsqueda y filtros de columna (estado,
+/// cliente, emisión y vencimiento), y las
 /// acciones de cada fila (ver detalle, imprimir, exportar a PDF y anular). Es solo de consulta: los presupuestos se
 /// crean y se recuperan desde el Punto de venta (F9 y F7).
 /// </summary>
 public partial class PresupuestosViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(250);
+
+    // Id local de la opción "Consumidor Final" del filtro de cliente: los ids reales empiezan en 1, así que 0 no choca.
+    private const int IdConsumidorFinal = 0;
 
     private readonly IPresupuestoService _presupuestoService;
     private readonly IPresupuestoDialogService _dialogService;
@@ -53,6 +57,23 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _carga = new CargaSerializada(_logger);
         _flujoPdf = new FlujoExportarPdfPresupuesto(_dialogService, _logger);
+
+        // Los estados son fijos; los clientes llegan al inicializar la pantalla.
+        FiltroEstado.CargarOpciones(
+        [
+            new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Vigentes, "Vigentes"),
+            new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Vencidos, "Vencidos"),
+            new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Convertidos, "Convertidos"),
+            new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Anulados, "Anulados")
+        ]);
+
+        FiltroEmision = new FiltroFechaColumnaViewModel("Emisión", _reloj);
+        FiltroVencimiento = new FiltroFechaColumnaViewModel("Vence", _reloj);
+
+        FiltroEstado.Aplicado += AlAplicarFiltroDeColumna;
+        FiltroCliente.Aplicado += AlAplicarFiltroDeColumna;
+        FiltroEmision.Aplicado += AlAplicarFiltroDeColumna;
+        FiltroVencimiento.Aplicado += AlAplicarFiltroDeColumna;
     }
 
     // ------------------------------------------------------------------ //
@@ -65,8 +86,17 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _textoBusqueda = string.Empty;
 
-    [ObservableProperty]
-    private FiltroEstadoPresupuestoEnum _filtroEstado = FiltroEstadoPresupuestoEnum.Todos;
+    /// <summary>Filtro de la columna Estado: vigentes, vencidos, convertidos y anulados (vacío = todos).</summary>
+    public FiltroColumnaViewModel FiltroEstado { get; } = new("Estado");
+
+    /// <summary>Filtro de la columna Cliente: Consumidor Final y los clientes con algún presupuesto; llegan al inicializar.</summary>
+    public FiltroColumnaViewModel FiltroCliente { get; } = new("Cliente");
+
+    /// <summary>Filtro de la columna Emisión: un rango de días locales; la consulta lo convierte a UTC.</summary>
+    public FiltroFechaColumnaViewModel FiltroEmision { get; }
+
+    /// <summary>Filtro de la columna Vence: un rango de fechas de calendario locales, ambos extremos incluidos.</summary>
+    public FiltroFechaColumnaViewModel FiltroVencimiento { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PuedeRetrocederPagina))]
@@ -93,7 +123,11 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
     public bool PuedeAvanzarPagina => PaginaActual < TotalPaginas;
 
     public bool HayFiltrosActivos =>
-        !string.IsNullOrWhiteSpace(TextoBusqueda) || FiltroEstado != FiltroEstadoPresupuestoEnum.Todos;
+        !string.IsNullOrWhiteSpace(TextoBusqueda) ||
+        FiltroEstado.HayFiltroActivo ||
+        FiltroCliente.HayFiltroActivo ||
+        FiltroEmision.HayFiltroActivo ||
+        FiltroVencimiento.HayFiltroActivo;
 
     // ------------------------------------------------------------------ //
     // Estado de la pantalla                                               //
@@ -115,16 +149,35 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
 
     /// <summary>Texto del estado vacío: orienta al usuario si no hay presupuestos o dice que el filtro no encontró ninguno.</summary>
     public string TextoVacio => HayFiltrosActivos
-        ? "Ningún presupuesto coincide con la búsqueda o el filtro."
+        ? "Ningún presupuesto coincide con la búsqueda o los filtros."
         : "Los presupuestos se guardan desde el Punto de venta.";
 
     // ------------------------------------------------------------------ //
     // Carga                                                               //
     // ------------------------------------------------------------------ //
 
-    /// <summary>Carga la primera página. La invoca la vista al mostrarse.</summary>
+    /// <summary>Carga los clientes del filtro y la primera página. La invoca la vista al mostrarse.</summary>
     public async Task InicializarAsync()
     {
+        // Cargar las opciones no debe disparar una consulta propia: la primera página se consulta una sola vez, abajo.
+        _suspendiendoRecargas = true;
+        try
+        {
+            // Ley 4: la consulta corre fuera del hilo de UI y en la misma fila de accesos que la grilla.
+            await _carga.EjecutarOperacionAsync(
+                token => Task.Run(() => _presupuestoService.ListarClientesConPresupuestosAsync(token), token),
+                MostrarClientes,
+                ex =>
+                {
+                    _logger.LogError(ex, "Error al cargar los clientes del filtro de presupuestos");
+                    MensajeError = "No se pudo cargar la lista de clientes.";
+                });
+        }
+        finally
+        {
+            _suspendiendoRecargas = false;
+        }
+
         PaginaActual = 1;
         await CargarPresupuestosAsync();
     }
@@ -135,10 +188,22 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
     /// </summary>
     public async Task CargarPresupuestosAsync(TimeSpan espera = default, CancellationToken cancellationToken = default)
     {
+        var (emisionDesdeUtc, emisionHastaUtc) = FiltroEmision.RangoUtc();
+
+        // Consumidor Final no es un cliente de la base: la opción usa un id local (IdConsumidorFinal) que acá se traduce
+        // a la bandera de la consulta, y los demás ids son clientes reales.
+        var idsCliente = FiltroCliente.IdsAplicados;
+
         var consulta = new ConsultaPresupuestosDto
         {
             TerminoBusqueda = TextoBusqueda,
-            Filtro = FiltroEstado,
+            Estados = FiltroEstado.IdsAplicados.Select(id => (FiltroEstadoPresupuestoEnum)id).ToList(),
+            IdsCliente = idsCliente.Where(id => id != IdConsumidorFinal).ToList(),
+            IncluirConsumidorFinal = idsCliente.Contains(IdConsumidorFinal),
+            EmisionDesdeUtc = emisionDesdeUtc,
+            EmisionHastaUtc = emisionHastaUtc,
+            VenceDesde = FiltroVencimiento.DesdeAplicado is { } venceDesde ? DateOnly.FromDateTime(venceDesde) : null,
+            VenceHasta = FiltroVencimiento.HastaAplicado is { } venceHasta ? DateOnly.FromDateTime(venceHasta) : null,
             Pagina = PaginaActual,
             TamanoPagina = TamanoPagina
         };
@@ -199,10 +264,21 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
         RecargarDesdePrimeraPagina(EsperaBusqueda);
     }
 
-    partial void OnFiltroEstadoChanged(FiltroEstadoPresupuestoEnum value)
+    private void AlAplicarFiltroDeColumna(object? sender, EventArgs e)
     {
         ActualizarEstadoFiltros();
         RecargarDesdePrimeraPagina(TimeSpan.Zero);
+    }
+
+    private void MostrarClientes(IReadOnlyList<ClienteConPresupuestosDto> clientes)
+    {
+        // Consumidor Final va primero y siempre está: los presupuestos sin cliente existen aunque ningún cliente tenga uno.
+        var opciones = new List<OpcionFiltroColumna> { new(IdConsumidorFinal, "Consumidor Final") };
+        opciones.AddRange(clientes
+            .OrderBy(c => c.Nombre)
+            .Select(c => new OpcionFiltroColumna(c.IdCliente, c.Nombre)));
+
+        FiltroCliente.CargarOpciones(opciones);
     }
 
     partial void OnTamanoPaginaChanged(int value)
@@ -218,12 +294,16 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
         try
         {
             TextoBusqueda = string.Empty;
-            FiltroEstado = FiltroEstadoPresupuestoEnum.Todos;
         }
         finally
         {
             _suspendiendoRecargas = false;
         }
+
+        FiltroEstado.QuitarFiltro();
+        FiltroCliente.QuitarFiltro();
+        FiltroEmision.QuitarFiltro();
+        FiltroVencimiento.QuitarFiltro();
 
         ActualizarEstadoFiltros();
         RecargarDesdePrimeraPagina(TimeSpan.Zero);

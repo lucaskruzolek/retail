@@ -132,6 +132,11 @@ public class PresupuestoService : IPresupuestoService
         return await _consultas.ListarAsync(consulta, ObtenerHoy(), cancellationToken);
     }
 
+    public Task<IReadOnlyList<ClienteConPresupuestosDto>> ListarClientesConPresupuestosAsync(CancellationToken cancellationToken = default)
+    {
+        return _consultas.ListarClientesConPresupuestosAsync(cancellationToken);
+    }
+
     public Task<PresupuestoDto?> ObtenerAsync(int idPresupuesto, CancellationToken cancellationToken = default)
     {
         return _consultas.ObtenerAsync(idPresupuesto, ObtenerHoy(), cancellationToken);

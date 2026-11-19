@@ -30,17 +30,7 @@ public class PresupuestoQueryService : IPresupuestoQueryService
 
         IQueryable<Presupuesto> query = PresupuestosConSusReferencias();
 
-        // Vigentes y Vencidos son estados de consulta, no del dominio (PS-08): se derivan de la fecha de vencimiento.
-        query = consulta.Filtro switch
-        {
-            FiltroEstadoPresupuestoEnum.Vigentes => query.Where(p =>
-                p.Estado == EstadoPresupuestoEnum.Pendiente && p.FechaVencimiento >= hoy),
-            FiltroEstadoPresupuestoEnum.Vencidos => query.Where(p =>
-                p.Estado == EstadoPresupuestoEnum.Pendiente && p.FechaVencimiento < hoy),
-            FiltroEstadoPresupuestoEnum.Convertidos => query.Where(p => p.Estado == EstadoPresupuestoEnum.Convertido),
-            FiltroEstadoPresupuestoEnum.Anulados => query.Where(p => p.Estado == EstadoPresupuestoEnum.Anulado),
-            _ => query
-        };
+        query = AplicarFiltros(query, consulta, hoy);
 
         if (!string.IsNullOrWhiteSpace(consulta.TerminoBusqueda))
         {
@@ -128,6 +118,85 @@ public class PresupuestoQueryService : IPresupuestoQueryService
                     .ToList()
             })
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ClienteConPresupuestosDto>> ListarClientesConPresupuestosAsync(
+        CancellationToken cancellationToken = default)
+    {
+        // Se ignoran los filtros globales (como en PresupuestosConSusReferencias): un cliente dado de baja después de
+        // emitir su presupuesto sigue siendo una opción, porque el presupuesto sigue mostrando su nombre.
+        return await _context.Clientes
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(c => _context.Presupuestos
+                .IgnoreQueryFilters()
+                .Any(p => p.DeletedAt == null && p.IdCliente == c.Id))
+            .OrderBy(c => c.RazonSocialONombre)
+            .ThenBy(c => c.Id)
+            .Select(c => new ClienteConPresupuestosDto
+            {
+                IdCliente = c.Id,
+                Nombre = c.RazonSocialONombre
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Filtros de columna: dentro de cada uno las opciones se combinan con O, y entre filtros con Y. Todo se traduce a
+    /// SQL; una lista vacía o un extremo nulo no agrega condición.
+    /// </summary>
+    private static IQueryable<Presupuesto> AplicarFiltros(
+        IQueryable<Presupuesto> query,
+        ConsultaPresupuestosDto consulta,
+        DateOnly hoy)
+    {
+        if (consulta.Estados.Count > 0)
+        {
+            // Vigentes y Vencidos son estados de consulta, no del dominio (PS-08): se derivan de la fecha de vencimiento.
+            // Los estados elegidos se capturan como booleanos para componer un solo Where con O que EF traduce a SQL.
+            var vigentes = consulta.Estados.Contains(FiltroEstadoPresupuestoEnum.Vigentes);
+            var vencidos = consulta.Estados.Contains(FiltroEstadoPresupuestoEnum.Vencidos);
+            var convertidos = consulta.Estados.Contains(FiltroEstadoPresupuestoEnum.Convertidos);
+            var anulados = consulta.Estados.Contains(FiltroEstadoPresupuestoEnum.Anulados);
+
+            query = query.Where(p =>
+                (vigentes && p.Estado == EstadoPresupuestoEnum.Pendiente && p.FechaVencimiento >= hoy) ||
+                (vencidos && p.Estado == EstadoPresupuestoEnum.Pendiente && p.FechaVencimiento < hoy) ||
+                (convertidos && p.Estado == EstadoPresupuestoEnum.Convertido) ||
+                (anulados && p.Estado == EstadoPresupuestoEnum.Anulado));
+        }
+
+        if (consulta.IdsCliente.Count > 0 || consulta.IncluirConsumidorFinal)
+        {
+            var idsCliente = consulta.IdsCliente.ToList();
+            var incluirConsumidorFinal = consulta.IncluirConsumidorFinal;
+
+            query = query.Where(p =>
+                (p.IdCliente != null && idsCliente.Contains(p.IdCliente.Value)) ||
+                (incluirConsumidorFinal && p.IdCliente == null));
+        }
+
+        if (consulta.EmisionDesdeUtc is { } emisionDesde)
+        {
+            query = query.Where(p => p.FechaEmision >= emisionDesde);
+        }
+
+        if (consulta.EmisionHastaUtc is { } emisionHasta)
+        {
+            query = query.Where(p => p.FechaEmision < emisionHasta);
+        }
+
+        if (consulta.VenceDesde is { } venceDesde)
+        {
+            query = query.Where(p => p.FechaVencimiento >= venceDesde);
+        }
+
+        if (consulta.VenceHasta is { } venceHasta)
+        {
+            query = query.Where(p => p.FechaVencimiento <= venceHasta);
+        }
+
+        return query;
     }
 
     /// <summary>

@@ -17,6 +17,9 @@ public interface IPresupuestoService
     /// <summary>Lista los presupuestos con filtros y paginación en servidor.</summary>
     Task<PresupuestosPaginadosDto> ListarAsync(ConsultaPresupuestosDto consulta, CancellationToken cancellationToken = default);
 
+    /// <summary>Clientes con algún presupuesto, ordenados por nombre: las opciones del filtro de la columna Cliente.</summary>
+    Task<IReadOnlyList<ClienteConPresupuestosDto>> ListarClientesConPresupuestosAsync(CancellationToken cancellationToken = default);
+
     /// <summary>Detalle de un presupuesto, o <c>null</c> si no existe.</summary>
     Task<PresupuestoDto?> ObtenerAsync(int idPresupuesto, CancellationToken cancellationToken = default);
 

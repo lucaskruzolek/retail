@@ -6,15 +6,12 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:components="clr-namespace:Retail.App.Views.Components"
              xmlns:helpers="clr-namespace:Retail.App.Helpers"
-             xmlns:converters="clr-namespace:Retail.App.Converters"
-             xmlns:presupuestos="clr-namespace:Retail.Application.DTOs.Presupuestos;assembly=Retail.Application"
              mc:Ignorable="d"
              Focusable="True"
              Background="{DynamicResource SurfaceBackgroundBrush}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
-        <converters:IgualAParametroConverter x:Key="IgualAParametroConverter" />
 
         <!-- Badge del estado del presupuesto (IU-13): vigente éxito, vencido advertencia, convertido neutro (ya es una venta)
              y anulado peligro. Vigente y vencido son dos caras del estado Pendiente: la vista las toma de EstadoVisual. -->
@@ -54,7 +51,7 @@
         <Grid.RowDefinitions>
             <!-- Encabezado -->
             <RowDefinition Height="Auto" />
-            <!-- Búsqueda y filtro de estado, directo sobre el fondo -->
+            <!-- Búsqueda, directo sobre el fondo -->
             <RowDefinition Height="Auto" />
             <!-- Tabla + paginación: la única superficie de la página -->
             <RowDefinition Height="*" />
@@ -75,45 +72,14 @@
         </components:PageHeader>
 
         <!-- ============================================================= -->
-        <!-- 2. BÚSQUEDA Y FILTRO DE ESTADO (sin tarjeta)                  -->
+        <!-- 2. BÚSQUEDA (sin tarjeta). Estado, Cliente, Emisión y Vence   -->
+        <!--    se filtran desde la cabecera de su columna.                -->
         <!-- ============================================================= -->
         <components:ListToolbar Grid.Row="1"
                                 Margin="0,0,0,12"
                                 Texto="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
                                 PlaceholderText="Buscar por número, título o cliente..."
-                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}">
-            <components:ListToolbar.AccionesDeSeleccion>
-                <components:SelectorSegmentado HorizontalAlignment="Right">
-                    <UniformGrid Rows="1">
-                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Todos}}"
-                                     AutomationProperties.Name="Todos"
-                                     Style="{StaticResource SegmentedRadioButtonStyle}">
-                            <TextBlock Text="Todos" VerticalAlignment="Center" />
-                        </RadioButton>
-                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Vigentes}}"
-                                     AutomationProperties.Name="Vigentes"
-                                     Style="{StaticResource SegmentedRadioButtonStyle}">
-                            <TextBlock Text="Vigentes" VerticalAlignment="Center" />
-                        </RadioButton>
-                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Vencidos}}"
-                                     AutomationProperties.Name="Vencidos"
-                                     Style="{StaticResource SegmentedRadioButtonStyle}">
-                            <TextBlock Text="Vencidos" VerticalAlignment="Center" />
-                        </RadioButton>
-                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Convertidos}}"
-                                     AutomationProperties.Name="Convertidos"
-                                     Style="{StaticResource SegmentedRadioButtonStyle}">
-                            <TextBlock Text="Convertidos" VerticalAlignment="Center" />
-                        </RadioButton>
-                        <RadioButton IsChecked="{Binding FiltroEstado, Mode=TwoWay, Converter={StaticResource IgualAParametroConverter}, ConverterParameter={x:Static presupuestos:FiltroEstadoPresupuestoEnum.Anulados}}"
-                                     AutomationProperties.Name="Anulados"
-                                     Style="{StaticResource SegmentedRadioButtonStyle}">
-                            <TextBlock Text="Anulados" VerticalAlignment="Center" />
-                        </RadioButton>
-                    </UniformGrid>
-                </components:SelectorSegmentado>
-            </components:ListToolbar.AccionesDeSeleccion>
-        </components:ListToolbar>
+                                ComandoLimpiar="{Binding LimpiarFiltrosCommand}" />
 
         <!-- ============================================================= -->
         <!-- 3. TABLA: GRILLA Y, COMO CONTINUACIÓN, LA PAGINACIÓN          -->
@@ -156,17 +122,29 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTextColumn Header="Emisión"
-                                                Binding="{Binding EmisionLocal, StringFormat={}{0:dd/MM/yyyy}}"
+                            <!-- Emisión y Vence: su cabecera lleva el filtro de rango (FiltroFechaColumna). Una columna no está
+                                 en el árbol visual: el filtro toma el DataContext de la página buscando el UserControl ancestro. -->
+                            <DataGridTextColumn Binding="{Binding EmisionLocal, StringFormat={}{0:dd/MM/yyyy}}"
                                                 ElementStyle="{StaticResource TextBlockNumericCell}"
-                                                Width="104" />
+                                                Width="120">
+                                <DataGridTextColumn.Header>
+                                    <components:FiltroFechaColumna Filtro="{Binding DataContext.FiltroEmision, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
 
-                            <DataGridTextColumn Header="Vence"
-                                                Binding="{Binding Vencimiento, StringFormat={}{0:dd/MM/yyyy}}"
+                            <DataGridTextColumn Binding="{Binding Vencimiento, StringFormat={}{0:dd/MM/yyyy}}"
                                                 ElementStyle="{StaticResource TextBlockNumericCell}"
-                                                Width="104" />
+                                                Width="112">
+                                <DataGridTextColumn.Header>
+                                    <components:FiltroFechaColumna Filtro="{Binding DataContext.FiltroVencimiento, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTextColumn.Header>
+                            </DataGridTextColumn>
 
-                            <DataGridTemplateColumn Header="Cliente" Width="*" MinWidth="160">
+                            <!-- Cliente: su cabecera lleva el filtro de selección múltiple (FiltroColumna) -->
+                            <DataGridTemplateColumn Width="*" MinWidth="160">
+                                <DataGridTemplateColumn.Header>
+                                    <components:FiltroColumna Filtro="{Binding DataContext.FiltroCliente, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTemplateColumn.Header>
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding ClienteTexto}"
@@ -183,7 +161,10 @@
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="112" />
 
-                            <DataGridTemplateColumn Header="Estado" Width="112" CanUserSort="False">
+                            <DataGridTemplateColumn Width="120" CanUserSort="False">
+                                <DataGridTemplateColumn.Header>
+                                    <components:FiltroColumna Filtro="{Binding DataContext.FiltroEstado, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataGridTemplateColumn.Header>
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <ContentControl Content="{Binding}"

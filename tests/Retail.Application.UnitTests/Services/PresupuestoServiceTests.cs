@@ -204,7 +204,7 @@ public class PresupuestoServiceTests
     {
         // Arrange
         var pagina = new PresupuestosPaginadosDto { TotalRegistros = 1, PaginaActual = 1, TamanoPagina = 20 };
-        var consulta = new ConsultaPresupuestosDto { TerminoBusqueda = "escuela", Filtro = FiltroEstadoPresupuestoEnum.Vigentes };
+        var consulta = new ConsultaPresupuestosDto { TerminoBusqueda = "escuela", Estados = [FiltroEstadoPresupuestoEnum.Vigentes] };
         _consultas.ListarAsync(consulta, Hoy, Arg.Any<CancellationToken>()).Returns(pagina);
 
         // Act
@@ -212,6 +212,20 @@ public class PresupuestoServiceTests
 
         // Assert
         resultado.Should().BeSameAs(pagina);
+    }
+
+    [Fact]
+    public async Task ListarClientesConPresupuestosAsync_Siempre_DelegaEnLaConsulta()
+    {
+        // Arrange
+        IReadOnlyList<ClienteConPresupuestosDto> clientes = [new ClienteConPresupuestosDto { IdCliente = 4, Nombre = "Ana Pérez" }];
+        _consultas.ListarClientesConPresupuestosAsync(Arg.Any<CancellationToken>()).Returns(clientes);
+
+        // Act
+        var resultado = await _sut.ListarClientesConPresupuestosAsync();
+
+        // Assert
+        resultado.Should().BeSameAs(clientes);
     }
 
     [Fact]
