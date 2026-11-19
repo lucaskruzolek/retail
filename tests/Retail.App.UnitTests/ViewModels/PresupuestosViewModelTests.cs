@@ -89,6 +89,16 @@ public class PresupuestosViewModelTests : IDisposable
         condicion().Should().BeTrue("la condición debía cumplirse tras la carga asíncrona");
     }
 
+    /// <summary>
+    /// Espera a que el listado se haya pedido <paramref name="llamadas"/> veces <b>y</b> a que esa carga termine. Contar
+    /// solo las llamadas recibidas no alcanza: el ViewModel puede seguir procesando la respuesta (<c>IsBusy</c>), y un
+    /// assert sobre el resultado vería el estado intermedio (falló así, de forma intermitente, en la suite Release).
+    /// </summary>
+    private Task EsperarListadoAsync(int llamadas)
+    {
+        return EsperarAsync(() => LlamadasAlListado == llamadas && !_sut.IsBusy);
+    }
+
     private string NuevaRutaTemporal()
     {
         var ruta = Path.Combine(Path.GetTempPath(), $"presupuesto-{Guid.NewGuid():N}.pdf");
@@ -149,7 +159,7 @@ public class PresupuestosViewModelTests : IDisposable
 
         AplicarOpciones(_sut.FiltroEstado, (int)FiltroEstadoPresupuestoEnum.Vigentes, (int)FiltroEstadoPresupuestoEnum.Anulados);
 
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
         _sut.PaginaActual.Should().Be(1);
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c =>
@@ -166,7 +176,7 @@ public class PresupuestosViewModelTests : IDisposable
 
         AplicarOpciones(_sut.FiltroCliente, 7);
 
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c => c.IdsCliente.Count == 1 && c.IdsCliente[0] == 7 && !c.IncluirConsumidorFinal),
             Arg.Any<CancellationToken>());
@@ -180,7 +190,7 @@ public class PresupuestosViewModelTests : IDisposable
 
         AplicarOpciones(_sut.FiltroCliente, 0);
 
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c => c.IdsCliente.Count == 0 && c.IncluirConsumidorFinal),
             Arg.Any<CancellationToken>());
@@ -194,7 +204,7 @@ public class PresupuestosViewModelTests : IDisposable
 
         AplicarOpciones(_sut.FiltroCliente, 0, 7);
 
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c => c.IdsCliente.Count == 1 && c.IdsCliente[0] == 7 && c.IncluirConsumidorFinal),
             Arg.Any<CancellationToken>());
@@ -212,7 +222,7 @@ public class PresupuestosViewModelTests : IDisposable
         var (desdeEsperado, hastaEsperado) = _sut.FiltroEmision.RangoUtc();
         desdeEsperado.Should().NotBeNull();
         hastaEsperado.Should().Be(desdeEsperado!.Value.AddDays(3));
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c => c.EmisionDesdeUtc == desdeEsperado && c.EmisionHastaUtc == hastaEsperado && c.Pagina == 1),
             Arg.Any<CancellationToken>());
@@ -227,7 +237,7 @@ public class PresupuestosViewModelTests : IDisposable
         _sut.FiltroVencimiento.BorradorHasta = new DateTime(2026, 11, 29);
         _sut.FiltroVencimiento.AplicarCommand.Execute(null);
 
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c =>
                 c.VenceDesde == new DateOnly(2026, 11, 20) && c.VenceHasta == new DateOnly(2026, 11, 29) && c.Pagina == 1),
@@ -262,7 +272,7 @@ public class PresupuestosViewModelTests : IDisposable
 
         _sut.TextoBusqueda = "escuela";
 
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
         _sut.PaginaActual.Should().Be(1);
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c => c.TerminoBusqueda == "escuela" && c.Pagina == 1),
@@ -305,7 +315,7 @@ public class PresupuestosViewModelTests : IDisposable
 
         _sut.LimpiarFiltrosCommand.Execute(null);
 
-        await EsperarAsync(() => LlamadasAlListado == antesDeLimpiar + 1);
+        await EsperarListadoAsync(antesDeLimpiar + 1);
         await Task.Delay(100);
         LlamadasAlListado.Should().Be(antesDeLimpiar + 1);
         _sut.FiltroEstado.HayFiltroActivo.Should().BeFalse();
@@ -395,7 +405,7 @@ public class PresupuestosViewModelTests : IDisposable
         await _sut.InicializarAsync();
 
         AplicarOpciones(_sut.FiltroEstado, (int)FiltroEstadoPresupuestoEnum.Anulados);
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
 
         _sut.EstaVacio.Should().BeTrue();
         _sut.TextoVacio.Should().Contain("coincide");
@@ -554,7 +564,7 @@ public class PresupuestosViewModelTests : IDisposable
         _sut.FiltroEstado.Grupos.SelectMany(g => g.Opciones).Should().Contain(o => o.Nombre == "Reemplazados");
 
         AplicarOpciones(_sut.FiltroEstado, (int)FiltroEstadoPresupuestoEnum.Reemplazados);
-        await EsperarAsync(() => LlamadasAlListado == 2);
+        await EsperarListadoAsync(2);
 
         await _presupuestoService.Received(1).ListarAsync(
             Arg.Is<ConsultaPresupuestosDto>(c => c.Estados.SequenceEqual(new[] { FiltroEstadoPresupuestoEnum.Reemplazados })),

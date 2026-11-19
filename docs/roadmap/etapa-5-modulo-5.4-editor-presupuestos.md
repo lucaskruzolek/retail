@@ -17,7 +17,7 @@
 | P2 | UI: `PresupuestoFormDialog` y "Nuevo presupuesto" en la pestaña | ✅ Hecha |
 | P3 | Dominio, Aplicación e Infraestructura: título editable y corrección (reemplazo atómico) | ✅ Hecha |
 | P4 | UI: acción *Corregir*, estado *Reemplazado* y título editable en el detalle | ✅ Hecha |
-| P5 | Cierre: verificación Release, mapa y PR | ⏳ Pendiente |
+| P5 | Cierre: verificación Release, mapa y PR | 🟡 Release en verde (4579 tests, 2026-11-19); faltan el PR y la prueba manual |
 
 ---
 
