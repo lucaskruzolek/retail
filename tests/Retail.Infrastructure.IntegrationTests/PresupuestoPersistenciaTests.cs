@@ -2,13 +2,16 @@ using FluentAssertions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
+using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Services;
+using Retail.Application.Validators.Presupuestos;
 using Retail.Application.Validators.Ventas;
 using Retail.Domain.Entities;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 using Retail.Infrastructure.IntegrationTests.TestData;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
@@ -200,6 +203,126 @@ public class PresupuestoPersistenciaTests : PedidosPruebaBase
         await act.Should().NotThrowAsync();
     }
 
+    [Fact]
+    public async Task ReemplazarAsync_Pendiente_CierraElOriginalYPersisteElNuevoConLaReferencia()
+    {
+        // Arrange
+        var articulo = await SembrarArticuloAsync("Cuaderno", precio: 1500m);
+        var original = await EmitirAsync(articulo, cantidad: 5, precioPactado: 1500m);
+        await using var contexto = NuevoContexto();
+
+        // Act
+        var nuevo = await CrearPresupuestoService(contexto).ReemplazarAsync(
+            original.Id,
+            CrearPresupuestoDto(articulo, cantidad: 3, precio: 1500m));
+
+        // Assert: las dos escrituras salieron en el mismo guardado
+        await using var lectura = NuevoContexto();
+        var leidoOriginal = await lectura.Presupuestos.AsNoTracking().SingleAsync(p => p.Id == original.Id);
+        leidoOriginal.Estado.Should().Be(EstadoPresupuestoEnum.Reemplazado);
+        leidoOriginal.FechaCierre.Should().NotBeNull();
+        var leidoNuevo = await lectura.Presupuestos.AsNoTracking().Include(p => p.Detalles).SingleAsync(p => p.Id == nuevo.IdPresupuesto);
+        leidoNuevo.Estado.Should().Be(EstadoPresupuestoEnum.Pendiente);
+        leidoNuevo.IdPresupuestoReemplazado.Should().Be(original.Id);
+        leidoNuevo.Detalles.Should().ContainSingle().Which.Cantidad.Should().Be(3);
+        nuevo.IdPresupuestoReemplazado.Should().Be(original.Id);
+    }
+
+    [Fact]
+    public async Task ReemplazarAsync_SegundoReemplazoDelMismoOriginal_LoRechazaYNoQuedaOtroPresupuesto()
+    {
+        // Arrange
+        var articulo = await SembrarArticuloAsync("Cuaderno", precio: 1500m);
+        var original = await EmitirAsync(articulo, cantidad: 5, precioPactado: 1500m);
+        await using var contextoA = NuevoContexto();
+        await CrearPresupuestoService(contextoA).ReemplazarAsync(original.Id, CrearPresupuestoDto(articulo, cantidad: 3, precio: 1500m));
+        await using var contextoB = NuevoContexto();
+
+        // Act
+        var act = () => CrearPresupuestoService(contextoB).ReemplazarAsync(original.Id, CrearPresupuestoDto(articulo, cantidad: 4, precio: 1500m));
+
+        // Assert: el agregado ya está Reemplazado
+        await act.Should().ThrowAsync<TransicionPresupuestoInvalidaException>();
+        await using var lectura = NuevoContexto();
+        (await lectura.Presupuestos.AsNoTracking().CountAsync(p => p.IdPresupuestoReemplazado == original.Id)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ReemplazarAsync_ReemplazoConcurrenteConElOriginalPendienteCargado_LaSegundaFalla()
+    {
+        // Arrange: la terminal B ya tiene el original (Pendiente) cuando A lo reemplaza
+        var articulo = await SembrarArticuloAsync("Cuaderno", precio: 1500m);
+        var original = await EmitirAsync(articulo, cantidad: 5, precioPactado: 1500m);
+        await using var contextoA = NuevoContexto();
+        await using var contextoB = NuevoContexto();
+        await contextoB.Presupuestos.SingleAsync(p => p.Id == original.Id);
+        await CrearPresupuestoService(contextoA).ReemplazarAsync(original.Id, CrearPresupuestoDto(articulo, cantidad: 3, precio: 1500m));
+
+        // Act
+        var act = () => CrearPresupuestoService(contextoB).ReemplazarAsync(original.Id, CrearPresupuestoDto(articulo, cantidad: 4, precio: 1500m));
+
+        // Assert: rowversion o índice único (el orden de las sentencias no está definido); queda un solo reemplazo
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*cambió mientras lo corregía*");
+        await using var lectura = NuevoContexto();
+        (await lectura.Presupuestos.AsNoTracking().CountAsync(p => p.IdPresupuestoReemplazado == original.Id)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ReemplazarAsync_PresupuestoCobradoEnOtraTerminal_FallaYNoQuedaElNuevo()
+    {
+        // Arrange: B carga el presupuesto pendiente; A lo cobra (lo convierte en venta)
+        await SembrarTurnoAsync();
+        var articulo = await SembrarArticuloAsync("Cuaderno", precio: 1500m);
+        var original = await EmitirAsync(articulo, cantidad: 2, precioPactado: 1500m);
+        await using var contextoA = NuevoContexto();
+        await using var contextoB = NuevoContexto();
+        await contextoB.Presupuestos.SingleAsync(p => p.Id == original.Id);
+        await CrearVentaService(contextoA).RegistrarVentaAsync(CrearDto(articulo, cantidad: 2, precio: 1500m, original.Id));
+
+        // Act
+        var act = () => CrearPresupuestoService(contextoB).ReemplazarAsync(original.Id, CrearPresupuestoDto(articulo, cantidad: 1, precio: 1500m));
+
+        // Assert: el rowversion detecta la conversión y la transacción se revierte entera
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*cambió mientras lo corregía*");
+        await using var lectura = NuevoContexto();
+        (await lectura.Presupuestos.AsNoTracking().SingleAsync(p => p.Id == original.Id)).Estado
+            .Should().Be(EstadoPresupuestoEnum.Convertido);
+        (await lectura.Presupuestos.AsNoTracking().CountAsync(p => p.IdPresupuestoReemplazado == original.Id)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task IndiceUnico_DosPresupuestosQueReemplazanAlMismo_LoRechazaLaBase()
+    {
+        // Arrange
+        var articulo = await SembrarArticuloAsync("Cuaderno", precio: 1500m);
+        var original = await EmitirAsync(articulo, cantidad: 1, precioPactado: 1500m);
+        Contexto.Presupuestos.Add(EmitirReemplazo(articulo, original.Id));
+        await Contexto.SaveChangesAsync();
+        Contexto.Presupuestos.Add(EmitirReemplazo(articulo, original.Id));
+
+        // Act: se inserta por fuera del servicio, que es lo que la defensa en el motor debe atajar
+        var act = () => Contexto.SaveChangesAsync();
+
+        // Assert
+        var excepcion = await act.Should().ThrowAsync<DbUpdateException>();
+        excepcion.Which.InnerException.Should().BeOfType<SqlException>()
+            .Which.Message.Should().Contain("UX_PRESUPUESTOS_id_presupuesto_reemplazado");
+    }
+
+    [Fact]
+    public async Task IndiceUnico_VariosPresupuestosSinReemplazado_SePermiten()
+    {
+        // Arrange
+        var articulo = await SembrarArticuloAsync("Cuaderno", precio: 1500m);
+        await EmitirAsync(articulo, cantidad: 1, precioPactado: 1500m);
+
+        // Act
+        var act = () => EmitirAsync(articulo, cantidad: 2, precioPactado: 1500m);
+
+        // Assert: el filtro [id_presupuesto_reemplazado] IS NOT NULL deja afuera las emisiones comunes
+        await act.Should().NotThrowAsync();
+    }
+
     private async Task SembrarTurnoAsync()
     {
         var turno = TurnoCaja.Abrir(IdUsuario, saldoInicial: 5000m);
@@ -259,6 +382,53 @@ public class PresupuestoPersistenciaTests : PedidosPruebaBase
             ],
             Pagos = [new PagoVentaDto { MedioPago = MedioPagoEnum.Efectivo, Monto = cantidad * precio }]
         };
+    }
+
+    private static Presupuesto EmitirReemplazo(Articulo articulo, int idReemplazado)
+    {
+        return Presupuesto.Emitir(
+            1,
+            idCliente: null,
+            titulo: null,
+            [new RenglonAPresupuestar(articulo.Id, articulo.Descripcion, 1, 1500m)],
+            descuento: 0m,
+            vigenciaDias: 15,
+            hoy: DateOnly.FromDateTime(DateTime.Now),
+            idPresupuestoReemplazado: idReemplazado);
+    }
+
+    private CrearPresupuestoDto CrearPresupuestoDto(Articulo articulo, int cantidad, decimal precio)
+    {
+        return new CrearPresupuestoDto
+        {
+            IdUsuario = IdUsuario,
+            Items =
+            [
+                new DetallePresupuestoDto
+                {
+                    IdArticulo = articulo.Id,
+                    Descripcion = articulo.Descripcion,
+                    Cantidad = cantidad,
+                    PrecioUnitarioPactado = precio
+                }
+            ]
+        };
+    }
+
+    private static PresupuestoService CrearPresupuestoService(RetailDbContext contexto)
+    {
+        return new PresupuestoService(
+            new Repository<Presupuesto>(contexto),
+            new Repository<Articulo>(contexto),
+            new Repository<Cliente>(contexto),
+            new PresupuestoQueryService(contexto),
+            new ArticuloQueryService(contexto),
+            new UnitOfWork(contexto),
+            Substitute.For<ITicketPrinterService>(),
+            Substitute.For<IExportadorPresupuestoPdf>(),
+            TimeProvider.System,
+            new CrearPresupuestoValidator(),
+            new ConsultaPresupuestosValidator());
     }
 
     private static VentaService CrearVentaService(RetailDbContext contexto)

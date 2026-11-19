@@ -13,9 +13,9 @@
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
 | P0 | Documentación: este plan, ERS (RF-11, RF-12, IU-13), revisión de PS-05/PS-06, roadmap, mapa | ✅ Hecha |
-| P1 | UI: extraer `EditorRenglones` de `ListaFormDialog` sin cambiar su comportamiento | ⏳ Pendiente |
+| P1 | UI: extraer `EditorRenglones` de `ListaFormDialog` sin cambiar su comportamiento | ✅ Hecha |
 | P2 | UI: `PresupuestoFormDialog` y "Nuevo presupuesto" en la pestaña | ⏳ Pendiente |
-| P3 | Dominio, Aplicación e Infraestructura: título editable y corrección (reemplazo atómico) | ⏳ Pendiente |
+| P3 | Dominio, Aplicación e Infraestructura: título editable y corrección (reemplazo atómico) | ✅ Hecha |
 | P4 | UI: acción *Corregir*, estado *Reemplazado* y título editable en el detalle | ⏳ Pendiente |
 | P5 | Cierre: verificación Release, mapa y PR | ⏳ Pendiente |
 

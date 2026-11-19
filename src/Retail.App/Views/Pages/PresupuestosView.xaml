@@ -43,6 +43,10 @@
                     <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
                     <Setter TargetName="BadgeAnulado" Property="Visibility" Value="Visible" />
                 </DataTrigger>
+                <DataTrigger Binding="{Binding EstadoVisual}" Value="Reemplazado">
+                    <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                    <Setter TargetName="BadgeConvertido" Property="Visibility" Value="Visible" />
+                </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
     </UserControl.Resources>

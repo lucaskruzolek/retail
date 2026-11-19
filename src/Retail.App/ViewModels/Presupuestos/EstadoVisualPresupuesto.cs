@@ -10,5 +10,6 @@ public enum EstadoVisualPresupuesto
     Vigente,
     Vencido,
     Convertido,
-    Anulado
+    Anulado,
+    Reemplazado
 }

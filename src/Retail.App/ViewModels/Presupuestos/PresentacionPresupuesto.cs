@@ -26,6 +26,7 @@ public static class PresentacionPresupuesto
             EstadoPresupuestoEnum.Pendiente => estaVigente ? EstadoVisualPresupuesto.Vigente : EstadoVisualPresupuesto.Vencido,
             EstadoPresupuestoEnum.Convertido => EstadoVisualPresupuesto.Convertido,
             EstadoPresupuestoEnum.Anulado => EstadoVisualPresupuesto.Anulado,
+            EstadoPresupuestoEnum.Reemplazado => EstadoVisualPresupuesto.Reemplazado,
             _ => throw new ArgumentOutOfRangeException(nameof(estado), estado, "Estado de presupuesto no soportado.")
         };
     }
@@ -39,6 +40,7 @@ public static class PresentacionPresupuesto
             EstadoVisualPresupuesto.Vencido => "Vencido",
             EstadoVisualPresupuesto.Convertido => "Convertido",
             EstadoVisualPresupuesto.Anulado => "Anulado",
+            EstadoVisualPresupuesto.Reemplazado => "Reemplazado",
             _ => throw new ArgumentOutOfRangeException(nameof(estado), estado, "Estado visual no soportado.")
         };
     }

@@ -70,6 +70,10 @@ public class PresupuestoConfiguration : IEntityTypeConfiguration<Presupuesto>
         builder.Property(p => p.FechaCierre)
             .HasColumnName("fecha_cierre");
 
+        // Corrección (PE-03): referencia al presupuesto que este reemplaza.
+        builder.Property(p => p.IdPresupuestoReemplazado)
+            .HasColumnName("id_presupuesto_reemplazado");
+
         builder.Property(p => p.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
@@ -88,6 +92,12 @@ public class PresupuestoConfiguration : IEntityTypeConfiguration<Presupuesto>
         builder.HasIndex(p => new { p.Estado, p.FechaVencimiento })
             .HasDatabaseName("IX_PRESUPUESTOS_Estado_FechaVencimiento");
 
+        // Un presupuesto se reemplaza una sola vez (PE-07): último cinturón tras el estado del agregado y el rowversion.
+        builder.HasIndex(p => p.IdPresupuestoReemplazado)
+            .IsUnique()
+            .HasFilter("[id_presupuesto_reemplazado] IS NOT NULL")
+            .HasDatabaseName("UX_PRESUPUESTOS_id_presupuesto_reemplazado");
+
         builder.Ignore(p => p.IsDeleted);
 
         builder.HasOne(p => p.Usuario)
@@ -98,6 +108,11 @@ public class PresupuestoConfiguration : IEntityTypeConfiguration<Presupuesto>
         builder.HasOne(p => p.Cliente)
             .WithMany(c => c.Presupuestos)
             .HasForeignKey(p => p.IdCliente)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<Presupuesto>()
+            .WithMany()
+            .HasForeignKey(p => p.IdPresupuestoReemplazado)
             .OnDelete(DeleteBehavior.Restrict);
 
         // Los renglones viven dentro de la raíz: EF los puebla por el campo privado, no por la vista de solo lectura.

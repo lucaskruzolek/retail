@@ -28,4 +28,10 @@ public record class PresupuestoResumenDto
     public bool EstaVigente { get; init; }
 
     public int CantidadRenglones { get; init; }
+
+    /// <summary>Presupuesto que este corrige (PE-03), o <c>null</c> si no nació de una corrección.</summary>
+    public int? IdPresupuestoReemplazado { get; init; }
+
+    /// <summary>Presupuesto que reemplazó a este (PE-03), o <c>null</c> si no fue reemplazado.</summary>
+    public int? IdPresupuestoReemplazante { get; init; }
 }

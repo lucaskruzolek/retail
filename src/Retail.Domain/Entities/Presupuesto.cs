@@ -58,9 +58,15 @@ public class Presupuesto : BaseEntity, IAggregateRoot
     public EstadoPresupuestoEnum Estado { get; private set; }
 
     /// <summary>
-    /// Cuándo terminó el presupuesto: al convertirse en venta o al anularse.
+    /// Cuándo terminó el presupuesto: al convertirse en venta, anularse o ser reemplazado.
     /// </summary>
     public DateTime? FechaCierre { get; private set; }
+
+    /// <summary>
+    /// Presupuesto al que este reemplaza cuando nació de una corrección (PE-03). Referencia por identidad (PS-19);
+    /// un presupuesto se reemplaza una sola vez (PE-07).
+    /// </summary>
+    public int? IdPresupuestoReemplazado { get; private set; }
 
     public IReadOnlyCollection<DetallePresupuesto> Detalles => _detalles.AsReadOnly();
 
@@ -79,6 +85,7 @@ public class Presupuesto : BaseEntity, IAggregateRoot
     /// Fecha calendario local de hoy. El dominio no lee el reloj para la vigencia (PS-09): la capa de aplicación
     /// la obtiene de <c>TimeProvider</c>, lo que mantiene la regla determinista y testeable.
     /// </param>
+    /// <param name="idPresupuestoReemplazado">Presupuesto que este corrige (PE-03), o <c>null</c> si es una emisión común.</param>
     public static Presupuesto Emitir(
         int idUsuario,
         int? idCliente,
@@ -86,7 +93,8 @@ public class Presupuesto : BaseEntity, IAggregateRoot
         IReadOnlyList<RenglonAPresupuestar> renglones,
         decimal descuento,
         int vigenciaDias,
-        DateOnly hoy)
+        DateOnly hoy,
+        int? idPresupuestoReemplazado = null)
     {
         if (idUsuario <= 0)
         {
@@ -96,6 +104,11 @@ public class Presupuesto : BaseEntity, IAggregateRoot
         if (idCliente is <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(idCliente), "El identificador del cliente no es válido.");
+        }
+
+        if (idPresupuestoReemplazado is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(idPresupuestoReemplazado), "El identificador del presupuesto reemplazado no es válido.");
         }
 
         ArgumentNullException.ThrowIfNull(renglones);
@@ -117,6 +130,7 @@ public class Presupuesto : BaseEntity, IAggregateRoot
             IdUsuario = idUsuario,
             IdCliente = idCliente,
             Titulo = tituloNormalizado,
+            IdPresupuestoReemplazado = idPresupuestoReemplazado,
             Estado = EstadoPresupuestoEnum.Pendiente,
             FechaEmision = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
@@ -210,6 +224,28 @@ public class Presupuesto : BaseEntity, IAggregateRoot
 
         Estado = EstadoPresupuestoEnum.Anulado;
         FechaCierre = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Cierra un presupuesto pendiente porque otro lo reemplaza (corrección). Es la regla de PS-05 ("se anula y se
+    /// emite otro") revisada por PE-02: el contenido sigue siendo inmutable y la corrección ocurre en un solo paso.
+    /// </summary>
+    public void Reemplazar()
+    {
+        ExigirEstado("reemplazar", EstadoPresupuestoEnum.Pendiente);
+
+        Estado = EstadoPresupuestoEnum.Reemplazado;
+        FechaCierre = DateTime.UtcNow;
+    }
+
+    /// <summary>
+    /// Cambia la nota interna, en cualquier estado (PE-08). Es la única modificación permitida tras emitir sin cerrar
+    /// el presupuesto, porque el título nunca se imprime ni se exporta: no altera ningún documento entregado.
+    /// </summary>
+    /// <param name="titulo">Nuevo título; vacío o en blanco lo quita.</param>
+    public void CambiarTitulo(string? titulo)
+    {
+        Titulo = NormalizarTitulo(titulo);
     }
 
     private static string? NormalizarTitulo(string? titulo)

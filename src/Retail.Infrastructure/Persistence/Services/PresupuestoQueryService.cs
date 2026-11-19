@@ -70,9 +70,35 @@ public class PresupuestoQueryService : IPresupuestoQueryService
                 Total = p.Total,
                 Estado = p.Estado,
                 EstaVigente = p.FechaVencimiento >= hoy,
-                CantidadRenglones = p.Detalles.Count
+                CantidadRenglones = p.Detalles.Count,
+                IdPresupuestoReemplazado = p.IdPresupuestoReemplazado
             })
             .ToListAsync(cancellationToken);
+
+        // El reemplazante se resuelve solo para la página y con una consulta aparte (R-3): evita una subconsulta
+        // correlacionada por cada fila de todo el listado filtrado.
+        var idsReemplazados = items
+            .Where(i => i.Estado == EstadoPresupuestoEnum.Reemplazado)
+            .Select(i => i.IdPresupuesto)
+            .ToList();
+
+        if (idsReemplazados.Count > 0)
+        {
+            var reemplazantes = await _context.Presupuestos
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(r => r.DeletedAt == null
+                    && r.IdPresupuestoReemplazado != null
+                    && idsReemplazados.Contains(r.IdPresupuestoReemplazado.Value))
+                .Select(r => new { Reemplazado = r.IdPresupuestoReemplazado!.Value, r.Id })
+                .ToDictionaryAsync(r => r.Reemplazado, r => r.Id, cancellationToken);
+
+            items = items
+                .Select(i => reemplazantes.TryGetValue(i.IdPresupuesto, out var idReemplazante)
+                    ? i with { IdPresupuestoReemplazante = idReemplazante }
+                    : i)
+                .ToList();
+        }
 
         return new PresupuestosPaginadosDto
         {
@@ -105,6 +131,12 @@ public class PresupuestoQueryService : IPresupuestoQueryService
                 Total = p.Total,
                 Estado = p.Estado,
                 EstaVigente = p.FechaVencimiento >= hoy,
+                IdPresupuestoReemplazado = p.IdPresupuestoReemplazado,
+                IdPresupuestoReemplazante = _context.Presupuestos
+                    .IgnoreQueryFilters()
+                    .Where(r => r.DeletedAt == null && r.IdPresupuestoReemplazado == p.Id)
+                    .Select(r => (int?)r.Id)
+                    .FirstOrDefault(),
                 Items = p.Detalles
                     .OrderBy(d => d.Id)
                     .Select(d => new DetallePresupuestoDto
@@ -158,12 +190,14 @@ public class PresupuestoQueryService : IPresupuestoQueryService
             var vencidos = consulta.Estados.Contains(FiltroEstadoPresupuestoEnum.Vencidos);
             var convertidos = consulta.Estados.Contains(FiltroEstadoPresupuestoEnum.Convertidos);
             var anulados = consulta.Estados.Contains(FiltroEstadoPresupuestoEnum.Anulados);
+            var reemplazados = consulta.Estados.Contains(FiltroEstadoPresupuestoEnum.Reemplazados);
 
             query = query.Where(p =>
                 (vigentes && p.Estado == EstadoPresupuestoEnum.Pendiente && p.FechaVencimiento >= hoy) ||
                 (vencidos && p.Estado == EstadoPresupuestoEnum.Pendiente && p.FechaVencimiento < hoy) ||
                 (convertidos && p.Estado == EstadoPresupuestoEnum.Convertido) ||
-                (anulados && p.Estado == EstadoPresupuestoEnum.Anulado));
+                (anulados && p.Estado == EstadoPresupuestoEnum.Anulado) ||
+                (reemplazados && p.Estado == EstadoPresupuestoEnum.Reemplazado));
         }
 
         if (consulta.IdsCliente.Count > 0 || consulta.IncluirConsumidorFinal)

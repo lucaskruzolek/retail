@@ -1336,6 +1336,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id_cliente");
 
+                    b.Property<int?>("IdPresupuestoReemplazado")
+                        .HasColumnType("int")
+                        .HasColumnName("id_presupuesto_reemplazado");
+
                     b.Property<int>("IdUsuario")
                         .HasColumnType("int")
                         .HasColumnName("id_usuario");
@@ -1365,6 +1369,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("IdCliente");
+
+                    b.HasIndex("IdPresupuestoReemplazado")
+                        .IsUnique()
+                        .HasDatabaseName("UX_PRESUPUESTOS_id_presupuesto_reemplazado")
+                        .HasFilter("[id_presupuesto_reemplazado] IS NOT NULL");
 
                     b.HasIndex("IdUsuario");
 
@@ -2370,6 +2379,11 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.HasOne("Retail.Domain.Entities.Cliente", "Cliente")
                         .WithMany("Presupuestos")
                         .HasForeignKey("IdCliente")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Retail.Domain.Entities.Presupuesto", null)
+                        .WithMany()
+                        .HasForeignKey("IdPresupuestoReemplazado")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Retail.Domain.Entities.Usuario", "Usuario")

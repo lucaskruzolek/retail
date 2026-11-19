@@ -14,6 +14,21 @@ public interface IPresupuestoService
     /// </summary>
     Task<PresupuestoDto> EmitirAsync(CrearPresupuestoDto dto, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Corrige un presupuesto pendiente (PE-02): lo cierra como <c>Reemplazado</c> y emite uno nuevo con los precios de
+    /// hoy y vigencia desde hoy, todo en un solo <c>SaveChanges</c>. Devuelve el presupuesto nuevo.
+    /// </summary>
+    /// <exception cref="Retail.Domain.Exceptions.TransicionPresupuestoInvalidaException">Si el original no está pendiente.</exception>
+    /// <exception cref="Retail.Domain.Exceptions.DomainException">
+    /// Si el original ya no existe, un precio cambió, un artículo fue dado de baja o otra terminal lo modificó (por ejemplo, lo cobró).
+    /// </exception>
+    Task<PresupuestoDto> ReemplazarAsync(int idPresupuestoOriginal, CrearPresupuestoDto dto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cambia el título interno de un presupuesto en cualquier estado (PE-08). El título nunca se imprime ni se exporta.
+    /// </summary>
+    Task CambiarTituloAsync(int idPresupuesto, string? titulo, CancellationToken cancellationToken = default);
+
     /// <summary>Lista los presupuestos con filtros y paginación en servidor.</summary>
     Task<PresupuestosPaginadosDto> ListarAsync(ConsultaPresupuestosDto consulta, CancellationToken cancellationToken = default);
 

@@ -4,6 +4,7 @@ using FluentValidation;
 using NSubstitute;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
@@ -483,6 +484,137 @@ public class PresupuestoServiceTests
         // Assert
         await act.Should().ThrowAsync<TransicionPresupuestoInvalidaException>();
         await AssertNoSeGuardoNadaAsync();
+    }
+
+    // ── ReemplazarAsync / CambiarTituloAsync (Módulo 5.4) ──
+
+    [Fact]
+    public async Task ReemplazarAsync_Pendiente_CierraElOriginalYEmiteElNuevoConUnSoloGuardado()
+    {
+        // Arrange: el catálogo vale 1800 hoy; el modal ya trae ese precio (PE-06).
+        var original = EmitirDeDominio();
+        _presupuestoRepository.GetByIdAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(original);
+        ConfigurarArticulos(CrearArticulo(10, "Cuaderno A4", precio: 1800m));
+        ConfigurarLecturaDelPresupuestoGuardado();
+        Presupuesto? nuevo = null;
+        await _presupuestoRepository.AddAsync(Arg.Do<Presupuesto>(p => nuevo = p), Arg.Any<CancellationToken>());
+
+        // Act
+        var resultado = await _sut.ReemplazarAsync(IdPresupuesto, CrearDto([Item(10, "Cuaderno", 3, 1800m)]) with { VigenciaDias = 30 });
+
+        // Assert
+        original.Estado.Should().Be(EstadoPresupuestoEnum.Reemplazado);
+        nuevo.Should().NotBeNull();
+        nuevo!.IdPresupuestoReemplazado.Should().Be(IdPresupuesto);
+        nuevo.Estado.Should().Be(EstadoPresupuestoEnum.Pendiente);
+        nuevo.Detalles.Should().ContainSingle()
+            .Which.Should().Match<DetallePresupuesto>(d => d.PrecioUnitarioPactado == 1800m && d.Cantidad == 3);
+        nuevo.FechaVencimiento.Should().Be(Hoy.AddDays(30));
+        resultado.IdPresupuesto.Should().Be(IdPresupuesto);
+        await _presupuestoRepository.Received(1).UpdateAsync(original, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    [Fact]
+    public async Task ReemplazarAsync_OriginalNoPendiente_LanzaTransicionInvalidaSinGuardar()
+    {
+        // Arrange
+        var original = EmitirDeDominio();
+        original.RegistrarConversion();
+        _presupuestoRepository.GetByIdAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(original);
+        ConfigurarArticulos(CrearArticulo(10, "Cuaderno", precio: 1500m));
+
+        // Act
+        var act = () => _sut.ReemplazarAsync(IdPresupuesto, CrearDto([Item(10, "Cuaderno", 1, 1500m)]));
+
+        // Assert
+        await act.Should().ThrowAsync<TransicionPresupuestoInvalidaException>();
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Fact]
+    public async Task ReemplazarAsync_OriginalInexistente_LanzaDomainExceptionSinGuardar()
+    {
+        // Arrange
+        _presupuestoRepository.GetByIdAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns((Presupuesto?)null);
+
+        // Act
+        var act = () => _sut.ReemplazarAsync(IdPresupuesto, CrearDto([Item(10, "Cuaderno", 1, 1500m)]));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*presupuesto*");
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Fact]
+    public async Task ReemplazarAsync_PrecioDesactualizado_LanzaDomainExceptionSinGuardar()
+    {
+        // Arrange
+        var original = EmitirDeDominio();
+        _presupuestoRepository.GetByIdAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(original);
+        ConfigurarArticulos(CrearArticulo(10, "Cuaderno", precio: 1800m));
+
+        // Act
+        var act = () => _sut.ReemplazarAsync(IdPresupuesto, CrearDto([Item(10, "Cuaderno", 1, 1500m)]));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>().WithMessage("*precio*cambió*");
+        original.Estado.Should().Be(EstadoPresupuestoEnum.Pendiente);
+        await AssertNoSeGuardoNadaAsync();
+    }
+
+    [Theory]
+    [InlineData(typeof(ConflictoDeConcurrenciaException))]
+    [InlineData(typeof(RestriccionDeUnicidadException))]
+    public async Task ReemplazarAsync_ConflictoAlGuardar_LanzaDomainExceptionConMensajeDeCorreccion(Type tipoDeConflicto)
+    {
+        // Arrange
+        var original = EmitirDeDominio();
+        _presupuestoRepository.GetByIdAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(original);
+        ConfigurarArticulos(CrearArticulo(10, "Cuaderno", precio: 1500m));
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns<Task<int>>(_ => throw (Exception)Activator.CreateInstance(tipoDeConflicto)!);
+
+        // Act
+        var act = () => _sut.ReemplazarAsync(IdPresupuesto, CrearDto([Item(10, "Cuaderno", 1, 1500m)]));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage($"El presupuesto N.º {IdPresupuesto} cambió mientras lo corregía*Vuelva a abrirlo.");
+        _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    [Fact]
+    public async Task CambiarTituloAsync_Presupuesto_NormalizaElTituloYGuardaUnaSolaVez()
+    {
+        // Arrange
+        var presupuesto = EmitirDeDominio();
+        _presupuestoRepository.GetByIdAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(presupuesto);
+
+        // Act
+        await _sut.CambiarTituloAsync(IdPresupuesto, "  Lista   escolar ");
+
+        // Assert
+        presupuesto.Titulo.Should().Be("Lista escolar");
+        await _presupuestoRepository.Received(1).UpdateAsync(presupuesto, Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    [Fact]
+    public async Task CambiarTituloAsync_ConflictoDeConcurrencia_LanzaDomainExceptionConMensaje()
+    {
+        // Arrange
+        _presupuestoRepository.GetByIdAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(EmitirDeDominio());
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns<Task<int>>(_ => throw new ConflictoDeConcurrenciaException());
+
+        // Act
+        var act = () => _sut.CambiarTituloAsync(IdPresupuesto, "Nuevo");
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage($"Otro usuario modificó el presupuesto N.º {IdPresupuesto}. Vuelva a abrirlo.");
+        _unitOfWork.Received(1).DescartarCambios();
     }
 
     // ── ImprimirAsync / ExportarPdfAsync ──
