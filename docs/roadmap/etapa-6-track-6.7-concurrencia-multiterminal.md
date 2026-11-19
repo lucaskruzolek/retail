@@ -19,7 +19,7 @@ compartidas (Ley 10): se coordinan con Pablo antes de empezar.
 | :--- | :--- | :--- | :---: |
 | 0 | ERS: reescribir `RNF-05` y agregar los RNF nuevos | Fase 0 | ✅ `RNF-05` reescrito, `RNF-10` a `RNF-12` y `RF-15` ampliado |
 | 1 | Concurrencia optimista de caja y clientes | H2, H3, H18, MT-11 | ✅ Migración `ConcurrenciaCajaYClientes`; 963 tests de dominio, 1.182 de aplicación y 528 de integración en verde. El paso 1.6 pasó al Paquete 3 |
-| 2 | *Write skew* y unicidades | H4, H5 | ⏳ |
+| 2 | *Write skew* y unicidades | H4, H5 | ✅ `IBloqueoGerentes` con `sp_getapplock` (mecanismo compartido con la restauración); 8 servicios traducen la violación de unicidad al mensaje de su comprobación previa |
 | 3 | Identidad de la terminal y turno por cajero y terminal | H1, MT-1, MT-5, MT-9, MT-13, MT-14 | ⏳ |
 | 4 | Instancia única, sesión única y modo mantenimiento | H8, H13, MT-2, MT-3, MT-6, H10 (sesiones) | ⏳ |
 | 5 | Despliegue en red: configuración, login SQL, mantenimiento en el servidor | H7, H9, H14, H16, H17, H19, MT-7, MT-8, MT-10, MT-12 | ⏳ |
