@@ -13,7 +13,7 @@
 | Fase | Contenido | Estado |
 | :--- | :--- | :---: |
 | L0 | Documentación: ERS (RF-30, IU-14, IU-02, trazabilidad), roadmap de la etapa, mapa | ✅ Hecha |
-| L1 | Dominio: agregado `ListaArticulos` | ⏳ Pendiente |
+| L1 | Dominio: agregado `ListaArticulos` | ✅ Hecha |
 | L2 | Aplicación: `IListaService`, DTOs, validadores; venta con lista de origen | ⏳ Pendiente |
 | L3 | Infraestructura: configuración EF, migración, `ListaQueryService`, PDF de la lista | ⏳ Pendiente |
 | L4 | UI: pestaña **Listas** en Ventas (listado y editor) | ⏳ Pendiente |
