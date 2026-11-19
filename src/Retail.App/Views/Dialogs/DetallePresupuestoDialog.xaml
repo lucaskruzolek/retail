@@ -155,7 +155,7 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="Renglones" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
+                <TextBlock Grid.Row="0" Text="Productos" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
 
                 <!-- La sección ya es la superficie: la grilla va sin borde propio ni esquinas -->
                 <DataGrid Grid.Row="1"
