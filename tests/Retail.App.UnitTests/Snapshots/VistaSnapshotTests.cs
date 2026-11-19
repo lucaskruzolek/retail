@@ -506,7 +506,7 @@ public class VistaSnapshotTests
                 Substitute.For<ILogger>());
 
             var dialogo = new ListaFormDialog(viewModel);
-            return SnapshotRenderer.Guardar(dialogo, 800, 700, carpeta + "/ListaFormDialog", () => viewModel.Renglones.Count > 0);
+            return SnapshotRenderer.Guardar(dialogo, 800, 700, carpeta + "/ListaFormDialog", () => viewModel.Editor.Renglones.Count > 0);
         });
 
         VerificarCaptura(ruta, error);

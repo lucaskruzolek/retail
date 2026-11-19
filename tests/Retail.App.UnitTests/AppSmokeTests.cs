@@ -1302,6 +1302,43 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void EditorRenglones_InstanciacionEnHiloSTAConRenglones_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange
+        Exception? xamlException = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            using var acceso = new Retail.App.Helpers.CargaSerializada();
+            var viewModel = new Retail.App.ViewModels.Comun.EditorRenglonesViewModel(
+                Substitute.For<IVentaService>(),
+                acceso,
+                Substitute.For<ILogger>(),
+                exigirAlMenosUnRenglon: true);
+            viewModel.CargarRenglones(
+            [
+                new Retail.App.ViewModels.Comun.RenglonEditableFila(1, "7790001", "Cuaderno tapa dura", 2700m, 2, true),
+                new Retail.App.ViewModels.Comun.RenglonEditableFila(2, null, "Lapicera descontinuada", 450m, 1, false)
+            ]);
+
+            try
+            {
+                var control = new EditorRenglones { DataContext = viewModel, EncabezadoPrecio = "Precio" };
+                control.Measure(new System.Windows.Size(800, 400));
+                control.Arrange(new System.Windows.Rect(0, 0, 800, 400));
+                control.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de EditorRenglones debe resolverse sin errores (buscador, grilla, selector de cantidad y aviso)");
+    }
+
+    [Fact]
     public void SelectorFechaUnica_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
     {
         // Arrange

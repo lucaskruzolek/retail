@@ -109,7 +109,7 @@ public class ListaFormViewModelTests : IDisposable
         sut.EsNueva.Should().BeTrue();
         sut.TituloVentana.Should().Be("Nueva lista");
         sut.Nombre.Should().BeEmpty();
-        sut.Renglones.Should().BeEmpty();
+        sut.Editor.Renglones.Should().BeEmpty();
         sut.TieneErrorNombre.Should().BeFalse("el aviso no aparece antes de que el usuario toque el nombre");
         sut.GuardarCommand.CanExecute(null).Should().BeFalse();
     }
@@ -122,7 +122,7 @@ public class ListaFormViewModelTests : IDisposable
         sut.EsNueva.Should().BeFalse();
         sut.TituloVentana.Should().Be("Editar lista");
         sut.Nombre.Should().Be("Jardín sala de 5");
-        sut.Renglones.Select(r => r.Descripcion).Should().Equal("Cuaderno", "Lápiz");
+        sut.Editor.Renglones.Select(r => r.Descripcion).Should().Equal("Cuaderno", "Lápiz");
         sut.TotalDeHoy.Should().Be(4800m);
     }
 
@@ -162,69 +162,42 @@ public class ListaFormViewModelTests : IDisposable
     }
 
     // ------------------------------------------------------------------ //
-    // Renglones                                                           //
+    // Renglones (la lógica del editor se prueba en EditorRenglonesViewModelTests)
     // ------------------------------------------------------------------ //
 
     [Fact]
-    public void AgregarArticulo_ArticuloNuevo_EntraConCantidadUnoAlPrecioDeHoy()
+    public void Editor_SeAgregaUnArticulo_ActualizaElTotalDeHoyYHabilitaGuardar()
     {
         var sut = CrearNueva();
+        sut.Nombre = "Lista";
 
-        sut.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
+        sut.Editor.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
 
-        var renglon = sut.Renglones.Should().ContainSingle().Subject;
-        renglon.IdArticulo.Should().Be(1);
-        renglon.Cantidad.Should().Be(1);
-        renglon.PrecioActual.Should().Be(900m);
         sut.TotalDeHoy.Should().Be(900m);
+        sut.GuardarCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
-    public void AgregarArticulo_ArticuloYaPresente_SumaUnoALaCantidadSinRepetirElRenglon()
-    {
-        var sut = CrearEdicion(Renglon(1, "Cuaderno", 2, 900m));
-
-        sut.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
-
-        sut.Renglones.Should().ContainSingle().Which.Cantidad.Should().Be(3);
-        sut.TotalDeHoy.Should().Be(2700m);
-    }
-
-    [Fact]
-    public void Cantidad_SeModifica_ActualizaElSubtotalYElTotalDeHoy()
+    public void Editor_CantidadSeModifica_ActualizaElTotalDeHoy()
     {
         var sut = CrearEdicion(Renglon(1, "Cuaderno", 1, 900m), Renglon(2, "Lápiz", 1, 300m));
 
-        sut.Renglones[1].Cantidad = 10;
+        sut.Editor.Renglones[1].Cantidad = 10;
 
-        sut.Renglones[1].Subtotal.Should().Be(3000m);
         sut.TotalDeHoy.Should().Be(3900m);
     }
 
     [Fact]
-    public void QuitarRenglon_HayMasDeUno_LoQuita()
-    {
-        var sut = CrearEdicion(Renglon(1, "Cuaderno", 1, 900m), Renglon(2, "Lápiz", 1, 300m));
-        var aQuitar = sut.Renglones[0];
-
-        sut.QuitarRenglonCommand.CanExecute(aQuitar).Should().BeTrue();
-        sut.QuitarRenglonCommand.Execute(aQuitar);
-
-        sut.Renglones.Should().ContainSingle().Which.IdArticulo.Should().Be(2);
-        sut.TotalDeHoy.Should().Be(300m);
-    }
-
-    [Fact]
-    public void QuitarRenglon_EsElUltimo_NoSePuedeQuitarYElTooltipLoExplica()
+    public void Editor_EsElUltimoRenglon_NoSePuedeQuitarYElTooltipLoExplica()
     {
         var sut = CrearEdicion(Renglon(1, "Cuaderno", 1, 900m));
-        var ultimo = sut.Renglones.Single();
+        var ultimo = sut.Editor.Renglones.Single();
 
-        sut.QuitarRenglonCommand.CanExecute(ultimo).Should().BeFalse();
-        sut.QuitarRenglonCommand.Execute(ultimo);
+        sut.Editor.QuitarRenglonCommand.CanExecute(ultimo).Should().BeFalse();
+        sut.Editor.QuitarRenglonCommand.Execute(ultimo);
 
-        sut.Renglones.Should().ContainSingle();
-        sut.TextoQuitarRenglon.Should().Be("La lista debe tener al menos un artículo");
+        sut.Editor.Renglones.Should().ContainSingle();
+        sut.Editor.TextoQuitarRenglon.Should().Be("La lista debe tener al menos un artículo");
     }
 
     [Fact]
@@ -235,89 +208,21 @@ public class ListaFormViewModelTests : IDisposable
             Renglon(2, "Lápiz descontinuado", 5, 300m, disponible: false));
 
         sut.TotalDeHoy.Should().Be(1800m);
-        sut.CantidadNoDisponibles.Should().Be(1);
-        sut.HayNoDisponibles.Should().BeTrue();
-        sut.Renglones[1].EstaDadoDeBaja.Should().BeTrue();
-    }
-
-    // ------------------------------------------------------------------ //
-    // Buscador                                                            //
-    // ------------------------------------------------------------------ //
-
-    [Fact]
-    public async Task TextoBusqueda_DosCaracteres_MuestraLosResultadosDelServicioDeVentas()
-    {
-        _ventaService.BuscarPorTextoAsync("cu", Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns([Articulo(1, "Cuaderno", 900m), Articulo(2, "Cuadernola", 1200m)]);
-        var sut = CrearNueva();
-
-        sut.TextoBusqueda = "cu";
-
-        await EsperarAsync(() => sut.ResultadosBusqueda.Count == 2);
-        sut.MostrarResultados.Should().BeTrue();
-        sut.ResultadoSeleccionado!.IdArticulo.Should().Be(1);
+        sut.Editor.CantidadNoDisponibles.Should().Be(1);
+        sut.Editor.Renglones[1].EstaDadoDeBaja.Should().BeTrue();
     }
 
     [Fact]
-    public async Task TextoBusqueda_UnSoloCaracter_NoBuscaYOcultaElDesplegable()
-    {
-        var sut = CrearNueva();
-
-        sut.TextoBusqueda = "c";
-        await Task.Delay(400);
-
-        sut.MostrarResultados.Should().BeFalse();
-        await _ventaService.DidNotReceiveWithAnyArgs().BuscarPorTextoAsync(default!, default, default);
-    }
-
-    [Fact]
-    public async Task AgregarResultadoSeleccionado_ConResultadosAbiertos_AgregaElResaltadoYLimpiaElBuscador()
-    {
-        _ventaService.BuscarPorTextoAsync("cu", Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns([Articulo(1, "Cuaderno", 900m)]);
-        var sut = CrearNueva();
-        sut.TextoBusqueda = "cu";
-        await EsperarAsync(() => sut.MostrarResultados);
-
-        await sut.AgregarResultadoSeleccionadoCommand.ExecuteAsync(null);
-
-        sut.Renglones.Should().ContainSingle().Which.IdArticulo.Should().Be(1);
-        sut.TextoBusqueda.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task AgregarResultadoSeleccionado_CodigoEscaneadoSinResultadosTodavia_ResuelveElArticuloPorCodigo()
-    {
-        _ventaService.BuscarArticuloParaVentaAsync("7790001", Arg.Any<CancellationToken>()).Returns(Articulo(1, "Cuaderno", 900m));
-        var sut = CrearNueva();
-        sut.TextoBusqueda = "7790001";
-
-        await sut.AgregarResultadoSeleccionadoCommand.ExecuteAsync(null);
-
-        sut.Renglones.Should().ContainSingle().Which.IdArticulo.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task AgregarResultadoSeleccionado_CodigoInexistente_InformaYNoAgrega()
+    public async Task Editor_CodigoInexistente_MuestraElAvisoEnElDialogo()
     {
         _ventaService.BuscarArticuloParaVentaAsync("999", Arg.Any<CancellationToken>()).Returns((ArticuloVentaDto?)null);
         var sut = CrearNueva();
-        sut.TextoBusqueda = "999";
+        sut.Editor.TextoBusqueda = "999";
 
-        await sut.AgregarResultadoSeleccionadoCommand.ExecuteAsync(null);
+        await sut.Editor.AgregarResultadoSeleccionadoCommand.ExecuteAsync(null);
 
-        sut.Renglones.Should().BeEmpty();
         sut.MensajeError.Should().Contain("999");
-    }
-
-    private static async Task EsperarAsync(Func<bool> condicion)
-    {
-        for (int i = 0; i < 100 && !condicion(); i++)
-        {
-            await Task.Delay(20);
-        }
-
-        condicion().Should().BeTrue("la condición debía cumplirse tras la carga asíncrona");
+        sut.TieneMensajeError.Should().BeTrue();
     }
 
     // ------------------------------------------------------------------ //
@@ -330,9 +235,9 @@ public class ListaFormViewModelTests : IDisposable
         _listaService.CrearAsync(Arg.Any<CrearListaDto>(), Arg.Any<CancellationToken>()).Returns(ListaGuardada());
         var sut = CrearNueva();
         sut.Nombre = "  3.º grado — Colegio San Martín  ";
-        sut.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
-        sut.AgregarArticuloCommand.Execute(Articulo(2, "Lápiz", 300m));
-        sut.Renglones[1].Cantidad = 12;
+        sut.Editor.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
+        sut.Editor.AgregarArticuloCommand.Execute(Articulo(2, "Lápiz", 300m));
+        sut.Editor.Renglones[1].Cantidad = 12;
         var cerrada = false;
         sut.CierreSolicitado += (_, _) => cerrada = true;
 
@@ -377,7 +282,7 @@ public class ListaFormViewModelTests : IDisposable
             .ThrowsAsync(new DomainException("Ya existe una lista llamada «Jardín»."));
         var sut = CrearNueva();
         sut.Nombre = "Jardín";
-        sut.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
+        sut.Editor.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
         var cerrada = false;
         sut.CierreSolicitado += (_, _) => cerrada = true;
 
@@ -411,7 +316,7 @@ public class ListaFormViewModelTests : IDisposable
             .ThrowsAsync(new InvalidOperationException("boom"));
         var sut = CrearNueva();
         sut.Nombre = "Lista";
-        sut.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
+        sut.Editor.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
 
         await sut.GuardarCommand.ExecuteAsync(null);
 
@@ -425,7 +330,7 @@ public class ListaFormViewModelTests : IDisposable
         _sesion.IdUsuario.Returns((int?)null);
         var sut = CrearNueva();
         sut.Nombre = "Lista";
-        sut.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
+        sut.Editor.AgregarArticuloCommand.Execute(Articulo(1, "Cuaderno", 900m));
 
         await sut.GuardarCommand.ExecuteAsync(null);
 
