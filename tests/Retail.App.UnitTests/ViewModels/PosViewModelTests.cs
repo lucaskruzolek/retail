@@ -957,6 +957,38 @@ public class PosViewModelTests
     }
 
     [Fact]
+    public async Task RecuperarPresupuesto_ConClienteEnElTicket_SeLoPasaAlDialogoComoPrefiltro()
+    {
+        var viewModel = await CrearViewModelAsync();
+        viewModel.Cliente = ClienteDeMostrador(7, "Escuela N.º 12");
+        RecuperarPresupuestoViewModel? recibido = null;
+        _presupuestoDialogMock.MostrarRecuperarPresupuesto(Arg.Do<RecuperarPresupuestoViewModel>(vm => recibido = vm))
+            .Returns((PresupuestoParaVentaDto?)null);
+
+        await viewModel.RecuperarPresupuestoCommand.ExecuteAsync(null);
+
+        recibido.Should().NotBeNull();
+        recibido!.HayClienteEnElTicket.Should().BeTrue();
+        recibido.SoloDelCliente.Should().BeTrue();
+        recibido.TextoSoloDelCliente.Should().Be("Solo de Escuela N.º 12");
+    }
+
+    [Fact]
+    public async Task RecuperarPresupuesto_ConsumidorFinal_NoSeLePasaClienteAlDialogo()
+    {
+        var viewModel = await CrearViewModelAsync();
+        RecuperarPresupuestoViewModel? recibido = null;
+        _presupuestoDialogMock.MostrarRecuperarPresupuesto(Arg.Do<RecuperarPresupuestoViewModel>(vm => recibido = vm))
+            .Returns((PresupuestoParaVentaDto?)null);
+
+        await viewModel.RecuperarPresupuestoCommand.ExecuteAsync(null);
+
+        recibido.Should().NotBeNull();
+        recibido!.HayClienteEnElTicket.Should().BeFalse();
+        recibido.SoloDelCliente.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task RecuperarPresupuesto_CanceladoEnElDialogo_NoCambiaNada()
     {
         var viewModel = await CrearViewModelConTicketAsync(Articulo(9, "Regla", 700m));

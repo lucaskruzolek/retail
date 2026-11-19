@@ -3,12 +3,14 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:components="clr-namespace:Retail.App.Views.Components"
+                 xmlns:helpers="clr-namespace:Retail.App.Helpers"
                  xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                  Title="Recuperar presupuesto"
                  Language="es-AR"
-                 Width="420"
-                 MinHeight="0"
-                 SizeToContent="Height"
+                 Width="900"
+                 Height="640"
+                 MinWidth="760"
+                 MinHeight="520"
                  WindowStartupLocation="CenterOwner"
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica"
@@ -18,51 +20,203 @@
     <ui:FluentWindow.Resources>
         <ResourceDictionary>
             <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+
+            <!-- Badge del estado: solo los pendientes llegan a este selector, vigentes o vencidos -->
+            <DataTemplate x:Key="PlantillaEstadoPendiente">
+                <Grid VerticalAlignment="Center" HorizontalAlignment="Left">
+                    <Border x:Name="BadgeVigente" Style="{StaticResource BadgeSuccessStyle}">
+                        <TextBlock Text="{Binding EstadoTexto}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource SuccessForegroundBrush}" />
+                    </Border>
+                    <Border x:Name="BadgeVencido" Style="{StaticResource BadgeWarningStyle}" Visibility="Collapsed">
+                        <TextBlock Text="{Binding EstadoTexto}" FontSize="{StaticResource FontSizeXs}" FontWeight="SemiBold" Foreground="{DynamicResource WarningForegroundBrush}" />
+                    </Border>
+                </Grid>
+                <DataTemplate.Triggers>
+                    <DataTrigger Binding="{Binding EstadoVisual}" Value="Vencido">
+                        <Setter TargetName="BadgeVigente" Property="Visibility" Value="Collapsed" />
+                        <Setter TargetName="BadgeVencido" Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                </DataTemplate.Triggers>
+            </DataTemplate>
         </ResourceDictionary>
     </ui:FluentWindow.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <components:EncabezadoDialogo Grid.Row="0" Titulo="Recuperar presupuesto" />
 
-        <Border Grid.Row="1" Style="{StaticResource DialogSectionStyle}" Margin="12,0,12,12">
-            <StackPanel>
-                <DockPanel Margin="{StaticResource StackSm}">
-                    <components:IndicadorCarga DockPanel.Dock="Right" EstaCargando="{Binding IsBusy}" VerticalAlignment="Center" />
-                    <TextBlock Text="Presupuesto a cobrar" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
-                </DockPanel>
+        <Grid Grid.Row="1" Margin="12,0,12,12">
+            <Grid.RowDefinitions>
+                <!-- Buscador e interruptor -->
+                <RowDefinition Height="Auto" />
+                <!-- Motivo por el que no se pudo recuperar -->
+                <RowDefinition Height="Auto" />
+                <!-- Lista -->
+                <RowDefinition Height="*" />
+                <!-- Aviso de más resultados -->
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-                <TextBlock Text="Ingrese el número impreso en el ticket o el PDF del presupuesto."
-                           Style="{StaticResource TextBlockBodySecondary}"
-                           TextWrapping="Wrap"
-                           Margin="{StaticResource StackMd}" />
+            <DockPanel Grid.Row="0" Margin="0,0,0,12" LastChildFill="True">
+                <components:IndicadorCarga DockPanel.Dock="Right" EstaCargando="{Binding IsBusy}" Margin="12,0,0,0" VerticalAlignment="Center" />
 
-                <TextBlock Text="N.º de presupuesto" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
-                <ui:TextBox x:Name="TxtNumero"
-                            Text="{Binding Numero, UpdateSourceTrigger=PropertyChanged}"
-                            MaxLength="9"
-                            PlaceholderText="Ej.: 123"
-                            FontFamily="{StaticResource FontFamilyMonospace}"
-                            PreviewTextInput="OnNumeroPreviewTextInput"
-                            AutomationProperties.Name="Número de presupuesto" />
+                <!-- El nombre del cliente puede ser largo: se recorta para no robarle el ancho al buscador -->
+                <ui:ToggleSwitch DockPanel.Dock="Right"
+                                 IsChecked="{Binding SoloDelCliente, Mode=TwoWay}"
+                                 Margin="12,0,0,0"
+                                 VerticalAlignment="Center"
+                                 Visibility="{Binding HayClienteEnElTicket, Converter={StaticResource BoolToVisConverter}}"
+                                 ToolTip="{Binding TextoSoloDelCliente}"
+                                 AutomationProperties.Name="Mostrar solo los presupuestos del cliente del ticket">
+                    <TextBlock Text="{Binding TextoSoloDelCliente}"
+                               MaxWidth="260"
+                               TextTrimming="CharacterEllipsis" />
+                </ui:ToggleSwitch>
 
-                <Border Style="{StaticResource BadgeDangerStyle}"
-                        HorizontalAlignment="Stretch"
-                        Margin="0,12,0,0"
-                        Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
-                    <TextBlock Text="{Binding MensajeError}"
-                               FontSize="{StaticResource FontSizeSm}"
-                               FontWeight="SemiBold"
-                               Foreground="{DynamicResource DangerForegroundBrush}"
-                               TextWrapping="Wrap" />
-                </Border>
-            </StackPanel>
-        </Border>
+                <ui:TextBox x:Name="TxtBusqueda"
+                            Text="{Binding TextoBusqueda, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="Buscar por número, título o cliente…"
+                            PreviewKeyDown="OnBusquedaPreviewKeyDown"
+                            AutomationProperties.Name="Buscar presupuesto">
+                    <ui:TextBox.Icon>
+                        <components:IconoBoxIcons Kind="RegularSearch" Foreground="{DynamicResource TextMutedBrush}" Width="16" Height="16" />
+                    </ui:TextBox.Icon>
+                </ui:TextBox>
+            </DockPanel>
+
+            <Border Grid.Row="1"
+                    Style="{StaticResource BadgeDangerStyle}"
+                    HorizontalAlignment="Stretch"
+                    Margin="0,0,0,12"
+                    Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="{Binding MensajeError}"
+                           FontSize="{StaticResource FontSizeSm}"
+                           FontWeight="SemiBold"
+                           Foreground="{DynamicResource DangerForegroundBrush}"
+                           TextWrapping="Wrap" />
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource TablaListadoStyle}">
+                <Grid>
+                    <!-- Doble clic y Enter recuperan la fila (code-behind: la grilla se queda con Enter si no se lo intercepta) -->
+                    <DataGrid x:Name="Grilla"
+                              ItemsSource="{Binding Presupuestos}"
+                              SelectedItem="{Binding PresupuestoSeleccionado, Mode=TwoWay}"
+                              Style="{StaticResource DataGridListadoStyle}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              SelectionMode="Single"
+                              BorderThickness="0"
+                              helpers:EsquinasHelper.Esquinas="7"
+                              MouseDoubleClick="OnGrillaMouseDoubleClick"
+                              PreviewKeyDown="OnGrillaPreviewKeyDown">
+                        <DataGrid.Columns>
+                            <!-- N.º: es un código (ocho dígitos), va en monoespaciada -->
+                            <DataGridTextColumn Header="N.º"
+                                                Binding="{Binding Numero}"
+                                                ElementStyle="{StaticResource TextBlockMonospaceCell}"
+                                                Width="96" />
+
+                            <DataGridTemplateColumn Header="Título" Width="*" MinWidth="140">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Titulo}"
+                                                   Style="{StaticResource TextBlockTextCell}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding TituloTooltip}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTemplateColumn Header="Cliente" Width="*" MinWidth="140">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding ClienteTexto}"
+                                                   Style="{StaticResource TextBlockTextCell}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip="{Binding ClienteTexto}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="Emisión"
+                                                Binding="{Binding EmisionLocal, StringFormat={}{0:dd/MM/yyyy}}"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}"
+                                                Width="112" />
+
+                            <DataGridTextColumn Header="Vence"
+                                                Binding="{Binding Vencimiento, StringFormat={}{0:dd/MM/yyyy}}"
+                                                ElementStyle="{StaticResource TextBlockNumericCell}"
+                                                Width="112" />
+
+                            <DataGridTextColumn Header="Total"
+                                                HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
+                                                Binding="{Binding Total, StringFormat=C0}"
+                                                ElementStyle="{StaticResource TextBlockCurrencyCell}"
+                                                Width="112" />
+
+                            <DataGridTemplateColumn Header="Estado" Width="112" CanUserSort="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <ContentControl Content="{Binding}"
+                                                        ContentTemplate="{StaticResource PlantillaEstadoPendiente}"
+                                                        Margin="8,0"
+                                                        Focusable="False" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Estado vacío -->
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                MaxWidth="460"
+                                Visibility="{Binding EstaVacio, Converter={StaticResource BoolToVisConverter}}">
+                        <iconPacks:PackIconBoxIcons Kind="RegularReceipt" Width="40" Height="40" HorizontalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}" />
+                        <TextBlock Text="{Binding TextoVacio}"
+                                   Style="{StaticResource TextBlockBodySecondary}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Margin="0,12,0,0" />
+                    </StackPanel>
+
+                    <!-- Error de carga, con la salida de volver a intentar -->
+                    <StackPanel VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                Visibility="{Binding TieneErrorCarga, Converter={StaticResource BoolToVisConverter}}">
+                        <Border Style="{StaticResource BadgeDangerStyle}">
+                            <TextBlock Text="{Binding MensajeErrorCarga}"
+                                       FontSize="{StaticResource FontSizeSm}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource DangerForegroundBrush}"
+                                       TextWrapping="Wrap" />
+                        </Border>
+                        <Button Command="{Binding RecargarCommand}"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                HorizontalAlignment="Center"
+                                Margin="0,12,0,0"
+                                ToolTip="Volver a consultar los presupuestos">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                                <TextBlock Text="Reintentar" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <TextBlock Grid.Row="3"
+                       Text="{Binding TextoLimite}"
+                       Style="{StaticResource TextBlockCaptionSecondary}"
+                       Margin="4,8,0,0"
+                       Visibility="{Binding HayMasDeLosMostrados, Converter={StaticResource BoolToVisConverter}}" />
+        </Grid>
 
         <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
             <DockPanel LastChildFill="False">
@@ -70,7 +224,6 @@
                         Content="Cancelar"
                         Style="{StaticResource KeycapButtonStyle}"
                         MinWidth="100"
-                        IsCancel="True"
                         Click="OnCancelarClick" />
 
                 <Button DockPanel.Dock="Right"
@@ -78,7 +231,7 @@
                         IsDefault="True"
                         Style="{StaticResource PrimaryActionButtonStyle}">
                     <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconBoxIcons Kind="RegularSearch" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <iconPacks:PackIconBoxIcons Kind="RegularCheck" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
                         <TextBlock Text="Recuperar" VerticalAlignment="Center" />
                     </StackPanel>
                 </Button>

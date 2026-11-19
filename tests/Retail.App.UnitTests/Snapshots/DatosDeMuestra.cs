@@ -167,6 +167,23 @@ internal static class DatosDeMuestra
         ];
     }
 
+    /// <summary>Nombre del cliente del ticket en las capturas del selector "Recuperar presupuesto".</summary>
+    public const string ClienteDeLosPresupuestosPendientes = "Escuela N.º 12 Domingo F. Sarmiento";
+
+    /// <summary>
+    /// Presupuestos pendientes (vigentes y vencidos) de un mismo cliente, como los devuelve el selector "Recuperar
+    /// presupuesto" prefiltrado por el cliente del ticket: uno con título largo que se recorta y uno sin título.
+    /// </summary>
+    public static IReadOnlyList<PresupuestoResumenDto> PresupuestosPendientesDeUnCliente()
+    {
+        return
+        [
+            Presupuesto(123, "Lista escolar 3.º grado — Escuela N.º 12", new DateTime(2026, 11, 14, 13, 20, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 29), ClienteDeLosPresupuestosPendientes, 184110m, EstadoPresupuestoEnum.Pendiente, true, 5),
+            Presupuesto(112, null, new DateTime(2026, 11, 3, 12, 0, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 18), ClienteDeLosPresupuestosPendientes, 42650m, EstadoPresupuestoEnum.Pendiente, true, 4),
+            Presupuesto(104, "Útiles para el taller de arte y manualidades del turno tarde, segundo cuatrimestre", new DateTime(2026, 10, 20, 11, 0, 0, DateTimeKind.Utc), new DateOnly(2026, 11, 4), ClienteDeLosPresupuestosPendientes, 412300m, EstadoPresupuestoEnum.Pendiente, false, 18)
+        ];
+    }
+
     /// <summary>El detalle del primer presupuesto de <see cref="Presupuestos"/> (123): con título, descuento y cinco renglones.</summary>
     public static PresupuestoDto PresupuestoDetalle()
     {

@@ -722,7 +722,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// F7: recupera un presupuesto por su número y lo carga en el ticket. Si el ticket actual tiene artículos pide
+    /// F7: recupera un presupuesto elegido de una lista (con el cliente del ticket como prefiltro) y lo carga en el ticket. Si el ticket actual tiene artículos pide
     /// confirmación antes de reemplazarlo, y si el presupuesto cambió desde que se emitió (venció, faltan unidades o hay
     /// artículos dados de baja) muestra primero la alerta; cancelarla deja el ticket como estaba.
     /// </summary>
@@ -732,7 +732,9 @@ public partial class PosViewModel : ObservableObject, IDisposable
         var viewModel = new RecuperarPresupuestoViewModel(
             _presupuestoService,
             _accesoDatos,
-            _logger);
+            _logger,
+            Cliente?.IdCliente,
+            Cliente?.RazonSocialONombre);
 
         var presupuesto = _presupuestoDialogService.MostrarRecuperarPresupuesto(viewModel);
         if (presupuesto is null)

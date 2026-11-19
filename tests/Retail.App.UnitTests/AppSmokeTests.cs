@@ -2699,29 +2699,42 @@ public class AppSmokeTests
         dialog!.ViewModel.Guardado.Should().Be(guardado);
     }
 
-    [Fact]
-    public void RecuperarPresupuestoDialog_InstanciacionEnHiloSTAConError_DebeCargarXAMLSinExcepciones()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RecuperarPresupuestoDialog_InstanciacionEnHiloSTAConDatos_DebeCargarXAMLSinExcepciones(bool conClienteEnElTicket)
     {
-        // Arrange: con el mensaje de error visible, para resolver también el estilo de su badge
+        // Arrange: con la lista cargada y el aviso de error visible, para resolver los badges y el interruptor del cliente
         Exception? xamlException = null;
         RecuperarPresupuestoDialog? dialog = null;
 
         WpfTestHelper.Run(() =>
         {
+            var servicio = Substitute.For<IPresupuestoService>();
+            servicio.ListarAsync(Arg.Any<Retail.Application.DTOs.Presupuestos.ConsultaPresupuestosDto>(), Arg.Any<CancellationToken>())
+                .Returns(new Retail.Application.DTOs.Presupuestos.PresupuestosPaginadosDto
+                {
+                    Items = Snapshots.DatosDeMuestra.PresupuestosPendientesDeUnCliente(),
+                    TotalRegistros = 120,
+                    PaginaActual = 1,
+                    TamanoPagina = 50
+                });
+
             var viewModel = new RecuperarPresupuestoViewModel(
-                Substitute.For<IPresupuestoService>(),
+                servicio,
                 new Retail.App.Helpers.CargaSerializada(),
-                Substitute.For<ILogger>())
-            {
-                Numero = "999",
-                MensajeError = "No se encontró el presupuesto 999."
-            };
+                Substitute.For<ILogger>(),
+                conClienteEnElTicket ? 7 : null,
+                conClienteEnElTicket ? Snapshots.DatosDeMuestra.ClienteDeLosPresupuestosPendientes : null,
+                new RelojDePrueba(Snapshots.DatosDeMuestra.AhoraPresupuestos));
+            Task.Run(() => viewModel.CargarInicialAsync()).GetAwaiter().GetResult();
+            viewModel.MensajeError = "El presupuesto N.º 00000121 ya se convirtió en una venta: no se puede recuperar.";
 
             try
             {
                 dialog = new RecuperarPresupuestoDialog(viewModel);
-                dialog.Measure(new System.Windows.Size(420, 400));
-                dialog.Arrange(new System.Windows.Rect(0, 0, 420, 400));
+                dialog.Measure(new System.Windows.Size(900, 640));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 900, 640));
                 dialog.UpdateLayout();
             }
             catch (Exception ex)

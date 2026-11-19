@@ -594,24 +594,57 @@ public class VistaSnapshotTests
     [Theory]
     [InlineData(TemaPrueba.Claro)]
     [InlineData(TemaPrueba.Oscuro)]
-    public void RecuperarPresupuestoDialog_ConError_PorTema_GeneraCaptura(TemaPrueba tema)
+    public void RecuperarPresupuestoDialog_ConClientePrefiltrado_PorTema_GeneraCaptura(TemaPrueba tema)
     {
         var (ruta, error) = Capturar(tema, carpeta =>
         {
-            var viewModel = new RecuperarPresupuestoViewModel(
-                Substitute.For<IPresupuestoService>(),
-                new CargaSerializada(),
-                Substitute.For<ILogger>())
-            {
-                Numero = "121",
-                MensajeError = "El presupuesto N.º 00000121 ya se convirtió en una venta: no se puede recuperar."
-            };
+            var viewModel = CrearRecuperarPresupuesto(DatosDeMuestra.PresupuestosPendientesDeUnCliente(), conCliente: true);
 
             var dialogo = new RecuperarPresupuestoDialog(viewModel);
-            return SnapshotRenderer.Guardar(dialogo, 420, 400, carpeta + "/RecuperarPresupuestoDialog_Error");
+            return SnapshotRenderer.Guardar(dialogo, 900, 640, carpeta + "/RecuperarPresupuestoDialog");
         });
 
         VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void RecuperarPresupuestoDialog_SinPendientes_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var viewModel = CrearRecuperarPresupuesto([], conCliente: false);
+
+            var dialogo = new RecuperarPresupuestoDialog(viewModel);
+            return SnapshotRenderer.Guardar(dialogo, 900, 640, carpeta + "/RecuperarPresupuestoDialog_Vacio");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    // La lista se carga antes de crear el diálogo (la carga corre en un hilo del pool y no debe tocar una grilla ya enlazada).
+    private static RecuperarPresupuestoViewModel CrearRecuperarPresupuesto(IReadOnlyList<PresupuestoResumenDto> pendientes, bool conCliente)
+    {
+        var servicio = Substitute.For<IPresupuestoService>();
+        servicio.ListarAsync(Arg.Any<ConsultaPresupuestosDto>(), Arg.Any<CancellationToken>())
+            .Returns(new PresupuestosPaginadosDto
+            {
+                Items = pendientes,
+                TotalRegistros = pendientes.Count,
+                PaginaActual = 1,
+                TamanoPagina = 50
+            });
+
+        var viewModel = new RecuperarPresupuestoViewModel(
+            servicio,
+            new CargaSerializada(),
+            Substitute.For<ILogger>(),
+            conCliente ? 7 : null,
+            conCliente ? DatosDeMuestra.ClienteDeLosPresupuestosPendientes : null,
+            new RelojDePrueba(DatosDeMuestra.AhoraPresupuestos));
+        Task.Run(() => viewModel.CargarInicialAsync()).GetAwaiter().GetResult();
+        return viewModel;
     }
 
     [Theory]
