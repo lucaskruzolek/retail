@@ -1285,6 +1285,41 @@ public class PosViewModelTests
     }
 
     [Fact]
+    public async Task MoverSeleccionTicket_ConFlechas_RecorreLasFilasSinDarLaVuelta()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelAsync();
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Hoja A4", PrecioVenta = 50m, StockActual = 500, EsServicio = false });
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 2, Descripcion = "Regla 30 cm", PrecioVenta = 700m, StockActual = 10, EsServicio = false });
+        viewModel.ItemSeleccionado = null;
+
+        // Act y Assert: sin selección, ↓ elige la primera; en el extremo inferior se queda
+        viewModel.MoverSeleccionTicket(1);
+        viewModel.ItemSeleccionado!.IdArticulo.Should().Be(1);
+        viewModel.MoverSeleccionTicket(1);
+        viewModel.MoverSeleccionTicket(1);
+        viewModel.ItemSeleccionado!.IdArticulo.Should().Be(2, "como en una grilla, no vuelve a la primera");
+        viewModel.MoverSeleccionTicket(-1);
+        viewModel.ItemSeleccionado!.IdArticulo.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task MoverSeleccionTicket_SinSeleccionConFlechaArriba_EligeLaUltimaFila()
+    {
+        // Arrange
+        var viewModel = await CrearViewModelAsync();
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 1, Descripcion = "Hoja A4", PrecioVenta = 50m, StockActual = 500, EsServicio = false });
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto { IdArticulo = 2, Descripcion = "Regla 30 cm", PrecioVenta = 700m, StockActual = 10, EsServicio = false });
+        viewModel.ItemSeleccionado = null;
+
+        // Act
+        viewModel.MoverSeleccionTicket(-1);
+
+        // Assert
+        viewModel.ItemSeleccionado!.IdArticulo.Should().Be(2);
+    }
+
+    [Fact]
     public async Task QuitarPresupuesto_SinPresupuestoCargado_NoCambiaElTicket()
     {
         // Arrange

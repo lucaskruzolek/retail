@@ -53,6 +53,18 @@ public partial class PosView : UserControl
             ViewModel.CerrarPopupBusquedaCommand.Execute(null);
             e.Handled = true;
         }
+        else if (e.Key is Key.Down or Key.Up)
+        {
+            // Desplegable cerrado: las flechas recorren el ticket, como en la grilla de la galería, sin quitarle el
+            // foco al buscador.
+            ViewModel.MoverSeleccionTicket(e.Key == Key.Down ? 1 : -1);
+            if (ViewModel.ItemSeleccionado is { } item)
+            {
+                GrillaTicket.ScrollIntoView(item);
+            }
+
+            e.Handled = true;
+        }
     }
 
     /// <summary>

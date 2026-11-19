@@ -374,6 +374,27 @@ public partial class PosViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// ↑ y ↓ con el desplegable cerrado: recorren las filas del ticket sin sacarle el foco al buscador, que lo conserva
+    /// para seguir escaneando. A diferencia del desplegable no da la vuelta: en los extremos se queda, como una grilla.
+    /// Sin fila seleccionada, ↓ elige la primera y ↑ la última.
+    /// </summary>
+    /// <param name="paso">+1 para bajar, -1 para subir.</param>
+    public void MoverSeleccionTicket(int paso)
+    {
+        if (Items.Count == 0)
+        {
+            return;
+        }
+
+        int actual = ItemSeleccionado is null ? -1 : Items.IndexOf(ItemSeleccionado);
+        int destino = actual < 0
+            ? (paso > 0 ? 0 : Items.Count - 1)
+            : Math.Clamp(actual + paso, 0, Items.Count - 1);
+
+        ItemSeleccionado = Items[destino];
+    }
+
     [RelayCommand]
     public void CerrarPopupBusqueda()
     {
