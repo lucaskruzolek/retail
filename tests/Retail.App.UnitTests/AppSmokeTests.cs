@@ -2727,6 +2727,48 @@ public class AppSmokeTests
         dialog.Should().NotBeNull();
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PresupuestoFormDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool enModoCorreccion)
+    {
+        // Arrange
+        Exception? xamlException = null;
+        PresupuestoFormDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            using var acceso = new Retail.App.Helpers.CargaSerializada();
+            var viewModel = new PresupuestoFormViewModel(
+                enModoCorreccion ? Snapshots.DatosDeMuestra.PresupuestoParaVenta(vigente: true, conNovedades: true) : null,
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IVentaService>(),
+                Substitute.For<IClienteService>(),
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<Retail.App.Services.ICurrentUserSession>(),
+                acceso,
+                TimeProvider.System,
+                Substitute.For<ILogger>());
+
+            try
+            {
+                dialog = new PresupuestoFormDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(960, 760));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 960, 760));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PresupuestoFormDialog debe resolverse sin errores (datos, avisos, editor de renglones, totales y estado guardado)");
+        dialog.Should().NotBeNull();
+    }
+
     [Fact]
     public void SeleccionarListaDialog_InstanciacionEnHiloSTAConListas_DebeCargarXAMLSinExcepciones()
     {

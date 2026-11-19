@@ -9,6 +9,7 @@ using Retail.App.ViewModels.Presupuestos;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
+using Retail.Domain.Exceptions;
 using Xunit;
 
 namespace Retail.App.UnitTests.ViewModels;
@@ -179,5 +180,99 @@ public class DetallePresupuestoViewModelTests
         await _sut.ExportarPdfCommand.ExecuteAsync(null);
 
         await _presupuestoService.DidNotReceiveWithAnyArgs().ExportarPdfAsync(default, default!, default);
+    }
+
+    // ------------------------------------------------------------------ //
+    // Título editable y cadena de correcciones (módulo 5.4)               //
+    // ------------------------------------------------------------------ //
+
+    [Fact]
+    public async Task GuardarTitulo_SinCambios_NoSePuedeEjecutar()
+    {
+        _presupuestoService.ObtenerAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(Presupuesto());
+        await _sut.InicializarAsync();
+
+        _sut.GuardarTituloCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GuardarTitulo_ConElTituloModificado_LlamaAlServicioYMarcaElCambio()
+    {
+        _presupuestoService.ObtenerAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(Presupuesto());
+        await _sut.InicializarAsync();
+        _sut.Titulo = "  Lista escolar 4.º grado  ";
+
+        _sut.GuardarTituloCommand.CanExecute(null).Should().BeTrue();
+        await _sut.GuardarTituloCommand.ExecuteAsync(null);
+
+        await _presupuestoService.Received(1).CambiarTituloAsync(IdPresupuesto, "Lista escolar 4.º grado", Arg.Any<CancellationToken>());
+        _sut.Titulo.Should().Be("Lista escolar 4.º grado");
+        _sut.TituloCambiado.Should().BeTrue();
+        _sut.TieneMensajeError.Should().BeFalse();
+        _sut.GuardarTituloCommand.CanExecute(null).Should().BeFalse("ya no hay cambios pendientes");
+    }
+
+    [Fact]
+    public async Task GuardarTitulo_TituloVacio_LoBorra()
+    {
+        _presupuestoService.ObtenerAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(Presupuesto());
+        await _sut.InicializarAsync();
+        _sut.Titulo = "   ";
+
+        await _sut.GuardarTituloCommand.ExecuteAsync(null);
+
+        await _presupuestoService.Received(1).CambiarTituloAsync(IdPresupuesto, null, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GuardarTitulo_PresupuestoYaConvertido_FuncionaEnCualquierEstado()
+    {
+        _presupuestoService.ObtenerAsync(IdPresupuesto, Arg.Any<CancellationToken>())
+            .Returns(Presupuesto(estado: EstadoPresupuestoEnum.Convertido));
+        await _sut.InicializarAsync();
+        _sut.Titulo = "Pedido de la oficina";
+
+        await _sut.GuardarTituloCommand.ExecuteAsync(null);
+
+        await _presupuestoService.Received(1).CambiarTituloAsync(IdPresupuesto, "Pedido de la oficina", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task GuardarTitulo_ElDominioRechaza_MuestraElErrorEnElDialogoYNoMarcaElCambio()
+    {
+        _presupuestoService.ObtenerAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(Presupuesto());
+        _presupuestoService.CambiarTituloAsync(IdPresupuesto, Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new DomainException("El título del presupuesto supera los 100 caracteres."));
+        await _sut.InicializarAsync();
+        _sut.Titulo = "Otro";
+
+        await _sut.GuardarTituloCommand.ExecuteAsync(null);
+
+        _sut.MensajeError.Should().Contain("supera los 100");
+        _sut.TituloCambiado.Should().BeFalse();
+        _sut.IsBusy.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task InicializarAsync_PresupuestoQueReemplazaYFueReemplazado_MuestraLaCadena()
+    {
+        _presupuestoService.ObtenerAsync(IdPresupuesto, Arg.Any<CancellationToken>())
+            .Returns(Presupuesto(estado: EstadoPresupuestoEnum.Reemplazado) with { IdPresupuestoReemplazado = 41, IdPresupuestoReemplazante = 45 });
+
+        await _sut.InicializarAsync();
+
+        _sut.EstadoTexto.Should().Be("Reemplazado");
+        _sut.TieneReemplazo.Should().BeTrue();
+        _sut.TextoReemplazo.Should().Be("Reemplaza al N.º 00000041 · Reemplazado por N.º 00000045");
+    }
+
+    [Fact]
+    public async Task InicializarAsync_PresupuestoSinCorreccion_NoMuestraLaCadena()
+    {
+        _presupuestoService.ObtenerAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(Presupuesto());
+
+        await _sut.InicializarAsync();
+
+        _sut.TieneReemplazo.Should().BeFalse();
     }
 }

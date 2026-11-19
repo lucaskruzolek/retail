@@ -1,3 +1,4 @@
+using Retail.App.Helpers;
 using Retail.App.ViewModels.Presupuestos;
 using Retail.Application.DTOs.Presupuestos;
 
@@ -28,8 +29,19 @@ public interface IPresupuestoDialogService
     /// </summary>
     bool MostrarAlertaPreciosPresupuesto(AlertaPreciosPresupuestoViewModel viewModel);
 
-    /// <summary>Abre, de solo lectura, el detalle del presupuesto. Bloquea hasta que el usuario lo cierra.</summary>
-    void MostrarDetalle(int idPresupuesto);
+    /// <summary>
+    /// Abre el editor de presupuestos (módulo 5.4): vacío para "Nuevo presupuesto" o precargado para "Corregir". Bloquea
+    /// hasta que se cierra y devuelve <c>true</c> si se emitió un presupuesto, para que la pestaña recargue.
+    /// </summary>
+    /// <param name="aCorregir">Presupuesto pendiente a corregir, o <c>null</c> para uno nuevo.</param>
+    /// <param name="acceso">Fila de accesos a datos de la pantalla que lo abre (H-19).</param>
+    bool AbrirEditor(PresupuestoParaVentaDto? aCorregir, CargaSerializada acceso);
+
+    /// <summary>
+    /// Abre el detalle del presupuesto. Bloquea hasta que el usuario lo cierra y devuelve <c>true</c> si se cambió el título
+    /// interno (único dato editable, PE-08), para que la pestaña recargue.
+    /// </summary>
+    bool MostrarDetalle(int idPresupuesto);
 
     /// <summary>Pregunta por sí o no; devuelve <c>true</c> si el usuario acepta.</summary>
     bool Confirmar(string titulo, string mensaje);

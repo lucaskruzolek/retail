@@ -47,4 +47,31 @@ public sealed class PresupuestoFila
 
     /// <summary>Solo un presupuesto pendiente (vigente o vencido) se puede anular.</summary>
     public bool PuedeAnular => Resumen.Estado == EstadoPresupuestoEnum.Pendiente;
+
+    /// <summary>Solo un presupuesto pendiente (vigente o vencido) se puede corregir (PE-04).</summary>
+    public bool PuedeCorregir => Resumen.Estado == EstadoPresupuestoEnum.Pendiente;
+
+    /// <summary>
+    /// "Reemplazado por N.º 00000045" y/o "Reemplaza al N.º 00000041", como tooltip del estado; <c>null</c> si el presupuesto no
+    /// forma parte de una corrección, para que no aparezca un globo vacío.
+    /// </summary>
+    public string? TextoReemplazo
+    {
+        get
+        {
+            var partes = new List<string>();
+
+            if (Resumen.IdPresupuestoReemplazante is int reemplazante)
+            {
+                partes.Add($"Reemplazado por N.º {PresentacionPresupuesto.FormatearNumero(reemplazante)}");
+            }
+
+            if (Resumen.IdPresupuestoReemplazado is int reemplazado)
+            {
+                partes.Add($"Reemplaza al N.º {PresentacionPresupuesto.FormatearNumero(reemplazado)}");
+            }
+
+            return partes.Count == 0 ? null : string.Join(" · ", partes);
+        }
+    }
 }

@@ -16,8 +16,8 @@ namespace Retail.App.ViewModels.Presupuestos;
 /// <summary>
 /// Consulta de presupuestos (IU-13, RF-11 y RF-12): grilla paginada en SQL con búsqueda y filtros de columna (estado,
 /// cliente, emisión y vencimiento), y las
-/// acciones de cada fila (ver detalle, imprimir, exportar a PDF y anular). Es solo de consulta: los presupuestos se
-/// crean y se recuperan desde el Punto de venta (F9 y F7).
+/// acciones de cada fila (ver detalle, imprimir, exportar a PDF, corregir y anular), más "Nuevo presupuesto" (módulo 5.4,
+/// PE-01). Los presupuestos también se crean y se recuperan desde el Punto de venta (F3 y F7).
 /// </summary>
 public partial class PresupuestosViewModel : ObservableObject, IDisposable
 {
@@ -64,7 +64,8 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
             new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Vigentes, "Vigentes"),
             new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Vencidos, "Vencidos"),
             new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Convertidos, "Convertidos"),
-            new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Anulados, "Anulados")
+            new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Anulados, "Anulados"),
+            new OpcionFiltroColumna((int)FiltroEstadoPresupuestoEnum.Reemplazados, "Reemplazados")
         ]);
 
         FiltroEmision = new FiltroFechaColumnaViewModel("Emisión", _reloj);
@@ -86,7 +87,7 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _textoBusqueda = string.Empty;
 
-    /// <summary>Filtro de la columna Estado: vigentes, vencidos, convertidos y anulados (vacío = todos).</summary>
+    /// <summary>Filtro de la columna Estado: vigentes, vencidos, convertidos, anulados y reemplazados (vacío = todos).</summary>
     public FiltroColumnaViewModel FiltroEstado { get; } = new("Estado");
 
     /// <summary>Filtro de la columna Cliente: Consumidor Final y los clientes con algún presupuesto; llegan al inicializar.</summary>
@@ -150,7 +151,7 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
     /// <summary>Texto del estado vacío: orienta al usuario si no hay presupuestos o dice que el filtro no encontró ninguno.</summary>
     public string TextoVacio => HayFiltrosActivos
         ? "Ningún presupuesto coincide con la búsqueda o los filtros."
-        : "Los presupuestos se guardan desde el Punto de venta.";
+        : "Todavía no hay presupuestos. Cree uno con «Nuevo presupuesto» o desde el Punto de venta.";
 
     // ------------------------------------------------------------------ //
     // Carga                                                               //
@@ -386,16 +387,78 @@ public partial class PresupuestosViewModel : ObservableObject, IDisposable
     // Acciones de la fila                                                 //
     // ------------------------------------------------------------------ //
 
-    /// <summary>Abre el detalle de solo lectura. Lo disparan el botón de la fila, el doble clic y Enter.</summary>
+    /// <summary>
+    /// Abre el detalle. Lo disparan el botón de la fila, el doble clic y Enter. Si allí se cambió el título interno (PE-08),
+    /// la grilla se recarga.
+    /// </summary>
     [RelayCommand]
-    private void VerDetalle(PresupuestoFila? fila)
+    private async Task VerDetalleAsync(PresupuestoFila? fila)
     {
         if (fila is null)
         {
             return;
         }
 
-        _dialogService.MostrarDetalle(fila.IdPresupuesto);
+        if (_dialogService.MostrarDetalle(fila.IdPresupuesto))
+        {
+            await CargarPresupuestosAsync();
+        }
+    }
+
+    /// <summary>Abre el editor con un presupuesto vacío (PE-01) y recarga si se emitió.</summary>
+    [RelayCommand]
+    private async Task NuevoPresupuestoAsync()
+    {
+        if (_dialogService.AbrirEditor(null, _carga))
+        {
+            await CargarPresupuestosAsync();
+        }
+    }
+
+    /// <summary>
+    /// Corrige un presupuesto pendiente (PE-02): lo lee con el precio de hoy (PE-06) y abre el editor precargado. Recarga la
+    /// grilla si se emitió el reemplazo, y también si la lectura falló porque otra terminal cambió el estado: la pantalla tiene
+    /// que mostrar lo que hay en la base.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(PuedeCorregir))]
+    private async Task CorregirAsync(PresupuestoFila? fila)
+    {
+        if (fila is null || !fila.PuedeCorregir)
+        {
+            return;
+        }
+
+        PresupuestoParaVentaDto? original = null;
+        IsBusy = true;
+        try
+        {
+            bool completado;
+            (completado, original) = await _carga.EjecutarEnFilaAsync(token => _presupuestoService.RecuperarParaVentaAsync(fila.IdPresupuesto, token));
+            if (!completado)
+            {
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            ManejarError(ex);
+            await CargarPresupuestosAsync();
+            return;
+        }
+        finally
+        {
+            IsBusy = _carga.EnCurso;
+        }
+
+        if (original is not null && _dialogService.AbrirEditor(original, _carga))
+        {
+            await CargarPresupuestosAsync();
+        }
+    }
+
+    private static bool PuedeCorregir(PresupuestoFila? fila)
+    {
+        return fila?.PuedeCorregir == true;
     }
 
     [RelayCommand]

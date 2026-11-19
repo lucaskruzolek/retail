@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Comun;
@@ -524,6 +525,140 @@ public class PresupuestosViewModelTests : IDisposable
         _sut.PaginaActual.Should().Be(1);
         _sut.Presupuestos.Should().HaveCount(1);
         LlamadasAlListado.Should().Be(3);
+    }
+
+    // ------------------------------------------------------------------ //
+    // Nuevo presupuesto y Corregir (módulo 5.4)                           //
+    // ------------------------------------------------------------------ //
+
+    private static PresupuestoParaVentaDto ParaCorregir()
+    {
+        return new PresupuestoParaVentaDto
+        {
+            IdPresupuesto = IdPresupuesto,
+            EstaVigente = true,
+            FechaVencimiento = new DateOnly(2026, 11, 29),
+            Descuento = 0m,
+            Renglones = [],
+            Discrepancias = [],
+            Faltantes = [],
+            ArticulosNoDisponibles = []
+        };
+    }
+
+    [Fact]
+    public async Task FiltroEstado_TieneLaOpcionReemplazados_YLaEnviaALaConsulta()
+    {
+        await _sut.InicializarAsync();
+
+        _sut.FiltroEstado.Grupos.SelectMany(g => g.Opciones).Should().Contain(o => o.Nombre == "Reemplazados");
+
+        AplicarOpciones(_sut.FiltroEstado, (int)FiltroEstadoPresupuestoEnum.Reemplazados);
+        await EsperarAsync(() => LlamadasAlListado == 2);
+
+        await _presupuestoService.Received(1).ListarAsync(
+            Arg.Is<ConsultaPresupuestosDto>(c => c.Estados.SequenceEqual(new[] { FiltroEstadoPresupuestoEnum.Reemplazados })),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task NuevoPresupuesto_SeGuardo_AbreElEditorVacioYRecarga()
+    {
+        await _sut.InicializarAsync();
+        _dialogService.AbrirEditor(null, Arg.Any<CargaSerializada>()).Returns(true);
+
+        await _sut.NuevoPresupuestoCommand.ExecuteAsync(null);
+
+        _dialogService.Received(1).AbrirEditor(null, Arg.Any<CargaSerializada>());
+        LlamadasAlListado.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task NuevoPresupuesto_SeCancelo_NoRecarga()
+    {
+        await _sut.InicializarAsync();
+        _dialogService.AbrirEditor(null, Arg.Any<CargaSerializada>()).Returns(false);
+
+        await _sut.NuevoPresupuestoCommand.ExecuteAsync(null);
+
+        LlamadasAlListado.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(EstadoPresupuestoEnum.Pendiente, true, true)]
+    [InlineData(EstadoPresupuestoEnum.Pendiente, false, true)]
+    [InlineData(EstadoPresupuestoEnum.Convertido, true, false)]
+    [InlineData(EstadoPresupuestoEnum.Anulado, true, false)]
+    [InlineData(EstadoPresupuestoEnum.Reemplazado, true, false)]
+    public async Task CorregirCommand_SegunElEstado_SoloSePuedeEjecutarSiEstaPendiente(EstadoPresupuestoEnum estado, bool vigente, bool puede)
+    {
+        PrepararListado(Resumen(IdPresupuesto, estado, vigente));
+        await _sut.InicializarAsync();
+        var fila = _sut.Presupuestos.Single();
+
+        _sut.CorregirCommand.CanExecute(fila).Should().Be(puede);
+        fila.PuedeCorregir.Should().Be(puede);
+    }
+
+    [Fact]
+    public async Task Corregir_PresupuestoPendiente_LeeConPrecioDeHoyAbreElEditorPrecargadoYRecarga()
+    {
+        await _sut.InicializarAsync();
+        var original = ParaCorregir();
+        _presupuestoService.RecuperarParaVentaAsync(IdPresupuesto, Arg.Any<CancellationToken>()).Returns(original);
+        _dialogService.AbrirEditor(original, Arg.Any<CargaSerializada>()).Returns(true);
+
+        await _sut.CorregirCommand.ExecuteAsync(_sut.Presupuestos.Single());
+
+        _dialogService.Received(1).AbrirEditor(original, Arg.Any<CargaSerializada>());
+        LlamadasAlListado.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Corregir_OtraTerminalLoCobro_InformaYRecargaSinAbrirElEditor()
+    {
+        await _sut.InicializarAsync();
+        _presupuestoService.RecuperarParaVentaAsync(IdPresupuesto, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new TransicionPresupuestoInvalidaException(EstadoPresupuestoEnum.Convertido, "recuperar para la venta"));
+
+        await _sut.CorregirCommand.ExecuteAsync(_sut.Presupuestos.Single());
+
+        _dialogService.Received(1).MostrarAlerta("El presupuesto cambió de estado", Arg.Any<string>());
+        _dialogService.DidNotReceiveWithAnyArgs().AbrirEditor(default, default!);
+        LlamadasAlListado.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Fila_ReemplazadoPorOtro_MuestraElTextoDeLaCadena()
+    {
+        var resumen = Resumen(IdPresupuesto, EstadoPresupuestoEnum.Reemplazado, true) with { IdPresupuestoReemplazante = 45 };
+        PrepararListado(resumen);
+        await _sut.InicializarAsync();
+
+        var fila = _sut.Presupuestos.Single();
+
+        fila.EstadoVisual.Should().Be(EstadoVisualPresupuesto.Reemplazado);
+        fila.EstadoTexto.Should().Be("Reemplazado");
+        fila.TextoReemplazo.Should().Be("Reemplazado por N.º 00000045");
+    }
+
+    [Fact]
+    public async Task Fila_SinCorreccion_NoTieneTextoDeReemplazo()
+    {
+        await _sut.InicializarAsync();
+
+        _sut.Presupuestos.Single().TextoReemplazo.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task VerDetalle_SeCambioElTitulo_Recarga()
+    {
+        await _sut.InicializarAsync();
+        _dialogService.MostrarDetalle(IdPresupuesto).Returns(true);
+
+        await _sut.VerDetalleCommand.ExecuteAsync(_sut.Presupuestos.Single());
+
+        LlamadasAlListado.Should().Be(2);
     }
 
     // ------------------------------------------------------------------ //

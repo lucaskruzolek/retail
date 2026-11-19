@@ -62,17 +62,25 @@
         </Grid.RowDefinitions>
 
         <!-- ============================================================= -->
-        <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta). Solo consulta: sin   -->
-        <!--    acciones propias, los presupuestos nacen en el POS.        -->
+        <!-- 1. ENCABEZADO DE LA PÁGINA (sin tarjeta). "Nuevo presupuesto"  -->
+        <!--    es el único acento carmín de la vista (PE-01).             -->
         <!-- ============================================================= -->
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
                                Titulo="Ventas"
-                               Descripcion="Presupuestos · Cotizaciones con el precio congelado hasta su vencimiento. Se crean desde el Punto de venta (F3, Presupuesto) y se recuperan allí (F7, Presupuesto)."
+                               Descripcion="Presupuestos · Cotizaciones con el precio congelado hasta su vencimiento. Se crean aquí o desde el Punto de venta (F3, Presupuesto) y se recuperan allí (F7, Presupuesto)."
                                EstaCargando="{Binding IsBusy}">
             <components:PageHeader.Navegacion>
                 <components:NavegadorSeccion SeccionId="ventas" />
             </components:PageHeader.Navegacion>
+            <Button Command="{Binding NuevoPresupuestoCommand}"
+                    Style="{StaticResource PrimaryActionButtonStyle}"
+                    ToolTip="Preparar un presupuesto nuevo sin pasar por el mostrador">
+                <StackPanel Orientation="Horizontal">
+                    <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="0,0,8,0" VerticalAlignment="Center" />
+                    <TextBlock Text="Nuevo presupuesto" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
         </components:PageHeader>
 
         <!-- ============================================================= -->
@@ -165,7 +173,7 @@
                                                 ElementStyle="{StaticResource TextBlockCurrencyCell}"
                                                 Width="112" />
 
-                            <DataGridTemplateColumn Width="120" CanUserSort="False">
+                            <DataGridTemplateColumn Width="132" CanUserSort="False">
                                 <DataGridTemplateColumn.Header>
                                     <components:FiltroColumna Filtro="{Binding DataContext.FiltroEstado, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                                 </DataGridTemplateColumn.Header>
@@ -174,15 +182,16 @@
                                         <ContentControl Content="{Binding}"
                                                         ContentTemplate="{StaticResource PlantillaEstadoPresupuesto}"
                                                         Margin="8,0"
-                                                        Focusable="False" />
+                                                        Focusable="False"
+                                                        ToolTip="{Binding TextoReemplazo}" />
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <!-- Acciones de la fila: solo íconos (R4), sin título. Anular se oculta si no está pendiente; las demás
-                                 conservan su lugar porque la fila se alinea a la izquierda. -->
+                            <!-- Acciones de la fila: solo íconos (R4), sin título. Corregir y Anular se ocultan si no está pendiente;
+                                 las demás conservan su lugar porque la fila se alinea a la izquierda. -->
                             <DataGridTemplateColumn Header=""
-                                                    Width="148"
+                                                    Width="176"
                                                     CanUserResize="False"
                                                     CanUserSort="False">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -210,6 +219,15 @@
                                                     ToolTip="Exportar el presupuesto a PDF"
                                                     AutomationProperties.Name="Exportar PDF">
                                                 <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14" />
+                                            </Button>
+
+                                            <Button Command="{Binding DataContext.CorregirCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource RowActionButtonStyle}"
+                                                    ToolTip="Corregir el presupuesto: se emite uno nuevo que lo reemplaza"
+                                                    AutomationProperties.Name="Corregir presupuesto"
+                                                    Visibility="{Binding PuedeCorregir, Converter={StaticResource BoolToVisConverter}}">
+                                                <iconPacks:PackIconBoxIcons Kind="RegularPencil" Width="14" Height="14" />
                                             </Button>
 
                                             <Button Command="{Binding DataContext.AnularCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"

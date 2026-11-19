@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Retail.App.Services;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.Interfaces.Services;
+using Retail.Domain.Entities;
 using Retail.Domain.Exceptions;
 
 namespace Retail.App.ViewModels.Presupuestos;
@@ -46,9 +47,27 @@ public partial class DetallePresupuestoViewModel : ObservableObject
     // Cabecera                                                            //
     // ------------------------------------------------------------------ //
 
+    /// <summary>Título interno editable (PE-08): es lo único que se puede cambiar de un presupuesto ya emitido.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TieneTitulo))]
+    [NotifyCanExecuteChangedFor(nameof(GuardarTituloCommand))]
     private string _titulo = string.Empty;
+
+    /// <summary>Título tal como está guardado, para saber si el usuario lo modificó.</summary>
+    private string _tituloGuardado = string.Empty;
+
+    /// <summary>Límite del dominio, publicado para que la vista lo tome con <c>x:Static</c>.</summary>
+    public static int LongitudMaximaTitulo => Presupuesto.LongitudMaximaTitulo;
+
+    /// <summary>Se guardó un título nuevo: al cerrar el detalle, la pestaña recarga la grilla.</summary>
+    public bool TituloCambiado { get; private set; }
+
+    /// <summary>"Reemplaza al N.º 00000041" y/o "Reemplazado por N.º 00000045"; vacío si el presupuesto no está en una corrección.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TieneReemplazo))]
+    private string _textoReemplazo = string.Empty;
+
+    public bool TieneReemplazo => !string.IsNullOrWhiteSpace(TextoReemplazo);
 
     [ObservableProperty]
     private string _clienteTexto = "Consumidor Final";
@@ -97,9 +116,11 @@ public partial class DetallePresupuestoViewModel : ObservableObject
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ImprimirCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportarPdfCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GuardarTituloCommand))]
     private bool _cargado;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GuardarTituloCommand))]
     private bool _isBusy;
 
     [ObservableProperty]
@@ -138,7 +159,9 @@ public partial class DetallePresupuestoViewModel : ObservableObject
 
     private void Mostrar(PresupuestoDto presupuesto)
     {
-        Titulo = presupuesto.Titulo ?? string.Empty;
+        _tituloGuardado = presupuesto.Titulo ?? string.Empty;
+        Titulo = _tituloGuardado;
+        TextoReemplazo = ComponerTextoReemplazo(presupuesto);
         ClienteTexto = string.IsNullOrWhiteSpace(presupuesto.ClienteNombre) ? "Consumidor Final" : presupuesto.ClienteNombre;
         UsuarioNombre = presupuesto.UsuarioNombre ?? string.Empty;
         EmisionLocal = PresentacionPresupuesto.ALocal(presupuesto.FechaEmision, _reloj);
@@ -158,9 +181,66 @@ public partial class DetallePresupuestoViewModel : ObservableObject
         Cargado = true;
     }
 
+    private static string ComponerTextoReemplazo(PresupuestoDto presupuesto)
+    {
+        var partes = new List<string>();
+
+        if (presupuesto.IdPresupuestoReemplazado is int reemplazado)
+        {
+            partes.Add($"Reemplaza al N.º {PresentacionPresupuesto.FormatearNumero(reemplazado)}");
+        }
+
+        if (presupuesto.IdPresupuestoReemplazante is int reemplazante)
+        {
+            partes.Add($"Reemplazado por N.º {PresentacionPresupuesto.FormatearNumero(reemplazante)}");
+        }
+
+        return string.Join(" · ", partes);
+    }
+
     // ------------------------------------------------------------------ //
     // Acciones                                                            //
     // ------------------------------------------------------------------ //
+
+    private bool PuedeGuardarTitulo()
+    {
+        return Cargado && !IsBusy && Titulo.Trim() != _tituloGuardado;
+    }
+
+    /// <summary>
+    /// Guarda el título interno (PE-08). Vale en cualquier estado porque el título nunca se imprime ni se exporta (PS-20):
+    /// cambiarlo no altera ningún documento entregado. Un error del dominio se muestra en el diálogo.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(PuedeGuardarTitulo))]
+    private async Task GuardarTituloAsync()
+    {
+        var nuevo = Titulo.Trim();
+
+        IsBusy = true;
+        MensajeError = null;
+
+        try
+        {
+            await Task.Run(() => _presupuestoService.CambiarTituloAsync(_idPresupuesto, nuevo.Length == 0 ? null : nuevo));
+
+            _tituloGuardado = nuevo;
+            Titulo = nuevo;
+            TituloCambiado = true;
+        }
+        catch (DomainException ex)
+        {
+            MensajeError = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cambiar el título del presupuesto {IdPresupuesto}", _idPresupuesto);
+            MensajeError = "No se pudo guardar el título. El detalle quedó registrado en el log.";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
     [RelayCommand(CanExecute = nameof(Cargado))]
     private async Task ImprimirAsync()

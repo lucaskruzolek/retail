@@ -1,0 +1,311 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.PresupuestoFormDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:components="clr-namespace:Retail.App.Views.Components"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 xmlns:vm="clr-namespace:Retail.App.ViewModels.Presupuestos"
+                 Title="{Binding TituloVentana}"
+                 Language="es-AR"
+                 Width="960"
+                 Height="760"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 Background="{DynamicResource DialogBackgroundBrush}"
+                 ResizeMode="NoResize">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <components:EncabezadoDialogo Grid.Row="0" Titulo="{Binding TituloVentana}" />
+
+        <!-- Estado 1, sección: datos del presupuesto. El título interno nunca se imprime (PS-20). -->
+        <Border Grid.Row="1"
+                Style="{StaticResource DialogSectionStyle}"
+                Margin="12,0,12,12"
+                Visibility="{Binding EstaEditando, Converter={StaticResource BoolToVisConverter}}">
+            <StackPanel>
+                <DockPanel Margin="{StaticResource StackMd}">
+                    <components:IndicadorCarga DockPanel.Dock="Right" EstaCargando="{Binding IsBusy}" VerticalAlignment="Center" />
+                    <TextBlock Text="Datos del presupuesto" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <!-- Error de dominio (por ejemplo, "el precio cambió"), con la salida de Actualizar precios (PE-10) -->
+                <Border Style="{StaticResource BadgeDangerStyle}"
+                        HorizontalAlignment="Stretch"
+                        Margin="{StaticResource StackMd}"
+                        Visibility="{Binding TieneMensajeError, Converter={StaticResource BoolToVisConverter}}">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right"
+                                Command="{Binding ActualizarPreciosCommand}"
+                                Style="{StaticResource KeycapButtonStyle}"
+                                Margin="12,0,0,0"
+                                VerticalAlignment="Center"
+                                Visibility="{Binding HayPreciosDesactualizados, Converter={StaticResource BoolToVisConverter}}"
+                                ToolTip="Volver a leer el precio de catálogo de todos los artículos, sin perder lo cargado">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                                <TextBlock Text="Actualizar precios" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Text="{Binding MensajeError}"
+                                   FontSize="{StaticResource FontSizeSm}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource DangerForegroundBrush}"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center" />
+                    </DockPanel>
+                </Border>
+
+                <!-- Aviso informativo: artículos omitidos y precios que cambiaron respecto del original -->
+                <Border Style="{StaticResource BadgeWarningStyle}"
+                        HorizontalAlignment="Stretch"
+                        Margin="{StaticResource StackMd}"
+                        Visibility="{Binding TieneAviso, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="{Binding MensajeAviso}"
+                               FontSize="{StaticResource FontSizeSm}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource WarningForegroundBrush}"
+                               TextWrapping="Wrap" />
+                </Border>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="2*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Título interno (opcional) -->
+                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                        <TextBlock Text="Título interno" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:TextBox x:Name="TxtTitulo"
+                                    Text="{Binding Titulo, UpdateSourceTrigger=PropertyChanged}"
+                                    MaxLength="{x:Static vm:PresupuestoFormViewModel.LongitudMaximaTitulo}"
+                                    PlaceholderText="Ej.: Útiles del colegio, 3.º grado"
+                                    AutomationProperties.Name="Título interno del presupuesto" />
+                        <TextBlock Text="Uso interno: no se imprime"
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <!-- Cliente: el mismo selector del POS (F4); sin cliente es Consumidor Final -->
+                    <StackPanel Grid.Column="1" Margin="0,0,16,0">
+                        <TextBlock Text="Cliente" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <DockPanel MinHeight="{StaticResource ControlHeight}">
+                            <Button DockPanel.Dock="Right"
+                                    Command="{Binding QuitarClienteCommand}"
+                                    Style="{StaticResource RowActionButtonStyle}"
+                                    ToolTip="Quitar el cliente (Consumidor Final)"
+                                    AutomationProperties.Name="Quitar cliente"
+                                    Visibility="{Binding TieneCliente, Converter={StaticResource BoolToVisConverter}}">
+                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" />
+                            </Button>
+                            <Button DockPanel.Dock="Right"
+                                    Command="{Binding SeleccionarClienteCommand}"
+                                    Style="{StaticResource KeycapButtonStyle}"
+                                    Margin="8,0,4,0"
+                                    ToolTip="Elegir el cliente del presupuesto">
+                                <TextBlock Text="Cambiar" VerticalAlignment="Center" />
+                            </Button>
+                            <TextBlock Text="{Binding ClienteNombre}"
+                                       Style="{StaticResource TextBlockBody}"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding ClienteNombre}"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
+                    </StackPanel>
+
+                    <!-- Vigencia en días, con el último día de validez calculado desde hoy -->
+                    <StackPanel Grid.Column="2" Margin="0,0,16,0" Width="150">
+                        <TextBlock Text="Vigencia (días)" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:NumberBox Value="{Binding VigenciaDias, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Minimum="{x:Static vm:PresupuestoFormViewModel.VigenciaMinimaDias}"
+                                      Maximum="{x:Static vm:PresupuestoFormViewModel.VigenciaMaximaDias}"
+                                      MaxDecimalPlaces="0"
+                                      SmallChange="1"
+                                      SpinButtonPlacementMode="Inline"
+                                      HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Vigencia en días" />
+                        <TextBlock Text="{Binding TextoValidoHasta}"
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   Margin="0,4,0,0"
+                                   Visibility="{Binding VigenciaEsValida, Converter={StaticResource BoolToVisConverter}}" />
+                        <TextBlock Text="{Binding TextoErrorVigencia}"
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   Foreground="{DynamicResource DangerForegroundBrush}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0"
+                                   Visibility="{Binding TieneErrorVigencia, Converter={StaticResource BoolToVisConverter}}" />
+                    </StackPanel>
+
+                    <!-- Descuento en pesos: no puede superar el subtotal -->
+                    <StackPanel Grid.Column="3" Width="160">
+                        <TextBlock Text="Descuento ($)" Style="{StaticResource TextBlockBodySecondary}" Margin="{StaticResource StackXs}" />
+                        <ui:NumberBox Value="{Binding Descuento, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Minimum="0"
+                                      MaxDecimalPlaces="0"
+                                      SmallChange="100"
+                                      SpinButtonPlacementMode="Hidden"
+                                      HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Descuento en pesos" />
+                        <TextBlock Text="{Binding TextoErrorDescuento}"
+                                   Style="{StaticResource TextBlockCaptionSecondary}"
+                                   Foreground="{DynamicResource DangerForegroundBrush}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0"
+                                   Visibility="{Binding TieneErrorDescuento, Converter={StaticResource BoolToVisConverter}}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- Estado 1, sección: artículos. Editor de renglones compartido (buscador, grilla y aviso) y totales. -->
+        <Border Grid.Row="2"
+                Style="{StaticResource DialogSectionStyle}"
+                Margin="12,0,12,12"
+                Visibility="{Binding EstaEditando, Converter={StaticResource BoolToVisConverter}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Artículos" Style="{StaticResource CardHeaderTextStyle}" Margin="{StaticResource StackMd}" />
+
+                <components:EditorRenglones x:Name="EditorArticulos"
+                                            Grid.Row="1"
+                                            DataContext="{Binding Editor}"
+                                            EncabezadoPrecio="Precio"
+                                            TextoEstadoVacio="Busque un artículo para agregarlo al presupuesto." />
+
+                <!-- Totales: subtotal, descuento y total, todos en pesos enteros -->
+                <StackPanel Grid.Row="2" Margin="0,8,0,0">
+                    <DockPanel LastChildFill="False" Margin="0,0,0,4">
+                        <TextBlock DockPanel.Dock="Left" Text="Subtotal" Style="{StaticResource TextBlockBodySecondary}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding Subtotal, StringFormat=C0}" Style="{StaticResource TextBlockCurrencyCell}" />
+                    </DockPanel>
+                    <DockPanel LastChildFill="False" Margin="0,0,0,4">
+                        <TextBlock DockPanel.Dock="Left" Text="Descuento" Style="{StaticResource TextBlockBodySecondary}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding DescuentoAplicado, StringFormat=-{0:C0}}" Style="{StaticResource TextBlockCurrencyCell}" />
+                    </DockPanel>
+                    <Border BorderBrush="{DynamicResource SurfaceBorderBrush}" BorderThickness="0,1,0,0" Padding="0,8,0,0">
+                        <DockPanel LastChildFill="False">
+                            <TextBlock DockPanel.Dock="Left" Text="Total" Style="{StaticResource TextBlockBodySecondary}" VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding Total, StringFormat=C0}"
+                                       Style="{StaticResource TextBlockCurrencyLarge}"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                        </DockPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Estado 2: guardado. Reemplaza a las dos secciones. -->
+        <Border Grid.Row="1"
+                Grid.RowSpan="2"
+                VerticalAlignment="Top"
+                Style="{StaticResource DialogSectionStyle}"
+                Margin="12,0,12,12"
+                Visibility="{Binding Guardado, Converter={StaticResource BoolToVisConverter}}">
+            <StackPanel>
+                <DockPanel Margin="{StaticResource StackMd}">
+                    <components:IndicadorCarga DockPanel.Dock="Right" EstaCargando="{Binding IsBusy}" VerticalAlignment="Center" />
+                    <TextBlock Text="Presupuesto guardado" Style="{StaticResource CardHeaderTextStyle}" VerticalAlignment="Center" />
+                </DockPanel>
+
+                <Border Style="{StaticResource BadgeSuccessStyle}" HorizontalAlignment="Stretch" Margin="{StaticResource StackMd}">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="SolidCheckCircle"
+                                                    Width="14"
+                                                    Height="14"
+                                                    Margin="{StaticResource InlineSm}"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{DynamicResource SuccessForegroundBrush}" />
+                        <TextBlock Text="{Binding TextoGuardado}"
+                                   FontSize="{StaticResource FontSizeSm}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SuccessForegroundBrush}"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Text="Imprima el ticket o exporte el PDF para entregárselo al cliente."
+                           Style="{StaticResource TextBlockCaptionSecondary}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Pie. Estado 1: Cancelar y Guardar (Enter). Estado 2: las acciones sobre el documento y Cerrar (Enter). -->
+        <Border Grid.Row="3" Style="{StaticResource DialogFooterStyle}">
+            <Grid>
+                <DockPanel LastChildFill="False" Visibility="{Binding EstaEditando, Converter={StaticResource BoolToVisConverter}}">
+                    <Button DockPanel.Dock="Left"
+                            Content="Cancelar"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            MinWidth="100"
+                            Click="OnCerrarClick" />
+
+                    <Button DockPanel.Dock="Right"
+                            Command="{Binding GuardarCommand}"
+                            IsDefault="{Binding EstaEditando}"
+                            Style="{StaticResource PrimaryActionButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Text="Guardar" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </DockPanel>
+
+                <DockPanel LastChildFill="False" Visibility="{Binding Guardado, Converter={StaticResource BoolToVisConverter}}">
+                    <Button DockPanel.Dock="Right"
+                            IsDefault="{Binding Guardado}"
+                            Click="OnCerrarClick"
+                            Style="{StaticResource KeycapButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularX" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                            <TextBlock Text="Cerrar" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button DockPanel.Dock="Left"
+                            Command="{Binding ImprimirCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="{StaticResource InlineSm}"
+                            ToolTip="Imprimir el ticket del presupuesto">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularPrinter" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                            <TextBlock Text="Imprimir ticket" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Button DockPanel.Dock="Left"
+                            Command="{Binding ExportarPdfCommand}"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            ToolTip="Exportar el presupuesto a PDF">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14" Margin="{StaticResource InlineXs}" VerticalAlignment="Center" />
+                            <TextBlock Text="Exportar PDF" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </DockPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
