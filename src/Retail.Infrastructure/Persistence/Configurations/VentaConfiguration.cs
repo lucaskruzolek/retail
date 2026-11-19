@@ -33,6 +33,9 @@ public class VentaConfiguration : IEntityTypeConfiguration<Venta>
         builder.Property(v => v.IdPresupuestoOrigen)
             .HasColumnName("id_presupuesto_origen");
 
+        builder.Property(v => v.IdListaOrigen)
+            .HasColumnName("id_lista_origen");
+
         builder.Property(v => v.FechaHora)
             .HasColumnName("fecha_hora")
             .IsRequired();
@@ -99,6 +102,16 @@ public class VentaConfiguration : IEntityTypeConfiguration<Venta>
         builder.HasOne(v => v.PresupuestoOrigen)
             .WithMany()
             .HasForeignKey(v => v.IdPresupuestoOrigen)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // L-09: una lista se vende ilimitadas veces, por eso el índice NO es único (a diferencia del presupuesto).
+        // Sirve para contar las ventas de cada lista en la grilla.
+        builder.HasIndex(v => v.IdListaOrigen)
+            .HasDatabaseName("IX_VENTAS_id_lista_origen");
+
+        builder.HasOne(v => v.ListaOrigen)
+            .WithMany()
+            .HasForeignKey(v => v.IdListaOrigen)
             .OnDelete(DeleteBehavior.Restrict);
     }
 }

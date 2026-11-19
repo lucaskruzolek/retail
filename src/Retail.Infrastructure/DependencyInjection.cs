@@ -74,6 +74,7 @@ public static class DependencyInjection
         services.AddScoped<IClienteQueryService, Retail.Infrastructure.Persistence.Services.ClienteQueryService>();
         services.AddScoped<IPedidoQueryService, Retail.Infrastructure.Persistence.Services.PedidoQueryService>();
         services.AddScoped<IPresupuestoQueryService, Retail.Infrastructure.Persistence.Services.PresupuestoQueryService>();
+        services.AddScoped<IListaQueryService, Retail.Infrastructure.Persistence.Services.ListaQueryService>();
         services.AddScoped<IReporteQueryService, Retail.Infrastructure.Persistence.Services.ReporteQueryService>();
         services.AddScoped<IEsquemaBaseDatos, Retail.Infrastructure.Persistence.Services.EsquemaBaseDatos>();
 
@@ -112,6 +113,9 @@ public static class DependencyInjection
         // Exportación del presupuesto a PDF (PS-07): sin estado, igual que el exportador de reportes. Toma el membrete de
         // TicketPrinterSettings, que ya está registrado como opciones.
         services.AddSingleton<IExportadorPresupuestoPdf, Retail.Infrastructure.Presupuestos.ExportadorPresupuestoPdf>();
+
+        // Exportación de la lista de artículos a PDF (RF-30): sin estado, mismo membrete.
+        services.AddSingleton<IExportadorListaPdf, Retail.Infrastructure.Listas.ExportadorListaPdf>();
 
         // 8. Reemplazamos el doble de prueba por la implementación real de CajaService.
         services.AddScoped<Retail.Application.Interfaces.Services.ICajaService, Retail.Application.Services.CajaService>();
