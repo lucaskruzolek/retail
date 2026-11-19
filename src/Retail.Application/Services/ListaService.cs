@@ -225,6 +225,7 @@ public class ListaService : IListaService
         {
             IdLista = lista.IdLista,
             Nombre = lista.Nombre,
+            FechaModificacion = lista.FechaModificacion,
             Renglones = renglones,
             Faltantes = faltantes,
             ArticulosNoDisponibles = noDisponibles

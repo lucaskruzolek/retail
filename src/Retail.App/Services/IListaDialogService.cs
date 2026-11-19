@@ -1,4 +1,5 @@
 using Retail.App.Helpers;
+using Retail.App.ViewModels.Listas;
 using Retail.Application.DTOs.Listas;
 
 namespace Retail.App.Services;
@@ -15,6 +16,24 @@ public interface IListaDialogService
     /// pantalla que lo abre: el editor comparte su DbContext y no debe usarlo en paralelo (H-19).
     /// </summary>
     bool AbrirEditor(ListaDto? lista, CargaSerializada acceso);
+
+    /// <summary>
+    /// Abre el selector "Cargar → Lista" del POS (F7). Bloquea hasta que se cierra y devuelve el número de la lista elegida,
+    /// o <c>null</c> si el usuario canceló.
+    /// </summary>
+    int? MostrarSeleccionarLista(SeleccionarListaViewModel viewModel);
+
+    /// <summary>
+    /// Abre el diálogo "Guardar como → Lista" del POS (F3). Bloquea hasta que se cierra y devuelve <c>true</c> si la lista
+    /// quedó guardada (el resultado está en <see cref="GuardarListaViewModel.ListaGuardada"/>).
+    /// </summary>
+    bool MostrarGuardarLista(GuardarListaViewModel viewModel);
+
+    /// <summary>
+    /// Pregunta qué hacer al cargar la lista <paramref name="nombreLista"/> con el ticket no vacío (L-14). Con un
+    /// presupuesto cargado <paramref name="permitirAgregar"/> es <c>false</c> y solo se ofrece Reemplazar o Cancelar (L-15).
+    /// </summary>
+    RespuestaCargaLista PreguntarReemplazarOAgregar(string nombreLista, bool permitirAgregar);
 
     /// <summary>Pide confirmar la baja de la lista; devuelve <c>true</c> si el usuario acepta.</summary>
     bool ConfirmarBaja(string nombre);

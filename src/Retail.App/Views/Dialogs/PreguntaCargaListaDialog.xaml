@@ -1,0 +1,74 @@
+<ui:FluentWindow x:Class="Retail.App.Views.Dialogs.PreguntaCargaListaDialog"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:components="clr-namespace:Retail.App.Views.Components"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 Title="Cargar lista"
+                 Language="es-AR"
+                 Width="500"
+                 MinHeight="0"
+                 SizeToContent="Height"
+                 WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="Mica"
+                 Background="{DynamicResource DialogBackgroundBrush}"
+                 ResizeMode="NoResize">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <components:EncabezadoDialogo Grid.Row="0" Titulo="Cargar lista" />
+
+        <Border Grid.Row="1" Style="{StaticResource DialogSectionStyle}" Margin="12,0,12,12">
+            <StackPanel>
+                <TextBlock x:Name="TxtPregunta"
+                           Style="{StaticResource TextBlockBody}"
+                           TextWrapping="Wrap"
+                           Margin="{StaticResource StackMd}" />
+                <TextBlock x:Name="TxtAyuda"
+                           Style="{StaticResource TextBlockCaptionSecondary}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- Pie: Cancelar a la izquierda; Agregar (solo sin presupuesto cargado) y Reemplazar, la acción principal, a la derecha -->
+        <Border Grid.Row="2" Style="{StaticResource DialogFooterStyle}">
+            <DockPanel LastChildFill="False">
+                <Button DockPanel.Dock="Left"
+                        Content="Cancelar"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        MinWidth="100"
+                        IsCancel="True"
+                        Click="OnCancelarClick" />
+
+                <Button x:Name="BtnReemplazar"
+                        DockPanel.Dock="Right"
+                        IsDefault="True"
+                        Style="{StaticResource PrimaryActionButtonStyle}"
+                        Click="OnReemplazarClick">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularRefreshCw" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Reemplazar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="BtnAgregar"
+                        DockPanel.Dock="Right"
+                        Style="{StaticResource KeycapButtonStyle}"
+                        Margin="0,0,8,0"
+                        ToolTip="Suma las cantidades a los artículos que ya están en el ticket"
+                        Click="OnAgregarClick">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularPlus" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                        <TextBlock Text="Agregar" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </DockPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

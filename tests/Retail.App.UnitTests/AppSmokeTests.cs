@@ -926,7 +926,7 @@ public class AppSmokeTests
             var inventarioServiceMock = Substitute.For<IInventarioService>();
 
             sessionMock.NombreCompleto.Returns("Administrador General");
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>(), Substitute.For<IPresupuestoService>(), Substitute.For<IPresupuestoDialogService>(), Substitute.For<IClienteService>());
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>(), Substitute.For<IPresupuestoService>(), Substitute.For<IPresupuestoDialogService>(), Substitute.For<IClienteService>(), Substitute.For<IListaService>(), Substitute.For<IListaDialogService>());
 
             // Con un ítem, la grilla genera la fila: cantidad editable y botón de eliminar con sus estilos
             viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
@@ -973,7 +973,7 @@ public class AppSmokeTests
             var sessionMock = Substitute.For<ICurrentUserSession>();
             var dialogServiceMock = Substitute.For<IVentaDialogService>();
             var inventarioServiceMock = Substitute.For<IInventarioService>();
-            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>(), Substitute.For<IPresupuestoService>(), Substitute.For<IPresupuestoDialogService>(), Substitute.For<IClienteService>());
+            var viewModel = new PosViewModel(ventaServiceMock, cajaServiceMock, inventarioServiceMock, sessionMock, dialogServiceMock, Substitute.For<ICajaDialogService>(), Substitute.For<IPresupuestoService>(), Substitute.For<IPresupuestoDialogService>(), Substitute.For<IClienteService>(), Substitute.For<IListaService>(), Substitute.For<IListaDialogService>());
             viewModel.ResultadosBusqueda.Add(new ArticuloVentaDto
             {
                 IdArticulo = 1,
@@ -2691,6 +2691,117 @@ public class AppSmokeTests
     }
 
     [Fact]
+    public void SeleccionarListaDialog_InstanciacionEnHiloSTAConListas_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange: con las listas cargadas y el aviso de "más resultados" visible
+        Exception? xamlException = null;
+        SeleccionarListaDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var servicio = Substitute.For<IListaService>();
+            servicio.ListarAsync(Arg.Any<Retail.Application.DTOs.Listas.ConsultaListasDto>(), Arg.Any<CancellationToken>())
+                .Returns(new Retail.Application.DTOs.Listas.ListasPaginadosDto
+                {
+                    Items = Snapshots.DatosDeMuestra.Listas(),
+                    TotalRegistros = 120,
+                    PaginaActual = 1,
+                    TamanoPagina = 50
+                });
+
+            var viewModel = new Retail.App.ViewModels.Listas.SeleccionarListaViewModel(
+                servicio,
+                new Retail.App.Helpers.CargaSerializada(),
+                Substitute.For<ILogger>(),
+                new RelojDePrueba(Snapshots.DatosDeMuestra.AhoraListas));
+            Task.Run(() => viewModel.CargarInicialAsync()).GetAwaiter().GetResult();
+
+            try
+            {
+                dialog = new SeleccionarListaDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(760, 600));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 760, 600));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de SeleccionarListaDialog debe resolverse sin errores (grilla, estados vacío y de error)");
+        dialog.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GuardarListaDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool conListaVinculada)
+    {
+        // Arrange: con una lista vinculada (opciones Actualizar / lista nueva) y sin ella (solo el nombre)
+        Exception? xamlException = null;
+        GuardarListaDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var viewModel = new Retail.App.ViewModels.Listas.GuardarListaViewModel(
+                2,
+                [new Retail.Application.DTOs.Listas.RenglonListaEntradaDto { IdArticulo = 1, Cantidad = 3 }],
+                conListaVinculada ? new ListaCargada(12, "3.º grado — Colegio San Martín", DateTime.UtcNow) : null,
+                Substitute.For<IListaService>(),
+                new Retail.App.Helpers.CargaSerializada(),
+                Substitute.For<ILogger>());
+            viewModel.MensajeError = "Ya existe una lista activa con el nombre «3.º grado».";
+
+            try
+            {
+                dialog = new GuardarListaDialog(viewModel);
+                dialog.Measure(new System.Windows.Size(460, 600));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 460, 600));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de GuardarListaDialog debe resolverse sin errores (opciones, nombre y aviso de error)");
+        dialog.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PreguntaCargaListaDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones(bool permitirAgregar)
+    {
+        Exception? xamlException = null;
+        PreguntaCargaListaDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                dialog = new PreguntaCargaListaDialog("3.º grado — Colegio San Martín", permitirAgregar);
+                dialog.Measure(new System.Windows.Size(500, 400));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 500, 400));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PreguntaCargaListaDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+        dialog!.Respuesta.Should().Be(RespuestaCargaLista.Cancelar, "cerrarla sin elegir equivale a Cancelar");
+    }
+
+    [Fact]
     public void DetallePresupuestoDialog_InstanciacionEnHiloSTAConDetalleCargado_DebeCargarXAMLSinExcepciones()
     {
         // Arrange
@@ -2877,7 +2988,9 @@ public class AppSmokeTests
                 Substitute.For<ICajaDialogService>(),
                 Substitute.For<IPresupuestoService>(),
                 Substitute.For<IPresupuestoDialogService>(),
-                Substitute.For<IClienteService>());
+                Substitute.For<IClienteService>(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IListaDialogService>());
 
             foreach (var renglon in Snapshots.DatosDeMuestra.PresupuestoParaVenta(vigente: true).Renglones)
             {
@@ -2912,6 +3025,65 @@ public class AppSmokeTests
 
         // Assert
         xamlException.Should().BeNull("el XAML de PosView con un presupuesto cargado (etiqueta y candados) debe resolverse sin errores");
+        view.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void PosView_InstanciacionEnHiloSTAConUnaListaCargada_DebeCargarXAMLSinExcepciones()
+    {
+        // Arrange: con una lista cargada, su ficha con la ✕ aparece junto a los desplegables Cargar ▾ y Guardar como ▾
+        Exception? xamlException = null;
+        PosView? view = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            var sessionMock = Substitute.For<ICurrentUserSession>();
+            sessionMock.NombreCompleto.Returns("Administrador General");
+            var viewModel = new PosViewModel(
+                Substitute.For<IVentaService>(),
+                Substitute.For<ICajaService>(),
+                Substitute.For<IInventarioService>(),
+                sessionMock,
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<ICajaDialogService>(),
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<IClienteService>(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IListaDialogService>());
+
+            var lista = Snapshots.DatosDeMuestra.ListaParaVenta();
+            foreach (var renglon in lista.Renglones)
+            {
+                viewModel.Items.Add(new ItemVentaPosViewModel
+                {
+                    NumeroItem = viewModel.Items.Count + 1,
+                    IdArticulo = renglon.IdArticulo,
+                    CodigoBarras = renglon.CodigoBarras,
+                    Descripcion = renglon.Descripcion,
+                    PrecioUnitario = renglon.PrecioActual,
+                    Cantidad = renglon.Cantidad,
+                    StockActual = renglon.StockActual
+                });
+            }
+
+            viewModel.ListaCargada = new ListaCargada(lista.IdLista, lista.Nombre, lista.FechaModificacion);
+
+            try
+            {
+                view = new PosView(viewModel);
+                view.Measure(new System.Windows.Size(1280, 800));
+                view.Arrange(new System.Windows.Rect(0, 0, 1280, 800));
+                view.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de PosView con una lista cargada (ficha y menús desplegables) debe resolverse sin errores");
         view.Should().NotBeNull();
     }
 

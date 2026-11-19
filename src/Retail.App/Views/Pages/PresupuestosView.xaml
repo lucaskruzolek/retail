@@ -64,7 +64,7 @@
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
                                Titulo="Ventas"
-                               Descripcion="Presupuestos · Cotizaciones con el precio congelado hasta su vencimiento. Se crean desde el Punto de venta (F3) y se recuperan allí con F7."
+                               Descripcion="Presupuestos · Cotizaciones con el precio congelado hasta su vencimiento. Se crean desde el Punto de venta (F3, Presupuesto) y se recuperan allí (F7, Presupuesto)."
                                EstaCargando="{Binding IsBusy}">
             <components:PageHeader.Navegacion>
                 <components:NavegadorSeccion SeccionId="ventas" />

@@ -290,6 +290,51 @@ internal static class DatosDeMuestra
         };
     }
 
+    /// <summary>
+    /// Lista lista para cargarse en el POS (L-08): tres renglones a precio de catálogo de hoy, uno sin stock suficiente y
+    /// un artículo dado de baja que queda fuera (L-13).
+    /// </summary>
+    public static ListaParaVentaDto ListaParaVenta()
+    {
+        return new ListaParaVentaDto
+        {
+            IdLista = 12,
+            Nombre = "3.º grado — Colegio San Martín",
+            FechaModificacion = new DateTime(2026, 11, 18, 13, 20, 0, DateTimeKind.Utc),
+            Renglones =
+            [
+                RenglonParaVenta(1, "7790001000011", "Cuaderno ABC tapa dura x 48 hojas rayado", 3, 4900m, 20),
+                RenglonParaVenta(2, "7790001000028", "Lápiz negro HB Faber", 12, 450m, 8),
+                RenglonParaVenta(3, "7790001000035", "Carpeta N.º 3 oficio con lomo ancho", 1, 7200m, 5)
+            ],
+            Faltantes =
+            [
+                new Retail.Application.DTOs.Ventas.FaltanteStockDto
+                {
+                    IdArticulo = 2,
+                    Descripcion = "Lápiz negro HB Faber",
+                    CantidadSolicitada = 12,
+                    StockActual = 8
+                }
+            ],
+            ArticulosNoDisponibles = ["Block de dibujo N.º 5 de 24 hojas blancas"]
+        };
+    }
+
+    private static RenglonListaParaVentaDto RenglonParaVenta(int idArticulo, string codigo, string descripcion, int cantidad, decimal precio, int stock)
+    {
+        return new RenglonListaParaVentaDto
+        {
+            IdArticulo = idArticulo,
+            CodigoBarras = codigo,
+            Descripcion = descripcion,
+            Cantidad = cantidad,
+            PrecioActual = precio,
+            EsServicio = false,
+            StockActual = stock
+        };
+    }
+
     /// <summary>Día de las capturas de listas: las fechas de modificación se leen en hora local (UTC-3).</summary>
     public static readonly DateTimeOffset AhoraListas = new(2026, 11, 19, 15, 0, 0, TimeSpan.Zero);
 

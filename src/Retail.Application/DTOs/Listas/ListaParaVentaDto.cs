@@ -12,6 +12,12 @@ public record class ListaParaVentaDto
 
     public required string Nombre { get; init; }
 
+    /// <summary>
+    /// <c>FechaModificacion</c> de la lista al momento de cargarla: el POS la devuelve como
+    /// <c>FechaModificacionLeida</c> si luego se elige "Actualizar «nombre»" (L-16), así se detecta un cambio concurrente.
+    /// </summary>
+    public required DateTime FechaModificacion { get; init; }
+
     /// <summary>Solo los renglones cuyo artículo sigue activo.</summary>
     public required IReadOnlyList<RenglonListaParaVentaDto> Renglones { get; init; }
 

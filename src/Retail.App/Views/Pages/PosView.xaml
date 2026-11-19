@@ -7,6 +7,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:converters="clr-namespace:Retail.App.Converters"
+             xmlns:helpers="clr-namespace:Retail.App.Helpers"
              mc:Ignorable="d"
              Focusable="True"
              Background="{DynamicResource SurfaceBackgroundBrush}">
@@ -28,11 +29,11 @@
 
     <!-- Los atajos se anuncian solo en los tooltips; la descripción del encabezado los resume -->
     <UserControl.InputBindings>
-        <!-- F3 y F7 están libres también como atajos globales (RegistroNavegacion), que tienen prioridad sobre los de
-             la página: F9 ya es la Consola fiscal del Gerente (corrección de PS-18). -->
-        <KeyBinding Key="F3" Command="{Binding GuardarComoPresupuestoCommand}" />
+        <!-- F3 (Guardar como ▾) y F7 (Cargar ▾) abren su menú desplegable: lo resuelve el code-behind (OnPreviewKeyDown),
+             porque abrir un ContextMenu y darle el foco es lógica de la vista, no de un comando del ViewModel (L-07).
+             Siguen libres como atajos globales (RegistroNavegacion), que tienen prioridad sobre los de la página: F9 ya
+             es la Consola fiscal del Gerente (corrección de PS-18). -->
         <KeyBinding Key="F4" Command="{Binding SeleccionarClienteCommand}" />
-        <KeyBinding Key="F7" Command="{Binding RecuperarPresupuestoCommand}" />
         <KeyBinding Key="F8" Command="{Binding LimpiarVentaCommand}" />
         <KeyBinding Key="F12" Command="{Binding CobrarVentaCommand}" />
         <KeyBinding Key="Delete" Command="{Binding EliminarItemCommand}" />
@@ -52,7 +53,7 @@
         <components:PageHeader Grid.Row="0"
                                Margin="{StaticResource SectionSpacing}"
                                Titulo="Punto de venta"
-                               Descripcion="Punto de venta · Escanee o busque artículos, ajuste cantidades y cobre. Atajos: F3 guardar como presupuesto, F4 cliente, F7 recuperar presupuesto, F8 cancelar, F12 cobrar, Supr quitar la línea seleccionada."
+                               Descripcion="Punto de venta · Escanee o busque artículos, ajuste cantidades y cobre. Atajos: F3 guardar como (lista o presupuesto), F4 cliente, F7 cargar (lista o presupuesto), F8 cancelar, F12 cobrar, Supr quitar la línea seleccionada."
                                EstaCargando="{Binding IsBusy}">
             <!-- Presupuestos (RF-11, RF-12) en el lugar de las pestañas de las demás páginas (slot izquierdo de la fila de
                  acciones): así el POS hereda las mismas distancias entre título, esta fila y el buscador, y el buscador
@@ -60,28 +61,72 @@
                  presupuesto" (un presupuesto no se vuelve a presupuestar). -->
             <components:PageHeader.Navegacion>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Command="{Binding RecuperarPresupuestoCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Focusable="False"
-                            ToolTip="Recuperar un presupuesto pendiente [F7]">
+                    <!-- "Cargar ▾" (F7): Lista o Presupuesto. Desplegable con MenuDesplegableHelper (ver "Más ▾" del sistema de
+                         diseño); F7 lo abre desde el code-behind (L-07). Focusable=False: el foco queda en el buscador. -->
+                    <ToggleButton x:Name="BtnCargar"
+                                  Style="{StaticResource KeycapToggleButtonStyle}"
+                                  Focusable="False"
+                                  helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
+                                  ToolTip="Cargar una lista o un presupuesto en el ticket [F7]"
+                                  AutomationProperties.Name="Cargar">
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconBoxIcons Kind="RegularFolderOpen" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                            <TextBlock Text="Cargar presupuesto" VerticalAlignment="Center" />
+                            <TextBlock Text="Cargar" VerticalAlignment="Center" />
+                            <iconPacks:PackIconBoxIcons Kind="RegularChevronDown" Width="12" Height="12" Margin="6,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
-                    </Button>
+                        <ToggleButton.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="_Lista…"
+                                          FontWeight="Normal"
+                                          Command="{Binding PlacementTarget.DataContext.CargarListaCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                    <MenuItem.Icon>
+                                        <iconPacks:PackIconBoxIcons Kind="RegularListUl" Width="14" Height="14" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="_Presupuesto…"
+                                          FontWeight="Normal"
+                                          Command="{Binding PlacementTarget.DataContext.RecuperarPresupuestoCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                    <MenuItem.Icon>
+                                        <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </ToggleButton.ContextMenu>
+                    </ToggleButton>
 
-                    <Button Command="{Binding GuardarComoPresupuestoCommand}"
-                            Style="{StaticResource KeycapButtonStyle}"
-                            Margin="8,0,0,0"
-                            Focusable="False"
-                            ToolTip="Guardar el ticket como presupuesto [F3]: no hace falta tener la caja abierta"
-                            ToolTipService.ShowOnDisabled="True"
-                            Visibility="{Binding TienePresupuestoCargado, Converter={StaticResource BooleanToInverseVisibilityConverter}}">
+                    <!-- "Guardar como ▾" (F3): Lista o Presupuesto. Siempre visible: con un presupuesto cargado, su ítem
+                         Presupuesto queda deshabilitado (un presupuesto no se vuelve a presupuestar), pero Lista sigue disponible. -->
+                    <ToggleButton x:Name="BtnGuardarComo"
+                                  Style="{StaticResource KeycapToggleButtonStyle}"
+                                  Margin="8,0,0,0"
+                                  Focusable="False"
+                                  helpers:MenuDesplegableHelper.AbrirAlHacerClic="True"
+                                  ToolTip="Guardar el ticket como lista o como presupuesto [F3]: no hace falta tener la caja abierta"
+                                  AutomationProperties.Name="Guardar como">
                         <StackPanel Orientation="Horizontal">
                             <iconPacks:PackIconBoxIcons Kind="RegularSave" Width="14" Height="14" Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
-                            <TextBlock Text="Guardar presupuesto" VerticalAlignment="Center" />
+                            <TextBlock Text="Guardar como" VerticalAlignment="Center" />
+                            <iconPacks:PackIconBoxIcons Kind="RegularChevronDown" Width="12" Height="12" Margin="6,0,0,0" VerticalAlignment="Center" />
                         </StackPanel>
-                    </Button>
+                        <ToggleButton.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="_Lista…"
+                                          FontWeight="Normal"
+                                          Command="{Binding PlacementTarget.DataContext.GuardarComoListaCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                    <MenuItem.Icon>
+                                        <iconPacks:PackIconBoxIcons Kind="RegularListUl" Width="14" Height="14" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="_Presupuesto…"
+                                          FontWeight="Normal"
+                                          Command="{Binding PlacementTarget.DataContext.GuardarComoPresupuestoCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                    <MenuItem.Icon>
+                                        <iconPacks:PackIconBoxIcons Kind="RegularFile" Width="14" Height="14" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </ToggleButton.ContextMenu>
+                    </ToggleButton>
 
                     <Border Background="{DynamicResource SurfaceSelectedBrush}"
                             CornerRadius="{StaticResource RadiusMd}"
@@ -118,6 +163,44 @@
                                     Focusable="False"
                                     ToolTip="Quitar el presupuesto y sus artículos del ticket"
                                     AutomationProperties.Name="Quitar presupuesto">
+                                <iconPacks:PackIconBoxIcons Kind="RegularX" Width="9" Height="9" />
+                            </Button>
+                        </Grid>
+                    </Border>
+
+                    <!-- Ficha de la lista de la que viene el ticket (RF-30). Su ✕ solo desvincula: los artículos quedan. -->
+                    <Border Background="{DynamicResource SurfaceSelectedBrush}"
+                            CornerRadius="{StaticResource RadiusMd}"
+                            MinHeight="{StaticResource ControlHeight}"
+                            MaxWidth="380"
+                            Padding="12,0"
+                            Margin="8,0,0,0"
+                            ToolTip="{Binding ListaCargada.Etiqueta}"
+                            Visibility="{Binding TieneListaCargada, Converter={StaticResource BoolToVisConverter}}">
+                        <Grid VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <iconPacks:PackIconBoxIcons Kind="RegularListUl" Width="14" Height="14"
+                                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                                        Margin="{StaticResource InlineSm}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding ListaCargada.Etiqueta}"
+                                       FontSize="{StaticResource FontSizeMd}"
+                                       FontWeight="Medium"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <Button Grid.Column="2"
+                                    Command="{Binding QuitarListaCommand}"
+                                    Style="{StaticResource BadgeCancelButtonStyle}"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Focusable="False"
+                                    ToolTip="Desvincular la lista: los artículos quedan en el ticket"
+                                    AutomationProperties.Name="Desvincular lista">
                                 <iconPacks:PackIconBoxIcons Kind="RegularX" Width="9" Height="9" />
                             </Button>
                         </Grid>

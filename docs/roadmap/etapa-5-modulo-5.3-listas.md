@@ -17,7 +17,7 @@
 | L2 | Aplicación: `IListaService`, DTOs, validadores; venta con lista de origen | ✅ Hecha |
 | L3 | Infraestructura: configuración EF, migración, `ListaQueryService`, PDF de la lista | ✅ Hecha |
 | L4 | UI: pestaña **Listas** en Ventas (listado y editor) | ✅ Hecha |
-| L5 | UI del POS: desplegables **Cargar ▾** y **Guardar como ▾** y selector de listas | ⏳ Pendiente |
+| L5 | UI del POS: desplegables **Cargar ▾** y **Guardar como ▾** y selector de listas | ✅ Hecha |
 | L6 | Cierre: verificación Release, mapa, prueba manual | ⏳ Pendiente |
 
 ---
@@ -195,6 +195,12 @@ flowchart LR
   - `SeleccionarListaDialog`: el mismo patrón que `RecuperarPresupuestoDialog`, con buscador, primera fila seleccionada, Enter o doble clic y carga en `Loaded`;
   - `GuardarListaDialog`: nombre, más "Actualizar «X»" (L-16).
 - Tests: `PosViewModelTests` (cargar, reemplazar/agregar, omitir dados de baja, exclusión con el presupuesto, guardar y actualizar), los ViewModels de los diálogos, prueba de humo y capturas.
+- **Decisiones tomadas al implementar:**
+  - La ✕ de la ficha "Lista «X»" **solo desvincula** y los artículos quedan en el ticket. Con "Agregar", la cantidad de un renglón puede mezclar unidades de la lista y cargadas a mano, así que "quitar los de la lista" sería ambiguo. F8 vacía el ticket.
+  - Guardar como lista nueva **vincula** el ticket a la lista creada, salvo que venga de un presupuesto (L-21).
+  - `ListaParaVentaDto` lleva `FechaModificacion`: "Actualizar «X»" envía la fecha de cuando se cargó la lista, así se detecta una edición concurrente.
+  - Para la pregunta de tres botones se creó `PreguntaCargaListaDialog`.
+- **R-1:** F3/F7 se manejan en `PosView.OnPreviewKeyDown`. Abierto con el teclado, el menú enfoca su primer ítem habilitado (↑/↓/Enter), y los ítems tienen letras de acceso (`_Lista`, `_Presupuesto`). Que las letras funcionen con el foco real se confirma en la prueba manual (paso 8).
 
 ### L6 — Cierre
 Verificación Release completa (AGENTS.md), mapa, prueba manual (sección 8) y PR.
@@ -221,6 +227,7 @@ Verificación Release completa (AGENTS.md), mapa, prueba manual (sección 8) y P
 5. Cargar la lista con el ticket no vacío y probar Reemplazar y Agregar.
 6. Con un presupuesto cargado, *Cargar → Lista* pide reemplazar.
 7. Dar de baja un artículo de la lista: al cargarla, se omite con un aviso.
+8. Solo con el teclado: F7 → L abre el selector de listas, F7 → P el de presupuestos, F3 → L guarda como lista, y Esc cierra el menú y devuelve el foco al buscador.
 
 ---
 

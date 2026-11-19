@@ -53,6 +53,42 @@ public class ListaDialogService : IListaDialogService
         return viewModel.Guardada;
     }
 
+    public int? MostrarSeleccionarLista(SeleccionarListaViewModel viewModel)
+    {
+        var dialog = new SeleccionarListaDialog(viewModel)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        return viewModel.IdListaElegida;
+    }
+
+    public bool MostrarGuardarLista(GuardarListaViewModel viewModel)
+    {
+        var dialog = new GuardarListaDialog(viewModel)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        return viewModel.Guardada;
+    }
+
+    public RespuestaCargaLista PreguntarReemplazarOAgregar(string nombreLista, bool permitirAgregar)
+    {
+        var dialog = new PreguntaCargaListaDialog(nombreLista, permitirAgregar)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        dialog.ShowDialog();
+
+        return dialog.Respuesta;
+    }
+
     public bool ConfirmarBaja(string nombre)
     {
         return Confirmar(
