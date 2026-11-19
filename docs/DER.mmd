@@ -1,6 +1,7 @@
 erDiagram
     ROLES ||--o{ USUARIOS : "asigna perfil"
     USUARIOS ||--o{ TURNOS_CAJA : "abre/cierra"
+    TERMINALES ||--o{ TURNOS_CAJA : "aloja"
     USUARIOS ||--o{ VENTAS : "registra"
     USUARIOS ||--o{ PRESUPUESTOS : "confecciona"
     USUARIOS ||--o{ COMPRAS : "ingresa"
@@ -106,9 +107,18 @@ erDiagram
         string referencia
     }
 
+    TERMINALES {
+        int id_terminal PK
+        string nombre "único entre activas (UX_TERMINALES_nombre)"
+        string nombre_equipo "nombre de Windows de la PC, solo control"
+        datetime created_at
+        datetime deleted_at
+    }
+
     TURNOS_CAJA {
         int id_turno PK
         int id_usuario FK
+        int id_terminal FK "terminal donde se abrió (MT-1)"
         datetime fecha_apertura
         decimal saldo_inicial
         datetime fecha_cierre
