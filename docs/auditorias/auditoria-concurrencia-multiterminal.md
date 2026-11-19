@@ -2,7 +2,7 @@
 
 **Proyecto:** Retail (ERP y POS para librería)
 **Fecha de apertura:** 2026-11-14
-**Estado:** ✅ Fase 0 (decisiones) cerrada el 2026-11-19, salvo la actualización de la ERS · ✅ Fase 1 (matriz de
+**Estado:** ✅ Fase 0 (decisiones) cerrada el 2026-11-19, con la ERS actualizada (`RNF-05`, `RNF-10` a `RNF-12`, `RF-15`) · ✅ Fase 1 (matriz de
 concurrencia) completada el 2026-11-19 · ⏳ Fases 2 a 5: plan de implementación en
 [`etapa-6-track-6.7-concurrencia-multiterminal.md`](../roadmap/etapa-6-track-6.7-concurrencia-multiterminal.md)
 **Objetivo:** que el sistema funcione en forma correcta y segura con **varias terminales abiertas a la vez** sobre una

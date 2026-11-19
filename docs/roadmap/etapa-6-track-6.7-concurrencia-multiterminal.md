@@ -17,7 +17,7 @@ compartidas (Ley 10): se coordinan con Pablo antes de empezar.
 
 | Paquete | Contenido | Hallazgos | Estado |
 | :--- | :--- | :--- | :---: |
-| 0 | ERS: reescribir `RNF-05` y agregar los RNF nuevos | Fase 0 | ⏳ |
+| 0 | ERS: reescribir `RNF-05` y agregar los RNF nuevos | Fase 0 | ✅ `RNF-05` reescrito, `RNF-10` a `RNF-12` y `RF-15` ampliado |
 | 1 | Concurrencia optimista de caja y clientes | H2, H3, H18, MT-11 | ⏳ |
 | 2 | *Write skew* y unicidades | H4, H5 | ⏳ |
 | 3 | Identidad de la terminal y turno por cajero y terminal | H1, MT-1, MT-5, MT-9, MT-13, MT-14 | ⏳ |
