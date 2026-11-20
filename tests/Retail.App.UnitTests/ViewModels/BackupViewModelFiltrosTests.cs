@@ -42,7 +42,9 @@ public class BackupViewModelFiltrosTests : IDisposable
             _restauracionService,
             Substitute.For<IBackupDialogService>(),
             session,
-            Substitute.For<IReinicioAplicacion>());
+            Substitute.For<IReinicioAplicacion>(),
+            Snapshots.DatosDeMuestraPaginas.EquipoServidor(),
+            Snapshots.DatosDeMuestraPaginas.OrquestadorDeMantenimiento());
     }
 
     public void Dispose()

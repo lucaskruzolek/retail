@@ -60,7 +60,7 @@
                         </StackPanel>
                     </Button>
                     <StackPanel Orientation="Horizontal"
-                                Visibility="{Binding PuedeOperar, Converter={StaticResource BoolToVisConverter}}">
+                                Visibility="{Binding TieneRolParaOperar, Converter={StaticResource BoolToVisConverter}}">
                     <Button Command="{Binding RestaurarCopiaCommand}"
                             Visibility="{Binding MostrandoCopias, Converter={StaticResource BoolToVisConverter}}"
                             Style="{StaticResource KeycapButtonStyle}"
@@ -93,6 +93,59 @@
                        Style="{StaticResource TextBlockBodyMuted}"
                        Margin="{StaticResource StackMd}"
                        Visibility="{Binding EsSoloLectura, Converter={StaticResource BoolToVisConverter}}" />
+
+            <!-- Fuera de la PC servidor (MT-12): el historial se ve, pero copiar y restaurar solo se hacen allá -->
+            <Border Background="{DynamicResource WarningBackgroundBrush}"
+                    BorderBrush="{DynamicResource WarningBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusLg}"
+                    Padding="16,8"
+                    Margin="{StaticResource StackMd}"
+                    Visibility="{Binding MostrarAvisoFueraDelServidor, Converter={StaticResource BoolToVisConverter}}">
+                <StackPanel Orientation="Horizontal">
+                    <iconPacks:PackIconBoxIcons Kind="RegularInfoCircle"
+                                                Width="16"
+                                                Height="16"
+                                                Margin="{StaticResource InlineMd}"
+                                                VerticalAlignment="Center"
+                                                Foreground="{DynamicResource WarningForegroundBrush}" />
+                    <TextBlock Text="{Binding TextoAvisoFueraDelServidor}"
+                               Style="{StaticResource TextBlockBody}"
+                               VerticalAlignment="Center"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource WarningForegroundBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Espera previa a restaurar (MT-12): el progreso lo informa el orquestador; cancelar retira el aviso de las terminales -->
+            <Border Background="{DynamicResource WarningBackgroundBrush}"
+                    BorderBrush="{DynamicResource WarningBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource RadiusLg}"
+                    Padding="16,8"
+                    Margin="{StaticResource StackMd}"
+                    Visibility="{Binding EsperandoTerminales, Converter={StaticResource BoolToVisConverter}}">
+                <DockPanel LastChildFill="True">
+                    <Button DockPanel.Dock="Right"
+                            Command="{Binding CancelarEsperaCommand}"
+                            Content="Cancelar espera"
+                            Style="{StaticResource KeycapButtonStyle}"
+                            Margin="16,0,0,0" />
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconBoxIcons Kind="RegularCog"
+                                                    Width="16"
+                                                    Height="16"
+                                                    Margin="{StaticResource InlineMd}"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{DynamicResource WarningForegroundBrush}" />
+                        <TextBlock Text="{Binding MensajeEstado}"
+                                   Style="{StaticResource TextBlockBody}"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Foreground="{DynamicResource WarningForegroundBrush}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
 
             <Border Background="{DynamicResource DangerBackgroundBrush}"
                     BorderBrush="{DynamicResource DangerBorderBrush}"

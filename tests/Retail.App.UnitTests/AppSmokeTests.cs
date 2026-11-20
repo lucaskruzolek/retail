@@ -423,7 +423,9 @@ public class AppSmokeTests
                 Substitute.For<IRestauracionService>(),
                 Substitute.For<IBackupDialogService>(),
                 session,
-                Substitute.For<IReinicioAplicacion>());
+                Substitute.For<IReinicioAplicacion>(),
+                Retail.App.UnitTests.Snapshots.DatosDeMuestraPaginas.EquipoServidor(),
+                Retail.App.UnitTests.Snapshots.DatosDeMuestraPaginas.OrquestadorDeMantenimiento());
 
             try
             {
@@ -2947,6 +2949,33 @@ public class AppSmokeTests
         xamlException.Should().BeNull("el XAML de PreguntaCargaListaDialog debe resolverse sin errores");
         dialog.Should().NotBeNull();
         dialog!.Respuesta.Should().Be(RespuestaCargaLista.Cancelar, "cerrarla sin elegir equivale a Cancelar");
+    }
+
+    [Fact]
+    public void ProgramarMantenimientoDialog_InstanciacionEnHiloSTA_DebeCargarXAMLSinExcepciones()
+    {
+        Exception? xamlException = null;
+        ProgramarMantenimientoDialog? dialog = null;
+
+        WpfTestHelper.Run(() =>
+        {
+            try
+            {
+                dialog = new ProgramarMantenimientoDialog(2);
+                dialog.Measure(new System.Windows.Size(500, 400));
+                dialog.Arrange(new System.Windows.Rect(0, 0, 500, 400));
+                dialog.UpdateLayout();
+            }
+            catch (Exception ex)
+            {
+                xamlException = ex;
+            }
+        });
+
+        // Assert
+        xamlException.Should().BeNull("el XAML de ProgramarMantenimientoDialog debe resolverse sin errores");
+        dialog.Should().NotBeNull();
+        dialog!.Minutos.Should().BeNull("cerrarlo sin programar equivale a cancelar");
     }
 
     [Fact]

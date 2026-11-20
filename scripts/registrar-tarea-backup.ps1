@@ -36,6 +36,12 @@
     copia tomada ANTES de ejecutar este script, o si una migracion agrega tablas que usa la copia, hay que volver a
     ejecutar el script (la restauracion avisa cuando falta).
 
+    Solo se ejecuta en la PC servidor (la que aloja SQL Server): lo primero que hace, antes de tocar permisos o tareas, es
+    comparar el equipo del motor (SERVERPROPERTY('ComputerNamePhysicalNetBIOS')) con esta PC, y se detiene si difieren.
+    En las terminales hay que usar configurar-terminal.ps1. La configuracion se lee del appsettings.json de la herramienta
+    y, con mayor precedencia, de %ProgramData%\Retail\appsettings.local.json (o RETAIL_CONFIG_DIR); si el archivo local trae
+    ConnectionStrings:Mantenimiento, la instancia sale de esa conexion.
+
     Requisitos: ejecutar como administrador de Windows (en una consola "Ejecutar como administrador"), con un usuario
     que sea sysadmin de la instancia de SQL Server, y con la base ya creada y migrada (Retail.Cli migrar).
     Con -WhatIf se muestra cada accion sin ejecutarla; ese modo no exige ser administrador.
@@ -293,6 +299,28 @@ if (-not $RutaCli -or -not (Test-Path -LiteralPath $RutaCli -PathType Leaf))
 $RutaCli = (Resolve-Path -LiteralPath $RutaCli).Path
 $CarpetaCli = Split-Path $RutaCli -Parent
 Resolve-Configuracion $CarpetaCli
+
+# --- Solo en la PC servidor (MT-8, H16) ---------------------------------------------------------------------------------
+# La tarea y los permisos de la carpeta de respaldos solo tienen sentido donde corre el motor: el .bak se escribe en SU disco
+# y SYSTEM de otra PC no se autentica contra el servidor. Se comprueba antes de tocar permisos o tareas (tambien con -WhatIf).
+try
+{
+    $equipoDelMotor = Invoke-Sql "master" "SELECT CAST(SERVERPROPERTY('ComputerNamePhysicalNetBIOS') AS nvarchar(128));" $true
+}
+catch
+{
+    throw "No se pudo consultar la instancia '$Instancia': $($_.Exception.Message)"
+}
+
+if ($equipoDelMotor -is [DBNull] -or [string]::IsNullOrWhiteSpace([string]$equipoDelMotor))
+{
+    throw "SQL Server no informo en que equipo corre la instancia '$Instancia': no se puede comprobar que esta sea la PC servidor."
+}
+
+if ($equipoDelMotor -ine $env:COMPUTERNAME)
+{
+    throw "Este script se ejecuta solo en la PC servidor ('$equipoDelMotor'). En las terminales use configurar-terminal.ps1."
+}
 
 # La tarea ejecuta directamente el Retail.Cli.exe de la aplicacion instalada (sin copia aparte).
 $RutaCliTarea = $RutaCli

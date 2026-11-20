@@ -33,6 +33,31 @@ public class BackupDialogService : IBackupDialogService
         return new ResultadoCredencial(viewModel.Completada, viewModel.FalloOperacion);
     }
 
+    public int? SolicitarProgramacionMantenimiento(int terminalesConectadas)
+    {
+        var dialog = new ProgramarMantenimientoDialog(terminalesConectadas);
+        if (System.Windows.Application.Current?.MainWindow is { IsVisible: true } owner)
+        {
+            dialog.Owner = owner;
+        }
+
+        dialog.ShowDialog();
+
+        return dialog.Minutos;
+    }
+
+    public bool ConfirmarRestaurarConTerminalesConectadas(int terminalesConectadas)
+    {
+        var respuesta = MessageBox.Show(
+            $"Quedan {terminalesConectadas} terminal(es) conectadas. ¿Restaurar igual? Se desconectarán.",
+            "Restaurar con terminales conectadas",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+
+        return respuesta == MessageBoxResult.Yes;
+    }
+
     public void MostrarError(string titulo, string mensaje)
     {
         _logger.LogError("Diálogo de error presentado en el módulo de respaldos. Título: {Titulo}, Mensaje: {Mensaje}", titulo, mensaje);

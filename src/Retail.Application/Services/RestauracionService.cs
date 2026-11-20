@@ -411,14 +411,11 @@ public class RestauracionService : IRestauracionService
 
     public async Task<int> ContarTerminalesConectadasAsync(int idActor, CancellationToken cancellationToken = default)
     {
-        var actor = idActor > 0
-            ? await _usuarios.GetByIdAsync(idActor, includeDeleted: false, cancellationToken)
-            : null;
-
-        if (actor is null || (!actor.EsGerente() && !actor.EsAdministrador()))
-        {
-            throw new OperacionNoAutorizadaException("Solo un Gerente o un Administrador puede consultar las terminales conectadas.");
-        }
+        await AutorizacionGerente.ExigirGerenteOAdministradorAsync(
+            _usuarios,
+            idActor,
+            "Solo un Gerente o un Administrador puede consultar las terminales conectadas.",
+            cancellationToken);
 
         // Si esta PC todavía no fue activada como terminal no hay una sesión propia que excluir: se cuentan todas.
         return await _sesiones.ContarSesionesVigentesExceptoAsync(_terminalLocal.IdTerminal ?? 0, cancellationToken);

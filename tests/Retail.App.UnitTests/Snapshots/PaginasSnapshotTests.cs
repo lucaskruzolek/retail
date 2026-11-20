@@ -358,10 +358,48 @@ public class PaginasSnapshotTests
                 restauraciones,
                 Substitute.For<IBackupDialogService>(),
                 gerente,
-                Substitute.For<IReinicioAplicacion>());
+                Substitute.For<IReinicioAplicacion>(),
+                DatosDeMuestraPaginas.EquipoServidor(),
+                DatosDeMuestraPaginas.OrquestadorDeMantenimiento());
 
             var vista = new BackupView(viewModel);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/BackupView", () => viewModel.Copias.Count > 0);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void BackupView_FueraDelServidor_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var gerente = Substitute.For<ICurrentUserSession>();
+            gerente.IdUsuario.Returns(1);
+            gerente.EsGerente.Returns(true);
+
+            var backups = Substitute.For<IBackupService>();
+            backups.ListarAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(DatosDeMuestraPaginas.Copias());
+
+            var restauraciones = Substitute.For<IRestauracionService>();
+            restauraciones.ObtenerUltimaRestauracionAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(DatosDeMuestraPaginas.UltimaRestauracion());
+            restauraciones.ListarRestauracionesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(new List<Retail.Application.DTOs.Backups.RegistroRestauracionDto> { DatosDeMuestraPaginas.UltimaRestauracion() });
+
+            var viewModel = new BackupViewModel(
+                backups,
+                restauraciones,
+                Substitute.For<IBackupDialogService>(),
+                gerente,
+                Substitute.For<IReinicioAplicacion>(),
+                DatosDeMuestraPaginas.EquipoServidor(esEstaPc: false, nombre: "PC-SERVIDOR"),
+                DatosDeMuestraPaginas.OrquestadorDeMantenimiento());
+
+            var vista = new BackupView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/BackupView_FueraDelServidor", () => viewModel.Copias.Count > 0);
         });
 
         VerificarCaptura(ruta, error);

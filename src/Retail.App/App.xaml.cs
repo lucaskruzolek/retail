@@ -144,6 +144,7 @@ public partial class App : System.Windows.Application
         // Respaldos y Restauración (Track 6.3)
         services.AddScoped<Retail.App.Services.IBackupDialogService, Retail.App.Services.BackupDialogService>();
         services.AddSingleton<Retail.App.Services.IReinicioAplicacion, Retail.App.Services.ReinicioAplicacion>();
+        services.AddTransient<Retail.App.Services.OrquestadorMantenimiento>();
         services.AddTransient<Retail.App.ViewModels.Backups.BackupViewModel>();
         services.AddTransient<Retail.App.Views.Pages.BackupView>();
 

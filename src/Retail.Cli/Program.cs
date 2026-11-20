@@ -78,6 +78,10 @@ internal static class Program
             // Configuración propia de esta PC (MT-7): %ProgramData%\Retail\appsettings.local.json, entre el JSON y las variables de entorno.
             builder.Configuration.AgregarConfiguracionLocal();
 
+            // La consola administra la base (migrar, inicializar, copias): en la PC servidor usa la conexión de mantenimiento,
+            // que tiene los permisos de DDL que el login retail_app de las terminales no tiene (MT-10).
+            CadenaDeConexion.UsarMantenimientoComoPrincipal(builder.Configuration);
+
             builder.Services.AddSerilog();
             builder.Services.AddApplicationServices();
             builder.Services.AddAdministracionSistema();

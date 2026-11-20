@@ -102,6 +102,44 @@ public class CadenaDeConexionTests
     }
 
     [Fact]
+    public void UsarMantenimientoComoPrincipal_ConCadenaDeMantenimiento_LaConsolaUsaEsaIdentidadSinLaPasswordDeRetailApp()
+    {
+        // Arrange: la configuración de la PC servidor tras configurar-terminal.ps1 -ConexionMantenimiento.
+        var configuracion = new ConfigurationManager();
+        configuracion.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = CadenaSinPassword,
+            [CadenaDeConexion.ClavePasswordCifrada] = ProtectorCredencialSql.Cifrar("Clave-Del-Login"),
+            ["ConnectionStrings:Mantenimiento"] = "Server=.\\SQLEXPRESS;Trusted_Connection=True;TrustServerCertificate=True"
+        });
+
+        // Act
+        CadenaDeConexion.UsarMantenimientoComoPrincipal(configuracion);
+        var cadena = new SqlConnectionStringBuilder(CadenaDeConexion.Resolver(configuracion));
+
+        // Assert: seguridad integrada, la base tomada de DefaultConnection y sin usuario ni contraseña de retail_app.
+        cadena.DataSource.Should().Be(".\\SQLEXPRESS");
+        cadena.IntegratedSecurity.Should().BeTrue();
+        cadena.InitialCatalog.Should().Be("RetailDb");
+        cadena.UserID.Should().BeEmpty();
+        cadena.Password.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UsarMantenimientoComoPrincipal_SinCadenaDeMantenimiento_NoCambiaLaConfiguracion()
+    {
+        var configuracion = new ConfigurationManager();
+        configuracion.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["ConnectionStrings:DefaultConnection"] = CadenaSinPassword
+        });
+
+        CadenaDeConexion.UsarMantenimientoComoPrincipal(configuracion);
+
+        CadenaDeConexion.Resolver(configuracion).Should().Be(CadenaSinPassword);
+    }
+
+    [Fact]
     public void ResolverMantenimiento_SinClave_DevuelveNull()
     {
         CadenaDeConexion.ResolverMantenimiento(Configuracion()).Should().BeNull();

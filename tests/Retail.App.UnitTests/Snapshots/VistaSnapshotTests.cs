@@ -669,6 +669,20 @@ public class VistaSnapshotTests
     [Theory]
     [InlineData(TemaPrueba.Claro)]
     [InlineData(TemaPrueba.Oscuro)]
+    public void ProgramarMantenimientoDialog_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var dialogo = new ProgramarMantenimientoDialog(2);
+            return SnapshotRenderer.Guardar(dialogo, 500, 330, carpeta + "/ProgramarMantenimientoDialog");
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
     public void PosView_ConListaCargada_PorTema_GeneraCaptura(TemaPrueba tema)
     {
         // Ficha «Lista «nombre»» con su ✕ junto a los desplegables Cargar ▾ y Guardar como ▾

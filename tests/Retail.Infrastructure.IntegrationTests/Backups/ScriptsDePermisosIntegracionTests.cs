@@ -52,6 +52,9 @@ public sealed class ScriptsDePermisosIntegracionTests : IDisposable
         throw new FileNotFoundException("No se encontró scripts/RetailPermisos.psm1 subiendo desde la carpeta de las pruebas.");
     }
 
+    // Carpeta de configuracion local que no existe: aisla las pruebas del appsettings.local.json real de la PC.
+    private string LocalInexistente => Path.Combine(_raiz, "sin-local");
+
     private static string Literal(string texto) => "'" + texto.Replace("'", "''", StringComparison.Ordinal) + "'";
 
     /// <summary>
@@ -391,7 +394,7 @@ public sealed class ScriptsDePermisosIntegracionTests : IDisposable
             """);
 
         // Act
-        var json = EjecutarConElModulo($"Read-ConfiguracionDeCli -CarpetaCli {Literal(_raiz)} | ConvertTo-Json -Compress");
+        var json = EjecutarConElModulo($"Read-ConfiguracionDeCli -CarpetaCli {Literal(_raiz)} -CarpetaLocal {Literal(LocalInexistente)} | ConvertTo-Json -Compress");
 
         // Assert
         using var documento = JsonDocument.Parse(json);
@@ -408,7 +411,7 @@ public sealed class ScriptsDePermisosIntegracionTests : IDisposable
         Directory.CreateDirectory(_raiz);
 
         // Act
-        var json = EjecutarConElModulo($"Read-ConfiguracionDeCli -CarpetaCli {Literal(_raiz)} | ConvertTo-Json -Compress");
+        var json = EjecutarConElModulo($"Read-ConfiguracionDeCli -CarpetaCli {Literal(_raiz)} -CarpetaLocal {Literal(LocalInexistente)} | ConvertTo-Json -Compress");
 
         // Assert
         using var documento = JsonDocument.Parse(json);

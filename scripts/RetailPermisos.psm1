@@ -264,44 +264,292 @@ function Get-ReglasDeEscrituraAjena
     }
 }
 
+function Get-CarpetaConfiguracionLocal
+{
+    <#
+    .SYNOPSIS
+        Carpeta de la configuracion propia de esta PC: RETAIL_CONFIG_DIR si esta definida; si no, %ProgramData%\Retail.
+
+    .DESCRIPTION
+        Es la misma regla que ConfiguracionLocal.ObtenerCarpeta de la aplicacion (Retail.Infrastructure): si se cambia
+        una, hay que cambiar la otra.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param()
+
+    if (-not [string]::IsNullOrWhiteSpace($env:RETAIL_CONFIG_DIR))
+    {
+        return $env:RETAIL_CONFIG_DIR
+    }
+
+    return (Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) "Retail")
+}
+
+function Read-JsonSiExiste([string]$Archivo)
+{
+    if (-not (Test-Path -LiteralPath $Archivo -PathType Leaf))
+    {
+        return $null
+    }
+
+    return (Get-Content -LiteralPath $Archivo -Raw -Encoding UTF8 | ConvertFrom-Json)
+}
+
 function Read-ConfiguracionDeCli
 {
     <#
     .SYNOPSIS
-        Lee Instancia, BaseDeDatos y Directorio del appsettings.json que acompana a Retail.Cli.exe.
+        Lee Instancia, BaseDeDatos, Directorio y Mantenimiento de la configuracion de la aplicacion instalada.
 
     .DESCRIPTION
-        Devuelve un objeto con esas tres propiedades; las que no figuran en el archivo (o si el archivo no existe)
-        quedan en $null. El directorio sale con las variables de entorno expandidas, igual que en la aplicacion.
+        Combina, con la misma precedencia que la aplicacion (la ultima gana), el appsettings.json que acompana a
+        Retail.Cli.exe y el appsettings.local.json de esta PC (%ProgramData%\Retail o RETAIL_CONFIG_DIR; ver
+        Get-CarpetaConfiguracionLocal). Devuelve un objeto con esas cuatro propiedades; las que no figuran quedan en $null.
+        El directorio sale con las variables de entorno expandidas, igual que en la aplicacion.
+
+        Mantenimiento es ConnectionStrings:Mantenimiento (la conexion local con autenticacion de Windows de la PC servidor):
+        si figura, la Instancia sale de ella, porque es la que tiene los permisos de administracion que usan los scripts.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory = $true)][string]$CarpetaCli)
+    param(
+        [Parameter(Mandatory = $true)][string]$CarpetaCli,
+        [string]$CarpetaLocal
+    )
 
-    $configuracion = [pscustomobject]@{ Instancia = $null; BaseDeDatos = $null; Directorio = $null }
-
-    $archivo = Join-Path $CarpetaCli "appsettings.json"
-    if (-not (Test-Path -LiteralPath $archivo -PathType Leaf))
+    if (-not $CarpetaLocal)
     {
-        return $configuracion
+        $CarpetaLocal = Get-CarpetaConfiguracionLocal
     }
 
-    $json = Get-Content -LiteralPath $archivo -Raw -Encoding UTF8 | ConvertFrom-Json
+    $configuracion = [pscustomobject]@{ Instancia = $null; BaseDeDatos = $null; Directorio = $null; Mantenimiento = $null }
 
-    $conexiones = $json.PSObject.Properties["ConnectionStrings"]
-    if ($conexiones -and $conexiones.Value.PSObject.Properties["DefaultConnection"])
+    $instanciaPrincipal = $null
+    $catalogoPrincipal = $null
+
+    $archivos = @((Join-Path $CarpetaCli "appsettings.json"), (Join-Path $CarpetaLocal "appsettings.local.json"))
+    foreach ($archivo in $archivos)
     {
-        $constructor = New-Object System.Data.SqlClient.SqlConnectionStringBuilder ([string]$conexiones.Value.DefaultConnection)
-        if ($constructor.DataSource) { $configuracion.Instancia = $constructor.DataSource }
-        if ($constructor.InitialCatalog) { $configuracion.BaseDeDatos = $constructor.InitialCatalog }
+        $json = Read-JsonSiExiste $archivo
+        if ($null -eq $json)
+        {
+            continue
+        }
+
+        $conexiones = $json.PSObject.Properties["ConnectionStrings"]
+        if ($conexiones -and $conexiones.Value)
+        {
+            if ($conexiones.Value.PSObject.Properties["DefaultConnection"])
+            {
+                $constructor = New-Object System.Data.SqlClient.SqlConnectionStringBuilder ([string]$conexiones.Value.DefaultConnection)
+                if ($constructor.DataSource) { $instanciaPrincipal = $constructor.DataSource }
+                if ($constructor.InitialCatalog) { $catalogoPrincipal = $constructor.InitialCatalog }
+            }
+
+            if ($conexiones.Value.PSObject.Properties["Mantenimiento"] -and $conexiones.Value.Mantenimiento)
+            {
+                $configuracion.Mantenimiento = [string]$conexiones.Value.Mantenimiento
+            }
+        }
+
+        $respaldos = $json.PSObject.Properties["BackupSettings"]
+        if ($respaldos -and $respaldos.Value.PSObject.Properties["Directorio"] -and $respaldos.Value.Directorio)
+        {
+            $configuracion.Directorio = [Environment]::ExpandEnvironmentVariables([string]$respaldos.Value.Directorio)
+        }
     }
 
-    $respaldos = $json.PSObject.Properties["BackupSettings"]
-    if ($respaldos -and $respaldos.Value.PSObject.Properties["Directorio"] -and $respaldos.Value.Directorio)
+    $configuracion.Instancia = $instanciaPrincipal
+    $configuracion.BaseDeDatos = $catalogoPrincipal
+
+    if ($configuracion.Mantenimiento)
     {
-        $configuracion.Directorio = [Environment]::ExpandEnvironmentVariables([string]$respaldos.Value.Directorio)
+        $mantenimiento = New-Object System.Data.SqlClient.SqlConnectionStringBuilder $configuracion.Mantenimiento
+        if ($mantenimiento.DataSource) { $configuracion.Instancia = $mantenimiento.DataSource }
+        if (-not $configuracion.BaseDeDatos -and $mantenimiento.InitialCatalog) { $configuracion.BaseDeDatos = $mantenimiento.InitialCatalog }
     }
 
     return $configuracion
+}
+
+function ConvertTo-TextoPlano
+{
+    <#
+    .SYNOPSIS
+        Convierte un SecureString en texto. Usar solo para pasarlo al instante a SQL Server o a DPAPI; nunca se imprime.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory = $true)][System.Security.SecureString]$Segura)
+
+    $puntero = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($Segura)
+    try
+    {
+        return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($puntero)
+    }
+    finally
+    {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($puntero)
+    }
+}
+
+function Protect-PasswordSql
+{
+    <#
+    .SYNOPSIS
+        Cifra la contrasena del login de SQL Server con DPAPI (alcance de equipo) y la devuelve en base64.
+
+    .DESCRIPTION
+        CONTRATO CON LA APLICACION: usa exactamente los parametros de ProtectorCredencialSql (Retail.Infrastructure):
+        ProtectedData.Protect(bytes UTF-8 de la contrasena, bytes UTF-8 de la entropia "Retail.POS.Sql", LocalMachine).
+        Cualquier cuenta de ESTA PC la descifra; copiada a otra PC no sirve. Si se cambia algo aca, hay que cambiarlo alla.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory = $true)][string]$Password)
+
+    Add-Type -AssemblyName System.Security
+
+    return [Convert]::ToBase64String([System.Security.Cryptography.ProtectedData]::Protect(
+        [Text.Encoding]::UTF8.GetBytes($Password),
+        [Text.Encoding]::UTF8.GetBytes("Retail.POS.Sql"),
+        [System.Security.Cryptography.DataProtectionScope]::LocalMachine))
+}
+
+function ConvertFrom-JsonAHashtable
+{
+    <#
+    .SYNOPSIS
+        Convierte el resultado de ConvertFrom-Json (objetos y arreglos) en tablas hash ordenadas anidadas, que se pueden
+        modificar y volver a serializar con ConvertTo-JsonLegible. Windows PowerShell 5.1 no tiene -AsHashtable.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory = $true)][AllowNull()]$Objeto)
+
+    if ($null -eq $Objeto)
+    {
+        return $null
+    }
+
+    if ($Objeto -is [System.Management.Automation.PSCustomObject])
+    {
+        $tabla = [ordered]@{}
+        foreach ($propiedad in $Objeto.PSObject.Properties)
+        {
+            $tabla[$propiedad.Name] = ConvertFrom-JsonAHashtable $propiedad.Value
+        }
+
+        return $tabla
+    }
+
+    if ($Objeto -is [System.Collections.IEnumerable] -and $Objeto -isnot [string])
+    {
+        $lista = @()
+        foreach ($elemento in $Objeto)
+        {
+            $lista += , (ConvertFrom-JsonAHashtable $elemento)
+        }
+
+        return , $lista
+    }
+
+    return $Objeto
+}
+
+function ConvertTo-JsonLegible
+{
+    <#
+    .SYNOPSIS
+        Serializa tablas hash anidadas, arreglos y valores simples a JSON con sangria de 2 espacios.
+
+    .DESCRIPTION
+        ConvertTo-Json de Windows PowerShell 5.1 sangra con 4 espacios, escapa comillas simples y signos como \u0027, y
+        no se puede configurar. Los appsettings del proyecto usan 2 espacios y texto sin escapes innecesarios.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)][AllowNull()]$Valor,
+        [int]$Nivel = 0
+    )
+
+    $sangria = "  " * $Nivel
+    $sangriaHija = "  " * ($Nivel + 1)
+
+    if ($null -eq $Valor)
+    {
+        return "null"
+    }
+
+    if ($Valor -is [System.Collections.IDictionary])
+    {
+        if ($Valor.Count -eq 0)
+        {
+            return "{}"
+        }
+
+        $lineas = foreach ($clave in $Valor.Keys)
+        {
+            "$sangriaHija$(ConvertTo-JsonLegible ([string]$clave) 0): $(ConvertTo-JsonLegible $Valor[$clave] ($Nivel + 1))"
+        }
+
+        return "{" + [Environment]::NewLine + ($lineas -join ("," + [Environment]::NewLine)) + [Environment]::NewLine + $sangria + "}"
+    }
+
+    if ($Valor -is [System.Collections.IEnumerable] -and $Valor -isnot [string])
+    {
+        $elementos = @($Valor)
+        if ($elementos.Count -eq 0)
+        {
+            return "[]"
+        }
+
+        $lineas = foreach ($elemento in $elementos)
+        {
+            "$sangriaHija$(ConvertTo-JsonLegible $elemento ($Nivel + 1))"
+        }
+
+        return "[" + [Environment]::NewLine + ($lineas -join ("," + [Environment]::NewLine)) + [Environment]::NewLine + $sangria + "]"
+    }
+
+    if ($Valor -is [bool])
+    {
+        return $(if ($Valor) { "true" } else { "false" })
+    }
+
+    if ($Valor -is [string])
+    {
+        $texto = New-Object System.Text.StringBuilder
+        [void]$texto.Append('"')
+        foreach ($caracter in $Valor.ToCharArray())
+        {
+            switch ($caracter)
+            {
+                '"' { [void]$texto.Append('\"') }
+                '\' { [void]$texto.Append('\\') }
+                "`n" { [void]$texto.Append('\n') }
+                "`r" { [void]$texto.Append('\r') }
+                "`t" { [void]$texto.Append('\t') }
+                default
+                {
+                    if ([int]$caracter -lt 32)
+                    {
+                        [void]$texto.Append(('\u{0:x4}' -f [int]$caracter))
+                    }
+                    else
+                    {
+                        [void]$texto.Append($caracter)
+                    }
+                }
+            }
+        }
+
+        [void]$texto.Append('"')
+        return $texto.ToString()
+    }
+
+    # Numeros: siempre con cultura invariante (sin coma decimal).
+    return [string]::Format([System.Globalization.CultureInfo]::InvariantCulture, "{0}", $Valor)
 }
 
 function Test-InstanciaValida
@@ -321,4 +569,4 @@ function Test-InstanciaValida
     return [bool]($Instancia -match '^[A-Za-z0-9_.\-\\,:()]+$')
 }
 
-Export-ModuleMember -Function Get-SidDeCuenta, Set-PermisoDeCarpeta, Get-EscrituraDeNoAdministradores, Get-EscrituraEnInstalacion, Read-ConfiguracionDeCli, Test-InstanciaValida
+Export-ModuleMember -Function Get-SidDeCuenta, Set-PermisoDeCarpeta, Get-EscrituraDeNoAdministradores, Get-EscrituraEnInstalacion, Get-CarpetaConfiguracionLocal, Read-ConfiguracionDeCli, Test-InstanciaValida, ConvertTo-TextoPlano, Protect-PasswordSql, ConvertFrom-JsonAHashtable, ConvertTo-JsonLegible
