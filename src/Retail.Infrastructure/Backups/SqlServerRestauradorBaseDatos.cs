@@ -27,13 +27,19 @@ public class SqlServerRestauradorBaseDatos : IRestauradorBaseDatos
     private const long BytesPorMegabyte = 1024L * 1024L;
 
     private readonly RetailDbContext _context;
+    private readonly CadenaConexionMantenimiento _mantenimiento;
     private readonly BackupOptions _opciones;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger _logger;
 
-    public SqlServerRestauradorBaseDatos(RetailDbContext context, IOptions<BackupOptions> opciones, ILoggerFactory loggerFactory)
+    public SqlServerRestauradorBaseDatos(
+        RetailDbContext context,
+        IOptions<BackupOptions> opciones,
+        ILoggerFactory loggerFactory,
+        CadenaConexionMantenimiento? mantenimiento = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _mantenimiento = mantenimiento ?? new CadenaConexionMantenimiento(null);
         _opciones = opciones?.Value ?? throw new ArgumentNullException(nameof(opciones));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
         _logger = loggerFactory.CreateLogger<SqlServerRestauradorBaseDatos>();
@@ -513,17 +519,21 @@ public class SqlServerRestauradorBaseDatos : IRestauradorBaseDatos
         }
     }
 
+    /// <remarks>
+    /// H19: toda la restauración (crear la base temporal, restaurar, renombrar, migrar la copia vieja con DDL y borrar las
+    /// anteriores) usa la cadena de mantenimiento. <see cref="BaseRestauradaSqlServer"/> recibe de acá su cadena para
+    /// construir su propio contexto, así que <c>MigrateAsync</c> corre con los permisos de mantenimiento y no con los de
+    /// <c>retail_app</c>.
+    /// </remarks>
     private string ObtenerCadenaMaster()
     {
-        var cadena = _context.Database.GetConnectionString()
-            ?? throw new InvalidOperationException("No hay una cadena de conexión configurada para la base.");
+        var cadena = _mantenimiento.Obtener(_context);
         return ComandosSqlServer.CadenaParaBase(cadena, "master");
     }
 
     private string ObtenerNombreVigente()
     {
-        var cadena = _context.Database.GetConnectionString()
-            ?? throw new InvalidOperationException("No hay una cadena de conexión configurada para la base.");
+        var cadena = _mantenimiento.Obtener(_context);
         var nombre = new SqlConnectionStringBuilder(cadena).InitialCatalog;
 
         return string.IsNullOrWhiteSpace(nombre)

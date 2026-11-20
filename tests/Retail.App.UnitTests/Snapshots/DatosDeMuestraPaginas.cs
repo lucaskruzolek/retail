@@ -187,6 +187,24 @@ internal static class DatosDeMuestraPaginas
         ];
     }
 
+    /// <summary>El puerto "esta PC es el servidor" con la respuesta pedida (la pantalla de Respaldos lo consulta al cargar).</summary>
+    public static Retail.Application.Interfaces.Infrastructure.IEquipoServidor EquipoServidor(bool esEstaPc = true, string nombre = "PC-SERVIDOR")
+    {
+        var equipo = Substitute.For<Retail.Application.Interfaces.Infrastructure.IEquipoServidor>();
+        equipo.ObtenerAsync(Arg.Any<CancellationToken>())
+            .Returns(new Retail.Application.DTOs.Sistema.InformacionServidorDto { EsEstaPc = esEstaPc, NombreEquipoServidor = nombre });
+        return equipo;
+    }
+
+    /// <summary>Orquestador de mantenimiento con servicios simulados, para las pantallas que solo lo reciben.</summary>
+    public static OrquestadorMantenimiento OrquestadorDeMantenimiento()
+    {
+        return new OrquestadorMantenimiento(
+            Substitute.For<Retail.Application.Interfaces.Services.IRestauracionService>(),
+            Substitute.For<Retail.Application.Interfaces.Services.ISesionService>(),
+            Substitute.For<IBackupDialogService>());
+    }
+
     public static IReadOnlyList<RegistroBackupDto> Copias()
     {
         return

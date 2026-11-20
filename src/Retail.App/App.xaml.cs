@@ -12,6 +12,7 @@ using Retail.Application;
 using Retail.Application.DTOs.Sistema;
 using Retail.Application.Interfaces.Services;
 using Retail.Infrastructure;
+using Retail.Infrastructure.Configuracion;
 using Retail.Infrastructure.Logging;
 using Serilog;
 
@@ -57,6 +58,9 @@ public partial class App : System.Windows.Application
             // La configuración se lee junto al ejecutable, como en Retail.Cli: CreateDefaultBuilder ya carga appsettings.json
             // antes que las variables de entorno, así que una variable siempre tiene prioridad sobre el archivo.
             .UseContentRoot(AppContext.BaseDirectory)
+            // Configuración propia de esta PC (MT-7): %ProgramData%\Retail\appsettings.local.json, después de appsettings.json y
+            // antes de las variables de entorno (que siguen ganando).
+            .ConfigureAppConfiguration((_, configuracion) => configuracion.AgregarConfiguracionLocal())
             // Validación de ciclos de vida: si un servicio Scoped (por ejemplo, el DbContext) se resuelve
             // desde el proveedor raíz, la app falla al arrancar en lugar de compartir el contexto en silencio (H-19).
             .UseDefaultServiceProvider(options =>
@@ -140,6 +144,7 @@ public partial class App : System.Windows.Application
         // Respaldos y Restauración (Track 6.3)
         services.AddScoped<Retail.App.Services.IBackupDialogService, Retail.App.Services.BackupDialogService>();
         services.AddSingleton<Retail.App.Services.IReinicioAplicacion, Retail.App.Services.ReinicioAplicacion>();
+        services.AddTransient<Retail.App.Services.OrquestadorMantenimiento>();
         services.AddTransient<Retail.App.ViewModels.Backups.BackupViewModel>();
         services.AddTransient<Retail.App.Views.Pages.BackupView>();
 

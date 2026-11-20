@@ -14,7 +14,9 @@ namespace Retail.Application.Services;
 /// </summary>
 public class SesionService : ISesionService
 {
-    private const string MensajeSoloGerente = "Solo un Gerente puede administrar las sesiones y el mantenimiento.";
+    private const string MensajeSoloGerente = "Solo un Gerente puede administrar las sesiones.";
+
+    private const string MensajeMantenimiento = "Solo un Gerente o un Administrador puede programar o cancelar un mantenimiento.";
 
     private readonly ISesionesActivas _sesiones;
     private readonly IRepository<Usuario> _usuarios;
@@ -61,7 +63,7 @@ public class SesionService : ISesionService
 
         if (idUsuario == idActor)
         {
-            throw new DomainException("No podés cerrar tu propia sesión desde la administración: cerrala desde el menú de la aplicación.");
+            throw new DomainException("No puede cerrar su propia sesión desde acá: se cierra al salir de la aplicación.");
         }
 
         return await _sesiones.ForzarCierreAsync(idUsuario, cancellationToken);
@@ -73,7 +75,9 @@ public class SesionService : ISesionService
         string? motivo,
         CancellationToken cancellationToken = default)
     {
-        await AutorizacionGerente.ExigirAsync(_usuarios, idActor, MensajeSoloGerente, cancellationToken);
+        // El Administrador también puede: prepara el mantenimiento antes de la restauración que ejecuta con la
+        // autorización de un Gerente (control dual, Track 6.3.1).
+        await AutorizacionGerente.ExigirGerenteOAdministradorAsync(_usuarios, idActor, MensajeMantenimiento, cancellationToken);
         await _mantenimientoValidator.ValidateAndThrowAsync(
             new ProgramarMantenimientoDto { MinutosDesdeAhora = minutosDesdeAhora, Motivo = motivo },
             cancellationToken);
@@ -85,7 +89,7 @@ public class SesionService : ISesionService
 
     public async Task CancelarMantenimientoAsync(int idActor, CancellationToken cancellationToken = default)
     {
-        await AutorizacionGerente.ExigirAsync(_usuarios, idActor, MensajeSoloGerente, cancellationToken);
+        await AutorizacionGerente.ExigirGerenteOAdministradorAsync(_usuarios, idActor, MensajeMantenimiento, cancellationToken);
 
         await _sesiones.CancelarMantenimientoAsync(cancellationToken);
     }

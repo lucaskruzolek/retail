@@ -4,7 +4,9 @@ using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.App.ViewModels.Backups;
 using Retail.Application.DTOs.Backups;
+using Retail.Application.DTOs.Sistema;
 using Retail.Application.Exceptions;
+using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
@@ -24,6 +26,8 @@ public class BackupViewModelTests : IDisposable
     private readonly IBackupDialogService _dialogService = Substitute.For<IBackupDialogService>();
     private readonly ICurrentUserSession _session = Substitute.For<ICurrentUserSession>();
     private readonly IReinicioAplicacion _reinicio = Substitute.For<IReinicioAplicacion>();
+    private readonly IEquipoServidor _equipoServidor = Substitute.For<IEquipoServidor>();
+    private readonly ISesionService _sesionService = Substitute.For<ISesionService>();
     private readonly BackupViewModel _sut;
 
     public BackupViewModelTests()
@@ -37,7 +41,12 @@ public class BackupViewModelTests : IDisposable
         _restauracionService.ListarRestauracionesAsync(IdActor, Arg.Any<CancellationToken>())
             .Returns(new List<RegistroRestauracionDto>());
 
-        _sut = new BackupViewModel(_backupService, _restauracionService, _dialogService, _session, _reinicio);
+        _equipoServidor.ObtenerAsync(Arg.Any<CancellationToken>())
+            .Returns(new InformacionServidorDto { EsEstaPc = true, NombreEquipoServidor = "PC-SERVIDOR" });
+        _restauracionService.ContarTerminalesConectadasAsync(IdActor, Arg.Any<CancellationToken>()).Returns(0);
+
+        var orquestador = new OrquestadorMantenimiento(_restauracionService, _sesionService, _dialogService, esperar: (_, _) => Task.CompletedTask);
+        _sut = new BackupViewModel(_backupService, _restauracionService, _dialogService, _session, _reinicio, _equipoServidor, orquestador);
     }
 
     public void Dispose()
@@ -193,6 +202,129 @@ public class BackupViewModelTests : IDisposable
 
         // Assert
         texto.Should().Contain(esperado);
+    }
+
+    // ───────────────────────────── Fuera de la PC servidor (MT-12) ─────────────────────────────
+
+    [Fact]
+    public async Task CargarAsync_FueraDelServidor_DeshabilitaOperarYMuestraElHistorialConElAviso()
+    {
+        // Arrange
+        _equipoServidor.ObtenerAsync(Arg.Any<CancellationToken>())
+            .Returns(new InformacionServidorDto { EsEstaPc = false, NombreEquipoServidor = "PC-CAJA-1" });
+        _backupService.ListarAsync(IdActor, Arg.Any<CancellationToken>())
+            .Returns(new List<RegistroBackupDto> { Copia() });
+
+        // Act
+        await _sut.CargarCommand.ExecuteAsync(null);
+        _sut.CopiaSeleccionada = _sut.Copias.Single();
+
+        // Assert
+        _sut.Copias.Should().HaveCount(1, "el historial se consulta desde cualquier PC");
+        _sut.PuedeOperar.Should().BeFalse();
+        _sut.TieneRolParaOperar.Should().BeTrue("el rol no cambia: lo que falta es estar en el servidor");
+        _sut.EsSoloLectura.Should().BeFalse();
+        _sut.MostrarAvisoFueraDelServidor.Should().BeTrue();
+        _sut.TextoAvisoFueraDelServidor.Should().Contain("PC-CAJA-1").And.Contain("Desde esta terminal puede consultar el historial");
+        _sut.CrearBackupManualCommand.CanExecute(null).Should().BeFalse();
+        _sut.RestaurarCopiaCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CargarAsync_EnElServidor_HabilitaOperarSinAviso()
+    {
+        // Act
+        await _sut.CargarCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.PuedeOperar.Should().BeTrue();
+        _sut.MostrarAvisoFueraDelServidor.Should().BeFalse();
+        _sut.CrearBackupManualCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    // ───────────────────────────── Restauración con mantenimiento (MT-12) ─────────────────────────────
+
+    private async Task CargarYSeleccionarCopiaAsync()
+    {
+        _backupService.ListarAsync(IdActor, Arg.Any<CancellationToken>()).Returns(new List<RegistroBackupDto> { Copia() });
+        await _sut.CargarCommand.ExecuteAsync(null);
+        _sut.CopiaSeleccionada = _sut.Copias.Single();
+    }
+
+    [Fact]
+    public async Task RestaurarCopiaAsync_ConTerminalesQueSeVan_ProgramaEsperaYRestaura()
+    {
+        // Arrange
+        await CargarYSeleccionarCopiaAsync();
+        _restauracionService.ContarTerminalesConectadasAsync(IdActor, Arg.Any<CancellationToken>()).Returns(2, 1, 0);
+        _dialogService.SolicitarProgramacionMantenimiento(2).Returns(2);
+        _restauracionService.RestaurarDesdeHistorialAsync(IdActor, Password, Arg.Any<Guid>(), Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .Returns(Restaurada());
+        GerenteConfirmaEnElDialogo();
+
+        // Act
+        await _sut.RestaurarCopiaCommand.ExecuteAsync(null);
+
+        // Assert
+        await _sesionService.Received(1).ProgramarMantenimientoAsync(IdActor, 2, Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        await _sesionService.DidNotReceive().CancelarMantenimientoAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _reinicio.Received(1).Reiniciar();
+        _sut.EsperandoTerminales.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RestaurarCopiaAsync_ElGerenteCancelaElDialogoDeMinutos_NoProgramaNiRestaura()
+    {
+        // Arrange
+        await CargarYSeleccionarCopiaAsync();
+        _restauracionService.ContarTerminalesConectadasAsync(IdActor, Arg.Any<CancellationToken>()).Returns(3);
+        _dialogService.SolicitarProgramacionMantenimiento(3).Returns((int?)null);
+
+        // Act
+        await _sut.RestaurarCopiaCommand.ExecuteAsync(null);
+
+        // Assert
+        await _sesionService.DidNotReceive().ProgramarMantenimientoAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        _dialogService.DidNotReceive().SolicitarCredencial(Arg.Any<ConfirmarCredencialViewModel>());
+        _reinicio.DidNotReceive().Reiniciar();
+        _sut.IsBusy.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RestaurarCopiaAsync_ElGerenteCancelaElDialogoDeCredencial_RetiraElAvisoDeMantenimiento()
+    {
+        // Arrange
+        await CargarYSeleccionarCopiaAsync();
+        _restauracionService.ContarTerminalesConectadasAsync(IdActor, Arg.Any<CancellationToken>()).Returns(1, 0);
+        _dialogService.SolicitarProgramacionMantenimiento(1).Returns(0);
+        GerenteCancelaElDialogo();
+
+        // Act
+        await _sut.RestaurarCopiaCommand.ExecuteAsync(null);
+
+        // Assert
+        await _sesionService.Received(1).CancelarMantenimientoAsync(IdActor, Arg.Any<CancellationToken>());
+        _reinicio.DidNotReceive().Reiniciar();
+    }
+
+    [Fact]
+    public async Task RestaurarCopiaAsync_ProgramarFalla_InformaElErrorYNoAbreElDialogo()
+    {
+        // Arrange
+        await CargarYSeleccionarCopiaAsync();
+        _restauracionService.ContarTerminalesConectadasAsync(IdActor, Arg.Any<CancellationToken>()).Returns(1);
+        _dialogService.SolicitarProgramacionMantenimiento(1).Returns(2);
+        _sesionService.ProgramarMantenimientoAsync(IdActor, 2, Arg.Any<string?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new OperacionNoAutorizadaException("Solo un Gerente puede programar el mantenimiento."));
+
+        // Act
+        await _sut.RestaurarCopiaCommand.ExecuteAsync(null);
+
+        // Assert
+        _sut.MensajeError.Should().Contain("Solo un Gerente");
+        _dialogService.Received(1).MostrarError("No se pudo preparar la restauración", Arg.Is<string>(m => m.Contains("Solo un Gerente")));
+        _dialogService.DidNotReceive().SolicitarCredencial(Arg.Any<ConfirmarCredencialViewModel>());
+        _sut.IsBusy.Should().BeFalse();
     }
 
     // ───────────────────────────── Permisos de pantalla ─────────────────────────────

@@ -25,6 +25,9 @@ internal static class Ayuda
                             la ejecuta; se registra con scripts\registrar-tarea-backup.ps1 como administrador.
               restaurar <ruta.bak>
                             Reemplaza la base por una copia; exige usuario y contraseña de un Gerente de esa copia.
+              cifrar-password
+                            Pide la contraseña del login de SQL Server y muestra el valor cifrado (DPAPI, solo válido en
+                            esta PC) para pegar en %ProgramData%\Retail\appsettings.local.json (BaseDeDatos:PasswordCifrada).
               ayuda         Muestra este mensaje.
 
             Instalación nueva: migrar, inicializar, cargar-diccionarios y, opcionalmente, datos-demo.

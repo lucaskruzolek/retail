@@ -18,6 +18,7 @@ public class SesionServiceTests
 {
     private const int IdGerente = 1;
     private const int IdCajero = 2;
+    private const int IdAdministrador = 3;
     private const int IdTerminal = 7;
 
     private readonly ISesionesActivas _sesiones = Substitute.For<ISesionesActivas>();
@@ -28,6 +29,7 @@ public class SesionServiceTests
     {
         RegistrarUsuario(IdGerente, RolUsuarioEnum.Gerente);
         RegistrarUsuario(IdCajero, RolUsuarioEnum.Cajero);
+        RegistrarUsuario(IdAdministrador, RolUsuarioEnum.Administrador);
 
         _sut = new SesionService(_sesiones, _usuarios, new ProgramarMantenimientoValidator());
     }
@@ -231,6 +233,28 @@ public class SesionServiceTests
 
         // Assert
         await _sesiones.Received(1).CancelarMantenimientoAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProgramarYCancelarMantenimiento_ComoAdministrador_LoPermite()
+    {
+        // El Administrador restaura con autorización de un Gerente (control dual): también prepara el mantenimiento.
+        await _sut.ProgramarMantenimientoAsync(IdAdministrador, 2, "Restauración");
+        await _sut.CancelarMantenimientoAsync(IdAdministrador);
+
+        await _sesiones.Received(1).ProgramarMantenimientoAsync(2, "Restauración", IdAdministrador, Arg.Any<CancellationToken>());
+        await _sesiones.Received(1).CancelarMantenimientoAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ListarYForzarCierre_ComoAdministrador_LanzaOperacionNoAutorizada()
+    {
+        // Ver y cerrar sesiones ajenas sigue siendo solo del Gerente.
+        var listar = () => _sut.ListarAsync(IdAdministrador);
+        var forzar = () => _sut.ForzarCierreAsync(IdAdministrador, IdCajero);
+
+        await listar.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await forzar.Should().ThrowAsync<OperacionNoAutorizadaException>();
     }
 
     [Fact]

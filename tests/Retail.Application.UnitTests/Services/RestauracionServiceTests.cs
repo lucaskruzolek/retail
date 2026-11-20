@@ -49,11 +49,18 @@ public class RestauracionServiceTests
     private readonly IEsquemaBaseDatos _esquema = Substitute.For<IEsquemaBaseDatos>();
     private readonly IPasswordHasher _passwordHasher = Substitute.For<IPasswordHasher>();
     private readonly IRegistroAccesosService _registroAccesos = Substitute.For<IRegistroAccesosService>();
+    private readonly IEquipoServidor _equipoServidor = Substitute.For<IEquipoServidor>();
+    private readonly ISesionesActivas _sesiones = Substitute.For<ISesionesActivas>();
+    private readonly ITerminalLocal _terminalLocal = Substitute.For<ITerminalLocal>();
     private readonly RestauracionService _sut;
     private RegistroRestauracion? _restauracionRegistrada;
 
     public RestauracionServiceTests()
     {
+        _equipoServidor.ObtenerAsync(Arg.Any<CancellationToken>())
+            .Returns(new InformacionServidorDto { EsEstaPc = true, NombreEquipoServidor = "SERVIDOR" });
+        _terminalLocal.IdTerminal.Returns(7);
+
         _registros.FindAsync(Arg.Any<Expression<Func<RegistroBackup, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(ci => _historial.Where(ci.Arg<Expression<Func<RegistroBackup, bool>>>().Compile()).ToList());
         _restaurador.HayTurnoDeCajaAbiertoEnBaseVigenteAsync(Arg.Any<CancellationToken>())
@@ -91,7 +98,8 @@ public class RestauracionServiceTests
         _temporal.AgregarRestauracionAsync(Arg.Do<RegistroRestauracion>(r => _restauracionRegistrada = r), Arg.Any<CancellationToken>());
 
         _sut = new RestauracionService(
-            _usuarios, _registros, _restauraciones, _unitOfWork, _authService, _backupService, _restaurador, _bloqueo, _archivos, _esquema, _passwordHasher, _registroAccesos);
+            _usuarios, _registros, _restauraciones, _unitOfWork, _authService, _backupService, _restaurador, _bloqueo, _archivos, _esquema, _passwordHasher, _registroAccesos,
+            _equipoServidor, _sesiones, _terminalLocal);
     }
 
     private static EstadoEsquemaDto Esquema(
@@ -1771,5 +1779,160 @@ public class RestauracionServiceTests
 
         // Assert
         historial.Should().BeEmpty();
+    }
+
+    // ───────────────────── Regla "esta PC es el servidor" y mantenimiento (MT-12) ─────────────────────
+
+    private void ComoTerminalQueNoEsElServidor()
+    {
+        _equipoServidor.ObtenerAsync(Arg.Any<CancellationToken>())
+            .Returns(new InformacionServidorDto { EsEstaPc = false, NombreEquipoServidor = "CAJA-SERVIDOR" });
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_PcQueNoEsElServidor_LanzaOperacionSoloEnServidorSinTocarNada()
+    {
+        ComoTerminalQueNoEsElServidor();
+        var copia = CopiaEnHistorial();
+
+        var act = async () => await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        await act.Should().ThrowAsync<OperacionSoloEnServidorException>().WithMessage("*«CAJA-SERVIDOR»*");
+        await _authService.DidNotReceiveWithAnyArgs().VerificarCredencialAsync(default, default!, default);
+        await _bloqueo.DidNotReceiveWithAnyArgs().AdquirirExclusivoAsync(default);
+        await _sesiones.DidNotReceiveWithAnyArgs().CancelarMantenimientoAsync(default);
+    }
+
+    [Fact]
+    public async Task RestaurarConAutorizacionDeGerenteAsync_PcQueNoEsElServidor_LanzaOperacionSoloEnServidorSinTocarNada()
+    {
+        ComoTerminalQueNoEsElServidor();
+        var copia = CopiaEnHistorial();
+
+        var act = async () => await _sut.RestaurarConAutorizacionDeGerenteAsync(
+            IdAdministrador, PasswordAdmin, new CredencialAutorizanteDto("jefe", Password), copia.Referencia);
+
+        await act.Should().ThrowAsync<OperacionSoloEnServidorException>();
+        await _bloqueo.DidNotReceiveWithAnyArgs().AdquirirExclusivoAsync(default);
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeArchivoAsync_PcQueNoEsElServidor_LanzaOperacionSoloEnServidorSinPrepararLaCopia()
+    {
+        ComoTerminalQueNoEsElServidor();
+
+        var act = async () => await _sut.RestaurarDesdeArchivoAsync(RutaBak, "gerente", Password);
+
+        await act.Should().ThrowAsync<OperacionSoloEnServidorException>();
+        await _archivos.DidNotReceiveWithAnyArgs().PrepararParaRestaurarAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task ListarRestauracionesAsync_PcQueNoEsElServidor_SigueMostrandoElHistorial()
+    {
+        ComoTerminalQueNoEsElServidor();
+        _restauraciones.ListAllAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns([]);
+
+        var historial = await _sut.ListarRestauracionesAsync(IdGerente);
+
+        historial.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ContarTerminalesConectadasAsync_Gerente_CuentaLasSesionesDeLasOtrasTerminales()
+    {
+        _sesiones.ContarSesionesVigentesExceptoAsync(7, Arg.Any<CancellationToken>()).Returns(3);
+
+        var cantidad = await _sut.ContarTerminalesConectadasAsync(IdGerente);
+
+        cantidad.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task ContarTerminalesConectadasAsync_Cajero_LanzaOperacionNoAutorizada()
+    {
+        var act = async () => await _sut.ContarTerminalesConectadasAsync(IdCajero);
+
+        await act.Should().ThrowAsync<OperacionNoAutorizadaException>();
+        await _sesiones.DidNotReceiveWithAnyArgs().ContarSesionesVigentesExceptoAsync(default, default);
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_FallaLaRestauracion_CancelaElMantenimientoProgramado()
+    {
+        // Arrange: la copia se restaura mal (por ejemplo, el motor la rechaza).
+        var copia = CopiaEnHistorial();
+        _restaurador.RestaurarEnBaseTemporalAsync(RutaBak, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("sin espacio"));
+
+        // Act
+        var act = async () => await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        // Assert: el error original se conserva y el aviso de mantenimiento se canceló.
+        await act.Should().ThrowAsync<RestauracionFallidaException>();
+        await _sesiones.Received(1).CancelarMantenimientoAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_FallaLaRestauracionYCancelarTambienFalla_PropagaElErrorOriginal()
+    {
+        var copia = CopiaEnHistorial();
+        _restaurador.RestaurarEnBaseTemporalAsync(RutaBak, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("sin espacio"));
+        _sesiones.CancelarMantenimientoAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("sin conexión"));
+
+        var act = async () => await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        await act.Should().ThrowAsync<RestauracionFallidaException>().Where(e => e.InnerException!.Message == "sin espacio");
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_TodoValido_LimpiaLaMarcaDeMantenimientoHeredadaDeLaCopia()
+    {
+        // La copia previa a una restauración se toma con el mantenimiento programado: restaurarla no debe dejar a las
+        // terminales sin poder cobrar.
+        var copia = CopiaEnHistorial();
+
+        await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        await _sesiones.Received(1).CancelarMantenimientoAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeHistorialAsync_TodoValidoYLimpiarLaMarcaFalla_LaRestauracionIgualTermina()
+    {
+        var copia = CopiaEnHistorial();
+        _sesiones.CancelarMantenimientoAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("sin conexión"));
+
+        var act = async () => await _sut.RestaurarDesdeHistorialAsync(IdGerente, Password, copia.Referencia);
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeArchivoAsync_TodoValido_LimpiaLaMarcaDeMantenimientoHeredadaDeLaCopia()
+    {
+        GerenteEnLaCopia();
+        ConManifiesto(Guid.NewGuid());
+
+        await _sut.RestaurarDesdeArchivoAsync(RutaBak, "gerente", Password);
+
+        await _sesiones.Received(1).CancelarMantenimientoAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RestaurarDesdeArchivoAsync_FallaLaRestauracion_NoTocaElMantenimiento()
+    {
+        // Desde la consola no hay aviso programado por la interfaz: la base vigente puede ni existir.
+        ConManifiesto(Guid.NewGuid());
+        _restaurador.RestaurarEnBaseTemporalAsync(RutaBak, Arg.Any<IProgress<int>?>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("sin espacio"));
+
+        var act = async () => await _sut.RestaurarDesdeArchivoAsync(RutaBak, "gerente", Password);
+
+        await act.Should().ThrowAsync<RestauracionFallidaException>();
+        await _sesiones.DidNotReceiveWithAnyArgs().CancelarMantenimientoAsync(default);
     }
 }

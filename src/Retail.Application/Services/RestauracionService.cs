@@ -42,6 +42,9 @@ public class RestauracionService : IRestauracionService
     private readonly IEsquemaBaseDatos _esquema;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IRegistroAccesosService _registroAccesos;
+    private readonly IEquipoServidor _equipoServidor;
+    private readonly ISesionesActivas _sesiones;
+    private readonly ITerminalLocal _terminalLocal;
 
     public RestauracionService(
         IRepository<Usuario> usuarios,
@@ -55,7 +58,10 @@ public class RestauracionService : IRestauracionService
         IArchivosBackup archivos,
         IEsquemaBaseDatos esquema,
         IPasswordHasher passwordHasher,
-        IRegistroAccesosService registroAccesos)
+        IRegistroAccesosService registroAccesos,
+        IEquipoServidor equipoServidor,
+        ISesionesActivas sesiones,
+        ITerminalLocal terminalLocal)
     {
         _usuarios = usuarios ?? throw new ArgumentNullException(nameof(usuarios));
         _registros = registros ?? throw new ArgumentNullException(nameof(registros));
@@ -69,6 +75,9 @@ public class RestauracionService : IRestauracionService
         _esquema = esquema ?? throw new ArgumentNullException(nameof(esquema));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
         _registroAccesos = registroAccesos ?? throw new ArgumentNullException(nameof(registroAccesos));
+        _equipoServidor = equipoServidor ?? throw new ArgumentNullException(nameof(equipoServidor));
+        _sesiones = sesiones ?? throw new ArgumentNullException(nameof(sesiones));
+        _terminalLocal = terminalLocal ?? throw new ArgumentNullException(nameof(terminalLocal));
     }
 
     public async Task<ResultadoRestauracionDto> RestaurarDesdeHistorialAsync(
@@ -78,6 +87,8 @@ public class RestauracionService : IRestauracionService
         IProgress<int>? progreso = null,
         CancellationToken cancellationToken = default)
     {
+        await ExigirPcServidorAsync(cancellationToken);
+
         var actor = idActor > 0
             ? await _usuarios.GetByIdAsync(idActor, includeDeleted: false, cancellationToken)
             : null;
@@ -111,6 +122,8 @@ public class RestauracionService : IRestauracionService
     {
         ArgumentNullException.ThrowIfNull(passwordActor);
         ArgumentNullException.ThrowIfNull(autorizante);
+
+        await ExigirPcServidorAsync(cancellationToken);
 
         var actor = idActor > 0
             ? await _usuarios.GetByIdAsync(idActor, includeDeleted: false, cancellationToken)
@@ -222,6 +235,8 @@ public class RestauracionService : IRestauracionService
         ArgumentNullException.ThrowIfNull(nombreUsuario);
         ArgumentNullException.ThrowIfNull(password);
 
+        await ExigirPcServidorAsync(cancellationToken);
+
         // B-3: la ruta se normaliza antes de cualquier trabajo. Una ruta relativa quedaría registrada tal cual, y una
         // demasiado larga fallaría recién al guardar el registro, después de un restore completo.
         // La longitud se controla solo sobre la ruta preparada (la que se registra): una ruta de origen larga es justamente
@@ -330,6 +345,48 @@ public class RestauracionService : IRestauracionService
     {
         try
         {
+            var resultado = await RestaurarEnvolviendoFallasAsync(origen, copia, autorizarEnLaCopia, operador, progreso, cancellationToken);
+
+            // La base restaurada trae la marca de mantenimiento que tenía la copia. La copia previa a una restauración se
+            // toma justamente con el mantenimiento programado, así que restaurarla más tarde dejaría a todas las terminales
+            // sin poder cobrar. La base recién restaurada empieza siempre sin mantenimiento, sea cual sea el origen.
+            await CancelarMantenimientoSinPropagarAsync();
+
+            return resultado;
+        }
+        catch (Exception) when (origen == OrigenRestauracionEnum.Aplicacion)
+        {
+            // Contrato del mantenimiento (MT-12): la interfaz lo programa, espera a las demás terminales y recién entonces
+            // restaura. Si la restauración falla (o se cancela), la base vigente sigue siendo la misma y no hay motivo para
+            // que las terminales sigan viendo el aviso: se cancela. Es un esfuerzo razonable: si cancelar también falla,
+            // se conserva el error original (el aviso vence solo y el Gerente puede cancelarlo a mano).
+            await CancelarMantenimientoSinPropagarAsync();
+            throw;
+        }
+    }
+
+    private async Task CancelarMantenimientoSinPropagarAsync()
+    {
+        try
+        {
+            await _sesiones.CancelarMantenimientoAsync(CancellationToken.None);
+        }
+        catch (Exception ex) when (DebeEnvolverse(ex))
+        {
+            // Se ignora a propósito: no debe tapar la causa por la que falló la restauración.
+        }
+    }
+
+    private async Task<ResultadoRestauracionDto> RestaurarEnvolviendoFallasAsync(
+        OrigenRestauracionEnum origen,
+        CopiaARestaurar copia,
+        Func<IBaseRestaurada, CancellationToken, Task<Usuario>> autorizarEnLaCopia,
+        Usuario? operador,
+        IProgress<int>? progreso,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
             return await EjecutarRestauracionAsync(origen, copia, autorizarEnLaCopia, operador, progreso, cancellationToken);
         }
         catch (Exception ex) when (DebeEnvolverse(ex))
@@ -337,6 +394,31 @@ public class RestauracionService : IRestauracionService
             throw new RestauracionFallidaException(
                 $"No se pudo completar la restauración: {DescripcionDeFalla.Para(ex)}. La base vigente no cambió.", ex);
         }
+    }
+
+    /// <summary>
+    /// MT-12: restaurar lee el <c>.bak</c> del disco del servidor y reemplaza su base; solo se hace en la PC servidor.
+    /// Consultar el historial no pasa por acá y sigue disponible desde cualquier terminal.
+    /// </summary>
+    private async Task ExigirPcServidorAsync(CancellationToken cancellationToken)
+    {
+        var servidor = await _equipoServidor.ObtenerAsync(cancellationToken);
+        if (!servidor.EsEstaPc)
+        {
+            throw new OperacionSoloEnServidorException(servidor.NombreEquipoServidor);
+        }
+    }
+
+    public async Task<int> ContarTerminalesConectadasAsync(int idActor, CancellationToken cancellationToken = default)
+    {
+        await AutorizacionGerente.ExigirGerenteOAdministradorAsync(
+            _usuarios,
+            idActor,
+            "Solo un Gerente o un Administrador puede consultar las terminales conectadas.",
+            cancellationToken);
+
+        // Si esta PC todavía no fue activada como terminal no hay una sesión propia que excluir: se cuentan todas.
+        return await _sesiones.ContarSesionesVigentesExceptoAsync(_terminalLocal.IdTerminal ?? 0, cancellationToken);
     }
 
     private async Task<ResultadoRestauracionDto> EjecutarRestauracionAsync(

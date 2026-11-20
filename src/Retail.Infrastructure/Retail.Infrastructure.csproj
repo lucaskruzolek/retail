@@ -25,6 +25,7 @@
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
     <PackageReference Include="MiniExcel" Version="1.34.2" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="LiveChartsCore.SkiaSharpView" Version="2.0.5" />
     <PackageReference Include="QuestPDF" Version="2026.9.1" />
     <!--

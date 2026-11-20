@@ -10,6 +10,7 @@ using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.ViewModels.Comun;
 using Retail.Application.DTOs.Backups;
+using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
 using Retail.Domain.Exceptions;
@@ -36,7 +37,12 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     private readonly IBackupDialogService _dialogService;
     private readonly ICurrentUserSession _session;
     private readonly IReinicioAplicacion _reinicio;
+    private readonly IEquipoServidor _equipoServidor;
+    private readonly OrquestadorMantenimiento _mantenimiento;
     private readonly ILogger<BackupViewModel> _logger;
+
+    // Cancela la espera de terminales previa a restaurar (MT-12); solo existe mientras se espera
+    private CancellationTokenSource? _esperaTerminales;
 
     // Los historiales completos tal como llegaron; las colecciones de las grillas son lo que pasa los filtros
     private List<RegistroBackupFila> _todasLasCopias = [];
@@ -48,9 +54,13 @@ public partial class BackupViewModel : ObservableObject, IDisposable
         IBackupDialogService dialogService,
         ICurrentUserSession session,
         IReinicioAplicacion reinicio,
+        IEquipoServidor equipoServidor,
+        OrquestadorMantenimiento mantenimiento,
         ILogger<BackupViewModel>? logger = null,
         TimeProvider? reloj = null)
     {
+        _equipoServidor = equipoServidor ?? throw new ArgumentNullException(nameof(equipoServidor));
+        _mantenimiento = mantenimiento ?? throw new ArgumentNullException(nameof(mantenimiento));
         _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
         _restauracionService = restauracionService ?? throw new ArgumentNullException(nameof(restauracionService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
@@ -188,6 +198,26 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     [NotifyCanExecuteChangedFor(nameof(RestaurarCopiaCommand))]
     private bool _isBusy;
 
+    /// <summary>
+    /// Verdadero si SQL Server corre en esta PC (MT-12). Parte de verdadero para no avisar en falso mientras carga; la carga
+    /// del historial lo corrige. Las copias y la restauración solo se hacen en el servidor.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PuedeOperar))]
+    [NotifyPropertyChangedFor(nameof(MostrarAvisoFueraDelServidor))]
+    [NotifyCanExecuteChangedFor(nameof(CrearBackupManualCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RestaurarCopiaCommand))]
+    private bool _esEstaPcServidor = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TextoAvisoFueraDelServidor))]
+    private string _nombreEquipoServidor = string.Empty;
+
+    /// <summary>Se está esperando que otras terminales se desconecten antes de restaurar (MT-12).</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CancelarEsperaCommand))]
+    private bool _esperandoTerminales;
+
     [ObservableProperty]
     private string? _mensajeEstado;
 
@@ -236,9 +266,20 @@ public partial class BackupViewModel : ObservableObject, IDisposable
     /// Gerente y Administrador ven los botones de operar (D-30, D-32); a cualquier otro rol se le oculta lo que el
     /// servicio le rechazaría.
     /// </summary>
-    public bool PuedeOperar => _session.EsGerente || _session.EsAdministrador;
+    public bool TieneRolParaOperar => _session.EsGerente || _session.EsAdministrador;
 
-    public bool EsSoloLectura => !PuedeOperar;
+    /// <summary>
+    /// Puede crear y restaurar copias: tiene el rol y esta PC es la del servidor (MT-12). Desde otra terminal los botones
+    /// siguen visibles pero deshabilitados, y el historial se consulta igual.
+    /// </summary>
+    public bool PuedeOperar => TieneRolParaOperar && EsEstaPcServidor;
+
+    public bool EsSoloLectura => !TieneRolParaOperar;
+
+    public bool MostrarAvisoFueraDelServidor => !EsEstaPcServidor;
+
+    public string TextoAvisoFueraDelServidor =>
+        $"Las copias y la restauración se hacen en la PC servidor («{NombreEquipoServidor}»). Desde esta terminal puede consultar el historial.";
 
     private int IdActor => _session.IdUsuario ?? 0;
 
@@ -257,11 +298,15 @@ public partial class BackupViewModel : ObservableObject, IDisposable
                     var copias = await _backupService.ListarAsync(IdActor, token);
                     var ultima = await _restauracionService.ObtenerUltimaRestauracionAsync(IdActor, token);
                     var restauraciones = await _restauracionService.ListarRestauracionesAsync(IdActor, token);
-                    return (Copias: copias, Ultima: ultima, Restauraciones: restauraciones);
+                    var servidor = await _equipoServidor.ObtenerAsync(token);
+                    return (Copias: copias, Ultima: ultima, Restauraciones: restauraciones, Servidor: servidor);
                 },
                 token),
             resultado =>
             {
+                NombreEquipoServidor = resultado.Servidor.NombreEquipoServidor;
+                EsEstaPcServidor = resultado.Servidor.EsEstaPc;
+
                 _todasLasCopias = resultado.Copias.Select(dto => new RegistroBackupFila(dto)).ToList();
                 _todasLasRestauraciones = resultado.Restauraciones.Select(dto => new RegistroRestauracionFila(dto)).ToList();
 
@@ -356,8 +401,20 @@ public partial class BackupViewModel : ObservableObject, IDisposable
         IsBusy = true;
         MensajeError = null;
 
+        var mantenimientoProgramado = false;
+
         try
         {
+            // Con otras terminales conectadas se programa el aviso y se espera a que se vayan; sin ninguna, sigue directo (MT-12).
+            var preparacion = await EsperarTerminalesAsync(idActor);
+            if (preparacion is null || !preparacion.Continuar)
+            {
+                IsBusy = false;
+                return;
+            }
+
+            mantenimientoProgramado = preparacion.MantenimientoProgramado;
+
             var fechaCopia = copia.FechaLocal.ToString("dd/MM/yyyy HH:mm", CultureInfo.CurrentCulture);
 
             // El Gerente se reautentica con su propia contraseña; el Administrador necesita la autorización de un Gerente.
@@ -382,6 +439,12 @@ public partial class BackupViewModel : ObservableObject, IDisposable
                     ResultadoRestauracionDto.AvisoConciliacionArca);
 
             var resultado = _dialogService.SolicitarCredencial(vm);
+
+            // Si la restauración falló, el servicio ya canceló el aviso; si el operador canceló antes de ejecutarla, no.
+            if (mantenimientoProgramado && !resultado.Completada)
+            {
+                await _mantenimiento.CancelarAsync(idActor);
+            }
 
             if (resultado.Error is CuentaBloqueadaException bloqueo)
             {
@@ -420,8 +483,44 @@ public partial class BackupViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>Cancela la espera de terminales: el orquestador retira el aviso de mantenimiento.</summary>
+    [RelayCommand(CanExecute = nameof(EsperandoTerminales))]
+    public void CancelarEspera()
+    {
+        _esperaTerminales?.Cancel();
+    }
+
+    /// <summary>
+    /// Cuenta las terminales conectadas y, si hay, programa el mantenimiento y espera. Devuelve <c>null</c> si la
+    /// preparación falló (el error ya se informó).
+    /// </summary>
+    private async Task<ResultadoPreparacionMantenimiento?> EsperarTerminalesAsync(int idActor)
+    {
+        using var espera = new CancellationTokenSource();
+        _esperaTerminales = espera;
+        EsperandoTerminales = true;
+
+        try
+        {
+            var progreso = new Progress<string>(texto => MensajeEstado = texto);
+            return await _mantenimiento.PrepararAsync(idActor, progreso, espera.Token);
+        }
+        catch (Exception ex)
+        {
+            InformarFallo("No se pudo preparar la restauración", ex);
+            return null;
+        }
+        finally
+        {
+            EsperandoTerminales = false;
+            _esperaTerminales = null;
+            MensajeEstado = string.Empty;
+        }
+    }
+
     public void Dispose()
     {
+        _esperaTerminales?.Cancel();
         _cargaHistorial.Dispose();
         GC.SuppressFinalize(this);
     }

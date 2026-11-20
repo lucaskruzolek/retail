@@ -17,10 +17,13 @@ namespace Retail.Infrastructure.Backups;
 public class SqlServerEjecutorBackup : IEjecutorBackupBaseDatos
 {
     private readonly RetailDbContext _context;
+    private readonly CadenaConexionMantenimiento _mantenimiento;
 
-    public SqlServerEjecutorBackup(RetailDbContext context)
+    // La cadena de mantenimiento (H19) es opcional: sin ella se usa la del contexto, como en desarrollo.
+    public SqlServerEjecutorBackup(RetailDbContext context, CadenaConexionMantenimiento? mantenimiento = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
+        _mantenimiento = mantenimiento ?? new CadenaConexionMantenimiento(null);
     }
 
     public async Task<ArchivoBackupDto> CrearCopiaAsync(string rutaArchivo, IProgress<int>? progreso, CancellationToken cancellationToken = default)
@@ -92,7 +95,6 @@ public class SqlServerEjecutorBackup : IEjecutorBackupBaseDatos
 
     private string ObtenerCadenaDeConexion()
     {
-        return _context.Database.GetConnectionString()
-            ?? throw new InvalidOperationException("No hay una cadena de conexión configurada para la base.");
+        return _mantenimiento.Obtener(_context);
     }
 }

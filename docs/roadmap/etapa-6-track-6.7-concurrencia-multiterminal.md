@@ -21,8 +21,8 @@ compartidas (Ley 10): se coordinan con Pablo antes de empezar.
 | 1 | Concurrencia optimista de caja y clientes | H2, H3, H18, MT-11 | ✅ Migración `ConcurrenciaCajaYClientes`; 963 tests de dominio, 1.182 de aplicación y 528 de integración en verde. El paso 1.6 pasó al Paquete 3 |
 | 2 | *Write skew* y unicidades | H4, H5 | ✅ `IBloqueoGerentes` con `sp_getapplock` (mecanismo compartido con la restauración); 8 servicios traducen la violación de unicidad al mensaje de su comprobación previa |
 | 3 | Identidad de la terminal y turno por cajero y terminal | H1, MT-1, MT-5, MT-9, MT-13, MT-14 | ✅ Migración `TerminalesYTurnoPorTerminal`, activación después del login, cierre remoto del Gerente con la versión leída. Desvíos en §6.1 |
-| 4 | Instancia única, sesión única y modo mantenimiento | H8, H13, MT-2, MT-3, MT-6, H10 (sesiones) | ⏳ |
-| 5 | Despliegue en red: configuración, login SQL, mantenimiento en el servidor | H7, H9, H14, H16, H17, H19, MT-7, MT-8, MT-10, MT-12 | ⏳ |
+| 4 | Instancia única, sesión única y modo mantenimiento | H8, H13, MT-2, MT-3, MT-6, H10 (sesiones) | ✅ `SESIONES_ACTIVAS` y `MANTENIMIENTO_PROGRAMADO` fuera del modelo de EF (excepción a la Ley 3); latido de 60 s con la hora del servidor; el Gerente ve y cierra sesiones en Usuarios |
+| 5 | Despliegue en red: configuración, login SQL, mantenimiento en el servidor | H7, H9, H14, H16, H17, H19, MT-7, MT-8, MT-10, MT-12 | ✅ `appsettings.local.json`, contraseña DPAPI, conexión de mantenimiento (también para `Retail.Cli`), respaldo y restauración solo en el servidor con espera de terminales, scripts y [`INSTALACION_MULTITERMINAL.md`](file:///c:/Users/lucas/Proyectos/retail/docs/INSTALACION_MULTITERMINAL.md) |
 | 6 | Robustez del motor: RCSI, reintentos, hora del servidor, esquema en caliente | H10, H11, H12 | ⏳ |
 | 7 | Prueba real con dos PCs y acta | Fase 5 de la auditoría | ⏳ |
 
@@ -205,6 +205,8 @@ documenta en `MAPA_DEL_PROYECTO.md`).
 | 5.5 | Scripts | `registrar-tarea-backup.ps1`, `configurar-terminal.ps1` (nuevo), script de creación del login `retail_app` | Guardia de §4.3 de la auditoría (H16); configuración de cada terminal (MT-8) |
 | 5.6 | Config | `appsettings.json` | `ArcaSettings.BaseUrl` configurable por PC (H14) |
 | 5.7 | Docs | Guía de instalación multiterminal; `SISTEMA_DE_PERSISTENCIA.md` (cadena de conexión) | — |
+
+**Estado de los pasos 5.4, 5.5 y 5.7:** la pantalla de respaldos (con la espera de terminales de [`OrquestadorMantenimiento`](file:///c:/Users/lucas/Proyectos/retail/src/Retail.App/Services/OrquestadorMantenimiento.cs)), los tres scripts (`registrar-tarea-backup.ps1` con su guardia, [`crear-login-aplicacion.ps1`](file:///c:/Users/lucas/Proyectos/retail/scripts/crear-login-aplicacion.ps1) y [`configurar-terminal.ps1`](file:///c:/Users/lucas/Proyectos/retail/scripts/configurar-terminal.ps1)) y el ZIP de release están hechos. La guía para quien instala en el local es [`INSTALACION_MULTITERMINAL.md`](file:///c:/Users/lucas/Proyectos/retail/docs/INSTALACION_MULTITERMINAL.md) (paso 5.7).
 
 **Decisión que hay que tomar antes de empezar:** DPAPI en .NET 8 está en el paquete
 `System.Security.Cryptography.ProtectedData`, que hoy no está instalado. Agregar un paquete NuGet requiere
