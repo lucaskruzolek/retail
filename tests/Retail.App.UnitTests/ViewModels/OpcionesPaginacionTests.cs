@@ -68,7 +68,8 @@ public class OpcionesPaginacionTests
         var viewModel = new UsuariosViewModel(
             Substitute.For<IUsuarioService>(),
             Substitute.For<IUsuarioDialogService>(),
-            Substitute.For<ICurrentUserSession>());
+            Substitute.For<ICurrentUserSession>(),
+            Substitute.For<ISesionService>());
 
         viewModel.TamanosPaginaDisponibles.Should().Contain(viewModel.TamanoPagina);
     }

@@ -75,7 +75,11 @@ public class PaginasSnapshotTests
                 .Returns(Enum.GetValues<RolUsuarioEnum>());
             servicio.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(DatosDeMuestraPaginas.Usuarios());
 
-            var viewModel = new UsuariosViewModel(servicio, Substitute.For<IUsuarioDialogService>(), gerente);
+            // Y la columna "Conectado en" con la acción de cerrar la sesión de otro operador.
+            var sesiones = Substitute.For<ISesionService>();
+            sesiones.ListarAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(DatosDeMuestraPaginas.Sesiones());
+
+            var viewModel = new UsuariosViewModel(servicio, Substitute.For<IUsuarioDialogService>(), gerente, sesiones);
             var vista = new UsuariosView(viewModel);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/UsuariosView", () => viewModel.Usuarios.Count > 0);
         });

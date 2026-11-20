@@ -234,8 +234,8 @@
         <!-- ============================================================= -->
         <!-- Con la caja cerrada no se puede cobrar: el buscador se bloquea y la acción principal de la página pasa a ser
              "Abrir caja", con el mismo diálogo de apertura de la pantalla de Caja. -->
-        <Border Grid.Row="1"
-                Background="{DynamicResource WarningBackgroundBrush}"
+        <StackPanel Grid.Row="1">
+        <Border Background="{DynamicResource WarningBackgroundBrush}"
                 BorderBrush="{DynamicResource WarningBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="{StaticResource RadiusLg}"
@@ -269,6 +269,30 @@
                 </StackPanel>
             </DockPanel>
         </Border>
+
+        <!-- Mantenimiento programado (MT-12): franja discreta con la hora. Desde el minuto previo el cobro se bloquea. -->
+        <Border Background="{DynamicResource WarningBackgroundBrush}"
+                BorderBrush="{DynamicResource WarningBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource RadiusLg}"
+                Padding="16,8"
+                Margin="{StaticResource StackLg}"
+                Visibility="{Binding MostrarAvisoMantenimiento, Converter={StaticResource BoolToVisConverter}}">
+            <StackPanel Orientation="Horizontal">
+                <iconPacks:PackIconBoxIcons Kind="RegularCog"
+                                            Width="16"
+                                            Height="16"
+                                            Margin="{StaticResource InlineMd}"
+                                            VerticalAlignment="Center"
+                                            Foreground="{DynamicResource WarningForegroundBrush}" />
+                <TextBlock Text="{Binding TextoAvisoMantenimiento}"
+                           Style="{StaticResource TextBlockBody}"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           Foreground="{DynamicResource WarningForegroundBrush}" />
+            </StackPanel>
+        </Border>
+        </StackPanel>
 
         <!-- ============================================================= -->
         <!-- 3. CUERPO: TICKET (70%) + PANEL DE LA VENTA (30%)             -->

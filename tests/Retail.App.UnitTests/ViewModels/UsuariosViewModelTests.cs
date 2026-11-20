@@ -4,6 +4,7 @@ using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.App.UnitTests.Helpers;
 using Retail.App.ViewModels.Usuarios;
+using Retail.Application.DTOs.Sesiones;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -19,6 +20,7 @@ public class UsuariosViewModelTests : IDisposable
 
     private readonly IUsuarioDialogService _dialogService;
     private readonly ICurrentUserSession _session;
+    private readonly ISesionService _sesionService;
     private readonly UsuariosViewModel _sut;
 
     public UsuariosViewModelTests()
@@ -26,6 +28,7 @@ public class UsuariosViewModelTests : IDisposable
         _usuarioService = Substitute.For<IUsuarioService>();
         _dialogService = Substitute.For<IUsuarioDialogService>();
 
+        _sesionService = Substitute.For<ISesionService>();
         _session = Substitute.For<ICurrentUserSession>();
         _session.IdUsuario.Returns(IdActor);
         _usuarioService.ObtenerRolesAsignablesAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
@@ -33,7 +36,7 @@ public class UsuariosViewModelTests : IDisposable
         _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(new List<UsuarioDto>());
 
-        _sut = new UsuariosViewModel(_usuarioService, _dialogService, _session);
+        _sut = new UsuariosViewModel(_usuarioService, _dialogService, _session, _sesionService);
     }
 
     [Fact]
@@ -556,5 +559,152 @@ public class UsuariosViewModelTests : IDisposable
 
         _sut.UsuarioSeleccionado = Administrador(bloqueada: true);
         _sut.DesbloquearCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    // ---- Sesiones abiertas (MT-3): columna "Conectado en" y cierre forzado, solo para el Gerente ----
+
+    private static UsuarioDto Operador(int id, string usuario, RolUsuarioEnum rol = RolUsuarioEnum.Cajero)
+    {
+        return new UsuarioDto
+        {
+            IdUsuario = id,
+            NombreUsuario = usuario,
+            Nombre = "Nombre" + id,
+            Apellido = "Apellido" + id,
+            Rol = rol,
+            Activo = true,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    private static SesionActivaDto SesionDe(int idUsuario, bool vencida = false)
+    {
+        var inicio = new DateTime(2026, 11, 19, 14, 5, 0, DateTimeKind.Utc);
+        return new SesionActivaDto
+        {
+            IdUsuario = idUsuario,
+            NombreUsuario = "u" + idUsuario,
+            IdTerminal = 2,
+            NombreTerminal = "Mostrador 2",
+            InicioUtc = inicio,
+            UltimoLatidoUtc = inicio.AddMinutes(10),
+            Vencida = vencida
+        };
+    }
+
+    private void PrepararGerenteConSesiones(params SesionActivaDto[] sesiones)
+    {
+        _session.EsGerente.Returns(true);
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new List<UsuarioDto> { Operador(IdActor, "gerente", RolUsuarioEnum.Gerente), Operador(2, "cajero") });
+        _sesionService.ListarAsync(IdActor, Arg.Any<CancellationToken>()).Returns(sesiones);
+    }
+
+    [Fact]
+    public async Task CargarUsuariosAsync_Gerente_MuestraDondeEstaConectadoCadaOperador()
+    {
+        PrepararGerenteConSesiones(SesionDe(2));
+
+        await _sut.CargarUsuariosAsync();
+
+        var cajero = _sut.Usuarios.Single(u => u.IdUsuario == 2).Should().BeOfType<UsuarioConSesion>().Subject;
+        var hora = new DateTime(2026, 11, 19, 14, 5, 0, DateTimeKind.Utc).ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.CurrentCulture);
+        cajero.ConectadoEn.Should().Be($"Mostrador 2 · desde {hora}");
+        cajero.PuedeCerrarSesion.Should().BeTrue();
+
+        var gerente = _sut.Usuarios.Single(u => u.IdUsuario == IdActor).Should().BeOfType<UsuarioConSesion>().Subject;
+        gerente.ConectadoEn.Should().BeEmpty();
+        gerente.PuedeCerrarSesion.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CargarUsuariosAsync_SesionVencida_DiceSinSenalDesdeElUltimoLatido()
+    {
+        PrepararGerenteConSesiones(SesionDe(2, vencida: true));
+
+        await _sut.CargarUsuariosAsync();
+
+        var hora = new DateTime(2026, 11, 19, 14, 15, 0, DateTimeKind.Utc).ToLocalTime().ToString("HH:mm", System.Globalization.CultureInfo.CurrentCulture);
+        _sut.Usuarios.Single(u => u.IdUsuario == 2).Should().BeOfType<UsuarioConSesion>()
+            .Which.ConectadoEn.Should().Be($"Mostrador 2 · Sin señal desde {hora}");
+    }
+
+    [Fact]
+    public async Task CargarUsuariosAsync_SinSerGerente_NoConsultaSesiones()
+    {
+        _session.EsGerente.Returns(false);
+        _usuarioService.ListarUsuariosAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new List<UsuarioDto> { Operador(2, "cajero") });
+
+        await _sut.CargarUsuariosAsync();
+
+        _sut.PuedeVerSesiones.Should().BeFalse();
+        _sut.Usuarios.Should().ContainSingle().Which.Should().NotBeOfType<UsuarioConSesion>();
+        await _sesionService.DidNotReceiveWithAnyArgs().ListarAsync(default, default);
+    }
+
+    [Fact]
+    public async Task CargarUsuariosAsync_FallaLaConsultaDeSesiones_MuestraLosOperadoresIgual()
+    {
+        PrepararGerenteConSesiones();
+        _sesionService.ListarAsync(IdActor, Arg.Any<CancellationToken>()).ThrowsAsync(new InvalidOperationException("sin red"));
+
+        await _sut.CargarUsuariosAsync();
+
+        _sut.Usuarios.Should().HaveCount(2);
+        _dialogService.DidNotReceive().MostrarError(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task CerrarSesionAsync_Confirmado_ForzaElCierreYRecargaLaLista()
+    {
+        PrepararGerenteConSesiones(SesionDe(2));
+        await _sut.CargarUsuariosAsync();
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        _sesionService.ForzarCierreAsync(IdActor, 2, Arg.Any<CancellationToken>()).Returns(true);
+
+        await _sut.CerrarSesionAsync(_sut.Usuarios.Single(u => u.IdUsuario == 2));
+
+        await _sesionService.Received(1).ForzarCierreAsync(IdActor, 2, Arg.Any<CancellationToken>());
+        await _sesionService.Received(2).ListarAsync(IdActor, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CerrarSesionAsync_SinConfirmar_NoCierraNada()
+    {
+        PrepararGerenteConSesiones(SesionDe(2));
+        await _sut.CargarUsuariosAsync();
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(false);
+
+        await _sut.CerrarSesionAsync(_sut.Usuarios.Single(u => u.IdUsuario == 2));
+
+        await _sesionService.DidNotReceiveWithAnyArgs().ForzarCierreAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task CerrarSesionAsync_FilaSinSesion_NoPideConfirmacion()
+    {
+        PrepararGerenteConSesiones(SesionDe(2));
+        await _sut.CargarUsuariosAsync();
+
+        await _sut.CerrarSesionAsync(_sut.Usuarios.Single(u => u.IdUsuario == IdActor));
+
+        _dialogService.DidNotReceiveWithAnyArgs().Confirmar(default!, default!);
+        await _sesionService.DidNotReceiveWithAnyArgs().ForzarCierreAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task CerrarSesionAsync_ElServicioRechaza_MuestraElErrorConElPatronExistente()
+    {
+        PrepararGerenteConSesiones(SesionDe(2));
+        await _sut.CargarUsuariosAsync();
+        _dialogService.Confirmar(Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+        _sesionService.ForzarCierreAsync(IdActor, 2, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new InvalidOperationException("No autorizado"));
+
+        await _sut.CerrarSesionAsync(_sut.Usuarios.Single(u => u.IdUsuario == 2));
+
+        _dialogService.Received(1).MostrarError("Error al Cerrar la Sesión", "No autorizado");
+        _sut.MensajeError.Should().Be("No autorizado");
     }
 }

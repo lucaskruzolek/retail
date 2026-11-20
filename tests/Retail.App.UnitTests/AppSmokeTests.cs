@@ -376,7 +376,7 @@ public class AppSmokeTests
         {
             var usuarioServiceMock = Substitute.For<IUsuarioService>();
             var dialogServiceMock = Substitute.For<IUsuarioDialogService>();
-            var viewModel = new UsuariosViewModel(usuarioServiceMock, dialogServiceMock, Substitute.For<ICurrentUserSession>());
+            var viewModel = new UsuariosViewModel(usuarioServiceMock, dialogServiceMock, Substitute.For<ICurrentUserSession>(), Substitute.For<ISesionService>());
 
             try
             {

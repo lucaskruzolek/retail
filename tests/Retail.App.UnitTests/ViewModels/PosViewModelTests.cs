@@ -80,7 +80,7 @@ public class PosViewModelTests
         return viewModel;
     }
 
-    private PosViewModel CrearViewModel()
+    private PosViewModel CrearViewModel(IEstadoMantenimiento? estadoMantenimiento = null)
     {
         return new PosViewModel(
             _ventaServiceMock,
@@ -93,7 +93,59 @@ public class PosViewModelTests
             _presupuestoDialogMock,
             _clienteServiceMock,
             _listaServiceMock,
-            _listaDialogMock);
+            _listaDialogMock,
+            estadoMantenimiento: estadoMantenimiento);
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_ConMantenimientoAlcanzado_AvisaYNoAbreElCobro()
+    {
+        var mantenimiento = Substitute.For<IEstadoMantenimiento>();
+        mantenimiento.CobrosBloqueados.Returns(true);
+        var viewModel = CrearViewModel(mantenimiento);
+        await viewModel.CargarEstadoCajaAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        await viewModel.CobrarVentaAsync();
+
+        _dialogServiceMock.Received(1).MostrarAlerta(
+            "Mantenimiento en curso",
+            "Hay un mantenimiento en curso. No se pueden iniciar cobros; cierre la aplicación.");
+        await _dialogServiceMock.DidNotReceiveWithAnyArgs().MostrarCobroModalAsync(default, default);
+    }
+
+    [Fact]
+    public void MostrarAvisoMantenimiento_ConMantenimientoFuturo_MuestraLaFranjaConLaHora()
+    {
+        var mantenimiento = new EstadoMantenimiento();
+        var viewModel = CrearViewModel(mantenimiento);
+        var cambios = new List<string?>();
+        viewModel.PropertyChanged += (_, e) => cambios.Add(e.PropertyName);
+        viewModel.MostrarAvisoMantenimiento.Should().BeFalse();
+
+        var hora = DateTime.Now.AddMinutes(30);
+        mantenimiento.Establecer(hora, "Backup");
+
+        viewModel.MostrarAvisoMantenimiento.Should().BeTrue();
+        viewModel.TextoAvisoMantenimiento.Should().Be($"Mantenimiento programado a las {hora:HH:mm}. Termine la venta en curso.");
+        cambios.Should().Contain(nameof(PosViewModel.MostrarAvisoMantenimiento));
+        mantenimiento.CobrosBloqueados.Should().BeFalse("faltan más de 60 segundos");
+
+        mantenimiento.Limpiar();
+        viewModel.MostrarAvisoMantenimiento.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Dispose_DejaDeEscucharElEstadoDeMantenimiento()
+    {
+        var mantenimiento = new EstadoMantenimiento();
+        var viewModel = CrearViewModel(mantenimiento);
+        var cambios = 0;
+        viewModel.PropertyChanged += (_, _) => cambios++;
+
+        viewModel.Dispose();
+        mantenimiento.Establecer(DateTime.Now.AddMinutes(5), null);
+
+        cambios.Should().Be(0);
     }
 
     [Fact]

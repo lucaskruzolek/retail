@@ -6,6 +6,7 @@ using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Compras;
 using Retail.Application.DTOs.Pedidos;
 using Retail.Application.DTOs.Proveedores;
+using Retail.Application.DTOs.Sesiones;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Domain.Enums;
 
@@ -89,6 +90,34 @@ internal static class DatosDeMuestraPaginas
             Usuario(7, "soporte", "Soporte", "Técnico", RolUsuarioEnum.Administrador, true, false, new DateTime(2026, 7, 28)),
             Usuario(8, "cbenitez", "Carolina", "Benítez", RolUsuarioEnum.Encargado, true, false, new DateTime(2026, 10, 5))
         ];
+    }
+
+    /// <summary>Sesiones abiertas de muestra: dos vigentes y una sin señal (la columna "Conectado en" del Gerente).</summary>
+    public static IReadOnlyList<SesionActivaDto> Sesiones()
+    {
+        var inicio = new DateTime(2026, 11, 19, 11, 5, 0, DateTimeKind.Utc);
+
+        return
+        [
+            SesionActiva(1, "lkruzolek", 1, "Oficina", inicio, inicio.AddMinutes(1), false),
+            SesionActiva(2, "pfernandez", 2, "Mostrador 2", inicio.AddMinutes(20), inicio.AddMinutes(21), false),
+            SesionActiva(4, "jrossi", 3, "Mostrador 1", inicio.AddHours(1), inicio.AddHours(1).AddMinutes(1), false),
+            SesionActiva(8, "cbenitez", 4, "Depósito", inicio.AddHours(2), inicio.AddHours(2).AddMinutes(10), true)
+        ];
+    }
+
+    private static SesionActivaDto SesionActiva(int idUsuario, string usuario, int idTerminal, string terminal, DateTime inicioUtc, DateTime latidoUtc, bool vencida)
+    {
+        return new SesionActivaDto
+        {
+            IdUsuario = idUsuario,
+            NombreUsuario = usuario,
+            IdTerminal = idTerminal,
+            NombreTerminal = terminal,
+            InicioUtc = inicioUtc,
+            UltimoLatidoUtc = latidoUtc,
+            Vencida = vencida
+        };
     }
 
     public static IReadOnlyList<PedidoResumenDto> Pedidos()

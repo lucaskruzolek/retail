@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Controls;
 using Retail.App.ViewModels.Usuarios;
 
@@ -12,6 +13,9 @@ public partial class UsuariosView : UserControl
         InitializeComponent();
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
         DataContext = ViewModel;
+
+        // "Conectado en" es información de administración: solo la ve el Gerente.
+        ColumnaConectadoEn.Visibility = ViewModel.PuedeVerSesiones ? Visibility.Visible : Visibility.Collapsed;
 
         Loaded += async (_, _) =>
         {

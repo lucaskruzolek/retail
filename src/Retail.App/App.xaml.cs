@@ -99,6 +99,15 @@ public partial class App : System.Windows.Application
         services.AddSingleton<Retail.App.Services.IDialogosArranqueTerminal, Retail.App.Services.DialogosArranqueTerminal>();
         services.AddSingleton<Retail.App.Services.VerificacionTerminalArranque>();
         services.AddTransient<Retail.App.ViewModels.Terminales.ActivarTerminalViewModel>();
+
+        // Sesión única, latido y aviso de mantenimiento (MT-3, MT-6, MT-12): todos Singleton; el latido abre un scope por pulso.
+        services.AddSingleton<Retail.App.Services.InstanciaUnica>();
+        services.AddSingleton<Retail.App.Services.IAvisosSesion, Retail.App.Services.AvisosSesion>();
+        services.AddSingleton<Retail.App.Services.InicioSesionUnica>();
+        services.AddSingleton<Retail.App.Services.EstadoMantenimiento>();
+        services.AddSingleton<Retail.App.Services.IEstadoMantenimiento>(
+            proveedor => proveedor.GetRequiredService<Retail.App.Services.EstadoMantenimiento>());
+        services.AddSingleton<Retail.App.Services.LatidoSesion>();
         services.AddTransient<Retail.App.Views.Dialogs.ActivarTerminalDialog>();
 
         // Ajustes y tema visual claro/oscuro
@@ -209,6 +218,25 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
+        // Una sola instancia por PC (MT-2): se decide antes de arrancar el host, así la segunda copia no toca la base.
+        var instanciaUnica = _host.Services.GetRequiredService<InstanciaUnica>();
+        if (!instanciaUnica.TryAdquirir())
+        {
+            if (!instanciaUnica.SenalarInstanciaExistente())
+            {
+                MessageBox.Show(
+                    "Retail ya está abierto en otra sesión de Windows de esta PC. Ciérrelo allí antes de abrirlo acá.",
+                    "Retail POS - Aviso",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+
+            Shutdown();
+            return;
+        }
+
+        instanciaUnica.EscucharActivacion(ActivadorVentana.TraerAlFrente);
+
         // Control explícito de apagado durante la secuencia de autenticación
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
@@ -268,6 +296,17 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        // Sesión única por usuario (MT-3): si ya está abierta en otra terminal, no se abre el shell. Después arranca el latido.
+        if (!await _host.Services.GetRequiredService<InicioSesionUnica>().EjecutarAsync())
+        {
+            Shutdown();
+            return;
+        }
+
+        _host.Services.GetRequiredService<LatidoSesion>().Iniciar(
+            session.IdUsuario!.Value,
+            _host.Services.GetRequiredService<Retail.Application.Interfaces.Infrastructure.ITerminalLocal>().IdTerminal!.Value);
+
         var mainWindow = _host.Services.GetRequiredService<MainWindow>();
         MainWindow = mainWindow;
         ShutdownMode = ShutdownMode.OnMainWindowClose;
@@ -278,6 +317,10 @@ public partial class App : System.Windows.Application
     {
         try
         {
+            // Libera la sesión del usuario antes de apagar el host (el scope de DI aún funciona). Al descartar el host
+            // se suelta también la instancia única (Singleton descartable).
+            await _host.Services.GetRequiredService<LatidoSesion>().FinalizarAsync();
+
             using (_host)
             {
                 await _host.StopAsync();
