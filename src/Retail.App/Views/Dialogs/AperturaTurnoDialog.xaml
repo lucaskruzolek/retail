@@ -4,6 +4,7 @@
                   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                   xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                   xmlns:components="clr-namespace:Retail.App.Views.Components"
+                  xmlns:helpers="clr-namespace:Retail.App.Helpers"
                   Title="Apertura de Turno de Caja"
                   Width="420"
                   MinWidth="380"
@@ -38,7 +39,8 @@
                     <TextBlock Text="Saldo Inicial en Efectivo ($):"
                                Style="{StaticResource TextBlockBodySecondary}"
                                Margin="{StaticResource StackXs}" />
-                    <TextBox Text="{Binding SaldoInicial, UpdateSourceTrigger=PropertyChanged, StringFormat=N2}"
+                    <TextBox Text="{Binding SaldoInicial, UpdateSourceTrigger=PropertyChanged, StringFormat=N0, ConverterCulture=es-AR}"
+                             helpers:EntradaNumericaHelper.SoloDigitos="True"
                              FontFamily="{StaticResource FontFamilyNumeric}"
                              Typography.NumeralAlignment="Tabular"
                              VerticalContentAlignment="Center" />
