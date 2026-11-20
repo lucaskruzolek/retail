@@ -2,6 +2,9 @@ erDiagram
     ROLES ||--o{ USUARIOS : "asigna perfil"
     USUARIOS ||--o{ TURNOS_CAJA : "abre/cierra"
     TERMINALES ||--o{ TURNOS_CAJA : "aloja"
+    USUARIOS ||--o| SESIONES_ACTIVAS : "tiene una sesión abierta (técnica)"
+    TERMINALES ||--o| SESIONES_ACTIVAS : "aloja una sesión (técnica)"
+    USUARIOS ||--o{ MANTENIMIENTO_PROGRAMADO : "programó (técnica)"
     USUARIOS ||--o{ VENTAS : "registra"
     USUARIOS ||--o{ PRESUPUESTOS : "confecciona"
     USUARIOS ||--o{ COMPRAS : "ingresa"
@@ -113,6 +116,20 @@ erDiagram
         string nombre_equipo "nombre de Windows de la PC, solo control"
         datetime created_at
         datetime deleted_at
+    }
+
+    SESIONES_ACTIVAS {
+        int id_usuario PK, FK "una sesión por usuario (MT-3); estado técnico, fuera del modelo de EF Core"
+        int id_terminal FK "único (UX_SESIONES_ACTIVAS_id_terminal): una sesión por PC"
+        datetime2 inicio "UTC, hora del servidor"
+        datetime2 ultimo_latido "UTC, hora del servidor; vence a los 3 min sin latido"
+    }
+
+    MANTENIMIENTO_PROGRAMADO {
+        int id PK "fila única, CHECK id = 1; técnica, fuera del modelo de EF Core"
+        datetime2 programado_para "UTC; NULL = sin mantenimiento"
+        string motivo "hasta 200"
+        int id_usuario_programo FK
     }
 
     TURNOS_CAJA {
