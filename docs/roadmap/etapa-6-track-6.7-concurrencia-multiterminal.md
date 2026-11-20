@@ -23,8 +23,8 @@ compartidas (Ley 10): se coordinan con Pablo antes de empezar.
 | 3 | Identidad de la terminal y turno por cajero y terminal | H1, MT-1, MT-5, MT-9, MT-13, MT-14 | ✅ Migración `TerminalesYTurnoPorTerminal`, activación después del login, cierre remoto del Gerente con la versión leída. Desvíos en §6.1 |
 | 4 | Instancia única, sesión única y modo mantenimiento | H8, H13, MT-2, MT-3, MT-6, H10 (sesiones) | ✅ `SESIONES_ACTIVAS` y `MANTENIMIENTO_PROGRAMADO` fuera del modelo de EF (excepción a la Ley 3); latido de 60 s con la hora del servidor; el Gerente ve y cierra sesiones en Usuarios |
 | 5 | Despliegue en red: configuración, login SQL, mantenimiento en el servidor | H7, H9, H14, H16, H17, H19, MT-7, MT-8, MT-10, MT-12 | ✅ `appsettings.local.json`, contraseña DPAPI, conexión de mantenimiento (también para `Retail.Cli`), respaldo y restauración solo en el servidor con espera de terminales, scripts y [`INSTALACION_MULTITERMINAL.md`](file:///c:/Users/lucas/Proyectos/retail/docs/INSTALACION_MULTITERMINAL.md) |
-| 6 | Robustez del motor: RCSI, reintentos, hora del servidor, esquema en caliente | H10, H11, H12 | ⏳ |
-| 7 | Prueba real con dos PCs y acta | Fase 5 de la auditoría | ⏳ |
+| 6 | Robustez del motor: RCSI, reintentos, hora del servidor, esquema en caliente | H10, H11, H12 | ✅ RCSI garantizado por migración (EF ya lo activa al crear la base); el *deadlock* (1205) se traduce a un conflicto con "vuelva a intentarlo" en lugar de `EnableRetryOnFailure`; el latido avisa del reloj desfasado y de una base más nueva que la app |
+| 7 | Prueba real con dos PCs y acta | Fase 5 de la auditoría | 📋 Guion de 45 escenarios listo en [`acta-pruebas-multiterminal.md`](file:///c:/Users/lucas/Proyectos/retail/docs/auditorias/acta-pruebas-multiterminal.md); falta ejecutarlo con PCs reales |
 
 La parte fiscal (H6, H15, C-1 a C-6) se implementa con el Módulo 5.2 (ARCA), que todavía no existe. Este plan solo
 deja anotado el contrato para que ese módulo lo cumpla.
