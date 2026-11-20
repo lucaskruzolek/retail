@@ -49,7 +49,8 @@ public abstract class ListasPruebaBase : PedidosPruebaBase
 
     protected async Task<int> SembrarTurnoAsync()
     {
-        var turno = TurnoCaja.Abrir(IdUsuario, saldoInicial: 5000m);
+        var idTerminal = await TerminalesDePrueba.SembrarAsync(Contexto);
+        var turno = TurnoCaja.Abrir(IdUsuario, idTerminal, saldoInicial: 5000m);
         Contexto.TurnosCaja.Add(turno);
         await Contexto.SaveChangesAsync();
         return turno.Id;

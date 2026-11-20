@@ -248,7 +248,8 @@
                         Style="{StaticResource PrimaryActionButtonStyle}"
                         MinHeight="{StaticResource ControlHeightLg}"
                         Content="Abrir caja"
-                        ToolTip="Abrir el turno de caja para empezar a vender" />
+                        ToolTip="Abrir el turno de caja para empezar a vender"
+                        Visibility="{Binding PuedeAbrirCaja, Converter={StaticResource BoolToVisConverter}}" />
                 <iconPacks:PackIconBoxIcons Kind="RegularLock"
                                             Width="18"
                                             Height="18"
@@ -256,12 +257,14 @@
                                             VerticalAlignment="Center"
                                             Foreground="{DynamicResource WarningForegroundBrush}" />
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="La caja está cerrada"
+                    <TextBlock Text="{Binding TituloAvisoCaja}"
                                Style="{StaticResource TextBlockBody}"
                                FontWeight="SemiBold"
+                               TextWrapping="Wrap"
                                Foreground="{DynamicResource WarningForegroundBrush}" />
-                    <TextBlock Text="Abra la caja para buscar artículos y cobrar."
+                    <TextBlock Text="{Binding DetalleAvisoCaja}"
                                Style="{StaticResource TextBlockBody}"
+                               TextWrapping="Wrap"
                                Foreground="{DynamicResource WarningForegroundBrush}" />
                 </StackPanel>
             </DockPanel>

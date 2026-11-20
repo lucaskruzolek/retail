@@ -362,19 +362,11 @@ public class ReporteService : IReporteService
 
     private async Task AutorizarGerenteAsync(int idActor, CancellationToken cancellationToken)
     {
-        var actor = idActor > 0
-            ? await _usuarios.GetByIdAsync(idActor, includeDeleted: false, cancellationToken)
-            : null;
-
-        if (actor is null)
-        {
-            throw new OperacionNoAutorizadaException("La operación fue solicitada por un usuario inexistente o dado de baja.");
-        }
-
-        if (!actor.EsGerente())
-        {
-            throw new OperacionNoAutorizadaException("Solo un Gerente puede consultar los reportes gerenciales.");
-        }
+        _ = await AutorizacionGerente.ExigirAsync(
+            _usuarios,
+            idActor,
+            "Solo un Gerente puede consultar los reportes gerenciales.",
+            cancellationToken);
     }
 
     /// <summary>

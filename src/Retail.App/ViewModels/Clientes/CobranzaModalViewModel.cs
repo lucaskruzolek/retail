@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Retail.App.Services;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -14,6 +15,7 @@ public partial class CobranzaModalViewModel : ObservableObject
 {
     private readonly IClienteService _clienteService;
     private readonly ICajaService _cajaService;
+    private readonly ICurrentUserSession _session;
 
     [ObservableProperty]
     private ClienteDto _cliente;
@@ -66,10 +68,12 @@ public partial class CobranzaModalViewModel : ObservableObject
     public CobranzaModalViewModel(
         IClienteService clienteService,
         ICajaService cajaService,
+        ICurrentUserSession session,
         ClienteDto cliente)
     {
         _clienteService = clienteService ?? throw new ArgumentNullException(nameof(clienteService));
         _cajaService = cajaService ?? throw new ArgumentNullException(nameof(cajaService));
+        _session = session ?? throw new ArgumentNullException(nameof(session));
         _cliente = cliente ?? throw new ArgumentNullException(nameof(cliente));
 
         _saldoActual = cliente.SaldoCuentaCorriente;
@@ -153,11 +157,24 @@ public partial class CobranzaModalViewModel : ObservableObject
                 return;
             }
 
+            // La cobranza entra a la caja del cajero que la recibe: solo el dueño del turno puede registrarla (MT-14).
+            if (_session.IdUsuario is not int idUsuario)
+            {
+                MostrarError("No se pudo identificar el usuario de la sesión. Vuelva a iniciar sesión.");
+                return;
+            }
+
+            if (turnoActivo.IdUsuario != idUsuario)
+            {
+                MostrarError($"El turno abierto en esta terminal es de {turnoActivo.NombreUsuario ?? "otro cajero"}: solo esa persona puede registrar cobranzas. Un Gerente puede cerrarlo desde Caja.");
+                return;
+            }
+
             var dto = new RegistrarCobranzaDto
             {
                 IdCliente = Cliente.IdCliente,
                 IdTurno = turnoActivo.IdTurno,
-                IdUsuario = turnoActivo.IdUsuario,
+                IdUsuario = idUsuario,
                 Monto = MontoCobro,
                 MedioPago = MedioPago,
                 Referencia = Referencia

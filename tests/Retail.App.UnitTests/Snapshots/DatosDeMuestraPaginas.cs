@@ -1,3 +1,5 @@
+using NSubstitute;
+using Retail.App.Services;
 using Retail.App.ViewModels.Compras;
 using Retail.Application.DTOs.Backups;
 using Retail.Application.DTOs.Caja;
@@ -187,6 +189,59 @@ internal static class DatosDeMuestraPaginas
         };
     }
 
+    /// <summary>Sesión de muestra para la pantalla de Caja: quién mira y si es Gerente.</summary>
+    public static ICurrentUserSession Sesion(int idUsuario, bool esGerente)
+    {
+        var sesion = Substitute.For<ICurrentUserSession>();
+        sesion.IdUsuario.Returns(idUsuario);
+        sesion.EsGerente.Returns(esGerente);
+        return sesion;
+    }
+
+    /// <summary>Turno de otro cajero (Ana Pérez) abierto en esta terminal: el que ve un cajero o un Gerente que no lo abrió.</summary>
+    public static TurnoCajaDto TurnoAjeno()
+    {
+        return TurnoAbierto() with
+        {
+            IdTurno = 118,
+            IdUsuario = 9,
+            NombreUsuario = "Ana Pérez",
+            NombreTerminal = "Mostrador 1"
+        };
+    }
+
+    /// <summary>Turnos abiertos en otras terminales, como los lista un Gerente (MT-14).</summary>
+    public static IReadOnlyList<TurnoAbiertoDto> TurnosEnOtrasTerminales()
+    {
+        return
+        [
+            new TurnoAbiertoDto
+            {
+                IdTurno = 119,
+                IdTerminal = 2,
+                NombreTerminal = "Mostrador 2",
+                IdUsuario = 5,
+                NombreCajero = "Luis Díaz",
+                FechaApertura = new DateTime(2026, 11, 18, 14, 5, 0),
+                SaldoTeoricoEfectivo = 91400m,
+                TotalVentasElectronicas = 48200m,
+                CantidadVentas = 23
+            },
+            new TurnoAbiertoDto
+            {
+                IdTurno = 120,
+                IdTerminal = 3,
+                NombreTerminal = "Depósito",
+                IdUsuario = 6,
+                NombreCajero = "Marta Gómez",
+                FechaApertura = new DateTime(2026, 11, 19, 8, 45, 0),
+                SaldoTeoricoEfectivo = 35200m,
+                TotalVentasElectronicas = 12900m,
+                CantidadVentas = 9
+            }
+        ];
+    }
+
     public static TurnoCajaDto TurnoAbierto()
     {
         return new TurnoCajaDto
@@ -194,6 +249,8 @@ internal static class DatosDeMuestraPaginas
             IdTurno = 112,
             IdUsuario = 4,
             NombreUsuario = "jrossi",
+            IdTerminal = 1,
+            NombreTerminal = "Mostrador 1",
             FechaApertura = new DateTime(2026, 10, 31, 8, 30, 0),
             SaldoInicial = 20000m,
             TotalVentasEfectivo = 184350m,

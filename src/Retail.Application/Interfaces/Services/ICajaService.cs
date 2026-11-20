@@ -16,6 +16,11 @@ public interface ICajaService
 
     Task<ResultadoArqueoDto> CerrarTurnoConArqueoCiegoAsync(ArqueoCiegoDto dto, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Turnos abiertos de todas las terminales. Solo un Gerente: es la lista desde la que puede cerrar el turno de otro cajero (MT-14).
+    /// </summary>
+    Task<IReadOnlyList<TurnoAbiertoDto>> ListarTurnosAbiertosAsync(int idActor, CancellationToken cancellationToken = default);
+
     Task RegistrarIngresoCobranzaAsync(int idTurno, decimal monto, MedioPagoEnum medioPago, CancellationToken cancellationToken = default);
 
     Task RegistrarVentaEnCajaAsync(int idTurno, decimal totalEfectivo, decimal totalElectronico, CancellationToken cancellationToken = default);

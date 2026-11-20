@@ -20,7 +20,7 @@ compartidas (Ley 10): se coordinan con Pablo antes de empezar.
 | 0 | ERS: reescribir `RNF-05` y agregar los RNF nuevos | Fase 0 | ✅ `RNF-05` reescrito, `RNF-10` a `RNF-12` y `RF-15` ampliado |
 | 1 | Concurrencia optimista de caja y clientes | H2, H3, H18, MT-11 | ✅ Migración `ConcurrenciaCajaYClientes`; 963 tests de dominio, 1.182 de aplicación y 528 de integración en verde. El paso 1.6 pasó al Paquete 3 |
 | 2 | *Write skew* y unicidades | H4, H5 | ✅ `IBloqueoGerentes` con `sp_getapplock` (mecanismo compartido con la restauración); 8 servicios traducen la violación de unicidad al mensaje de su comprobación previa |
-| 3 | Identidad de la terminal y turno por cajero y terminal | H1, MT-1, MT-5, MT-9, MT-13, MT-14 | ⏳ |
+| 3 | Identidad de la terminal y turno por cajero y terminal | H1, MT-1, MT-5, MT-9, MT-13, MT-14 | ✅ Migración `TerminalesYTurnoPorTerminal`, activación después del login, cierre remoto del Gerente con la versión leída. Desvíos en §6.1 |
 | 4 | Instancia única, sesión única y modo mantenimiento | H8, H13, MT-2, MT-3, MT-6, H10 (sesiones) | ⏳ |
 | 5 | Despliegue en red: configuración, login SQL, mantenimiento en el servidor | H7, H9, H14, H16, H17, H19, MT-7, MT-8, MT-10, MT-12 | ⏳ |
 | 6 | Robustez del motor: RCSI, reintentos, hora del servidor, esquema en caliente | H10, H11, H12 | ⏳ |
@@ -160,6 +160,17 @@ sequenceDiagram
 **Riesgos:** que un turno abierto antes de la migración quede asignado a una terminal equivocada (se mitiga con la
 terminal única por defecto); que el arranque cambie para todas las ramas abiertas (se coordina con Pablo y se
 documenta en `MAPA_DEL_PROYECTO.md`).
+
+### 6.1 Desvíos de la implementación (2026-11-19)
+
+| Plan | Implementado | Por qué |
+| :--- | :--- | :--- |
+| Estado nuevo `Pausado` en `TurnoCaja` (pasos 3.2 y 3.7) | **Pausa derivada**: un turno `Abierto` de esta terminal cuyo dueño no es el usuario conectado. No hay estado nuevo ni índices sobre `Pausado` | La aplicación no tiene "cerrar sesión": la sesión termina al cerrar la app. La pausa de MT-9 y la PC colgada de MT-13 son el mismo caso, y guardar un estado que se deduce sería un dato redundante que puede quedar desincronizado |
+| `id_terminal` en `VENTAS` (paso 3.2) | Solo en `TURNOS_CAJA` | La venta llega a la terminal por su turno; repetirlo violaría la 3FN |
+| Activar la PC con credenciales de Gerente en un diálogo previo al login (paso 3.5) | La activación ocurre **después del login normal**, si el usuario conectado es Gerente | Reutiliza el login (bloqueo por intentos, registro de accesos) en lugar de duplicar la verificación de contraseñas |
+| Versión leída en el cierre (paso 1.6, movido desde P1) | Tres valores del turno en el DTO: saldo teórico, total electrónico y cantidad de ventas. `TurnoCaja.ExigirSinCambiosDesde` los compara | Toda venta, cobranza o movimiento cambia al menos uno de ellos, y la `rowversion` (propiedad sombra) no es visible para la capa de Aplicación |
+| La migración crea la terminal por defecto siempre | Solo si ya existen turnos | En una base nueva, la primera activación crea la terminal con el nombre que elija el Gerente; no queda una terminal fantasma |
+| — | El turno se abría siempre a nombre del usuario 1 (`CajaViewModel`); ahora usa el usuario de la sesión | Defecto previo que habría roto el índice por cajero |
 
 ---
 

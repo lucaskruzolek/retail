@@ -49,7 +49,8 @@ public class RegistrarVentaIntegrationTests : IAsyncLifetime, IDisposable
         _context.Usuarios.Add(usuario);
         await _context.SaveChangesAsync();
 
-        var turno = TurnoCaja.Abrir(usuario.Id, saldoInicial: 5000m);
+        var idTerminal = await TerminalesDePrueba.SembrarAsync(_context);
+        var turno = TurnoCaja.Abrir(usuario.Id, idTerminal, saldoInicial: 5000m);
         _context.TurnosCaja.Add(turno);
         await _context.SaveChangesAsync();
 

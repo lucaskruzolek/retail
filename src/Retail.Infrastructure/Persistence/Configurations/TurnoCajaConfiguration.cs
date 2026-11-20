@@ -23,6 +23,10 @@ public class TurnoCajaConfiguration : IEntityTypeConfiguration<TurnoCaja>
             .HasColumnName("id_usuario")
             .IsRequired();
 
+        builder.Property(tc => tc.IdTerminal)
+            .HasColumnName("id_terminal")
+            .IsRequired();
+
         builder.Property(tc => tc.FechaApertura)
             .HasColumnName("fecha_apertura")
             .IsRequired();
@@ -104,10 +108,26 @@ public class TurnoCajaConfiguration : IEntityTypeConfiguration<TurnoCaja>
             .WithMany(u => u.TurnosCaja)
             .HasForeignKey(tc => tc.IdUsuario)
             .OnDelete(DeleteBehavior.Restrict);
-        // Índice filtrado único para asegurar un único turno abierto a la vez
-        builder.HasIndex(tc => tc.Estado)
+
+        // El turno pertenece a una terminal (MT-1). Restrict: una terminal con historial no se elimina; se da de baja
+        // lógica (Ley 3).
+        builder.HasOne(tc => tc.Terminal)
+            .WithMany()
+            .HasForeignKey(tc => tc.IdTerminal)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Un turno abierto por terminal (MT-1) Y uno por cajero (MT-9). Son dos índices únicos filtrados distintos
+        // porque cada uno protege una regla diferente, y son la garantía final cuando dos PC abren a la vez: las
+        // comprobaciones previas de CajaService solo mejoran el mensaje. Un turno cerrado o dado de baja libera
+        // la terminal y al cajero.
+        builder.HasIndex(tc => tc.IdTerminal)
             .IsUnique()
             .HasFilter("[estado] = 'Abierto' AND [deleted_at] IS NULL")
-            .HasDatabaseName("IX_TURNOS_CAJA_TurnoAbierto");
+            .HasDatabaseName("UX_TURNOS_CAJA_AbiertoPorTerminal");
+
+        builder.HasIndex(tc => tc.IdUsuario)
+            .IsUnique()
+            .HasFilter("[estado] = 'Abierto' AND [deleted_at] IS NULL")
+            .HasDatabaseName("UX_TURNOS_CAJA_AbiertoPorUsuario");
     }
 }

@@ -165,6 +165,7 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("IdCatalogoProveedor")
                         .IsUnique()
+                        .HasDatabaseName("IX_ARTICULOS_id_catalogo_proveedor")
                         .HasFilter("[id_catalogo_proveedor] IS NOT NULL AND [deleted_at] IS NULL");
 
                     b.HasIndex("IdCategoria");
@@ -1756,6 +1757,46 @@ namespace Retail.Infrastructure.Persistence.Migrations
                     b.ToTable("RUBROS", (string)null);
                 });
 
+            modelBuilder.Entity("Retail.Domain.Entities.Terminal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasColumnName("id_terminal");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)")
+                        .HasColumnName("nombre")
+                        .UseCollation("Modern_Spanish_CI_AI");
+
+                    b.Property<string>("NombreEquipo")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)")
+                        .HasColumnName("nombre_equipo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TERMINALES_nombre")
+                        .HasFilter("[deleted_at] IS NULL");
+
+                    b.ToTable("TERMINALES", (string)null);
+                });
+
             modelBuilder.Entity("Retail.Domain.Entities.TerminoClasificacion", b =>
                 {
                     b.Property<int>("Id")
@@ -1834,6 +1875,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2")
                         .HasColumnName("fecha_cierre");
 
+                    b.Property<int>("IdTerminal")
+                        .HasColumnType("int")
+                        .HasColumnName("id_terminal");
+
                     b.Property<int>("IdUsuario")
                         .HasColumnType("int")
                         .HasColumnName("id_usuario");
@@ -1886,12 +1931,15 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Estado")
+                    b.HasIndex("IdTerminal")
                         .IsUnique()
-                        .HasDatabaseName("IX_TURNOS_CAJA_TurnoAbierto")
+                        .HasDatabaseName("UX_TURNOS_CAJA_AbiertoPorTerminal")
                         .HasFilter("[estado] = 'Abierto' AND [deleted_at] IS NULL");
 
-                    b.HasIndex("IdUsuario");
+                    b.HasIndex("IdUsuario")
+                        .IsUnique()
+                        .HasDatabaseName("UX_TURNOS_CAJA_AbiertoPorUsuario")
+                        .HasFilter("[estado] = 'Abierto' AND [deleted_at] IS NULL");
 
                     b.ToTable("TURNOS_CAJA", null, t =>
                         {
@@ -2444,11 +2492,19 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Retail.Domain.Entities.TurnoCaja", b =>
                 {
+                    b.HasOne("Retail.Domain.Entities.Terminal", "Terminal")
+                        .WithMany()
+                        .HasForeignKey("IdTerminal")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Retail.Domain.Entities.Usuario", "Usuario")
                         .WithMany("TurnosCaja")
                         .HasForeignKey("IdUsuario")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Terminal");
 
                     b.Navigation("Usuario");
                 });

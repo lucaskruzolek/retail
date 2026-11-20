@@ -647,6 +647,8 @@ public class RestauradorIntegracionTests : IAsyncLifetime
     /// <summary>
     /// Inserta un turno con SQL crudo y solo las columnas que existen desde la migración inicial, así sirve para
     /// cualquier esquema posterior. Se desactivan las restricciones para no depender de usuarios ni de otras reglas.
+    /// La única excepción es <c>id_terminal</c> (Track 6.7): es <c>NOT NULL</c> desde que existe, así que se agrega
+    /// solo si la columna está en el esquema de esa base.
     /// </summary>
     private static async Task InsertarTurnoAsync(string baseDeDatos, string estado, bool dadoDeBaja = false)
     {
@@ -655,11 +657,15 @@ public class RestauradorIntegracionTests : IAsyncLifetime
         await using var comando = conexion.CreateCommand();
         comando.CommandText =
             "ALTER TABLE TURNOS_CAJA NOCHECK CONSTRAINT ALL; " +
-            "INSERT INTO TURNOS_CAJA (id_usuario, fecha_apertura, saldo_inicial, total_ventas_efectivo, " +
+            "DECLARE @columnas nvarchar(max) = N'id_usuario, fecha_apertura, saldo_inicial, total_ventas_efectivo, " +
             "total_ingresos_efectivo, total_egresos_efectivo, saldo_teorico_efectivo, total_ventas_electronicas, " +
-            "monto_retenido_en_caja, estado, created_at, deleted_at) " +
-            "VALUES (1, SYSUTCDATETIME(), 0, 0, 0, 0, 0, 0, 0, @estado, SYSUTCDATETIME(), " +
-            "CASE WHEN @baja = 1 THEN SYSUTCDATETIME() ELSE NULL END);";
+            "monto_retenido_en_caja, estado, created_at, deleted_at'; " +
+            "DECLARE @valores nvarchar(max) = N'1, SYSUTCDATETIME(), 0, 0, 0, 0, 0, 0, 0, @estado, SYSUTCDATETIME(), " +
+            "CASE WHEN @baja = 1 THEN SYSUTCDATETIME() ELSE NULL END'; " +
+            "IF COL_LENGTH('TURNOS_CAJA', 'id_terminal') IS NOT NULL " +
+            "BEGIN SET @columnas += N', id_terminal'; SET @valores += N', 1'; END; " +
+            "DECLARE @sql nvarchar(max) = N'INSERT INTO TURNOS_CAJA (' + @columnas + N') VALUES (' + @valores + N');'; " +
+            "EXEC sp_executesql @sql, N'@estado nvarchar(20), @baja bit', @estado = @estado, @baja = @baja;";
         comando.Parameters.AddWithValue("@estado", estado);
         comando.Parameters.AddWithValue("@baja", dadoDeBaja);
         await comando.ExecuteNonQueryAsync();

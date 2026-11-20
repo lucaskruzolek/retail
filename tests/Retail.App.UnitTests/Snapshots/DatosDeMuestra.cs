@@ -1,7 +1,14 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using Retail.App.Services;
+using Retail.App.ViewModels.Terminales;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clientes;
 using Retail.Application.DTOs.Listas;
 using Retail.Application.DTOs.Presupuestos;
+using Retail.Application.DTOs.Terminales;
+using Retail.Application.Interfaces.Infrastructure;
+using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
 
 namespace Retail.App.UnitTests.Snapshots;
@@ -438,5 +445,42 @@ internal static class DatosDeMuestra
             IdPresupuestoReemplazante = reemplazante,
             IdPresupuestoReemplazado = reemplazado
         };
+    }
+
+    /// <summary>
+    /// ViewModel de "Activar esta PC" con un servicio de muestra: tres terminales activas (una sin equipo asignado) y un
+    /// Gerente en sesión. <paramref name="reemplazo"/> deja elegido el modo "Reemplazar una existente"; sin él, el modo
+    /// "Terminal nueva" con un nombre escrito.
+    /// </summary>
+    public static ActivarTerminalViewModel ViewModelActivarTerminal(bool reemplazo, bool terminalInexistente)
+    {
+        var terminales = Substitute.For<ITerminalService>();
+        terminales.ListarAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new TerminalDto { Id = 1, Nombre = "Mostrador 1", NombreEquipo = "CAJA-01" },
+            new TerminalDto { Id = 2, Nombre = "Mostrador 2", NombreEquipo = "CAJA-02" },
+            new TerminalDto { Id = 3, Nombre = "Depósito", NombreEquipo = string.Empty }
+        ]);
+
+        var local = Substitute.For<ITerminalLocal>();
+        local.NombreEquipo.Returns("CAJA-03");
+
+        var sesion = Substitute.For<ICurrentUserSession>();
+        sesion.IdUsuario.Returns(1);
+        sesion.EsGerente.Returns(true);
+
+        var viewModel = new ActivarTerminalViewModel(terminales, local, sesion, NullLogger<ActivarTerminalViewModel>.Instance);
+        viewModel.Inicializar(terminalInexistente);
+
+        if (reemplazo)
+        {
+            viewModel.Modo = ModoActivacionTerminal.Reemplazo;
+        }
+        else
+        {
+            viewModel.Nombre = "Mostrador 3";
+        }
+
+        return viewModel;
     }
 }

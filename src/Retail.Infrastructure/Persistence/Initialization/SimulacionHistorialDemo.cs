@@ -43,6 +43,7 @@ internal sealed class SimulacionHistorialDemo
     private readonly TimeZoneInfo _zona;
     private readonly int _idGerente;
     private readonly IReadOnlyList<int> _idsCajeros;
+    private readonly IReadOnlyList<int> _idsTerminales;
     private readonly int _idProveedorEscolar;
     private readonly int _idProveedorBazar;
     private readonly IReadOnlyList<ArticuloSimulado> _articulos;
@@ -66,6 +67,7 @@ internal sealed class SimulacionHistorialDemo
         TimeZoneInfo zona,
         int idGerente,
         IReadOnlyList<int> idsCajeros,
+        IReadOnlyList<int> idsTerminales,
         int idProveedorEscolar,
         int idProveedorBazar,
         IReadOnlyList<ArticuloSimulado> articulos,
@@ -79,6 +81,7 @@ internal sealed class SimulacionHistorialDemo
         _zona = zona;
         _idGerente = idGerente;
         _idsCajeros = idsCajeros;
+        _idsTerminales = idsTerminales;
         _idProveedorEscolar = idProveedorEscolar;
         _idProveedorBazar = idProveedorBazar;
         _articulos = articulos;
@@ -303,9 +306,10 @@ internal sealed class SimulacionHistorialDemo
         var aperturaUtc = SemilleroHistorialDemo.AUtc(dia, apertura, _zona);
         var cierreUtc = SemilleroHistorialDemo.AUtc(dia, cierre, _zona);
         var idCajero = _idsCajeros[(dia.DayNumber + indiceTurno) % _idsCajeros.Count];
+        var idTerminal = _idsTerminales[(dia.DayNumber + indiceTurno) % _idsTerminales.Count];
 
         // Se guarda primero: las ventas y las cobranzas referencian el Id del turno.
-        var turno = TurnoCaja.Abrir(idCajero, _saldoEnCaja);
+        var turno = TurnoCaja.Abrir(idCajero, idTerminal, _saldoEnCaja);
         _context.TurnosCaja.Add(turno);
         await _context.SaveChangesAsync(cancellationToken);
         _turnos++;

@@ -222,7 +222,7 @@ public class VistaSnapshotTests
                 Substitute.For<IVentaService>(),
                 caja,
                 Substitute.For<IInventarioService>(),
-                Substitute.For<ICurrentUserSession>(),
+                DatosDeMuestraPaginas.Sesion(1, false),
                 Substitute.For<IVentaDialogService>(),
                 Substitute.For<ICajaDialogService>(),
                 Substitute.For<IPresupuestoService>(),
@@ -256,6 +256,37 @@ public class VistaSnapshotTests
 
             var vista = new PosView(viewModel);
             return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/" + nombre, () => viewModel.EstadoCajaVerificado);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
+    public void PosView_TurnoDeOtroCajero_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        // La terminal tiene un turno sin cerrar de otro cajero: aviso con su nombre, sin "Abrir caja" y buscador bloqueado.
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var caja = Substitute.For<ICajaService>();
+            caja.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(DatosDeMuestraPaginas.TurnoAjeno());
+
+            var viewModel = new PosViewModel(
+                Substitute.For<IVentaService>(),
+                caja,
+                Substitute.For<IInventarioService>(),
+                DatosDeMuestraPaginas.Sesion(1, false),
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<ICajaDialogService>(),
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<IClienteService>(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IListaDialogService>());
+
+            var vista = new PosView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PosView_TurnoAjeno", () => viewModel.EstadoCajaVerificado);
         });
 
         VerificarCaptura(ruta, error);
@@ -605,7 +636,7 @@ public class VistaSnapshotTests
                 Substitute.For<IVentaService>(),
                 caja,
                 Substitute.For<IInventarioService>(),
-                Substitute.For<ICurrentUserSession>(),
+                DatosDeMuestraPaginas.Sesion(1, false),
                 Substitute.For<IVentaDialogService>(),
                 Substitute.For<ICajaDialogService>(),
                 Substitute.For<IPresupuestoService>(),
@@ -753,7 +784,7 @@ public class VistaSnapshotTests
                 Substitute.For<IVentaService>(),
                 caja,
                 Substitute.For<IInventarioService>(),
-                Substitute.For<ICurrentUserSession>(),
+                DatosDeMuestraPaginas.Sesion(1, false),
                 Substitute.For<IVentaDialogService>(),
                 Substitute.For<ICajaDialogService>(),
                 Substitute.For<IPresupuestoService>(),

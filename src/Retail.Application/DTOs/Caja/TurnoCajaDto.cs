@@ -10,6 +10,8 @@ public record class TurnoCajaDto
     public required int IdTurno { get; init; }
     public required int IdUsuario { get; init; }
     public string? NombreUsuario { get; init; }
+    public int IdTerminal { get; init; }
+    public string? NombreTerminal { get; init; }
     public required DateTime FechaApertura { get; init; }
     public required decimal SaldoInicial { get; init; }
     public DateTime? FechaCierre { get; init; }
@@ -21,5 +23,6 @@ public record class TurnoCajaDto
     public decimal? DiferenciaEfectivo { get; init; }
     public decimal TotalVentasElectronicas { get; init; }
     public decimal? MontoRetenidoEnCaja { get; init; }
+    public int CantidadVentas { get; init; }
     public required EstadoTurnoEnum Estado { get; init; }
 }

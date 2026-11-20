@@ -498,6 +498,79 @@ public class PosViewModelTests
     }
 
     [Fact]
+    public async Task CargarEstadoCajaAsync_TurnoAbiertoDeOtroCajero_NoHabilitaLaVentaYAvisaDeQuienEs()
+    {
+        var turnoAjeno = TurnoAbierto(5, 9, 1000m) with { NombreUsuario = "Ana Pérez" };
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(turnoAjeno);
+
+        var viewModel = await CrearViewModelAsync();
+
+        viewModel.TurnoAjeno.Should().BeTrue();
+        viewModel.CajaAbierta.Should().BeFalse();
+        viewModel.MostrarAvisoCajaCerrada.Should().BeTrue();
+        viewModel.PuedeAbrirCaja.Should().BeFalse();
+        viewModel.TituloAvisoCaja.Should().Be("La caja tiene un turno de Ana Pérez sin cerrar");
+        viewModel.DetalleAvisoCaja.Should().Be("Solo esa persona puede vender; un Gerente puede cerrarlo desde Caja.");
+    }
+
+    [Fact]
+    public async Task CargarEstadoCajaAsync_TurnoAbiertoDelUsuarioDeLaSesion_HabilitaLaVenta()
+    {
+        // La configuración por defecto de la clase: turno del usuario 2 y sesión del usuario 2.
+        var viewModel = await CrearViewModelAsync();
+
+        viewModel.TurnoAjeno.Should().BeFalse();
+        viewModel.CajaAbierta.Should().BeTrue();
+        viewModel.PuedeAbrirCaja.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CargarEstadoCajaAsync_SinTurno_MuestraElAvisoDeCajaCerradaConAbrirCaja()
+    {
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns((TurnoCajaDto?)null);
+
+        var viewModel = await CrearViewModelAsync();
+
+        viewModel.TurnoAjeno.Should().BeFalse();
+        viewModel.MostrarAvisoCajaCerrada.Should().BeTrue();
+        viewModel.PuedeAbrirCaja.Should().BeTrue();
+        viewModel.TituloAvisoCaja.Should().Be("La caja está cerrada");
+    }
+
+    [Fact]
+    public async Task AbrirCajaAsync_ConTurnoAjeno_NoMuestraElDialogoNiLlamaAlServicio()
+    {
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(TurnoAbierto(5, 9, 1000m));
+        var viewModel = await CrearViewModelAsync();
+
+        await viewModel.AbrirCajaAsync();
+
+        _cajaDialogServiceMock.DidNotReceiveWithAnyArgs().MostrarDialogoApertura(out _);
+        await _cajaServiceMock.DidNotReceive().AbrirTurnoAsync(Arg.Any<AperturaTurnoDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CobrarVentaAsync_ConTurnoAjeno_AvisaYNoCobra()
+    {
+        _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(TurnoAbierto(5, 9, 1000m));
+        var viewModel = await CrearViewModelAsync();
+        viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
+        {
+            IdArticulo = 1,
+            CodigoBarras = "7790001000011",
+            Descripcion = "Hoja A4",
+            PrecioVenta = 9800m,
+            StockActual = 10,
+            EsServicio = false
+        });
+
+        await viewModel.CobrarVentaCommand.ExecuteAsync(null);
+
+        _dialogServiceMock.Received(1).MostrarAlerta("Turno de otro cajero", Arg.Any<string>());
+        await _ventaServiceMock.DidNotReceive().RegistrarVentaAsync(Arg.Any<CrearVentaDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task AbrirCajaAsync_SinUsuarioEnSesion_NoMuestraElDialogoNiAbreElTurno()
     {
         _cajaServiceMock.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns((TurnoCajaDto?)null);

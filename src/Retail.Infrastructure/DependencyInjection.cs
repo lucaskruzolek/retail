@@ -47,6 +47,11 @@ public static class DependencyInjection
             });
         }
 
+        // Identidad de esta PC como terminal (MT-1): archivo local, no la base. Una sola instancia lee el archivo una vez.
+        // La ruta es configurable (Terminal:RutaArchivo) para que las pruebas no escriban en ProgramData.
+        var rutaTerminal = configuration["Terminal:RutaArchivo"];
+        services.AddSingleton<ITerminalLocal>(_ => new Retail.Infrastructure.Terminales.TerminalLocalArchivo(rutaTerminal));
+
         // 3. Seguridad y Criptografía (BCrypt)
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
@@ -76,6 +81,7 @@ public static class DependencyInjection
         services.AddScoped<IPedidoQueryService, Retail.Infrastructure.Persistence.Services.PedidoQueryService>();
         services.AddScoped<IPresupuestoQueryService, Retail.Infrastructure.Persistence.Services.PresupuestoQueryService>();
         services.AddScoped<IListaQueryService, Retail.Infrastructure.Persistence.Services.ListaQueryService>();
+        services.AddScoped<ITurnoQueryService, Retail.Infrastructure.Persistence.Services.TurnoQueryService>();
         services.AddScoped<IReporteQueryService, Retail.Infrastructure.Persistence.Services.ReporteQueryService>();
         services.AddScoped<IEsquemaBaseDatos, Retail.Infrastructure.Persistence.Services.EsquemaBaseDatos>();
 

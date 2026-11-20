@@ -40,6 +40,8 @@ public class RetailDbContext : DbContext, IRetailDbContext
 
     public DbSet<TurnoCaja> TurnosCaja => Set<TurnoCaja>();
 
+    public DbSet<Terminal> Terminales => Set<Terminal>();
+
     public DbSet<MovimientoCaja> MovimientosCaja => Set<MovimientoCaja>();
 
     public DbSet<Venta> Ventas => Set<Venta>();

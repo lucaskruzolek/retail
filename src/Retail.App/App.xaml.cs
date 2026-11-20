@@ -94,6 +94,13 @@ public partial class App : System.Windows.Application
             new Retail.App.Services.ConfirmacionesAvisoRestauracionEnArchivo(
                 Retail.App.Services.ConfirmacionesAvisoRestauracionEnArchivo.RutaPorDefecto()));
 
+        // Identidad de la terminal al arrancar (MT-1): la verificación es Singleton y abre su propio scope; el ViewModel y el
+        // diálogo de activación son Transient, como los demás diálogos.
+        services.AddSingleton<Retail.App.Services.IDialogosArranqueTerminal, Retail.App.Services.DialogosArranqueTerminal>();
+        services.AddSingleton<Retail.App.Services.VerificacionTerminalArranque>();
+        services.AddTransient<Retail.App.ViewModels.Terminales.ActivarTerminalViewModel>();
+        services.AddTransient<Retail.App.Views.Dialogs.ActivarTerminalDialog>();
+
         // Ajustes y tema visual claro/oscuro
         services.AddSingleton<Retail.App.Services.IPreferenciasUsuario>(proveedor =>
             new Retail.App.Services.PreferenciasUsuario(
@@ -249,6 +256,13 @@ public partial class App : System.Windows.Application
         }
 
         if (loginExitoso != true || !session.EstaAutenticado)
+        {
+            Shutdown();
+            return;
+        }
+
+        // Identidad de la terminal (MT-1): esta PC debe estar activada antes de abrir el shell. Un Gerente puede activarla acá.
+        if (!await _host.Services.GetRequiredService<VerificacionTerminalArranque>().EjecutarAsync())
         {
             Shutdown();
             return;

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using NSubstitute;
+using Retail.App.Services;
 using Retail.App.ViewModels.Clientes;
 using Retail.Application.DTOs.Caja;
 using Retail.Application.DTOs.Clientes;
@@ -13,12 +14,15 @@ public class CobranzaModalViewModelTests
 {
     private readonly IClienteService _clienteService;
     private readonly ICajaService _cajaService;
+    private readonly ICurrentUserSession _sesion;
     private readonly ClienteDto _clienteEjemplo;
 
     public CobranzaModalViewModelTests()
     {
         _clienteService = Substitute.For<IClienteService>();
         _cajaService = Substitute.For<ICajaService>();
+        _sesion = Substitute.For<ICurrentUserSession>();
+        _sesion.IdUsuario.Returns(2);
 
         _clienteEjemplo = new ClienteDto
         {
@@ -37,7 +41,7 @@ public class CobranzaModalViewModelTests
     public void Constructor_InicializaValoresConDeudaDelCliente()
     {
         // Act
-        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _clienteEjemplo);
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo);
 
         // Assert
         vm.Cliente.Should().Be(_clienteEjemplo);
@@ -55,7 +59,7 @@ public class CobranzaModalViewModelTests
     public void PagarTotalidadCommand_AsignaSaldoActualAMontoCobro()
     {
         // Arrange
-        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _clienteEjemplo)
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
         {
             MontoCobro = 4000m
         };
@@ -71,7 +75,7 @@ public class CobranzaModalViewModelTests
     public void RecalcularVuelto_CuandoEsEfectivoYRecibidoSuperaMonto_CalculaVueltoPositivo()
     {
         // Arrange
-        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _clienteEjemplo)
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
         {
             MontoCobro = 8000m,
             EfectivoRecibido = 10000m
@@ -85,7 +89,7 @@ public class CobranzaModalViewModelTests
     public async Task CobrarAsync_MontoCeroONegativo_MuestraErrorYNoLlamaServicio()
     {
         // Arrange
-        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _clienteEjemplo)
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
         {
             MontoCobro = 0m
         };
@@ -103,7 +107,7 @@ public class CobranzaModalViewModelTests
     public async Task CobrarAsync_MontoMayorASaldo_MuestraError()
     {
         // Arrange
-        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _clienteEjemplo)
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
         {
             MontoCobro = 15000m
         };
@@ -121,7 +125,7 @@ public class CobranzaModalViewModelTests
     public async Task CobrarAsync_EfectivoInsuficiente_MuestraError()
     {
         // Arrange
-        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _clienteEjemplo)
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
         {
             MontoCobro = 5000m,
             MedioPago = MedioPagoEnum.Efectivo,
@@ -144,7 +148,7 @@ public class CobranzaModalViewModelTests
         _cajaService.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>())
             .Returns((TurnoCajaDto?)null);
 
-        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _clienteEjemplo)
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
         {
             MontoCobro = 5000m
         };
@@ -190,7 +194,7 @@ public class CobranzaModalViewModelTests
         _clienteService.RegistrarCobranzaAsync(Arg.Any<RegistrarCobranzaDto>(), Arg.Any<CancellationToken>())
             .Returns(resultadoEsperado);
 
-        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _clienteEjemplo)
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
         {
             MontoCobro = 6000m,
             MedioPago = MedioPagoEnum.TarjetaDebito,
@@ -220,6 +224,63 @@ public class CobranzaModalViewModelTests
                 d.Monto == 6000m &&
                 d.MedioPago == MedioPagoEnum.TarjetaDebito &&
                 d.Referencia == "Cupón #9841"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CobrarAsync_TurnoDeOtroCajero_MuestraMensajeYNoLlamaServicio()
+    {
+        // Arrange: el turno abierto en esta terminal es de otro usuario (id 9); la sesión es la del usuario 2
+        _cajaService.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>())
+            .Returns(new TurnoCajaDto
+            {
+                IdTurno = 3,
+                IdUsuario = 9,
+                NombreUsuario = "Ana Pérez",
+                FechaApertura = DateTime.UtcNow,
+                SaldoInicial = 2000m,
+                Estado = EstadoTurnoEnum.Abierto
+            });
+
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
+        {
+            MontoCobro = 5000m
+        };
+
+        // Act
+        await vm.CobrarCommand.ExecuteAsync(null);
+
+        // Assert
+        vm.TieneError.Should().BeTrue();
+        vm.MensajeError.Should().Contain("Ana Pérez").And.Contain("solo esa persona");
+        await _clienteService.DidNotReceive().RegistrarCobranzaAsync(Arg.Any<RegistrarCobranzaDto>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CobrarAsync_TurnoPropio_RegistraConElIdDeLaSesion()
+    {
+        // Arrange: el turno es del usuario 2 y la sesión también; el dueño del turno es quien registra
+        _cajaService.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>())
+            .Returns(new TurnoCajaDto
+            {
+                IdTurno = 3,
+                IdUsuario = 2,
+                FechaApertura = DateTime.UtcNow,
+                SaldoInicial = 2000m,
+                Estado = EstadoTurnoEnum.Abierto
+            });
+
+        var vm = new CobranzaModalViewModel(_clienteService, _cajaService, _sesion, _clienteEjemplo)
+        {
+            MontoCobro = 5000m
+        };
+
+        // Act
+        await vm.CobrarCommand.ExecuteAsync(null);
+
+        // Assert
+        await _clienteService.Received(1).RegistrarCobranzaAsync(
+            Arg.Is<RegistrarCobranzaDto>(d => d.IdUsuario == 2 && d.IdTurno == 3),
             Arg.Any<CancellationToken>());
     }
 }

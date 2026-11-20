@@ -68,6 +68,27 @@ public partial class FakeCajaService : ICajaService
         return Task.FromResult(resultado);
     }
 
+    public Task<IReadOnlyList<TurnoAbiertoDto>> ListarTurnosAbiertosAsync(int idActor, CancellationToken cancellationToken = default)
+    {
+        IReadOnlyList<TurnoAbiertoDto> turnos =
+        [
+            new TurnoAbiertoDto
+            {
+                IdTurno = _turnoSimulado.IdTurno,
+                IdTerminal = 1,
+                NombreTerminal = "Terminal 1",
+                IdUsuario = _turnoSimulado.IdUsuario,
+                NombreCajero = _turnoSimulado.NombreUsuario ?? "admin",
+                FechaApertura = _turnoSimulado.FechaApertura,
+                SaldoTeoricoEfectivo = _turnoSimulado.SaldoTeoricoEfectivo,
+                TotalVentasElectronicas = _turnoSimulado.TotalVentasElectronicas,
+                CantidadVentas = _turnoSimulado.CantidadVentas
+            }
+        ];
+
+        return Task.FromResult(turnos);
+    }
+
     public Task RegistrarIngresoCobranzaAsync(int idTurno, decimal monto, MedioPagoEnum medioPago, CancellationToken cancellationToken = default)
     {
         if (_logger != null)

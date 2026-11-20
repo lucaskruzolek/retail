@@ -7,6 +7,10 @@ public class MovimientoCajaValidator : AbstractValidator<MovimientoCajaDto>
 {
     public MovimientoCajaValidator()
     {
+        RuleFor(x => x.IdUsuario)
+            .GreaterThan(0)
+            .WithMessage("Debe especificarse quién registra el movimiento.");
+
         RuleFor(x => x.Monto)
             .GreaterThan(0)
             .WithMessage("El monto del movimiento debe ser mayor a cero.");

@@ -11,7 +11,7 @@ public class TurnoCajaTests
     public void Abrir_TurnoNuevo_CantidadVentasEnCero()
     {
         // Act
-        var turno = TurnoCaja.Abrir(1, 1000m);
+        var turno = TurnoCaja.Abrir(1, 1, 1000m);
 
         // Assert
         turno.CantidadVentas.Should().Be(0);
@@ -21,7 +21,7 @@ public class TurnoCajaTests
     public void ImputarVenta_SoloCuentaCorriente_IncrementaCantidadVentas()
     {
         // Arrange: una venta 100 % a cuenta corriente no mueve ni efectivo ni dinero electrónico (H18).
-        var turno = TurnoCaja.Abrir(1, 1000m);
+        var turno = TurnoCaja.Abrir(1, 1, 1000m);
 
         // Act
         turno.ImputarVenta(0m, 0m);
@@ -37,7 +37,7 @@ public class TurnoCajaTests
     public void ImputarVenta_TotalCero_IncrementaCantidadVentas()
     {
         // Arrange
-        var turno = TurnoCaja.Abrir(1, 0m);
+        var turno = TurnoCaja.Abrir(1, 1, 0m);
         turno.ImputarVenta(0m, 0m);
 
         // Act
@@ -51,7 +51,7 @@ public class TurnoCajaTests
     public void ImputarVenta_EnEfectivo_IncrementaCantidadVentasYSaldoTeorico()
     {
         // Arrange
-        var turno = TurnoCaja.Abrir(1, 1000m);
+        var turno = TurnoCaja.Abrir(1, 1, 1000m);
 
         // Act
         turno.ImputarVenta(250m, 100m);
@@ -67,7 +67,7 @@ public class TurnoCajaTests
     public void ImputarVenta_TurnoCerrado_LanzaTurnoYaCerradoYNoIncrementa()
     {
         // Arrange
-        var turno = TurnoCaja.Abrir(1, 1000m);
+        var turno = TurnoCaja.Abrir(1, 1, 1000m);
         turno.CerrarConArqueoCiego(1000m, 0m);
 
         // Act
@@ -76,5 +76,84 @@ public class TurnoCajaTests
         // Assert
         accion.Should().Throw<TurnoYaCerradoException>();
         turno.CantidadVentas.Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Abrir_TerminalInvalida_LanzaDomainException(int idTerminal)
+    {
+        // Act
+        var accion = () => TurnoCaja.Abrir(1, idTerminal, 1000m);
+
+        // Assert
+        accion.Should().Throw<DomainException>().WithMessage("*terminal*");
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void Abrir_UsuarioInvalido_LanzaDomainException(int idUsuario)
+    {
+        // Act
+        var accion = () => TurnoCaja.Abrir(idUsuario, 1, 1000m);
+
+        // Assert
+        accion.Should().Throw<DomainException>().WithMessage("*usuario*");
+    }
+
+    [Fact]
+    public void Abrir_DatosValidos_GuardaLaTerminal()
+    {
+        // Act
+        var turno = TurnoCaja.Abrir(4, 7, 1000m);
+
+        // Assert
+        turno.IdUsuario.Should().Be(4);
+        turno.IdTerminal.Should().Be(7);
+    }
+
+    [Fact]
+    public void EsDe_MismoUsuario_DevuelveVerdadero()
+    {
+        TurnoCaja.Abrir(4, 1, 0m).EsDe(4).Should().BeTrue();
+    }
+
+    [Fact]
+    public void EsDe_OtroUsuario_DevuelveFalso()
+    {
+        TurnoCaja.Abrir(4, 1, 0m).EsDe(5).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ExigirSinCambiosDesde_ValoresIguales_NoLanza()
+    {
+        // Arrange
+        var turno = TurnoCaja.Abrir(1, 1, 1000m);
+        turno.ImputarVenta(250m, 100m);
+
+        // Act
+        var accion = () => turno.ExigirSinCambiosDesde(1250m, 100m, 1);
+
+        // Assert
+        accion.Should().NotThrow();
+    }
+
+    [Theory]
+    [InlineData(1251, 100, 1)]
+    [InlineData(1250, 101, 1)]
+    [InlineData(1250, 100, 2)]
+    public void ExigirSinCambiosDesde_UnValorDistinto_LanzaTurnoModificado(int saldoTeorico, int totalElectronico, int cantidadVentas)
+    {
+        // Arrange
+        var turno = TurnoCaja.Abrir(1, 1, 1000m);
+        turno.ImputarVenta(250m, 100m);
+
+        // Act
+        var accion = () => turno.ExigirSinCambiosDesde(saldoTeorico, totalElectronico, cantidadVentas);
+
+        // Assert
+        accion.Should().Throw<TurnoModificadoException>()
+            .WithMessage("*Vuelva a abrir el cierre*");
     }
 }

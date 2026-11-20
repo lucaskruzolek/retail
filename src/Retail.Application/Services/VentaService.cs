@@ -185,6 +185,12 @@ public class VentaService : IVentaService
             throw new CajaCerradaException();
         }
 
+        // Solo el dueño del turno vende sobre él (MT-14): un Gerente puede cerrarlo, pero no operarlo.
+        if (!turno.EsDe(dto.IdUsuario))
+        {
+            throw new TurnoAjenoException(MensajesDeTurno.TurnoAjeno(turno.Usuario?.NombreCompleto));
+        }
+
         var hoy = ObtenerHoy();
         Presupuesto? presupuesto = null;
         if (dto.IdPresupuestoOrigen is int idPresupuestoOrigen)
