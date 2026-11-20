@@ -295,6 +295,60 @@ public class VistaSnapshotTests
     [Theory]
     [InlineData(TemaPrueba.Claro)]
     [InlineData(TemaPrueba.Oscuro)]
+    public void PosView_MantenimientoProgramado_PorTema_GeneraCaptura(TemaPrueba tema)
+    {
+        // Un Gerente programó un mantenimiento para dentro de 25 minutos: franja ámbar sobre el mostrador con la venta en curso.
+        var (ruta, error) = Capturar(tema, carpeta =>
+        {
+            var caja = Substitute.For<ICajaService>();
+            caja.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>()).Returns(new TurnoCajaDto
+            {
+                IdTurno = 12,
+                IdUsuario = 1,
+                NombreUsuario = "admin",
+                FechaApertura = DateTime.UtcNow,
+                SaldoInicial = 5000m,
+                SaldoTeoricoEfectivo = 5000m,
+                Estado = EstadoTurnoEnum.Abierto
+            });
+
+            var mantenimiento = new EstadoMantenimiento();
+            mantenimiento.Establecer(DateTime.Now.AddMinutes(25), "Actualización del sistema");
+
+            var viewModel = new PosViewModel(
+                Substitute.For<IVentaService>(),
+                caja,
+                Substitute.For<IInventarioService>(),
+                DatosDeMuestraPaginas.Sesion(1, false),
+                Substitute.For<IVentaDialogService>(),
+                Substitute.For<ICajaDialogService>(),
+                Substitute.For<IPresupuestoService>(),
+                Substitute.For<IPresupuestoDialogService>(),
+                Substitute.For<IClienteService>(),
+                Substitute.For<IListaService>(),
+                Substitute.For<IListaDialogService>(),
+                estadoMantenimiento: mantenimiento);
+
+            viewModel.AgregarArticuloAlTicket(new ArticuloVentaDto
+            {
+                IdArticulo = 1,
+                CodigoBarras = "7790001000011",
+                Descripcion = "Hoja A4 Autor 75 g x 500",
+                PrecioVenta = 9800m,
+                StockActual = 120,
+                EsServicio = false
+            });
+
+            var vista = new PosView(viewModel);
+            return SnapshotRenderer.Guardar(vista, 1366, 768, carpeta + "/PosView_Mantenimiento", () => viewModel.EstadoCajaVerificado);
+        });
+
+        VerificarCaptura(ruta, error);
+    }
+
+    [Theory]
+    [InlineData(TemaPrueba.Claro)]
+    [InlineData(TemaPrueba.Oscuro)]
     public void ArticuloFormDialog_PorTema_GeneraCaptura(TemaPrueba tema)
     {
         var (ruta, error) = Capturar(tema, carpeta =>

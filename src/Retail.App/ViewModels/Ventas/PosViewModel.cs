@@ -44,6 +44,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
     private readonly IClienteService _clienteService;
     private readonly IListaService _listaService;
     private readonly IListaDialogService _listaDialogService;
+    private readonly IEstadoMantenimiento _estadoMantenimiento;
     private readonly ILogger<PosViewModel> _logger;
 
     private static readonly TimeSpan EsperaBusqueda = TimeSpan.FromMilliseconds(180);
@@ -183,6 +184,23 @@ public partial class PosViewModel : ObservableObject, IDisposable
     /// <summary>"Abrir caja" solo se ofrece si la terminal no tiene un turno ajeno: abrir otro fallaría (un turno por terminal).</summary>
     public bool PuedeAbrirCaja => !TurnoAjeno;
 
+    /// <summary>Franja de aviso: hay un mantenimiento programado (MT-12). El cajero debe terminar la venta en curso.</summary>
+    public bool MostrarAvisoMantenimiento => _estadoMantenimiento.HayMantenimientoProgramado;
+
+    public string TextoAvisoMantenimiento => _estadoMantenimiento.ProgramadoParaLocal is { } hora
+        ? $"Mantenimiento programado a las {hora:HH:mm}. Termine la venta en curso."
+        : string.Empty;
+
+    /// <summary>
+    /// El estado del mantenimiento puede cambiar desde el hilo del latido: las notificaciones de propiedad de WPF
+    /// se resuelven solas en el hilo de la UI, así que alcanza con avisar el cambio.
+    /// </summary>
+    private void OnMantenimientoCambio()
+    {
+        OnPropertyChanged(nameof(MostrarAvisoMantenimiento));
+        OnPropertyChanged(nameof(TextoAvisoMantenimiento));
+    }
+
     public string TituloAvisoCaja => TurnoAjeno
         ? $"La caja tiene un turno de {TurnoActivo?.NombreUsuario ?? "otro cajero"} sin cerrar"
         : "La caja está cerrada";
@@ -203,7 +221,8 @@ public partial class PosViewModel : ObservableObject, IDisposable
         IClienteService clienteService,
         IListaService listaService,
         IListaDialogService listaDialogService,
-        ILogger<PosViewModel>? logger = null)
+        ILogger<PosViewModel>? logger = null,
+        IEstadoMantenimiento? estadoMantenimiento = null)
     {
         _ventaService = ventaService ?? throw new ArgumentNullException(nameof(ventaService));
         _cajaService = cajaService ?? throw new ArgumentNullException(nameof(cajaService));
@@ -217,6 +236,10 @@ public partial class PosViewModel : ObservableObject, IDisposable
         _listaService = listaService ?? throw new ArgumentNullException(nameof(listaService));
         _listaDialogService = listaDialogService ?? throw new ArgumentNullException(nameof(listaDialogService));
         _logger = logger ?? NullLogger<PosViewModel>.Instance;
+
+        // Sin estado inyectado (pruebas de otras áreas) se asume que no hay mantenimiento programado.
+        _estadoMantenimiento = estadoMantenimiento ?? new EstadoMantenimiento();
+        _estadoMantenimiento.Cambio += OnMantenimientoCambio;
 
         // Se crea antes de CargarEstadoCajaAsync, que ya la usa. Con el logger, una búsqueda lenta que se descarta
         // deja una advertencia en el log en lugar de desaparecer sin rastro.
@@ -489,6 +512,15 @@ public partial class PosViewModel : ObservableObject, IDisposable
     [RelayCommand]
     public async Task CobrarVentaAsync()
     {
+        // Mantenimiento programado (MT-12): desde el minuto previo no se inician cobros, para que ninguno quede a medias.
+        if (_estadoMantenimiento.CobrosBloqueados)
+        {
+            _dialogService.MostrarAlerta(
+                "Mantenimiento en curso",
+                "Hay un mantenimiento en curso. No se pueden iniciar cobros; cierre la aplicación.");
+            return;
+        }
+
         if (!PuedeCobrar)
         {
             if (TurnoAjeno)
@@ -1368,6 +1400,7 @@ public partial class PosViewModel : ObservableObject, IDisposable
     /// </summary>
     public void Dispose()
     {
+        _estadoMantenimiento.Cambio -= OnMantenimientoCambio;
         _accesoDatos.Dispose();
         GC.SuppressFinalize(this);
     }

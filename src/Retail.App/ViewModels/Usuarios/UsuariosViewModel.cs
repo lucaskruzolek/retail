@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Retail.App.Helpers;
 using Retail.App.Services;
 using Retail.App.ViewModels.Comun;
+using Retail.Application.DTOs.Sesiones;
 using Retail.Application.DTOs.Usuarios;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Enums;
@@ -24,6 +25,7 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
     private readonly IUsuarioService _usuarioService;
     private readonly IUsuarioDialogService _dialogService;
     private readonly ICurrentUserSession _session;
+    private readonly ISesionService _sesionService;
     private readonly ILogger<UsuariosViewModel> _logger;
     private List<UsuarioDto> _cacheUsuarios = new();
 
@@ -70,17 +72,25 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
     /// </summary>
     public bool PuedeDesbloquear => _session.EsGerente;
 
+    /// <summary>
+    /// Solo el Gerente ve quién está conectado y desde dónde, y puede cerrar la sesión de otro (MT-3). La autoridad real
+    /// la decide <c>SesionService</c>.
+    /// </summary>
+    public bool PuedeVerSesiones => _session.EsGerente;
+
     public IReadOnlyList<int> TamanosPaginaDisponibles { get; } = OpcionesPaginacion.Tamanos;
 
     public UsuariosViewModel(
         IUsuarioService usuarioService,
         IUsuarioDialogService dialogService,
         ICurrentUserSession session,
+        ISesionService sesionService,
         ILogger<UsuariosViewModel>? logger = null)
     {
         _usuarioService = usuarioService ?? throw new ArgumentNullException(nameof(usuarioService));
         _dialogService = dialogService ?? throw new ArgumentNullException(nameof(dialogService));
         _session = session ?? throw new ArgumentNullException(nameof(session));
+        _sesionService = sesionService ?? throw new ArgumentNullException(nameof(sesionService));
         _logger = logger ?? NullLogger<UsuariosViewModel>.Instance;
     }
 
@@ -154,14 +164,20 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
                     // Secuencial a propósito: ambas consultas comparten el DbContext de la pantalla.
                     var roles = await _usuarioService.ObtenerRolesAsignablesAsync(IdActor, token);
                     var usuarios = await _usuarioService.ListarUsuariosAsync(IdActor, token);
-                    return (Usuarios: usuarios, Roles: roles);
+                    var sesiones = await ListarSesionesAsync(token);
+                    return (Usuarios: usuarios, Roles: roles, Sesiones: sesiones);
                 },
                 token),
             resultado =>
             {
                 var lista = resultado.Usuarios;
                 _rolesAsignables = resultado.Roles;
-                _cacheUsuarios = lista.ToList();
+                _cacheUsuarios = PuedeVerSesiones
+                    ? lista.Select(u => (UsuarioDto)new UsuarioConSesion(
+                        u,
+                        resultado.Sesiones.FirstOrDefault(s => s.IdUsuario == u.IdUsuario),
+                        u.IdUsuario != IdActor)).ToList()
+                    : lista.ToList();
 
                 PaginaActual = 1;
                 AplicarFiltroLocal();
@@ -175,6 +191,76 @@ public partial class UsuariosViewModel : ObservableObject, IDisposable
             });
 
         IsBusy = _cargaUsuarios.EnCurso;
+    }
+
+    /// <summary>
+    /// Sesiones abiertas, solo para el Gerente. Si la consulta falla, la lista de operadores se muestra igual: la
+    /// columna "Conectado en" queda vacía y el fallo se registra, en lugar de impedir administrar usuarios.
+    /// </summary>
+    private async Task<IReadOnlyList<SesionActivaDto>> ListarSesionesAsync(CancellationToken token)
+    {
+        if (!PuedeVerSesiones)
+        {
+            return [];
+        }
+
+        try
+        {
+            return await _sesionService.ListarAsync(IdActor, token);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "No se pudieron consultar las sesiones abiertas: {Mensaje}", ex.Message);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Cierra la sesión de otro operador (por ejemplo, una PC colgada). Solo Gerente; no aplica a la propia cuenta.
+    /// La autorización real es de <c>SesionService</c>.
+    /// </summary>
+    [RelayCommand]
+    public async Task CerrarSesionAsync(UsuarioDto? usuario = null)
+    {
+        var target = usuario ?? UsuarioSeleccionado;
+        if (target is not UsuarioConSesion { PuedeCerrarSesion: true } fila)
+        {
+            return;
+        }
+
+        var confirmar = _dialogService.Confirmar(
+            "Confirmar Cierre de Sesión",
+            $"¿Desea cerrar la sesión de '{fila.NombreCompleto}' ({fila.ConectadoEn})?\n\nLa aplicación de esa persona se va a cerrar en el próximo minuto y perderá lo que no haya guardado.");
+
+        if (!confirmar)
+        {
+            return;
+        }
+
+        try
+        {
+            IsBusy = true;
+            MensajeError = null;
+
+            // Ley 4: la escritura en la base no corre en el hilo de la UI.
+            var cerrada = await Task.Run(() => _sesionService.ForzarCierreAsync(IdActor, fila.IdUsuario));
+            if (!cerrada)
+            {
+                _dialogService.MostrarInformacion("Aviso", $"'{fila.NombreCompleto}' ya no tenía una sesión abierta.");
+            }
+
+            await CargarUsuariosAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al cerrar la sesión del operador {IdUsuario}: {Mensaje}", fila.IdUsuario, ex.Message);
+            MensajeError = ex.Message;
+            _dialogService.MostrarError("Error al Cerrar la Sesión", ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     [RelayCommand]

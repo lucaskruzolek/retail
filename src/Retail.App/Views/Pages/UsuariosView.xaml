@@ -164,6 +164,13 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
+                    <!-- Dónde está conectado (solo Gerente, MT-3): la vista oculta la columna a los demás roles -->
+                    <DataGridTextColumn x:Name="ColumnaConectadoEn"
+                                        Header="Conectado en"
+                                        Binding="{Binding ConectadoEn}"
+                                        Width="230"
+                                        ElementStyle="{StaticResource TextBlockTextCell}" />
+
                     <!-- Fecha de Alta -->
                     <DataGridTextColumn Header="Fecha Alta"
                                         HeaderStyle="{StaticResource DataGridColumnHeaderRightListadoStyle}"
@@ -171,8 +178,8 @@
                                         Width="110"
                                         ElementStyle="{StaticResource TextBlockCurrencyCell}" />
 
-                    <!-- Acciones de la fila: solo íconos (3 x 36 + 8); la columna no lleva título -->
-                    <DataGridTemplateColumn Width="116" CanUserResize="False" CanUserSort="False">
+                    <!-- Acciones de la fila: solo íconos (hasta 4 x 36 + 8); la columna no lleva título -->
+                    <DataGridTemplateColumn Width="160" CanUserResize="False" CanUserSort="False">
                         <DataGridTemplateColumn.CellStyle>
                             <Style TargetType="DataGridCell" BasedOn="{StaticResource DataGridCellRetailStyle}">
                                 <Setter Property="Padding" Value="0" />
@@ -197,6 +204,16 @@
                                             Margin="0,0,8,0"
                                             ToolTip="Restablecer contraseña">
                                         <iconPacks:PackIconBoxIcons Kind="RegularKey" Width="14" Height="14" />
+                                    </Button>
+
+                                    <!-- Cerrar la sesión abierta de otro operador (solo Gerente, no la propia) -->
+                                    <Button Command="{Binding DataContext.CerrarSesionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}"
+                                            Style="{StaticResource RowActionButtonStyle}"
+                                            Margin="0,0,8,0"
+                                            ToolTip="Cerrar la sesión abierta de este operador"
+                                            Visibility="{Binding PuedeCerrarSesion, Converter={StaticResource BoolToVisConverter}, FallbackValue=Collapsed}">
+                                        <iconPacks:PackIconBoxIcons Kind="RegularDoorOpen" Width="14" Height="14" />
                                     </Button>
 
                                     <!-- Baja Lógica -->
