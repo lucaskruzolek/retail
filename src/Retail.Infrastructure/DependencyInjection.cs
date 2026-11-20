@@ -85,6 +85,9 @@ public static class DependencyInjection
         services.AddScoped<IReporteQueryService, Retail.Infrastructure.Persistence.Services.ReporteQueryService>();
         services.AddScoped<IEsquemaBaseDatos, Retail.Infrastructure.Persistence.Services.EsquemaBaseDatos>();
 
+        // Sesión única por usuario y aviso de mantenimiento (MT-3, MT-12): estado técnico fuera del modelo de EF Core.
+        services.AddScoped<ISesionesActivas, Retail.Infrastructure.Persistence.Services.SesionesActivasSqlServer>();
+
         // 5. Copias de seguridad (RF-22): directorio dedicado, motor SQL Server y política de retención.
         services.Configure<BackupOptions>(configuration.GetSection(BackupOptions.SectionName));
         services.AddSingleton<IArchivosBackup, ArchivosBackup>();

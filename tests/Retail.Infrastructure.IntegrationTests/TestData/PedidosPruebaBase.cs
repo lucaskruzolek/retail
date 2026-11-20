@@ -29,7 +29,7 @@ public abstract class PedidosPruebaBase : IAsyncLifetime
 
     protected int IdUsuario { get; private set; }
 
-    public async Task InitializeAsync()
+    public virtual async Task InitializeAsync()
     {
         Contexto = new RetailDbContext(_opciones);
         await Contexto.Database.CrearDesdePlantillaAsync();
