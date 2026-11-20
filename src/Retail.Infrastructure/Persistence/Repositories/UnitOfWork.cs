@@ -41,6 +41,14 @@ public class UnitOfWork : IUnitOfWork
                 "El guardado chocó con otra operación realizada al mismo tiempo (ya existe un dato equivalente).",
                 ex);
         }
+        catch (Exception ex) when (EsVictimaDeDeadlock(ex))
+        {
+            // H11: SQL Server eligió a esta operación como víctima de un interbloqueo y ya la revirtió. No se reintenta
+            // sola (EnableRetryOnFailure no admite las transacciones iniciadas por el usuario de este coordinador): se
+            // le pide al usuario que repita, con el mismo tipo de error que el resto de los choques entre terminales.
+            DescartarCambios();
+            throw new ConflictoDeConcurrenciaException(MensajeDeadlock, ex);
+        }
         catch
         {
             // La base revirtió la transacción, pero el contexto vive mientras dura la pantalla (H-19): sin limpiarlo,
@@ -48,6 +56,31 @@ public class UnitOfWork : IUnitOfWork
             DescartarCambios();
             throw;
         }
+    }
+
+    /// <summary>Mensaje mostrado al usuario cuando el motor eligió a la operación como víctima de un deadlock.</summary>
+    public const string MensajeDeadlock =
+        "La operación chocó con otra que se hacía al mismo tiempo en otra terminal. Vuelva a intentarlo.";
+
+    /// <summary>1205: la transacción fue elegida como víctima de un interbloqueo (código de error de SQL Server).</summary>
+    private const int ErrorVictimaDeDeadlock = 1205;
+
+    /// <remarks>
+    /// Se recorre toda la cadena de excepciones internas: el error 1205 es "transitorio" para EF Core, y su estrategia de
+    /// ejecución lo envuelve en una <see cref="InvalidOperationException"/> (que sugiere EnableRetryOnFailure) que contiene
+    /// la DbUpdateException, que a su vez contiene la SqlException.
+    /// </remarks>
+    private static bool EsVictimaDeDeadlock(Exception excepcion)
+    {
+        for (Exception? actual = excepcion; actual is not null; actual = actual.InnerException)
+        {
+            if (actual is SqlException { Number: ErrorVictimaDeDeadlock })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
