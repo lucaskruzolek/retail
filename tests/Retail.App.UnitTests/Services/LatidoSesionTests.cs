@@ -5,6 +5,8 @@ using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Retail.App.Services;
 using Retail.Application.DTOs.Sesiones;
+using Retail.Application.DTOs.Sistema;
+using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Services;
 using Xunit;
 
@@ -22,6 +24,7 @@ public class LatidoSesionTests
     private static readonly TimeSpan Espera = TimeSpan.FromSeconds(5);
 
     private readonly ISesionService _sesionService = Substitute.For<ISesionService>();
+    private readonly IEsquemaBaseDatos _esquema = Substitute.For<IEsquemaBaseDatos>();
     private readonly IAvisosSesion _avisos = Substitute.For<IAvisosSesion>();
     private readonly EstadoMantenimiento _estado = new();
     private readonly ServiceProvider _proveedor;
@@ -32,17 +35,21 @@ public class LatidoSesionTests
 
         var servicios = new ServiceCollection();
         servicios.AddScoped(_ => _sesionService);
+        _sesionService.RenovarAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Vigente());
+        servicios.AddScoped(_ => _esquema);
+        _esquema.ObtenerEstadoAsync(Arg.Any<CancellationToken>()).Returns(EsquemaConDesconocidas());
         _proveedor = servicios.BuildServiceProvider();
     }
 
-    private LatidoSesion Crear()
+    private LatidoSesion Crear(TimeProvider? reloj = null)
     {
         return new LatidoSesion(
             _proveedor.GetRequiredService<IServiceScopeFactory>(),
             _estado,
             _avisos,
             NullLogger<LatidoSesion>.Instance,
-            Intervalo);
+            Intervalo,
+            reloj);
     }
 
     private static EstadoLatidoDto Vigente(DateTime? mantenimientoUtc = null, string? motivo = null, DateTime? ahoraServidorUtc = null)
@@ -209,5 +216,144 @@ public class LatidoSesionTests
         await latido.FinalizarAsync();
 
         await _sesionService.DidNotReceiveWithAnyArgs().CerrarAsync(default, default, default);
+    }
+
+    [Fact]
+    public async Task Iniciar_RelojDeLaPcAdelantado_AvisaUnaSolaVezConLosMinutos()
+    {
+        var reloj = new RelojFijo(new DateTime(2026, 11, 20, 12, 0, 0, DateTimeKind.Utc));
+        var servidor = reloj.GetUtcNow().UtcDateTime.AddMinutes(-5);
+        _sesionService.RenovarAsync(IdUsuario, IdTerminal, Arg.Any<CancellationToken>())
+            .Returns(Vigente(ahoraServidorUtc: servidor));
+        using var latido = Crear(reloj);
+
+        latido.Iniciar(IdUsuario, IdTerminal);
+        await EsperarAsync(() => _sesionService.ReceivedCalls().Count() >= 4);
+        await latido.DetenerAsync();
+
+        _avisos.Received(1).AvisarAdvertencia(Arg.Is<string>(m =>
+            m.Contains("5 minutos adelantado") && m.Contains("sincronización automática")));
+    }
+
+    [Fact]
+    public async Task Iniciar_RelojDeLaPcAtrasado_AvisaQueEstaAtrasado()
+    {
+        var reloj = new RelojFijo(new DateTime(2026, 11, 20, 12, 0, 0, DateTimeKind.Utc));
+        var servidor = reloj.GetUtcNow().UtcDateTime.AddMinutes(10);
+        _sesionService.RenovarAsync(IdUsuario, IdTerminal, Arg.Any<CancellationToken>())
+            .Returns(Vigente(ahoraServidorUtc: servidor));
+        using var latido = Crear(reloj);
+
+        latido.Iniciar(IdUsuario, IdTerminal);
+        await EsperarAsync(() => _sesionService.ReceivedCalls().Count() >= 2);
+        await latido.DetenerAsync();
+
+        _avisos.Received(1).AvisarAdvertencia(Arg.Is<string>(m => m.Contains("10 minutos atrasado")));
+    }
+
+    [Fact]
+    public async Task Iniciar_DesfaseDentroDelUmbral_NoAvisa()
+    {
+        var reloj = new RelojFijo(new DateTime(2026, 11, 20, 12, 0, 0, DateTimeKind.Utc));
+        var servidor = reloj.GetUtcNow().UtcDateTime.AddSeconds(-90);
+        _sesionService.RenovarAsync(IdUsuario, IdTerminal, Arg.Any<CancellationToken>())
+            .Returns(Vigente(ahoraServidorUtc: servidor));
+        using var latido = Crear(reloj);
+
+        latido.Iniciar(IdUsuario, IdTerminal);
+        await EsperarAsync(() => _sesionService.ReceivedCalls().Count() >= 3);
+        await latido.DetenerAsync();
+
+        _avisos.DidNotReceive().AvisarAdvertencia(Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task Iniciar_RelojSeCorrigeYVuelveADesviarse_AvisaDeNuevo()
+    {
+        var reloj = new RelojFijo(new DateTime(2026, 11, 20, 12, 0, 0, DateTimeKind.Utc));
+        var ahora = reloj.GetUtcNow().UtcDateTime;
+        _sesionService.RenovarAsync(IdUsuario, IdTerminal, Arg.Any<CancellationToken>())
+            .Returns(
+                _ => Task.FromResult(Vigente(ahoraServidorUtc: ahora.AddMinutes(-6))),
+                _ => Task.FromResult(Vigente(ahoraServidorUtc: ahora.AddMinutes(-6))),
+                _ => Task.FromResult(Vigente(ahoraServidorUtc: ahora)),
+                _ => Task.FromResult(Vigente(ahoraServidorUtc: ahora.AddMinutes(-7))));
+        using var latido = Crear(reloj);
+
+        latido.Iniciar(IdUsuario, IdTerminal);
+        await EsperarAsync(() => _sesionService.ReceivedCalls().Count() >= 6);
+        await latido.DetenerAsync();
+
+        _avisos.Received(2).AvisarAdvertencia(Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task Iniciar_BaseMasNuevaQueLaApp_AvisaUnaSolaVezYDejaDeConsultar()
+    {
+        _esquema.ObtenerEstadoAsync(Arg.Any<CancellationToken>()).Returns(EsquemaConDesconocidas("20271231000000_Futura"));
+        using var latido = Crear();
+
+        latido.Iniciar(IdUsuario, IdTerminal);
+        await EsperarAsync(() => _sesionService.ReceivedCalls().Count() >= 12);
+        await latido.DetenerAsync();
+
+        _avisos.Received(1).AvisarAdvertencia(Arg.Is<string>(m =>
+            m.Contains("más nueva de Retail") && m.Contains("cierre la aplicación")));
+        await _esquema.Received(1).ObtenerEstadoAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Iniciar_EsquemaAlDia_ConsultaCadaCincoLatidosYNoAvisa()
+    {
+        using var latido = Crear();
+
+        latido.Iniciar(IdUsuario, IdTerminal);
+        await EsperarAsync(() => _sesionService.ReceivedCalls().Count() >= 11);
+        await latido.DetenerAsync();
+
+        _avisos.DidNotReceive().AvisarAdvertencia(Arg.Any<string>());
+        await _esquema.Received().ObtenerEstadoAsync(Arg.Any<CancellationToken>());
+        _esquema.ReceivedCalls().Count().Should().BeLessThan(_sesionService.ReceivedCalls().Count() / 3);
+    }
+
+    [Fact]
+    public async Task Iniciar_FallaLaVerificacionDelEsquema_SigueLatiendoSinAvisar()
+    {
+        _esquema.ObtenerEstadoAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<EstadoEsquemaDto>(new InvalidOperationException("Sin conexión")));
+        using var latido = Crear();
+
+        latido.Iniciar(IdUsuario, IdTerminal);
+        await EsperarAsync(() => _sesionService.ReceivedCalls().Count() >= 12);
+
+        latido.EstaActivo.Should().BeTrue();
+        await latido.DetenerAsync();
+        _avisos.DidNotReceive().AvisarAdvertencia(Arg.Any<string>());
+    }
+
+    private static EstadoEsquemaDto EsquemaConDesconocidas(params string[] desconocidas)
+    {
+        return new EstadoEsquemaDto
+        {
+            PuedeConectar = true,
+            MigracionesPendientes = [],
+            MigracionesDesconocidas = desconocidas
+        };
+    }
+
+    /// <summary>Reloj de prueba con la hora UTC fija: permite desfasarlo del servidor de forma exacta.</summary>
+    private sealed class RelojFijo : TimeProvider
+    {
+        private readonly DateTimeOffset _ahora;
+
+        public RelojFijo(DateTime ahoraUtc)
+        {
+            _ahora = new DateTimeOffset(ahoraUtc, TimeSpan.Zero);
+        }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            return _ahora;
+        }
     }
 }

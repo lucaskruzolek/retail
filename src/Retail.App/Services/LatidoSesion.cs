@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Retail.Application.DTOs.Sesiones;
+using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Services;
 using Retail.Application.Services;
 
@@ -35,6 +36,9 @@ public sealed class LatidoSesion : IDisposable
     private int _idTerminal;
     private DateTime? _ultimoMantenimientoUtc;
     private string? _ultimoMotivo;
+    private bool _avisoRelojMostrado;
+    private bool _avisoEsquemaMostrado;
+    private int _latidosDesdeElControlDeEsquema;
 
     public LatidoSesion(
         IServiceScopeFactory scopeFactory,
@@ -172,7 +176,85 @@ public sealed class LatidoSesion : IDisposable
         }
 
         ActualizarMantenimiento(estado);
+        VerificarRelojDeLaPc(estado);
+        await VerificarEsquemaPeriodicamenteAsync(token);
         return true;
+    }
+
+    /// <summary>
+    /// H10: las fechas de negocio se registran con la hora de esta PC, así que un reloj corrido desordena el historial.
+    /// Con cada latido se compara con la hora del servidor (la demora de una consulta de red es despreciable frente al
+    /// umbral de minutos) y se avisa una sola vez; si el reloj se corrige y vuelve a desviarse, avisa de nuevo.
+    /// </summary>
+    private void VerificarRelojDeLaPc(EstadoLatidoDto estado)
+    {
+        var desfase = estado.AhoraServidorUtc - _reloj.GetUtcNow().UtcDateTime;
+        if (desfase.Duration() <= ParametrosSesion.UmbralDesfaseReloj)
+        {
+            _avisoRelojMostrado = false;
+            return;
+        }
+
+        if (_avisoRelojMostrado)
+        {
+            return;
+        }
+
+        _avisoRelojMostrado = true;
+        var minutos = (int)Math.Round(desfase.Duration().TotalMinutes);
+        var sentido = desfase < TimeSpan.Zero ? "adelantado" : "atrasado";
+        _logger.LogWarning("El reloj de esta PC está {Minutos} minutos {Sentido} respecto del servidor", minutos, sentido);
+        _avisos.AvisarAdvertencia(string.Create(
+            CultureInfo.CurrentCulture,
+            $"El reloj de esta PC está {minutos} minutos {sentido} respecto del servidor. Las fechas de las ventas se registran con la hora de esta PC: pida que se corrija la hora de Windows (sincronización automática)."));
+    }
+
+    /// <summary>
+    /// H12: cada <see cref="ParametrosSesion.LatidosEntreControlesDeEsquema"/> latidos comprueba, en un scope propio, si
+    /// la base se migró a una versión más nueva que esta aplicación (el chequeo de arranque no alcanza a una terminal ya
+    /// abierta). Avisa una sola vez y, una vez avisado, deja de consultar. Un fallo se registra y se ignora, como el del
+    /// resto del latido.
+    /// </summary>
+    private async Task VerificarEsquemaPeriodicamenteAsync(CancellationToken token)
+    {
+        if (_avisoEsquemaMostrado)
+        {
+            return;
+        }
+
+        _latidosDesdeElControlDeEsquema++;
+        if (_latidosDesdeElControlDeEsquema < ParametrosSesion.LatidosEntreControlesDeEsquema)
+        {
+            return;
+        }
+
+        _latidosDesdeElControlDeEsquema = 0;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var esquema = await scope.ServiceProvider
+                .GetRequiredService<IEsquemaBaseDatos>()
+                .ObtenerEstadoAsync(token);
+
+            if (esquema.MigracionesDesconocidas.Count > 0)
+            {
+                _avisoEsquemaMostrado = true;
+                _logger.LogWarning(
+                    "La base tiene migraciones que esta versión no conoce: {Migraciones}",
+                    string.Join(", ", esquema.MigracionesDesconocidas));
+                _avisos.AvisarAdvertencia(
+                    "La base de datos se actualizó a una versión más nueva de Retail. Termine la operación en curso, cierre la aplicación y actualícela en esta PC.");
+            }
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "No se pudo verificar el esquema de la base; se reintenta en unos latidos");
+        }
     }
 
     private void ActualizarMantenimiento(EstadoLatidoDto estado)

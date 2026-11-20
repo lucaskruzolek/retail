@@ -37,6 +37,11 @@ public sealed class AvisosSesion : IAvisosSesion
         _ = Dispatcher().InvokeAsync(() => Mostrar(mensaje, MessageBoxImage.Information));
     }
 
+    public void AvisarAdvertencia(string mensaje)
+    {
+        _ = Dispatcher().InvokeAsync(() => Mostrar(mensaje, MessageBoxImage.Warning));
+    }
+
     private static System.Windows.Threading.Dispatcher Dispatcher()
     {
         return System.Windows.Application.Current.Dispatcher;

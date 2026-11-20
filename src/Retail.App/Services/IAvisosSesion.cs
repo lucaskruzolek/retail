@@ -20,4 +20,10 @@ public interface IAvisosSesion
 
     /// <summary>Aviso no bloqueante de un mantenimiento programado: devuelve enseguida, sin esperar al usuario.</summary>
     void AvisarMantenimiento(string mensaje);
+
+    /// <summary>
+    /// Aviso no bloqueante de una advertencia (reloj de la PC desfasado, base más nueva que la aplicación): devuelve
+    /// enseguida, sin esperar al usuario.
+    /// </summary>
+    void AvisarAdvertencia(string mensaje);
 }
