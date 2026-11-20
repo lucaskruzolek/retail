@@ -34,11 +34,16 @@ public class SqlServerBloqueoRestauracion : IBloqueoRestauracion
 
     private readonly RetailDbContext _context;
     private readonly TimeSpan _esperaCompartido;
+    private readonly CadenaConexionMantenimiento _mantenimiento;
 
-    public SqlServerBloqueoRestauracion(RetailDbContext context, TimeSpan? esperaCompartido = null)
+    public SqlServerBloqueoRestauracion(
+        RetailDbContext context,
+        TimeSpan? esperaCompartido = null,
+        CadenaConexionMantenimiento? mantenimiento = null)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         _esperaCompartido = esperaCompartido ?? EsperaCompartidoPorDefecto;
+        _mantenimiento = mantenimiento ?? new CadenaConexionMantenimiento(null);
     }
 
     public async Task<IAsyncDisposable> AdquirirExclusivoAsync(CancellationToken cancellationToken = default)
@@ -68,8 +73,8 @@ public class SqlServerBloqueoRestauracion : IBloqueoRestauracion
     /// </summary>
     private async Task<IAsyncDisposable?> TomarAsync(string modo, TimeSpan espera, CancellationToken cancellationToken)
     {
-        var cadena = _context.Database.GetConnectionString()
-            ?? throw new InvalidOperationException("No hay una cadena de conexión configurada para la base.");
+        // H19: el bloqueo vive en master y es del servidor; usa la misma conexión de mantenimiento que la copia y la restauración.
+        var cadena = _mantenimiento.Obtener(_context);
 
         var recurso = PrefijoRecurso + BloqueoDeAplicacionSqlServer.ObtenerNombreDeBase(cadena);
         return await BloqueoDeAplicacionSqlServer.TomarAsync(cadena, recurso, modo, espera, cancellationToken);

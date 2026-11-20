@@ -3,6 +3,7 @@ using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Backups;
+using Retail.Application.DTOs.Sistema;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
@@ -34,11 +35,15 @@ public class BackupServiceTests
     private readonly IArchivosBackup _archivos = Substitute.For<IArchivosBackup>();
     private readonly IEsquemaBaseDatos _esquema = Substitute.For<IEsquemaBaseDatos>();
     private readonly IBloqueoRestauracion _bloqueo = Substitute.For<IBloqueoRestauracion>();
+    private readonly IEquipoServidor _equipoServidor = Substitute.For<IEquipoServidor>();
     private readonly BackupService _sut;
     private int _rutasGeneradas;
 
     public BackupServiceTests()
     {
+        _equipoServidor.ObtenerAsync(Arg.Any<CancellationToken>())
+            .Returns(new InformacionServidorDto { EsEstaPc = true, NombreEquipoServidor = "SERVIDOR" });
+
         _registros.FindAsync(Arg.Any<Expression<Func<RegistroBackup, bool>>>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
             .Returns(ci => _historial.Where(ci.Arg<Expression<Func<RegistroBackup, bool>>>().Compile()).ToList());
         _registros.ListAllAsync(Arg.Any<bool>(), Arg.Any<CancellationToken>())
@@ -70,7 +75,7 @@ public class BackupServiceTests
         _bloqueo.IntentarAdquirirExclusivoAsync(Arg.Any<CancellationToken>()).Returns((IAsyncDisposable?)null);
 
         _sut = new BackupService(
-            _registros, _usuarios, _unitOfWork, _authService, _ejecutor, _archivos, _esquema, _bloqueo,
+            _registros, _usuarios, _unitOfWork, _authService, _ejecutor, _archivos, _esquema, _bloqueo, _equipoServidor,
             new PoliticaBackup(CantidadMaximaCopias: 2, VersionApp: "1.0.0"));
     }
 
@@ -664,5 +669,37 @@ public class BackupServiceTests
         var act = async () => await _sut.ListarAsync(IdCajero);
 
         await act.Should().ThrowAsync<OperacionNoAutorizadaException>();
+    }
+
+    // ───────────────────── Regla "esta PC es el servidor" (MT-12) ─────────────────────
+
+    [Fact]
+    public async Task CrearBackupManualAsync_PcQueNoEsElServidor_LanzaOperacionSoloEnServidorSinCopiar()
+    {
+        // Arrange
+        _equipoServidor.ObtenerAsync(Arg.Any<CancellationToken>())
+            .Returns(new InformacionServidorDto { EsEstaPc = false, NombreEquipoServidor = "CAJA-SERVIDOR" });
+
+        // Act
+        var act = async () => await _sut.CrearBackupManualAsync(IdGerente, "Clave2026!");
+
+        // Assert: el mensaje nombra al servidor y no se hizo nada (ni siquiera se verificó la contraseña).
+        await act.Should().ThrowAsync<OperacionSoloEnServidorException>().WithMessage("*«CAJA-SERVIDOR»*");
+        await _authService.DidNotReceiveWithAnyArgs().VerificarCredencialAsync(default, default!, default);
+        await _ejecutor.DidNotReceiveWithAnyArgs().CrearCopiaAsync(default!, default, default);
+    }
+
+    [Fact]
+    public async Task ListarAsync_PcQueNoEsElServidor_SigueMostrandoElHistorial()
+    {
+        // Arrange
+        _equipoServidor.ObtenerAsync(Arg.Any<CancellationToken>())
+            .Returns(new InformacionServidorDto { EsEstaPc = false, NombreEquipoServidor = "CAJA-SERVIDOR" });
+
+        // Act
+        var historial = await _sut.ListarAsync(IdGerente);
+
+        // Assert
+        historial.Should().BeEmpty();
     }
 }

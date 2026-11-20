@@ -8,6 +8,7 @@ using Retail.Application.DTOs.Backups;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Infrastructure.Backups;
+using Retail.Infrastructure.Configuracion;
 using Retail.Infrastructure.ExternalServices.ArcaSdk;
 using Retail.Infrastructure.Hardware;
 using Retail.Infrastructure.Persistence.Concurrencia;
@@ -56,9 +57,9 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
 
         // 4. Persistencia en Entity Framework Core 8 (SQL Server Express)
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? configuration.GetConnectionString("RetailDatabase")
-            ?? @"Server=.;Database=RetailDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+        // La cadena sale de la configuración en capas (appsettings.json < appsettings.local.json < variables de entorno).
+        // Si hay BaseDeDatos:PasswordCifrada se descifra acá, al arrancar: un valor ilegible falla con un mensaje claro (MT-10).
+        var connectionString = CadenaDeConexion.Resolver(configuration);
 
         services.AddDbContext<RetailDbContext>(options =>
         {
@@ -95,6 +96,12 @@ public static class DependencyInjection
 
         // Restauración (D-17): bloqueo entre restores y copias (sp_getapplock sobre master).
         services.AddScoped<IBloqueoRestauracion, SqlServerBloqueoRestauracion>();
+
+        // Conexión de mantenimiento (H19): ConnectionStrings:Mantenimiento si existe; si no, la de la aplicación.
+        services.AddSingleton(new CadenaConexionMantenimiento(CadenaDeConexion.ResolverMantenimiento(configuration)));
+
+        // Regla "esta PC es el servidor" (MT-12): copias y restauración solo se hacen donde corre SQL Server.
+        services.AddScoped<IEquipoServidor, Retail.Infrastructure.Persistence.Services.EquipoServidorSqlServer>();
 
         // Regla "siempre queda un Gerente" (write skew entre terminales): bloqueo de aplicación por base.
         services.AddScoped<IBloqueoGerentes, SqlServerBloqueoGerentes>();

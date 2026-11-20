@@ -8,6 +8,7 @@ using Retail.Cli.Comandos;
 using Retail.Cli.Consola;
 using Retail.Domain.Exceptions;
 using Retail.Infrastructure;
+using Retail.Infrastructure.Configuracion;
 using Retail.Infrastructure.Logging;
 using Serilog;
 using Serilog.Events;
@@ -61,11 +62,21 @@ internal static class Program
 
         try
         {
+            // No necesita la base ni la configuración: se atiende antes de construir el host, para que también sirva cuando
+            // el valor cifrado guardado es ilegible y el host no puede arrancar.
+            if (args[0] == "cifrar-password")
+            {
+                return ComandoCifrarPassword.Ejecutar();
+            }
+
             // Los argumentos son del comando, no de configuración: no se pasan al host.
             var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
             {
                 ContentRootPath = AppContext.BaseDirectory
             });
+
+            // Configuración propia de esta PC (MT-7): %ProgramData%\Retail\appsettings.local.json, entre el JSON y las variables de entorno.
+            builder.Configuration.AgregarConfiguracionLocal();
 
             builder.Services.AddSerilog();
             builder.Services.AddApplicationServices();

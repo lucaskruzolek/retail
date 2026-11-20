@@ -57,4 +57,16 @@ public interface IRestauracionService
     /// <c>OperacionNoAutorizadaException</c>.
     /// </summary>
     Task<IReadOnlyList<RegistroRestauracionDto>> ListarRestauracionesAsync(int idActor, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Cantidad de terminales, distintas de esta, con una sesión vigente (MT-12). La interfaz la usa antes de restaurar para
+    /// esperar a que las demás terminales hayan salido. Lo consultan el Gerente y el Administrador.
+    /// </summary>
+    /// <remarks>
+    /// Contrato del mantenimiento: la interfaz programa el aviso (<c>ISesionService.ProgramarMantenimientoAsync</c>), espera
+    /// a que este conteo llegue a cero y recién entonces llama a una de las dos restauraciones de la aplicación. Si esa
+    /// restauración falla o se cancela, el servicio cancela el aviso por su cuenta; si tiene éxito, el aviso queda en la base
+    /// anterior y la restaurada arranca sin aviso (salvo que la copia lo trajera).
+    /// </remarks>
+    Task<int> ContarTerminalesConectadasAsync(int idActor, CancellationToken cancellationToken = default);
 }

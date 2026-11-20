@@ -29,6 +29,7 @@ public class BackupService : IBackupService
     private readonly IArchivosBackup _archivos;
     private readonly IEsquemaBaseDatos _esquema;
     private readonly IBloqueoRestauracion _bloqueo;
+    private readonly IEquipoServidor _equipoServidor;
     private readonly PoliticaBackup _politica;
 
     public BackupService(
@@ -40,6 +41,7 @@ public class BackupService : IBackupService
         IArchivosBackup archivos,
         IEsquemaBaseDatos esquema,
         IBloqueoRestauracion bloqueo,
+        IEquipoServidor equipoServidor,
         PoliticaBackup politica)
     {
         _registros = registros ?? throw new ArgumentNullException(nameof(registros));
@@ -50,6 +52,7 @@ public class BackupService : IBackupService
         _archivos = archivos ?? throw new ArgumentNullException(nameof(archivos));
         _esquema = esquema ?? throw new ArgumentNullException(nameof(esquema));
         _bloqueo = bloqueo ?? throw new ArgumentNullException(nameof(bloqueo));
+        _equipoServidor = equipoServidor ?? throw new ArgumentNullException(nameof(equipoServidor));
         _politica = politica ?? throw new ArgumentNullException(nameof(politica));
     }
 
@@ -76,6 +79,9 @@ public class BackupService : IBackupService
         IProgress<int>? progreso = null,
         CancellationToken cancellationToken = default)
     {
+        // MT-12: antes que cualquier otra cosa, incluso que la autorización. El historial (ListarAsync) no pasa por acá.
+        await ExigirPcServidorAsync(cancellationToken);
+
         var actor = await ObtenerActorAsync(idActor, cancellationToken);
 
         // La copia contiene la base completa (datos personales, Ley 25.326): la piden el Gerente o el Administrador
@@ -412,6 +418,19 @@ public class BackupService : IBackupService
     {
         return await _esquema.ObtenerUltimaMigracionAplicadaAsync(cancellationToken)
             ?? throw new DomainException("La base no tiene migraciones aplicadas: no hay nada que respaldar.");
+    }
+
+    /// <summary>
+    /// MT-12: la copia manual se hace solo en la PC servidor (escribe en su disco). La tarea programada y la copia previa a
+    /// migrar corren en el servidor y no pasan por esta regla.
+    /// </summary>
+    private async Task ExigirPcServidorAsync(CancellationToken cancellationToken)
+    {
+        var servidor = await _equipoServidor.ObtenerAsync(cancellationToken);
+        if (!servidor.EsEstaPc)
+        {
+            throw new OperacionSoloEnServidorException(servidor.NombreEquipoServidor);
+        }
     }
 
     private async Task<Usuario> ObtenerActorAsync(int idActor, CancellationToken cancellationToken)
