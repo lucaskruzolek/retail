@@ -3,6 +3,7 @@ using FluentAssertions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.UnitTests.TestData;
@@ -336,6 +337,100 @@ public class ClienteServiceTests
             .WithMessage("*no puede ser inferior a la deuda*");
         _unitOfWork.Received(1).DescartarCambios();
         await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ActualizarClienteAsync_ConflictoDeConcurrencia_LanzaConflictoConMensajeClaro()
+    {
+        // Arrange
+        var clienteExistente = ClientesDePrueba.Crear(id: 3, razonSocialONombre: "Nombre Original", numeroDocumento: "30111111118", tipoDocumento: TipoDocumentoEnum.Cuit);
+
+        var dto = new ActualizarClienteDto
+        {
+            IdCliente = 3,
+            RazonSocialONombre = "Nombre Modificado",
+            TipoDocumento = TipoDocumentoEnum.Cuit,
+            NumeroDocumento = "30-11111111-8",
+            CondicionIva = CondicionIvaEnum.ResponsableInscripto,
+            TieneCuentaCorriente = false,
+            LimiteCredito = 0m
+        };
+
+        _clienteRepository.GetByIdAsync(3, Arg.Any<CancellationToken>()).Returns(clienteExistente);
+        _clienteRepository.FindAsync(Arg.Any<Expression<Func<Cliente, bool>>>(), Arg.Any<CancellationToken>())
+            .Returns(new List<Cliente>());
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new ConflictoDeConcurrenciaException());
+
+        // Act
+        var act = async () => await _sut.ActualizarClienteAsync(dto);
+
+        // Assert
+        var excepcion = await act.Should().ThrowAsync<ConflictoDeConcurrenciaException>();
+        excepcion.WithMessage("*Otro usuario modificó este cliente*");
+        excepcion.And.InnerException.Should().BeOfType<ConflictoDeConcurrenciaException>();
+    }
+
+    [Fact]
+    public async Task RegistrarCobranzaAsync_ConflictoDeConcurrenciaEnElGuardado_DescartaYLanzaConflictoConMensajeClaro()
+    {
+        // Arrange
+        ConfigurarCobranzaConFalloEnCaja(new ConflictoDeConcurrenciaException());
+
+        // Act
+        var act = async () => await _sut.RegistrarCobranzaAsync(NuevaCobranza());
+
+        // Assert
+        var excepcion = await act.Should().ThrowAsync<ConflictoDeConcurrenciaException>();
+        excepcion.WithMessage("*La cuenta del cliente cambió en otra terminal*");
+        _unitOfWork.Received(1).DescartarCambios();
+        await _ticketPrinterService.DidNotReceiveWithAnyArgs().ImprimirReciboCobranzaAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task RegistrarCobranzaAsync_CajaCerradaEnOtraTerminal_PasaSinCambiosYDescarta()
+    {
+        // Arrange
+        ConfigurarCobranzaConFalloEnCaja(new CajaCerradaException("El turno de caja fue cerrado desde otra terminal."));
+
+        // Act
+        var act = async () => await _sut.RegistrarCobranzaAsync(NuevaCobranza());
+
+        // Assert
+        await act.Should().ThrowAsync<CajaCerradaException>().WithMessage("*cerrado desde otra terminal*");
+        _unitOfWork.Received(1).DescartarCambios();
+    }
+
+    private void ConfigurarCobranzaConFalloEnCaja(Exception fallo)
+    {
+        var cliente = ClientesDePrueba.Crear(id: 10, razonSocialONombre: "Papelería Central", tieneCuentaCorriente: true, limiteCredito: 50000m, saldoCuentaCorriente: 20000m);
+
+        _cajaService.ObtenerTurnoActivoAsync(Arg.Any<CancellationToken>())
+            .Returns(new Retail.Application.DTOs.Caja.TurnoCajaDto
+            {
+                IdTurno = 1,
+                IdUsuario = 1,
+                FechaApertura = DateTime.UtcNow.Date,
+                SaldoInicial = 5000m,
+                Estado = EstadoTurnoEnum.Abierto
+            });
+
+        _clienteRepository.GetByIdWithIncludesAsync(10, Arg.Any<CancellationToken>(), Arg.Any<Expression<Func<Cliente, object>>[]>())
+            .Returns(cliente);
+
+        _cajaService.RegistrarIngresoCobranzaAsync(1, 8000m, MedioPagoEnum.Efectivo, Arg.Any<CancellationToken>())
+            .ThrowsAsync(fallo);
+    }
+
+    private static RegistrarCobranzaDto NuevaCobranza()
+    {
+        return new RegistrarCobranzaDto
+        {
+            IdCliente = 10,
+            IdTurno = 1,
+            IdUsuario = 1,
+            Monto = 8000m,
+            MedioPago = MedioPagoEnum.Efectivo
+        };
     }
 
     [Fact]

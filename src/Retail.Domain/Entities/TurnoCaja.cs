@@ -39,6 +39,15 @@ public class TurnoCaja : BaseEntity, IAggregateRoot
 
     public decimal MontoRetenidoEnCaja { get; private set; }
 
+    /// <summary>
+    /// Cantidad de ventas imputadas al turno. Además de su valor de negocio, garantiza que toda venta modifique la
+    /// fila del turno: así el token de concurrencia (rowversion) se verifica aun cuando la venta no mueve dinero de
+    /// la gaveta (100 % cuenta corriente o total $0). Sin este contador, EF Core no emitiría ningún UPDATE y la venta
+    /// podría confirmarse sobre un turno que un encargado cerró desde otra terminal (hallazgo H18 de
+    /// docs/auditorias/auditoria-concurrencia-multiterminal.md).
+    /// </summary>
+    public int CantidadVentas { get; private set; }
+
     public EstadoTurnoEnum Estado { get; private set; } = EstadoTurnoEnum.Abierto;
 
     public IReadOnlyCollection<MovimientoCaja> Movimientos => _movimientos.AsReadOnly();
@@ -127,6 +136,10 @@ public class TurnoCaja : BaseEntity, IAggregateRoot
 
         if (totalEfectivo < 0 || totalElectronico < 0)
             throw new DomainException("Los montos de venta no pueden ser negativos.");
+
+        // Se incrementa siempre, incluso si la venta no mueve efectivo ni dinero electrónico: "materializa el
+        // conflicto" para que el rowversion del turno se verifique (H18).
+        CantidadVentas++;
 
         if (totalEfectivo > 0)
         {

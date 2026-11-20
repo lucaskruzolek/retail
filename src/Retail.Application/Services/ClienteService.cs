@@ -1,5 +1,6 @@
 using FluentValidation;
 using Retail.Application.DTOs.Clientes;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
@@ -222,7 +223,18 @@ public class ClienteService : IClienteService
             throw;
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictoDeConcurrenciaException ex)
+        {
+            // El rowversion del cliente detecta, por ejemplo, una venta a crédito registrada en otra terminal
+            // mientras se editaba el límite (H2).
+            throw new ConflictoDeConcurrenciaException(
+                "Otro usuario modificó este cliente (por ejemplo, registró una venta a crédito) mientras lo editaba. Vuelva a abrirlo para ver los datos actualizados.",
+                ex);
+        }
     }
 
     public async Task BajaClienteAsync(int idCliente, CancellationToken cancellationToken = default)
@@ -299,6 +311,15 @@ public class ClienteService : IClienteService
         try
         {
             await _cajaService.RegistrarIngresoCobranzaAsync(dto.IdTurno, dto.Monto, dto.MedioPago, cancellationToken);
+        }
+        catch (ConflictoDeConcurrenciaException ex)
+        {
+            // El guardado único falló porque el cliente o el turno cambiaron en otra terminal. CajaService ya
+            // convirtió en CajaCerradaException el caso del turno cerrado (que pasa por el catch genérico).
+            _unitOfWork.DescartarCambios();
+            throw new ConflictoDeConcurrenciaException(
+                "La cuenta del cliente cambió en otra terminal mientras se registraba la cobranza. Vuelva a intentarlo.",
+                ex);
         }
         catch
         {

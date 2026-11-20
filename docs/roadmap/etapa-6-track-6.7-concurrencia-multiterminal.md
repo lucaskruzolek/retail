@@ -18,7 +18,7 @@ compartidas (Ley 10): se coordinan con Pablo antes de empezar.
 | Paquete | Contenido | Hallazgos | Estado |
 | :--- | :--- | :--- | :---: |
 | 0 | ERS: reescribir `RNF-05` y agregar los RNF nuevos | Fase 0 | ✅ `RNF-05` reescrito, `RNF-10` a `RNF-12` y `RF-15` ampliado |
-| 1 | Concurrencia optimista de caja y clientes | H2, H3, H18, MT-11 | ⏳ |
+| 1 | Concurrencia optimista de caja y clientes | H2, H3, H18, MT-11 | ✅ Migración `ConcurrenciaCajaYClientes`; 963 tests de dominio, 1.182 de aplicación y 528 de integración en verde. El paso 1.6 pasó al Paquete 3 |
 | 2 | *Write skew* y unicidades | H4, H5 | ⏳ |
 | 3 | Identidad de la terminal y turno por cajero y terminal | H1, MT-1, MT-5, MT-9, MT-13, MT-14 | ⏳ |
 | 4 | Instancia única, sesión única y modo mantenimiento | H8, H13, MT-2, MT-3, MT-6, H10 (sesiones) | ⏳ |
@@ -103,7 +103,7 @@ sequenceDiagram
 | 1.3 | Tests (rojo) | `tests/Retail.Infrastructure.IntegrationTests/ConcurrenciaCajaTests.cs` (nuevo) | Dos scopes de DI, sin hilos: (a) cierre y venta en efectivo; (b) cierre y venta 100 % a cuenta corriente (H18); (c) dos ventas a crédito al mismo cliente (H2); (d) cobranza y edición del límite de crédito. Todos esperan `ConflictoDeConcurrenciaException` en la segunda escritura |
 | 1.4 | Infraestructura | `TurnoCajaConfiguration.cs`, `ClienteConfiguration.cs` | Propiedad sombra `RowVersion` con `.IsRowVersion()`, igual que `ArticuloConfiguration.cs:144`. Columna `cantidad_ventas` con `CHECK (cantidad_ventas >= 0)` (Ley 7 de persistencia) |
 | 1.5 | Infraestructura | Migración `ConcurrenciaCajaYClientes` | Agrega las dos `rowversion` y `cantidad_ventas`. Para los turnos existentes, `cantidad_ventas` se calcula desde `VENTAS` en la propia migración, para que el dato histórico sea correcto |
-| 1.6 | Aplicación | `CajaService.cs` (cierre) y su DTO de arqueo | El DTO del cierre lleva la versión leída del turno (bloqueo optimista largo, como `ListaService.cs:110-113`); el servicio la compara antes de cerrar |
+| 1.6 | Aplicación | `CajaService.cs` (cierre) y su DTO de arqueo | **Movido al Paquete 3 (paso 3.6).** La `rowversion` es una propiedad sombra que la capa de Aplicación no ve, y el cierre remoto del Gerente, donde el bloqueo optimista largo importa, se construye recién con las terminales. Mientras tanto, la `rowversion` ya rechaza un cierre que choca con una operación posterior a la carga del turno |
 | 1.7 | Aplicación | `VentaService.cs`, `ClienteService.cs`, `CajaService.cs` | Traducir `ConflictoDeConcurrenciaException` a un mensaje según quién ganó (cierre o venta), con el patrón `catch … when` de `PresupuestoService.ReemplazarAsync` |
 | 1.8 | UI | `PosViewModel.cs`, `CajaViewModel.cs`, `CobranzaModalViewModel.cs` y el ViewModel del formulario de cliente | Mostrar el mensaje y recargar el turno o el cliente. Sin cambios de XAML previstos; si aparecen, rige el bucle de capturas (Ley 9) |
 | 1.9 | Tests (verde) | Suites de Dominio, Aplicación e Integración | Más un test de UI por ViewModel que verifique el mensaje ante el conflicto |

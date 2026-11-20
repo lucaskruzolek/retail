@@ -894,6 +894,48 @@ public class VentaServiceTests
         return cliente;
     }
 
+    [Fact]
+    public async Task RegistrarVentaAsync_ConflictoYTurnoCerradoEnOtraTerminal_LanzaCajaCerrada()
+    {
+        // Arrange: la primera lectura ve el turno abierto; tras el conflicto, la relectura lo encuentra cerrado.
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+        var turnoCerrado = TurnoCaja.Abrir(IdUsuario, saldoInicial: 5000m);
+        turnoCerrado.Id = IdTurno;
+        turnoCerrado.CerrarConArqueoCiego(5000m, 0m);
+        _turnoRepository.GetByIdAsync(IdTurno, Arg.Any<CancellationToken>()).Returns(_turno, turnoCerrado);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new ConflictoDeConcurrenciaException());
+
+        var dto = CrearDto([Item(cuaderno, 1)], [Pago(MedioPagoEnum.Efectivo, 1500m)]);
+
+        // Act
+        var act = async () => await _sut.RegistrarVentaAsync(dto);
+
+        // Assert
+        var excepcion = await act.Should().ThrowAsync<CajaCerradaException>();
+        excepcion.WithMessage("*cerrado desde otra terminal*");
+        excepcion.And.InnerException.Should().BeOfType<ConflictoDeConcurrenciaException>();
+        await _ticketPrinterService.DidNotReceiveWithAnyArgs().ImprimirTicketVentaAsync(default!, default);
+    }
+
+    [Fact]
+    public async Task RegistrarVentaAsync_ConflictoConTurnoAunAbierto_RelanzaElConflictoOriginal()
+    {
+        // Arrange: el conflicto lo causó otro agregado (por ejemplo, el stock): el turno sigue abierto.
+        var cuaderno = CrearArticulo(10, "Cuaderno", precio: 1500m, stock: 8);
+        ConfigurarArticulos(cuaderno);
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new ConflictoDeConcurrenciaException());
+
+        var dto = CrearDto([Item(cuaderno, 1)], [Pago(MedioPagoEnum.Efectivo, 1500m)]);
+
+        // Act
+        var act = async () => await _sut.RegistrarVentaAsync(dto);
+
+        // Assert
+        await act.Should().ThrowAsync<ConflictoDeConcurrenciaException>();
+        await _ticketPrinterService.DidNotReceiveWithAnyArgs().ImprimirTicketVentaAsync(default!, default);
+    }
+
     private static DetalleVentaDto Item(Articulo articulo, int cantidad)
     {
         return new DetalleVentaDto

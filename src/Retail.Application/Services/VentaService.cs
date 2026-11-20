@@ -2,6 +2,7 @@ using FluentValidation;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Presupuestos;
 using Retail.Application.DTOs.Ventas;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
@@ -294,7 +295,25 @@ public class VentaService : IVentaService
         // 6. Un único SaveChanges: EF Core guarda la venta con sus ítems y pagos, el stock, el turno, la cuenta
         //    corriente y el presupuesto convertido en una sola transacción de SQL Server. O se guarda todo, o nada (RF-10). Si falla, la Unit of
         //    Work descarta los cambios en memoria para que no se guarden con la próxima venta.
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConflictoDeConcurrenciaException ex)
+        {
+            // La Unit of Work solo sabe que "algo" cambió entre la lectura y el guardado, no qué agregado. Ya
+            // descartó el ChangeTracker, así que se relee el turno para diagnosticar: si otra terminal lo cerró
+            // (MT-11, H3, H18), el cajero necesita ese motivo y no el genérico "otro usuario modificó los datos".
+            var turnoActual = await _turnoRepository.GetByIdAsync(dto.IdTurno, cancellationToken);
+            if (turnoActual == null || turnoActual.Estado != EstadoTurnoEnum.Abierto)
+            {
+                throw new CajaCerradaException(
+                    "Su turno de caja fue cerrado desde otra terminal. La venta no se registró y el ticket se conserva.",
+                    ex);
+            }
+
+            throw;
+        }
 
         // Una unidad de trabajo por venta (D-15): se liberan las entidades guardadas para que la próxima venta lea
         // stock y rowversion frescos y no choque con un conflicto falso si otra terminal modificó esos artículos.

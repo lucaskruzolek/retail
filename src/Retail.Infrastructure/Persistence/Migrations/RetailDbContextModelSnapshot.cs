@@ -383,6 +383,12 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasColumnName("razon_social_o_nombre")
                         .UseCollation("Modern_Spanish_CI_AI");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
+
                     b.Property<decimal>("SaldoCuentaCorriente")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
@@ -1797,6 +1803,10 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("CantidadVentas")
+                        .HasColumnType("int")
+                        .HasColumnName("cantidad_ventas");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2")
                         .HasColumnName("created_at");
@@ -1832,6 +1842,12 @@ namespace Retail.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)")
                         .HasColumnName("monto_retenido_en_caja");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion")
+                        .HasColumnName("row_version");
 
                     b.Property<decimal?>("SaldoDeclaradoEfectivo")
                         .HasPrecision(18, 2)
@@ -1879,6 +1895,8 @@ namespace Retail.Infrastructure.Persistence.Migrations
 
                     b.ToTable("TURNOS_CAJA", null, t =>
                         {
+                            t.HasCheckConstraint("CK_TURNOS_CAJA_CantidadVentas", "[cantidad_ventas] >= 0");
+
                             t.HasCheckConstraint("CK_TURNOS_CAJA_Saldos", "[saldo_inicial] >= 0 AND [total_ventas_efectivo] >= 0 AND [total_ingresos_efectivo] >= 0 AND [total_egresos_efectivo] >= 0 AND [total_ventas_electronicas] >= 0 AND [monto_retenido_en_caja] >= 0");
                         });
                 });

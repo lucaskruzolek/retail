@@ -14,4 +14,9 @@ public class CajaCerradaException : DomainException
         : base(message)
     {
     }
+
+    public CajaCerradaException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
 }
