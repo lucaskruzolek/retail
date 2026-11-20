@@ -78,7 +78,10 @@ public class MarcaService : IMarcaService
         var entidad = Marca.Crear(nombre);
 
         await _repository.AddAsync(entidad, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await PersistenciaDiccionarios.GuardarAsync(
+            _unitOfWork,
+            $"Ya existe una marca activa con el nombre '{nombre}'.",
+            cancellationToken);
 
         return new MarcaDto
         {
@@ -117,7 +120,10 @@ public class MarcaService : IMarcaService
         entidad.Renombrar(nombre);
 
         await _repository.UpdateAsync(entidad, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await PersistenciaDiccionarios.GuardarAsync(
+            _unitOfWork,
+            $"Ya existe una marca activa con el nombre '{nombre}'.",
+            cancellationToken);
     }
 
     public async Task BajaAsync(int idActor, int idMarca, CancellationToken cancellationToken = default)

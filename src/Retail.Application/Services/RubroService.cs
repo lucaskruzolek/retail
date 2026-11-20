@@ -64,7 +64,10 @@ public class RubroService : IRubroService
         var entidad = Rubro.Crear(nombre);
 
         await _repository.AddAsync(entidad, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await PersistenciaDiccionarios.GuardarAsync(
+            _unitOfWork,
+            $"Ya existe un rubro activo con el nombre '{nombre}'.",
+            cancellationToken);
 
         return new RubroDto
         {
@@ -101,7 +104,10 @@ public class RubroService : IRubroService
         entidad.Renombrar(nombre);
 
         await _repository.UpdateAsync(entidad, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await PersistenciaDiccionarios.GuardarAsync(
+            _unitOfWork,
+            $"Ya existe un rubro activo con el nombre '{nombre}'.",
+            cancellationToken);
     }
 
     public async Task BajaAsync(int idActor, int idRubro, CancellationToken cancellationToken = default)

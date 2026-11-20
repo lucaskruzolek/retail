@@ -1,8 +1,7 @@
-using System.Data;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
+using Retail.Infrastructure.Persistence.Concurrencia;
 using Retail.Infrastructure.Persistence.Context;
 
 namespace Retail.Infrastructure.Backups;
@@ -67,88 +66,12 @@ public class SqlServerBloqueoRestauracion : IBloqueoRestauracion
     /// Intenta tomar el bloqueo esperando como máximo <paramref name="espera"/> (cero: no espera). Devuelve <c>null</c> si
     /// no está disponible.
     /// </summary>
-    private async Task<BloqueoAplicacion?> TomarAsync(string modo, TimeSpan espera, CancellationToken cancellationToken)
+    private async Task<IAsyncDisposable?> TomarAsync(string modo, TimeSpan espera, CancellationToken cancellationToken)
     {
         var cadena = _context.Database.GetConnectionString()
             ?? throw new InvalidOperationException("No hay una cadena de conexión configurada para la base.");
 
-        var constructor = new SqlConnectionStringBuilder(cadena);
-        var recurso = PrefijoRecurso + constructor.InitialCatalog;
-        constructor.InitialCatalog = "master";
-        constructor.Pooling = false;
-
-        var conexion = new SqlConnection(constructor.ConnectionString);
-        try
-        {
-            await conexion.OpenAsync(cancellationToken);
-
-            await using var comando = conexion.CreateCommand();
-            comando.CommandText =
-                "DECLARE @r int; " +
-                "EXEC @r = sp_getapplock @Resource = @recurso, @LockMode = @modo, @LockOwner = 'Session', @LockTimeout = @espera; " +
-                "SELECT @r;";
-            comando.Parameters.AddWithValue("@recurso", recurso);
-            comando.Parameters.AddWithValue("@modo", modo);
-            comando.Parameters.AddWithValue("@espera", (int)espera.TotalMilliseconds);
-            comando.CommandTimeout = Math.Max(30, (int)espera.TotalSeconds + 30);
-
-            var resultado = (int)(await comando.ExecuteScalarAsync(cancellationToken))!;
-            if (resultado < 0)
-            {
-                await conexion.DisposeAsync();
-                return null;
-            }
-
-            return new BloqueoAplicacion(conexion, recurso);
-        }
-        catch
-        {
-            await conexion.DisposeAsync();
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// Mantiene viva la conexión que sostiene el bloqueo de sesión; al liberarlo lo suelta y cierra la conexión.
-    /// </summary>
-    private sealed class BloqueoAplicacion : IAsyncDisposable
-    {
-        private readonly SqlConnection _conexion;
-        private readonly string _recurso;
-        private int _liberado;
-
-        public BloqueoAplicacion(SqlConnection conexion, string recurso)
-        {
-            _conexion = conexion;
-            _recurso = recurso;
-        }
-
-        public async ValueTask DisposeAsync()
-        {
-            // Idempotente: solo la primera llamada libera.
-            if (Interlocked.Exchange(ref _liberado, 1) == 1)
-            {
-                return;
-            }
-
-            try
-            {
-                if (_conexion.State == ConnectionState.Open)
-                {
-                    await using var comando = _conexion.CreateCommand();
-                    comando.CommandText = "EXEC sp_releaseapplock @Resource = @recurso, @LockOwner = 'Session';";
-                    comando.Parameters.AddWithValue("@recurso", _recurso);
-                    await comando.ExecuteNonQueryAsync();
-                }
-            }
-            catch (Exception ex) when (ex is SqlException or InvalidOperationException)
-            {
-                // Se ignora: cerrar la conexión (sin pool) libera igualmente el bloqueo de sesión.
-            }
-            finally
-            {
-                await _conexion.DisposeAsync();
-            }
-        }
+        var recurso = PrefijoRecurso + BloqueoDeAplicacionSqlServer.ObtenerNombreDeBase(cadena);
+        return await BloqueoDeAplicacionSqlServer.TomarAsync(cadena, recurso, modo, espera, cancellationToken);
     }
 }

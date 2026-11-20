@@ -2,7 +2,9 @@ using System.Linq.Expressions;
 using FluentAssertions;
 using FluentValidation;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
 using Retail.Application.Validators.Articulos;
@@ -286,5 +288,15 @@ public class RubroServiceTests
         entidad.IsDeleted.Should().BeTrue();
         await _repository.Received(1).UpdateAsync(entidad, Arg.Any<CancellationToken>());
         await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Crear_ConflictoDeUnicidadConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice único")));
+
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearRubroDto { Nombre = "Repetido" });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("Ya existe un rubro activo con el nombre 'Repetido'.");
     }
 }

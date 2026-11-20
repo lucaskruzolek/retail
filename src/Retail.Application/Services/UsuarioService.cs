@@ -1,6 +1,7 @@
 using FluentValidation;
 using FluentValidation.Results;
 using Retail.Application.DTOs.Usuarios;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
@@ -21,6 +22,7 @@ public class UsuarioService : IUsuarioService
     private readonly IRepository<Usuario> _usuarioRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IBloqueoGerentes _bloqueoGerentes;
     private readonly IValidator<CrearUsuarioDto> _crearUsuarioValidator;
     private readonly IValidator<ModificarUsuarioDto> _modificarUsuarioValidator;
     private readonly IValidator<CambiarPasswordDto> _cambiarPasswordValidator;
@@ -29,6 +31,7 @@ public class UsuarioService : IUsuarioService
         IRepository<Usuario> usuarioRepository,
         IUnitOfWork unitOfWork,
         IPasswordHasher passwordHasher,
+        IBloqueoGerentes bloqueoGerentes,
         IValidator<CrearUsuarioDto> crearUsuarioValidator,
         IValidator<ModificarUsuarioDto> modificarUsuarioValidator,
         IValidator<CambiarPasswordDto> cambiarPasswordValidator)
@@ -36,6 +39,7 @@ public class UsuarioService : IUsuarioService
         _usuarioRepository = usuarioRepository ?? throw new ArgumentNullException(nameof(usuarioRepository));
         _unitOfWork = unitOfWork ?? throw new ArgumentNullException(nameof(unitOfWork));
         _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
+        _bloqueoGerentes = bloqueoGerentes ?? throw new ArgumentNullException(nameof(bloqueoGerentes));
         _crearUsuarioValidator = crearUsuarioValidator ?? throw new ArgumentNullException(nameof(crearUsuarioValidator));
         _modificarUsuarioValidator = modificarUsuarioValidator ?? throw new ArgumentNullException(nameof(modificarUsuarioValidator));
         _cambiarPasswordValidator = cambiarPasswordValidator ?? throw new ArgumentNullException(nameof(cambiarPasswordValidator));
@@ -119,7 +123,16 @@ public class UsuarioService : IUsuarioService
             dto.EmailRecuperacion);
 
         await _usuarioRepository.AddAsync(nuevoUsuario, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            // Otra terminal dio de alta el mismo nombre entre la comprobación y el guardado: el índice único es la
+            // garantía final.
+            throw new DomainException($"El nombre de usuario '{usernameNormalizado}' ya se encuentra registrado en el sistema.", ex);
+        }
 
         return MapToDto(nuevoUsuario, actor);
     }
@@ -147,15 +160,30 @@ public class UsuarioService : IUsuarioService
         ExigirAutoridadSobreRol(actor, (RolUsuarioEnum)usuario.IdRol);
         ExigirAutoridadSobreRol(actor, dto.Rol);
 
-        if (usuario.EsGerente() && dto.Rol != RolUsuarioEnum.Gerente)
+        // Write skew: quitar el rol Gerente exige contar los Gerentes y guardar sin que otra terminal haga lo mismo
+        // con otro Gerente en el medio. El bloqueo cubre la validación y el guardado.
+        var quitaElRolGerente = usuario.EsGerente() && dto.Rol != RolUsuarioEnum.Gerente;
+        IAsyncDisposable? bloqueo = null;
+        try
         {
-            await ExigirQueNoSeaElUltimoGerenteAsync(usuario.Id, cancellationToken);
+            if (quitaElRolGerente)
+            {
+                bloqueo = await _bloqueoGerentes.AdquirirAsync(cancellationToken);
+                await ExigirQueNoSeaElUltimoGerenteAsync(usuario.Id, cancellationToken);
+            }
+
+            usuario.ActualizarDatos(dto.Nombre, dto.Apellido, dto.Rol, dto.EmailRecuperacion);
+
+            await _usuarioRepository.UpdateAsync(usuario, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
-
-        usuario.ActualizarDatos(dto.Nombre, dto.Apellido, dto.Rol, dto.EmailRecuperacion);
-
-        await _usuarioRepository.UpdateAsync(usuario, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        finally
+        {
+            if (bloqueo is not null)
+            {
+                await bloqueo.DisposeAsync();
+            }
+        }
 
         return MapToDto(usuario, actor);
     }
@@ -177,13 +205,28 @@ public class UsuarioService : IUsuarioService
 
         ExigirAutoridadSobreRol(actor, (RolUsuarioEnum)usuario.IdRol);
 
-        if (usuario.EsGerente())
+        // Write skew: con dos Gerentes, dos terminales que den de baja a uno distinto cada una pasarían ambas la
+        // validación y dejarían cero. Un rowversion no lo evita (cada una toca una fila distinta); por eso se
+        // serializa con un bloqueo de aplicación que cubre la validación y el guardado.
+        IAsyncDisposable? bloqueo = null;
+        try
         {
-            await ExigirQueNoSeaElUltimoGerenteAsync(usuario.Id, cancellationToken);
-        }
+            if (usuario.EsGerente())
+            {
+                bloqueo = await _bloqueoGerentes.AdquirirAsync(cancellationToken);
+                await ExigirQueNoSeaElUltimoGerenteAsync(usuario.Id, cancellationToken);
+            }
 
-        await _usuarioRepository.DeleteAsync(usuario, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+            await _usuarioRepository.DeleteAsync(usuario, cancellationToken);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        finally
+        {
+            if (bloqueo is not null)
+            {
+                await bloqueo.DisposeAsync();
+            }
+        }
     }
 
     public async Task CambiarPasswordAsync(int idActor, CambiarPasswordDto dto, CancellationToken cancellationToken = default)

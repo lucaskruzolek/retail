@@ -2,7 +2,9 @@ using System.Linq.Expressions;
 using FluentAssertions;
 using FluentValidation;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Usuarios;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Infrastructure;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Services;
@@ -24,6 +26,7 @@ public class UsuarioServiceTests
     private readonly IRepository<Usuario> _usuarioRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IBloqueoGerentes _bloqueoGerentes;
     private readonly UsuarioService _sut;
 
     public UsuarioServiceTests()
@@ -31,11 +34,15 @@ public class UsuarioServiceTests
         _usuarioRepository = Substitute.For<IRepository<Usuario>>();
         _unitOfWork = Substitute.For<IUnitOfWork>();
         _passwordHasher = Substitute.For<IPasswordHasher>();
+        _bloqueoGerentes = Substitute.For<IBloqueoGerentes>();
+        _bloqueoGerentes.AdquirirAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Substitute.For<IAsyncDisposable>()));
 
         _sut = new UsuarioService(
             _usuarioRepository,
             _unitOfWork,
             _passwordHasher,
+            _bloqueoGerentes,
             new CrearUsuarioValidator(),
             new ModificarUsuarioValidator(),
             new CambiarPasswordValidator());
@@ -74,6 +81,18 @@ public class UsuarioServiceTests
         Rol = rol,
         EmailRecuperacion = email
     };
+
+    /// <summary>
+    /// Bloqueo falso que avisa cuándo se libera, para verificar el orden respecto del guardado.
+    /// </summary>
+    private sealed class BloqueoRegistrador(Action alLiberar) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync()
+        {
+            alLiberar();
+            return ValueTask.CompletedTask;
+        }
+    }
 
     private void SinDuplicados()
     {
@@ -619,6 +638,138 @@ public class UsuarioServiceTests
         await _usuarioRepository.DidNotReceive().DeleteAsync(Arg.Any<Usuario>(), Arg.Any<CancellationToken>());
     }
 
+    // ───────────────────────────── Bloqueo de Gerentes (write skew) ─────────────────────────────
+
+    [Fact]
+    public async Task BajaUsuarioAsync_Gerente_TomaElBloqueoAntesDeContarYLoLiberaDespuesDeGuardar()
+    {
+        // Arrange: hay otro Gerente, así que la baja procede; se registra el orden exacto de las llamadas.
+        var gerente1 = RegistrarEnRepositorio(CrearUsuario(1, "gerente1", RolUsuarioEnum.Gerente));
+        var gerente2 = CrearUsuario(2, "gerente2", RolUsuarioEnum.Gerente);
+        var orden = new List<string>();
+
+        var bloqueo = new BloqueoRegistrador(() => orden.Add("liberar"));
+        _bloqueoGerentes.AdquirirAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            orden.Add("adquirir");
+            return Task.FromResult<IAsyncDisposable>(bloqueo);
+        });
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: false, Arg.Any<CancellationToken>())
+            .Returns(_ =>
+            {
+                orden.Add("contar");
+                return new List<Usuario> { gerente1, gerente2 };
+            });
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            orden.Add("guardar");
+            return Task.FromResult(1);
+        });
+
+        // Act
+        await _sut.BajaUsuarioAsync(IdGerente, 1);
+
+        // Assert
+        orden.Should().Equal("adquirir", "contar", "guardar", "liberar");
+    }
+
+    [Fact]
+    public async Task BajaUsuarioAsync_Cajero_NoTomaElBloqueo()
+    {
+        // Arrange
+        RegistrarEnRepositorio(CrearUsuario(5, "cajero", RolUsuarioEnum.Cajero));
+
+        // Act
+        await _sut.BajaUsuarioAsync(IdGerente, 5);
+
+        // Assert
+        await _bloqueoGerentes.DidNotReceive().AdquirirAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BajaUsuarioAsync_ConBloqueoNoDisponible_PropagaConflictoYNoGuarda()
+    {
+        // Arrange
+        RegistrarEnRepositorio(CrearUsuario(1, "gerente1", RolUsuarioEnum.Gerente));
+        _bloqueoGerentes.AdquirirAsync(Arg.Any<CancellationToken>())
+            .Returns<Task<IAsyncDisposable>>(_ => throw new ConflictoDeConcurrenciaException("Otra terminal."));
+
+        // Act
+        var act = async () => await _sut.BajaUsuarioAsync(IdGerente, 1);
+
+        // Assert
+        await act.Should().ThrowAsync<ConflictoDeConcurrenciaException>();
+        await _usuarioRepository.DidNotReceive().DeleteAsync(Arg.Any<Usuario>(), Arg.Any<CancellationToken>());
+        await _unitOfWork.DidNotReceive().SaveChangesAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task BajaUsuarioAsync_UltimoGerente_LiberaElBloqueoAunqueFalleLaValidacion()
+    {
+        // Arrange
+        var unicoGerente = RegistrarEnRepositorio(CrearUsuario(1, "admin", RolUsuarioEnum.Gerente));
+        var bloqueo = Substitute.For<IAsyncDisposable>();
+        _bloqueoGerentes.AdquirirAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(bloqueo));
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: false, Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { unicoGerente });
+
+        // Act
+        var act = async () => await _sut.BajaUsuarioAsync(1, 1);
+
+        // Assert
+        await act.Should().ThrowAsync<UltimoGerenteException>();
+        await bloqueo.Received(1).DisposeAsync();
+    }
+
+    [Fact]
+    public async Task ModificarUsuarioAsync_GerenteQueSigueSiendoGerente_NoTomaElBloqueo()
+    {
+        // Arrange
+        RegistrarEnRepositorio(CrearUsuario(1, "gerente1", RolUsuarioEnum.Gerente));
+        var dto = new ModificarUsuarioDto
+        {
+            IdUsuario = 1,
+            Nombre = "Ana",
+            Apellido = "Gómez",
+            Rol = RolUsuarioEnum.Gerente,
+            EmailRecuperacion = "gerente1@libreria.com"
+        };
+
+        // Act
+        await _sut.ModificarUsuarioAsync(IdGerente, dto);
+
+        // Assert
+        await _bloqueoGerentes.DidNotReceive().AdquirirAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ModificarUsuarioAsync_GerenteQuePasaACajero_TomaElBloqueo()
+    {
+        // Arrange
+        var gerente1 = RegistrarEnRepositorio(CrearUsuario(1, "gerente1", RolUsuarioEnum.Gerente));
+        var gerente2 = CrearUsuario(2, "gerente2", RolUsuarioEnum.Gerente);
+        var bloqueo = Substitute.For<IAsyncDisposable>();
+        _bloqueoGerentes.AdquirirAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(bloqueo));
+        _usuarioRepository.FindAsync(Arg.Any<Expression<Func<Usuario, bool>>>(), includeDeleted: false, Arg.Any<CancellationToken>())
+            .Returns(new List<Usuario> { gerente1, gerente2 });
+        var dto = new ModificarUsuarioDto
+        {
+            IdUsuario = 1,
+            Nombre = "Ana",
+            Apellido = "Gómez",
+            Rol = RolUsuarioEnum.Cajero,
+            EmailRecuperacion = null
+        };
+
+        // Act
+        await _sut.ModificarUsuarioAsync(IdGerente, dto);
+
+        // Assert
+        await _bloqueoGerentes.Received(1).AdquirirAsync(Arg.Any<CancellationToken>());
+        await _unitOfWork.Received(1).SaveChangesAsync(Arg.Any<CancellationToken>());
+        await bloqueo.Received(1).DisposeAsync();
+    }
+
     // ───────────────────────────── Desbloqueo (D-31) ─────────────────────────────
 
     private static Usuario Bloquear(Usuario administrador)
@@ -864,5 +1015,21 @@ public class UsuarioServiceTests
         // Assert: el email del Gerente es su canal de recuperación; el Administrador no tiene por qué conocerlo.
         resultado.Single(u => u.IdUsuario == 1).EmailRecuperacion.Should().BeNull();
         resultado.Single(u => u.IdUsuario == 2).EmailRecuperacion.Should().Be("juan@libreria.com");
+    }
+
+    [Fact]
+    public async Task RegistrarUsuarioAsync_ConflictoDeUnicidadConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        // Arrange: la comprobación previa no ve duplicado, pero otra terminal ganó de mano y el índice único lo rechaza.
+        SinDuplicados();
+        _passwordHasher.HashPassword(Arg.Any<string>()).Returns("hash");
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice único")));
+
+        // Act
+        var act = async () => await _sut.RegistrarUsuarioAsync(IdGerente, AltaDe(RolUsuarioEnum.Cajero));
+
+        // Assert
+        await act.Should().ThrowAsync<DomainException>()
+            .WithMessage("*nuevousuario*ya se encuentra registrado*");
     }
 }

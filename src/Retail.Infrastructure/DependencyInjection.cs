@@ -10,6 +10,7 @@ using Retail.Application.Interfaces.Persistence;
 using Retail.Infrastructure.Backups;
 using Retail.Infrastructure.ExternalServices.ArcaSdk;
 using Retail.Infrastructure.Hardware;
+using Retail.Infrastructure.Persistence.Concurrencia;
 using Retail.Infrastructure.Persistence.Context;
 using Retail.Infrastructure.Persistence.Repositories;
 using Retail.Infrastructure.Security;
@@ -85,6 +86,9 @@ public static class DependencyInjection
 
         // Restauración (D-17): bloqueo entre restores y copias (sp_getapplock sobre master).
         services.AddScoped<IBloqueoRestauracion, SqlServerBloqueoRestauracion>();
+
+        // Regla "siempre queda un Gerente" (write skew entre terminales): bloqueo de aplicación por base.
+        services.AddScoped<IBloqueoGerentes, SqlServerBloqueoGerentes>();
         services.AddScoped<IRestauradorBaseDatos, SqlServerRestauradorBaseDatos>();
         services.AddSingleton(serviceProvider =>
         {

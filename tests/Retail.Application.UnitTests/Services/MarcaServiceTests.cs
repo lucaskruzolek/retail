@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using FluentAssertions;
 using FluentValidation;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Retail.Application.DTOs.Articulos;
 using Retail.Application.DTOs.Clasificacion;
 using Retail.Application.Exceptions;
@@ -613,5 +614,15 @@ public class MarcaServiceTests
                 Arg.Any<Expression<Func<Proveedor, object>>[]>())
             .Returns(proveedor);
         return proveedor;
+    }
+
+    [Fact]
+    public async Task Crear_ConflictoDeUnicidadConOtraTerminal_LanzaMensajeDeDuplicado()
+    {
+        _unitOfWork.SaveChangesAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new RestriccionDeUnicidadException("choque", new InvalidOperationException("índice único")));
+
+        var accion = () => _servicio.CrearAsync(IdGerente, new CrearMarcaDto { Nombre = "Repetido" });
+
+        await accion.Should().ThrowAsync<DomainException>().WithMessage("Ya existe una marca activa con el nombre 'Repetido'.");
     }
 }

@@ -65,7 +65,10 @@ public class CategoriaService : ICategoriaService
             dto.IdRubro,
             cancellationToken);
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await PersistenciaDiccionarios.GuardarAsync(
+            _unitOfWork,
+            $"Ya existe una categoría activa con el nombre '{entidad.NombreCategoria}'.",
+            cancellationToken);
 
         return new CategoriaDto
         {
@@ -107,7 +110,10 @@ public class CategoriaService : ICategoriaService
         entidad.MoverARubro(rubro.Id);
 
         await _repository.UpdateAsync(entidad, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        await PersistenciaDiccionarios.GuardarAsync(
+            _unitOfWork,
+            $"Ya existe una categoría activa con el nombre '{nombre}'.",
+            cancellationToken);
     }
 
     public async Task BajaAsync(int idActor, int idCategoria, CancellationToken cancellationToken = default)

@@ -1,5 +1,6 @@
 using FluentValidation;
 using Retail.Application.DTOs.Articulos;
+using Retail.Application.Exceptions;
 using Retail.Application.Interfaces.Persistence;
 using Retail.Application.Interfaces.Services;
 using Retail.Domain.Entities;
@@ -232,7 +233,14 @@ public class InventarioService : IInventarioService
         }
 
         await _articuloRepository.AddAsync(articulo, cancellationToken);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            throw TraducirUnicidadDeArticulo(ex, dto.CodigoBarras, esActualizacion: false);
+        }
 
         var categoria = articulo.IdCategoria.HasValue
             ? await _categoriaRepository.GetByIdAsync(articulo.IdCategoria.Value, cancellationToken)
@@ -307,7 +315,14 @@ public class InventarioService : IInventarioService
             await PropagarCostoAPresentacionesAsync(articulo, presentaciones, redondeo, cancellationToken);
         }
 
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (RestriccionDeUnicidadException ex)
+        {
+            throw TraducirUnicidadDeArticulo(ex, dto.CodigoBarras, esActualizacion: true);
+        }
 
         var categoria = articulo.IdCategoria.HasValue
             ? await _categoriaRepository.GetByIdAsync(articulo.IdCategoria.Value, cancellationToken)
@@ -546,6 +561,27 @@ public class InventarioService : IInventarioService
                 : $"Ya existe un artículo activo con el código de barras '{codigoNormalizado}'.";
             throw new DomainException(mensaje);
         }
+    }
+
+    /// <summary>
+    /// Traduce el choque de un índice único del artículo entre la comprobación y el guardado (otra terminal ganó de
+    /// mano): el del ítem de catálogo principal (RF-05) o el del código de barras (RF-04), con el mismo mensaje que la
+    /// comprobación previa.
+    /// </summary>
+    private static DomainException TraducirUnicidadDeArticulo(RestriccionDeUnicidadException ex, string? codigoBarras, bool esActualizacion)
+    {
+        if (ex.CorrespondeAIndice("IX_ARTICULOS_id_catalogo_proveedor"))
+        {
+            return new DomainException(
+                "Un ítem de catálogo elegido ya fue vinculado a otro artículo por otra terminal. Vuelva a abrir el formulario e intente de nuevo.",
+                ex);
+        }
+
+        var codigo = codigoBarras?.Trim();
+        var mensaje = esActualizacion
+            ? $"Ya existe otro artículo activo con el código de barras '{codigo}'."
+            : $"Ya existe un artículo activo con el código de barras '{codigo}'.";
+        return new DomainException(mensaje, ex);
     }
 
     private async Task<IReadOnlyList<Articulo>> ObtenerPresentacionesAsync(int idArticuloOrigen, CancellationToken cancellationToken)
